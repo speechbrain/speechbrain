@@ -166,7 +166,6 @@ def ddp_init_group(run_opts):
         # server2:
         #   GPU0: local_rank=device=0, rank=2
         #   GPU1: local_rank=device=1, rank=3
-        from datetime import datetime, timedelta
         torch.distributed.init_process_group(
             backend=run_opts["distributed_backend"], rank=rank
         )

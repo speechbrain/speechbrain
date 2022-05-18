@@ -1128,7 +1128,6 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-
         if not (
             isinstance(train_set, DataLoader)
             or isinstance(train_set, LoopedLoader)
@@ -1294,7 +1293,17 @@ class Brain:
 
     @contextmanager
     def no_sync(self, use=True):
-        """Copies internal pytorch implementation.
+        """ Copies pytorch's implementation for doing no_sync across all modules.
+
+        Explanation: nn.module.no_sync() is a context manager for when one does
+        not want to sync gradients, which happens when using both DDP and gradient accumulation.
+        Speechbrain brain's class can contain multiple modules and calling no_sync on these
+        individually would be very awkward, therefore this contextmanager exists.
+
+        Arguments
+        ---------
+        use : bool
+            If set to `False` will still sync gradients.
         """
         if use:
             old_values_list = []

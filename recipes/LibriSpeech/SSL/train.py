@@ -2,6 +2,10 @@
 """Recipe for pretraining wav2vec2. See config file for model definition.
 
 To run this recipe call python train.py hparams/train_wav2vec.yaml --find_unused_parameters --max_grad_norm 0.0
+
+Authors
+    * Rudolf Braun 2022
+    * Guillermo Cámbara 2022
 """
 
 import os
@@ -9,8 +13,6 @@ import os.path as osp
 import logging
 import sys
 import time
-import numpy as np
-import random
 import math
 from functools import partial
 
@@ -24,8 +26,11 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain import Stage
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
-from speechbrain.dataio.sampler import DynamicBatchSampler, DistributedSamplerWrapper
-from speechbrain.lobes.models.wav2vec import compute_mask, compute_sample_mask
+from speechbrain.dataio.sampler import (
+    DynamicBatchSampler,
+    DistributedSamplerWrapper,
+)
+from speechbrain.lobes.models.wav2vec import compute_mask
 
 
 PYTHON_VERSION_MAJOR = 3
@@ -47,15 +52,23 @@ class W2V2Brain(sb.core.Brain):
             mask.to(self.device),
         )
         B = wavs.size(0)
-
         # normalisation already done in dataloader
         latents = self.modules.latent_extractor(wavs, normalize_signal=False)
 
+        disable_halfprec = (
+            self.hparams.disable_halfprec
+            if hasattr(self.hparams, "disable_halfprec")
+            else False
+        )
         results = self.modules.latent_encoder(
-            latents, mask=mask, wav_lens=wav_lens
+            latents,
+            mask=mask,
+            wav_lens=wav_lens,
+            disable_halfprec=disable_halfprec,
         )
 
         embeddings = results["embeddings"]
+
         embeddings = embeddings[mask]
         embeddings = self.modules.feat_proj(embeddings)
         results["embeddings"] = embeddings.view(B, -1, embeddings.size(1))
@@ -157,12 +170,12 @@ class W2V2Brain(sb.core.Brain):
         return objectives["loss"].detach()
 
     def on_fit_batch_end(self, objectives):
+        """ Called after fit_batch(), updates learning rate and does logging. """
         if isinstance(self.modules.target_quantiser, DistributedDataParallel):
             w2v_model = self.modules.target_quantiser.module
         else:
             w2v_model = self.modules.target_quantiser
-        if w2v_model.quantiser is not None:
-            w2v_model.quantiser.update_temp(self.optimizer_step)
+        w2v_model.quantiser.update_temp(self.optimizer_step)
 
         self.hparams.lr_scheduler(self.optimizer, self.optimizer_step)
 
@@ -184,7 +197,9 @@ class W2V2Brain(sb.core.Brain):
                 log_dct["stats/run_time"] = run_time_since_last_log
             self.time_last_log = time.time()
 
-            log_str = f"Update: {self.optimizer_step} - Objectives: {log_dct}"
+            log_str = (
+                f"Optimizer step: {self.optimizer_step} - Objectives: {log_dct}"
+            )
             logger.info(log_str)
 
             if self.hparams.use_wandb:
@@ -194,6 +209,7 @@ class W2V2Brain(sb.core.Brain):
                 )
 
     def evaluate_batch(self, batch, stage):
+        """ Returns accuracy on contrastive objective. """
         out = self.compute_forward(batch, stage=stage)
         objectives = self.compute_objectives(out, batch, stage=stage)
         return objectives["accuracy"].cpu()
@@ -223,8 +239,17 @@ class W2V2Brain(sb.core.Brain):
 
 
 def sample_negatives(y, num_neg):
-    """
-       y is output of feature extractor
+    """ Samples negatives from target tensor y.
+    Arguments
+    ---------
+    y : torch.Tensor
+        Tensor of shape (B, T, C)
+    num_neg : int
+        Number of negatives to sample.
+    Returns
+    -------
+    negs : torch.Tensor
+        Negatives in shape (N, B, T, C)
     """
     B, T, C = y.shape
     high = T - 1
@@ -239,28 +264,6 @@ def sample_negatives(y, num_neg):
     negs = y[neg_indcs.view(-1)]
     negs = negs.view(B, T, num_neg, C).permute(2, 0, 1, 3)  # to N, B, T, C
     return negs
-
-
-def equalize_mask_rows(mask):
-    """This makes sure the number of 'True's is the same on each row
-        to avoid using the mask resulting in an effectively ragged tensor.
-        Example if the mask is
-            [False, True, False, False]
-            [True, True, False, False]
-        then using this on a tensor of shape (B=2, T=4, 512) results in a shape of
-        (3, 512,), making it impossible to revert to a shape (B,T*,C) again.
-    """
-    per_row_true = mask.sum(dim=-1)
-    min_true = per_row_true.min()
-    # logger.info(f'{min_true} {per_row_true.max()} {mask.size(1)}')
-    for i in range(mask.size(0)):
-        row_true = per_row_true[i]
-        if row_true > min_true:
-            row_drop = row_true - min_true
-            indcs = torch.where(mask[i] == True)[0]
-            indcs = indcs[torch.randperm(indcs.size(0))[:row_drop]]
-            mask[i, indcs] = False
-    return mask
 
 
 def dataio_prepare(hparams):
@@ -307,54 +310,114 @@ def dataio_prepare(hparams):
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig"]
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
+
+    w2v_mask_collate_fn_partial = partial(
+        w2v_mask_collate_fn,
+        get_out_len_fn=get_output_lengths,
+        mask_prob=hparams["mask_prob"],
+        mask_length=hparams["mask_length"],
+        max_dur=hparams["max_sample_dur"],
     )
 
-    w2v_mask_collate_fn_maxlen_partial = partial(
-        w2v_mask_collate_fn_maxlen, get_out_len_fn=get_output_lengths,
-        mask_prob=hparams["mask_prob"], mask_length=hparams["mask_length"])
-    train_sampler = DistributedSamplerWrapper(DynamicBatchSampler(
+    train_sampler = DynamicBatchSampler(
         train_data,
         hparams["seconds_per_batch"],
-        num_buckets=70,
+        num_buckets=hparams["train_num_buckets"],
         length_func=lambda x: x["duration"],
         batch_ordering="random",
-    ))
+    )
+    if torch.distributed.is_initialized():
+        train_sampler = DistributedSamplerWrapper(train_sampler)
 
-    train_data = SaveableDataLoader(
+    train_loader = SaveableDataLoader(
         train_data,
         batch_sampler=train_sampler,
-        collate_fn=w2v_mask_collate_fn_maxlen_partial,
+        collate_fn=w2v_mask_collate_fn_partial,
         num_workers=6,
         pin_memory=True,
     )
-    valid_data = SaveableDataLoader(
+    valid_loader = SaveableDataLoader(
         valid_data,
-        collate_fn=w2v_mask_collate_fn_maxlen_partial,
+        collate_fn=w2v_mask_collate_fn_partial,
         num_workers=hparams["test_dataloader_options"]["num_workers"],
         batch_size=hparams["test_dataloader_options"]["batch_size"],
         pin_memory=True,
     )
 
-    return train_data, valid_data
+    return train_loader, valid_loader
 
 
-def w2v_mask_collate_fn_maxlen(samples_lst, get_out_len_fn, mask_prob, mask_length,
-        max_dur=16.0):
+def w2v_mask_collate_fn(
+    samples_lst, get_out_len_fn, mask_prob, mask_length, max_dur=16.0
+):
+    """ This creates a batch from a list of samples and also creates
+    the boolean mask that will be used to mask the inputs of the latent
+    encoder. To create the mask we need to know the output shape after the
+    latent extractor, therefore the argument `get_out_len_fn`.
+    One could also create masks per sample (when loading the audio file) and
+    then collate them but at that time one doesn't know the length of the
+    shortest sample in the batch (which determines the number of masked frames)
+    so it's better this way.
+    This function also has the feature to split samples longer than `max_dur` into
+    smaller chunks, which helps reduce the memory usage of attention based systems.
+
+    Arguments
+    ---------
+    samples_lst : list
+        List of samples returned by the audio_pipeline.
+    get_out_len_fn : function
+        Function that calculates length of sample after it passes through feature extractor.
+    mask_prob : float
+        Approximate percentage of frames to mask.
+    mask_length : int
+        Number of contiguous frames that will be masked.
+    max_dur : float
+        Samples longer than this will be split so they're shorter.
+    Returns
+    -------
+    wavs_padded : torch.Tensor, shape (B, T)
+        Audio arrays with right-sided padding.
+    wav_lens : torch.Tensor, shape (B,)
+        For each sample the percentage of the array that is not padding.
+    mask : torch.Tensor, shape (B, T)
+        Boolean mask to mask frames.
+    """
     wav_lst, latent_length_lst = [], []
+    # If the sample is longer than `max_dur` create several shorter samples from it.
+    # Using max of all samples because if we considered the splitting for each sample separately
+    # then it could happen that some samples would be just below `max_dur` and others just above,
+    # and splitting those above would result in an unnecessarily large amount of padding.
+    max_sample_dur = max(
+        sample["sig"].size(0) / 16000 for sample in samples_lst
+    )
+    will_break = max_sample_dur > max_dur
+    splits = math.ceil(max_sample_dur / max_dur)
     for sample in samples_lst:
         sig = sample["sig"]
-        latent_length = get_out_len_fn(torch.as_tensor(sig.size(-1)))
-        wav_lst.append(sig)
-        latent_length_lst.append(latent_length.item())
-
+        if will_break:
+            for i in range(splits):
+                sample_len_split = math.ceil(sample["sig"].size(0) / splits)
+                wav_lst.append(
+                    sample["sig"][
+                        i * sample_len_split : (i + 1) * sample_len_split
+                    ]
+                )
+                latent_length = get_out_len_fn(
+                    torch.as_tensor(wav_lst[-1].size(0))
+                ).item()
+                latent_length_lst.append(latent_length)
+        else:
+            wav_lst.append(sig)
+            latent_length = get_out_len_fn(torch.as_tensor(sig.size(-1)))
+            latent_length_lst.append(latent_length.item())
     bs = len(wav_lst)
     wavs_padded, wav_lens = batch_pad_right(wav_lst)
 
     batch_time_len = max(latent_length_lst)
-
-    mask = compute_mask((bs, batch_time_len,), latent_length_lst, mask_prob, mask_length)
+    mask = compute_mask(
+        (bs, batch_time_len,), latent_length_lst, mask_prob, mask_length
+    )
     return (
         torch.as_tensor(wavs_padded),
         torch.as_tensor(wav_lens),
@@ -362,8 +425,41 @@ def w2v_mask_collate_fn_maxlen(samples_lst, get_out_len_fn, mask_prob, mask_leng
     )
 
 
-def main():
+def _setup_wandb(hparams):
+    global wandb
+    import wandb
 
+    id_file = osp.join(hparams["output_folder"], "id")
+    if not hparams["distributed_launch"] or (
+        hparams["distributed_launch"] and int(os.environ["RANK"]) == 0
+    ):
+        # This should run when not using distributed training OR
+        # when using and this is the rank 0 node of distributed training.
+        dct = {
+            k: hparams.get(k)
+            for k in hparams.keys()
+            if hparams[k].__class__.__name__ in ("str", "int", "float", "bool")
+        }  # collects hparams to log
+        if os.path.exists(id_file):
+            id, name = open(id_file).read().split()
+            logger.info(
+                f"Loading ID {id} and name {name} for wandb from existing file {id_file}"
+            )
+            run = wandb.init(
+                project="wav2vec", resume="allow", config=dct, id=id, name=name,
+            )
+        else:
+            run = wandb.init(project="wav2vec", resume="allow", config=dct)
+            id = run.id
+            name = run.name
+            logger.info(
+                f"Creating new ID {id} and name {name} for wandb, putting in file {id_file}"
+            )
+            with open(id_file, "w") as fh:
+                fh.write(f"{id} {name}")
+
+
+def main():
     logger.setLevel(logging.INFO)
     print(sys.argv[1:])
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -374,19 +470,11 @@ def main():
         hparams = load_hyperpyyaml(fin, overrides)
     hparams.update(run_opts)
 
-    # Gets hyperparams
-    dct = {
-        k: hparams.get(k)
-        for k in hparams.keys()
-        if hparams[k].__class__.__name__ in ("str", "int", "float", "bool")
-    }
-
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-    logger.info(dct)
 
     from librispeech_prepare import prepare_librispeech
 
@@ -405,31 +493,10 @@ def main():
     )
 
     if hparams["use_wandb"]:
-        global wandb
-        import wandb
-
-        id_file = osp.join(hparams["output_folder"], "id")
-        if not run_opts["distributed_launch"] or (
-            run_opts["distributed_launch"] and int(os.environ["RANK"]) == 0
-        ):
-            if os.path.exists(id_file):
-                id, name = open(id_file).read().split()
-                logger.info(
-                    f"Loading ID {id} and name {name} for wandb from existing file {id_file}"
-                )
-                run = wandb.init(project="wav2vec", resume="allow", config=dct, id=id, name=name)
-            else:
-                run = wandb.init(project="wav2vec", resume="allow", config=dct)
-                id = run.id
-                name = run.name
-                logger.info(
-                    f"Creating new ID {id} and name {name} for wandb, putting in file {id_file}"
-                )
-                with open(id_file, "w") as fh:
-                    fh.write(f"{id} {name}")
+        _setup_wandb(hparams)
 
     # Part that matters starts here.
-    train_data, valid_data = dataio_prepare(hparams)
+    train_loader, valid_loader = dataio_prepare(hparams)
 
     brain = W2V2Brain(
         modules=hparams["modules"],
@@ -441,9 +508,8 @@ def main():
 
     brain.fit(
         brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        valid_loader_kwargs=hparams["test_dataloader_options"],
+        train_loader,
+        valid_loader,
         progressbar=False,
     )
 

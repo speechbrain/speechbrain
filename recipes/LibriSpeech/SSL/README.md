@@ -4,4 +4,4 @@ To run call `python train.py hparams/train_wav2vec.yaml --find_unused_parameters
 
 See config file for model definition.
 
-The output of the forward method of the wav2vec module (Wav2Vec2) is a dictionary with the encoded embeddings in "embeddings".
+The model is split into two parts, the latent extractor (typically a CNN) and the latent encoder (typically a transformer). The latter outputs a dictionary with the encoded embeddings under the "embeddings" key. See `compute_forward()` in `train.py` for usage.

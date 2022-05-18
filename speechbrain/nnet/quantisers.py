@@ -4,21 +4,20 @@ import torch.nn.functional as F
 
 
 class GumbelVectorQuantizer(nn.Module):
-    def __init__(
-        self,
-        input_dim,
-        num_vars,
-        temp_tuple,
-        groups,
-        vq_dim
-    ):
-        """Vector quantization using gumbel softmax
-        Args:
-            input_dim: input dimension (channels)
-            num_vars: number of quantized vectors per group
-            temp_tuple: temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor)
-            groups: number of groups for vector quantization
-            vq_dim: dimensionality of the resulting quantized vector
+    def __init__(self, input_dim, num_vars, temp_tuple, groups, vq_dim):
+        """Vector quantization using gumbel softmax.
+        Arguments
+        ---------
+            input_dim: int
+                Input dimension (channels).
+            num_vars: int
+                Number of quantized vectors per group.
+            temp_tuple: float
+                Temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor).
+            groups: int
+                Number of groups for vector quantization.
+            vq_dim: int
+                Dimensionality of the resulting quantized vector.
         """
         super().__init__()
 
@@ -33,7 +32,9 @@ class GumbelVectorQuantizer(nn.Module):
 
         var_dim = vq_dim // groups
 
-        self.vars = nn.Parameter(torch.FloatTensor(1, groups * num_vars, var_dim))
+        self.vars = nn.Parameter(
+            torch.FloatTensor(1, groups * num_vars, var_dim)
+        )
         nn.init.uniform_(self.vars)
 
         self.weight_proj = nn.Linear(self.input_dim, groups * num_vars)
@@ -44,7 +45,10 @@ class GumbelVectorQuantizer(nn.Module):
 
         self.max_temp, self.min_temp, self.temp_decay = temp_tuple
         self.curr_temp = self.max_temp
-        self.max_ent = nn.Parameter(torch.log(torch.tensor(float(self.num_vars * self.groups))), requires_grad=False)
+        self.max_ent = nn.Parameter(
+            torch.log(torch.tensor(float(self.num_vars * self.groups))),
+            requires_grad=False,
+        )
 
     def update_temp(self, steps):
         self.curr_temp = max(
@@ -52,7 +56,10 @@ class GumbelVectorQuantizer(nn.Module):
         )
 
     def forward(self, x):
-        result = {"num_vars": self.num_vars * self.groups, "temp": self.curr_temp}
+        result = {
+            "num_vars": self.num_vars * self.groups,
+            "temp": self.curr_temp,
+        }
 
         bsz, tsz, fsz = x.shape
         x = x.reshape(-1, fsz)
@@ -83,7 +90,9 @@ class GumbelVectorQuantizer(nn.Module):
         result["temp"] = self.curr_temp
 
         if self.training:
-            x = F.gumbel_softmax(x.float(), tau=self.curr_temp, hard=True).type_as(x)
+            x = F.gumbel_softmax(
+                x.float(), tau=self.curr_temp, hard=True
+            ).type_as(x)
         else:
             x = hard_x
 
@@ -94,7 +103,5 @@ class GumbelVectorQuantizer(nn.Module):
         x = x.view(bsz * tsz, self.groups, self.num_vars, -1)
         x = x.sum(-2)
         x = x.view(bsz, tsz, -1)
-
         result["x"] = x
-
         return result

@@ -349,8 +349,8 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    pretrained_model_path_extract = hparams["pretrained_model"] + "latent_extractor.ckpt"
-    pretrained_model_path_encode = hparams["pretrained_model"] + "latent_encoder.ckpt"
+    pretrained_model_path_extract = hparams["pretrained_model"] + "/latent_extractor.ckpt"
+    pretrained_model_path_encode = hparams["pretrained_model"] + "/latent_encoder.ckpt"
     sb.utils.checkpoints.torch_recovery(hparams["modules"]["extractor"], pretrained_model_path_extract, False)
     sb.utils.checkpoints.torch_recovery(hparams["modules"]["encoder_wrapper"], pretrained_model_path_encode, False)
 

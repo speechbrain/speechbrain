@@ -906,6 +906,7 @@ class WarmCoolDecayLRSchedule:
 
     Based on: # https://twitter.com/giffmana/status/1489340465904242694?s=20&t=qDOdeMB30Dn16n1fXZbPXg
     """
+
     def __init__(self, lr, warmup, cooldown, total_steps, decay_per_100k=0.75):
         super(WarmCoolDecayLRSchedule, self).__init__()
         self.base_lr = lr
@@ -915,22 +916,34 @@ class WarmCoolDecayLRSchedule:
         self.power = math.log(decay_per_100k) / 100_000
 
     def __call__(self, opt, num_updates):
-        if num_updates < self.warmup:  # warmup
+        if num_updates < self.warmup:
+            # Warming up at the start of training.
             lr = self.base_lr * num_updates / self.warmup
-        elif num_updates > self.total_steps - self.cooldown:  # cooldown
-            base_lr = self.base_lr * math.exp(self.power * (self.total_steps - self.cooldown))
+        elif num_updates > self.total_steps - self.cooldown:
+            # Cooling down to 0. at the end of training.
+            base_lr = self.base_lr * math.exp(
+                self.power * (self.total_steps - self.cooldown)
+            )
             decrease = base_lr / self.cooldown
             n = num_updates - (self.total_steps - self.cooldown)
             lr = base_lr - decrease * n
-        else:  # slow decay
-            lr = self.base_lr * math.exp(self.power * (num_updates - self.warmup))
+        else:
+            # Slow decay for training.
+            lr = self.base_lr * math.exp(
+                self.power * (num_updates - self.warmup)
+            )
         for param_group in opt.param_groups:
             param_group["lr"] = lr
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        data = {"base_lr": self.base_lr, "warmup": self.warmup, "power": self.power, "cooldown": self.cooldown,
-            "total_steps": self.total_steps}
+        data = {
+            "base_lr": self.base_lr,
+            "warmup": self.warmup,
+            "power": self.power,
+            "cooldown": self.cooldown,
+            "total_steps": self.total_steps,
+        }
         torch.save(data, path)
 
     @checkpoints.mark_as_loader

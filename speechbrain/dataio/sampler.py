@@ -534,7 +534,9 @@ class DynamicBatchSampler(Sampler):
         if self._batch_ordering == "random":
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
-            g.manual_seed(self._seed + self._epoch + random.randint(0, 1000000))
+            node_rank = 0 if not torch.distributed.is_initialized() else torch.distributed.get_rank()
+            worker_id = torch.utils.data.get_worker_info().id if torch.utils.data.get_worker_info() is not None else 0
+            g.manual_seed(self._seed + self._epoch + worker_id + node_rank)
             sampler = torch.randperm(
                 len(self._batches), generator=g
             ).tolist()  # type: ignore
@@ -562,7 +564,9 @@ class DynamicBatchSampler(Sampler):
         if self._shuffle_ex:
             # deterministically shuffle based on epoch and seed
             g = torch.Generator()
-            g.manual_seed(self._seed + self._epoch + random.randint(0, 1000000))
+            node_rank = 0 if not torch.distributed.is_initialized() else torch.distributed.get_rank()
+            worker_id = torch.utils.data.get_worker_info().id if torch.utils.data.get_worker_info() is not None else 0
+            g.manual_seed(self._seed + self._epoch + worker_id + node_rank)
             sampler = torch.randperm(len(self._dataset), generator=g).tolist()  # type: ignore
         else:
             # take examples as they are: e.g. they have been sorted

@@ -443,7 +443,7 @@ class TransformerEncoder(nn.Module):
         )
         self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.layerdrop_prob = layerdrop_prob
-        self.rng = np.random.default_rng(0)  # for DDP so same layer dropped
+        self.rng = np.random.default_rng(0)  # for DDP so same layer(s) are dropped
 
     def forward(
         self,
@@ -451,7 +451,6 @@ class TransformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
-        output_hidden_states: bool = False,
     ):
         """
         Arguments
@@ -469,8 +468,6 @@ class TransformerEncoder(nn.Module):
         else:
             keep_probs = None
         attention_lst = []
-        if output_hidden_states:
-            hidden_states = {}
         for i, enc_layer in enumerate(self.layers):
             if not self.training or self.layerdrop_prob == 0. or keep_probs[i] > self.layerdrop_prob:
                 output, attention = enc_layer(
@@ -479,15 +476,10 @@ class TransformerEncoder(nn.Module):
                     src_key_padding_mask=src_key_padding_mask,
                     pos_embs=pos_embs,
                 )
-                if output_hidden_states:
-                    hidden_states[i] = enc_layer
+
                 attention_lst.append(attention)
         output = self.norm(output)
-
-        if not output_hidden_states:
-            return output, attention_lst
-        else:
-            return output, attention_lst, hidden_states
+        return output, attention_lst
 
 
 class TransformerDecoderLayer(nn.Module):

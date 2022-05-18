@@ -10,8 +10,6 @@ Authors
  * Jianyuan Zhong 2020
 """
 import os
-import random
-from turtle import forward
 import torch
 import torchaudio
 import speechbrain as sb
