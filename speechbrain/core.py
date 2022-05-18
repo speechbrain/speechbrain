@@ -755,8 +755,6 @@ class Brain:
                 loader_kwargs["shuffle"] = False
                 loader_kwargs["sampler"] = self.train_sampler
             else:  # batch_sampler was specified
-                logger.info("c'est la folie ")
-                logger.info("dedans!!!")
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
