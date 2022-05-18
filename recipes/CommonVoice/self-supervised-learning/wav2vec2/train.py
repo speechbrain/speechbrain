@@ -346,9 +346,9 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["test_dataloader_options"]
 
     if train_bsampler is not None:
-        train_dataloader_opts = {"batch_sampler": train_bsampler}
+        train_dataloader_opts = {"sampler": train_bsampler}
     if valid_bsampler is not None:
-        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+        valid_dataloader_opts = {"sampler": valid_bsampler}
 
     # Training
     asr_brain.fit(
