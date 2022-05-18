@@ -35,6 +35,7 @@ def prepare_ljspeech(
 ):
     """
     Prepares the csv files for the LJspeech datasets.
+
     Arguments
     ---------
     data_folder : str
@@ -49,6 +50,7 @@ def prepare_ljspeech(
         If True, skip preparation.
     seed : int
         Random seed
+
     Example
     -------
     >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb
@@ -118,6 +120,7 @@ def skip(splits, save_folder, conf):
     """
     Detects if the ljspeech data_preparation has been already done.
     If the preparation has been done, we can skip it.
+
     Returns
     -------
     bool
@@ -155,6 +158,7 @@ def split_sets(data_folder, splits, split_ratio):
     """Randomly splits the wav list into training, validation, and test lists.
     Note that a better approach is to make sure that all the classes have the
     same proportion of samples for each session.
+
     Arguments
     ---------
     wav_list : list
@@ -164,6 +168,7 @@ def split_sets(data_folder, splits, split_ratio):
         valid, and test sets, respectively.
         For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
         to training, 10% for validation, and 10% for test.
+
     Returns
     ------
     dictionary containing train, valid, and test splits.
@@ -230,6 +235,7 @@ def prepare_json(seg_lst, json_file, wavs_folder, csv_reader):
         LJspeech wavs folder
     csv_reader : _csv.reader
         LJspeech metadata
+
     Returns
     -------
     None
