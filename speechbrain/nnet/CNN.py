@@ -5,6 +5,7 @@ Authors
  * Jianyuan Zhong 2020
  * Cem Subakan 2021
  * Davide Borra 2021
+ * Andreas Nautsch 2022
 """
 
 import math
@@ -99,6 +100,8 @@ class SincConv(nn.Module):
 
         if in_channels is None:
             in_channels = self._check_input_shape(input_shape)
+
+        self.in_channels = in_channels
 
         # Initialize Sinc filters
         self._init_sinc_conv()
@@ -285,7 +288,7 @@ class SincConv(nn.Module):
         """
 
         # Detecting input shape
-        L_in = x.shape[-1]
+        L_in = self.in_channels
 
         # Time padding
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
@@ -367,6 +370,8 @@ class Conv1d(nn.Module):
         if in_channels is None:
             in_channels = self._check_input_shape(input_shape)
 
+        self.in_channels = in_channels
+
         self.conv = nn.Conv1d(
             in_channels,
             out_channels,
@@ -440,7 +445,7 @@ class Conv1d(nn.Module):
         """
 
         # Detecting input shape
-        L_in = x.shape[-1]
+        L_in = self.in_channels
 
         # Time padding
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
@@ -554,9 +559,11 @@ class Conv2d(nn.Module):
         if in_channels is None:
             in_channels = self._check_input(input_shape)
 
+        self.in_channels = in_channels
+
         # Weights are initialized following pytorch approach
         self.conv = nn.Conv2d(
-            in_channels,
+            self.in_channels,
             out_channels,
             self.kernel_size,
             stride=self.stride,
@@ -617,7 +624,7 @@ class Conv2d(nn.Module):
         stride: int
         """
         # Detecting input shape
-        L_in = x.shape[-1]
+        L_in = self.in_channels
 
         # Time padding
         padding_time = get_padding_elem(
