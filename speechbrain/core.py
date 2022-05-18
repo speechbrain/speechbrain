@@ -734,7 +734,9 @@ class Brain:
             # num_replicas arg is equal to world_size
             # and retrieved automatically within
             # DistributedSampler obj.
+            logger.info("c'est la folie ")
             if sampler is not None:
+                logger.info("dedans!!!")
                 self.train_sampler = DistributedSamplerWrapper(
                     sampler,
                     rank=self.rank,
