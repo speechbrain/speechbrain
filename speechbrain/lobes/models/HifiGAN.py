@@ -381,7 +381,7 @@ class HifiganGenerator(torch.nn.Module):
             c, (self.inference_padding, self.inference_padding), "replicate"
         )
         # remove weight normalization which is used only in training
-        self.remove_weight_norm()
+        # self.remove_weight_norm()
         return self.forward(c)
 
 
