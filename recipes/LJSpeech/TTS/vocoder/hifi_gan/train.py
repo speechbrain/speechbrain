@@ -9,13 +9,11 @@ Authors
  * Duret Jarod 2021
  * Yingzhi WANG 2022
 """
+
 import sys
-
 import torch
-
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
-
 from speechbrain.utils.data_utils import scalarize
 
 
@@ -48,6 +46,7 @@ class HifiGanBrain(sb.Brain):
         return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
 
     def compute_objectives(self, predictions, batch, stage):
+        "Computes the total loss by combining generator and discriminator loss"
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
@@ -70,9 +69,7 @@ class HifiGanBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        """
-        Train discriminator and generator adversarially
-        """
+        "Train discriminator and generator adversarially"
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
@@ -106,6 +103,7 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
+        """Evaluate one batch"""
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -154,6 +152,7 @@ class HifiGanBrain(sb.Brain):
 
     def _remember_sample(self, batch, predictions):
         """Remembers samples of spectrograms and the batch for logging purposes
+
         Arguments
         ---------
         batch: tuple
@@ -165,6 +164,7 @@ class HifiGanBrain(sb.Brain):
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
 
     def on_stage_end(self, stage, stage_loss, epoch):
+        "Gets called at the end of a stage (TRAIN, VALID, Or TEST)"
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -232,6 +232,8 @@ class HifiGanBrain(sb.Brain):
 
 
 def dataio_prepare(hparams):
+    """This function prepares the datasets to be used in the brain class.
+    It also defines the data processing pipeline through user-defined functions."""
     segment_size = hparams["segment_size"]
 
     # Define audio pipeline:

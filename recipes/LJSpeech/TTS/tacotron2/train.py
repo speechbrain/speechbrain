@@ -4,7 +4,7 @@
  neural text-to-speech (TTS) system
 
  To run this recipe, do the following:
- # python train.py --device=cuda:0 --max_grad_norm=1.0 hparams.yaml
+ # python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 
  to infer simply load saved model and do
  savemodel.infer(text_Sequence,len(textsequence))
