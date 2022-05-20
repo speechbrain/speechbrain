@@ -75,14 +75,10 @@ class Tacotron2Brain(sb.Brain):
         loss: torch.Tensor
             detached loss
         """
-        outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        result = super().fit_batch(batch)
         self.hparams.lr_annealing(self.optimizer)
-        return loss.detach().cpu()
-        
+        return result
+
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
         Arguments
