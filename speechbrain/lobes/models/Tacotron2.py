@@ -1430,7 +1430,7 @@ class Tacotron2(nn.Module):
             mask = mask.expand(self.n_mel_channels, mask.size(0), mask.size(1))
             mask = mask.permute(1, 0, 2)
 
-            mel_outputs.masked_fill_(mask, 0.0)
+            mel_outputs.clone().masked_fill_(mask, 0.0)
             mel_outputs_postnet.masked_fill_(mask, 0.0)
             gate_outputs.masked_fill_(mask[:, 0, :], 1e3)  # gate energies
         if alignments_dim is not None:
