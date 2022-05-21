@@ -1464,7 +1464,12 @@ class VAD(Pretrained):
             f.close()
 
     def energy_VAD(
-        self, audio_file, boundaries, activation_th=0.5, deactivation_th=0.0
+        self,
+        audio_file,
+        boundaries,
+        activation_th=0.5,
+        deactivation_th=0.0,
+        eps=1e-6,
     ):
         """Applies energy-based VAD within the detected speech segments.The neural
         network VAD often creates longer segments and tends to merge segments that
@@ -1489,6 +1494,8 @@ class VAD(Pretrained):
             A new speech segment is started it the energy is above activation_th.
         deactivation_th: float
             The segment is considered ended when the energy is <= deactivation_th.
+        eps: float
+            Small constant for numerical stability.
 
 
         Returns
@@ -1526,7 +1533,8 @@ class VAD(Pretrained):
             )
 
             # Energy computation within each chunk
-            energy_chunks = segment_chunks.abs().sum(-1).log()
+            energy_chunks = segment_chunks.abs().sum(-1) + eps
+            energy_chunks = energy_chunks.log()
 
             # Energy normalization
             energy_chunks = (
