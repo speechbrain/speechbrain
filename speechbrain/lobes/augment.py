@@ -340,6 +340,10 @@ class EnvCorrupt(torch.nn.Module):
         (more reverb).
     reverb_sample_rate : int
         Sample rate of input audio signals (rirs) used for reverberation.
+    noise_sample_rate: int
+        Sample rate of input audio signals used for adding noise.
+    clean_sample_rate: int
+        Sample rate of original (clean) audio signals.
 
     Example
     -------
