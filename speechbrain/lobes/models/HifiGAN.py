@@ -712,7 +712,7 @@ class HifiganDiscriminator(nn.Module):
     -------
     >>> inp_tensor = torch.rand([4, 1, 8192])
     >>> hifigan_discriminator= HifiganDiscriminator()
-    >>> scores, feats = hifigan_generator(inp_tensor)
+    >>> scores, feats = hifigan_discriminator(inp_tensor)
     >>> len(scores)
     8
     >>> len(feats)
