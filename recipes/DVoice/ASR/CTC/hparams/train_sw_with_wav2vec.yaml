@@ -17,11 +17,11 @@ wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
 data_folder: #!PLACEHOLDER  # e.g, /dataset/
-train_csv_file: !ref <data_folder>/texts/train2.csv  # Standard CommonVoice .tsv files
-dev_csv_file: !ref <data_folder>/texts/dev2.csv  # Standard CommonVoice .tsv files
-test_csv_file: !ref <data_folder>/texts/test2.csv  # Standard CommonVoice .tsv files
+train_csv_file: !ref <data_folder>/texts/train.csv  # Standard CommonVoice .tsv files
+dev_csv_file: !ref <data_folder>/texts/dev.csv  # Standard CommonVoice .tsv files
+test_csv_file: !ref <data_folder>/texts/test.csv  # Standard CommonVoice .tsv files
 accented_letters: True
-language: sw # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+language: sw
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv

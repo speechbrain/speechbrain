@@ -1,5 +1,5 @@
 # DVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset : [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here : [Link](https://github.com/besacier/ALFFA_PUBLIC).
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset (Darija, Swahili) : [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here : [Link](https://github.com/besacier/ALFFA_PUBLIC).
 
 # Data preparation
 [DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.

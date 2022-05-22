@@ -27,8 +27,8 @@ from speechbrain.processing.speech_augmentation import DoClip
 from speechbrain.lobes.augment import TimeDomainSpecAugment
 
 
-
 logger = logging.getLogger(__name__)
+
 
 def prepare_dvoice(
     data_folder,
@@ -39,7 +39,6 @@ def prepare_dvoice(
     accented_letters=False,
     language="dar",
     skip_prep=False,
-
 ):
 
     if skip_prep:
@@ -64,7 +63,7 @@ def prepare_dvoice(
     # Setting the save folder
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-        
+
     # Setting ouput files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
@@ -102,11 +101,7 @@ def prepare_dvoice(
     if dev_csv_file is not None:
 
         create_csv(
-            dev_csv_file,
-            save_csv_dev,
-            data_folder,
-            accented_letters,
-            language,
+            dev_csv_file, save_csv_dev, data_folder, accented_letters, language,
         )
 
     # Creating csv file for test data
@@ -123,7 +118,7 @@ def prepare_dvoice(
 
 def train_validate_test_split(
     df, train_percent=0.6, validate_percent=0.2, seed=None
-):    
+):
     np.random.seed(seed)
     perm = np.random.permutation(df.index)
     m = len(df.index)
@@ -327,4 +322,3 @@ def strip_accents(text):
     )
 
     return str(text)
-
