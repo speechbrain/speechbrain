@@ -1826,6 +1826,8 @@ class TextMelCollate:
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
+    """Dynamic range compression for audio signals
+    """
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -1844,7 +1846,37 @@ def mel_spectogram(
     compression,
     audio,
 ):
+    """calculates MelSpectrogram for a raw audio signal
 
+    Arguments
+    ---------
+    sample_rate : int
+        Sample rate of audio signal.
+    hop_length : int
+        Length of hop between STFT windows.
+    win_length : int
+        Window size.
+    n_fft : int
+        Size of FFT.
+    n_mels : int
+        Number of mel filterbanks.
+    f_min : float
+        Minimum frequency. 
+    f_max : float
+        Maximum frequency. 
+    power : float
+        Exponent for the magnitude spectrogram.
+    normalized : bool
+        Whether to normalize by magnitude after stft.
+    norm : str or None
+        If "slaney", divide the triangular mel weights by the width of the mel band
+    mel_scale : str
+        Scale to use: "htk" or "slaney".
+    compression : bool
+        whether to do dynamic range compression
+    audio : torch.tensor
+        input audio signal
+    """
     from torchaudio import transforms
 
     audio_to_mel = transforms.MelSpectrogram(
