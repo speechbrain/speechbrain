@@ -96,18 +96,16 @@ class SincConv(nn.Module):
         self.min_band_hz = min_band_hz
 
         # input shape inference
-        if input_shape is None and in_channels is None:
+        if input_shape is None and self.in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
 
-        if in_channels is None:
+        if self.in_channels is None:
             self.in_channels = self._check_input_shape(input_shape)
 
         if self.out_channels % self.in_channels != 0:
             raise ValueError(
                 "Number of output channels must be divisible by in_channels"
             )
-
-        self.in_channels = in_channels
 
         # Initialize Sinc filters
         self._init_sinc_conv()
@@ -154,7 +152,7 @@ class SincConv(nn.Module):
             stride=self.stride,
             padding=0,
             dilation=self.dilation,
-            groups=self.in_channels
+            groups=self.in_channels,
         )
 
         if unsqueeze:
