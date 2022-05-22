@@ -84,6 +84,7 @@ class SincConv(nn.Module):
         min_band_hz=50,
     ):
         super().__init__()
+        self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
@@ -99,7 +100,12 @@ class SincConv(nn.Module):
             raise ValueError("Must provide one of input_shape or in_channels")
 
         if in_channels is None:
-            in_channels = self._check_input_shape(input_shape)
+            self.in_channels = self._check_input_shape(input_shape)
+
+        if self.out_channels % self.in_channels != 0:
+            raise ValueError(
+                "Number of output channels must be divisible by in_channels"
+            )
 
         self.in_channels = in_channels
 
@@ -148,6 +154,7 @@ class SincConv(nn.Module):
             stride=self.stride,
             padding=0,
             dilation=self.dilation,
+            groups=self.in_channels
         )
 
         if unsqueeze:
@@ -164,7 +171,7 @@ class SincConv(nn.Module):
         if len(shape) == 2:
             in_channels = 1
         elif len(shape) == 3:
-            in_channels = 1
+            in_channels = shape[-1]
         else:
             raise ValueError(
                 "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
