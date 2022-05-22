@@ -327,15 +327,15 @@ class HifiganGenerator(torch.nn.Module):
     -------
     >>> inp_tensor = torch.rand([4, 80, 33])
     >>> hifigan_generator= HifiganGenerator(
-            in_channels = 80,
-            out_channels = 1,
-            resblock_type = "1",
-            resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
-            resblock_kernel_sizes = [3, 7, 11],
-            upsample_kernel_sizes = [16, 16, 4, 4],
-            upsample_initial_channel = 512,
-            upsample_factors = [8, 8, 2, 2],
-        )
+    ...    in_channels = 80,
+    ...    out_channels = 1,
+    ...    resblock_type = "1",
+    ...    resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+    ...    resblock_kernel_sizes = [3, 7, 11],
+    ...    upsample_kernel_sizes = [16, 16, 4, 4],
+    ...    upsample_initial_channel = 512,
+    ...    upsample_factors = [8, 8, 2, 2],
+    ... )
     >>> out_tensor = hifigan_generator(inp_tensor)
     >>> out_tensor.shape
     torch.Size([4, 1, 8448])
@@ -713,14 +713,10 @@ class HifiganDiscriminator(nn.Module):
     >>> inp_tensor = torch.rand([4, 1, 8192])
     >>> hifigan_discriminator= HifiganDiscriminator()
     >>> scores, feats = hifigan_generator(inp_tensor)
-    >>> scores[0].shape
-    torch.Size([4, 102])
-    >>> scores[1].shape
-    torch.Size([4, 102])
-    >>> feats[0][0].shape
-    torch.Size([4, 32, 1366, 2])
-    >>> feats[0][1].shape
-    torch.Size([4, 128, 456, 2])
+    >>> len(scores)
+    8
+    >>> len(feats)
+    8
 
     """
 
