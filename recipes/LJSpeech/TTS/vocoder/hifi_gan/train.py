@@ -46,7 +46,8 @@ class HifiGanBrain(sb.Brain):
         return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
 
     def compute_objectives(self, predictions, batch, stage):
-        "Computes the total loss by combining generator and discriminator loss"
+        """Computes the total loss by combining generator and discriminator loss
+        """
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
@@ -69,7 +70,8 @@ class HifiGanBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        "Train discriminator and generator adversarially"
+        """Train discriminator and generator adversarially
+        """
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
@@ -103,7 +105,8 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
-        """Evaluate one batch"""
+        """Evaluate one batch
+        """
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -111,7 +114,8 @@ class HifiGanBrain(sb.Brain):
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        """
         self.last_epoch = 0
         self.last_batch = None
         self.last_loss_stats = {}
@@ -164,7 +168,8 @@ class HifiGanBrain(sb.Brain):
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        "Gets called at the end of a stage (TRAIN, VALID, Or TEST)"
+        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)
+        """
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -211,7 +216,8 @@ class HifiGanBrain(sb.Brain):
 
     def run_inference_sample(self, name):
         """Produces a sample in inference mode. This is called when producing
-        samples and can be useful because"""
+        samples and can be useful because
+        """
         with torch.no_grad():
             if self.last_batch is None:
                 return
@@ -233,7 +239,8 @@ class HifiGanBrain(sb.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     segment_size = hparams["segment_size"]
 
     # Define audio pipeline:
