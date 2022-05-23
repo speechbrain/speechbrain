@@ -5,6 +5,7 @@ Authors
  * Jianyuan Zhong 2020
  * Cem Subakan 2021
  * Davide Borra 2021
+ * Andreas Nautsch 2022
 """
 
 import math
@@ -83,6 +84,7 @@ class SincConv(nn.Module):
         min_band_hz=50,
     ):
         super().__init__()
+        self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
@@ -94,11 +96,16 @@ class SincConv(nn.Module):
         self.min_band_hz = min_band_hz
 
         # input shape inference
-        if input_shape is None and in_channels is None:
+        if input_shape is None and self.in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
 
-        if in_channels is None:
-            in_channels = self._check_input_shape(input_shape)
+        if self.in_channels is None:
+            self.in_channels = self._check_input_shape(input_shape)
+
+        if self.out_channels % self.in_channels != 0:
+            raise ValueError(
+                "Number of output channels must be divisible by in_channels"
+            )
 
         # Initialize Sinc filters
         self._init_sinc_conv()
@@ -145,6 +152,7 @@ class SincConv(nn.Module):
             stride=self.stride,
             padding=0,
             dilation=self.dilation,
+            groups=self.in_channels,
         )
 
         if unsqueeze:
@@ -161,7 +169,7 @@ class SincConv(nn.Module):
         if len(shape) == 2:
             in_channels = 1
         elif len(shape) == 3:
-            in_channels = 1
+            in_channels = shape[-1]
         else:
             raise ValueError(
                 "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
@@ -285,7 +293,7 @@ class SincConv(nn.Module):
         """
 
         # Detecting input shape
-        L_in = x.shape[-1]
+        L_in = self.in_channels
 
         # Time padding
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
@@ -318,6 +326,8 @@ class Conv1d(nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
+    groups: int
+        Number of blocked connections from input channels to output channels.
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -364,6 +374,8 @@ class Conv1d(nn.Module):
 
         if in_channels is None:
             in_channels = self._check_input_shape(input_shape)
+
+        self.in_channels = in_channels
 
         self.conv = nn.Conv1d(
             in_channels,
@@ -438,7 +450,7 @@ class Conv1d(nn.Module):
         """
 
         # Detecting input shape
-        L_in = x.shape[-1]
+        L_in = self.in_channels
 
         # Time padding
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
@@ -552,9 +564,11 @@ class Conv2d(nn.Module):
         if in_channels is None:
             in_channels = self._check_input(input_shape)
 
+        self.in_channels = in_channels
+
         # Weights are initialized following pytorch approach
         self.conv = nn.Conv2d(
-            in_channels,
+            self.in_channels,
             out_channels,
             self.kernel_size,
             stride=self.stride,
@@ -615,7 +629,7 @@ class Conv2d(nn.Module):
         stride: int
         """
         # Detecting input shape
-        L_in = x.shape[-1]
+        L_in = self.in_channels
 
         # Time padding
         padding_time = get_padding_elem(
@@ -1111,14 +1125,16 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     dilation : int
     """
     if stride > 1:
-        n_steps = math.ceil(((L_in - kernel_size * dilation) / stride) + 1)
-        L_out = stride * (n_steps - 1) + kernel_size * dilation
-        padding = [kernel_size // 2, kernel_size // 2]
+        padding = [math.floor(kernel_size / 2), math.floor(kernel_size / 2)]
 
     else:
-        L_out = (L_in - dilation * (kernel_size - 1) - 1) // stride + 1
-
-        padding = [(L_in - L_out) // 2, (L_in - L_out) // 2]
+        L_out = (
+            math.floor((L_in - dilation * (kernel_size - 1) - 1) / stride) + 1
+        )
+        padding = [
+            math.floor((L_in - L_out) / 2),
+            math.floor((L_in - L_out) / 2),
+        ]
     return padding
 
 

@@ -1,11 +1,11 @@
 # Training a Speech Recognizer
 
-This template implements a simple speech recognizer trained on mini-librispeech.  In particular,  it implements an offline end-to-end attention-based speech recognizer.  A tokenizer is used to detect the word token to estimate. Search replies on beam search coupled with an RNN language model. 
+This template implements a simple speech recognizer trained on mini-librispeech.  In particular,  it implements an offline end-to-end attention-based speech recognizer.  A tokenizer is used to detect the word token to estimate. Search replies on beam search coupled with an RNN language model.
 
 Training such a system requires the following steps:
 
-1. Train a tokenizer. 
-Given the training transcriptions, the tokenizers decide which word pieces allocate for training. Most atomic units are character,  the least atomic units are words.  Most of the time, it is convenient to use tokens that are something in between characters and full words. 
+1. Train a tokenizer.
+Given the training transcriptions, the tokenizers decide which word pieces allocate for training. Most atomic units are character,  the least atomic units are words.  Most of the time, it is convenient to use tokens that are something in between characters and full words.
 SpeechBrain relies on the popular [SentencePiece](https://github.com/google/sentencepiece) for tokenization. To train the tokenizer:
 
 ```

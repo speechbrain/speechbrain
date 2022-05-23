@@ -68,10 +68,10 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 # Performance summary
 
 [Speaker Verification Results with Voxceleb 1 + Voxceleb2]
-| System          | Dataset    | EER  | Link |
+| System          | Dataset    | EER  | Model/Log Link |
 |-----------------|------------|------| -----|
-| Xvector + PLDA  | VoxCeleb 1,2 | 3.2% | - |
-| ECAPA-TDNN      | Voxceleb 1,2 | 0.69% | - |
+| Xvector + PLDA  | VoxCeleb 1,2 | 3.2% | https://drive.google.com/drive/folders/1TLKByLRkgkUiDV2coMrIh-OMHANrnOl-?usp=sharing |
+| ECAPA-TDNN      | Voxceleb 1,2 | 0.69% | https://drive.google.com/file/d/1EziERcHD_gyE6qc8DbxPKU1isVf7pbNl/view?usp=sharing|
 
 
 # PreTrained Model + Easy-Inference

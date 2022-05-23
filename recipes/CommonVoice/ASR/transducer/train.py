@@ -60,7 +60,7 @@ class ASR(sb.Brain):
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "augmentation"):
-                wavs = self.modules.augmentation(feats)
+                feats = self.modules.augmentation(feats)
 
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_with_bos)
@@ -71,8 +71,7 @@ class ASR(sb.Brain):
         joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
 
         # Output layer for transducer log-probabilities
-        logits = self.modules.transducer_lin(joint)
-        p_transducer = self.hparams.log_softmax(logits)
+        logits_transducer = self.modules.transducer_lin(joint)
 
         # Compute outputs
         if stage == sb.Stage.TRAIN:
@@ -96,17 +95,17 @@ class ASR(sb.Brain):
                 p_ce = self.modules.dec_lin(h)
                 p_ce = self.hparams.log_softmax(p_ce)
             if return_CE and return_CTC:
-                return p_ctc, p_ce, p_transducer, wav_lens
+                return p_ctc, p_ce, logits_transducer, wav_lens
             elif return_CTC:
-                return p_ctc, p_transducer, wav_lens
+                return p_ctc, logits_transducer, wav_lens
             elif return_CE:
-                return p_ce, p_transducer, wav_lens
+                return p_ce, logits_transducer, wav_lens
             else:
-                return p_transducer, wav_lens
+                return logits_transducer, wav_lens
 
         elif stage == sb.Stage.VALID:
             best_hyps, scores, _, _ = self.hparams.beam_searcher(x)
-            return p_transducer, wav_lens, best_hyps
+            return logits_transducer, wav_lens, best_hyps
         else:
             (
                 best_hyps,
@@ -114,7 +113,7 @@ class ASR(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.beam_searcher(x)
-            return p_transducer, wav_lens, best_hyps
+            return logits_transducer, wav_lens, best_hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
@@ -126,16 +125,15 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TRAIN:
             if len(predictions) == 4:
-                p_ctc, p_ce, p_transducer, wav_lens = predictions
+                p_ctc, p_ce, logits_transducer, wav_lens = predictions
                 CTC_loss = self.hparams.ctc_cost(
                     p_ctc, tokens, wav_lens, token_lens
                 )
                 CE_loss = self.hparams.ce_cost(
                     p_ce, tokens_eos, length=token_eos_lens
                 )
-                tokens = tokens.long()
                 loss_transducer = self.hparams.transducer_cost(
-                    p_transducer, tokens, wav_lens, token_lens
+                    logits_transducer, tokens, wav_lens, token_lens
                 )
                 loss = (
                     self.hparams.ctc_weight * CTC_loss
@@ -151,9 +149,8 @@ class ASR(sb.Brain):
                     CTC_loss = self.hparams.ctc_cost(
                         p_ctc, tokens, wav_lens, token_lens
                     )
-                    tokens = tokens.long()
                     loss_transducer = self.hparams.transducer_cost(
-                        p_transducer, tokens, wav_lens, token_lens
+                        logits_transducer, tokens, wav_lens, token_lens
                     )
                     loss = (
                         self.hparams.ctc_weight * CTC_loss
@@ -161,29 +158,29 @@ class ASR(sb.Brain):
                     )
                 # CE for decoder alive
                 else:
-                    p_ce, p_transducer, wav_lens = predictions
+                    p_ce, logits_transducer, wav_lens = predictions
                     CE_loss = self.hparams.ce_cost(
                         p_ce, tokens_eos, length=token_eos_lens
                     )
-                    tokens = tokens.long()
+                    # Transducer loss use logits from RNN-T model.
                     loss_transducer = self.hparams.transducer_cost(
-                        p_transducer, tokens, wav_lens, token_lens
+                        logits_transducer, tokens, wav_lens, token_lens
                     )
                     loss = (
                         self.hparams.ce_weight * CE_loss
                         + (1 - self.hparams.ctc_weight) * loss_transducer
                     )
             else:
-                p_transducer, wav_lens = predictions
-                tokens = tokens.long()
+                logits_transducer, wav_lens = predictions
+                # Transducer loss use logits from RNN-T model.
                 loss = self.hparams.transducer_cost(
-                    p_transducer, tokens, wav_lens, token_lens
+                    logits_transducer, tokens, wav_lens, token_lens
                 )
         else:
-            p_transducer, wav_lens, predicted_tokens = predictions
-            tokens = tokens.long()
+            logits_transducer, wav_lens, predicted_tokens = predictions
+            # Transducer loss use logits from RNN-T model.
             loss = self.hparams.transducer_cost(
-                p_transducer, tokens, wav_lens, token_lens
+                logits_transducer, tokens, wav_lens, token_lens
             )
 
         if stage != sb.Stage.TRAIN:
@@ -258,7 +255,7 @@ class ASR(sb.Brain):
 
 
 # Define custom data procedure
-def dataio_prepare(hparams):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
 
@@ -305,20 +302,10 @@ def dataio_prepare(hparams):
         csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
     )
 
-    # We also sort the validation data so it is faster to validate
+    # We also sort the test data so it is faster to test
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
-
-    # defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-    )
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -355,7 +342,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data, tokenizer
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -394,8 +381,18 @@ if __name__ == "__main__":
         },
     )
 
+    # Defining tokenizer and loading it
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["output_neurons"],
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
+        model_type=hparams["token_type"],
+        character_coverage=hparams["character_coverage"],
+    )
+
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data, tokenizer = dataio_prepare(hparams)
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(

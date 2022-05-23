@@ -90,7 +90,8 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         if self.auto_mix_prec:
 
-            self.wav2vec_optimizer.zero_grad()
+            if not self.hparams.wav2vec2.freeze:
+                self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
             with torch.cuda.amp.autocast():
@@ -98,12 +99,14 @@ class ASR(sb.core.Brain):
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
             self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.wav2vec_optimizer)
+            if not self.hparams.wav2vec2.freeze:
+                self.scaler.unscale_(self.wav2vec_optimizer)
             self.scaler.unscale_(self.model_optimizer)
 
             if self.check_gradients(loss):
-                self.scaler.step(self.wav2vec_optimizer)
-                self.scaler.step(self.adam_optimizer)
+                if not self.hparams.wav2vec2.freeze:
+                    self.scaler.step(self.wav2vec_optimizer)
+                self.scaler.step(self.model_optimizer)
 
             self.scaler.update()
         else:
@@ -113,10 +116,12 @@ class ASR(sb.core.Brain):
             loss.backward()
 
             if self.check_gradients(loss):
-                self.wav2vec_optimizer.step()
+                if not self.hparams.wav2vec2.freeze:
+                    self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            self.wav2vec_optimizer.zero_grad()
+            if not self.hparams.wav2vec2.freeze:
+                self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
         return loss.detach()
@@ -155,9 +160,10 @@ class ASR(sb.core.Brain):
             sb.nnet.schedulers.update_learning_rate(
                 self.model_optimizer, new_lr_model
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_wav2vec
-            )
+            if not self.hparams.wav2vec2.freeze:
+                sb.nnet.schedulers.update_learning_rate(
+                    self.wav2vec_optimizer, new_lr_wav2vec
+                )
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
@@ -180,22 +186,27 @@ class ASR(sb.core.Brain):
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
-        self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-            self.modules.wav2vec2.parameters()
-        )
+
+        # If the wav2vec encoder is unfrozen, we create the optimizer
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.wav2vec2.parameters()
+            )
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable(
+                    "wav2vec_opt", self.wav2vec_optimizer
+                )
+
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
         )
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
-            )
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
 # Define custom data procedure
-def dataio_prepare(hparams):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
 
@@ -247,18 +258,6 @@ def dataio_prepare(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-    # defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
-        bos_id=hparams["bos_index"],
-        eos_id=hparams["eos_index"],
-    )
-
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -293,7 +292,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data, tokenizer
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -332,8 +331,18 @@ if __name__ == "__main__":
         },
     )
 
+    # Defining tokenizer and loading it
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["output_neurons"],
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
+        model_type=hparams["token_type"],
+        character_coverage=hparams["character_coverage"],
+    )
+
     # Create the datasets objects as well as tokenization and encoding :-D
-    train_data, valid_data, test_data, tokenizer = dataio_prepare(hparams)
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(

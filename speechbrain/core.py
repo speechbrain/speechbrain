@@ -18,6 +18,7 @@ import inspect
 import pathlib
 import argparse
 import tempfile
+import warnings
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -125,13 +126,14 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
     logger.error("Exception:", exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def parse_arguments(arg_list):
+def parse_arguments(arg_list=None):
     r"""Parse command-line arguments to the experiment.
 
     Arguments
     ---------
-    arg_list : list
-        A list of arguments to parse, most often from `sys.argv[1:]`.
+    arg_list : list, None
+        A list of arguments to parse.  If not given, this is read from
+        `sys.argv[1:]`
 
     Returns
     -------
@@ -153,9 +155,9 @@ def parse_arguments(arg_list):
     >>> overrides
     'seed: 10'
     """
-    parser = argparse.ArgumentParser(
-        description="Run a SpeechBrain experiment",
-    )
+    if arg_list is None:
+        arg_list = sys.argv[1:]
+    parser = argparse.ArgumentParser(description="Run a SpeechBrain experiment")
     parser.add_argument(
         "param_file",
         type=str,
@@ -188,9 +190,7 @@ def parse_arguments(arg_list):
         help="A file storing the configuration options for logging",
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument(
-        "--local_rank", type=int, help="Rank on local machine",
-    )
+    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
     parser.add_argument(
         "--device",
         type=str,
@@ -230,7 +230,7 @@ def parse_arguments(arg_list):
     )
     parser.add_argument(
         "--auto_mix_prec",
-        default=False,
+        default=None,
         action="store_true",
         help="This flag enables training with automatic mixed-precision.",
     )
@@ -247,7 +247,7 @@ def parse_arguments(arg_list):
     )
     parser.add_argument(
         "--noprogressbar",
-        default=False,
+        default=None,
         action="store_true",
         help="This flag disables the data loop progressbars.",
     )
@@ -256,6 +256,16 @@ def parse_arguments(arg_list):
         type=float,
         help="Amount of time between saving intra-epoch checkpoints "
         "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
+    )
+    parser.add_argument(
+        "--grad_accumulation_factor",
+        type=int,
+        help="Number of batches to accumulate gradients before optimizer step",
+    )
+    parser.add_argument(
+        "--optimizer_step_limit",
+        type=int,
+        help="Number of optimizer steps to run. If not passed, all epochs are run.",
     )
 
     # Accept extra args to override yaml
@@ -369,10 +379,8 @@ class Brain:
             If a non-positive number is passed, all epochs are run.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
-        distributed_count (int)
-            Number of devices to run on.
         distributed_backend (str)
-            One of ``ddp_nccl``, ``ddp_gloo``, ``ddp_mpi``, ``data_parallel``.
+            One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
             The location for performing computations.
         auto_mix_prec (bool)
@@ -389,6 +397,11 @@ class Brain:
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
+
+        Typically in a script this comes from ``speechbrain.parse_args``, which
+        has different defaults than Brain. If an option is not defined here
+        (keep in mind that parse_args will inject some options by default),
+        then the option is also searched for in hparams (by key).
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
@@ -433,12 +446,18 @@ class Brain:
             "nonfinite_patience": 3,
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
+            "grad_accumulation_factor": 1,
+            "optimizer_step_limit": None,
         }
+
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
                 if hparams is not None and arg in hparams:
                     logger.info(
-                        "Info: " + arg + " arg overridden by command line input"
+                        "Info: "
+                        + arg
+                        + " arg overridden by command line input to: "
+                        + str(run_opts[arg])
                     )
                 setattr(self, arg, run_opts[arg])
             else:
@@ -480,7 +499,9 @@ class Brain:
             )
 
         # Switch to the right context
-        if "cuda" in self.device:
+        if self.device == "cuda":
+            torch.cuda.set_device(0)
+        elif "cuda" in self.device:
             torch.cuda.set_device(int(self.device[-1]))
 
         # Put modules on the right device, accessible with dot notation
@@ -546,13 +567,11 @@ class Brain:
                         "Only the main process is alive, "
                         "all other subprocess were killed."
                     )
-            # force the models to start and remain synchronized
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
 
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
         if self.checkpointer is not None:
@@ -627,7 +646,7 @@ class Brain:
         pass
 
     def make_dataloader(
-        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs,
+        self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs
     ):
         """Creates DataLoaders for Datasets.
 
@@ -699,7 +718,7 @@ class Brain:
         if shuffle and not self.distributed_launch:
             if sampler is not None:
                 raise ValueError(
-                    "Cannot specify both shuffle=True "
+                    "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
             sampler = ReproducibleRandomSampler(dataset)
@@ -725,27 +744,23 @@ class Brain:
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
+                loader_kwargs["sampler"] = self.train_sampler
             elif loader_kwargs.get("batch_sampler") is None:
-                # Currently to get here, shuffle == False, so not passing it.
-                # Otherwise we'd have to handle deleting it (but it is already
-                # deleted).
+                # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset,
-                    rank=self.rank,
-                    shuffle=shuffle,
-                    drop_last=drop_last,
+                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
                 loader_kwargs["shuffle"] = False
+                loader_kwargs["sampler"] = self.train_sampler
             else:  # batch_sampler was specified
-                # TODO: Could a DistributedSamplerWrapper actually work
-                # just fine for wrapping a BatchSampler, as well?
-                logger.warning(
-                    "Cannot automatically solve distributed sampling "
-                    "when using a BatchSampler."
+                self.train_sampler = DistributedSamplerWrapper(
+                    loader_kwargs.get("batch_sampler", None),
+                    rank=self.rank,
+                    shuffle=False,
                 )
-            loader_kwargs["sampler"] = self.train_sampler
+                loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
             logger.warning(
                 "Cannot automatically solve distributed sampling "
@@ -838,24 +853,29 @@ class Brain:
         -------
         detached loss
         """
+        should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.optimizer)
-            if self.check_gradients(loss):
-                self.scaler.step(self.optimizer)
-            self.scaler.update()
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            loss.backward()
-            if self.check_gradients(loss):
-                self.optimizer.step()
-            self.optimizer.zero_grad()
+            (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.optimizer_step += 1
 
         return loss.detach().cpu()
 
@@ -1004,7 +1024,6 @@ class Brain:
 
         # Iterate epochs
         for epoch in epoch_counter:
-
             # Training stage
             self.on_stage_start(Stage.TRAIN, epoch)
             self.modules.train()
@@ -1029,6 +1048,9 @@ class Brain:
                 disable=not enable,
             ) as t:
                 for batch in t:
+                    if self._optimizer_step_limit_exceeded:
+                        logger.info("Train iteration limit exceeded")
+                        break
                     self.step += 1
                     loss = self.fit_batch(batch)
                     self.avg_train_loss = self.update_average(
@@ -1046,7 +1068,14 @@ class Brain:
                         and time.time() - last_ckpt_time
                         >= self.ckpt_interval_minutes * 60.0
                     ):
-                        run_on_main(self._save_intra_epoch_ckpt)
+                        # This should not use run_on_main, because that
+                        # includes a DDP barrier. That eventually leads to a
+                        # crash when the processes'
+                        # time.time() - last_ckpt_time differ and some
+                        # processes enter this block while others don't,
+                        # missing the barrier.
+                        if sb.utils.distributed.if_main_process():
+                            self._save_intra_epoch_ckpt()
                         last_ckpt_time = time.time()
 
             # Run train "on_stage_end" on all processes
@@ -1081,8 +1110,19 @@ class Brain:
                     )
 
             # Debug mode only runs a few epochs
-            if self.debug and epoch == self.debug_epochs:
+            if (
+                self.debug
+                and epoch == self.debug_epochs
+                or self._optimizer_step_limit_exceeded
+            ):
                 break
+
+    @property
+    def _optimizer_step_limit_exceeded(self):
+        return (
+            self.optimizer_step_limit is not None
+            and self.optimizer_step >= self.optimizer_step_limit
+        )
 
     def _save_intra_epoch_ckpt(self):
         """Saves a CKPT with specific intra-epoch flag."""
@@ -1194,6 +1234,7 @@ class Brain:
                 self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
             )
         self.step = 0
+        return avg_test_loss
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.
@@ -1220,6 +1261,7 @@ class Brain:
         save_dict = {
             "step": self.step,
             "avg_train_loss": self.avg_train_loss,
+            "optimizer_step": self.optimizer_step,
         }
         with open(path, "w") as w:
             w.write(yaml.dump(save_dict))
@@ -1232,3 +1274,12 @@ class Brain:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
+        # Ensure compatibility with checkpoints from before optimizer_step:
+        if "optimizer_step" not in save_dict:
+            clsname = self.__class__.__name__
+            MSG = f"'optimizer_step' not found in {clsname} checkpoint."
+            MSG += " Using the saved 'step' value (BACKWARDS COMPATIBILITY)"
+            warnings.warn(MSG)
+            self.optimizer_step = self.step
+        else:
+            self.optimizer_step = save_dict["optimizer_step"]

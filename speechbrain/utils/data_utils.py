@@ -341,7 +341,7 @@ def pad_right_to(
     """
     assert len(target_shape) == tensor.ndim
     pads = []  # this contains the abs length of the padding for each dimension.
-    valid_vals = []  # thic contains the relative lengths for each dimension.
+    valid_vals = []  # this contains the relative lengths for each dimension.
     i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
@@ -394,16 +394,16 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     ):
         raise IndexError("All tensors must have same number of dimensions")
 
-    # FIXME we limit the support here: we allow padding of only the last dimension
+    # FIXME we limit the support here: we allow padding of only the first dimension
     # need to remove this when feat extraction is updated to handle multichannel.
     max_shape = []
     for dim in range(tensors[0].ndim):
-        if dim != (tensors[0].ndim - 1):
+        if dim != 0:
             if not all(
                 [x.shape[dim] == tensors[0].shape[dim] for x in tensors[1:]]
             ):
                 raise EnvironmentError(
-                    "Tensors should have same dimensions except for last one"
+                    "Tensors should have same dimensions except for the first one"
                 )
         max_shape.append(max([x.shape[dim] for x in tensors]))
 

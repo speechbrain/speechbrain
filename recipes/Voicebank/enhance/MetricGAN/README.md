@@ -3,6 +3,8 @@
 This recipe implements MetricGAN+ recipe for enhancement as described in the paper
 [MetricGAN+: An Improved Version of MetricGAN for Speech Enhancement](https://arxiv.org/abs/2104.03538)
 
+**Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Enhancement: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/Speechbrain-Speech-enhancement)
+
 Use the `download_vctk` function in `voicebank_prepare.py` to download the dataset
 and resample it to 16000 Hz. To run an experiment, execute the following command in
 the current folder:
@@ -44,8 +46,8 @@ If you find the code useful in your research, please cite:
       booktitle = {International Conference on Machine Learning (ICML)},
       year      = {2019}
     }
-    
-    
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/

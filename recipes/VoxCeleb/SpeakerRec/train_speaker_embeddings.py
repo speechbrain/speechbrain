@@ -88,7 +88,9 @@ class SpeakerBrain(sb.core.Brain):
 
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
-        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+        if stage == sb.Stage.TRAIN and hasattr(
+            self.hparams.lr_annealing, "on_batch_end"
+        ):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         if stage != sb.Stage.TRAIN:
@@ -153,7 +155,7 @@ def dataio_prep(hparams):
     def audio_pipeline(wav, start, stop, duration):
         if hparams["random_chunk"]:
             duration_sample = int(duration * hparams["sample_rate"])
-            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            start = random.randint(0, duration_sample - snt_len_sample)
             stop = start + snt_len_sample
         else:
             start = int(start)

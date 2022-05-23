@@ -25,13 +25,19 @@ logger = logging.getLogger(__name__)
 
 
 def transducer_loss(
-    log_probs, targets, input_lens, target_lens, blank_index, reduction="mean"
+    logits,
+    targets,
+    input_lens,
+    target_lens,
+    blank_index,
+    reduction="mean",
+    use_torchaudio=True,
 ):
     """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
     Arguments
     ---------
-    predictions : torch.Tensor
+    logits : torch.Tensor
         Predicted tensor, of shape [batch, maxT, maxU, num_labels].
     targets : torch.Tensor
         Target tensor, without any blanks, of shape [batch, target_len].
@@ -43,14 +49,40 @@ def transducer_loss(
         The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
+    use_torchaudio: bool
+        If True, use Transducer loss implementation from torchaudio, otherwise,
+        use Speechbrain Numba implementation.
     """
-    from speechbrain.nnet.loss.transducer_loss import Transducer
+    input_lens = (input_lens * logits.shape[1]).round().int()
+    target_lens = (target_lens * targets.shape[1]).round().int()
 
-    input_lens = (input_lens * log_probs.shape[1]).int()
-    target_lens = (target_lens * targets.shape[1]).int()
-    return Transducer.apply(
-        log_probs, targets, input_lens, target_lens, blank_index, reduction
-    )
+    if use_torchaudio:
+        try:
+            from torchaudio.functional import rnnt_loss
+        except ImportError:
+            err_msg = "The dependency torchaudio >= 0.10.0 is needed to use Transducer Loss\n"
+            err_msg += "Cannot import torchaudio.functional.rnnt_loss.\n"
+            err_msg += "To use it, please install torchaudio >= 0.10.0\n"
+            err_msg += "==================\n"
+            err_msg += "Otherwise, you can use our numba implementation, set `use_torchaudio=False`.\n"
+            raise ImportError(err_msg)
+
+        return rnnt_loss(
+            logits,
+            targets.int(),
+            input_lens,
+            target_lens,
+            blank=blank_index,
+            reduction=reduction,
+        )
+    else:
+        from speechbrain.nnet.loss.transducer_loss import Transducer
+
+        # Transducer.apply function take log_probs tensor.
+        log_probs = logits.log_softmax(-1)
+        return Transducer.apply(
+            log_probs, targets, input_lens, target_lens, blank_index, reduction,
+        )
 
 
 class PitWrapper(nn.Module):
@@ -233,8 +265,8 @@ def ctc_loss(
         See pytorch for 'mean', 'sum', 'none'. The 'batch' option returns
         one loss per item in the batch, 'batchmean' returns sum / batch size.
     """
-    input_lens = (input_lens * log_probs.shape[1]).int()
-    target_lens = (target_lens * targets.shape[1]).int()
+    input_lens = (input_lens * log_probs.shape[1]).round().int()
+    target_lens = (target_lens * targets.shape[1]).round().int()
     log_probs = log_probs.transpose(0, 1)
 
     if reduction == "batchmean":
@@ -893,6 +925,7 @@ class AdditiveAngularMargin(AngularMargin):
         predictions : torch.Tensor
         """
         cosine = outputs.float()
+        cosine = torch.clamp(cosine, -1 + 1e-7, 1 - 1e-7)
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
         phi = cosine * self.cos_m - sine * self.sin_m  # cos(theta + m)
         if self.easy_margin:
@@ -995,7 +1028,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
         # Getting current predictions
         current_pred = predictions[j]
 
-        actual_size = (input_lens[j] * log_probs.shape[1]).int()
+        actual_size = (input_lens[j] * log_probs.shape[1]).round().int()
         current_pred = current_pred[0:actual_size]
         current_pred = filter_ctc_output(
             list(current_pred.cpu().numpy()), blank_id=blank_index
@@ -1017,7 +1050,7 @@ def ctc_loss_kd(log_probs, targets, input_lens, blank_index, device):
     fake_lab_lengths = torch.from_numpy(np.array(pred_len_list)).int()
     fake_lab_lengths.to(device)
 
-    input_lens = (input_lens * log_probs.shape[1]).int()
+    input_lens = (input_lens * log_probs.shape[1]).round().int()
     log_probs = log_probs.transpose(0, 1)
     return torch.nn.functional.ctc_loss(
         log_probs,

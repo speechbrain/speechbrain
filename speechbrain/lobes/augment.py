@@ -22,16 +22,15 @@ from speechbrain.processing.speech_augmentation import (
     AddNoise,
     AddReverb,
 )
-from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
-torchaudio_backend = get_torchaudio_backend()
-torchaudio.set_audio_backend(torchaudio_backend)
+check_torchaudio_backend()
 
 OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
 
 
 class SpecAugment(torch.nn.Module):
-    """An implementation of SpecAugment algorithm.
+    """An implementation of the SpecAugment algorithm.
 
     Reference:
         https://arxiv.org/abs/1904.08779
@@ -160,7 +159,7 @@ class SpecAugment(torch.nn.Module):
             Corresponding dimension to mask.
         """
         original_size = x.shape
-        if x.shape == 4:
+        if x.dim() == 4:
             x = x.view(-1, x.shape[2], x.shape[3])
 
         batch, time, fea = x.shape
@@ -266,7 +265,7 @@ class TimeDomainSpecAugment(torch.nn.Module):
     ):
         super().__init__()
         self.speed_perturb = SpeedPerturb(
-            perturb_prob=perturb_prob, orig_freq=sample_rate, speeds=speeds,
+            perturb_prob=perturb_prob, orig_freq=sample_rate, speeds=speeds
         )
         self.drop_freq = DropFreq(
             drop_prob=drop_freq_prob,
@@ -339,6 +338,12 @@ class EnvCorrupt(torch.nn.Module):
         If ``0 < rir_scale_factor < 1``, the impulse response is compressed
         (less reverb), while if ``rir_scale_factor > 1`` it is dilated
         (more reverb).
+    reverb_sample_rate : int
+        Sample rate of input audio signals (rirs) used for reverberation.
+    noise_sample_rate: int
+        Sample rate of input audio signals used for adding noise.
+    clean_sample_rate: int
+        Sample rate of original (clean) audio signals.
 
     Example
     -------
@@ -363,11 +368,15 @@ class EnvCorrupt(torch.nn.Module):
         noise_snr_low=0,
         noise_snr_high=0,
         rir_scale_factor=1.0,
+        reverb_sample_rate=16000,
+        noise_sample_rate=16000,
+        clean_sample_rate=16000,
     ):
         super().__init__()
 
         # Download and prepare openrir
         if openrir_folder and (not reverb_csv or not noise_csv):
+
             open_reverb_csv = os.path.join(openrir_folder, "reverb.csv")
             open_noise_csv = os.path.join(openrir_folder, "noise.csv")
             _prepare_openrir(
@@ -377,16 +386,22 @@ class EnvCorrupt(torch.nn.Module):
                 openrir_max_noise_len,
             )
 
-            # Override if they aren't specified
-            reverb_csv = reverb_csv or open_reverb_csv
-            noise_csv = noise_csv or open_noise_csv
+            # Specify filepath and sample rate if not specified already
+            if not reverb_csv:
+                reverb_csv = open_reverb_csv
+                reverb_sample_rate = 16000
+
+            if not noise_csv:
+                noise_csv = open_noise_csv
+                noise_sample_rate = 16000
 
         # Initialize corrupters
         if reverb_csv is not None and reverb_prob > 0.0:
             self.add_reverb = AddReverb(
                 reverb_prob=reverb_prob,
                 csv_file=reverb_csv,
-                rir_scale_factor=rir_scale_factor,
+                reverb_sample_rate=reverb_sample_rate,
+                clean_sample_rate=clean_sample_rate,
             )
 
         if babble_speaker_count > 0 and babble_prob > 0.0:
@@ -404,6 +419,8 @@ class EnvCorrupt(torch.nn.Module):
                 num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
+                noise_sample_rate=noise_sample_rate,
+                clean_sample_rate=clean_sample_rate,
             )
 
     def forward(self, waveforms, lengths):

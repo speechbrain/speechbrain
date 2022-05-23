@@ -161,6 +161,7 @@ modules:
     decoder: !ref <Decoder>
     masknet: !ref <MaskNet>
 
+save_all_checkpoints: True
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
