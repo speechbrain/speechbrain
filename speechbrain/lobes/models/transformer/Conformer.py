@@ -91,16 +91,15 @@ class ConvolutionModule(nn.Module):
         )
 
         self.after_conv = nn.Sequential(
-            nn.BatchNorm1d(input_size),
+            nn.LayerNorm(input_size),
             activation(),
             # pointwise
-            nn.Conv1d(
-                input_size, input_size, kernel_size=1, stride=1, bias=bias
-            ),
+            nn.Linear(input_size, input_size, bias=bias),
             nn.Dropout(dropout),
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
+
         out = self.layer_norm(x)
         out = out.transpose(1, 2)
         out = self.bottleneck(out)
@@ -109,8 +108,10 @@ class ConvolutionModule(nn.Module):
         if self.causal:
             # chomp
             out = out[..., : -self.padding]
-        out = self.after_conv(out)
         out = out.transpose(1, 2)
+        out = self.after_conv(out)
+        if mask is not None:
+            out.masked_fill_(mask, 0.0)
         return out
 
 
@@ -225,17 +226,20 @@ class ConformerEncoderLayer(nn.Module):
     ):
 
         """
-                Arguments
-                ----------
-                src : torch.Tensor
-                    The sequence to the encoder layer.
-                src_mask : torch.Tensor, optional
-                    The mask for the src sequence.
-                src_key_padding_mask : torch.Tensor, optional
-                    The mask for the src keys per batch.
-                pos_embs: torch.Tensor, torch.nn.Module, optional
-                    Module or tensor containing the input sequence positional embeddings
-                """
+        Arguments
+        ----------
+        src : torch.Tensor
+            The sequence to the encoder layer.
+        src_mask : torch.Tensor, optional
+            The mask for the src sequence.
+        src_key_padding_mask : torch.Tensor, optional
+            The mask for the src keys per batch.
+        pos_embs: torch.Tensor, torch.nn.Module, optional
+            Module or tensor containing the input sequence positional embeddings
+        """
+        conv_mask = None
+        if src_key_padding_mask is not None:
+            conv_mask = src_key_padding_mask.unsqueeze(-1)
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
         # muti-head attention module
@@ -251,7 +255,7 @@ class ConformerEncoderLayer(nn.Module):
         )
         x = x + skip
         # convolution module
-        x = x + self.convolution_module(x)
+        x = x + self.convolution_module(x, conv_mask)
         # ffn module
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn
