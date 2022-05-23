@@ -19,10 +19,9 @@ from speechbrain.utils.data_utils import scalarize
 
 class HifiGanBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """
-        This function is only used for inference
-
-        Computes the forward pass
+        """The forward function, generates synthesized waveforms,
+        calculates the scores and the features of the discriminator
+        for synthesized waveforms and real waveforms.
 
         Arguments
         ---------
@@ -31,16 +30,16 @@ class HifiGanBrain(sb.Brain):
         stage: speechbrain.Stage
             the training stage
 
-        Returns
-        -------
-        the model output
         """
-
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
+
+        # generate sythesized waveforms
         y_g_hat = self.modules.generator(x)[:, :, : y.size(2)]
-        scores_fake, feats_fake = self.modules.discriminator(y_g_hat)
+
+        # get scores and features from discriminator for real and synthesized waveforms
+        scores_fake, feats_fake = self.modules.discriminator(y_g_hat.detach())
         scores_real, feats_real = self.modules.discriminator(y)
 
         return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
@@ -72,33 +71,30 @@ class HifiGanBrain(sb.Brain):
     def fit_batch(self, batch):
         """Train discriminator and generator adversarially
         """
+
         batch = batch.to(self.device)
-        x, _ = batch.mel
         y, _ = batch.sig
-
-        y_g_hat = self.modules.generator(x)[:, :, : y.size(2)]
-
-        # First train the discriminator
-        self.optimizer_d.zero_grad()
-        scores_fake, feats_fake = self.modules.discriminator(y_g_hat.detach())
-        scores_real, feats_real = self.modules.discriminator(y)
-        outputs = (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
+     
+        outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
+        (y_g_hat, scores_fake, feats_fake, scores_real, feats_real) = outputs
+        # calculate discriminator loss with the latest updated generator
         loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
             "D_loss"
         ]
-
+        # First train the discriminator
+        self.optimizer_d.zero_grad()
         loss_d.backward()
         self.optimizer_d.step()
 
-        # Then train the generator
-        self.optimizer_g.zero_grad()
+        # calculate generator loss with the latest updated discriminator
         scores_fake, feats_fake = self.modules.discriminator(y_g_hat)
         scores_real, feats_real = self.modules.discriminator(y)
         outputs = (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
         loss_g = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
             "G_loss"
         ]
-
+        # Then train the generator
+        self.optimizer_g.zero_grad()
         loss_g.backward()
         self.optimizer_g.step()
 
