@@ -118,7 +118,8 @@ valid_symbols = [
 
 """
 Defines the set of symbols used in text input to the model.
-The default is a set of ASCII characters that works well for English. For other data, you can modify _characters. See TRAINING_DATA.md for details. """
+The default is a set of ASCII characters that works well for English. For other data, you can modify _characters. See TRAINING_DATA.md for details. 
+"""
 
 
 _pad = "_"
@@ -174,6 +175,8 @@ _abbreviations = [
 
 
 def expand_abbreviations(text):
+    """expand abbreviations pre-defined
+    """
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
     return text
@@ -184,27 +187,35 @@ def expand_abbreviations(text):
 
 
 def lowercase(text):
+    """lowercase the text
+    """
     return text.lower()
 
 
 def collapse_whitespace(text):
+    """Replaces r"\s+" by " " in the text
+    """
     return re.sub(_whitespace_re, " ", text)
 
 
 def convert_to_ascii(text):
+    """Converts text to ascii
+    """
     text_encoded = text.encode("ascii", "ignore")
     return text_encoded.decode()
 
 
 def basic_cleaners(text):
-    """Basic pipeline that lowercases and collapses whitespace without transliteration."""
+    """Basic pipeline that lowercases and collapses whitespace without transliteration.
+    """
     text = lowercase(text)
     text = collapse_whitespace(text)
     return text
 
 
 def transliteration_cleaners(text):
-    """Pipeline for non-English text that transliterates to ASCII."""
+    """Pipeline for non-English text that transliterates to ASCII.
+    """
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = collapse_whitespace(text)
@@ -212,7 +223,8 @@ def transliteration_cleaners(text):
 
 
 def english_cleaners(text):
-    """Pipeline for English text, including number and abbreviation expansion."""
+    """Pipeline for English text, including number and abbreviation expansion.
+    """
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = expand_abbreviations(text)
@@ -221,14 +233,18 @@ def english_cleaners(text):
 
 
 def text_to_sequence(text, cleaner_names):
-    """Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
-      The text can optionally have ARPAbet sequences enclosed in curly braces embedded
-      in it. For example, "Turn left on {HH AW1 S S T AH0 N} Street."
-      Args:
-        text: string to convert to a sequence
-        cleaner_names: names of the cleaner functions to run the text through
-      Returns:
-        List of integers corresponding to the symbols in the text
+    """Returns a list of integers corresponding to the symbols in the text.
+    Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
+    The text can optionally have ARPAbet sequences enclosed in curly braces embedded
+    in it. For example, "Turn left on {HH AW1 S S T AH0 N} Street."
+     
+    Arguments
+    ---------
+    text : str
+        string to convert to a sequence
+    cleaner_names : list
+        names of the cleaner functions to run the text through
+
     """
     sequence = []
 
@@ -246,7 +262,8 @@ def text_to_sequence(text, cleaner_names):
 
 
 def sequence_to_text(sequence):
-    """Converts a sequence of IDs back to a string"""
+    """Converts a sequence of IDs back to a string
+    """
     result = ""
     for symbol_id in sequence:
         if symbol_id in _id_to_symbol:
@@ -259,6 +276,8 @@ def sequence_to_text(sequence):
 
 
 def _clean_text(text, cleaner_names):
+    """apply different cleaning pipeline according to cleaner_names
+    """
     for name in cleaner_names:
         if name == "english_cleaners":
             cleaner = english_cleaners
@@ -273,12 +292,18 @@ def _clean_text(text, cleaner_names):
 
 
 def _symbols_to_sequence(symbols):
+    """convert symbols to sequence
+    """
     return [_symbol_to_id[s] for s in symbols if _should_keep_symbol(s)]
 
 
 def _arpabet_to_sequence(text):
+    """Prepend "@" to ensure uniqueness
+    """
     return _symbols_to_sequence(["@" + s for s in text.split()])
 
 
 def _should_keep_symbol(s):
+    """whether to keep a certain symbol
+    """
     return s in _symbol_to_id and s != "_" and s != "~"
