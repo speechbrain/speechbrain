@@ -21,23 +21,23 @@ use_wandb: False
 auto_mix_prec: True
 disable_halfprec: True
 
-number_of_epochs: 300
-optimizer_step_limit: 400000
+number_of_epochs: 9999
+optimizer_step_limit: 1000000
 train_num_buckets: 70
 max_sample_dur: 16.0
 
 sample_rate: 16000
-lr: 0.002
-warmup: 20000
+lr: 0.005
+warmup: 30000
 seconds_per_batch: 160
-encoder_layerdrop: 0.05
+encoder_layerdrop: 0.
 
-diversity_loss_weight: 0.2
+diversity_loss_weight: 0.1
 mask_prob: 0.65
 mask_length: 10
 
-embedding_dim: 768
-final_dim: 256
+embedding_dim: 1024
+final_dim: 768
 latentextractor_kernels: [11, 3, 3, 3, 3, 3, 3]
 latentextractor_strides: [5, 2, 2, 2, 2, 2, 2]
 
@@ -56,23 +56,25 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
   kernel_sizes: !ref <latentextractor_kernels>
   strides: !ref <latentextractor_strides>
-  out_channels: [128, 256, 256, 512, 512, 1024, 1024]
 
 encoder: !new:speechbrain.lobes.models.wav2vec.W2VLatentEncoder
   embedding_dim: !ref <embedding_dim>
-  num_layers: 12
-  dropout: 0.1
+  num_layers: 24
+  dropout: 0.
+  d_ffn: 4096
+  nhead: 16
   layerdrop_prob: !ref <encoder_layerdrop>
 
 encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
-  in_dim: 1024
+  in_dim: 512
   embedding_dim: !ref <embedding_dim>
   latent_encoder: !ref <encoder>
-  dropout_encoder_input: 0.1
+  dropout_encoder_input: 0.
 
 target_quantiser: !new:speechbrain.lobes.models.wav2vec.W2VTargetQuantiser
-  in_dim: 1024
+  in_dim: 512
   out_dim: !ref <final_dim>
+  temperature_decay: [2.0, 0.25, 0.999995]
 
 feat_proj: !new:torch.nn.Linear
   in_features: !ref <embedding_dim>
@@ -90,7 +92,7 @@ loss: !new:speechbrain.nnet.losses.ContrastiveLoss
 lr_scheduler: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     lr: !ref <lr>
     warmup: !ref <warmup>
-    cooldown: 30000
+    cooldown: 50000
     total_steps: !ref <optimizer_step_limit>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
