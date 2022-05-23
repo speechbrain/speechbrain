@@ -2106,7 +2106,7 @@ class SpectralMaskEnhancement(Pretrained):
 
     def forward(self, noisy, lengths=None):
         """Runs enhancement on the noisy input"""
-        return self.separate_batch(noisy, lengths)
+        return self.enhance_batch(noisy, lengths)
 
 
 class WaveformEnhancement(Pretrained):
@@ -2173,6 +2173,10 @@ class WaveformEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+    def forward(self, noisy, lengths=None):
+        """Runs enhancement on the noisy input"""
+        return self.enhance_batch(noisy, lengths)
 
 
 class SNREstimator(Pretrained):
