@@ -24,6 +24,10 @@ setup(
     long_description_content_type="text/markdown",
     author="Mirco Ravanelli & Others",
     author_email="speechbrain@gmail.com",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: Apache Software License",
+    ],
     packages=setuptools.find_packages(),
     package_data={"speechbrain": ["version.txt", "log-config.yaml"]},
     install_requires=[

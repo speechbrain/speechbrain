@@ -12,10 +12,10 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 20-05-22 | transformer.yaml | 2.46 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1ZudxqMWb8VNCJKvY2Ws5oNY3WI1To0I7?usp=sharing) | 2xRTX8000 42GB |
+| 24-03-22 | transformer.yaml | 2.26 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1sM3_PksmGQZMxXPibp7W7mQfPXFdHqc5?usp=sharing) | 1xA100 40GB |
 
 # Training Time
-It takes about 1 hour 35 minutes for each epoch on 4 NVDIA V100 (32GB).
+It takes about 45 minutes for each epoch on 1 NVDIA A100 (40GB).
 
 
 # PreTrained Model + Easy-Inference

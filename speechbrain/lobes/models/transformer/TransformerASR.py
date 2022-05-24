@@ -7,7 +7,6 @@ Authors
 import torch  # noqa 42
 from torch import nn
 from typing import Optional
-
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -17,6 +16,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
     NormalizedEmbedding,
 )
 from speechbrain.nnet.activations import Swish
+from speechbrain.dataio.dataio import length_to_mask
 
 
 class TransformerASR(TransformerInterface):
@@ -186,7 +186,10 @@ class TransformerASR(TransformerInterface):
         if self.attention_type == "RelPosMHAXL":
             # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            src = src + self.positional_encoding_decoder(src)
+            # FIXME we use pos embs also on enc output
+            encoder_out = encoder_out + self.positional_encoding_decoder(
+                encoder_out
+            )
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.positional_encoding_type == "fixed_abs_sine":
@@ -222,10 +225,7 @@ class TransformerASR(TransformerInterface):
         src_key_padding_mask = None
         if wav_len is not None:
             abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = (
-                torch.arange(src.shape[1])[None, :].to(abs_len)
-                > abs_len[:, None]
-            )
+            src_key_padding_mask = ~length_to_mask(abs_len).bool()
 
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
 
@@ -233,7 +233,8 @@ class TransformerASR(TransformerInterface):
         tgt_mask = get_lookahead_mask(tgt)
         return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
-    def decode(self, tgt, encoder_out):
+    @torch.no_grad()
+    def decode(self, tgt, encoder_out, enc_len=None):
         """This method implements a decoding step for the transformer model.
 
         Arguments
@@ -242,8 +243,14 @@ class TransformerASR(TransformerInterface):
             The sequence to the decoder.
         encoder_out : torch.Tensor
             Hidden output of the encoder.
+        enc_len : torch.LongTensor
+            The actual length of encoder states.
         """
         tgt_mask = get_lookahead_mask(tgt)
+        src_key_padding_mask = None
+        if enc_len is not None:
+            src_key_padding_mask = (1 - length_to_mask(enc_len)).bool()
+
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
             # we use fixed positional encodings in the decoder
@@ -263,6 +270,7 @@ class TransformerASR(TransformerInterface):
             tgt,
             encoder_out,
             tgt_mask=tgt_mask,
+            memory_key_padding_mask=src_key_padding_mask,
             pos_embs_tgt=pos_embs_target,
             pos_embs_src=pos_embs_encoder,
         )

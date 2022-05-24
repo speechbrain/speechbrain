@@ -1284,12 +1284,11 @@ class VAD(Pretrained):
         prob_th[:, 0, :] = (prob_th[:, 0, :] >= 1).int()
         prob_th[:, -1, :] = (prob_th[:, -1, :] >= 1).int()
 
-        # Fix edge cases (when a new sentence starts in the last frame)
-        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 1:
-            prob_th[:, -2, :] = 2
-
-        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 0:
-            prob_th[:, -2, :] = 1
+        # Fix edge cases (when a speech starts in the last frames)
+        if (prob_th == 1).nonzero().shape[0] % 2 == 1:
+            prob_th = torch.cat(
+                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), dim=1
+            )
 
         # Where prob_th is 1 there is a change
         indexes = (prob_th == 1).nonzero()[:, 1].reshape(-1, 2)
@@ -1461,7 +1460,12 @@ class VAD(Pretrained):
             f.close()
 
     def energy_VAD(
-        self, audio_file, boundaries, activation_th=0.5, deactivation_th=0.0
+        self,
+        audio_file,
+        boundaries,
+        activation_th=0.5,
+        deactivation_th=0.0,
+        eps=1e-6,
     ):
         """Applies energy-based VAD within the detected speech segments.The neural
         network VAD often creates longer segments and tends to merge segments that
@@ -1486,6 +1490,8 @@ class VAD(Pretrained):
             A new speech segment is started it the energy is above activation_th.
         deactivation_th: float
             The segment is considered ended when the energy is <= deactivation_th.
+        eps: float
+            Small constant for numerical stability.
 
 
         Returns
@@ -1523,7 +1529,8 @@ class VAD(Pretrained):
             )
 
             # Energy computation within each chunk
-            energy_chunks = segment_chunks.abs().sum(-1).log()
+            energy_chunks = segment_chunks.abs().sum(-1) + eps
+            energy_chunks = energy_chunks.log()
 
             # Energy normalization
             energy_chunks = (
