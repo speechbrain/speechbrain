@@ -2,9 +2,11 @@
 
 Authors
  * Mirco Ravanelli 2022
+ * Andreas Nautsch 2022
 """
 
 import os
+import re
 
 
 def get_yaml_var(hparam_file):
@@ -31,8 +33,8 @@ def get_yaml_var(hparam_file):
             # Remove trailing characters
             line = line.rstrip()
 
-            # Check for variables (e.g., key:)
-            if line.find(":") != -1:
+            # Check for variables (e.g., 'key:' or '- !ref')
+            if line.find(":") != -1 or line.find("- !ref") != -1:
                 var_name = line[: line.find(":")]
                 # The variables to check are like "key:" (we do not need to check
                 # subvariavles as " key:")
@@ -44,11 +46,18 @@ def get_yaml_var(hparam_file):
                 ):
                     var_lst.append(var_name)
                 # Check for the reference pattern
-                if line.find("!ref <") != -1:
-                    sub_var = line[line.find("!ref <") + 6 : line.find(">")]
-                    # Remove variables already used in yaml
-                    if sub_var in var_lst:
-                        var_lst.remove(sub_var)
+                # note: output_folder: !ref results/<experiment_name>/<seed> pattern
+                if line.find("!ref") != -1:
+                    # Check for 'annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]' pattern
+                    for subline in line.split('<'):
+                        sub_var = subline[: subline.find(">")]
+                        # Check for 'models[generator]' pattern (dictionary reference)
+                        dict_pos = sub_var.find('[')
+                        if dict_pos != -1:
+                            sub_var = sub_var[:dict_pos]
+                        # Remove variables already used in yaml
+                        if sub_var in var_lst:
+                            var_lst.remove(sub_var)
     return var_lst
 
 
@@ -94,12 +103,28 @@ def check_yaml_vs_script(hparam_file, script_file):
                 if '["' + var + '"]' in line:
                     if var not in detected_var:
                         detected_var.append(var)
+                # case: hparams[f"{dataset}_annotation"] - only that structure at the moment
+                re_match = re.search(r'\[f.\{.*\}(.*).\]', line)
+                if re_match is not None:
+                    if re_match.group(1) in var:
+                        print("\t\tAlert: potential inconsistency %s maybe used in %s (or not)."
+                              % (var, re_match.group(0)))
+                        detected_var.append(var)
                 if "." + var in line:
                     if var not in detected_var:
                         detected_var.append(var)
 
     # Check which variables are declared but not used
-    unused_vars = list(set(var_lst) - set(detected_var))
+    default_run_opt_keys = ["debug", "debug_batches", "debug_epochs",
+                            "device", "cpu", "data_parallel_backend",
+                            "distributed_launch", "distributed_backend",
+                            "find_unused_parameters", "jit_module_keys",
+                            "auto_mix_prec", "max_grad_norm", "nonfinite_patience",
+                            "noprogressbar", "ckpt_interval_minutes",
+                            "grad_accumulation_factor", "optimizer_step_limit"]
+    artefacts = ["progressbar", "compute_error", "gradient_clipping", "eos_threshold",
+                 "data_folder_rirs", "pretrainer", "vocab_size"]  # TODO disregard?
+    unused_vars = list(set(var_lst) - set(detected_var) - set(default_run_opt_keys) - set(artefacts))
     for unused_var in unused_vars:
         print(
             '\tWARNING: variable "%s" not used in %s!'

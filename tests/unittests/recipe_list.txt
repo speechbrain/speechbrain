@@ -22,7 +22,7 @@ recipes/KsponSpeech/ASR/transformer/train.py recipes/KsponSpeech/ASR/transformer
 recipes/AISHELL-1/Tokenizer/train.py recipes/AISHELL-1/Tokenizer/hparams/tokenizer_bpe5000.yaml
 recipes/AISHELL-1/Tokenizer/train.py recipes/AISHELL-1/Tokenizer/hparams/train_transformer_tokenizer_bpe5000.yaml
 recipes/AISHELL-1/ASR/transformer/train.py recipes/AISHELL-1/ASR/transformer/hparams/train_ASR_transformer.yaml
-recipes/AISHELL-1/ASR/transformer/train.py recipes/AISHELL-1/ASR/transformer/hparams/train_ASR_transformer_with_wav2vect.yaml
+recipes/AISHELL-1/ASR/transformer/train_ASR_transformer_with_wav2vect.py recipes/AISHELL-1/ASR/transformer/hparams/train_ASR_transformer_with_wav2vect.yaml
 recipes/AISHELL-1/ASR/seq2seq/train.py recipes/AISHELL-1/ASR/seq2seq/hparams/train.yaml
 recipes/WSJ0Mix/separation/train.py recipes/WSJ0Mix/separation/hparams/convtasnet.yaml
 recipes/WSJ0Mix/separation/train.py recipes/WSJ0Mix/separation/hparams/dprnn.yaml
@@ -32,7 +32,7 @@ recipes/timers-and-such/multistage/train.py recipes/timers-and-such/multistage/h
 recipes/timers-and-such/multistage/train.py recipes/timers-and-such/multistage/hparams/train_TAS_LM.yaml
 recipes/timers-and-such/LM/train.py recipes/timers-and-such/LM/hparams/train.yaml
 recipes/timers-and-such/Tokenizer/train.py recipes/timers-and-such/Tokenizer/hparams/tokenizer_bpe51.yaml
-recipes/timers-and-such/direct/train.py recipes/timers-and-such/direct/hparams/train_with_wav2vec2.yaml
+recipes/timers-and-such/direct/train_with_wav2vec2.py recipes/timers-and-such/direct/hparams/train_with_wav2vec2.yaml
 recipes/timers-and-such/direct/train.py recipes/timers-and-such/direct/hparams/train.yaml
 recipes/timers-and-such/decoupled/train.py recipes/timers-and-such/decoupled/hparams/train_LS_LM.yaml
 recipes/timers-and-such/decoupled/train.py recipes/timers-and-such/decoupled/hparams/train_TAS_LM.yaml
@@ -84,7 +84,7 @@ recipes/UrbanSound8k/SoundClassification/train.py recipes/UrbanSound8k/SoundClas
 recipes/LibriParty/VAD/train.py recipes/LibriParty/VAD/hparams/train.yaml
 recipes/CommonLanguage/lang_id/train.py recipes/CommonLanguage/lang_id/hparams/train_ecapa_tdnn.yaml
 recipes/DNS/enhance/spectral_map/train.py recipes/DNS/enhance/spectral_map/hparams/params_CNNTransformer.yaml
-recipes/DNS/enhance/spectral_map/train.py ecipes/DNS/enhance/spectral_map/hparams/params_CNN.yaml
+recipes/DNS/enhance/spectral_map/train.py recipes/DNS/enhance/spectral_map/hparams/params_CNN.yaml
 recipes/IEMOCAP/emotion_recognition/train_with_wav2vec2.py recipes/IEMOCAP/emotion_recognition/hparams/train_with_wav2vec2.yaml
 recipes/IEMOCAP/emotion_recognition/train.py recipes/IEMOCAP/emotion_recognition/hparams/train.yaml
 recipes/TIMIT/Alignment/train.py recipes/TIMIT/Alignment/hparams/train.yaml
@@ -117,7 +117,7 @@ recipes/WHAMandWHAMR/enhancement/train.py recipes/WHAMandWHAMR/enhancement/hpara
 recipes/WHAMandWHAMR/enhancement/train.py recipes/WHAMandWHAMR/enhancement/hparams/sepformer-wham.yaml
 recipes/WHAMandWHAMR/enhancement/train.py recipes/WHAMandWHAMR/enhancement/hparams/sepformer-whamr-DM.yaml
 recipes/SLURP/Tokenizer/train.py recipes/SLURP/Tokenizer/hparams/tokenizer_bpe58.yaml
-recipes/SLURP/direct/train.py recipes/SLURP/direct/hparams/train_with_wav2vec2.yaml
+recipes/SLURP/direct/train_with_wav2vec2.py recipes/SLURP/direct/hparams/train_with_wav2vec2.yaml
 recipes/SLURP/direct/train.py recipes/SLURP/direct/hparams/train.yaml
 recipes/SLURP/NLU/train.py recipes/SLURP/NLU/hparams/train.yaml
 templates/speech_recognition/LM/train.py templates/speech_recognition/LM/RNNLM.yaml
