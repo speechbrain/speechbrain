@@ -7,7 +7,7 @@ https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2
 
 # Tacotron 2
 The subfolder "tacotron2" contains the recipe for training the popular [tacotron2](https://arxiv.org/abs/1712.05884) TTS model.
-To run this recipe, go into the   "tacotron2"  and run:
+To run this recipe, go into the "tacotron2" folder and run:
 
 ```
 python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
