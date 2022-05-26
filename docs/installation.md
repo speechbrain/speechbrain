@@ -63,7 +63,7 @@ in this [GitHub issue](https://github.com/speechbrain/speechbrain/issues/512).
 
 A good practice is to have different python environments for your different tools
 and toolkits, so they do not interfere with each other. This can be done either with
-[Anaconda](https://en.wikipedia.org/wiki/Anaconda_(Python_distribution)) or [venv](https://docs.python.org/3.8/library/venv.html).
+[Anaconda](https://www.anaconda.com/products/distribution) or [venv](https://docs.python.org/3.8/library/venv.html).
 
 Anaconda can be installed by simply following [this tutorial](https://docs.anaconda.com/anaconda/install/linux/). In practice, it is a matter of downloading the installation script and executing it.
 

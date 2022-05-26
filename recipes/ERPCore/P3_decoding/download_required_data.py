@@ -12,7 +12,7 @@ import os
 from speechbrain.utils.data_utils import download_file
 
 
-ERPCORE_P3_URL = "https://files.osf.io/v1/resources/etdkz/providers/osfstorage/60077b04ba010908a78927e9/?zip="
+ERPCORE_P3_URL = "https://osf.io/etdkz/"
 parser = argparse.ArgumentParser(
     "Python script to download required recipe data"
 )
