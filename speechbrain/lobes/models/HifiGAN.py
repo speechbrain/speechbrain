@@ -78,9 +78,9 @@ def mel_spectogram(
     n_mels : int
         Number of mel filterbanks.
     f_min : float
-        Minimum frequency. 
+        Minimum frequency.
     f_max : float
-        Maximum frequency. 
+        Maximum frequency.
     power : float
         Exponent for the magnitude spectrogram.
     normalized : bool
@@ -850,9 +850,9 @@ class L1SpecLoss(nn.Module):
     n_mels : int
         Number of mel filterbanks.
     f_min : float
-        Minimum frequency. 
+        Minimum frequency.
     f_max : float
-        Maximum frequency. 
+        Maximum frequency.
     power : float
         Exponent for the magnitude spectrogram.
     normalized : bool
@@ -948,8 +948,9 @@ class L1SpecLoss(nn.Module):
 class MSEGLoss(nn.Module):
     """Mean Squared Generator Loss
     The generator is trained to fake the discriminator by updating the sample quality
-    to be classified to a value almost equal to 1. 
+    to be classified to a value almost equal to 1.
     """
+
     def forward(self, score_fake):
         """Returns Generator GAN loss
 
@@ -1002,8 +1003,8 @@ class MelganFeatureLoss(nn.Module):
 
 class MSEDLoss(nn.Module):
     """Mean Squared Discriminator Loss
-    The discriminator is trained to classify ground truth samples to 1, 
-    and the samples synthesized from the generator to 0. 
+    The discriminator is trained to classify ground truth samples to 1,
+    and the samples synthesized from the generator to 0.
     """
 
     def __init__(self,):
@@ -1012,7 +1013,7 @@ class MSEDLoss(nn.Module):
 
     def forward(self, score_fake, score_real):
         """Returns Discriminator GAN losses
-        
+
         Arguments
         ---------
         score_fake : list
@@ -1060,7 +1061,7 @@ def _apply_G_adv_loss(scores_fake, loss_func):
 
 def _apply_D_loss(scores_fake, scores_real, loss_func):
     """Compute Discriminator losses and normalize loss values
-    
+
     Arguments
     ---------
     scores_fake : list
@@ -1070,6 +1071,7 @@ def _apply_D_loss(scores_fake, scores_real, loss_func):
     loss_func : object
         object of target discriminator loss
     """
+
     loss = 0
     real_loss = 0
     fake_loss = 0
@@ -1212,6 +1214,7 @@ class DiscriminatorLoss(nn.Module):
     msed_loss : object
         object of MSE discriminator loss
     """
+
     def __init__(self, msed_loss=None):
         super().__init__()
         self.msed_loss = msed_loss

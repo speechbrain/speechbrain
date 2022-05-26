@@ -118,7 +118,7 @@ valid_symbols = [
 
 """
 Defines the set of symbols used in text input to the model.
-The default is a set of ASCII characters that works well for English. For other data, you can modify _characters. See TRAINING_DATA.md for details. 
+The default is a set of ASCII characters that works well for English. For other data, you can modify _characters. See TRAINING_DATA.md for details.
 """
 
 
@@ -237,7 +237,7 @@ def text_to_sequence(text, cleaner_names):
     Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
     The text can optionally have ARPAbet sequences enclosed in curly braces embedded
     in it. For example, "Turn left on {HH AW1 S S T AH0 N} Street."
-     
+
     Arguments
     ---------
     text : str
