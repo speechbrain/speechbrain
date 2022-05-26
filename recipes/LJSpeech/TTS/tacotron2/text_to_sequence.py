@@ -193,7 +193,7 @@ def lowercase(text):
 
 
 def collapse_whitespace(text):
-    """Replaces r"\s+" by " " in the text
+    """Replaces whitespace by " " in the text
     """
     return re.sub(_whitespace_re, " ", text)
 
