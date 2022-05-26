@@ -220,7 +220,7 @@ class TransformerEncoderLayer(nn.Module):
         self.self_att = sb.nnet.attention.MultiheadAttention(
             nhead=nhead, d_model=d_model, dropout=dropout, kdim=kdim, vdim=vdim,
         )
-
+        self.pos_ffn_type = ffn_type
         if ffn_type == 'ffn':
             self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
                 d_ffn=d_ffn,
@@ -229,12 +229,18 @@ class TransformerEncoderLayer(nn.Module):
                 activation=activation,
             )
         elif ffn_type == '1dcnn':
-            self.pos_ffn = sb.nnet.attention.Positionalwise1DCNN(
-                d_ffn=d_ffn,
-                input_size=d_model,
-                dropout=dropout,
-                activation=activation,
-            )
+            # self.pos_ffn = sb.nnet.attention.Positionalwise1DCNN(
+            #     d_ffn=d_ffn,
+            #     input_size=d_model,
+            #     dropout=dropout,
+            #     activation=activation,
+            # )
+            self.pos_ffn = nn.Sequential(
+                        nn.Conv1d(d_model, d_ffn, 3, 1, (3 // 2)),
+                        nn.ReLU(),
+                        nn.Conv1d(d_ffn, d_model, 3, 1, (3 // 2)),
+                        nn.Dropout(dropout),
+        )
         else:
             raise NotImplementedError
         self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
@@ -277,13 +283,14 @@ class TransformerEncoderLayer(nn.Module):
         src = src + self.dropout1(output)
         if not self.normalize_before:
             src = self.norm1(src)
-
+        # print(src.shape)
         if self.normalize_before:
             src1 = self.norm2(src)
         else:
             src1 = src
+        if self.pos_ffn_type == '1dcnn': src1 = src1.transpose(1, 2)
         output = self.pos_ffn(src1)
-
+        if self.pos_ffn_type == '1dcnn': output = output.transpose(1, 2)
         # add & norm
         output = src + self.dropout2(output)
         if not self.normalize_before:

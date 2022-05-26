@@ -3,17 +3,17 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_ffn_nndurpred/<seed>
+output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_1dcnn_nndurpred_fulldata_correcteddurloss/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
-epochs: 10000
+epochs: 20000
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
-progress_samples_min_rin: 50
-progress_samples_interval: 50
+progress_samples_min_rin: 5
+progress_samples_interval: 5
 progress_batch_sample_size: 4
 
 #################################
@@ -50,13 +50,13 @@ mel_normalized: False
 learning_rate: 0.0001
 weight_decay: 0.000006
 grad_clip_thresh: 1.0
-batch_size: 40 #minimum 2
+batch_size: 48 #minimum 2
 mask_padding: False
 
 ################################
 # Model Parameters and model   #
 ################################
-n_symbols: 35 #fixed deppending on symbols in textToSequence
+n_symbols: 62 #fixed deppending on symbols in textToSequence
 padding_idx: 0
 symbols_embedding_dim: 384
 
@@ -86,7 +86,7 @@ post_net_num_layers: 5
 
 # common
 normalize_before: False
-ffn_type: ffn #1dcnn or ffn
+ffn_type: 1dcnn #1dcnn or ffn
 dur_pred_kernel_size: 3
 #model
 model: !new:speechbrain.lobes.models.synthesis.fastspeech.FastSpeech

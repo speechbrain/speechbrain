@@ -43,7 +43,7 @@ class FastSpeechBrain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
 
     def _remember_sample(self, batch, predictions):
         mel_pred, durs = predictions
-        mel_target, durations, mel_length  = batch
+        mel_target, durations, mel_length, phon_len  = batch
         # import matplotlib.pyplot as plt
         # plt.imshow(mel_target[0].detach().cpu().numpy())
         #
@@ -130,7 +130,7 @@ def batch_to_gpu(batch):
     spectogram = to_gpu(mel_padded).float()
     mel_lengths = to_gpu(output_lengths).long()
     x = (phonemes, durations)
-    y = (spectogram, durations, mel_lengths)
+    y = (spectogram, durations, mel_lengths, input_lengths)
     return x, y
 
 def to_gpu(x):
@@ -142,17 +142,22 @@ def to_gpu(x):
 
 
 def criterion(model_output, targets):
-    mel_target, target_durations, mel_length  = targets
+    mel_target, target_durations, mel_length, phon_len  = targets
 
     assert len(mel_target.shape) == 3
     mel_out, durations = model_output
+    durations = durations.squeeze()
     mel_loss, dur_loss = 0, 0
     for i in range(mel_target.shape[0]):
-        mel_loss = torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-        # dur_loss = torch.nn.MSELoss()(durations[: phon_len[i]], target_durations[: phon_len[i]])
-    mel_loss /= len(mel_target)
-    dur_loss /= len(mel_target)
-    return mel_loss #+ dur_loss
+        if i == 0:
+            mel_loss = torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
+            dur_loss = torch.nn.MSELoss()(durations[i, :phon_len[i]], target_durations[i, :phon_len[i]].to(torch.float32))
+        else:
+            mel_loss = mel_loss + torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
+            dur_loss = dur_loss + torch.nn.MSELoss()(durations[i, :phon_len[i]], target_durations[i, :phon_len[i]].to(torch.float32))
+    mel_loss = torch.div(mel_loss, len(mel_target))
+    dur_loss = torch.div(dur_loss, len(mel_target))
+    return mel_loss + dur_loss
 
 
 def main():

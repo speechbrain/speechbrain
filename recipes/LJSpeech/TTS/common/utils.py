@@ -100,6 +100,9 @@ class ProgressSampleImageMixin:
         format = self._FORMATS[sample_formats.get(key, self.DEFAULT_FORMAT)]
         file_name = f"{key}.{format['extension']}"
         effective_file_name = os.path.join(target_path, file_name)
+        import numpy as np
+        with open(effective_file_name[:-3]+'.npy', 'wb') as f:
+            np.save(f, data.detach().cpu().numpy())
         format['saver'](data, effective_file_name)
 
 

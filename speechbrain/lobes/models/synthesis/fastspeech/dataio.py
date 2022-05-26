@@ -91,6 +91,8 @@ def audio_pipeline(hparams):
     input_encoder = hparams.get("input_encoder")
     with open('lexicon', 'r') as f:
         lexicon = f.read().split('\t')
+    # lexicon.remove(' ')
+    lexicon = ['@@'] + lexicon
     input_encoder.update_from_iterable(
                 lexicon,
                 sequence_input=False)
@@ -99,8 +101,18 @@ def audio_pipeline(hparams):
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def f(file_path, words, durs):
         durs = np.load(durs)
+        # print(words.lower())
         text_seq = input_encoder.encode_sequence_torch(words.lower()).int()
+        # from pathlib import Path
+        # import os
+        # import pickle
+        # datadict = pickle.load( open( '../../../../../../DeepForcedAligner/dfa_data/symbols.pkl', "rb") )
+        # datadict = {idx:d for idx, d in enumerate(datadict)}
+        # p = os.path.join('../../../../../../DeepForcedAligner/dfa_data/tokens/', Path(file_path).stem+'.npy')
+        # token = np.load(p)
+        # print(''.join([datadict[t-1] for t in token]))
         durs_seq = torch.from_numpy(durs).int()
+        # print(len(text_seq), len(durs), file_path)
         assert len(text_seq) == len(durs)
         audio = sb.dataio.dataio.read_audio(file_path)
         mel = audio_to_mel(audio)
@@ -225,10 +237,11 @@ class TextMelCollate:
             text = batch[ids_sorted_decreasing[i]][0]
 
             dur = batch[ids_sorted_decreasing[i]][1]
+            # print(text, dur)
             dur_padded[i, : dur.size(0)] = dur
             text_padded[i, : text.size(0)] = text
-
-
+            # print(dur_padded, text_padded)
+        # exit()
         # Right zero-pad mel-spec
         num_mels = batch[0][2].size(0)
         max_target_len = max([x[2].size(1) for x in batch])
