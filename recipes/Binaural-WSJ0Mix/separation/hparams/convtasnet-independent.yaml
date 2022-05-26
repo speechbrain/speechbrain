@@ -1,7 +1,7 @@
 # ################################
-# Model: SepFormer for source separation
-# https://arxiv.org/abs/2010.13154
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Model: Convtasnet for binaural source separation
+# https://ieeexplore.ieee.org/abstract/document/9053215
+# Dataset : Binaural WSJ0-2mix and WSJ0-3mix
 # ################################
 # Basic parameters
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -11,14 +11,18 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data params
 
-# e.g. '/yourpath/wsj0-mix/2speakers'
-# end with 2speakers for wsj0-2mix or 3speakers for wsj0-3mix
+# Output directory for writing binaural wsj0-2mix.
 data_folder: !PLACEHOLDER
+# Path to the folder containing wsj0/
+wsj_root: /yourpath/path/to/wsj/
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
-base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
-hrtf_wav_path: /yourpath/CIPIC/wav_database/
+base_folder_dm: !ref <wsj_root>/wsj0/si_tr_s/
+
+# the path for binaural-wsj0mix datasets generation automatically
+datasets_generation: !ref <data_folder>/Binaural-WSJ0Mix-main
+hrtf_wav_path: !ref <datasets_generation>/CIPIC_hrtf_database/wav_database/
 
 experiment_name: convtasnet-independent
 output_folder: !ref results/<experiment_name>/<seed>

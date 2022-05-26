@@ -11,14 +11,15 @@ pip install pyroomacoustics==0.3.1
 To run it:
 
 ```
-python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers
+python train.py hparams/convtasnet-parallel.yaml
+                --data_folder yourpath/binaural-wsj0mix/2speakers
 ```
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
 
 
 # Binaural WSJ0-2mix and WSJ0-3mix dataset creation
-* The best way to create the datasets is using the the scripts at https://github.com/huangzj421/Binaural-WSJ0Mix.
-* The dataset creation script assumes that the original WSJ0 and CIPIC HRTF files are already converted to .wav .
+* The best way to create the datasets is using the the scripts at https://github.com/huangzj421/Binaural-WSJ0Mix. The train.py will download it under data_folder if not exists.
+* Also the train.py will create Binaural WSJ0Mix datasets automatically with wsj_root specified:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/to/wsj/`
 
 
 # Dynamic Mixing:
@@ -44,9 +45,9 @@ Here are the SNRi results (in dB) as well as ITD and ILD errors as the metric fo
 # Example calls for running the training scripts
 
 
-* Binaural-WSJ0-2Mix training without dynamic mixing `python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers`
+* Binaural-WSJ02Mix training without dynamic mixing `python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/to/wsj/`
 
-* WSJ0-2Mix training with dynamic mixing `python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --base_folder_dm yourpath/wsj0/si_tr_s --hrtf_wav_path yourpath/hrtf/wav_database --dynamic_mixing True`
+* Binaural-WSJ02Mix training with dynamic mixing `python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/to/wsj/ --dynamic_mixing True`
 
 
 # Multi-GPU training
@@ -79,3 +80,4 @@ Please, cite SpeechBrain if you use it for your research or business.
 # References
 
 > [1] Han, Cong, Yi Luo, and Nima Mesgarani. "Real-time binaural speech separation with preserved spatial cues." ICASSP 2020-2020 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2020.
+> [2] V. R. Algazi, R. O. Duda, D. M. Thompson and C. Avendano, “The CIPIC HRTF Database,” Proc. 2001 IEEE Workshop on Applications of Signal Processing to Audio and Electroacoustics, pp. 99-102, Mohonk Mountain House, New Paltz, NY, Oct. 21-24, 2001.

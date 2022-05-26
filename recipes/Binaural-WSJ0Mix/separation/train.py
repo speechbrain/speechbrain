@@ -39,6 +39,8 @@ import logging
 from pyroomacoustics.experimental.localization import tdoa
 from speechbrain.processing.features import STFT, spectral_magnitude
 from torch.nn import Conv1d
+from speechbrain.pretrained.fetching import fetch
+import zipfile
 
 
 # Define training procedure
@@ -601,6 +603,33 @@ if __name__ == "__main__":
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
         sys.exit(1)
+
+    if not os.path.exists(hparams["datasets_generation"]):
+        print("Download Datasets Generation scripts")
+        fetch(
+            filename="Binaural-WSJ0Mix-main.zip",
+            source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads/main.zip",
+            savedir=hparams["data_folder"],
+        )
+        file = zipfile.ZipFile(
+            os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
+        )
+        file.extractall(path=hparams["data_folder"])
+
+    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
+        print("Generate Binaural WSJ0Mix dataset automatically")
+        sys.path.append(hparams["datasets_generation"])
+        if hparams["num_spks"] == 2:
+            from create_wav_2speakers import create_binaural_wsj0mix
+        else:
+            from create_wav_3speakers import create_binaural_wsj0mix
+        run_on_main(
+            create_binaural_wsj0mix,
+            kwargs={
+                "wsj_root": hparams["wsj_root"],
+                "output_root": hparams["data_folder"],
+            },
+        )
 
     # Data preparation
     from recipes.WSJ0Mix.prepare_data import prepare_wsjmix  # noqa
