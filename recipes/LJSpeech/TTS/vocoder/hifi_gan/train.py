@@ -15,7 +15,8 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
-
+import torchaudio
+import os
 
 class HifiGanBrain(sb.Brain):
     def compute_forward(self, batch, stage):
@@ -45,7 +46,7 @@ class HifiGanBrain(sb.Brain):
         return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the total loss by combining generator and discriminator loss
+        """Computes and combines generator and discriminator losses
         """
         batch = batch.to(self.device)
         x, _ = batch.mel
@@ -74,7 +75,7 @@ class HifiGanBrain(sb.Brain):
 
         batch = batch.to(self.device)
         y, _ = batch.sig
-     
+
         outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
         (y_g_hat, scores_fake, feats_fake, scores_real, feats_real) = outputs
         # calculate discriminator loss with the latest updated generator
@@ -173,12 +174,18 @@ class HifiGanBrain(sb.Brain):
             lr_g = self.optimizer_g.param_groups[-1]["lr"]
             lr_d = self.optimizer_d.param_groups[-1]["lr"]
 
-            # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
+            self.hparams.train_logger.log_stats(  # 1#2#
                 stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
                 train_stats=self.last_loss_stats[sb.Stage.TRAIN],
                 valid_stats=self.last_loss_stats[sb.Stage.VALID],
             )
+            # The tensorboard_logger writes a summary to stdout and to the logfile.
+            if self.hparams.use_tensorboard:
+                self.tensorboard_logger.log_stats(
+                    stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
+                    train_stats=self.last_loss_stats[sb.Stage.TRAIN],
+                    valid_stats=self.last_loss_stats[sb.Stage.VALID],
+                )
 
             # Save the current checkpoint and delete previous checkpoints.
             epoch_metadata = {
@@ -204,10 +211,15 @@ class HifiGanBrain(sb.Brain):
 
         # We also write statistics about test data to stdout and to the TensorboardLogger.
         if stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
+            self.hparams.train_logger.log_stats(  # 1#2#
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=self.last_loss_stats[sb.Stage.TEST],
             )
+            if self.hparams.use_tensorboard:
+                self.tensorboard_logger.log_stats(
+                    {"Epoch loaded": self.hparams.epoch_counter.current},
+                    test_stats=self.last_loss_stats[sb.Stage.TEST],
+                )
             self.run_inference_sample("Test")
 
     def run_inference_sample(self, name):
@@ -222,15 +234,40 @@ class HifiGanBrain(sb.Brain):
             spec_out = self.hparams.mel_spectogram(
                 audio=sig_out.squeeze(0).cpu()
             )
+        if self.hparams.use_tensorboard:
+            self.tensorboard_logger.log_audio(
+                f"{name}/audio_target", y.squeeze(0), self.hparams.sample_rate
+            )
+            self.tensorboard_logger.log_audio(
+                f"{name}/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate
+            )
+            self.tensorboard_logger.log_figure(f"{name}/mel_target", x)
+            self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)
+        else:
+            # folder name is the current epoch for validation and "test" for test
+            folder = self.hparams.epoch_counter.current if name == "Valid" else "test"
+            self.save_audio("target", y.squeeze(0), folder)
+            self.save_audio("synthesized", sig_out.squeeze(0), folder)
 
-        self.hparams.train_logger.log_audio(
-            f"{name}/audio_target", y.squeeze(0), self.hparams.sample_rate
-        )
-        self.hparams.train_logger.log_audio(
-            f"{name}/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate
-        )
-        self.hparams.train_logger.log_figure(f"{name}/mel_target", x)
-        self.hparams.train_logger.log_figure(f"{name}/mel_pred", spec_out)
+    def save_audio(self, name, data, epoch):
+        """Saves a single wav
+
+        Arguments
+        ---------
+        name: str
+            the name of the saved audio
+        data: torch.Tensor
+            the  wave data to save
+        epoch: int or str
+            the epoch number (used in file path calculations)
+            or "test" for test stage
+        """
+        target_path = os.path.join(self.hparams.progress_sample_path, str(epoch))
+        if not os.path.exists(target_path):
+            os.makedirs(target_path)
+        file_name = f"{name}.wav"
+        effective_file_name = os.path.join(target_path, file_name)
+        torchaudio.save(effective_file_name, data.cpu(), 22050)
 
 
 def dataio_prepare(hparams):
@@ -317,6 +354,11 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    if hparams["use_tensorboard"]:
+        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir = hparams["output_folder"] + "/tensorboard"
+        )
 
     # Training
     hifi_gan_brain.fit(
