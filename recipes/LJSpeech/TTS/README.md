@@ -22,9 +22,9 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotroon 2).
 
-We suggest using tensorboard_logger by setting `use_tensorboard: True` in the yaml file, thus `Tensorboard` should be installed.
+We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the yaml file, thus `Tensorboard` should be installed.
 
-To run this recipe, go in the   "vocoder/hifi_gan/"  and run:
+To run this recipe, go into the "vocoder/hifi_gan/" folder and run:
 
 ```
 python train.py hparams/train.yaml --data_folder /path/to/LJspeech
