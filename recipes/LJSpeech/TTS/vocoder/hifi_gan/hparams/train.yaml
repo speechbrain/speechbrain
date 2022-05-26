@@ -6,8 +6,10 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/hifi_gan/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 100
+progress_sample_path: !ref <output_folder>/samples
+epochs: 250
 keep_checkpoint_interval: 10
+use_tensorboard: False
 
 #################################
 # Data files and pre-processing #
@@ -175,8 +177,8 @@ sch_class_discriminator: !name:torch.optim.lr_scheduler.ExponentialLR
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <epochs>
 
-train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
-  save_dir: !ref <output_folder>/tensorboard
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
 
 #checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
