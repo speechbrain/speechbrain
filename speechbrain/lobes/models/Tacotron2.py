@@ -1861,9 +1861,9 @@ def mel_spectogram(
     n_mels : int
         Number of mel filterbanks.
     f_min : float
-        Minimum frequency. 
+        Minimum frequency.
     f_max : float
-        Maximum frequency. 
+        Maximum frequency.
     power : float
         Exponent for the magnitude spectrogram.
     normalized : bool

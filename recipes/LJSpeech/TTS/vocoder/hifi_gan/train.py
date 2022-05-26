@@ -18,6 +18,7 @@ from speechbrain.utils.data_utils import scalarize
 import torchaudio
 import os
 
+
 class HifiGanBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         """The forward function, generates synthesized waveforms,
@@ -239,13 +240,19 @@ class HifiGanBrain(sb.Brain):
                 f"{name}/audio_target", y.squeeze(0), self.hparams.sample_rate
             )
             self.tensorboard_logger.log_audio(
-                f"{name}/audio_pred", sig_out.squeeze(0), self.hparams.sample_rate
+                f"{name}/audio_pred",
+                sig_out.squeeze(0),
+                self.hparams.sample_rate
             )
             self.tensorboard_logger.log_figure(f"{name}/mel_target", x)
             self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)
         else:
             # folder name is the current epoch for validation and "test" for test
-            folder = self.hparams.epoch_counter.current if name == "Valid" else "test"
+            folder = (
+                self.hparams.epoch_counter.current
+                if name == "Valid"
+                else "test"
+            )
             self.save_audio("target", y.squeeze(0), folder)
             self.save_audio("synthesized", sig_out.squeeze(0), folder)
 
@@ -262,7 +269,9 @@ class HifiGanBrain(sb.Brain):
             the epoch number (used in file path calculations)
             or "test" for test stage
         """
-        target_path = os.path.join(self.hparams.progress_sample_path, str(epoch))
+        target_path = os.path.join(
+            self.hparams.progress_sample_path, str(epoch)
+        )
         if not os.path.exists(target_path):
             os.makedirs(target_path)
         file_name = f"{name}.wav"
@@ -357,7 +366,7 @@ if __name__ == "__main__":
 
     if hparams["use_tensorboard"]:
         hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir = hparams["output_folder"] + "/tensorboard"
+            save_dir=hparams["output_folder"] + "/tensorboard"
         )
 
     # Training
