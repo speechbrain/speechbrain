@@ -242,7 +242,7 @@ class HifiGanBrain(sb.Brain):
             self.tensorboard_logger.log_audio(
                 f"{name}/audio_pred",
                 sig_out.squeeze(0),
-                self.hparams.sample_rate
+                self.hparams.sample_rate,
             )
             self.tensorboard_logger.log_figure(f"{name}/mel_target", x)
             self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)

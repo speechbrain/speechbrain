@@ -94,6 +94,7 @@ def mel_spectogram(
     audio : torch.tensor
         input audio signal
     """
+
     audio_to_mel = transforms.MelSpectrogram(
         sample_rate=sample_rate,
         hop_length=hop_length,
@@ -133,7 +134,6 @@ class ResBlock1(torch.nn.Module):
         size of the convolution filter in each layer.
     dilations : list
         list of dilation value for each conv layer in a block.
-
     """
 
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5)):
@@ -215,8 +215,8 @@ class ResBlock1(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, channel, time)
             input tensor.
-
         """
+
         for c1, c2 in zip(self.convs1, self.convs2):
             xt = F.leaky_relu(x, LRELU_SLOPE)
             xt = c1(xt)
@@ -246,7 +246,6 @@ class ResBlock2(torch.nn.Module):
         size of the convolution filter in each layer.
     dilations : list
         list of dilation value for each conv layer in a block.
-
     """
 
     def __init__(self, channels, kernel_size=3, dilation=(1, 3)):
@@ -283,8 +282,8 @@ class ResBlock2(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, channel, time)
             input tensor.
-
         """
+
         for c in self.convs:
             xt = F.leaky_relu(x, LRELU_SLOPE)
             xt = c(xt)
@@ -420,7 +419,6 @@ class HifiganGenerator(torch.nn.Module):
             feature input tensor.
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
-
         """
 
         o = self.conv_pre(x)
@@ -444,6 +442,7 @@ class HifiganGenerator(torch.nn.Module):
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference.
         """
+
         for l in self.ups:
             l.remove_weight_norm()
         for l in self.resblocks:
@@ -460,8 +459,8 @@ class HifiganGenerator(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
-
         """
+
         # c = c.to(self.conv_pre.device)
         c = torch.nn.functional.pad(
             c, (self.inference_padding, self.inference_padding), "replicate"
@@ -488,7 +487,6 @@ class DiscriminatorP(torch.nn.Module):
     ---------
     x : torch.Tensor (batch, 1, time)
         input waveform.
-
     """
 
     def __init__(self, period, kernel_size=5, stride=3):
@@ -562,6 +560,7 @@ class DiscriminatorP(torch.nn.Module):
             input waveform.
 
         """
+
         feat = []
 
         # 1d to 2d
@@ -609,6 +608,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         x : torch.Tensor (batch, 1, time)
             input waveform.
         """
+
         scores = []
         feats = []
         for _, d in enumerate(self.discriminators):
@@ -627,7 +627,6 @@ class DiscriminatorS(torch.nn.Module):
     ---------
     use_spectral_norm : bool
         if `True` switch to spectral norm instead of weight norm.
-
     """
 
     def __init__(self, use_spectral_norm=False):
@@ -657,6 +656,7 @@ class DiscriminatorS(torch.nn.Module):
         x : torch.Tensor (batch, 1, time)
             input waveform.
         """
+
         feat = []
         for l in self.convs:
             x = l(x)
@@ -692,8 +692,8 @@ class MultiScaleDiscriminator(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
-
         """
+
         scores = []
         feats = []
         for i, d in enumerate(self.discriminators):
@@ -733,6 +733,7 @@ class HifiganDiscriminator(nn.Module):
         x : torch.Tensor
             input waveform.
         """
+
         scores, feats = self.mpd(x)
         scores_, feats_ = self.msd(x)
         return scores + scores_, feats + feats_
@@ -784,6 +785,7 @@ class STFTLoss(nn.Module):
         y : torch.tensor
             real waveform tensor
         """
+
         y_hat_M = stft(y_hat, self.n_fft, self.hop_length, self.win_length)
         y_M = stft(y, self.n_fft, self.hop_length, self.win_length)
         # magnitude loss
@@ -821,6 +823,7 @@ class MultiScaleSTFTLoss(torch.nn.Module):
         y : torch.tensor
             real waveform tensor
         """
+
         N = len(self.loss_funcs)
         loss_sc = 0
         loss_mag = 0
@@ -907,6 +910,7 @@ class L1SpecLoss(nn.Module):
         y : torch.tensor
             real waveform tensor
         """
+
         y_hat_M = mel_spectogram(
             self.sample_rate,
             self.hop_length,
@@ -971,6 +975,7 @@ class MelganFeatureLoss(nn.Module):
     the difference in features of the discriminator between a ground truth sample and a generated
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
+
     def __init__(self,):
         super().__init__()
         self.loss_func = nn.L1Loss()
@@ -986,6 +991,7 @@ class MelganFeatureLoss(nn.Module):
         real_feats : list
             discriminator features of groundtruth waveforms
         """
+
         loss_feats = 0
         num_feats = 0
         for idx, _ in enumerate(fake_feats):
@@ -1021,6 +1027,7 @@ class MSEDLoss(nn.Module):
         score_real : list
             discriminator scores of groundtruth waveforms
         """
+
         loss_real = self.loss_func(
             score_real, score_real.new_ones(score_real.shape)
         )
@@ -1047,6 +1054,7 @@ def _apply_G_adv_loss(scores_fake, loss_func):
     loss_func : object
         object of target generator loss
     """
+
     adv_loss = 0
     if isinstance(scores_fake, list):
         for score_fake in scores_fake:
@@ -1123,6 +1131,7 @@ class GeneratorLoss(nn.Module):
     l1_spec_loss_weight : float
         weight of L1 spectrogram loss
     """
+
     def __init__(
         self,
         stft_loss=None,
@@ -1167,6 +1176,7 @@ class GeneratorLoss(nn.Module):
         feats_real : list
             discriminator features of groundtruth waveforms
         """
+
         gen_loss = 0
         adv_loss = 0
         loss = {}
@@ -1229,6 +1239,7 @@ class DiscriminatorLoss(nn.Module):
         scores_real : list
             discriminator scores of groundtruth waveforms
         """
+
         disc_loss = 0
         loss = {}
 
