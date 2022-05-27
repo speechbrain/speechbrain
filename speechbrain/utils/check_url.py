@@ -8,6 +8,7 @@ import os
 import re
 import time
 import requests
+from tqdm.contrib import tqdm
 from speechbrain.utils.data_utils import get_all_files
 
 
@@ -133,15 +134,16 @@ def test_links(
     # Find all the files that potentially contain urls
     file_lst = get_all_files(folder, match_or=match_or, exclude_or=exclude_or)
 
-    # Get urls for the list of files
+    # Get urls for the list of files - unique list
     all_urls = get_all_urls(file_lst, avoid_urls)
 
     # Check all the urls
-    for url in all_urls:
-        time.sleep(1)
-        if not (check_url(url)):
-            check_test = False
-            print("WARNING: %s is DOWN!" % (url))
-            for path in all_urls[url]:
-                print("\t link detected in %s" % (path))
+    with tqdm(all_urls) as all_urls_progressbar:
+        for url in all_urls_progressbar:
+            time.sleep(1)
+            if not (check_url(url)):
+                check_test = False
+                print("WARNING: %s is DOWN!" % (url))
+                for path in all_urls[url]:
+                    print("\t link detected in %s" % (path))
     return check_test
