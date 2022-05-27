@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import sys
 
+sys.path
+sys.path.append('/data/n.abdoumohamed/dvoice-africa/GitHub/speechbrain')
+
 
 import torch
 import logging

@@ -26,6 +26,8 @@ from speechbrain.processing.speech_augmentation import DropFreq
 from speechbrain.processing.speech_augmentation import DoClip
 from speechbrain.lobes.augment import TimeDomainSpecAugment
 
+import glob
+import librosa
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +39,14 @@ def prepare_dvoice(
     dev_csv_file=None,
     test_csv_file=None,
     accented_letters=False,
-    language="dar",
+    language=None,
     skip_prep=False,
 ):
 
     if skip_prep:
         return
 
-    # If not specified point toward standard location w.r.t CommonVoice tree
+    # If not specified point toward standard location w.r.t DVoice tree
     if train_csv_file is None:
         train_csv_file = data_folder + "texts/train.csv"
     else:
@@ -63,6 +65,68 @@ def prepare_dvoice(
     # Setting the save folder
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
+
+    # Setting the ALFFA-Dataset csv files
+    ALFFA_LANGUAGES = ['amharic', 'fongbe', 'wolof']
+    if language in ALFFA_LANGUAGES:
+        if language == 'amharic':
+            wavs = glob.glob(f'{data_folder}/*/*/*.wav')
+            f_train = open(f'{data_folder}/train/text', 'r')
+            f_test = open(f'{data_folder}/test/text', 'r')
+            text = f_train.readlines() + f_test.readlines()
+
+        if language == 'fongbe':
+            wavs = glob.glob(f'{data_folder}/*/wav/*/*.wav')
+            f_train = open(f'{data_folder}/train/text', 'r')
+            f_test = open(f'{data_folder}/test/text', 'r')
+            text = f_train.readlines() + f_test.readlines()
+        
+        if language == 'wolof':
+            wavs_train = glob.glob(f'{data_folder}/train/*/*.wav')
+            wavs_dev = glob.glob(f'{data_folder}/dev/wav/*/*.wav')
+            wavs_test = glob.glob(f'{data_folder}/test/wav/*/*.wav')
+            wavs = wavs_train + wavs_dev + wavs_test
+            f_train = open(f'{data_folder}/train/text', 'r')
+            f_test = open(f'{data_folder}/test/text', 'r')
+            f_dev = open(f'{data_folder}/dev/text', 'r')
+            text = f_train.readlines() + f_dev.readlines() + f_test.readlines()
+
+            for j in tqdm(range(len(wavs))):
+                f = open('/data/n.abdoumohamed/dvoice-africa/data-processing/scripts/xo.txt', 'a')
+                f.write(wavs[j]+"\n")
+        random.shuffle(wavs)
+        random.shuffle(text)
+
+        data = []
+        for i in tqdm(range(len(text))):
+            text[i] = text[i].replace('   ', ' ')
+            text[i] = text[i].replace('  ', ' ')
+            text[i] = text[i].split(" ")
+            file_name = text[i][0]
+            words = " ".join(text[i][1:])
+            for j in range(len(wavs)):
+                # wav_ = wavs[j].replace(data_folder+"/", "")
+
+
+                # print("wav :", wavs[j].split('/')[-1], "/", "file_name :", file_name+".wav")
+                if wavs[j].split('/')[-1] == file_name+".wav":
+                    wav = wavs[j]
+                    break
+
+            duration = librosa.get_duration(filename=wav)
+            dic = {'wav' : wavs[j].replace(data_folder+"/", ""), 'words' : str(words).replace('\n', ''), 'duration' : duration}
+            data.append(dic)
+
+        else:
+            pass
+
+        df = pd.DataFrame(data)
+
+        train, dev, test = train_validate_test_split(df)
+
+        train.to_csv(f'{data_folder}/train.csv', index=False, sep='\t')
+        dev.to_csv(f'{data_folder}/dev.csv', index=False, sep='\t')
+        test.to_csv(f'{data_folder}/test.csv', index=False, sep='\t')
 
     # Setting ouput files
     save_csv_train = save_folder + "/train.csv"
@@ -83,8 +147,8 @@ def prepare_dvoice(
 
         return
 
-    # Additional checks to make sure the data folder contains Common Voice
-    check_commonvoice_folders(data_folder)
+    # Additional checks to make sure the folder contains the data
+    check_dvoice_folders(data_folder, language)
 
     # Creating csv file for training data
     if train_csv_file is not None:
@@ -279,7 +343,7 @@ def create_csv(
     logger.info(msg)
 
 
-def check_commonvoice_folders(data_folder):
+def check_dvoice_folders(data_folder, language):
     """
     Check if the data folder actually contains the DVoice dataset.
     If not, raises an error.
@@ -292,7 +356,11 @@ def check_commonvoice_folders(data_folder):
         If data folder doesn't contain DVoice dataset.
     """
 
-    files_str = "/wavs"
+    ALFFA_LANGUAGES = ['amharic', 'fongbe', 'wolof']
+    if language in ALFFA_LANGUAGES:
+        files_str = "/"
+    else:
+        files_str = "/wavs"
 
     # Checking clips
     if not os.path.exists(data_folder + files_str):

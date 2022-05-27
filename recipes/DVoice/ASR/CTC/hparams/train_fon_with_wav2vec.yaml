@@ -15,12 +15,12 @@ train_log: !ref <output_folder>/train_log.txt
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
-data_folder: #!PLACEHOLDER  # e.g, /dataset/
-train_csv_file: !ref <data_folder>/texts/train/fongbe_alffa.csv  # Standard CommonVoice .tsv files
-dev_csv_file: !ref <data_folder>/texts/dev/fongbe_alffa.csv  # Standard CommonVoice .tsv files
-test_csv_file: !ref <data_folder>/texts/test/fongbe_alffa.csv  # Standard CommonVoice .tsv files
+data_folder: #!PLACEHOLDER  # e.g, /PATH_TO/ALFFA_PUBLIC/ASR/FONGBE/data
+train_csv_file: !ref <data_folder>/train.csv
+dev_csv_file: !ref <data_folder>/dev.csv
+test_csv_file: !ref <data_folder>/test.csv
 accented_letters: True
-language: fongbe # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+language: fongbe
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv

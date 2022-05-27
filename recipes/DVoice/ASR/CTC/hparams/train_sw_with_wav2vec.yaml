@@ -21,7 +21,7 @@ train_csv_file: !ref <data_folder>/texts/train.csv  # Standard CommonVoice .tsv 
 dev_csv_file: !ref <data_folder>/texts/dev.csv  # Standard CommonVoice .tsv files
 test_csv_file: !ref <data_folder>/texts/test.csv  # Standard CommonVoice .tsv files
 accented_letters: True
-language: sw
+language: swahili
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv

@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1248
+seed: 1249
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/wav2vec2_ctc_WOLOF/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -16,10 +16,10 @@ train_log: !ref <output_folder>/train_log.txt
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
-data_folder: #!PLACEHOLDER  # e.g, /dataset/
-train_csv_file: !ref <data_folder>/texts/train/wolof_alffa.csv  # Standard CommonVoice .tsv files
-dev_csv_file: !ref <data_folder>/texts/dev/wolof_alffa.csv  # Standard CommonVoice .tsv files
-test_csv_file: !ref <data_folder>/texts/test/wolof_alffa.csv  # Standard CommonVoice .tsv files
+data_folder: #!PLACEHOLDER  # e.g, /PATH_TO/ALFFA_PUBLIC/ASR/WOLOF/data
+train_csv_file: !ref <data_folder>/train.csv  # Standard CommonVoice .tsv files
+dev_csv_file: !ref <data_folder>/dev.csv  # Standard CommonVoice .tsv files
+test_csv_file: !ref <data_folder>/test.csv  # Standard CommonVoice .tsv files
 accented_letters: True
 language: wolof
 train_csv: !ref <save_folder>/train.csv

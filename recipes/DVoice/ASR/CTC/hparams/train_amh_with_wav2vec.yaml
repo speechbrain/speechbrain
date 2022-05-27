@@ -16,17 +16,16 @@ train_log: !ref <output_folder>/train_log.txt
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
-data_folder: #!PLACEHOLDER  # e.g, /dataset/
-train_csv_file: !ref <data_folder>/texts/train/amharic_alffa.csv  # Standard CommonVoice .tsv files
-dev_csv_file: !ref <data_folder>/texts/dev/amharic_alffa.csv  # Standard CommonVoice .tsv files
-test_csv_file: !ref <data_folder>/texts/test/amharic_alffa.csv  # Standard CommonVoice .tsv files
+data_folder: #!PLACEHOLDER  # e.g, /PATH_TO/ALFFA_PUBLIC/ASR/AMHARIC/data
+train_csv_file: !ref <data_folder>/train.csv
+dev_csv_file: !ref <data_folder>/dev.csvs
+test_csv_file: !ref <data_folder>/test.csv
 accented_letters: True
-language: amharic # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+language: amharic
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
 skip_prep: False # Skip data preparation
-data_augmentation: False # Skip data augmentation
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
