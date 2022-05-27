@@ -27,9 +27,14 @@ def get_yaml_var(hparam_file):
     var_lst = []
     with open(hparam_file) as f:
         for line in f:
-            # Avoid empty lists or comments
-            if len(line) <= 1 or line.startswith("#"):
+            # Avoid empty lists or comments - skip pretrainer definitions
+            if (
+                len(line) <= 1
+                or line.startswith("#")
+                or "speechbrain.utils.parameter_transfer.Pretrainer" in line
+            ):
                 continue
+
             # Remove trailing characters
             line = line.rstrip()
 
@@ -84,6 +89,7 @@ def detect_script_vars(script_file, var_lst):
                 if '["' + var + '"]' in line:
                     if var not in detected_var:
                         detected_var.append(var)
+                        continue  # no need to go through the other cases for this var
                 # case: hparams[f"{dataset}_annotation"] - only that structure at the moment
                 re_match = re.search(r"\[f.\{.*\}(.*).\]", line)
                 if re_match is not None:
@@ -94,13 +100,25 @@ def detect_script_vars(script_file, var_lst):
                         )
                         if var not in detected_var:
                             detected_var.append(var)
+                            continue
                 if "." + var in line:
                     if var not in detected_var:
                         detected_var.append(var)
+                        continue
                 # case: getattr(self.hparams, "waveform_target", False):
                 if 'attr(self.hparams, "' + var + '"' in line:
                     if var not in detected_var:
                         detected_var.append(var)
+                        continue
+                # case: tea_enc_list.append(hparams['tea{}_enc'])
+                re_var = re.search(r"\[.(.*){}(.*).\]", line)
+                if re_var is not None:
+                    re_var_pattern = re_var.group(1) + ".*" + re_var.group(2)
+                    re_pattern = re.search(re_var_pattern, var)
+                    if re_pattern is not None:
+                        if re_pattern.group() == var:
+                            detected_var.append(var)
+                            continue
     return detected_var
 
 
@@ -177,18 +195,9 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         - set(default_run_opt_keys)
     )
     for unused_var in unused_vars:
-        if len(prepare_files) == 0:
-            print(
-                '\tWARNING: variable "%s" not used in %s!'
-                % (unused_var, script_file)
-            )
-        else:
-            print(
-                '\tWARNING: variable "%s" not used in %s or %s!'
-                % (unused_var, script_file, ",".join(prepare_files))
-            )
+        print(
+            '\tWARNING: variable "%s" not used in %s!'
+            % (unused_var, ", ".join([script_file, *prepare_files]))
+        )
 
-    if len(unused_vars) == 0:
-        return True
-    else:
-        return False
+    return len(unused_vars) == 0
