@@ -83,4 +83,5 @@ Please, cite SpeechBrain if you use it for your research or business.
   note={arXiv:2106.04624}
 }
 ```
-
+# **Acknowledgements**
+This research was supported through computational resources of HPC-MARWAN (www.marwan.ma/hpc) provided by CNRST, Rabat, Morocco. We deeply thank this institution.
