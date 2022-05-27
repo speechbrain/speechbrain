@@ -40,7 +40,7 @@ skip_prep: False
 auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 1 # set to 3 for wsj0-3mix
-progressbar: True
+noprogressbar: False
 save_audio: True # Save estimated sources on disk
 sample_rate: 8000
 n_audio_to_save: 20
@@ -69,7 +69,6 @@ rir_path: !PLACEHOLDER
 
 use_wavedrop: False
 use_speedperturb: True
-use_speedperturb_sameforeachsource: False
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000

@@ -34,15 +34,11 @@ ref_rttm_dir: !ref <save_folder>/ref_rttms
 sys_rttm_dir: !ref <save_folder>/sys_rttms
 der_dir: !ref <save_folder>/DER
 
-# AMI: csv files
-csv_diary_dev: !ref <meta_data_dir>/ami_dev.subsegments.csv
-csv_diary_eval: !ref <meta_data_dir>/ami_eval.subsegments.csv
-
 # Spectral feature parameters
 n_mels: 24
-left_frames: 0
-right_frames: 0
-deltas: False
+# left_frames: 0
+# right_frames: 0
+# deltas: False
 
 # Xvector model
 emb_dim: 512
@@ -92,10 +88,10 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
-    rank_f: 100
-    nb_iter: 10
-    scaling_factor: 0.05
+# compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
+#    rank_f: 100
+#    nb_iter: 10
+#    scaling_factor: 0.05
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
