@@ -1,5 +1,5 @@
 # DVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset (Darija, Swahili) : [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here : [Link](https://github.com/besacier/ALFFA_PUBLIC).
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset (Darija, Swahili) : [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here : [Link](https://github.com/besacier/ALFFA_PUBLIC). For the Kabyle, we used Mozilla CommoVoice : [Link](https://commonvoice.mozilla.org/fr/datasets).
 
 # Data preparation
 [DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
@@ -39,18 +39,16 @@ Dataset Link | Language | Test WER |
 | [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Wolof | 21.54 |
 | [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Amharic | 31.15 |
 
-
-
 ## How to simply use pretrained models to transcribe my audio file?
 
 SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories (see the results table above) corresponding to our different models for DVoice.
 
-# ** About DVoice **
+# **About DVoice**
 DVoice is a community initiative that aims to provide Africa low resources languages with data and models to facilitate their use of voice technologies. The lack of data on these languages makes it necessary to collect data using methods that are specific to each one. Two different approaches are currently used: the DVoice platforms ([https://dvoice.ma](https://dvoice.ma) and [https://dvoice.sn](https://dvoice.sn)), which are based on Mozilla Common Voice, for collecting authentic recordings from the community, and transfer learning techniques for automatically labeling recordings that are retrived from social medias. The DVoice platform currently manages 7 languages including Darija (Moroccan Arabic dialect) whose dataset appears on this version, Wolof, Mandingo, Serere, Pular, Diola and Soninke.
 
 For this project, AIOX Labs the SI2M Laboratory are joining forces to build the future of technologies together.
 
-# ** About AIOX Labs **
+# **About AIOX Labs**
 Based in Rabat, London and Paris, AIOX-Labs mobilizes artificial intelligence technologies to meet the business needs and data projects of companies.
 
 - He is at the service of the growth of groups, the optimization of processes or the improvement of the customer experience.
@@ -60,7 +58,7 @@ Based in Rabat, London and Paris, AIOX-Labs mobilizes artificial intelligence te
 
 Website: [https://www.aiox-labs.com/](https://www.aiox-labs.com/)
 
-# ** About SI2M Laboratory **
+# **About SI2M Laboratory**
 The Information Systems, Intelligent Systems and Mathematical Modeling Research Laboratory (SI2M) is an academic research laboratory of the National Institute of Statistics and Applied Economics (INSEA). The research areas of the laboratories are Information Systems, Intelligent Systems, Artificial Intelligence, Decision Support, Network and System Security, Mathematical Modelling.
 
 Website: [SI2M Laboratory](https://insea.ac.ma/index.php/pole-recherche/equipe-de-recherche/150-laboratoire-de-recherche-en-systemes-d-information-systemes-intelligents-et-modelisation-mathematique)
