@@ -49,10 +49,10 @@ def get_yaml_var(hparam_file):
                 # note: output_folder: !ref results/<experiment_name>/<seed> pattern
                 if line.find("!ref") != -1:
                     # Check for 'annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]' pattern
-                    for subline in line.split('<'):
+                    for subline in line.split("<"):
                         sub_var = subline[: subline.find(">")]
                         # Check for 'models[generator]' pattern (dictionary reference)
-                        dict_pos = sub_var.find('[')
+                        dict_pos = sub_var.find("[")
                         if dict_pos != -1:
                             sub_var = sub_var[:dict_pos]
                         # Remove variables already used in yaml
@@ -61,7 +61,50 @@ def get_yaml_var(hparam_file):
     return var_lst
 
 
-def check_yaml_vs_script(hparam_file, script_file):
+def detect_script_vars(script_file, var_lst):
+    """Detects from the input script file (script_file) which of given variables (var_lst) are demanded.
+
+    Arguments
+    ---------
+    script_file : path
+        Path of the script file needing the hyperparameters.
+    var_lst : list
+        list of the variables declared in the yaml file.
+
+    Returns
+    -------
+    detected_var: list
+        list of the variables detected in the script file.
+    """
+    detected_var = []
+    with open(script_file) as f:
+        for line in f:
+            for var in var_lst:
+                # The pattern can be ["key"] or ".key"
+                if '["' + var + '"]' in line:
+                    if var not in detected_var:
+                        detected_var.append(var)
+                # case: hparams[f"{dataset}_annotation"] - only that structure at the moment
+                re_match = re.search(r"\[f.\{.*\}(.*).\]", line)
+                if re_match is not None:
+                    if re_match.group(1) in var:
+                        print(
+                            "\t\tAlert: potential inconsistency %s maybe used in %s (or not)."
+                            % (var, re_match.group(0))
+                        )
+                        if var not in detected_var:
+                            detected_var.append(var)
+                if "." + var in line:
+                    if var not in detected_var:
+                        detected_var.append(var)
+                # case: getattr(self.hparams, "waveform_target", False):
+                if 'attr(self.hparams, "' + var + '"' in line:
+                    if var not in detected_var:
+                        detected_var.append(var)
+    return detected_var
+
+
+def check_yaml_vs_script(hparam_file, script_file, prepare_file):
     """Checks consistency between the given yaml file (hparams_file) and the
     script file. The function detects if there are variables declared in the yaml
     file, but not used in the script file.
@@ -72,6 +115,8 @@ def check_yaml_vs_script(hparam_file, script_file):
         Path of the yaml file containing the hyperparameters.
     script_file : path
         Path of the script file (.py) containing the training recipe.
+    prepare_file : path (optional)
+        Path of the preparation script file (.py) containing the data preparation.
 
     Returns
     -------
@@ -91,45 +136,59 @@ def check_yaml_vs_script(hparam_file, script_file):
         print("File %s not found!" % (script_file,))
         return False
 
+    if prepare_file is not None:
+        if not (os.path.exists(prepare_file)):
+            print("File %s not found!" % (prepare_file,))
+            return False
+
     # Getting list of variables declared in yaml
     var_lst = get_yaml_var(hparam_file)
 
     # Detect which of these variables are used in the script file
-    detected_var = []
-    with open(script_file) as f:
-        for line in f:
-            for var in var_lst:
-                # The pattern can be ["key"] or ".key"
-                if '["' + var + '"]' in line:
-                    if var not in detected_var:
-                        detected_var.append(var)
-                # case: hparams[f"{dataset}_annotation"] - only that structure at the moment
-                re_match = re.search(r'\[f.\{.*\}(.*).\]', line)
-                if re_match is not None:
-                    if re_match.group(1) in var:
-                        print("\t\tAlert: potential inconsistency %s maybe used in %s (or not)."
-                              % (var, re_match.group(0)))
-                        detected_var.append(var)
-                if "." + var in line:
-                    if var not in detected_var:
-                        detected_var.append(var)
+    detected_vars_prepare = (
+        detect_script_vars(prepare_file, var_lst)
+        if prepare_file is not None
+        else []
+    )
+    detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
-    default_run_opt_keys = ["debug", "debug_batches", "debug_epochs",
-                            "device", "cpu", "data_parallel_backend",
-                            "distributed_launch", "distributed_backend",
-                            "find_unused_parameters", "jit_module_keys",
-                            "auto_mix_prec", "max_grad_norm", "nonfinite_patience",
-                            "noprogressbar", "ckpt_interval_minutes",
-                            "grad_accumulation_factor", "optimizer_step_limit"]
-    artefacts = ["progressbar", "compute_error", "gradient_clipping", "eos_threshold",
-                 "data_folder_rirs", "pretrainer", "vocab_size"]  # TODO disregard?
-    unused_vars = list(set(var_lst) - set(detected_var) - set(default_run_opt_keys) - set(artefacts))
+    default_run_opt_keys = [
+        "debug",
+        "debug_batches",
+        "debug_epochs",
+        "device",
+        "cpu",
+        "data_parallel_backend",
+        "distributed_launch",
+        "distributed_backend",
+        "find_unused_parameters",
+        "jit_module_keys",
+        "auto_mix_prec",
+        "max_grad_norm",
+        "nonfinite_patience",
+        "noprogressbar",
+        "ckpt_interval_minutes",
+        "grad_accumulation_factor",
+        "optimizer_step_limit",
+    ]
+    unused_vars = list(
+        set(var_lst)
+        - set(detected_vars_prepare)
+        - set(detected_vars_train)
+        - set(default_run_opt_keys)
+    )
     for unused_var in unused_vars:
-        print(
-            '\tWARNING: variable "%s" not used in %s!'
-            % (unused_var, script_file)
-        )
+        if prepare_file is None:
+            print(
+                '\tWARNING: variable "%s" not used in %s!'
+                % (unused_var, script_file)
+            )
+        else:
+            print(
+                '\tWARNING: variable "%s" not used in %s or %s!'
+                % (unused_var, script_file, prepare_file)
+            )
 
     if len(unused_vars) == 0:
         return True
