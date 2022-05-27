@@ -20,9 +20,11 @@ def test_yaml_script_consistency(recipe_list="tests/unittests/recipe_list.txt"):
             )
             if len(entry_items) >= 2:
                 script_file, hparam_file = entry_items[:2]
-                prepare_file = entry_items[2:]
+                prepare_files = entry_items[2:]
                 if not (
-                    check_yaml_vs_script(hparam_file, script_file, prepare_file)
+                    check_yaml_vs_script(
+                        hparam_file, script_file, prepare_files
+                    )
                 ):
                     check = False
             else:

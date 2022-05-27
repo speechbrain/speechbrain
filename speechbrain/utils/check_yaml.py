@@ -116,7 +116,7 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
     script_file : path
         Path of the script file (.py) containing the training recipe.
     prepare_file : List(path) (optional)
-        Path list of the preparation script file (.py) containing the data preparation.
+        Path list of the preparation script files (.py) containing the data preparation.
 
     Returns
     -------
@@ -185,7 +185,7 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         else:
             print(
                 '\tWARNING: variable "%s" not used in %s or %s!'
-                % (unused_var, script_file, ','.join(prepare_files))
+                % (unused_var, script_file, ",".join(prepare_files))
             )
 
     if len(unused_vars) == 0:
