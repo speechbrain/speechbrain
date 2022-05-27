@@ -25,11 +25,11 @@ number_of_epochs: 30
 ctc_epochs: 0
 batch_size: 8
 lr: 0.0001
-token_type: unigram
+# token_type: unigram
 target_type: words
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
-character_coverage: 1.0
+# character_coverage: 1.0
 eval_max_key: null
 eval_min_key: null
 train_loader_options:
@@ -50,7 +50,6 @@ ctc_weight: 1.0
 ctc_type: joint  # null, clean, joint
 seq_weight: 1.0
 seq_type: joint  # null, clean, joint
-alignment_weight: 0.0
 label_smoothing: 0.1
 mask_weight: 0.7
 
@@ -76,7 +75,6 @@ output_neurons: 1000
 blank_index: 0
 bos_index: 0
 eos_index: 0
-unk_index: 0
 
 # Decoding params
 min_decode_ratio: 0.0
@@ -215,11 +213,11 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
         normalizer: !ref <normalizer>
 
-pretrain_checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: pretrain
-    recoverables:
-        model: !ref <model>
-        normalizer: !ref <normalizer>
+# pretrain_checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+#    checkpoints_dir: pretrain
+#    recoverables:
+#        model: !ref <model>
+#        normalizer: !ref <normalizer>
 
 enhance_loss: !name:speechbrain.nnet.losses.mse_loss
 mimic_loss: !name:speechbrain.nnet.losses.mse_loss

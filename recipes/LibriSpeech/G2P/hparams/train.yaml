@@ -13,8 +13,8 @@ data_folder: /localscratch/LibriSpeech
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-input_lexicon: !ref <save_folder>/lexicon.csv
-oov: !ref <save_folder>/oov.csv
+# input_lexicon: !ref <save_folder>/lexicon.csv
+# oov: !ref <save_folder>/oov.csv
 wer_file: !ref <save_folder>/wer.txt
 
 # These three files are created from lexicon.csv.
