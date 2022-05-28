@@ -1,7 +1,7 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
 # Augmentation: SpecAugment
-# Authors: Titouan Parcollet 2021
+# Authors: Abdou Mohamed Naira 2022
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -12,14 +12,14 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the biggest LeBenchmark wav2vec french.
+# URL for the xlsr wav2vec2
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
 data_folder: #!PLACEHOLDER  # e.g, /dataset/
-train_csv_file: !ref <data_folder>/texts/train.csv  # Standard CommonVoice .tsv files
-dev_csv_file: !ref <data_folder>/texts/dev.csv  # Standard CommonVoice .tsv files
-test_csv_file: !ref <data_folder>/texts/test.csv  # Standard CommonVoice .tsv files
+train_csv_file: !ref <data_folder>/texts/train.csv
+dev_csv_file: !ref <data_folder>/texts/dev.csv
+test_csv_file: !ref <data_folder>/texts/test.csv
 accented_letters: True
 language: darija
 train_csv: !ref <save_folder>/train.csv
