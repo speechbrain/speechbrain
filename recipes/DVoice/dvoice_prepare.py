@@ -258,12 +258,15 @@ def create_csv(
     # Start processing lines
     total_duration = 0.0
     for line in tzip(loaded_csv):
-
         line = line[0]
         # Path is at indice 1 in DVoice csv files. And .mp3 files
-        # are located in datasets/lang/clips/
-
-        mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
+        # are located in datasets/lang/clips/        
+        ALFFA_LANGUAGES = ['amharic', 'fongbe', 'wolof']
+        if language in ALFFA_LANGUAGES:
+            mp3_path = data_folder + "/" + line.split("\t")[0]
+        else:
+            mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
+        
         file_name = line.split("\t")[0]
         spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = file_name
