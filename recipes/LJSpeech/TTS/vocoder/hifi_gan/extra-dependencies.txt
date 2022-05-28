@@ -1,0 +1,4 @@
+# Needed only with use_tensorboard=True
+tensorboard
+# torchvision is needed to save spectrograms
+torchvision
