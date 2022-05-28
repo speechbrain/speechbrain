@@ -2189,7 +2189,7 @@ class SNREstimator(Pretrained):
 
 
 class Tacotron2(Pretrained):
-    HPARAMS_NEEDED = ["model"]
+    HPARAMS_NEEDED = ["model", "text_to_sequence"]
 
     """
     A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
@@ -2201,9 +2201,7 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tacotron2 = Tacotron2.from_hparams('path/to/model')
-    >>> from customer_preprocessing import text_to_sequence
-    >>> tacotron2.import_preprocess_function(text_to_sequence)
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir=tmpdir)
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
@@ -2220,15 +2218,10 @@ class Tacotron2(Pretrained):
         )
         self.infer = self.hparams.model.infer
 
-    def import_preprocess_function(self, preprocessing_function):
-        """imports customer text to sequence fuction, shoule be same as training
-        """
-        self.text_to_sequence = preprocessing_function
-
     def text_to_seq(self, txt):
         """Encodes raw text into a tensor with a customer text-to-equence fuction
         """
-        sequence = self.text_to_sequence(txt, self.text_cleaners)
+        sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
     def encode_batch(self, texts):
