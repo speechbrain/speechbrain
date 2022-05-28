@@ -33,10 +33,10 @@ Here is a list of the different African languages and dialects that we tested:
 Dataset Link | Language | Test WER |
 |:---------------------------:| -----:| -----:|
 | [DVoice](https://zenodo.org/record/6342622) | Darija | 13.27 |
-| [DVoice/VoxLingua107](https://zenodo.org/record/6342622) + [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Swahili | 29.31 |
-| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Fongbe | 10.26 |
-| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Wolof | 21.54 |
-| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC) | Amharic | 31.15 |
+| [DVoice/VoxLingua107](https://zenodo.org/record/6342622) + [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/SWAHILI) | Swahili | 29.31 |
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/FONGBE) | Fongbe | 10.26 |
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/WOLOF) | Wolof | 21.54 |
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/AMHARIC) | Amharic | 31.15 |
 
 ## How to simply use pretrained models to transcribe my audio file?
 
