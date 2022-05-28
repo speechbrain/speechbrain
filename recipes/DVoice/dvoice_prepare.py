@@ -39,7 +39,7 @@ def prepare_dvoice(
     dev_csv_file=None,
     test_csv_file=None,
     accented_letters=False,
-    language=None,
+    language='fongbe',
     skip_prep=False,
 ):
 
