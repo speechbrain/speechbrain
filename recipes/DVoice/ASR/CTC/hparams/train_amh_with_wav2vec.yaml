@@ -18,7 +18,7 @@ wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 # Data files
 data_folder: #!PLACEHOLDER  # e.g, /PATH_TO/ALFFA_PUBLIC/ASR/AMHARIC/data
 train_csv_file: !ref <data_folder>/train.csv
-dev_csv_file: !ref <data_folder>/dev.csvs
+dev_csv_file: !ref <data_folder>/dev.csv
 test_csv_file: !ref <data_folder>/test.csv
 accented_letters: True
 language: amharic
