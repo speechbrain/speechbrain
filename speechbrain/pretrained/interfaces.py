@@ -9,7 +9,9 @@ Authors:
  * Abdel Heba 2021
 """
 import logging
+import hashlib
 import sys
+import speechbrain
 import torch
 import torchaudio
 from types import SimpleNamespace
@@ -84,7 +86,7 @@ def foreign_class(
         An instance of a class with the given classname from the given pymodule file.
     """
     if savedir is None:
-        savedir = f"./pretrained_models/{classname}-{hash(source)}"
+        savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
     hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
     pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
     sys.path.append(str(pymodule_local_path.parent))
@@ -332,7 +334,7 @@ class Pretrained(torch.nn.Module):
         """
         if savedir is None:
             clsname = cls.__name__
-            savedir = f"./pretrained_models/{clsname}-{hash(source)}"
+            savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
             hparams_file, source, savedir, use_auth_token
         )
@@ -1291,12 +1293,11 @@ class VAD(Pretrained):
         prob_th[:, 0, :] = (prob_th[:, 0, :] >= 1).int()
         prob_th[:, -1, :] = (prob_th[:, -1, :] >= 1).int()
 
-        # Fix edge cases (when a new sentence starts in the last frame)
-        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 1:
-            prob_th[:, -2, :] = 2
-
-        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 0:
-            prob_th[:, -2, :] = 1
+        # Fix edge cases (when a speech starts in the last frames)
+        if (prob_th == 1).nonzero().shape[0] % 2 == 1:
+            prob_th = torch.cat(
+                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), dim=1
+            )
 
         # Where prob_th is 1 there is a change
         indexes = (prob_th == 1).nonzero()[:, 1].reshape(-1, 2)
@@ -1468,7 +1469,12 @@ class VAD(Pretrained):
             f.close()
 
     def energy_VAD(
-        self, audio_file, boundaries, activation_th=0.5, deactivation_th=0.0
+        self,
+        audio_file,
+        boundaries,
+        activation_th=0.5,
+        deactivation_th=0.0,
+        eps=1e-6,
     ):
         """Applies energy-based VAD within the detected speech segments.The neural
         network VAD often creates longer segments and tends to merge segments that
@@ -1493,6 +1499,8 @@ class VAD(Pretrained):
             A new speech segment is started it the energy is above activation_th.
         deactivation_th: float
             The segment is considered ended when the energy is <= deactivation_th.
+        eps: float
+            Small constant for numerical stability.
 
 
         Returns
@@ -1530,7 +1538,8 @@ class VAD(Pretrained):
             )
 
             # Energy computation within each chunk
-            energy_chunks = segment_chunks.abs().sum(-1).log()
+            energy_chunks = segment_chunks.abs().sum(-1) + eps
+            energy_chunks = energy_chunks.log()
 
             # Energy normalization
             energy_chunks = (
@@ -2481,3 +2490,145 @@ class SNREstimator(Pretrained):
         inp = inp * rnge
         inp = inp + self.hparams.snrmin
         return inp
+
+
+class Tacotron2(Pretrained):
+    HPARAMS_NEEDED = ["model", "text_to_sequence"]
+
+    """
+    A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir=tmpdir)
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_cleaners = getattr(
+            self.hparams, "text_cleaners", ["english_cleaners"]
+        )
+        self.infer = self.hparams.model.infer
+
+    def text_to_seq(self, txt):
+        """Encodes raw text into a tensor with a customer text-to-equence fuction
+        """
+        sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
+        return sequence, len(sequence)
+
+    def encode_batch(self, texts):
+        """Computes mel-spectrogram for a list of texts
+
+        Texts must be sorted in decreasing order on their lengths
+
+        Arguments
+        ---------
+        text: List[str]
+            texts to be encoded into spectrogram
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+        with torch.no_grad():
+            inputs = [
+                {"text_sequences": torch.tensor(self.text_to_seq(item)[0])}
+                for item in texts
+            ]
+            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
+
+            lens = [self.text_to_seq(item)[1] for item in texts]
+            assert lens == sorted(
+                lens, reverse=True
+            ), "ipnut lengths must be sorted in decreasing order"
+            input_lengths = torch.tensor(lens)
+
+            mel_outputs_postnet, mel_lengths, alignments = self.infer(
+                inputs.text_sequences.data, input_lengths
+            )
+        return mel_outputs_postnet, mel_lengths, alignments
+
+    def encode_text(self, text):
+        """Runs inference for a single text str"""
+        return self.encode_batch([text])
+
+    def forward(self, texts):
+        return self.encode_batch(texts)
+
+
+class HIFIGAN(Pretrained):
+    HPARAMS_NEEDED = ["generator"]
+
+    """
+    A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> hifi_gan = HIFIGAN.from_hparams('path/to/model')
+    >>> mel_specs = torch.rand(2, 80, 35)
+    >>> waveforms = hifi_gan.decode_batch(mel_specs)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+
+    def decode_batch(self, spectrogram):
+        """Computes waveforms from a batch of mel-spectrograms
+
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            Batch of mel-spectrograms [batch, mels, time]
+
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+
+        """
+        with torch.no_grad():
+            waveform = self.infer(spectrogram)
+        return waveform
+
+    def decode_spectrogram(self, spectrogram):
+        """Computes waveforms from a single mel-spectrogram
+
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            mel-spectrogram [mels, time]
+
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> sample_rate = 22050
+        >>> torchaudio.save("test.wav", waveform, sample_rate)
+        """
+        with torch.no_grad():
+            waveform = self.infer(spectrogram.unsqueeze(0))
+        return waveform.squeeze(0)
+
+    def forward(self, spectrogram):
+        return self.decode_batch(spectrogram)

@@ -64,6 +64,12 @@ class AddNoise(torch.nn.Module):
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
         with the corresponding value.
+    noise_sample_rate : int
+        The sample rate of the noise audio signals, so noise can be resampled
+        to the clean sample rate if necessary.
+    clean_sample_rate : int
+        The sample rate of the clean audio signals, so noise can be resampled
+        to the clean sample rate if necessary.
 
     Example
     -------
@@ -88,6 +94,8 @@ class AddNoise(torch.nn.Module):
         start_index=None,
         normalize=False,
         replacements={},
+        noise_sample_rate=16000,
+        clean_sample_rate=16000,
     ):
         super().__init__()
 
@@ -102,6 +110,9 @@ class AddNoise(torch.nn.Module):
         self.start_index = start_index
         self.normalize = normalize
         self.replacements = replacements
+
+        if noise_sample_rate != clean_sample_rate:
+            self.resampler = Resample(noise_sample_rate, clean_sample_rate)
 
     def forward(self, waveforms, lengths):
         """
@@ -193,6 +204,10 @@ class AddNoise(torch.nn.Module):
         noise_batch, noise_len = self._load_noise_batch_of_size(batch_size)
         noise_batch = noise_batch.to(lengths.device)
         noise_len = noise_len.to(lengths.device)
+
+        # Resample noise if necessary
+        if hasattr(self, "resampler"):
+            noise_batch = self.resampler(noise_batch)
 
         # Convert relative length to an index
         noise_len = (noise_len * noise_batch.shape[1]).long()
@@ -299,6 +314,12 @@ class AddReverb(torch.nn.Module):
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
         with the corresponding value.
+    reverb_sample_rate : int
+        The sample rate of the corruption signals (rirs), so that they
+        can be resampled to clean sample rate if necessary.
+    clean_sample_rate : int
+        The sample rate of the clean signals, so that the corruption
+        signals can be resampled to the clean sample rate before convolution.
 
     Example
     -------
@@ -317,6 +338,8 @@ class AddReverb(torch.nn.Module):
         reverb_prob=1.0,
         rir_scale_factor=1.0,
         replacements={},
+        reverb_sample_rate=16000,
+        clean_sample_rate=16000,
     ):
         super().__init__()
         self.csv_file = csv_file
@@ -335,6 +358,9 @@ class AddReverb(torch.nn.Module):
             dataset, shuffle=(self.sorting == "random")
         )
         self.rir_data = iter(self.data_loader)
+
+        if reverb_sample_rate != clean_sample_rate:
+            self.resampler = Resample(reverb_sample_rate, clean_sample_rate)
 
     def forward(self, waveforms, lengths):
         """
@@ -365,6 +391,10 @@ class AddReverb(torch.nn.Module):
 
         # Load and prepare RIR
         rir_waveform = self._load_rir(waveforms)
+
+        # Resample to correct rate
+        if hasattr(self, "resampler"):
+            rir_waveform = self.resampler(rir_waveform)
 
         # Compress or dilate RIR
         if self.rir_scale_factor != 1:
@@ -480,7 +510,7 @@ class Resample(torch.nn.Module):
     """This class resamples an audio signal using sinc-based interpolation.
 
     It is a modification of the `resample` function from torchaudio
-    (https://pytorch.org/audio/transforms.html#resample)
+    (https://pytorch.org/audio/stable/tutorials/audio_resampling_tutorial.html)
 
     Arguments
     ---------

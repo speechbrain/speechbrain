@@ -341,7 +341,7 @@ def pad_right_to(
     """
     assert len(target_shape) == tensor.ndim
     pads = []  # this contains the abs length of the padding for each dimension.
-    valid_vals = []  # thic contains the relative lengths for each dimension.
+    valid_vals = []  # this contains the relative lengths for each dimension.
     i = len(target_shape) - 1  # iterating over target_shape ndims
     j = 0
     while i >= 0:
@@ -530,3 +530,22 @@ def split_path(path):
     else:
         # Interpret as path to file in current directory.
         return "./", path
+
+
+def scalarize(value):
+    """Converts a namedtuple or dictionary containing tensors
+    to their scalar value
+    Arguments:
+    ----------
+    value: dict or namedtuple
+        a dictionary or named tuple of tensors
+    Returns
+    -------
+    result: dict
+        a result dictionary
+    """
+    if hasattr(value, "_asdict"):
+        value_dict = value._asdict()
+    else:
+        value_dict = value
+    return {key: item_value.item() for key, item_value in value_dict.items()}

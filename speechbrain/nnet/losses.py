@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def transducer_loss(
-    log_probs,
+    logits,
     targets,
     input_lens,
     target_lens,
@@ -37,7 +37,7 @@ def transducer_loss(
 
     Arguments
     ---------
-    predictions : torch.Tensor
+    logits : torch.Tensor
         Predicted tensor, of shape [batch, maxT, maxU, num_labels].
     targets : torch.Tensor
         Target tensor, without any blanks, of shape [batch, target_len].
@@ -53,7 +53,7 @@ def transducer_loss(
         If True, use Transducer loss implementation from torchaudio, otherwise,
         use Speechbrain Numba implementation.
     """
-    input_lens = (input_lens * log_probs.shape[1]).round().int()
+    input_lens = (input_lens * logits.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()
 
     if use_torchaudio:
@@ -68,7 +68,7 @@ def transducer_loss(
             raise ImportError(err_msg)
 
         return rnnt_loss(
-            log_probs,
+            logits,
             targets.int(),
             input_lens,
             target_lens,
@@ -78,6 +78,8 @@ def transducer_loss(
     else:
         from speechbrain.nnet.loss.transducer_loss import Transducer
 
+        # Transducer.apply function take log_probs tensor.
+        log_probs = logits.log_softmax(-1)
         return Transducer.apply(
             log_probs, targets, input_lens, target_lens, blank_index, reduction,
         )
@@ -923,6 +925,7 @@ class AdditiveAngularMargin(AngularMargin):
         predictions : torch.Tensor
         """
         cosine = outputs.float()
+        cosine = torch.clamp(cosine, -1 + 1e-7, 1 - 1e-7)
         sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
         phi = cosine * self.cos_m - sine * self.sin_m  # cos(theta + m)
         if self.easy_margin:
