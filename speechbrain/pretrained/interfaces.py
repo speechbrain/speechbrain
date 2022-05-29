@@ -2209,6 +2209,14 @@ class Tacotron2(Pretrained):
     ...   "Never odd or even"
     ... ]
     >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
+
+    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
+    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir_vocoder")
+    >>> # Running the TTS
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> # Running Vocoder (spectrogram-to-waveform)
+    >>> waveforms = hifi_gan.decode_batch(mel_output)
     """
 
     def __init__(self, *args, **kwargs):
@@ -2281,9 +2289,17 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir")
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir_vocoder")
     >>> mel_specs = torch.rand(2, 80,298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
+
+    >>> # You can use the vocoder coupled with a TTS system
+    >>>	# Intialize TTS (tacotron2)
+    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir="tmpdir_tts")
+    >>>	# Running the TTS
+    >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>>	# Running Vocoder (spectrogram-to-waveform)
+    >>>	waveforms = hifi_gan.decode_batch(mel_output)
     """
 
     def __init__(self, *args, **kwargs):
