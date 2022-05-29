@@ -2240,7 +2240,11 @@ class Tacotron2(Pretrained):
         """
         with torch.no_grad():
             inputs = [
-                {"text_sequences": torch.tensor(self.text_to_seq(item)[0])}
+                {
+                    "text_sequences": torch.tensor(
+                        self.text_to_seq(item)[0], device=self.device
+                    )
+                }
                 for item in texts
             ]
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
@@ -2249,7 +2253,7 @@ class Tacotron2(Pretrained):
             assert lens == sorted(
                 lens, reverse=True
             ), "ipnut lengths must be sorted in decreasing order"
-            input_lengths = torch.tensor(lens)
+            input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
                 inputs.text_sequences.data, input_lengths
