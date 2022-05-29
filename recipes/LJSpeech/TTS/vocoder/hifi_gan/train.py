@@ -225,7 +225,7 @@ class HifiGanBrain(sb.Brain):
 
     def run_inference_sample(self, name):
         """Produces a sample in inference mode. This is called when producing
-        samples and can be useful because
+        samples.
         """
         with torch.no_grad():
             if self.last_batch is None:
