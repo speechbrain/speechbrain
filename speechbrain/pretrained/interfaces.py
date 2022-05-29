@@ -2201,7 +2201,7 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir=tmpdir)
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir="tmpdir")
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
@@ -2281,14 +2281,15 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> hifi_gan = HIFIGAN.from_hparams('path/to/model')
-    >>> mel_specs = torch.rand(2, 80, 35)
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir")
+    >>> mel_specs = torch.rand(2, 80,298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.infer = self.hparams.generator.inference
+        self.first_call = True
 
     def decode_batch(self, spectrogram):
         """Computes waveforms from a batch of mel-spectrograms
@@ -2304,8 +2305,12 @@ class HIFIGAN(Pretrained):
             Batch of mel-waveforms [batch, 1, time]
 
         """
+        # Prepare for inference by removing the weight norm
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
         with torch.no_grad():
-            waveform = self.infer(spectrogram)
+            waveform = self.infer(spectrogram.to(self.device))
         return waveform
 
     def decode_spectrogram(self, spectrogram):
@@ -2326,8 +2331,11 @@ class HIFIGAN(Pretrained):
         >>> sample_rate = 22050
         >>> torchaudio.save("test.wav", waveform, sample_rate)
         """
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
         with torch.no_grad():
-            waveform = self.infer(spectrogram.unsqueeze(0))
+            waveform = self.infer(spectrogram.unsqueeze(0).to(self.device))
         return waveform.squeeze(0)
 
     def forward(self, spectrogram):
