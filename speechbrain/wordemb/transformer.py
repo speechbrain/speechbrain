@@ -35,7 +35,7 @@ class TransformerWordEmbeddings:
     device:
         a torch device identifier. If provided, the model
         will be transferred onto that device
-    
+
     Example
     -------
     NOTE: Doctests are disabled because the dependency on the
@@ -78,10 +78,10 @@ class TransformerWordEmbeddings:
     >>> batch_embeddings[:, :2, :3] # doctest: +SKIP
     tensor([[[-5.0935, -1.2838,  0.7868],
              [-4.6889, -2.1488,  2.1380]],
-    
+
             [[-4.4993, -2.0178,  0.9369],
              [-4.1760, -2.4141,  1.9474]],
-    
+
             [[-1.0065,  1.4227, -2.6671],
              [-0.3408, -0.6238,  0.1780]]])
     """
@@ -160,7 +160,7 @@ class TransformerWordEmbeddings:
         -------
         emb: torch.Tensor
             a tensor of dimension
-        
+
         """
         encoded = self.tokenizer.encode_plus(sentence, return_tensors="pt")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """Recipe for training a grapheme-to-phoneme system with one of the available datasets.
 
-See README.md for more details 
+See README.md for more details
 
 Authors
  * Loren Lugosch 2020

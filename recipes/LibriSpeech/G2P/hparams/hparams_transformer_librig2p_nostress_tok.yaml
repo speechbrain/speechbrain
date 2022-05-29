@@ -614,4 +614,3 @@ deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         lm: !ref <pretrained_path>/lm.ckpt
     conditions:
         lm: !ref <use_language_model>
-

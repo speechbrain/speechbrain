@@ -64,16 +64,16 @@ class SubsequenceLoss(nn.Module):
     ...      [0., 0., 1., 0.],
     ...      [1., 0., 0., 0.],
     ...      [0., 0., 0., 1.],
-    ...      [0., 0., 1., 0.]]          
+    ...      [0., 0., 1., 0.]]
     ... ])
     >>> loss_value = loss(
     ...    phns,
-    ...    phn_lens, 
-    ...    p_seq, 
+    ...    phn_lens,
+    ...    p_seq,
     ...    subsequence_phn_start,
     ...    subsequence_phn_end
     ... )
-    >>> loss_value    
+    >>> loss_value
     tensor(-0.8000)
     """
 
@@ -211,7 +211,7 @@ class SubsequenceExtractor:
     ...      [0., 0., 1., 0.],
     ...      [1., 0., 0., 0.],
     ...      [0., 0., 0., 1.],
-    ...      [0., 0., 1., 0.]]          
+    ...      [0., 0., 1., 0.]]
     ... ])
     >>> extractor.extract_seq(
     ...    phns,
@@ -219,7 +219,7 @@ class SubsequenceExtractor:
     ...    p_seq,
     ...    subsequence_phn_start,
     ...    subsequence_phn_end
-    ... )    
+    ... )
     (tensor([[[0., 1., 0., 0.],
               [0., 0., 0., 1.],
               [0., 0., 0., 0.]],
@@ -270,7 +270,7 @@ class SubsequenceExtractor:
         phns_base: torch.Tensor
             the phoneme tensor (not preprocessed)
         phn_base_lens: torch.Tensor
-            the phoneme lengths (not preprocessed)    
+            the phoneme lengths (not preprocessed)
 
         Returns
         -------
@@ -374,7 +374,7 @@ class SubsequenceExtractor:
         self, phns, target_word_indexes, longest_subsequence, edge
     ):
         """Extracts a subsequence
-        
+
         Arguments
         ---------
         phns: torch.Tensor
@@ -388,7 +388,7 @@ class SubsequenceExtractor:
             the length of the longest subsequence
         edge: int
             the index of the "edge" of the sequence
-        
+
         Returns
         -------
         phn_subsequence: torch.Tensor
@@ -436,7 +436,7 @@ class SubsequenceExtractor:
         Arguments
         ---------
         p_seq: torch.Tensor
-            a tensor of phoneme probabilities 
+            a tensor of phoneme probabilities
             (batch x sequence index x phoneme index)
         target_word_indexes: torch.Tensor
             a tensor of word indexes to extract, zero-based
@@ -489,7 +489,7 @@ class SubsequenceExtractor:
         self, phns, range_phns, start, word_separator, phn_lens=None
     ):
         """Computes the target word indexes
-        
+
         Arguments
         ---------
         phns: torch.Tensor
@@ -575,7 +575,7 @@ class SubsequenceExtractor:
         index_match: torch.Tensor
             a mask where positions matching the word index are
             indicated as a 1 and the remaining positions are 0
-        
+
         words_range: torch.Tensor
             a range tensor over the tokens
         aggregation: callable
@@ -638,7 +638,7 @@ class SubsequenceExtractor:
 
     def _extract_hyp_word(self, hyps, separator_indexes, word_index):
         """Extracts a single word out of a hypothesis sequence
-        
+
         Arguments
         ---------
         hyps: list

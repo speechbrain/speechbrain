@@ -778,7 +778,7 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
     >>> sampler = BalancingDataSampler(
     ...     dataset=dataset,
     ...     key="category",
-    ...     num_samples=10   
+    ...     num_samples=10
     ... )
     >>> sampler.weights
     tensor([0.5000, 0.5000, 1.0000], dtype=torch.float64)

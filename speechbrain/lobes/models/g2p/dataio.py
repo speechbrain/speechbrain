@@ -8,7 +8,6 @@ Authors
 """
 
 from functools import reduce
-from speechbrain.dataio.encoder import TextEncoder
 import speechbrain as sb
 import torch
 import re
@@ -61,8 +60,6 @@ def grapheme_pipeline(char, grapheme_encoder=None, uppercase=True):
     grapheme_encoded_list: list
         a list of graphemes encoded as integers
     grapheme_encoded: torch.Tensor
-        
-
     """
     if uppercase:
         char = char.upper()
@@ -359,7 +356,7 @@ def phoneme_decoder_pipeline(hyps, phoneme_encoder):
     hyps: list
         hypotheses, the output of a beam search
     phoneme_encoder: speechbrain.datio.encoder.TextEncoder
-        a text encoder instance 
+        a text encoder instance
 
     Returns
     -------

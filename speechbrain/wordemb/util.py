@@ -15,7 +15,18 @@ def expand_to_chars(emb, seq, seq_len, word_separator):
     Arguments
     ---------
     emb: torch.Tensor
-        a tensor of embeddings 
+        a tensor of word embeddings
+    seq: torch.Tensor
+        a tensor of character embeddings
+    seq_len: torch.Tensor
+        a tensor of character embedding lengths
+    word_separator: torch.Tensor
+        the word separator being used
+
+    Returns
+    -------
+    char_word_emb: torch.Tensor
+        a combined character + word embedding tensor
 
     Example
     -------
