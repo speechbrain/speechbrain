@@ -6,6 +6,7 @@ Authors
 """
 import torch
 
+
 def expand_to_chars(emb, seq, seq_len, word_separator):
     """Expands word embeddings to a sequence of character
     embeddings, assigning each character the word embedding
