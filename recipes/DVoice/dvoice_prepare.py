@@ -13,19 +13,10 @@ import logging
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
-
-import torch
 import random
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.processing.speech_augmentation import SpeedPerturb
-from speechbrain.processing.speech_augmentation import DropChunk
-from speechbrain.processing.speech_augmentation import DropFreq
-from speechbrain.processing.speech_augmentation import DoClip
-from speechbrain.lobes.augment import TimeDomainSpecAugment
-
 import glob
 import librosa
 
@@ -39,7 +30,7 @@ def prepare_dvoice(
     dev_csv_file=None,
     test_csv_file=None,
     accented_letters=False,
-    language='fongbe',
+    language="fongbe",
     skip_prep=False,
 ):
 
@@ -67,54 +58,60 @@ def prepare_dvoice(
         os.makedirs(save_folder)
 
     # Setting the ALFFA-Dataset csv files
-    ALFFA_LANGUAGES = ['amharic', 'fongbe', 'wolof']
+    ALFFA_LANGUAGES = ["amharic", "fongbe", "wolof"]
     if language in ALFFA_LANGUAGES:
-        if language == 'amharic':
-            wavs = glob.glob(f'{data_folder}/*/*/*.wav')
-            f_train = open(f'{data_folder}/train/text', 'r')
-            f_test = open(f'{data_folder}/test/text', 'r')
+        if language == "amharic":
+            wavs = glob.glob(f"{data_folder}/*/*/*.wav")
+            f_train = open(f"{data_folder}/train/text", "r")
+            f_test = open(f"{data_folder}/test/text", "r")
             text = f_train.readlines() + f_test.readlines()
 
-        if language == 'fongbe':
-            wavs = glob.glob(f'{data_folder}/*/wav/*/*.wav')
-            f_train = open(f'{data_folder}/train/text', 'r')
-            f_test = open(f'{data_folder}/test/text', 'r')
+        if language == "fongbe":
+            wavs = glob.glob(f"{data_folder}/*/wav/*/*.wav")
+            f_train = open(f"{data_folder}/train/text", "r")
+            f_test = open(f"{data_folder}/test/text", "r")
             text = f_train.readlines() + f_test.readlines()
-        
-        if language == 'wolof':
-            wavs_train = glob.glob(f'{data_folder}/train/*/*.wav')
-            wavs_dev = glob.glob(f'{data_folder}/dev/wav/*/*.wav')
-            wavs_test = glob.glob(f'{data_folder}/test/wav/*/*.wav')
+
+        if language == "wolof":
+            wavs_train = glob.glob(f"{data_folder}/train/*/*.wav")
+            wavs_dev = glob.glob(f"{data_folder}/dev/wav/*/*.wav")
+            wavs_test = glob.glob(f"{data_folder}/test/wav/*/*.wav")
             wavs = wavs_train + wavs_dev + wavs_test
-            f_train = open(f'{data_folder}/train/text', 'r')
-            f_test = open(f'{data_folder}/test/text', 'r')
-            f_dev = open(f'{data_folder}/dev/text', 'r')
+            f_train = open(f"{data_folder}/train/text", "r")
+            f_test = open(f"{data_folder}/test/text", "r")
+            f_dev = open(f"{data_folder}/dev/text", "r")
             text = f_train.readlines() + f_dev.readlines() + f_test.readlines()
 
             for j in tqdm(range(len(wavs))):
-                f = open('/data/n.abdoumohamed/dvoice-africa/data-processing/scripts/xo.txt', 'a')
-                f.write(wavs[j]+"\n")
+                f = open(
+                    "/data/n.abdoumohamed/dvoice-africa/data-processing/scripts/xo.txt",
+                    "a",
+                )
+                f.write(wavs[j] + "\n")
         random.shuffle(wavs)
         random.shuffle(text)
 
         data = []
         for i in tqdm(range(len(text))):
-            text[i] = text[i].replace('   ', ' ')
-            text[i] = text[i].replace('  ', ' ')
+            text[i] = text[i].replace("   ", " ")
+            text[i] = text[i].replace("  ", " ")
             text[i] = text[i].split(" ")
             file_name = text[i][0]
             words = " ".join(text[i][1:])
             for j in range(len(wavs)):
                 # wav_ = wavs[j].replace(data_folder+"/", "")
 
-
                 # print("wav :", wavs[j].split('/')[-1], "/", "file_name :", file_name+".wav")
-                if wavs[j].split('/')[-1] == file_name+".wav":
+                if wavs[j].split("/")[-1] == file_name + ".wav":
                     wav = wavs[j]
                     break
 
             duration = librosa.get_duration(filename=wav)
-            dic = {'wav' : wavs[j].replace(data_folder+"/", ""), 'words' : str(words).replace('\n', ''), 'duration' : duration}
+            dic = {
+                "wav": wavs[j].replace(data_folder + "/", ""),
+                "words": str(words).replace("\n", ""),
+                "duration": duration,
+            }
             data.append(dic)
 
         else:
@@ -124,9 +121,9 @@ def prepare_dvoice(
 
         train, dev, test = train_validate_test_split(df)
 
-        train.to_csv(f'{data_folder}/train.csv', index=False, sep='\t')
-        dev.to_csv(f'{data_folder}/dev.csv', index=False, sep='\t')
-        test.to_csv(f'{data_folder}/test.csv', index=False, sep='\t')
+        train.to_csv(f"{data_folder}/train.csv", index=False, sep="\t")
+        dev.to_csv(f"{data_folder}/dev.csv", index=False, sep="\t")
+        test.to_csv(f"{data_folder}/test.csv", index=False, sep="\t")
 
     # Setting ouput files
     save_csv_train = save_folder + "/train.csv"
@@ -260,13 +257,13 @@ def create_csv(
     for line in tzip(loaded_csv):
         line = line[0]
         # Path is at indice 1 in DVoice csv files. And .mp3 files
-        # are located in datasets/lang/clips/        
-        ALFFA_LANGUAGES = ['amharic', 'fongbe', 'wolof']
+        # are located in datasets/lang/clips/
+        ALFFA_LANGUAGES = ["amharic", "fongbe", "wolof"]
         if language in ALFFA_LANGUAGES:
             mp3_path = data_folder + "/" + line.split("\t")[0]
         else:
             mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
-        
+
         file_name = line.split("\t")[0]
         spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = file_name
@@ -359,7 +356,7 @@ def check_dvoice_folders(data_folder, language):
         If data folder doesn't contain DVoice dataset.
     """
 
-    ALFFA_LANGUAGES = ['amharic', 'fongbe', 'wolof']
+    ALFFA_LANGUAGES = ["amharic", "fongbe", "wolof"]
     if language in ALFFA_LANGUAGES:
         files_str = "/"
     else:
