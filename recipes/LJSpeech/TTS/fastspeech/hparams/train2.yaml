@@ -3,7 +3,7 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_1dcnn_nndurpred_fulldata_correcteddurloss/<seed>
+output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_optimised_full/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
@@ -49,7 +49,7 @@ mel_normalized: False
 ################################
 learning_rate: 0.0001
 weight_decay: 0.000006
-grad_clip_thresh: 1.0
+grad_clip_thresh: 5.0
 batch_size: 48 #minimum 2
 mask_padding: False
 

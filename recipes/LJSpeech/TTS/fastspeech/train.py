@@ -141,22 +141,27 @@ def to_gpu(x):
     return x
 
 
-def criterion(model_output, targets):
+def criterion(model_output, targets, log_scale_durations=True):
     mel_target, target_durations, mel_length, phon_len  = targets
 
     assert len(mel_target.shape) == 3
-    mel_out, durations = model_output
-    durations = durations.squeeze()
+    mel_out, log_durations = model_output
+    log_durations = log_durations.squeeze()
+    if log_scale_durations:
+        log_target_durations = torch.log(target_durations.float() + 1)
+        durations = torch.clamp(torch.exp(log_durations) - 1, 0, 20)
     mel_loss, dur_loss = 0, 0
     for i in range(mel_target.shape[0]):
         if i == 0:
             mel_loss = torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-            dur_loss = torch.nn.MSELoss()(durations[i, :phon_len[i]], target_durations[i, :phon_len[i]].to(torch.float32))
+            dur_loss = torch.nn.MSELoss()(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
         else:
             mel_loss = mel_loss + torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-            dur_loss = dur_loss + torch.nn.MSELoss()(durations[i, :phon_len[i]], target_durations[i, :phon_len[i]].to(torch.float32))
+            dur_loss = dur_loss + torch.nn.MSELoss()(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
+    # print(mel_loss, dur_loss)
     mel_loss = torch.div(mel_loss, len(mel_target))
     dur_loss = torch.div(dur_loss, len(mel_target))
+    # print(mel_loss, dur_loss)
     return mel_loss + dur_loss
 
 
