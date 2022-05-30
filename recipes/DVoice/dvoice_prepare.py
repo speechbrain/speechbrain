@@ -104,7 +104,7 @@ def prepare_dvoice(
                     break
 
             info = torchaudio.info(wav)
-            duration = info.num_frames/info.sample_rate
+            duration = info.num_frames / info.sample_rate
             dic = {
                 "wav": wavs[j].replace(data_folder + "/", ""),
                 "words": str(words).replace("\n", ""),
@@ -262,7 +262,7 @@ def create_csv(
         else:
             mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
 
-        file_name = line.split('\t')[0]
+        file_name = line.split("\t")[0]
         spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = os.path.basename(file_name)
 

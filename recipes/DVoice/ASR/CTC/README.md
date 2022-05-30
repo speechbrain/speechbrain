@@ -12,7 +12,7 @@ Amharic: python train_with_wav2vec2.py hparams/train_amh_with_wav2vec.yaml --dat
 python train_with_wav2vec2.py hparams/train_wol_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/WOLOF/data/
 
 To get the data for Fongbe, Amharic, Wolof,  please clone https://github.com/besacier/ALFFA_PUBLIC/.
- 
+
 # Languages
 Here is a list of the different African languages and dialects that we tested:
 - Darija
