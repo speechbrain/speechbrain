@@ -19,13 +19,14 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: ./ #data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
+data_folder: /data/Database/LJSpeech-1.1
+audio_folder: !ref <data_folder>/wavs
+train_data_path: !ref <data_folder>/metadata_train.csv
+valid_data_path: !ref <data_folder>/metadata_val.csv
+test_data_path: !ref <data_folder>/metadata_test.csv
 duration_path: /home/wtc8/Sathvik/DeepForcedAligner/output_24hrs/durations/
 data_folder_rirs: !ref <data_folder>
-train_data_path: /data/Database/LJSpeech-1.1/
-train_filter: null
-valid_data_path: /data/Database/LJSpeech-1.1/
-valid_filter: null
+
 text_cleaners: ['english_cleaners']
 
 ################################
@@ -114,12 +115,45 @@ model: !new:speechbrain.lobes.models.synthesis.fastspeech.FastSpeech
     padding_idx: !ref <padding_idx>
     dur_pred_kernel_size: !ref <dur_pred_kernel_size>
 
+mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+  sample_rate: !ref <sample_rate>
+  hop_length: !ref <hop_length>
+  win_length: !ref <win_length>
+  n_fft: !ref <n_fft>
+  n_mels: !ref <n_mel_channels>
+  f_min: !ref <mel_fmin>
+  f_max: !ref <mel_fmax>
+  power: !ref <power>
+  normalized: !ref <mel_normalized>
+  norm: !ref <norm>
+  mel_scale: !ref <mel_scale>
+  compression: !ref <dynamic_range_compression>
+
 # Inverse spectrogram parameters
 inverse_spectrogram_n_iter: 1024
 
 
 modules:
     model: !ref <model>
+
+train_dataloader_opts:
+  batch_size: !ref <batch_size>
+  drop_last: False  #True #False
+  num_workers: 8
+  shuffle: True
+  collate_fn: !new:speechbrain.lobes.models.FastSpeech.TextMelCollate
+
+valid_dataloader_opts:
+  batch_size: !ref <batch_size>
+  num_workers: 8
+  shuffle: False
+  collate_fn: !new:speechbrain.lobes.models.FastSpeech.TextMelCollate
+
+test_dataloader_opts:
+  batch_size: !ref <batch_size>
+  num_workers: 8
+  shuffle: False
+  collate_fn: !new:speechbrain.lobes.models.FastSpeech.TextMelCollate
 
 #optimizer
 opt_class: !name:torch.optim.Adam
@@ -133,7 +167,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-#annealing_function
 
 
 #checkpointer
@@ -143,57 +176,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         counter: !ref <epoch_counter>
 
-
-
-datasets:
-    train:
-        path: !ref <train_data_path>
-        dur_path: !ref <duration_path>
-        loader: !name:recipes.LJSpeech.TTS.dataset_utils.lj.load
-        filter: !ref <train_filter>
-    valid:
-        path: !ref <valid_data_path>
-        dur_path: !ref <duration_path>
-        loader: !name:recipes.LJSpeech.TTS.dataset_utils.lj.load
-        filter: !ref <valid_filter>
-
 input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
 model_output_keys:
     - mel
     - mel_lengths
     - alignments
-
-pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    loadables:
-        model: !ref <model>
-    paths:
-        model: !ref <pretrained_path>/model.ckpt
-
-encode_pipeline:
-    batch: False
-    output_keys:
-        - text_sequences
-        - input_lengths
-        - durations
-    steps:
-        - !apply:speechbrain.lobes.models.synthesis.fastspeech.encode_text
-          # TODO: Not using !ref because it triggers an odd bug when loading
-          # a file from a saved model - investigate this further
-          text_cleaners: ['english_cleaners']
-
-decode_pipeline:
-    steps:
-        - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_mel
-          n_stft: !ref <n_stft>
-          n_mels: !ref <n_mel_channels>
-          sample_rate: !ref <sample_rate>
-          f_min: !ref <mel_fmin>
-          f_max: !ref <mel_fmax>
-        - !apply:speechbrain.lobes.models.synthesis.dataio.inverse_spectrogram
-          takes: linear
-          provides: wav
-          n_fft: !ref <n_fft>
-          n_iter: !ref <inverse_spectrogram_n_iter>
-          hop_length: !ref <hop_length>
-          win_length: !ref <win_length>
