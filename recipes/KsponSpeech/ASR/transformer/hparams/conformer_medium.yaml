@@ -41,7 +41,6 @@ number_of_epochs: 100
 batch_size: 32 # This works for GPUs with 80GB
 ctc_weight: 0.3
 gradient_accumulation: 4
-gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 
@@ -76,7 +75,6 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -84,7 +82,6 @@ label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -236,9 +233,9 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask_width: 30
     time_mask_width: 40
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+#    orig_freq: !ref <sample_rate>
+#    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
