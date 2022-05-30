@@ -57,15 +57,15 @@ n_fft: 400
 n_mels: 40
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
-cnn_blocks: 2
-cnn_channels: (16, 16)
-cnn_kernelsize: (3, 3)
+# activation: !name:torch.nn.LeakyReLU
+# dropout: 0.15
+# cnn_blocks: 2
+# cnn_channels: (16, 16)
+# cnn_kernelsize: (3, 3)
 rnn_layers: 2
 rnn_neurons: 32
-rnn_bidirectional: True
-dnn_blocks: 1
+# rnn_bidirectional: True
+# dnn_blocks: 1
 dnn_neurons: 16
 output_neurons: 1
 
@@ -79,13 +79,13 @@ add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: -5
     noise_snr_high: -15
 
-noise_corruption: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <open_rir_folder>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 5
-    noise_snr_high: 15
+# noise_corruption: !new:speechbrain.lobes.augment.EnvCorrupt
+#    openrir_folder: !ref <open_rir_folder>
+#    babble_prob: 0.0
+#    reverb_prob: 0.0
+#    noise_prob: 1.0
+#    noise_snr_low: 5
+#    noise_snr_high: 15
 
 add_noise_musan: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_csv: !ref <noise_csv>
@@ -111,13 +111,13 @@ add_speech_musan: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: -15
     noise_snr_high: -20
 
-add_speech_multilang: !new:speechbrain.lobes.augment.EnvCorrupt
-    noise_csv: !ref <multilang_speech_csv>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: -15
-    noise_snr_high: -20
+# add_speech_multilang: !new:speechbrain.lobes.augment.EnvCorrupt
+#    noise_csv: !ref <multilang_speech_csv>
+#    babble_prob: 0.0
+#    reverb_prob: 0.0
+#    noise_prob: 1.0
+#    noise_snr_low: -15
+#    noise_snr_high: -20
 
 
 # Models
