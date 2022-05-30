@@ -607,9 +607,10 @@ if __name__ == "__main__":
     if not os.path.exists(hparams["datasets_generation"]):
         print("Download Datasets Generation scripts")
         fetch(
-            filename="Binaural-WSJ0Mix-main.zip",
-            source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads/main.zip",
+            filename="main.zip",
+            source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
             savedir=hparams["data_folder"],
+            save_filename="Binaural-WSJ0Mix-main.zip"
         )
         file = zipfile.ZipFile(
             os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
