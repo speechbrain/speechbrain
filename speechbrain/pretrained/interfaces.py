@@ -10,6 +10,7 @@ Authors:
 """
 import hashlib
 import sys
+import speechbrain
 import torch
 import torchaudio
 from types import SimpleNamespace
@@ -2005,7 +2006,9 @@ class SepformerSeparation(Pretrained):
             batch = tf(batch)
 
         est_sources = self.separate_batch(batch)
-        est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
+        est_sources = (
+            est_sources / est_sources.abs().max(dim=1, keepdim=True)[0]
+        )
         return est_sources
 
     def forward(self, mix):
@@ -2185,3 +2188,173 @@ class SNREstimator(Pretrained):
         inp = inp * rnge
         inp = inp + self.hparams.snrmin
         return inp
+
+
+class Tacotron2(Pretrained):
+    HPARAMS_NEEDED = ["model", "text_to_sequence"]
+
+    """
+    A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir="tmpdir")
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
+
+    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
+    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir_vocoder")
+    >>> # Running the TTS
+    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>> # Running Vocoder (spectrogram-to-waveform)
+    >>> waveforms = hifi_gan.decode_batch(mel_output)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_cleaners = getattr(
+            self.hparams, "text_cleaners", ["english_cleaners"]
+        )
+        self.infer = self.hparams.model.infer
+
+    def text_to_seq(self, txt):
+        """Encodes raw text into a tensor with a customer text-to-equence fuction
+        """
+        sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
+        return sequence, len(sequence)
+
+    def encode_batch(self, texts):
+        """Computes mel-spectrogram for a list of texts
+
+        Texts must be sorted in decreasing order on their lengths
+
+        Arguments
+        ---------
+        text: List[str]
+            texts to be encoded into spectrogram
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+        with torch.no_grad():
+            inputs = [
+                {
+                    "text_sequences": torch.tensor(
+                        self.text_to_seq(item)[0], device=self.device
+                    )
+                }
+                for item in texts
+            ]
+            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
+
+            lens = [self.text_to_seq(item)[1] for item in texts]
+            assert lens == sorted(
+                lens, reverse=True
+            ), "ipnut lengths must be sorted in decreasing order"
+            input_lengths = torch.tensor(lens, device=self.device)
+
+            mel_outputs_postnet, mel_lengths, alignments = self.infer(
+                inputs.text_sequences.data, input_lengths
+            )
+        return mel_outputs_postnet, mel_lengths, alignments
+
+    def encode_text(self, text):
+        """Runs inference for a single text str"""
+        return self.encode_batch([text])
+
+    def forward(self, texts):
+        return self.encode_batch(texts)
+
+
+class HIFIGAN(Pretrained):
+    HPARAMS_NEEDED = ["generator"]
+
+    """
+    A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir_vocoder")
+    >>> mel_specs = torch.rand(2, 80,298)
+    >>> waveforms = hifi_gan.decode_batch(mel_specs)
+
+    >>> # You can use the vocoder coupled with a TTS system
+    >>>	# Intialize TTS (tacotron2)
+    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir="tmpdir_tts")
+    >>>	# Running the TTS
+    >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
+    >>>	# Running Vocoder (spectrogram-to-waveform)
+    >>>	waveforms = hifi_gan.decode_batch(mel_output)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+        self.first_call = True
+
+    def decode_batch(self, spectrogram):
+        """Computes waveforms from a batch of mel-spectrograms
+
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            Batch of mel-spectrograms [batch, mels, time]
+
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+
+        """
+        # Prepare for inference by removing the weight norm
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+        with torch.no_grad():
+            waveform = self.infer(spectrogram.to(self.device))
+        return waveform
+
+    def decode_spectrogram(self, spectrogram):
+        """Computes waveforms from a single mel-spectrogram
+
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            mel-spectrogram [mels, time]
+
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> sample_rate = 22050
+        >>> torchaudio.save("test.wav", waveform, sample_rate)
+        """
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+        with torch.no_grad():
+            waveform = self.infer(spectrogram.unsqueeze(0).to(self.device))
+        return waveform.squeeze(0)
+
+    def forward(self, spectrogram):
+        return self.decode_batch(spectrogram)
