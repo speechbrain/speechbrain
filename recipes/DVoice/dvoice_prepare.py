@@ -1,9 +1,10 @@
 """
 Data preparation.
 Download: https://dvoice.ma/
+
 Author
 ------
-Abdou Mohamed Naira
+Abdou Mohamed Naira 2022
 """
 
 import os
@@ -18,7 +19,6 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 import glob
-import librosa
 
 logger = logging.getLogger(__name__)
 
@@ -99,14 +99,12 @@ def prepare_dvoice(
             file_name = text[i][0]
             words = " ".join(text[i][1:])
             for j in range(len(wavs)):
-                # wav_ = wavs[j].replace(data_folder+"/", "")
-
-                # print("wav :", wavs[j].split('/')[-1], "/", "file_name :", file_name+".wav")
                 if wavs[j].split("/")[-1] == file_name + ".wav":
                     wav = wavs[j]
                     break
 
-            duration = librosa.get_duration(filename=wav)
+            info = torchaudio.info(wav)
+            duration = info.num_frames/info.sample_rate
             dic = {
                 "wav": wavs[j].replace(data_folder + "/", ""),
                 "words": str(words).replace("\n", ""),
@@ -260,13 +258,13 @@ def create_csv(
         # are located in datasets/lang/clips/
         ALFFA_LANGUAGES = ["amharic", "fongbe", "wolof"]
         if language in ALFFA_LANGUAGES:
-            mp3_path = data_folder + "/" + line.split("\t")[0]
+            mp3_path = line.split("\t")[0]
         else:
             mp3_path = data_folder + "/wavs/" + line.split("\t")[0]
 
-        file_name = line.split("\t")[0]
+        file_name = line.split('\t')[0]
         spk_id = line.split("\t")[0].replace(".wav", "")
-        snt_id = file_name
+        snt_id = os.path.basename(file_name)
 
         # Setting torchaudio backend to sox-io (needed to read mp3 files)
         if torchaudio.get_audio_backend() != "sox_io":

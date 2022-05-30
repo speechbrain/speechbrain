@@ -9,12 +9,12 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 
-"""Recipe for training a sequence-to-sequence ASR system with CommonVoice.
+"""Recipe for training a sequence-to-sequence ASR system with DVoice.
 The system employs a wav2vec2 encoder and a CTC decoder.
 Decoding is performed with greedy decoding (will be extended to beam search).
 
 To run this recipe, do the following:
-> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
+> python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/path_to_dataset/swahili
 
 With the default hyperparameters, the system employs a pretrained wav2vec2 encoder.
 The wav2vec2 model is pretrained following the model given in the hprams file.
@@ -26,11 +26,11 @@ Byte Pairwise Encoding (BPE).
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
-training languages (all CommonVoice languages), and many
+training languages, and many
 other possible variations.
 
 Authors
- * Titouan Parcollet 2021
+ * Naira Abdou Mohamed 2022
 """
 
 logger = logging.getLogger(__name__)

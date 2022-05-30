@@ -5,8 +5,14 @@ This folder contains scripts necessary to run an ASR experiment with the DVoice 
 [DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
 
 # How to run
-python train.py hparams/{hparam_file}.py
+Swahili: python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/localscratch/swahili/
+Darija: python train_with_wav2vec2.py hparams/train_dar_with_wav2vec.yaml --data_folder=/localscratch/darija/
+Fongbe: python train_with_wav2vec2.py hparams/train_fon_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/FONGBE/data/
+Amharic: python train_with_wav2vec2.py hparams/train_amh_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/AMHARIC/data/
+python train_with_wav2vec2.py hparams/train_wol_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/WOLOF/data/
 
+To get the data for Fongbe, Amharic, Wolof,  please clone https://github.com/besacier/ALFFA_PUBLIC/.
+ 
 # Languages
 Here is a list of the different African languages and dialects that we tested:
 - Darija
@@ -14,7 +20,6 @@ Here is a list of the different African languages and dialects that we tested:
 - Wolof
 - Fongbe
 - Amharic
-- Kabyle
 
 # Results
 
@@ -25,8 +30,6 @@ Here is a list of the different African languages and dialects that we tested:
 | Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/aioxlabs/dvoice-wolof) |
 | Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/aioxlabs/dvoice-fongbe) |
 | Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/aioxlabs/dvoice-amharic) |
-| Kabyle | v2.0 | train_kab_with_wav2vec.yaml | No | 6.67 | 25.22 | 6.55 | 24.80 | [Link](https://huggingface.co/aioxlabs/dvoice-kabyle) |
-| Multilingual(Darija, Swahili, Wolof, Fongbe, Amharic) | v2.0 | train_multi_with_wav2vec.yaml | No | 7.98 | 24.82 | 7.75 | 24.56 | [Link](https://huggingface.co/aioxlabs/dvoice-multilingual) |
 
 
 # Performances of DVoice Multilingual on each language
