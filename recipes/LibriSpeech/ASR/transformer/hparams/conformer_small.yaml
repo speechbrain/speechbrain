@@ -29,7 +29,7 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -54,9 +54,9 @@ loss_reduction: 'batchmean'
 sorting: ascending
 
 # stages related parameters
-stage_one_epochs: 90
+# stage_one_epochs: 90
 lr_adam: 0.001
-lr_sgd: 0.000025
+# lr_sgd: 0.000025
 
 # Feature parameters
 sample_rate: 16000
@@ -84,7 +84,6 @@ d_ffn: 1024
 transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -92,7 +91,6 @@ label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -174,10 +172,10 @@ Adam: !name:torch.optim.Adam
     betas: (0.9, 0.98)
     eps: 0.000000001
 
-SGD: !name:torch.optim.SGD
-    lr: !ref <lr_sgd>
-    momentum: 0.99
-    nesterov: True
+#SGD: !name:torch.optim.SGD
+#    lr: !ref <lr_sgd>
+#    momentum: 0.99
+#    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
