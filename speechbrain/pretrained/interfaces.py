@@ -2006,7 +2006,9 @@ class SepformerSeparation(Pretrained):
             batch = tf(batch)
 
         est_sources = self.separate_batch(batch)
-        est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
+        est_sources = (
+            est_sources / est_sources.abs().max(dim=1, keepdim=True)[0]
+        )
         return est_sources
 
     def forward(self, mix):
