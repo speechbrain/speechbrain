@@ -12,6 +12,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 - French
 - Kinyarwanda
 - English
+- Dutch
 
 # Results
 
@@ -21,6 +22,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | French | 2020-12-11 | train_fr_with_wav2vec.yaml | No | 2.60 | 8.59 | 3.19 | 9.96 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-fr) | [model](https://drive.google.com/drive/folders/1T9DfdZwcNI9CURxhLCi8GA5JVz8adiY8?usp=sharing) | 2xV100 32GB |
 | Italian | 2020-12-11 | train_it_with_wav2vec.yaml | No | 2.77 | 9.83 | 3.16 | 10.85 | Not Avail. | [model](https://drive.google.com/drive/folders/1JhlxeA04tWg_vKcNChOoXSnjBe4luRby?usp=sharing) | 2xV100 32GB |
 | Kinyarwanda | 2020-12-11 | train_rw_with_wav2vec.yaml | No | 6.20 | 20.07 | 8.25 | 23.12 | Not Avail. | [model](https://drive.google.com/drive/folders/12_BDenvOqEERDZLAN-KdiAHklvuo35tx?usp=sharing) | 2xV100 32GB |
+| Dutch | 2021-07-21 | train_nl_with_wav2vec.yaml | No | 3.72 | 12.17 | 5.49 | 16.89 | -- | -- | 1xRTX3090 24GB |
 
 
 ## How to simply use pretrained models to transcribe my audio file?
