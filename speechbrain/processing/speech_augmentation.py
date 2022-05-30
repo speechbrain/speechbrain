@@ -510,7 +510,7 @@ class Resample(torch.nn.Module):
     """This class resamples an audio signal using sinc-based interpolation.
 
     It is a modification of the `resample` function from torchaudio
-    (https://pytorch.org/audio/transforms.html#resample)
+    (https://pytorch.org/audio/stable/tutorials/audio_resampling_tutorial.html)
 
     Arguments
     ---------

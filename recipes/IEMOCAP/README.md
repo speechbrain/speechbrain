@@ -1,5 +1,5 @@
 # Emotion recognition experiments with IEMOCAP (speech only)
-This folder contains scripts for running emotion recognition experiments with the IEMOCAP dataset (https://sail.usc.edu/iemocap/).
+This folder contains scripts for running emotion recognition experiments with the IEMOCAP dataset (https://paperswithcode.com/dataset/iemocap).
 
 # Training ECAPA-TDNN
 Run the following command to train the model:
