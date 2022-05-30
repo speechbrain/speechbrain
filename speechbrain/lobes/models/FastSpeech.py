@@ -156,14 +156,12 @@ def upsample(feats, durs, freq=1):
                                             for i in range(len(durs))],
                                             batch_first=True, padding_value=0.0)
 
-def _dynamic_range_decompression(x, C=1):
+
+def dynamic_range_compression(x, C=1, clip_val=1e-5):
+    """Dynamic range compression for audio signals
     """
-    Arguments
-    ----------
-    C: int
-        compression factor used to compress
-    """
-    return torch.exp(x) / C
+    return torch.log(torch.clamp(x, min=clip_val) * C)
+
 
 
 class TextMelCollate:
@@ -258,3 +256,70 @@ class TextMelCollate:
             labels,
             wavs
         )
+def mel_spectogram(
+    sample_rate,
+    hop_length,
+    win_length,
+    n_fft,
+    n_mels,
+    f_min,
+    f_max,
+    power,
+    normalized,
+    norm,
+    mel_scale,
+    compression,
+    audio,
+):
+    """calculates MelSpectrogram for a raw audio signal
+    Arguments
+    ---------
+    sample_rate : int
+        Sample rate of audio signal.
+    hop_length : int
+        Length of hop between STFT windows.
+    win_length : int
+        Window size.
+    n_fft : int
+        Size of FFT.
+    n_mels : int
+        Number of mel filterbanks.
+    f_min : float
+        Minimum frequency.
+    f_max : float
+        Maximum frequency.
+    power : float
+        Exponent for the magnitude spectrogram.
+    normalized : bool
+        Whether to normalize by magnitude after stft.
+    norm : str or None
+        If "slaney", divide the triangular mel weights by the width of the mel band
+    mel_scale : str
+        Scale to use: "htk" or "slaney".
+    compression : bool
+        whether to do dynamic range compression
+    audio : torch.tensor
+        input audio signal
+    """
+    from torchaudio import transforms
+
+    audio_to_mel = transforms.MelSpectrogram(
+        sample_rate=sample_rate,
+        hop_length=hop_length,
+        win_length=win_length,
+        n_fft=n_fft,
+        n_mels=n_mels,
+        f_min=f_min,
+        f_max=f_max,
+        power=power,
+        normalized=normalized,
+        norm=norm,
+        mel_scale=mel_scale,
+    ).to(audio.device)
+
+    mel = audio_to_mel(audio)
+
+    if compression:
+        mel = dynamic_range_compression(mel)
+
+    return mel

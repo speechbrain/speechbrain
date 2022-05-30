@@ -25,7 +25,6 @@ train_data_path: !ref <data_folder>/metadata_train.csv
 valid_data_path: !ref <data_folder>/metadata_val.csv
 test_data_path: !ref <data_folder>/metadata_test.csv
 duration_path: /home/wtc8/Sathvik/DeepForcedAligner/output_24hrs/durations/
-data_folder_rirs: !ref <data_folder>
 
 text_cleaners: ['english_cleaners']
 
@@ -42,6 +41,7 @@ mel_fmin: 0.0
 mel_fmax: 8000.0
 power: 1
 norm: "slaney"
+mel_scale: "slaney"
 dynamic_range_compression: True
 mel_normalized: False
 
@@ -90,7 +90,7 @@ normalize_before: False
 ffn_type: 1dcnn #1dcnn or ffn
 dur_pred_kernel_size: 3
 #model
-model: !new:speechbrain.lobes.models.synthesis.fastspeech.FastSpeech
+model: !new:speechbrain.lobes.models.FastSpeech.FastSpeech
     pre_net_dropout: !ref <pre_net_dropout>
     pre_net_num_layers: !ref <pre_net_num_layers>
     post_net_num_layers: !ref <post_net_num_layers>
@@ -115,7 +115,7 @@ model: !new:speechbrain.lobes.models.synthesis.fastspeech.FastSpeech
     padding_idx: !ref <padding_idx>
     dur_pred_kernel_size: !ref <dur_pred_kernel_size>
 
-mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+mel_spectogram: !name:speechbrain.lobes.models.FastSpeech.mel_spectogram
   sample_rate: !ref <sample_rate>
   hop_length: !ref <hop_length>
   win_length: !ref <win_length>

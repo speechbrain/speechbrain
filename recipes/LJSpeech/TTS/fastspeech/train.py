@@ -7,15 +7,19 @@
  # python train.py --device=cuda:0 hparams.yaml
 
  Authors
- * Sathvik Udupa 2021
+ * Georges Abous-Rjeili 2021
+ * Artem Ploujnikov 2021
+ * Yingzhi Wang 2022
+ * Sathvik Udupa 2022
+
+
 """
-import sys
+import os, sys
 import torch
 import logging
 sys.path.append("../../../../")
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.lobes.models.synthesis.fastspeech import dataio_prepare
 
 # sys.path.append("..")
 from recipes.LJSpeech.TTS.common.utils import PretrainedModelMixin, ProgressSampleImageMixin
@@ -112,6 +116,58 @@ class FastSpeechBrain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
+def dataio_prepare(hparams):
+# Define audio pipeline:
+    with open('lexicon', 'r') as f:
+        lexicon = f.read().split('\t')
+    # lexicon.remove(' ')
+    input_encoder = hparams.get("input_encoder")
+    lexicon = ['@@'] + lexicon
+    input_encoder.update_from_iterable(
+                lexicon,
+                sequence_input=False)
+    @sb.utils.data_pipeline.takes("wav", "label", "durations")
+    @sb.utils.data_pipeline.provides("mel_text_pair")
+    def audio_pipeline(wav, label, dur):
+        durs = np.load(dur)
+        durs_seq = torch.from_numpy(durs).int()
+        text_seq = input_encoder.encode_sequence_torch(words.lower()).int()
+        assert len(text_seq) == len(durs)
+        audio = sb.dataio.dataio.read_audio(wav)
+        mel = hparams["mel_spectogram"](audio=audio)
+
+        len_text = len(text_seq)
+
+        return text_seq, durs_seq, mel, len_text
+
+    datasets = {}
+
+    dataset_names = {
+                    'train': hparams["train_data_path"],
+                    'valid': hparams["valid_data_path"],
+                    'test': hparams["test_data_path"]
+                    }
+    if not os.path.exists("lexicon"):
+        with open(hparams["train_data_path"], 'r') as f:
+            lines = f.read().split('\n')[:-1]
+        char_set = set()
+        for l in lines:
+            char_set.update(*l.lower().split('|')[1])
+        with open("lexicon", 'w') as f:
+            f.write('\t'.join(char_set))
+
+
+    for dataset in dataset_names:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
+            csv_path=os.path.join(hparams["save_folder"], dataset+'.csv'),
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline],
+            output_keys=["mel_text_pair", "wav", "label", "durations"],
+        )
+
+    return datasets
+
+
 def batch_to_gpu(batch):
     (
         text_padded,
@@ -169,11 +225,28 @@ def main():
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
+    )
+
+    sys.path.append("../")
+    from ljspeech_prepare import prepare_ljspeech
+    sb.utils.distributed.run_on_main(
+        prepare_ljspeech,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
+            "train": hparams["train_data_path"],
+            "valid": hparams["valid_data_path"],
+            "test": hparams["test_data_path"],
+            "duration": hparams["duration_path"],
+            "wavs": hparams["audio_folder"],
+            "seed": hparams["seed"],
+        },
     )
     datasets = dataio_prepare(hparams)
 
@@ -189,8 +262,9 @@ def main():
     fastspeech_brain.fit(
         fastspeech_brain.hparams.epoch_counter,
         datasets["train"],
-        datasets["valid"],
+        datasets["valid"]
     )
+
     if hparams.get("save_for_pretrained"):
         fastspeech_brain.save_for_pretrained()
 
