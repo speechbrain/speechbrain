@@ -610,7 +610,7 @@ if __name__ == "__main__":
             filename="main.zip",
             source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
             savedir=hparams["data_folder"],
-            save_filename="Binaural-WSJ0Mix-main.zip"
+            save_filename="Binaural-WSJ0Mix-main.zip",
         )
         file = zipfile.ZipFile(
             os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
