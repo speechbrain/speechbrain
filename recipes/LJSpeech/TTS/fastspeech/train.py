@@ -15,6 +15,7 @@
 
 """
 import os, sys
+import numpy as np
 import torch
 import logging
 sys.path.append("../../../../")
@@ -131,7 +132,7 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav, label, dur):
         durs = np.load(dur)
         durs_seq = torch.from_numpy(durs).int()
-        text_seq = input_encoder.encode_sequence_torch(words.lower()).int()
+        text_seq = input_encoder.encode_sequence_torch(label.lower()).int()
         assert len(text_seq) == len(durs)
         audio = sb.dataio.dataio.read_audio(wav)
         mel = hparams["mel_spectogram"](audio=audio)
@@ -262,7 +263,9 @@ def main():
     fastspeech_brain.fit(
         fastspeech_brain.hparams.epoch_counter,
         datasets["train"],
-        datasets["valid"]
+        datasets["valid"],
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     if hparams.get("save_for_pretrained"):
