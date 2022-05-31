@@ -131,7 +131,7 @@ def data_prep(data_folder, hparams):
     return train_data, valid_data, label_encoder
 
 
-def main(device='cpu'):
+def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../samples/ASR"
