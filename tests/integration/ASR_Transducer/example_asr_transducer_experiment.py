@@ -131,7 +131,7 @@ def data_prep(data_folder, hparams):
     return train_data, valid_data, label_encoder
 
 
-def main():
+def main(device='cpu'):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../samples/ASR"
@@ -146,7 +146,10 @@ def main():
 
     # Trainer initialization
     transducer_brain = TransducerBrain(
-        hparams["modules"], hparams["opt_class"], hparams
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts={"device": device},
     )
 
     # Training/validation loop
@@ -168,5 +171,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_error():
-    main()
+def test_error(device):
+    main(device)
