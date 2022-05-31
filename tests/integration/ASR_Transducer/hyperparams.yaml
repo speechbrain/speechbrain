@@ -5,7 +5,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 
 # Training params
-device: 'cuda:0'
 N_epochs: 15
 lr: 1.0
 dataloader_options:
