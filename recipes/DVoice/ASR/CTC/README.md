@@ -1,17 +1,33 @@
 # DVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset(Darija, Swahili): [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here: [Link](https://github.com/besacier/ALFFA_PUBLIC). For the Kabyle, we used Mozilla CommoVoice: [Link](https://commonvoice.mozilla.org/fr/datasets).
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset(Darija, Swahili): [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here: [Link](https://github.com/besacier/ALFFA_PUBLIC). For the Kabyle, we used Mozilla CommonVoice: [Link](https://commonvoice.mozilla.org/fr/datasets).
 
 # Data preparation
 [DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
 
 # How to run
-Swahili: python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/localscratch/swahili/
-Darija: python train_with_wav2vec2.py hparams/train_dar_with_wav2vec.yaml --data_folder=/localscratch/darija/
-Fongbe: python train_with_wav2vec2.py hparams/train_fon_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/FONGBE/data/
-Amharic: python train_with_wav2vec2.py hparams/train_amh_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/AMHARIC/data/
-python train_with_wav2vec2.py hparams/train_wol_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/WOLOF/data/
+- Darija : Just download the DVoice dataset than run `python train_with_wav2vec2.py hparams/train_dar_with_wav2vec.yaml --data_folder=/localscratch/darija/`
+- Fongbe : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_fon_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/FONGBE/data/`
+- Amharic : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_amh_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/AMHARIC/data/`
+- Wolof : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_wol_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/WOLOF/data/`
+- Swahili : To train the Swahili recipe you need to download the both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy bellow and run  `python train_with_wav2vec2.py hparams/train_multi_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
+- Multilingual : To train the Multilingual recipe you need to download the both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy bellow and run  `python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
 
-To get the data for Fongbe, Amharic, Wolof,  please clone https://github.com/besacier/ALFFA_PUBLIC/.
+      dvoice_recipe_data
+      ├── ...
+      ├── DVOICE                    # create a DVOICE folder the put the DVoice dataset inside
+      │   ├── darija                
+      │   └── swahili               
+      ├── ALFFA_DATASET             # put DVOICE and ALFFA_DATASET in the same level
+      |   ├── ASR
+      |   |   ├── AMHARIC
+      |   |   ├── FONGBE
+      |   |   ├── HAUSA
+      |   |   ├── SWAHILI
+      |   |   ├── WOLOF
+      |   ├── ...
+      └── ...
+
+To get the data for Fongbe, Amharic, Wolof and a part of Swahili, please clone https://github.com/besacier/ALFFA_PUBLIC/.
 
 # Languages
 Here is a list of the different African languages and dialects that we tested:
@@ -22,27 +38,24 @@ Here is a list of the different African languages and dialects that we tested:
 - Amharic
 
 # Results
-
 | Language | DVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link |
-| ------------- |: -------------: | : ---------------------------: | -----: | -----: | -----: | -----: | -----: | : -----------: |
-| Darija(Moroccan Arabic) | v2.0 | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/aioxlabs/dvoice-darija) |
-| Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/aioxlabs/dvoice-swahili) |
-| Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/aioxlabs/dvoice-wolof) |
-| Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/aioxlabs/dvoice-fongbe) |
+| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:|
+| Darija(Moroccan Arabic) | v2.0 | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/aioxlabs/dvoice-darija)
+| Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/aioxlabs/dvoice-swahili)
+| Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/aioxlabs/dvoice-wolof)
+| Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/aioxlabs/dvoice-fongbe)
 | Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/aioxlabs/dvoice-amharic) |
 
-
 # Performances of DVoice Multilingual on each language
-Dataset Link | Language | Test WER |
-|: ---------------------------: | -----: | -----: |
+| Dataset Link | Language | Test WER |
+|:---------------------------:| -----:| -----:|
 | [DVoice](https://zenodo.org/record/6342622) | Darija | 13.27 |
-| [DVoice / VoxLingua107](https://zenodo.org/record/6342622) + [ALFFA](https:// github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/SWAHILI) | Swahili | 29.31 |
-| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/FONGBE) | Fongbe | 10.26 |
-| [ALFFA](https:// github.com/ besacier/ALFFA_PUBLIC/tree/master/ASR/WOLOF) | Wolof | 21.54 |
-| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/AMHARIC) | Amharic | 31.15 |
+| [DVoice / VoxLingua107](https://zenodo.org/record/6342622) + [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/SWAHILI) | Swahili | 29.31
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/FONGBE) | Fongbe | 10.26
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/WOLOF) | Wolof | 21.54
+| [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/AMHARIC) | Amharic | 31.15
 
 # How to simply use pretrained models to transcribe my audio file?
-
 SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories(see the results table above) corresponding to our different models for DVoice.
 
 # **About DVoice**
