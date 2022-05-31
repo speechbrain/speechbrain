@@ -75,9 +75,10 @@ class AddNoise(torch.nn.Module):
     -------
     >>> import pytest
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> clean = signal.unsqueeze(0) # [batch, time, channels]
-    >>> noisifier = AddNoise('samples/noise_samples/noise.csv')
+    >>> noisifier = AddNoise('tests/samples/annotation/noise.csv',
+    ...                     replacements={'noise_folder': 'tests/samples/noise'})
     >>> noisy = noisifier(clean, torch.ones(1))
     """
 
@@ -325,9 +326,10 @@ class AddReverb(torch.nn.Module):
     -------
     >>> import pytest
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> clean = signal.unsqueeze(0) # [batch, time, channels]
-    >>> reverb = AddReverb('samples/rir_samples/rirs.csv')
+    >>> reverb = AddReverb('tests/samples/annotation/RIRs.csv',
+    ...                     replacements={'rir_folder': 'tests/samples/RIRs'})
     >>> reverbed = reverb(clean, torch.ones(1))
     """
 
@@ -451,7 +453,7 @@ class SpeedPerturb(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> perturbator = SpeedPerturb(orig_freq=16000, speeds=[90])
     >>> clean = signal.unsqueeze(0)
     >>> perturbed = perturbator(clean)
@@ -526,7 +528,7 @@ class Resample(torch.nn.Module):
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> signal = signal.unsqueeze(0) # [batch, time, channels]
     >>> resampler = Resample(orig_freq=16000, new_freq=8000)
     >>> resampled = resampler(signal)
@@ -839,7 +841,8 @@ class AddBabble(torch.nn.Module):
     >>> import pytest
     >>> babbler = AddBabble()
     >>> dataset = ExtendedCSVDataset(
-    ...     csvpath='samples/audio_samples/csv_example3.csv',
+    ...     csvpath='tests/samples/annotation/speech.csv',
+    ...     replacements={"data_folder": "tests/samples/single-mic"}
     ... )
     >>> loader = make_dataloader(dataset, batch_size=5)
     >>> speech, lengths = next(iter(loader)).at_position(0)
@@ -932,7 +935,7 @@ class DropFreq(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> dropper = DropFreq()
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> dropped_signal = dropper(signal.unsqueeze(0))
     """
 
@@ -1045,7 +1048,7 @@ class DropChunk(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> dropper = DropChunk(drop_start=100, drop_end=200, noise_factor=0.)
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> signal = signal.unsqueeze(0) # [batch, time, channels]
     >>> length = torch.ones(1)
     >>> dropped_signal = dropper(signal, length)
@@ -1187,7 +1190,7 @@ class DoClip(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> clipped_signal = clipper(signal.unsqueeze(0))
     >>> "%.2f" % clipped_signal.max()
     '0.01'

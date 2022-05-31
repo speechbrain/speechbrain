@@ -379,7 +379,7 @@ class EndToEndSLU(Pretrained):
     ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
     ...     savedir=tmpdir,
     ... )
-    >>> slu_model.decode_file("samples/audio_samples/example6.wav")
+    >>> slu_model.decode_file("tests/samples/single-mic/example6.wav")
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
@@ -495,7 +495,7 @@ class EncoderDecoderASR(Pretrained):
     ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
     ...     savedir=tmpdir,
     ... )
-    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
+    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
@@ -743,7 +743,7 @@ class EncoderClassifier(Pretrained):
     ... )
 
     >>> # Compute embeddings
-    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
+    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
     >>> embeddings =  classifier.encode_batch(signal)
 
     >>> # Classification
@@ -896,8 +896,8 @@ class SpeakerRecognition(EncoderClassifier):
     ... )
 
     >>> # Perform verification
-    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
-    >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
+    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
+    >>> signal2, fs = torchaudio.load("tests/samples/single-mic/example2.flac")
     >>> score, prediction = verification.verify_batch(signal, signal2)
     """
 
@@ -994,7 +994,7 @@ class VAD(Pretrained):
     ... )
 
     >>> # Perform VAD
-    >>> boundaries = VAD.get_speech_segments("samples/audio_samples/example1.wav")
+    >>> boundaries = VAD.get_speech_segments("tests/samples/single-mic/example1.wav")
     """
 
     HPARAMS_NEEDED = ["sample_rate", "time_resolution", "device"]
@@ -2033,7 +2033,7 @@ class SpectralMaskEnhancement(Pretrained):
     ...     source="speechbrain/mtl-mimic-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
+    >>> noisy, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
     >>> # Channel dimension is interpreted as batch dimension here
     >>> enhanced = enhancer.enhance_batch(noisy)
     """
