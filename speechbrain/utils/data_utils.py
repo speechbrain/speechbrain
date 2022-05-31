@@ -72,8 +72,8 @@ def get_all_files(
 
     Example
     -------
-    >>> get_all_files('samples/rir_samples', match_and=['3.wav'])
-    ['samples/rir_samples/rir3.wav']
+    >>> get_all_files('tests/samples/RIRs', match_and=['3.wav'])
+    ['tests/samples/RIRs/rir3.wav']
     """
 
     # Match/exclude variable initialization
