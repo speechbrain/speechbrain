@@ -43,11 +43,15 @@ def test_profile_class(device):
     # By default, @profile should also annotate fit & evaluate functions; here the fit function is tested only.
     brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
     assert brain.profiler is not None
-    assert len(brain.profiler.key_averages()) == 72
-    assert brain.profiler.events().total_average().count == 2832
+    assert len(brain.profiler.key_averages()) >= 60  # 72 with torch==1.10.1
+    assert (
+        brain.profiler.events().total_average().count >= 2000
+    )  # 2832 with torch==1.10.1
     assert len(brain.profiler.speechbrain_event_traces) == 2
     assert len(brain.profiler.speechbrain_event_traces[0]) == 6
-    assert len(brain.profiler.speechbrain_event_traces[1]) == 2862
+    assert (
+        len(brain.profiler.speechbrain_event_traces[1]) >= 2000
+    )  # 2862 with torch==1.10.1
     """print(brain.profiler.key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls
@@ -112,8 +116,8 @@ def test_profile_func(device):
 
     prof_simple = train(simple_brain, training_set, validation_set)
     # print(prof_simple.key_averages().table(sort_by="cpu_time_total"))
-    assert len(prof_simple.events()) == 2832
-    assert len(prof_simple.key_averages()) == 72
+    assert len(prof_simple.events()) >= 2500  # 2832 with torch==1.10.1
+    assert len(prof_simple.key_averages()) >= 60  # 72 with torch==1.10.1
 
     simple_brain_nitty_gritty = SimpleBrainNittyGritty(
         {"model": model}, lambda x: SGD(x, 0.1), run_opts={"device": device}
@@ -122,8 +126,8 @@ def test_profile_func(device):
         simple_brain_nitty_gritty, training_set, validation_set
     )
     # print(prof_nitty_gritty.key_averages().table(sort_by="cpu_time_total"))
-    assert len(prof_nitty_gritty.events()) == 3030
-    assert len(prof_nitty_gritty.key_averages()) == 74
+    assert len(prof_nitty_gritty.events()) >= 2500  # 3030 with torch==1.10.1
+    assert len(prof_nitty_gritty.key_averages()) >= 60  # 74 with torch==1.10.1
 
     # The outputs of this diff are only for visualisation, ``simple_delta._build_tree()`` will throw an error.
     simple_delta, nitty_gritty_delta = events_diff(
@@ -212,8 +216,8 @@ def test_scheduler(device):
     brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
     assert brain.profiler.step_num == 20
     assert len(brain.profiler.speechbrain_event_traces) == 1
-    assert len(brain.profiler.events()) == 293
-    assert len(brain.profiler.key_averages()) == 73
+    assert len(brain.profiler.events()) >= 250  # 293 with torch==1.10.1
+    assert len(brain.profiler.key_averages()) >= 60  # 73 with torch==1.10.1
     """print(brain.profiler.key_averages().table(sort_by="cpu_time_total"))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls
@@ -309,9 +313,11 @@ def test_scheduler(device):
     assert brain.profiler.step_num == 20  # started again from 0 steps
     assert len(brain.profiler.speechbrain_event_traces) == 2
     assert (
-        len(brain.profiler.events()) == 293
+        len(brain.profiler.events()) >= 250  # 293 with torch==1.10.1
     )  # unchanged (overwritten with akin data)
-    assert len(brain.profiler.key_averages()) == 73  # unchanged (akin data)
+    assert (
+        len(brain.profiler.key_averages()) >= 60
+    )  # 73 with torch==1.10.1 # unchanged (akin data)
     # now, to the train function's profiler
     assert (
         prof.step_num == 0
@@ -487,9 +493,13 @@ def test_aggregated_traces(device):
     brain.fit(epoch_counter=range(10), train_set=train_set, valid_set=valid_set)
     assert len(brain.profiler.speechbrain_event_traces) == 2
     assert len(brain.profiler.speechbrain_event_traces[0]) == 6
-    assert len(brain.profiler.speechbrain_event_traces[1]) == 2862
-    assert len(brain.profiler.events()) == 2832
-    assert len(brain.profiler.events().key_averages()) == 72
+    assert (
+        len(brain.profiler.speechbrain_event_traces[1]) >= 2500
+    )  # 2862 with torch==1.10.1
+    assert len(brain.profiler.events()) >= 2500  # 2832 with torch==1.10.1
+    assert (
+        len(brain.profiler.events().key_averages()) >= 60
+    )  # 72 with torch==1.10.1
     """print(brain.profiler.events().key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls
@@ -510,8 +520,8 @@ def test_aggregated_traces(device):
 
     # Profiling: aggregate traces
     short_report = brain.profiler.merge_traces()
-    assert len(short_report) == 2838
-    assert len(short_report.key_averages()) == 73
+    assert len(short_report) >= 2500  # 2838 with torch==1.10.1
+    assert len(short_report.key_averages()) >= 60  # 73 with torch==1.10.1
     """print(short_report.key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls
@@ -535,12 +545,22 @@ def test_aggregated_traces(device):
     brain.evaluate(test_set=test_set)
     assert len(brain.profiler.speechbrain_event_traces) == 5
     assert len(brain.profiler.speechbrain_event_traces[0]) == 6
-    assert len(brain.profiler.speechbrain_event_traces[1]) == 2862
-    assert len(brain.profiler.speechbrain_event_traces[2]) == 143
-    assert len(brain.profiler.speechbrain_event_traces[3]) == 143
-    assert len(brain.profiler.speechbrain_event_traces[4]) == 143
-    assert len(brain.profiler.events()) == 141
-    assert len(brain.profiler.events().key_averages()) == 42
+    assert (
+        len(brain.profiler.speechbrain_event_traces[1]) >= 2500
+    )  # 2862 with torch==1.10.1
+    assert (
+        len(brain.profiler.speechbrain_event_traces[2]) >= 125
+    )  # 143 with torch==1.10.1
+    assert (
+        len(brain.profiler.speechbrain_event_traces[3]) >= 125
+    )  # 143 with torch==1.10.1
+    assert (
+        len(brain.profiler.speechbrain_event_traces[4]) >= 125
+    )  # 143 with torch==1.10.1
+    assert len(brain.profiler.events()) >= 125  # 141 with torch==1.10.1
+    assert (
+        len(brain.profiler.events().key_averages()) >= 25
+    )  # 42 with torch==1.10.1
     # the following is only for the last call of the 3x brain.evaluate()
     """print(brain.profiler.events().key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------
@@ -563,12 +583,14 @@ def test_aggregated_traces(device):
     # Profiling: putting previous benchmark reporting together.
     full_report = brain.profiler.merge_traces()
     assert (
-        len(full_report.key_averages()) == 73
+        len(full_report.key_averages()) >= 60  # 73 with torch==1.10.1
     )  # In this minimal example, only 73 functions matter.
     # Some events are duplicated (perhaps from wrapping functions):
     # => they appear stacked & EventList._remove_dup_nodes drops direct child events of same name as their parent.
     num_events = sum([len(x) for x in brain.profiler.speechbrain_event_traces])
-    assert num_events == 3297  # expected: 6 + 2862 + 3x143 = 3297
+    assert (
+        num_events >= 3000
+    )  # 3297 with torch==1.10.1  # expected: 6 + 2862 + 3x143 = 3297
     # Apparently, this depends on how this test is run (by its own or as part of the entire file's test suite).
     assert (num_events == len(full_report)) or (
         len(full_report) == len(set([x.id for x in full_report]))
@@ -644,9 +666,13 @@ def test_profile_details(device):
         epoch_counter=range(10), train_set=train_set, valid_set=valid_set
     )
     assert len(brain_analyst.profiler.speechbrain_event_traces) == 1
-    assert len(brain_analyst.profiler.speechbrain_event_traces[0]) == 296
-    assert len(brain_analyst.profiler.events()) == 293
-    assert len(brain_analyst.profiler.events().key_averages()) == 73
+    assert (
+        len(brain_analyst.profiler.speechbrain_event_traces[0]) >= 250
+    )  # 296 with torch==1.10.1
+    assert len(brain_analyst.profiler.events()) >= 250  # 293 with torch==1.10.1
+    assert (
+        len(brain_analyst.profiler.events().key_averages()) >= 60
+    )  # 73 with torch==1.10.1
     """print(brain_analyst.profiler.events().key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg       CPU Mem  Self CPU Mem    # of Calls   Total FLOPs
@@ -667,11 +693,17 @@ def test_profile_details(device):
     # 6-batch inference
     brain_analyst.evaluate(test_set=test_set)
     assert len(brain_analyst.profiler.speechbrain_event_traces) == 2
-    assert len(brain_analyst.profiler.speechbrain_event_traces[0]) == 296
-    assert len(brain_analyst.profiler.speechbrain_event_traces[1]) == 144
+    assert (
+        len(brain_analyst.profiler.speechbrain_event_traces[0]) >= 250
+    )  # 296 with torch==1.10.1
+    assert (
+        len(brain_analyst.profiler.speechbrain_event_traces[1]) >= 125
+    )  # 144 with torch==1.10.1
     # as of evaluate() call
-    assert len(brain_analyst.profiler.events()) == 142
-    assert len(brain_analyst.profiler.events().key_averages()) == 42
+    assert len(brain_analyst.profiler.events()) >= 125  # 142 with torch==1.10.1
+    assert (
+        len(brain_analyst.profiler.events().key_averages()) >= 25
+    )  # 42 with torch==1.10.1
     """print(brain_analyst.profiler.events().key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg       CPU Mem  Self CPU Mem    # of Calls   Total FLOPs
@@ -737,11 +769,19 @@ def test_profile_details(device):
     """
     # same check as for analyst
     assert len(brain_optimiser.profiler.speechbrain_event_traces) == 2
-    assert len(brain_optimiser.profiler.speechbrain_event_traces[0]) == 296
-    assert len(brain_optimiser.profiler.speechbrain_event_traces[1]) == 144
+    assert (
+        len(brain_optimiser.profiler.speechbrain_event_traces[0]) >= 250
+    )  # 296 with torch==1.10.1
+    assert (
+        len(brain_optimiser.profiler.speechbrain_event_traces[1]) >= 125
+    )  # 144 with torch==1.10.1
     # as of evaluate() call
-    assert len(brain_optimiser.profiler.events()) == 142
-    assert len(brain_optimiser.profiler.events().key_averages()) == 42
+    assert (
+        len(brain_optimiser.profiler.events()) >= 125
+    )  # 142 with torch==1.10.1
+    assert (
+        len(brain_optimiser.profiler.events().key_averages()) >= 25
+    )  # 42 with torch==1.10.1
     # different config
     assert (
         brain_optimiser.profiler.record_shapes
@@ -765,10 +805,10 @@ def test_profile_details(device):
 
     # let's take a look at the diff
     diff_fit, diff_evaluate = events_diff(key_avg_fit, key_avg_evaluate)
-    assert len(diff_fit) == 64
-    assert len(diff_evaluate) == 33
-    assert diff_fit.total_average().count == 273
-    assert diff_evaluate.total_average().count == 122
+    assert len(diff_fit) >= 50  # 64 with torch==1.10.1
+    assert len(diff_evaluate) >= 25  # 33 with torch==1.10.1
+    assert diff_fit.total_average().count >= 250  # 273 with torch==1.10.1
+    assert diff_evaluate.total_average().count >= 100  # 122 with torch==1.10.1
     """For curiosity only... the printed FunctionEvents differ by (name, # of Calls)
     print(diff_fit.table(sort_by="cpu_time_total"))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
