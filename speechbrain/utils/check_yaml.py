@@ -154,6 +154,9 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         print("File %s not found!" % (script_file,))
         return False
 
+    if prepare_files == [""]:
+        prepare_files = []
+
     for prepare_file in prepare_files:
         if not (os.path.exists(prepare_file)):
             print("File %s not found!" % (prepare_file,))
