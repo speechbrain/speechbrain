@@ -213,7 +213,7 @@ class TransformerEncoderLayer(nn.Module):
         dropout=0.1,
         activation=nn.ReLU,
         normalize_before=False,
-        ffn_type='1dcnn',
+        ffn_type='ffn',
     ):
         super().__init__()
 
