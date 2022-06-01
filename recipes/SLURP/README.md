@@ -49,7 +49,7 @@ The following results were obtained on a 48 GB RTX 8000 (the recipe has also bee
 
 # Inference with easy-to-use Interface
 The Direct (HuBert) model can be found on HuggingFace (coupled with an easy-inference interface):
- 
+
 https://huggingface.co/speechbrain/SLU-direct-SLURP-hubert-enc
 
 # **About SpeechBrain**
