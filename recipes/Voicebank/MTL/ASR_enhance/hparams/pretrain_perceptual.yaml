@@ -48,7 +48,7 @@ seq_type: clean  # null, clean, joint
 label_smoothing: 0.1
 
 # Set this to the path of a pretrained model to load before training
-pretrained_path: {}
+# pretrained_path: {}
 frozen_models: []
 
 # Feature parameters
@@ -77,11 +77,11 @@ compute_stft: !new:speechbrain.processing.features.STFT
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
 
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
+# compute_istft: !new:speechbrain.processing.features.ISTFT
+#    sample_rate: !ref <sample_rate>
+#    n_fft: !ref <n_fft>
+#    win_length: !ref <win_length>
+#    hop_length: !ref <hop_length>
 
 spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
     power: 0.5

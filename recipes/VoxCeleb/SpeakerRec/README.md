@@ -75,7 +75,8 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 
 # PreTrained Model + Easy-Inference
-You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb).
+You can find the pre-trained ECAPA-TDNN model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb).
+You can find the pre-trained xvector models as well on [HuggingFace](https://huggingface.co/speechbrain/spkrec-xvect-voxceleb)
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

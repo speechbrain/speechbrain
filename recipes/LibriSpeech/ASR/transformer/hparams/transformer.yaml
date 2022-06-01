@@ -29,7 +29,7 @@ data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -95,7 +95,6 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -103,7 +102,6 @@ label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
