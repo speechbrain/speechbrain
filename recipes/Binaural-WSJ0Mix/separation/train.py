@@ -629,14 +629,16 @@ if __name__ == "__main__":
             kwargs={
                 "wsj_root": hparams["wsj_root"],
                 "output_root": hparams["data_folder"],
+                "datafreqs": hparams["data_freqs"],
+                "datamodes": hparams["data_modes"],
             },
         )
 
     # Data preparation
-    from recipes.WSJ0Mix.prepare_data import prepare_wsjmix  # noqa
+    from prepare_data import prepare_binaural_wsj0mix  # noqa
 
     run_on_main(
-        prepare_wsjmix,
+        prepare_binaural_wsj0mix,
         kwargs={
             "datapath": hparams["data_folder"],
             "savepath": hparams["save_folder"],

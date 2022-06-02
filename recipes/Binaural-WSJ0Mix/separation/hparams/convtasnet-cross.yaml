@@ -14,7 +14,9 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Output directory for writing binaural wsj0-2mix.
 data_folder: !PLACEHOLDER
 # Path to the folder containing wsj0/
-wsj_root: /yourpath/path/to/wsj/
+wsj_root: !PLACEHOLDER
+data_freqs: ['8k'] # or if you want the whole dataset ['8k','16k']
+data_modes: ['min'] # or if you want the whole dataset ['min', 'max']
 
 # the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
 # e.g. /yourpath/wsj0-processed/si_tr_s/
