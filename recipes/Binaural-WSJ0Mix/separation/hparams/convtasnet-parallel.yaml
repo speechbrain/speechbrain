@@ -106,19 +106,6 @@ EncoderR: !new:speechbrain.lobes.models.dual_path.Encoder
     kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
 
-intra: !new:speechbrain.lobes.models.dual_path.SBRNNBlock
-    num_layers: 1
-    input_size: !ref <out_channels>
-    hidden_channels: !ref <out_channels>
-    dropout: 0
-    bidirectional: True
-
-inter: !new:speechbrain.lobes.models.dual_path.SBRNNBlock
-    num_layers: 1
-    input_size: !ref <out_channels>
-    hidden_channels: !ref <out_channels>
-    dropout: 0
-    bidirectional: True
 
 MaskNetL: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     N: 128

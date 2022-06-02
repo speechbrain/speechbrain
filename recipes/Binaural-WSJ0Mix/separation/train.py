@@ -84,7 +84,7 @@ class Separation(sb.Brain):
             est_maskr = self.hparams.MaskNetR(mix_wr)
             mix_wr = torch.stack([mix_wr] * self.hparams.num_spks)
             sep_hr = mix_wr * est_maskr
-        if "cross" in self.hparams.experiment_name:
+        elif "cross" in self.hparams.experiment_name:
             EPS = 1e-8
             compute_stft = STFT(
                 sample_rate=self.hparams.sample_rate,
@@ -122,7 +122,7 @@ class Separation(sb.Brain):
             est_maskr = self.hparams.MaskNetR(mix_catr)
             mix_wr = torch.stack([mix_wr] * self.hparams.num_spks)
             sep_hr = mix_wr * torch.chunk(est_maskr, 2, dim=2)[0]
-        if "parallel" in self.hparams.experiment_name:
+        elif "parallel" in self.hparams.experiment_name:
             mix_wl1 = self.hparams.EncoderL(mix[:, :, 0])
             mix_wr2 = self.hparams.EncoderR(mix[:, :, 1])
             mix_wl = torch.cat((mix_wl1, mix_wr2), dim=1)
