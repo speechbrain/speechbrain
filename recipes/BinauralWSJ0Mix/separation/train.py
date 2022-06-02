@@ -635,7 +635,9 @@ if __name__ == "__main__":
         )
 
     # Data preparation
-    from prepare_data import prepare_binaural_wsj0mix  # noqa
+    from recipes.BinauralWSJ0Mix.prepare_data import (
+        prepare_binaural_wsj0mix,
+    )  # noqa
 
     run_on_main(
         prepare_binaural_wsj0mix,
