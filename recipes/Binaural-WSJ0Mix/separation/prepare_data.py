@@ -41,7 +41,7 @@ def create_binaural_wsj0mix2_csv(
     savepath,
     fs,
     version,
-    savename="binaural_wsj0mix2_",
+    savename="binaural_wsj0-2mix_",
     set_types=["tr", "cv", "tt"],
 ):
     """
@@ -120,7 +120,7 @@ def create_binaural_wsj0mix3_csv(
     savepath,
     fs,
     version,
-    savename="binaural_wsj0mix3_",
+    savename="binaural_wsj0-3mix_",
     set_types=["tr", "cv", "tt"],
 ):
     """
