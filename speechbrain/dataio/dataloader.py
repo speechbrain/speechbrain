@@ -52,8 +52,15 @@ from speechbrain.utils.checkpoints import (
 # Optional support for webdataset
 try:
     import webdataset as wds
+    from importlib_metadata import version
 
     WDS_AVAILABLE = True
+
+    # Use appropriate class based on webdataset version
+    if version("webdataset")[0:4] == "0.1.":
+        WDS_CLASS = wds.dataset.Composable
+    else:
+        WDS_CLASS = wds.DataPipeline
 except ImportError:
     WDS_AVAILABLE = False
 
@@ -120,7 +127,7 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
     # which requires batch_size = None in the DataLoader
     if (
         WDS_AVAILABLE
-        and isinstance(dataset, wds.dataset.Composable)
+        and isinstance(dataset, WDS_CLASS)
         and "batch_size" not in loader_kwargs
     ):
         loader_kwargs["batch_size"] = None
