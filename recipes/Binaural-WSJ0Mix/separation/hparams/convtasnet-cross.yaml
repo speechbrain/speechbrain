@@ -30,9 +30,9 @@ experiment_name: convtasnet-cross
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-train_data: !ref <save_folder>/wsj_tr.csv
-valid_data: !ref <save_folder>/wsj_cv.csv
-test_data: !ref <save_folder>/wsj_tt.csv
+train_data: !ref <save_folder>/binaural_wsj0-2mix_tr.csv
+valid_data: !ref <save_folder>/binaural_wsj0-2mix_cv.csv
+test_data: !ref <save_folder>/binaural_wsj0-2mix_tt.csv
 skip_prep: False
 
 
