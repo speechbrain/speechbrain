@@ -1,5 +1,5 @@
 # Speech separation with Binaural-WSJ0Mix
-This folder contains some recipes for the Binaural-WSJ0Mix task (2/3 sources). Please refer to [Real-time binaural speech separation with preserved spatial cues](https://ieeexplore.ieee.org/abstract/document/9053215) [1] for details.
+This folder contains some recipes for the Binaural-WSJ0Mix task (2/3 sources). Please refer to [Real-time binaural speech separation with preserved spatial cues](https://arxiv.org/abs/2002.06637) [1] for details.
 
 
 Additional dependency:
