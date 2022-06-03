@@ -140,9 +140,9 @@ def svdl(a):
     >>> from speechbrain.dataio.dataio import read_audio_multichannel
 
     >>> xs_speech = read_audio_multichannel(
-    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
     ... )
-    >>> xs_noise = read_audio_multichannel('samples/audio_samples/multi_mic/noise_diffuse.flac')
+    >>> xs_noise = read_audio_multichannel('tests/samples/multi-mic/noise_diffuse.flac')
     >>> xs = xs_speech + 0.05 * xs_noise
     >>> xs = xs.unsqueeze(0).float()
     >>>
@@ -378,9 +378,9 @@ def inv(x):
     >>> from speechbrain.processing.decomposition import inv
     >>>
     >>> xs_speech = read_audio(
-    ...    'samples/audio_samples/multi_mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
     ... )
-    >>> xs_noise = read_audio('samples/audio_samples/multi_mic/noise_0.70225_-0.70225_0.11704.flac')
+    >>> xs_noise = read_audio('tests/samples/multi-mic/noise_0.70225_-0.70225_0.11704.flac')
     >>> xs = xs_speech + 0.05 * xs_noise
     >>> xs = xs.unsqueeze(0).float()
     >>>

@@ -164,7 +164,7 @@ compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
         margin: 0.2
         scale: 30
 
-compute_error: !name:speechbrain.nnet.losses.classification_error
+# compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

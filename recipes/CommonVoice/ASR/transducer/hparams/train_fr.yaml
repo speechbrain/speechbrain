@@ -200,13 +200,13 @@ modules:
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
 
-greedy_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-   decode_network_lst: [!ref <emb>, !ref <dec>]
-   tjoint: !ref <Tjoint>
-   classifier_network: [!ref <transducer_lin>]
-   blank_id: !ref <blank_index>
-   beam_size: 1
-   nbest: 1
+# greedy_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+#   decode_network_lst: [!ref <emb>, !ref <dec>]
+#   tjoint: !ref <Tjoint>
+#   classifier_network: [!ref <transducer_lin>]
+#   blank_id: !ref <blank_index>
+#   beam_size: 1
+#   nbest: 1
 
 beam_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
    decode_network_lst: [!ref <emb>, !ref <dec>]
