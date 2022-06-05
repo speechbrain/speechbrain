@@ -13,6 +13,7 @@ import sys
 import speechbrain
 import torch
 import torchaudio
+import sentencepiece
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
@@ -622,6 +623,7 @@ class EncoderASR(Pretrained):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.tokenizer = self.hparams.tokenizer
         self.decoding_function = self.hparams.decoding_function
 
@@ -706,10 +708,25 @@ class EncoderASR(Pretrained):
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             predictions = self.decoding_function(encoder_out, wav_lens)
-            predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predictions
-            ]
+            if isinstance(
+                self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
+            ):
+                predicted_words = [
+                    "".join(self.tokenizer.decode_ndim(token_seq)).split(" ")
+                    for token_seq in predictions
+                ]
+            elif isinstance(
+                self.tokenizer, sentencepiece.SentencePieceProcessor
+            ):
+                predicted_words = [
+                    self.tokenizer.decode_ids(token_seq)
+                    for token_seq in predictions
+                ]
+            else:
+                sys.exit(
+                    "The tokenizer must be sentencepiece or CTCTextEncoder"
+                )
+
         return predicted_words, predictions
 
     def forward(self, wavs, wav_lens):
