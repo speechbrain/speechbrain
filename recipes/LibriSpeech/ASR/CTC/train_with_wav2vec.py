@@ -337,8 +337,6 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    asr_brain.checkpointer.save_checkpoint()
-
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
