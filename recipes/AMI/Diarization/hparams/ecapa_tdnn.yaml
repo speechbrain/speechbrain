@@ -37,9 +37,9 @@ der_dir: !ref <save_folder>/DER
 
 # Spectral feature parameters
 n_mels: 80
-left_frames: 0
-right_frames: 0
-deltas: False
+# left_frames: 0
+# right_frames: 0
+# deltas: False
 
 # ECAPA-TDNN model
 emb_dim: 192

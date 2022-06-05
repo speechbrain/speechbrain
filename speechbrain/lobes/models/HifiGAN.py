@@ -37,7 +37,6 @@ import torch.nn.functional as F
 import torch.nn as nn
 from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d, Conv2d
 from torchaudio import transforms
-import copy
 
 LRELU_SLOPE = 0.1
 
@@ -452,23 +451,17 @@ class HifiganGenerator(torch.nn.Module):
 
     @torch.no_grad()
     def inference(self, c):
-        """The inference function performs a padding and removes the
-        weight normalization used in training
+        """The inference function performs a padding and runs the forward method.
 
         Arguments
         ---------
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
         """
-
-        # c = c.to(self.conv_pre.device)
         c = torch.nn.functional.pad(
             c, (self.inference_padding, self.inference_padding), "replicate"
         )
-        # remove weight normalization which is used only in training
-        inference_generator = copy.deepcopy(self)
-        inference_generator.remove_weight_norm()
-        return inference_generator.forward(c)
+        return self.forward(c)
 
 
 ##################################

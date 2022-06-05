@@ -12,6 +12,7 @@ Authors
 
 import sys
 import torch
+import copy
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
@@ -225,13 +226,17 @@ class HifiGanBrain(sb.Brain):
 
     def run_inference_sample(self, name):
         """Produces a sample in inference mode. This is called when producing
-        samples and can be useful because
+        samples.
         """
         with torch.no_grad():
             if self.last_batch is None:
                 return
             x, y = self.last_batch
-            sig_out = self.modules.generator.inference(x)
+
+            # Preparing model for inference by removing weight norm
+            inference_generator = copy.deepcopy(self.hparams.generator)
+            inference_generator.remove_weight_norm()
+            sig_out = inference_generator.inference(x)
             spec_out = self.hparams.mel_spectogram(
                 audio=sig_out.squeeze(0).cpu()
             )

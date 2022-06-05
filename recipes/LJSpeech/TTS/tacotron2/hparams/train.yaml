@@ -16,7 +16,7 @@ output_folder: !ref ./results/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 train_log: !ref <output_folder>/train_log.txt
-epochs: 500
+epochs: 750
 keep_checkpoint_interval: 50
 
 ###################################

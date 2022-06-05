@@ -25,7 +25,6 @@ batch_size: 8
 lr: 0.0001
 device: 'cuda:0'
 target_type: phones
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
 checkpoint_avg: 1
 sorting: ascending
 train_loader_options:
@@ -48,8 +47,7 @@ ctc_weight: 0.0
 ctc_type: null  # null, clean, joint
 seq_weight: 0.0
 seq_type: null  # null, clean, joint
-alignment_weight: 0.0
-label_smoothing: 0.1
+# label_smoothing: 0.1
 
 # Here, the pretrained perceptual model is downloaded from the
 # speechbrain HuggingFace repository. However, a local path pointing
@@ -67,7 +65,7 @@ hop_length: 16
 
 # Outputs
 output_neurons: 42
-blank_index: !ref <output_neurons> - 1
+# blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 

@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/wav2vec2_ctc_en/<seed>
+output_folder: !ref results/wav2vec2_ctc_fr/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -33,10 +33,8 @@ avoid_if_longer_than: 10.0
 
 # Training parameters
 number_of_epochs: 30
-number_of_ctc_epochs: 15
 lr: 1.0
 lr_wav2vec: 0.0001
-ctc_weight: 0.3
 sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
@@ -60,7 +58,7 @@ token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
+# activation: !name:torch.nn.LeakyReLU
 wav2vec_output_dim: 1024
 dnn_neurons: 1024
 freeze_wav2vec: False
@@ -73,14 +71,6 @@ output_neurons: 76  # BPE size, index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 1
 eos_index: 2
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 80
-eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 140
-ctc_weight_decode: 0.0
-temperature: 1.50
 
 #
 # Functions and classes

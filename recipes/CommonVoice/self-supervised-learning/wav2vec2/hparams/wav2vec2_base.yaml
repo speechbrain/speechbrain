@@ -35,7 +35,7 @@ avoid_if_shorter_than: 1.0
 # paper (for the masking).
 mask_length: 10
 mask_prob: 0.65
-freeze_wav2vec: False
+# freeze_wav2vec: False
 
 number_of_epochs: 100
 lr_adam: 2.0 # This will get reduced by the training scheduler

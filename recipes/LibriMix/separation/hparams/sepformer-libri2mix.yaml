@@ -34,7 +34,7 @@ ckpt_interval_minutes: 60
 auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 2
-progressbar: True
+noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
 
@@ -57,7 +57,6 @@ use_wham_noise: False
 # Parameters for data augmentation
 use_wavedrop: False
 use_speedperturb: True
-use_speedperturb_sameforeachsource: False
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
