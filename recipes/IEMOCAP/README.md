@@ -1,7 +1,7 @@
 # Emotion recognition experiments with IEMOCAP (speech only)
 This folder contains scripts for running emotion recognition experiments with the IEMOCAP dataset (https://sail.usc.edu/iemocap/).
 
-# Training ECAPA-TDNN
+# Training ECAPA-TDNN/wav2vec 2.0/HuBERT
 Run the following command to train the model:
 `python train.py hparams/train.yaml`
 or with wav2vec2 model:
@@ -26,9 +26,9 @@ About 3min 14 sec for each epoch with a TESLA V100 (with wav2vec2 BASE encoder).
 We here use only the audio part of the dataset. 
 
 Our `iemocap_prepare.py` will:
-1- Do labelling transformation to 4 emitions [neural, happy, sad, anger]
-2- Prepare IEMOCAP data with random split if different_speakers is False. (Note for becnhmarking: you need to run 5 folds)
-3- Prepare IEMOCAP data with speaker-independent split if different_speakers is True. (Note for becnhmarking: you need to run 10 folds with test_spk_id from 1 to 10)
+1. Do labelling transformation to 4 emitions [neural, happy, sad, anger]
+2. Prepare IEMOCAP data with random split if different_speakers is False. (Note for becnhmarking: you need to run 5 folds)
+3. Prepare IEMOCAP data with speaker-independent split if different_speakers is True. (Note for becnhmarking: you need to run 10 folds with test_spk_id from 1 to 10)
 
 
 # PreTrained Model + Easy-Inference
