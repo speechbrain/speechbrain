@@ -1,6 +1,6 @@
 """
 Downloads and creates data manifest files for IEMOCAP
-(https://sail.usc.edu/iemocap/).
+(https://paperswithcode.com/dataset/iemocap).
 
 Authors:
  * Mirco Ravanelli, 2021
@@ -238,9 +238,6 @@ def split_sets(speaker_dict, split_ratio):
     return data_split
 
 
-# transform data from
-# https://github.com/eesungkim/Speech_Emotion_Recognition_DNN-ELM
-# author: eesungkim
 def transform_data(path_loadSession):
     """
     Create a dictionary that maps speaker id and corresponding wavs
