@@ -17,18 +17,18 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g. /path/to/vctk
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
 skip_prep: False
 
 #skip connections
-skip_asr: False
-skip_se: False
+# skip_asr: False
+# skip_se: False
 
-skip_se_type: dense_skip # input_skip , alternate_skip , dense_skip
-skip_asr_type: dense_skip #alternate_skip , dense_skip
+# skip_se_type: dense_skip # input_skip , alternate_skip , dense_skip
+# skip_asr_type: dense_skip #alternate_skip , dense_skip
 
 # Training parameters
 n_layers: 3
@@ -72,7 +72,7 @@ ctc_type: joint  # null, clean, joint
 mask_weight: 1.0
 
 # Choose fuse type
-fuse_type: att_mask # att_mask, fuse_conv, lin_att
+# fuse_type: att_mask # att_mask, fuse_conv, lin_att
 
 frozen_models: [] #, lm_model, src_embedding]
 unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
@@ -89,9 +89,8 @@ n_mels: 40
 dnn_neurons: 512
 output_neurons: 42
 blank_index: 0
-bos_index: 0
-eos_index: 0
-unk_index: 0
+# bos_index: 0
+# eos_index: 0
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -140,9 +139,9 @@ attention_model: !include:models/attention_model.yaml
     input_size: !ref <dnn_neurons>
     n_neurons: !ref <n_fft> // 2 + 1
 
-skip_parameters: !include:models/skip_connections.yaml
-    dnn_neurons: !ref <dnn_neurons>
-    n_fft: !ref <n_fft>
+# skip_parameters: !include:models/skip_connections.yaml
+#    dnn_neurons: !ref <dnn_neurons>
+#    n_fft: !ref <n_fft>
 
 asr_0: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <n_mels>]
