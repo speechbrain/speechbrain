@@ -15,7 +15,6 @@ import re
 import json
 import random
 import logging
-import glob
 from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
