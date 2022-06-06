@@ -53,9 +53,9 @@ def prepare_data(
         to training, 10% for validation, and 10% for test.
     test_spk_id: int
         Id of speaker used for test set, 10 speakers in total.
-        Here a leave-two-speaker strategy is used for the split, 
+        Here a leave-two-speaker strategy is used for the split,
         if one test_spk_id is selected for test, the other spk_id in the same
-        session is automatically used for validation. 
+        session is automatically used for validation.
         To perform a 10-fold cross-validation,
         10 experiments with test_spk_id from 1 to 10 should be done.
     seed : int
@@ -118,7 +118,7 @@ def create_json(wav_list, json_file):
         # Read the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
-        
+
         uttid = wav_file.split("/")[-1][:-4]
 
         # Create entry for this utterance
@@ -156,7 +156,7 @@ def split_different_speakers(speaker_dict, test_spk_id):
     """Constructs train, validation and test sets that do not share common
     speakers. There are two different speakers in each session. Train set is
     constituted of 4 sessions (8 speakers), while validation set and test set
-    contain each 1 speaker. If test_spk_id is 1, then speaker 2 is selected 
+    contain each 1 speaker. If test_spk_id is 1, then speaker 2 is selected
     automatically for validation set, and training set contains other 8 speakers.
     If test_spk_id is 2, then speaker 1 is selected for validation set.
 
@@ -176,20 +176,16 @@ def split_different_speakers(speaker_dict, test_spk_id):
     data_split["test"].extend(speaker_dict[str(test_spk_id)])
 
     # use the speaker in the same session as validation set
-    if test_spk_id % 2 == 0: 
+    if test_spk_id % 2 == 0:
         valid_spk_num = test_spk_id - 1
     else:
         valid_spk_num = test_spk_id + 1
 
     data_split["valid"].extend(speaker_dict[str(valid_spk_num)])
 
-    for i in range(1,11):
+    for i in range(1, 11):
         if i != valid_spk_num and i != test_spk_id:
             data_split["train"].extend(speaker_dict[str(i)])
-    
-    print(len(data_split["train"]))
-    print(len(data_split["valid"]))
-    print(len(data_split["test"]))
 
     return data_split
 
@@ -253,9 +249,9 @@ def transform_data(path_loadSession):
     >>> data_transformed = '/path/to/iemocap/IEMOCAP_ahsn_leave-two-speaker-out'
     >>> transform_data(data_original, data_transformed)
     """
-    
-    speaker_dict = {str(i+1): [] for i in range(10)}
-    
+
+    speaker_dict = {str(i + 1): [] for i in range(10)}
+
     speaker_count = 0
     for k in range(5):
         session = load_session("%s%s" % (path_loadSession, k + 1))
@@ -332,7 +328,7 @@ def load_session(pathSession):
                     + utterance[2]
                     + ".wav"
                 )
-                
+
                 label = utterance[3]
                 if label == "exc":
                     label = "hap"

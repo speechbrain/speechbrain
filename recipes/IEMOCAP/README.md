@@ -21,7 +21,7 @@ About 40 sec for each epoch with a TESLA V100 (with ECAPA-TDNN).
 About 3min 14 sec for each epoch with a TESLA V100 (with wav2vec2 BASE encoder).
 
 # Note on Data Preparation
-We here use only the audio part of the dataset. 
+We here use only the audio part of the dataset.
 
 Our `iemocap_prepare.py` will:
 1. Do labelling transformation to 4 emitions [neural, happy, sad, anger]
