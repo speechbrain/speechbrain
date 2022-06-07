@@ -270,6 +270,7 @@ class TransformerEncoderLayer(nn.Module):
         activation=nn.ReLU,
         normalize_before=False,
         attention_type="regularMHA",
+        ffn_type="regularFFN"
         causal=False,
     ):
         super().__init__()
@@ -288,11 +289,19 @@ class TransformerEncoderLayer(nn.Module):
                 d_model, nhead, dropout, mask_pos_future=causal
             )
 
-        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
-            d_ffn=d_ffn,
-            input_size=d_model,
-            dropout=dropout,
-            activation=activation,
+        if ffn_type == "regularFFN":
+            self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
+                d_ffn=d_ffn,
+                input_size=d_model,
+                dropout=dropout,
+                activation=activation,
+            )
+        elif ffn_type == "1dcnn":
+            self.pos_ffn = nn.Sequential(
+                        nn.Conv1d(d_model, d_ffn, 3, 1, (3 // 2)),
+                        nn.ReLU(),
+                        nn.Conv1d(d_ffn, d_model, 3, 1, (3 // 2)),
+                        nn.Dropout(dropout),
         )
 
         self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
@@ -301,6 +310,7 @@ class TransformerEncoderLayer(nn.Module):
         self.dropout2 = torch.nn.Dropout(dropout)
 
         self.normalize_before = normalize_before
+        self.pos_ffn_type = ffn_type
 
     def forward(
         self,
@@ -342,8 +352,9 @@ class TransformerEncoderLayer(nn.Module):
             src1 = self.norm2(src)
         else:
             src1 = src
+        if self.pos_ffn_type == '1dcnn': src1 = src1.transpose(1, 2)
         output = self.pos_ffn(src1)
-
+        if self.pos_ffn_type == '1dcnn': output = output.transpose(1, 2)
         # add & norm
         output = src + self.dropout2(output)
         if not self.normalize_before:
