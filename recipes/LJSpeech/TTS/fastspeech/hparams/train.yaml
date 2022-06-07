@@ -128,6 +128,8 @@ mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
 
 vocoder: "hifi-gan"
 pretrained_vocoder: true
+vocoder_source: speechbrain/tts-hifigan-ljspeech
+vocoder_download_path: tmpdir_vocoder
 
 modules:
     model: !ref <model>

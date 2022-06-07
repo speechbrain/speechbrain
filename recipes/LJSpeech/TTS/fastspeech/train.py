@@ -144,8 +144,8 @@ class FastSpeechBrain(sb.Brain):
         _, _, mel, _, wavs = self.last_batch
         mel = mel[:self.hparams.progress_batch_sample_size]
         assert self.hparams.vocoder == 'hifi-gan' and self.hparams.pretrained_vocoder is True, 'Specified vocoder not supported yet'
-        logger.info('Generating audio with pretrained Hifi-GAN vocoder')
-        hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
+        logger.info(f'Generating audio with pretrained {self.hparams.vocoder_source} vocoder')
+        hifi_gan = HIFIGAN.from_hparams(source=self.hparams.vocoder_source, savedir=self.hparams.vocoder_download_path)
         waveforms = hifi_gan.decode_batch(mel.transpose(2, 1))
         for idx, wav in enumerate(waveforms):
 
@@ -237,7 +237,7 @@ def criterion(model_output, targets, log_scale_durations=True):
         log_target_durations = torch.log(target_durations.float() + 1)
         durations = torch.clamp(torch.exp(log_durations) - 1, 0, 20)
     mel_loss, dur_loss = 0, 0
-    #Redo with batch level one step losses with masks
+    #change this to perform batch level using padding mask
     for i in range(mel_target.shape[0]):
         if i == 0:
             mel_loss = torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
