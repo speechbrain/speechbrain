@@ -47,7 +47,6 @@ class DurationPredictor(nn.Module):
 class FastSpeech(nn.Module):
     def __init__(self, pre_net_dropout,
                     pre_net_num_layers,
-                    post_net_num_layers,
                     enc_num_layers,
                     enc_num_head,
                     enc_d_model,
@@ -105,13 +104,15 @@ class FastSpeech(nn.Module):
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1])
         token_feats, memory = self.encoder(token_feats, src_mask=None, src_key_padding_mask=srcmask)
-        predict_durations = self.durPred(phoneme_feats)
-        spec_feats = upsample(phoneme_feats, durations if durations is not None else predict_durations)
+        predict_durations = self.durPred(token_feats).squeeze()
+        if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
+        if durations is None: dur_pred_reverse_log = torch.clamp(torch.exp(predict_durations) - 1, 0)
+        spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log)
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
         attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1])
         output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=None, src_key_padding_mask=srcmask)
         mel_post = self.linear(output_mel_feats)
-        return mel_post, preddurations
+        return mel_post, predict_durations
 
 def upsample(feats, durs, freq=1, padding_value=0.0):
     return torch.nn.utils.rnn.pad_sequence([torch.repeat_interleave(feats[i], durs[i].long(), dim=0)
@@ -200,7 +201,6 @@ class TextMelCollate:
         len_x = [x[3] for x in batch]
         len_x = torch.Tensor(len_x)
         mel_padded = mel_padded.permute(0, 2, 1)
-
         return (
             text_padded,
             dur_padded,

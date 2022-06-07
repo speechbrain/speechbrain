@@ -54,9 +54,27 @@ def prepare_ljspeech_durations_and_predefined_splits(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
+    #check that metadata files exists in specified path
     for filename in [train, valid, test, wavs, duration]:
         assert os.path.exists(filename), f"{filename} not found"
     filenames = ["train", "valid", "test"]
+
+    #create symbol list from train metadata. This will be used to do on the fly text encoding
+    lexicon_path = os.path.join(save_folder, "lexicon")
+    if os.path.exists(lexicon_path):
+        logger.info('Symbols file present')
+    else:
+        logger.info('Symbols file not present, creating from training data.')
+
+        with open(train, 'r') as f:
+            lines = f.read().split('\n')[:-1]
+        char_set = set()
+        for l in lines:
+            char_set.update(*l.lower().split('|')[1])
+        with open(lexicon_path, 'w') as f:
+            f.write('\t'.join(char_set))
+
+    #create records of metadata files
     for filename, name in zip([train, valid, test], filenames):
         data = []
         with open(filename, 'r') as f:

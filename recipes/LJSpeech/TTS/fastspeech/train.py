@@ -15,21 +15,28 @@
 
 """
 import os, sys
+from pathlib import Path
 import numpy as np
 import torch
 import logging
 sys.path.append("../../../../")
 import speechbrain as sb
+from speechbrain.pretrained import HIFIGAN
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from recipes.LJSpeech.TTS.common.utils import PretrainedModelMixin, ProgressSampleImageMixin
 
 logger = logging.getLogger(__name__)
 
-class FastSpeechBrain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
+class FastSpeechBrain(sb.Brain):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.init_progress_samples()
+    def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
+        self.hparams.progress_sample_logger.reset()
+        self.last_epoch = 0
+        self.last_batch = None
+        self.last_loss_stats = {}
+        return super().on_fit_start()
 
     def compute_forward(self, batch, stage):
         inputs, y = batch_to_gpu(batch)
@@ -40,21 +47,39 @@ class FastSpeechBrain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         return result
 
     def compute_objectives(self, predictions, batch, stage):
-        x, y = batch_to_gpu(batch)
-        self._remember_sample(y, predictions)
+        x, y, metadata = batch_to_gpu(batch, return_metadata=True)
+        self.last_batch = [x[0], y[-1], predictions[0], *metadata]
+        self._remember_sample([x[0], *y, *metadata], predictions)
         return criterion(predictions, y)
 
     def _remember_sample(self, batch, predictions):
-        mel_pred, durs = predictions
-        mel_target, durations, mel_length, phon_len  = batch
-        self.remember_progress_sample(
-                                    target=self._clean_mel(mel_target, mel_length),
-                                    pred=self._clean_mel(mel_pred, mel_length)
-                                    )
+
+        tokens, spectogram, durations, mel_lengths, input_lengths, labels, wavs = batch
+        mel_post, predict_durations = predictions
+        self.hparams.progress_sample_logger.remember(
+            target=self.process_mel(spectogram, mel_lengths),
+            output=self.process_mel(mel_post, mel_lengths),
+            raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
+                {
+                    "tokens": tokens,
+                    "input_lengths": input_lengths,
+                    "mel_target": spectogram,
+                    "mel_out": mel_post,
+                    "mel_lengths": mel_lengths,
+                    "durations": durations,
+                    "predict_durations": predict_durations,
+                    "labels": labels,
+                    "wavs": wavs
+
+                }
+            ),
+        )
 
 
 
-    def _clean_mel(self, mel, len, sample_idx=0):
+
+
+    def process_mel(self, mel, len, sample_idx=0):
         assert mel.dim() == 3
         return torch.sqrt(torch.exp(mel[sample_idx][:len[sample_idx]]))
 
@@ -73,6 +98,7 @@ class FastSpeechBrain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
+            self.last_epoch = epoch
             lr = self.optimizer.param_groups[-1]["lr"]
 
             # The train_logger writes a summary to stdout and to the logfile.
@@ -84,31 +110,60 @@ class FastSpeechBrain(sb.Brain, PretrainedModelMixin, ProgressSampleImageMixin):
             output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0
-                and epoch > self.hparams.progress_samples_min_rin
+                and epoch >= self.hparams.progress_samples_min_run
             )
 
             if output_progress_sample:
-                print('saving')
-                self.save_progress_sample(epoch)
+                logger.info('Saving predicted samples')
+                self.run_inference()
 
+                self.hparams.progress_sample_logger.save(epoch)
+                self.run_vocoder()
             # Save the current checkpoint and delete previous checkpoints.
             #UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
-
         # We also write statistics about test data spectogramto stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
+    def run_inference(self, index=0):
+        if self.last_batch is None:
+            return
+        tokens, input_lengths, *_ = self.last_batch
+        token = tokens[index][:input_lengths[index]]
+        mel_post, predicted_durations =  self.hparams.model(token.unsqueeze(0))
+        self.hparams.progress_sample_logger.remember(
+            infer_output=self.process_mel(mel_post, [len(mel_post[0])])
+        )
+
+    def run_vocoder(self):
+        if self.last_batch is None:
+            return
+        _, _, mel, _, wavs = self.last_batch
+        mel = mel[:self.hparams.progress_batch_sample_size]
+        assert self.hparams.vocoder == 'hifi-gan' and self.hparams.pretrained_vocoder is True, 'Specified vocoder not supported yet'
+        logger.info('Generating audio with pretrained Hifi-GAN vocoder')
+        hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
+        waveforms = hifi_gan.decode_batch(mel.transpose(2, 1))
+        for idx, wav in enumerate(waveforms):
+
+            path = os.path.join(self.hparams.progress_sample_path, str(self.last_epoch),  f"pred_{Path(wavs[idx]).stem}.wav")
+            torchaudio.save(path, wav, self.hparams.sample_rate)
+
 def dataio_prepare(hparams):
-    with open('lexicon', 'r') as f:
+    #read saved lexicon
+    with open(os.path.join(hparams["save_folder"], "lexicon"), 'r') as f:
         lexicon = f.read().split('\t')
     input_encoder = hparams.get("input_encoder")
+
+    #add a dummy symbol for idx 0 - used for padding.
     lexicon = ['@@'] + lexicon
     input_encoder.update_from_iterable(
                 lexicon,
                 sequence_input=False)
+    #load audio, text and durations on the fly; encode audio and text.
     @sb.utils.data_pipeline.takes("wav", "label", "durations")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(wav, label, dur):
@@ -120,22 +175,13 @@ def dataio_prepare(hparams):
         mel = hparams["mel_spectogram"](audio=audio)
         return text_seq, durs_seq, mel, len(text_seq)
 
+    #define splits and load it as sb dataset
     datasets = {}
-
     dataset_names = {
                     'train': hparams["train_data_path"],
                     'valid': hparams["valid_data_path"],
                     'test': hparams["test_data_path"]
                     }
-    if not os.path.exists("lexicon"):
-        with open(hparams["train_data_path"], 'r') as f:
-            lines = f.read().split('\n')[:-1]
-        char_set = set()
-        for l in lines:
-            char_set.update(*l.lower().split('|')[1])
-        with open("lexicon", 'w') as f:
-            f.write('\t'.join(char_set))
-
 
     for dataset in dataset_names:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -148,7 +194,7 @@ def dataio_prepare(hparams):
     return datasets
 
 
-def batch_to_gpu(batch):
+def batch_to_gpu(batch, return_metadata=False):
     (
         text_padded,
         durations,
@@ -159,6 +205,7 @@ def batch_to_gpu(batch):
         labels,
         wavs
     ) = batch
+
     durations = to_gpu(durations).long()
     phonemes = to_gpu(text_padded).long()
     input_lengths = to_gpu(input_lengths).long()
@@ -167,6 +214,9 @@ def batch_to_gpu(batch):
     mel_lengths = to_gpu(output_lengths).long()
     x = (phonemes, durations)
     y = (spectogram, durations, mel_lengths, input_lengths)
+    metadata = (labels, wavs)
+    if return_metadata:
+        return x, y, metadata
     return x, y
 
 def to_gpu(x):
@@ -215,7 +265,7 @@ def main():
     sys.path.append("../")
     from ljspeech_prepare import prepare_ljspeech_durations_and_predefined_splits
     sb.utils.distributed.run_on_main(
-        prepare_ljspeech,
+        prepare_ljspeech_durations_and_predefined_splits,
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],

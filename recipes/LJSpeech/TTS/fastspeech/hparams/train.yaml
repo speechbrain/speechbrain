@@ -3,7 +3,7 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_optimised_full/<seed>
+output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_pr/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
@@ -12,8 +12,8 @@ epochs: 1000
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
-progress_samples_min_rin: 5
-progress_samples_interval: 5
+progress_samples_min_run: 0
+progress_samples_interval: 1
 progress_batch_sample_size: 4
 
 #################################
@@ -21,7 +21,7 @@ progress_batch_sample_size: 4
 #################################
 data_folder: /data/Database/LJSpeech-1.1
 audio_folder: !ref <data_folder>/wavs
-train_data_path: !ref <data_folder>/metadata_train.csv
+train_data_path: !ref <data_folder>/metadata_val.csv
 valid_data_path: !ref <data_folder>/metadata_val.csv
 test_data_path: !ref <data_folder>/metadata_test.csv
 duration_path: /home/wtc8/Sathvik/DeepForcedAligner/output_24hrs/durations/
@@ -31,7 +31,7 @@ text_cleaners: ['english_cleaners']
 ################################
 # Audio Parameters             #
 ################################
-sample_rate: 16000
+sample_rate: 22050
 hop_length: 256
 win_length: null
 n_mel_channels: 80
@@ -82,8 +82,6 @@ dec_k_dim: 384
 dec_v_dim: 384
 dec_dropout: 0.1
 
-# Mel-post processing network parameters
-post_net_num_layers: 5
 
 # common
 normalize_before: False
@@ -93,7 +91,6 @@ dur_pred_kernel_size: 3
 model: !new:speechbrain.lobes.models.FastSpeech.FastSpeech
     pre_net_dropout: !ref <pre_net_dropout>
     pre_net_num_layers: !ref <pre_net_num_layers>
-    post_net_num_layers: !ref <post_net_num_layers>
     enc_num_layers: !ref <enc_num_layers>
     enc_num_head: !ref <enc_num_head>
     enc_d_model: !ref <enc_d_model>
@@ -129,9 +126,8 @@ mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
   mel_scale: !ref <mel_scale>
   compression: !ref <dynamic_range_compression>
 
-# Inverse spectrogram parameters
-inverse_spectrogram_n_iter: 1024
-
+vocoder: "hifi-gan"
+pretrained_vocoder: true
 
 modules:
     model: !ref <model>
@@ -182,3 +178,9 @@ model_output_keys:
     - mel
     - mel_lengths
     - alignments
+
+progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
+  output_path: !ref <progress_sample_path>
+  batch_sample_size: !ref <progress_batch_sample_size>
+  formats:
+    raw_batch: raw

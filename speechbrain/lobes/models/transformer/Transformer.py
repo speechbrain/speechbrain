@@ -270,7 +270,7 @@ class TransformerEncoderLayer(nn.Module):
         activation=nn.ReLU,
         normalize_before=False,
         attention_type="regularMHA",
-        ffn_type="regularFFN"
+        ffn_type="regularFFN",
         causal=False,
     ):
         super().__init__()
@@ -410,6 +410,7 @@ class TransformerEncoder(nn.Module):
         normalize_before=False,
         causal=False,
         attention_type="regularMHA",
+        ffn_type="regularFFN",
     ):
         super().__init__()
 
@@ -833,3 +834,13 @@ def get_lookahead_mask(padded_input):
         .masked_fill(mask == 1, float(0.0))
     )
     return mask.detach().to(padded_input.device)
+
+def get_mel_mask(padded_mel_input, mel_length):
+    sizes = padded_mel_input.shape
+    if len(sizes) == 3:
+        bz, lens, feats = sizes
+        ids = torch.arange(end=lens).to(padded_mel_input.device)
+        mask = [torch.gt(ids, mel_length[idx]) for idx in range(bz)]
+        return torch.stack(mask).to(padded_mel_input.device).detach()
+    else:
+        raise NotImplementedError
