@@ -115,7 +115,7 @@ model: !new:speechbrain.lobes.models.FastSpeech.FastSpeech
     padding_idx: !ref <padding_idx>
     dur_pred_kernel_size: !ref <dur_pred_kernel_size>
 
-mel_spectogram: !name:speechbrain.lobes.models.FastSpeech.mel_spectogram
+mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
   sample_rate: !ref <sample_rate>
   hop_length: !ref <hop_length>
   win_length: !ref <win_length>
