@@ -712,7 +712,7 @@ class EncoderASR(Pretrained):
                 self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
             ):
                 predicted_words = [
-                    "".join(self.tokenizer.decode_ndim(token_seq)).split(" ")
+                    "".join(self.tokenizer.decode_ndim(token_seq))
                     for token_seq in predictions
                 ]
             elif isinstance(
