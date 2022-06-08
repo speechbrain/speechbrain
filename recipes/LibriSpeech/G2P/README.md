@@ -62,19 +62,20 @@ hparams/hpfit.yaml
 
 You can download LibriSpeech at http://www.openslr.org/12
 
-# How to run
-python train.py train/train.yaml
-
-# Results
-
-| Release | hyperparams file | Test PER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml | 7.28% | https://drive.google.com/drive/folders/1nk9ms8cQ5N07wOG4oTi9h5a1dmiPmvnv?usp=sharing | 1xV100 32GB |
-
-
 # Training Time
-About 2 minutes for each epoch with a TESLA V100.
+All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact 
+training times will vary depending on the hyperparameters chosen and system configuration
 
+## RNN Models
+* **Lexicon**: approx. 6 minutes/epoch for training, < 1min/epoch for evaluation
+* **Sentence**: approx. 50 minutes/epoch for training, 55 minutes/epoch for evaluation
+## Transformer Models
+
+* **Lexicon**: approx. 7 minutes/epoch for training, approx. 1/2 minutes/epoch for evaluation
+* **Sentence**: 25-30 minutes/epoch for training, ~1 hour and 45 minutes/epoch for evaluation
+
+**Note**: To speed up evaluation with the Transformer model, consider reducing the beam size. For fastest
+evaluation, use `--beam_search_beam_size 1`.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
