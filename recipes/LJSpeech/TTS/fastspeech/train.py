@@ -1,29 +1,30 @@
 """
- Recipe for training the TransformerTTS Text-To-Speech model, an end-to-end
- neural text-to-speech (TTS) system introduced in 'Neural Speech Synthesis
- with Transformer Network' paper published in AAAI-19.
- (https://arxiv.org/abs/1809.08895)
+ Recipe for training the FastSpeech Text-To-Speech model, an end-to-end
+ neural text-to-speech (TTS) system introduced in 'FastSpeech: Fast, Robust and Controllable
+Text to Speech' paper published in NeurIPS 2019.
+ (https://proceedings.neurips.cc/paper/2019/file/f63f65b503e22cb970527f23c9ad7db1-Paper.pdf)
  To run this recipe, do the following:
- # python train.py --device=cuda:0 hparams.yaml
+ # python train.py hparams/train.yaml
 
  Authors
  * Georges Abous-Rjeili 2021
  * Artem Ploujnikov 2021
  * Yingzhi Wang 2022
  * Sathvik Udupa 2022
-
-
 """
+
 import os, sys
-from pathlib import Path
-import numpy as np
 import torch
 import logging
-sys.path.append("../../../../")
+import torchaudio
+import numpy as np
+from pathlib import Path
+from hyperpyyaml import load_hyperpyyaml
+
+sys.path.append("../../../../") #remove
+
 import speechbrain as sb
 from speechbrain.pretrained import HIFIGAN
-import torchaudio
-from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
 
@@ -39,21 +40,63 @@ class FastSpeechBrain(sb.Brain):
         return super().on_fit_start()
 
     def compute_forward(self, batch, stage):
-        inputs, y = batch_to_gpu(batch)
-        return self.hparams.model(*inputs)  # 1#2#
+        """Computes the forward pass
+        Arguments
+        ---------
+        batch: str
+            a single batch
+        stage: speechbrain.Stage
+            the training stage
+        Returns
+        -------
+        the model output
+        """
+        inputs, _ = batch_to_gpu(batch)
+        return self.hparams.model(*inputs)
 
     def fit_batch(self, batch):
+        """Fits a single batch
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+        Returns
+        -------
+        loss: torch.Tensor
+            detached loss
+        """
         result = super().fit_batch(batch)
         return result
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss given the predicted and targeted outputs.
+        Arguments
+        ---------
+        predictions : torch.Tensor
+            The model generated spectrograms and other metrics from `compute_forward`.
+        batch : PaddedBatch
+            This batch object contains all the relevant tensors for computation.
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.
+        """
         x, y, metadata = batch_to_gpu(batch, return_metadata=True)
         self.last_batch = [x[0], y[-1], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
         return criterion(predictions, y)
 
     def _remember_sample(self, batch, predictions):
-
+        """Remembers samples of spectrograms and the batch for logging purposes
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+        predictions: tuple
+            predictions (raw output of the FastSpeech model)
+        """
         tokens, spectogram, durations, mel_lengths, input_lengths, labels, wavs = batch
         mel_post, predict_durations = predictions
         self.hparams.progress_sample_logger.remember(
@@ -79,13 +122,38 @@ class FastSpeechBrain(sb.Brain):
 
 
 
-    def process_mel(self, mel, len, sample_idx=0):
+    def process_mel(self, mel, len, index=0):
+        """Converts a mel spectrogram to one that can be saved as an image
+        sample  = sqrt(exp(mel))
+        Arguments
+        ---------
+        mel: torch.Tensor
+            the mel spectrogram (as used in the model)
+        len: int
+            length of the mel spectrogram
+        index: int
+            batch index
+        Returns
+        -------
+        mel: torch.Tensor
+            the spectrogram, for image saving purposes
+        """
         assert mel.dim() == 3
-        return torch.sqrt(torch.exp(mel[sample_idx][:len[sample_idx]]))
+        return torch.sqrt(torch.exp(mel[index][:len[index]]))
 
 
     def on_stage_end(self, stage, stage_loss, epoch):
-
+        """Gets called at the end of an epoch.
+        Arguments
+        ---------
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, sb.Stage.TEST
+        stage_loss : float
+            The average loss for all of the data processed in this stage.
+        epoch : int
+            The currently-starting epoch. This is passed
+            `None` during the test stage.
+        """
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -129,6 +197,12 @@ class FastSpeechBrain(sb.Brain):
                 test_stats=stats,
             )
     def run_inference(self, index=0):
+        """Produces a sample in inference mode with predicted durations.
+        Arguments
+        ---------
+        index: int
+            batch index
+        """
         if self.last_batch is None:
             return
         tokens, input_lengths, *_ = self.last_batch
@@ -139,6 +213,9 @@ class FastSpeechBrain(sb.Brain):
         )
 
     def run_vocoder(self):
+        """Uses a pretrained vocoder  to generate audio from predicted mel
+        spectogram. By default, uses speechbrain hifigan."""
+
         if self.last_batch is None:
             return
         _, _, mel, _, wavs = self.last_batch
@@ -195,6 +272,17 @@ def dataio_prepare(hparams):
 
 
 def batch_to_gpu(batch, return_metadata=False):
+    """Transfers the batch to the target device
+        Arguments
+        ---------
+        batch: tuple
+            the batch to use
+        Returns
+        -------
+        batch: tuple
+            the batch on the correct device
+        """
+
     (
         text_padded,
         durations,
@@ -227,11 +315,24 @@ def to_gpu(x):
     return x
 
 
-def criterion(model_output, targets, log_scale_durations=True):
+def criterion(predictions, targets, log_scale_durations=True):
+    """Computes the value of the loss function and updates stats
+        Arguments
+        ---------
+        predictions: tuple
+            model predictions
+        targets: tuple
+            ground truth data
+        Returns
+        -------
+        loss: torch.Tensor
+            the loss value
+        """
     mel_target, target_durations, mel_length, phon_len  = targets
-
+    mel_loss_fn = torch.nn.MSELoss()
+    dur_loss_fn = torch.nn.MSELoss()
     assert len(mel_target.shape) == 3
-    mel_out, log_durations = model_output
+    mel_out, log_durations = predictions
     log_durations = log_durations.squeeze()
     if log_scale_durations:
         log_target_durations = torch.log(target_durations.float() + 1)
@@ -240,11 +341,11 @@ def criterion(model_output, targets, log_scale_durations=True):
     #change this to perform batch level using padding mask
     for i in range(mel_target.shape[0]):
         if i == 0:
-            mel_loss = torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-            dur_loss = torch.nn.MSELoss()(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
+            mel_loss = mel_loss_fn(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
+            dur_loss = dur_loss_fn(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
         else:
-            mel_loss = mel_loss + torch.nn.MSELoss()(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-            dur_loss = dur_loss + torch.nn.MSELoss()(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
+            mel_loss = mel_loss + mel_loss_fn(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
+            dur_loss = dur_loss + dur_loss_fn(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
     mel_loss = torch.div(mel_loss, len(mel_target))
     dur_loss = torch.div(dur_loss, len(mel_target))
     return mel_loss + dur_loss
@@ -270,7 +371,7 @@ def main():
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "train": hparams["train_data_path"],
-            "valid": hparams["valid_data_path"],
+            "valid": to_gpuhparams["valid_data_path"],
             "test": hparams["test_data_path"],
             "duration": hparams["duration_path"],
             "wavs": hparams["audio_folder"],

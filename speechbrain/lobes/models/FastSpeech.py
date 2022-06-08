@@ -1,29 +1,77 @@
+"""
+Neural network modules for the FastSpeech end-to-end neural
+Text-to-Speech (TTS) model
+Authors
+* Sathvik Udupa 2022
+"""
+
 import torch
-import math
-import numpy as np
 from torch import nn
 import sys
 sys.path.append('../../../')
 import torch.nn as nn
 from torch.nn import functional as F
-from speechbrain.nnet import CNN
-from speechbrain.nnet.normalization import BatchNorm1d
-from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.embedding import Embedding
-from speechbrain.nnet.dropout import Dropout2d
-from speechbrain.nnet.linear import Linear
-from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, TransformerDecoder, get_key_padding_mask, get_mel_mask
+from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, get_key_padding_mask
 
 class EncoderPreNet(nn.Module):
-    def __init__(self, n_vocab, blank_id, out_channels=512, dropout=0.15, num_layers=3, device='cuda:0'):
+     """Embedding layer for tokens
+    Arguments
+    ---------
+    n_vocab: int
+        size of the dictionary of embeddings
+    blank_id: int
+        padding index
+    out_channels: int
+        the size of each embedding vector
+    device: str
+        specify device for embedding
+    Example
+    -------
+    >>> from speechbrain.nnet.embedding import Embedding
+    >>> encoder_prenet_layer = EncoderPreNet(n_vocab=40, blank_id=0, out_channels=384)
+    >>> x = torch.randn(3, 5)
+    >>> y = encoder_prenet_layer(x)
+    >>> y.shape
+    torch.Size([3, 5, 384])
+    """
+    def __init__(self, n_vocab, blank_id, out_channels=512,  device='cuda:0'):
         super().__init__()
-        self.phoneme_embedding = Embedding(num_embeddings=n_vocab, embedding_dim=out_channels, blank_id=blank_id).to(device)
+        self.token_embedding = Embedding(num_embeddings=n_vocab, embedding_dim=out_channels, blank_id=blank_id).to(device)
 
     def forward(self, x):
-        x = self.phoneme_embedding(x)
+        """Computes the forward pass
+        Arguments
+        ---------
+        x: torch.Tensor
+            a (batch, tokens) input tensor
+        Returns
+        -------
+        output: torch.Tensor
+            the embedding layer output
+        """
+        x = self.token_embedding(x)
         return x
 
 class DurationPredictor(nn.Module):
+    """Duration predictor layer
+    Arguments
+    ---------
+    in_channels: int
+       input feature dimension for convolution layers
+    out_channels: int
+       output feature dimension for convolution layers
+    kernel_size: int
+       duration predictor convolution kernal size
+    Example
+    -------
+    >>> from speechbrain.lobes.models.FastSpeech import FastSpeech
+    >>> duration_predictor_layer = DurationPredictor(in_channels=384, out_channels=384, kernel_size=3)
+    >>> x = torch.randn(3, 400, 384)
+    >>> y = duration_predictor_layer(x)
+    >>> y.shape
+    torch.Size([3, 400, 1])
+    """
     def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
         self.conv1 = nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=(kernel_size // 2))
@@ -34,6 +82,16 @@ class DurationPredictor(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        """Computes the forward pass
+        Arguments
+        ---------
+        x: torch.Tensor
+            a (batch, time_steps, features) input tensor
+        Returns
+        -------
+        output: torch.Tensor
+            the duration predictor outputs
+        """
         x = self.conv1(x.transpose(1, 2))
         x = self.relu(x)
         x = self.ln1(x.transpose(1, 2)).to(x.dtype)
@@ -45,9 +103,105 @@ class DurationPredictor(nn.Module):
         return self.linear(x)
 
 class FastSpeech(nn.Module):
-    def __init__(self, pre_net_dropout,
-                    pre_net_num_layers,
-                    enc_num_layers,
+    """The FastSpeech text-to-speech model.
+
+    This class is the main entry point for the model, which is responsible
+    for instantiating all submodules, which, in turn, manage the individual
+    neural network layers
+
+    Simplified STRUCTURE: input->token embedding ->encoder ->duration predictor ->duration
+    upsampler -> decoder -> output
+
+    During training, teacher forcing is used (ground truth durations are used for upsampling)
+
+    Arguments
+    ---------
+    #encoder parameters
+    enc_num_layers: int
+        number of transformer layers (TransformerEncoderLayer) in encoder
+    enc_num_head: int
+        number of multi-head-attention (MHA) heads in encoder transformer layers
+    enc_d_model: int
+        the number of expected features in the encoder
+    enc_ffn_dim: int
+        the dimension of the feedforward network model
+    enc_k_dim: int
+        the dimension of the key
+    enc_v_dim: int
+        the dimension of the value
+    enc_dropout: float
+        Dropout for the encoder
+    normalize_before: bool
+        whether normalization should be applied before or after MHA or FFN in Transformer layers.
+    ffn_type: str
+        whether to use convolutional layers instead of feed forward network inside tranformer layer
+
+    #decoder parameters
+    dec_num_layers: int
+        number of transformer layers (TransformerEncoderLayer) in decoder
+    dec_num_head: int
+        number of multi-head-attention (MHA) heads in decoder transformer layers
+    dec_d_model: int
+        the number of expected features in the decoder
+    dec_ffn_dim: int
+        the dimension of the feedforward network model
+    dec_k_dim: int
+        the dimension of the key
+    dec_v_dim: int
+        the dimension of the value
+    dec_dropout: float
+        dropout for the decoder
+    normalize_before: bool
+        whether normalization should be applied before or after MHA or FFN in Transformer layers.
+    ffn_type: str
+        whether to use convolutional layers instead of feed forward network inside tranformer layer
+
+    #data io
+    n_char: int
+        the number of symbols for the token embedding
+    n_mels: int
+        number of bins in mel spectrogram
+    padding_idx: int
+        the index for padding
+    dur_pred_kernel_size: int
+        the convolution kernel size in duration predictor
+
+    Example
+    -------
+    >>> import torch
+    >>> _ = torch.manual_seed(213312)
+    >>> from speechbrain.lobes.models.FastSpeech import FastSpeech
+    >>> model = FastSpeech(
+    ...    enc_num_layers=6,
+    ...    enc_num_head=2,
+    ...    enc_d_model=384,
+    ...    enc_ffn_dim=1536,
+    ...    enc_k_dim=384,
+    ...    enc_v_dim=384,
+    ...    enc_dropout=0.1,
+    ...    dec_num_layers=6,
+    ...    dec_num_head=2,
+    ...    dec_d_model=384,
+    ...    dec_ffn_dim=1536,
+    ...    dec_k_dim=384,
+    ...    dec_v_dim=384,
+    ...    dec_dropout=0.1,
+    ...    normalize_before=False,
+    ...    ffn_type=1dcnn,
+    ...    n_char=40,
+    ...    n_mels=80,
+    ...    padding_idx=0,
+    ...    dur_pred_kernel_size=3)
+    >>> inputs = torch.tensor([
+    ...     [13, 12, 31, 14, 19],
+    ...     [31, 16, 30, 31, 0],
+    ... ])
+    >>> input_lengths = torch.tensor([5, 4])
+    >>> mel_post, predict_durations = model(inputs, durations=None)
+    >>> mel_post.shape, predict_durations.shape
+    (torch.Size([2, 96, 80]), torch.Size([2, 5]))
+    """
+    def __init__(self, enc_num_layers,
                     enc_num_head,
                     enc_d_model,
                     enc_ffn_dim,
@@ -100,21 +254,56 @@ class FastSpeech(nn.Module):
 
 
     def forward(self, tokens, durations=None):
+        """forward pass for training and inference
+        Arguments
+        ---------
+        tokens: torch.tensor
+            batch of input tokens
+        durations: torch.tensor
+            batch of durations for each token. If it is None, the model will infer on predicted durations
+        Returns
+        ---------
+        mel_post: torch.Tensor
+            mel outputs from the decoder
+        predict_durations: torch.Tensor
+            predicted durations for each token
+        """
         token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1])
         token_feats, memory = self.encoder(token_feats, src_mask=None, src_key_padding_mask=srcmask)
+
         predict_durations = self.durPred(token_feats).squeeze()
         if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
         if durations is None: dur_pred_reverse_log = torch.clamp(torch.exp(predict_durations) - 1, 0)
         spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log)
+
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
         attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1])
         output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=None, src_key_padding_mask=srcmask)
+
         mel_post = self.linear(output_mel_feats)
         return mel_post, predict_durations
 
-def upsample(feats, durs, freq=1, padding_value=0.0):
+def upsample(feats, durs, pace=1, padding_value=0.0):
+    """upsample encoder ouput according to durations
+    Arguments
+    ---------
+    feats: torch.tensor
+        batch of input tokens
+    durs: torch.tensor
+        durations to be used to upsample
+    pace: int
+        scaling factor for durations
+    padding_value: int
+        padding index
+    Returns
+    ---------
+    mel_post: torch.Tensor
+        mel outputs from the decoder
+    predict_durations: torch.Tensor
+        predicted durations for each token
+    """
     return torch.nn.utils.rnn.pad_sequence([torch.repeat_interleave(feats[i], durs[i].long(), dim=0)
                                             for i in range(len(durs))],
                                             batch_first=True, padding_value=padding_value)
@@ -122,27 +311,21 @@ def upsample(feats, durs, freq=1, padding_value=0.0):
 
 class TextMelCollate:
     """ Zero-pads model inputs and targets based on number of frames per step
-    Arguments
-    ---------
-    n_frames_per_step: int
-        the number of frames per step
-    Returns
-    -------
+
     result: tuple
         a tuple of tensors to be used as inputs/targets
         (
             text_padded,
+            dur_padded,
             input_lengths,
             mel_padded,
-            gate_padded,
             output_lengths,
-            len_x
+            len_x,
+            labels,
+            wavs
         )
     """
 
-    def __init__(self, n_frames_per_step=1):
-        self.n_frames_per_step = n_frames_per_step
-        # pdb.set_trace()
 
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):

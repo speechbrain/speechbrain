@@ -12,8 +12,8 @@ epochs: 1000
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
-progress_samples_min_run: 0
-progress_samples_interval: 1
+progress_samples_min_run: 10
+progress_samples_interval: 5
 progress_batch_sample_size: 4
 
 #################################
@@ -21,7 +21,7 @@ progress_batch_sample_size: 4
 #################################
 data_folder: /data/Database/LJSpeech-1.1
 audio_folder: !ref <data_folder>/wavs
-train_data_path: !ref <data_folder>/metadata_val.csv
+train_data_path: !ref <data_folder>/metadata_train.csv
 valid_data_path: !ref <data_folder>/metadata_val.csv
 test_data_path: !ref <data_folder>/metadata_test.csv
 duration_path: /home/wtc8/Sathvik/DeepForcedAligner/output_24hrs/durations/
@@ -62,9 +62,6 @@ padding_idx: 0
 symbols_embedding_dim: 384
 
 # Encoder parameters
-pre_net_dropout: 0.1
-pre_net_num_layers: 5
-
 enc_num_layers: 6
 enc_num_head: 1
 enc_d_model: 384
@@ -90,7 +87,6 @@ dur_pred_kernel_size: 3
 #model
 model: !new:speechbrain.lobes.models.FastSpeech.FastSpeech
     pre_net_dropout: !ref <pre_net_dropout>
-    pre_net_num_layers: !ref <pre_net_num_layers>
     enc_num_layers: !ref <enc_num_layers>
     enc_num_head: !ref <enc_num_head>
     enc_d_model: !ref <enc_d_model>
