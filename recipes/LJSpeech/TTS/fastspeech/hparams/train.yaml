@@ -1,3 +1,10 @@
+############################################################################
+# Model: FastSpeech
+# Tokens: Raw characters (English text)
+# Training: LJSpeech
+# Authors: Sathvik Udupa
+# ############################################################################
+
 ###################################
 # Experiment Parameters and setup #
 ###################################
@@ -48,12 +55,11 @@ mel_normalized: False
 ################################
 # Optimization Hyperparameters #
 ################################
-learning_rate: 0.0001
-weight_decay: 0.000006
-grad_clip_thresh: 5.0
+learning_rate: 0.001
+weight_decay: 0.000000001
+grad_clip_thresh: 1.0
 batch_size: 48 #minimum 2
-mask_padding: False
-
+betas: [0.98, 0.99]
 ################################
 # Model Parameters and model   #
 ################################
@@ -63,7 +69,7 @@ symbols_embedding_dim: 384
 
 # Encoder parameters
 enc_num_layers: 6
-enc_num_head: 1
+enc_num_head: 2
 enc_d_model: 384
 enc_ffn_dim: 1536
 enc_k_dim: 384
@@ -72,7 +78,7 @@ enc_dropout: 0.1
 
 # Decoder parameters
 dec_num_layers: 6
-dec_num_head: 1
+dec_num_head: 2
 dec_d_model: 384
 dec_ffn_dim: 1536
 dec_k_dim: 384
@@ -81,12 +87,11 @@ dec_dropout: 0.1
 
 
 # common
-normalize_before: False
+normalize_before: True
 ffn_type: 1dcnn #1dcnn or ffn
 dur_pred_kernel_size: 3
 #model
 model: !new:speechbrain.lobes.models.FastSpeech.FastSpeech
-    pre_net_dropout: !ref <pre_net_dropout>
     enc_num_layers: !ref <enc_num_layers>
     enc_num_head: !ref <enc_num_head>
     enc_d_model: !ref <enc_d_model>

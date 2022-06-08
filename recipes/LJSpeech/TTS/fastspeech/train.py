@@ -330,7 +330,7 @@ def criterion(predictions, targets, log_scale_durations=True):
         """
     mel_target, target_durations, mel_length, phon_len  = targets
     mel_loss_fn = torch.nn.MSELoss()
-    dur_loss_fn = torch.nn.MSELoss()
+    dur_loss_fn = torch.nn.L1Loss()
     assert len(mel_target.shape) == 3
     mel_out, log_durations = predictions
     log_durations = log_durations.squeeze()
@@ -371,7 +371,7 @@ def main():
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "train": hparams["train_data_path"],
-            "valid": to_gpuhparams["valid_data_path"],
+            "valid": hparams["valid_data_path"],
             "test": hparams["test_data_path"],
             "duration": hparams["duration_path"],
             "wavs": hparams["audio_folder"],

@@ -427,6 +427,7 @@ class TransformerEncoder(nn.Module):
                     normalize_before=normalize_before,
                     causal=causal,
                     attention_type=attention_type,
+                    ffn_type=ffn_type
                 )
                 for i in range(num_layers)
             ]

@@ -15,7 +15,7 @@ from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, get_key_padding_mask
 
 class EncoderPreNet(nn.Module):
-     """Embedding layer for tokens
+    """Embedding layer for tokens
     Arguments
     ---------
     n_vocab: int
