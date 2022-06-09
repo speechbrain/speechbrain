@@ -17,9 +17,9 @@ wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 
 # Data files
 data_folder: #!PLACEHOLDER  # e.g, /dataset/
-train_csv_file: !ref <data_folder>/texts/train.csv
-dev_csv_file: !ref <data_folder>/texts/dev.csv
-test_csv_file: !ref <data_folder>/texts/test.csv
+train_csv_file: !ref <data_folder>/train.csv
+dev_csv_file: !ref <data_folder>/dev.csv
+test_csv_file: !ref <data_folder>/test.csv
 accented_letters: True
 language: swahili
 train_csv: !ref <save_folder>/train.csv

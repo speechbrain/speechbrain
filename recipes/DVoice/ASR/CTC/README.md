@@ -1,5 +1,5 @@
 # DVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the DVoice dataset(Darija, Swahili): [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here: [Link](https://github.com/besacier/ALFFA_PUBLIC). For the Kabyle, we used Mozilla CommonVoice: [Link](https://commonvoice.mozilla.org/fr/datasets).
+This folder contains scripts necessary to run an ASR experiment with the DVoice dataset(Darija, Swahili): [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here: [Link](https://github.com/besacier/ALFFA_PUBLIC).
 
 # Data preparation
 [DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
@@ -9,15 +9,14 @@ This folder contains scripts necessary to run an ASR experiment with the DVoice 
 - Fongbe : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_fon_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/FONGBE/data/`
 - Amharic : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_amh_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/AMHARIC/data/`
 - Wolof : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_wol_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/WOLOF/data/`
-- Swahili : To train the Swahili recipe you need to download the both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy bellow and run  `python train_with_wav2vec2.py hparams/train_multi_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
-- Multilingual : To train the Multilingual recipe you need to download the both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy bellow and run  `python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
-
+- Swahili : To train the Swahili recipe you need to download the both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy below and run  `python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
+- Multilingual : To train the Multilingual recipe you need to download both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy below and run: `python train_with_wav2vec2.py hparams/train_multi_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
       dvoice_recipe_data
       ├── ...
-      ├── DVOICE                    # create a DVOICE folder the put the DVoice dataset inside
-      │   ├── darija                
-      │   └── swahili               
-      ├── ALFFA_DATASET             # put DVOICE and ALFFA_DATASET in the same level
+      ├── DVOICE                    # create a DVOICE folder and put the DVoice dataset inside
+      │   ├── darija
+      │   └── swahili
+      ├── ALFFA_DATASET             # put DVOICE and ALFFA_DATASET at the same level
       |   ├── ASR
       |   |   ├── AMHARIC
       |   |   ├── FONGBE
@@ -56,7 +55,7 @@ Here is a list of the different African languages and dialects that we tested:
 | [ALFFA](https://github.com/besacier/ALFFA_PUBLIC/tree/master/ASR/AMHARIC) | Amharic | 31.15
 
 # How to simply use pretrained models to transcribe my audio file?
-SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories(see the results table above) corresponding to our different models for DVoice.
+SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories (see the results table above) corresponding to our different models for DVoice.
 
 # **About DVoice**
 DVoice is a community initiative that aims to provide Africa low resources languages with data and models to facilitate their use of voice technologies. The lack of data on these languages makes it necessary to collect data using methods that are specific to each one. Two different approaches are currently used: the DVoice platforms([https://dvoice.ma](https://dvoice.ma) and [https://dvoice.sn](https://dvoice.sn)), which are based on Mozilla Common Voice, for collecting authentic recordings from the community, and transfer learning techniques for automatically labeling recordings that are retrived from social medias. The DVoice platform currently manages 7 languages including Darija(Moroccan Arabic dialect) whose dataset appears on this version, Wolof, Mandingo, Serere, Pular, Diola and Soninke.
