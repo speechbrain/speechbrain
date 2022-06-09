@@ -22,6 +22,8 @@
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 18-10-21 | pool_sisnrestimator.yaml | 1.71 | [HuggingFace](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator) | Not Available| RTX8000 48GB |
 
+You can find the output folders with the training logs [here](https://drive.google.com/drive/folders/1NGncbjvLeGfbUqmVi6ej-NH9YQn5vBmI?usp=sharing)
+
 # Training Time
 It takes about 5 hours for each epoch on a RTX8000 (48GB).
 

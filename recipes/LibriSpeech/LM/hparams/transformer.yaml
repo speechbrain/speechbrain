@@ -47,11 +47,10 @@ test_dataloader_opts:
 
 # Outputs
 output_neurons: 5000
-blank_index: 0
+# blank_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
-pad_index: 0
+# pad_index: 0
 
 # model params
 d_model: 768

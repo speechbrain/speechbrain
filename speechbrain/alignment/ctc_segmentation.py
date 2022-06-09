@@ -185,7 +185,7 @@ class CTCSegmentation:
         >>> asr_model = EncoderDecoderASR.from_hparams(source=pre_trained)
         >>> aligner = CTCSegmentation(asr_model, kaldi_style_text=False)
         >>> # load data
-        >>> audio_path = "./samples/audio_samples/example1.wav"
+        >>> audio_path = "tests/samples/single-mic/example1.wav"
         >>> text = ["THE BIRCH CANOE", "SLID ON THE", "SMOOTH PLANKS"]
         >>> segments = aligner(audio_path, text, name="example1")
 
