@@ -39,11 +39,13 @@ Here is a list of the different African languages and dialects that we tested:
 # Results
 | Language | DVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:|
-| Darija(Moroccan Arabic) | v2.0 | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/aioxlabs/dvoice-darija)
-| Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/aioxlabs/dvoice-swahili)
-| Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/aioxlabs/dvoice-wolof)
-| Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/aioxlabs/dvoice-fongbe)
-| Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/aioxlabs/dvoice-amharic) |
+| Darija(Moroccan Arabic) | v2.0 | train_dar_with_wav2vec.yaml | No | 5.51 | 18.46 | 5.85 | 18.28 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-darija)
+| Swahili | v2.0 | train_sw_with_wav2vec.yaml | No | 8.83 | 22.78 | 9.46 | 23.16 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-swahili)
+| Wolof | v2.0 | train_wol_with_wav2vec.yaml | No | 4.81 | 16.25 | 4.83 | 16.05 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-wolof)
+| Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-fongbe)
+| Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-amharic) |
+
+You can find our training results (models, logs, etc) [here](https://drive.google.com/drive/folders/1vNT7RjRuELs7pumBHmfYsrOp9m46D0ym?usp=sharing).
 
 # Performances of DVoice Multilingual on each language
 | Dataset Link | Language | Test WER |
