@@ -7,6 +7,8 @@ Authors
 """
 
 import os
+import re
+import csv
 import shutil
 import urllib.request
 import collections.abc
@@ -14,7 +16,6 @@ import torch
 import tqdm
 import pathlib
 import speechbrain as sb
-import re
 
 
 def undo_padding(batch, lengths):
@@ -150,6 +151,30 @@ def get_all_files(
                 allFiles.append(fullPath)
 
     return allFiles
+
+
+def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
+    """Gets a list from the selected field of the input csv file.
+
+    Arguments
+    ---------
+    csv_file: path
+        Path to the csv file.
+    field: str
+        Field of the csv file used to create the list.
+    delimiter: str
+        Delimiter of the csv file.
+    skipinitialspace: bool
+        Set it to true to skip initial spaces in the entries.
+    """
+    lst = []
+    with open(csvfile, newline="") as csvf:
+        reader = csv.DictReader(
+            csvf, delimiter=delimiter, skipinitialspace=skipinitialspace
+        )
+        for row in reader:
+            lst.append(row[field])
+    return lst
 
 
 def split_list(seq, num):
