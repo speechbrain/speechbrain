@@ -42,7 +42,7 @@ def test_recipe_list(
 
     for file in diff_lst:
         print(
-            "\tWARNING: The file %s is not listed in %s!"
+            "\tWARNING: The file %s is not listed in %s. Please add it!"
             % (file, recipe_csvfile)
         )
 
