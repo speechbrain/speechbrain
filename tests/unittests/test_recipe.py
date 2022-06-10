@@ -4,6 +4,7 @@ Authors
  * Mirco Ravanelli 2022
 """
 import os
+import csv
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
 
@@ -73,4 +74,35 @@ def test_recipe_files(
                     % (file, recipe_csvfile)
                 )
                 check = False
+    assert check
+
+
+def test_mandatory_files(
+    recipe_csvfile="tests/recipes.csv",
+    must_exist=["Script_file", "Hparam_file", "Readme_file"],
+    recipe_id_field="RecipeID",
+):
+    """This test checks if all the recipes contain the specified mandatory files.
+
+    Arguments
+    ---------.
+    recipe_csvfile: path
+        Path of the csv recipe file.
+    must_exist: list
+        List of the fields of the csv recipe file that must contain valid paths.
+    recipe_id_field: str
+        Field of the csv file containing a unique recipe ID.   
+    """
+
+    check = True
+    with open(recipe_csvfile, newline="") as csvf:
+        reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+        for row in reader:
+            for field in must_exist:
+                if not (os.path.exists(row[field].strip())):
+                    print(
+                        "\tWARNING: The recipe %s does not contain a %s. Please add it!"
+                        % (row[recipe_id_field], field)
+                    )
+                    check = False
     assert check
