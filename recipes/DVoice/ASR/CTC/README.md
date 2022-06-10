@@ -11,6 +11,8 @@ This folder contains scripts necessary to run an ASR experiment with the DVoice 
 - Wolof : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_wol_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/WOLOF/data/`
 - Swahili : To train the Swahili recipe you need to download the both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy below and run  `python train_with_wav2vec2.py hparams/train_sw_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
 - Multilingual : To train the Multilingual recipe you need to download both datasets (DVoice and ALFFA-PUBLIC) then organizing the folders following the hierarchy below and run: `python train_with_wav2vec2.py hparams/train_multi_with_wav2vec.yaml --data_folder=/localscratch/dvoice_recipe_data/`
+
+```
       dvoice_recipe_data
       ├── ...
       ├── DVOICE                    # create a DVOICE folder and put the DVoice dataset inside
@@ -25,6 +27,7 @@ This folder contains scripts necessary to run an ASR experiment with the DVoice 
       |   |   ├── WOLOF
       |   ├── ...
       └── ...
+```
 
 To get the data for Fongbe, Amharic, Wolof and a part of Swahili, please clone https://github.com/besacier/ALFFA_PUBLIC/.
 
