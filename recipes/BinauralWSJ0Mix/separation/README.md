@@ -15,6 +15,7 @@ python train.py hparams/convtasnet-parallel.yaml
                 --data_folder yourpath/binaural-wsj0mix/2speakers
                 --wsj_root yourpath/to/wsj/
 ```
+The data_folder will be automatically created from the wsj_root one.
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
 
 
@@ -42,6 +43,7 @@ Here are the SNRi results (in dB) as well as ITD and ILD errors as the metric fo
 * ConvTasnet-cross.yaml refers to cross-channel features like ILD or IPD are concatenated to the encoder output.
 * ConvTasnet-parallel.yaml refers to the proposed multiinput-multi-output (MIMO) TasNet in the original paper [1].
 
+The output folders with the checkpoints, logs, etc are available [here](https://drive.google.com/drive/folders/17FFwlIq6MQLHT9RXPgeYssti5TEeEXsx?usp=sharing)
 
 # Example calls for running the training scripts
 
