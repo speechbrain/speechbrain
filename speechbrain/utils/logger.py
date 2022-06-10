@@ -177,7 +177,10 @@ def get_environment_description():
     except OSError:
         git_str = "Could not get git revision"
     if torch.cuda.is_available():
-        cuda_str = "Cuda version:\n" + torch.version.cuda
+        if torch.version.cuda is None:
+            cuda_str = "ROCm version:\n" + torch.version.hip
+        else:
+            cuda_str = "CUDA version:\n" + torch.version.cuda
     else:
         cuda_str = "CUDA not available"
     result = "SpeechBrain system description\n"

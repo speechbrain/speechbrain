@@ -69,7 +69,7 @@ class Sequential(torch.nn.ModuleDict):
 
                 # Use 64 as nice round arbitrary value, big enough that
                 # halving this dimension a few times doesn't reach 1
-                self.input_shape[i] = dim or 64
+                self.input_shape[i] = dim or 256
 
         # Append non-named layers
         for layer in layers:

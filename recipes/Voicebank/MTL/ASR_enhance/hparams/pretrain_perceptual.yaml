@@ -49,7 +49,7 @@ label_smoothing: 0.1
 alignment_weight: 1.0
 
 # Set this to the path of a pretrained model to load before training
-pretrained_path: {}
+# pretrained_path: {}
 frozen_models: []
 
 # Feature parameters
@@ -83,11 +83,11 @@ compute_stft: !new:speechbrain.processing.features.STFT
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
 
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
+# compute_istft: !new:speechbrain.processing.features.ISTFT
+#    sample_rate: !ref <sample_rate>
+#    n_fft: !ref <n_fft>
+#    win_length: !ref <win_length>
+#    hop_length: !ref <hop_length>
 
 #fbank: !new:speechbrain.processing.features.Filterbank
 #    n_mels: !ref <n_mels>

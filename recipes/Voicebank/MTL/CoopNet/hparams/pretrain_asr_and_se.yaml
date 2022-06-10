@@ -17,7 +17,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g. /path/to/vctk
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
@@ -29,7 +29,7 @@ number_of_epochs: 50
 ctc_epochs: 10
 batch_size: 8
 lr_asr: 0.0005
-lr_se: 0.00002
+# lr_se: 0.00002
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
 eval_max_key: null
@@ -78,9 +78,8 @@ n_mels: 40
 dnn_neurons: 512
 output_neurons: 42
 blank_index: 0
-bos_index: 0
-eos_index: 0
-unk_index: 0
+# bos_index: 0
+# eos_index: 0
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -112,9 +111,9 @@ resynth: !name:speechbrain.processing.signal_processing.resynthesize
 #     noise_snr_low: 0
 #     noise_snr_high: 15
 
-augment: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# augment: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+#    sample_rate: !ref <sample_rate>
+#    speeds: [95, 100, 105]
 
 fbank: !new:CoopNet.ModFbank
     n_mels: !ref <n_mels>

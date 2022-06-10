@@ -46,7 +46,6 @@ ctc_weight: 0.0
 ctc_type: null  # null, clean, joint
 seq_weight: 0.0
 seq_type: null  # null, clean, joint
-label_smoothing: 0.1
 
 # Here, the pretrained perceptual model is downloaded from the
 # speechbrain HuggingFace repository. However, a local path pointing
@@ -64,7 +63,7 @@ hop_length: 16
 
 # Outputs
 output_neurons: 42
-blank_index: !ref <output_neurons> - 1
+# blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 

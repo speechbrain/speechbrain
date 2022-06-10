@@ -334,6 +334,9 @@ class Conv1d(nn.Module):
     skip_transpose : bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
+    weight_norm : bool
+        If True, use weight normalization,
+        to be removed with self.remove_weight_norm() at inference
 
     Example
     -------
@@ -359,6 +362,7 @@ class Conv1d(nn.Module):
         bias=True,
         padding_mode="reflect",
         skip_transpose=False,
+        weight_norm=False,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -387,6 +391,9 @@ class Conv1d(nn.Module):
             groups=groups,
             bias=bias,
         )
+
+        if weight_norm:
+            self.conv = nn.utils.weight_norm(self.conv)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -484,6 +491,11 @@ class Conv1d(nn.Module):
             )
         return in_channels
 
+    def remove_weight_norm(self):
+        """Removes weight normalization at inference if used during training.
+        """
+        self.conv = nn.utils.remove_weight_norm(self.conv)
+
 
 class Conv2d(nn.Module):
     """This function implements 2d convolution.
@@ -516,6 +528,12 @@ class Conv2d(nn.Module):
         documentation for more information.
     bias : bool
         If True, the additive bias b is adopted.
+    skip_transpose : bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+    weight_norm : bool
+        If True, use weight normalization,
+        to be removed with self.remove_weight_norm() at inference
 
     Example
     -------
@@ -540,6 +558,8 @@ class Conv2d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        skip_transpose=False,
+        weight_norm=False,
     ):
         super().__init__()
 
@@ -557,6 +577,7 @@ class Conv2d(nn.Module):
         self.padding = padding
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.skip_transpose = skip_transpose
 
         if input_shape is None and in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
@@ -578,6 +599,9 @@ class Conv2d(nn.Module):
             bias=bias,
         )
 
+        if weight_norm:
+            self.conv = nn.utils.weight_norm(self.conv)
+
     def forward(self, x):
         """Returns the output of the convolution.
 
@@ -587,7 +611,9 @@ class Conv2d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        x = x.transpose(1, -1)
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
@@ -608,7 +634,10 @@ class Conv2d(nn.Module):
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
-        wx = wx.transpose(1, -1)
+
+        if not self.skip_transpose:
+            wx = wx.transpose(1, -1)
+
         return wx
 
     def _manage_padding(
@@ -668,6 +697,11 @@ class Conv2d(nn.Module):
             )
 
         return in_channels
+
+    def remove_weight_norm(self):
+        """Removes weight normalization at inference if used during training.
+        """
+        self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
 class Conv2dWithConstraint(Conv2d):
@@ -780,6 +814,9 @@ class ConvTranspose1d(nn.Module):
     skip_transpose : bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
+    weight_norm : bool
+        If True, use weight normalization,
+        to be removed with self.remove_weight_norm() at inference
 
     Example
     -------
@@ -842,6 +879,7 @@ class ConvTranspose1d(nn.Module):
         groups=1,
         bias=True,
         skip_transpose=False,
+        weight_norm=False,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -895,6 +933,9 @@ class ConvTranspose1d(nn.Module):
             bias=bias,
         )
 
+        if weight_norm:
+            self.conv = nn.utils.weight_norm(self.conv)
+
     def forward(self, x, output_size=None):
         """Returns the output of the convolution.
 
@@ -937,6 +978,11 @@ class ConvTranspose1d(nn.Module):
             )
 
         return in_channels
+
+    def remove_weight_norm(self):
+        """Removes weight normalization at inference if used during training.
+        """
+        self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
 class DepthwiseSeparableConv1d(nn.Module):

@@ -37,13 +37,13 @@ auto_mix_prec: True
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 400
-n_mels: 40
+# n_fft: 400
+# n_mels: 40
 
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+# dropout: 0.15
 dnn_blocks: 1
 dnn_neurons: 40
 dec_neurons: 128
@@ -74,10 +74,10 @@ test_dataloader_opts:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !new:speechbrain.lobes.features.Fbank
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    n_mels: !ref <n_mels>
+# compute_features: !new:speechbrain.lobes.features.Fbank
+#    sample_rate: !ref <sample_rate>
+#    n_fft: !ref <n_fft>
+#    n_mels: !ref <n_mels>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
@@ -128,8 +128,8 @@ output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
     bias: False
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
+#log_softmax: !new:speechbrain.nnet.activations.Softmax
+#    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
     use_torchaudio: True
