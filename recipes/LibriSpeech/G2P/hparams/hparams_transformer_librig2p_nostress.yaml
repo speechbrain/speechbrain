@@ -20,6 +20,8 @@ train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
 enable_interim_reports: True
+grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
+phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 ckpt_frequency: 1
 ckpt_enable: True
 enable_metrics: True
@@ -29,24 +31,35 @@ pretrained_path: !ref <save_folder>/pretrained_models
 
 
 dataset: flexthink/librig2p-nostress-space
-data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
-lexicon_train_data: !ref <data_folder>/lexicon_train.json
-lexicon_valid_data: !ref <data_folder>/lexicon_valid.json
-lexicon_test_data: !ref <data_folder>/lexicon_test.json
+lexicon_train_data: lexicon_train
+lexicon_valid_data: lexicon_valid
+lexicon_test_data: !ref lexicon_test
 lexicon_sample: null
 lexicon_sample_random: False
-sentence_train_data: !ref <data_folder>/sentence_train.json
-sentence_valid_data: !ref <data_folder>/sentence_valid.json
-sentence_test_data: !ref <data_folder>/sentence_test.json
+sentence_train_data: !ref sentence_train
+sentence_valid_data: !ref sentence_valid
+sentence_test_data: !ref sentence_test
 sentence_sample: null
 sentence_sample_random: False
-homograph_train_data: !ref <data_folder>/homograph_train.json
-homograph_valid_data: !ref <data_folder>/homograph_valid.json
-homograph_test_data: !ref <data_folder>/homograph_test.json
+homograph_train_data: !ref homograph_train
+homograph_valid_data: !ref homograph_valid
+homograph_test_data: !ref homograph_test
 homograph_sample: null
 homograph_sample_random: False
 homograph_balance: True
+tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
+tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 
+# Tokenizers
+char_tokenize: True
+char_token_type: unigram  # ["unigram", "bpe", "char"]
+char_token_output: 512
+char_token_wordwise: False
+phn_tokenize: True
+phn_token_type: unigram  # ["unigram", "bpe", "char"]
+phn_token_output: 512  # index(blank/eos/bos/unk) = 0
+phn_token_wordwise: False
+character_coverage: 1.0
 
 skip_prep: False
 sorting: random #ascending
@@ -76,7 +89,18 @@ adam_beta2: 0.998
 save_for_pretrained: True
 
 # Model parameters
-output_neurons: !ref <phonemes_count>
+output_neurons: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: !ref <phn_token_output> + 1
+        False: !ref <phonemes_count>
+
+enc_num_embeddings: !apply:speechbrain.utils.hparams.choice
+    value: !ref <char_tokenize>
+    choices:
+        True: !ref <char_token_output>
+        False: !ref <graphemes_count>
+
 embedding_dim: 256
 enc_num_layers: 2
 dec_num_layers: 2
@@ -104,6 +128,8 @@ max_length: 2500
 bos_index: 1
 eos_index: 2
 blank_index: 3
+unk_index: 3
+token_space_index: 512
 
 # Language Model
 lm_d_model: 128
@@ -226,9 +252,14 @@ enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
     word_emb_enc_dim: !ref <word_emb_enc_dim>
     embedding_dim: !ref <embedding_dim>
 
+phn_char_map: !apply:speechbrain.lobes.models.g2p.dataio.build_token_char_map
+    tokens: !ref <phonemes>
+
+char_phn_map: !apply:speechbrain.lobes.models.g2p.dataio.flip_map
+    map_dict: !ref <phn_char_map>
+
 
 # Models
-
 char_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <enc_input_dim>
     n_neurons: !ref <transformer_d_model>
@@ -257,7 +288,7 @@ emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedd
     vocab: !ref <phonemes_count>
 
 encoder_emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <graphemes_count>
+    num_embeddings: !ref <enc_num_embeddings>
     embedding_dim: !ref <embedding_dim>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
@@ -450,8 +481,51 @@ model_output_keys:
 grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
-out_phoneme_decoder: !name:speechbrain.lobes.models.g2p.dataio.text_decode
+
+grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <grapheme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <char_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: char
+        model_type: !ref <char_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_format: json
+        text_file: !ref <save_folder>/grapheme_annotations.txt
+
+
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <phoneme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <phn_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: phn
+        model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_format: json
+        text_file: !ref <save_folder>/phoneme_annotations.txt
+
+
+out_phoneme_decoder_tok: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize
+    tokenizer: !ref <phoneme_tokenizer>
+    char_map: !ref <char_phn_map>
+    token_space_index: !ref <token_space_index>
+    wordwise: !ref <phn_token_wordwise>
+
+out_phoneme_decoder_raw: !name:speechbrain.lobes.models.g2p.dataio.text_decode
     encoder: !ref <phoneme_encoder>
+
+out_phoneme_decoder: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: !ref <out_phoneme_decoder_tok>
+        False: !ref <out_phoneme_decoder_raw>
 
 
 encode_pipeline:
@@ -505,8 +579,16 @@ decode_pipeline:
           provides:
               - hyps
               - scores
-        - func: !name:speechbrain.lobes.models.g2p.dataio.phoneme_decoder_pipeline
-              phoneme_encoder: !ref <phoneme_encoder>
+        - func: !apply:speechbrain.utils.hparams.choice
+              value: !ref <phn_tokenize>
+              choices:
+                  True: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize
+                      tokenizer: !ref <phoneme_tokenizer>
+                      char_map: !ref <char_phn_map>
+                      token_space_index: !ref <token_space_index>
+                      wordwise: !ref <phn_token_wordwise>
+                  False: !name:speechbrain.lobes.models.g2p.dataio.phoneme_decoder_pipeline
+                      phoneme_encoder: !ref <phoneme_encoder>
           takes:
               - hyps
           provides:
