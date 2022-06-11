@@ -19,4 +19,4 @@ Please, cite SpeechBrain if you use it for your research or business.
   primaryClass={eess.AS},
   note={arXiv:2106.04624}
 }
-``` 
+```
