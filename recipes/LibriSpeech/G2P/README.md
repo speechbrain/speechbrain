@@ -1,25 +1,23 @@
 # Grapheme-to-phoneme (G2P).
 The following models are available:
-* RNN-based (LSTM-encoder, GRU-decoder), with an attention mechanism
-  * `hparams/hparams_attnrnn_librig2p_nostress.yaml`: LibriG2P (no stress markers)
-  * `hparams/hparams_attnrnn_librig2p_nostress_tok.yaml`: LibriG2P (no stress markers, tokenization)
-* Convolutional
-  * `hparams/hparams_conv_librig2p_nostress.yaml`
-* Transformer
-  * `hparams/hparams_transformer_librig2p_nostress.yaml`: LibriG2P (no stress markers)
-  * `hparams/hparams_transformer_librig2p_nostress_tok.yaml`: LibriG2P (no stress markers, tokenization)
+
+* `hparams/hparams_g2p_rnn.yaml`: RNN-based (LSTM-encoder, GRU-decoder), with an attention mechanism
+Transformer
+* `hparams/hparams_g2p_transformer.yaml`: Transformer/Conformer model
 
 The datasets used here are available at the following locations:
 
-* LibriG2P (no stress markers): https://github.com/flexthink/librig2p-nostress
-* LibriG2P (no stress markers, spaces preserved, with homographs): https://github.com/flexthink/librig2p-nostress
+* LibriG2P (no stress markers): https://huggingface.co/datasets/flexthink/librig2p-nostress
+* LibriG2P (no stress markers, spaces preserved, with homographs): https://huggingface.co/datasets/flexthink/librig2p-nostress-space
+
+The datasets are derived from the LibriSpeech-Alignments dataset (https://zenodo.org/record/2619474#.YbwRGi_73JM), optimized for training G2P models.
 
 Decoding is performed with a beamsearch, optionally enhanced with language models.
 
 To run this recipe, do the following:
 > python train.py <hyperparameter file>
 Example:
-> python train.py hparams/hparams_attnrnn_librig2p_nostress.yaml
+> python train.py hparams/hparams_g2p_transformer.yaml
 
 RNN Model
 ---------
