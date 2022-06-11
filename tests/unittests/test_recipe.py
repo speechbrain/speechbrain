@@ -91,7 +91,7 @@ def test_mandatory_files(
     must_exist: list
         List of the fields of the csv recipe file that must contain valid paths.
     recipe_id_field: str
-        Field of the csv file containing a unique recipe ID.   
+        Field of the csv file containing a unique recipe ID.
     """
 
     check = True
@@ -105,4 +105,41 @@ def test_mandatory_files(
                         % (row[recipe_id_field], field)
                     )
                     check = False
+    assert check
+
+
+def test_README_links(
+    recipe_csvfile="tests/recipes.csv",
+    readme_field="Readme_file",
+    must_link=["Result_url", "HF_repo"],
+):
+    # Check if
+    """This test checks if the README file contains the correct GDRIVE and HF repositories.
+
+    Arguments
+    ---------.
+    recipe_csvfile: path
+        Path of the csv recipe file.
+    readme_field: string
+        Field of the csv recipe file that contains the path to the readme file.
+    must_link : list
+        Fields that contains the paths that must be linked in the readme file.
+    """
+    check = True
+    with open(recipe_csvfile, newline="") as csvf:
+        reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+        for row in reader:
+            with open(row[readme_field].strip()) as readmefile:
+                content = readmefile.read()
+                for field in must_link:
+                    links = row[field].strip().split(" ")
+                    for link in links:
+                        if len(link) == 0:
+                            continue
+                        if not (link in content):
+                            print(
+                                "\tWARNING: The link to %s does not exist in %s. Please add it!"
+                                % (link, row[readme_field])
+                            )
+                            check = False
     assert check
