@@ -22,7 +22,7 @@ import speechbrain as sb
 import sys
 import logging
 from hyperpyyaml import load_hyperpyyaml
-from text_to_sequence import text_to_sequence
+from speechbrain.utils.text_to_sequence import text_to_sequence
 from speechbrain.utils.data_utils import scalarize
 
 logger = logging.getLogger(__name__)
