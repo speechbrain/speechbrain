@@ -61,8 +61,7 @@ hparams/hpfit.yaml
 You can download LibriSpeech at http://www.openslr.org/12
 
 # Training Time
-All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact 
-training times will vary depending on the hyperparameters chosen and system configuration
+All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact training times will vary depending on the hyperparameters chosen and system configuration.
 
 ## RNN Models
 * **Lexicon**: approx. 6 minutes/epoch for training, < 1min/epoch for evaluation
