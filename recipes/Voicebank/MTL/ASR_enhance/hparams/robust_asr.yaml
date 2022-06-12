@@ -51,7 +51,6 @@ ctc_type: joint  # null, clean, joint
 seq_weight: 1.0
 seq_type: joint  # null, clean, joint
 label_smoothing: 0.1
-mask_weight: 0.7
 
 # Here, the pretrained models are downloaded from the speechbrain
 # HuggingFace repository. However, a local path pointing to a directory with
@@ -136,18 +135,8 @@ compute_stft: !new:speechbrain.processing.features.STFT
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
 
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
-
 spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
     power: 0.5
-
-resynth: !name:speechbrain.processing.signal_processing.resynthesize
-    stft: !ref <compute_stft>
-    istft: !ref <compute_istft>
 
 env_corr: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder_rirs>

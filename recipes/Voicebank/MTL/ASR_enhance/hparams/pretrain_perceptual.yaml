@@ -46,7 +46,6 @@ ctc_type: clean  # null, clean, joint
 seq_weight: 1.0
 seq_type: clean  # null, clean, joint
 label_smoothing: 0.1
-alignment_weight: 1.0
 
 # Set this to the path of a pretrained model to load before training
 # pretrained_path: {}
