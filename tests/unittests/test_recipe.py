@@ -113,7 +113,6 @@ def test_README_links(
     readme_field="Readme_file",
     must_link=["Result_url", "HF_repo"],
 ):
-    # Check if
     """This test checks if the README file contains the correct GDRIVE and HF repositories.
 
     Arguments
