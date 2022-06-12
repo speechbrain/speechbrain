@@ -67,13 +67,16 @@ def test_recipe_files(
     for field in fields:
         lst = get_list_from_csv(recipe_csvfile, field=field)
         lst = filter(None, lst)
-        for file in lst:
-            if not (os.path.exists(file.strip())):
-                print(
-                    "\tWARNING: The file %s listed in %s does not exist!"
-                    % (file, recipe_csvfile)
-                )
-                check = False
+        for files in lst:
+            files = files.split(" ")
+            files = filter(None, files)
+            for file in files:
+                if not (os.path.exists(file.strip())):
+                    print(
+                        "\tWARNING: The file %s listed in %s does not exist!"
+                        % (file, recipe_csvfile)
+                    )
+                    check = False
     assert check
 
 
