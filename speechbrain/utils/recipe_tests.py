@@ -111,7 +111,7 @@ def prepare_test(
 
 
 def check_files(
-    check_str, output_folder, recipe_id, pattern=r"file_exists=\[(.*)\]"
+    check_str, output_folder, recipe_id, pattern=r"file_exists=\[(.*?)\]"
 ):
     """Check if the output folder created by the test has the expected files.
 
@@ -145,6 +145,138 @@ def check_files(
             )
             check = False
     return check
+
+
+def check_performance(
+    check_str, output_folder, recipe_id, pattern=r"performance_check=\[(.*?)\]"
+):
+    """Checks if the performance achieved by the recipe matches with the
+    expectations. This is done by adding a performance_check entry in the recipe
+    check field of the csv recipe file
+    For instance: performance_check=[train_log.txt, train loss, <=15, epoch: 2]),
+    will check the variable "train_loss" in the train_log.txt at epoch 2. It will
+    raise an error if the train_loss is <=15.
+
+    Arguments
+    ---------
+    check_str: str
+        String summarizing the checks to perform.
+    output_folder: path
+        The path where the recipe files are stored.
+    recipe_id: str
+        Unique ID of the recipe.
+    pattern: str
+        The pattern used to extract the list of files to check from check_str.
+
+    Returns
+    ---------
+    check: bool
+        True if all the files are found, False otherwise.
+    """
+
+    check = True
+    performance_to_check = re.search(pattern, check_str)
+    if performance_to_check is None:
+        return check
+
+    # Getting the needed information from the "performance_check" entry
+    performance_to_check = performance_to_check.group(1).split(",")
+    filename = performance_to_check[0].strip()
+    filename = os.path.join(output_folder, filename)
+    variable = performance_to_check[1].strip()
+    threshold = performance_to_check[2].strip()
+    epoch = performance_to_check[3].strip()
+
+    if not (os.path.exists(filename)):
+        print(
+            "\tERROR: The file %s of recipe %s does not exist (needed for performance checks)"
+            % (filename, recipe_id)
+        )
+
+        return False
+
+    # Real all the lines of the performance file
+    with open(filename) as file:
+        lines = file.readlines()
+
+    # Fitler the lines
+    lines_filt = []
+    for line in lines:
+        if epoch in line:
+            lines_filt.append(line)
+
+    # Raising an error if there are no lines after applying the filter
+    if len(lines_filt) == 0:
+        print(
+            "\tERROR: No entries %s in %s (recipe %s). See performance_check entry."
+            % (epoch, filename, recipe_id)
+        )
+        return
+
+    for line in lines_filt:
+
+        # Search variable value
+        pattern = variable + ": " + "(.*?) "
+        var_value = re.search(pattern, line)
+
+        if var_value is None:
+            print(
+                "\tERROR: The file %s of recipe %s does not contain the variable %s (needed for performance checks)"
+                % (filename, recipe_id, variable)
+            )
+            return False
+        var_value = float(var_value.group(1))
+        check = check_threshold(threshold, var_value)
+
+        if not (check):
+            print(
+                "\tERROR: The variable %s of file %s (recipe %s) violated the specified threshold (%s %s)"
+                % (variable, filename, recipe_id, var_value, threshold)
+            )
+
+        break
+
+    return check
+
+
+def check_threshold(threshold, value):
+    """Checks if the value satisfied the threshold constraints.
+
+    Arguments
+    ---------
+    threshold: str
+        String that contains the contains. E.g, ">=10" or "==15" or "<5".
+    value: float
+        Float corresponding to the value to test
+
+    Returns
+    ---------
+    bool
+        True if the constraint is satisfied, False otherwise.
+    """
+
+    # Get threshold value:
+    th_value = float(
+        threshold.strip().replace("=", "").replace(">", "").replace("<", "")
+    )
+
+    # Check Threshold
+    if "==" in threshold:
+        return value == th_value
+
+    elif ">=" in threshold:
+        return value >= th_value
+
+    elif ">" in threshold:
+        return value > th_value
+
+    elif "<=" in threshold:
+        return value <= th_value
+
+    elif "<" in threshold:
+        return value < th_value
+    else:
+        return False
 
 
 def run_test_cmd(cmd, stdout_file, stderr_file):
@@ -266,7 +398,9 @@ def run_recipe_tests(
             % (i + 1, len(test_script.keys()), recipe_id)
         )
 
-        output_folder = os.path.join(output_folder, recipe_id)
+        output_folder = os.path.join(
+            output_folder, recipe_id
+        )  # Remove folder from the last run
         create_folder(output_folder)
         stdout_file = os.path.join(output_folder, "stdout.txt")
         stderr_file = os.path.join(output_folder, "stderr.txt")
@@ -306,4 +440,11 @@ def run_recipe_tests(
             # Additional checks might be added here
             if not (check_outcome):
                 check = False
+
+            check_outcome = check_performance(
+                check_str, output_folder, recipe_id
+            )
+            if not (check_outcome):
+                check = False
+
     return check
