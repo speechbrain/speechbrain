@@ -18,6 +18,17 @@ The training logs are available [here](https://drive.google.com/drive/folders/1C
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/).
 
+# FastSpeech
+The subfolder "fastspeech" contains the recipe for training the non-autoregressive transformer based TTS model [FastSpeech](https://arxiv.org/abs/1905.09263).
+To run this recipe, go into the "fastspeech" folder and run:
+
+```
+python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
+```
+Training takes about 12 hours on an nvidia RTX3090.
+
+Fastspeech needs token level durations. It can be obatined from an autoreresssive (eg: tacotron2, transformerTTS etc), TTS with aligner (eg: glowtts) or ASR based forced alignment (eg: [Montreal forced aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/), [Deep forced aligner](https://github.com/as-ideas/DeepForcedAligner) etc). This recipe uses durations from DFA. For durations from other sources, make sure the token encoding is same as the aligner.
+
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotroon 2).
