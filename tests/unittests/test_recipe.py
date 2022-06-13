@@ -34,6 +34,12 @@ def test_recipe_list(
         Path of the csv recipe file.
     avoid_list: list
         List of files for which this check must be avoided.
+    
+    Returns
+    ---------
+    bool:
+        True if the test passes, False otherwise.
+        
     """
     hparam_lst = get_all_files(
         search_folder, match_and=hparam_ext, exclude_or=avoid_list
@@ -62,6 +68,11 @@ def test_recipe_files(
         Path of the csv recipe file.
     fields: list
         Fields of the csv recipe file to check.
+
+    Returns
+    ---------
+    check: bool
+        True if the test passes, False otherwise.
     """
     check = True
     for field in fields:
@@ -95,6 +106,11 @@ def test_mandatory_files(
         List of the fields of the csv recipe file that must contain valid paths.
     recipe_id_field: str
         Field of the csv file containing a unique recipe ID.
+
+    Returns
+    ---------
+    check: bool
+        True if the test passes, False otherwise.
     """
 
     check = True
@@ -126,6 +142,11 @@ def test_README_links(
         Field of the csv recipe file that contains the path to the readme file.
     must_link : list
         Fields that contains the paths that must be linked in the readme file.
+
+    Returns
+    ---------
+    check: bool
+        True if the test passes, False otherwise.
     """
     check = True
     with open(recipe_csvfile, newline="") as csvf:

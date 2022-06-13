@@ -1,0 +1,309 @@
+"""Library for running recipe tests.
+
+Authors
+ * Mirco Ravanelli 2022
+"""
+import os
+import re
+import csv
+import errno
+import subprocess as sp
+
+
+def do_test(row, filter_fields, filters, test_field):
+    """Check if the current row of the csv recipe file has a test to run.
+
+    Arguments
+    ---------
+    row: dict
+        Line of the csv file (in dict from).
+    filter_fields: list
+        This can be used with the "filter" variable
+        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        will only run tests for ASR recipes.
+    filters: list
+        See above.
+    test_field: string
+        Key of the input dictionary that contains the test flags.
+
+
+    Returns
+    ---------
+    test: bool
+        True if the line must be tested, False otherwise.
+    """
+    test = True
+    for field in filter_fields:
+        for filt in filters:
+            if not (filt in row[field]):
+                test = False
+    if test:
+        test_flag = row[test_field].strip()
+        if len(test_flag) == 0:
+            test = False
+    return test
+
+
+def prepare_test(
+    recipe_csvfile="tests/recipes.csv",
+    script_field="Script_file",
+    hparam_field="Hparam_file",
+    recipe_id_field="RecipeID",
+    test_field="test_debug_flags",
+    check_field="test_debug_checks",
+    filters_fields=[],
+    filters=[],
+):
+    """Check if the current row of the csv recipe file has a test to run.
+
+    Arguments
+    ---------
+    recipe_csvfile: path
+        Path of the csv recipe file summarizing all the recipes in the repo.
+    script_field: str
+        Field of the csv recipe file containing the path of the script to run.
+    hparam_field: str
+        Field of the csv recipe file containing the path of the hparam file.
+    recipe_id_field: str
+        Field of the csv recipe file containing the unique recipe ID.
+    test_field: string
+        Field of the csv recipe file containing the test flags.
+    check_field: string
+        Field of the csv recipe file containing the checks to perform.
+    filter_fields: list
+        This can be used with the "filter" variable
+        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        will only run tests for ASR recipes.
+    filters: list
+        See above.
+
+    Returns
+    ---------
+    test_script: dict
+        A Dictionary containing recipe IDs as keys and test_scripts as values.
+    test_hparam: dict
+        A dictionary containing recipe IDs as keys and hparams as values.
+    test_flag: dict
+        A dictionary containing recipe IDs as keys and the test flags as values.
+    test_check: dict
+        A dictionary containing recipe IDs as keys and the checks as values.
+    """
+
+    # Dictionary initialization
+    test_script = {}
+    test_hparam = {}
+    test_flag = {}
+    test_check = {}
+
+    # Detect needed information for the recipe tests
+    with open(recipe_csvfile, newline="") as csvf:
+        reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+        for row in reader:
+            if not (do_test(row, filters_fields, filters, test_field)):
+                continue
+            recipe_id = row[recipe_id_field].strip()
+            test_script[recipe_id] = row[script_field].strip()
+            test_hparam[recipe_id] = row[hparam_field].strip()
+            test_flag[recipe_id] = row[test_field].strip()
+            test_check[recipe_id] = row[check_field].strip()
+
+    return test_script, test_hparam, test_flag, test_check
+
+
+def check_files(
+    check_str, output_folder, recipe_id, pattern=r"file_exists=\[(.*)\]"
+):
+    """Check if the output folder created by the test has the expected files.
+
+    Arguments
+    ---------
+    check_str: str
+        String summarizing the checks to perform.
+    output_folder: path
+        The path where to check the files.
+    recipe_id: str
+        Unique ID of the recipe.
+    pattern: str
+        The pattern used to extract the list of files to check from check_str.
+
+    Returns
+    ---------
+    check: bool
+        True if all the files are found, False otherwise.
+    """
+
+    check = True
+    files_to_check = re.search(pattern, check_str)
+    files_to_check = files_to_check.group(1).split(",")
+
+    for file_to_check in files_to_check:
+        check_path = os.path.join(output_folder, file_to_check)
+        if not (os.path.exists(check_path)):
+            print(
+                "\tERROR: The recipe %s does not contain the expected file %s"
+                % (recipe_id, check_path)
+            )
+            check = False
+    return check
+
+
+def run_test_cmd(cmd, stdout_file, stderr_file):
+    """Run the command corresponding to a recipe test. The standard output and
+    the standard error is saved in the specified paths.
+
+    Arguments
+    ---------
+    cmd: str
+        String corresponding to the command to run.
+    stdout_file: path
+        File where standard output is stored.
+    stderr_file: path
+        File where standard error is stored.
+
+    Returns
+    ---------
+    rc: bool
+        The return code obtained after running the command. If 0, the test is
+        run without errors. If >0 the execution failed.
+    """
+    f_stdout = open(stdout_file, "w")
+    f_stderr = open(stderr_file, "w")
+    child = sp.Popen([cmd], stdout=f_stdout, stderr=f_stderr, shell=True)
+    child.communicate()[0]
+    rc = child.returncode
+    f_stdout.close()
+    f_stderr.close()
+    return rc
+
+
+def create_folder(folder):
+    """Run the command corresponding to a recipe test. The standard output and
+    the standard error is saved in the specified paths.
+
+    Arguments
+    ---------
+    cmd: str
+        String corresponding to the command to run.
+    stdout_file: path
+        File where standard output is stored.
+    stderr_file: path
+        File where standard error is stored.
+
+    Returns
+    ---------
+    rc: bool
+        The return code obtained after running the command. If 0, the test is
+        run without errors. If >0 the execution failed.
+    """
+    try:
+        os.makedirs(folder)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+
+def run_recipe_tests(
+    recipe_csvfile="tests/recipes.csv",
+    script_field="Script_file",
+    hparam_field="Hparam_file",
+    recipe_id_field="RecipeID",
+    test_field="test_debug_flags",
+    check_field="test_debug_checks",
+    run_opts="--device=cpu --debug",
+    output_folder="tests/recipe_tests/",
+    filters_fields=[],
+    filters=[],
+    do_checks=True,
+):
+    """Runs the recipes tests.
+
+    Arguments
+    ---------
+    recipe_csvfile: path
+        Path of the csv recipe file summarizing all the recipes in the repo.
+    script_field: str
+        Field of the csv recipe file containing the path of the script to run.
+    hparam_field: str
+        Field of the csv recipe file containing the path of the hparam file.
+    recipe_id_field: str
+        Field of the csv recipe file containing the unique recipe ID.
+    test_field: string
+        Field of the csv recipe file containing the test flags.
+    check_field: string
+        Field of the csv recipe file containing the checks to perform.
+    run_opts: string
+        Additional flags to add for the tests (see run_opts of speechbrain/core.py).
+    output_folder: string
+        Folder where the output of the tests are saved.
+    filter_fields: list
+        This can be used with the "filter" variable
+        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        will only run tests for ASR recipes.
+    filters: list
+        See above.
+    do_checks:
+        If True performs the checks on the output folder (when the check_field is not empty).
+
+    Returns
+    ---------
+    check: True
+        True if all the recipe tests pass, False otherwise.
+
+    """
+    # Create the output folder (where the tests results will be saved)
+    create_folder(output_folder)
+
+    # Read the csv recipe file and detect which tests we have to run
+    test_script, test_hparam, test_flag, test_check = prepare_test(
+        recipe_csvfile, script_field, hparam_field
+    )
+
+    # Run  script (check how to get std out, std err and save them in files)
+    check = True
+    for i, recipe_id in enumerate(test_script.keys()):
+        print(
+            "(%i/%i) Running test for %s..."
+            % (i + 1, len(test_script.keys()), recipe_id)
+        )
+
+        output_folder = os.path.join(output_folder, recipe_id)
+        create_folder(output_folder)
+        stdout_file = os.path.join(output_folder, "stdout.txt")
+        stderr_file = os.path.join(output_folder, "stderr.txt")
+
+        # Composing command to run
+        cmd = (
+            "python "
+            + test_script[recipe_id]
+            + " "
+            + test_hparam[recipe_id]
+            + " --output_folder="
+            + output_folder
+            + " "
+            + test_flag[recipe_id]
+            + " "
+            + run_opts
+        )
+
+        # Running the test
+        return_code = run_test_cmd(cmd, stdout_file, stderr_file)
+
+        # Check return code
+        if return_code != 0:
+            print(
+                "\tERROR: Error in %s. Check %s for more info."
+                % (recipe_id, stderr_file)
+            )
+            check = False
+
+        # Checks
+        check_str = test_check[recipe_id].strip()
+        if do_checks and len(check_str) > 0:
+
+            # Check if the expected files exist
+            check_outcome = check_files(check_str, output_folder, recipe_id)
+
+            # Additional checks might be added here
+            if not (check_outcome):
+                check = False
+    return check
