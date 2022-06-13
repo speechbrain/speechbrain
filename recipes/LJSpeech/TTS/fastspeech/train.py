@@ -86,7 +86,7 @@ class FastSpeechBrain(sb.Brain):
         x, y, metadata = batch_to_gpu(batch, return_metadata=True)
         self.last_batch = [x[0], y[-1], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
-        return criterion(predictions, y)
+        return self.hparams.criterion(predictions, y)
 
     def _remember_sample(self, batch, predictions):
         """Remembers samples of spectrograms and the batch for logging purposes
@@ -254,20 +254,14 @@ def dataio_prepare(hparams):
 
     #define splits and load it as sb dataset
     datasets = {}
-    dataset_names = {
-                    'train': hparams["train_data_path"],
-                    'valid': hparams["valid_data_path"],
-                    'test': hparams["test_data_path"]
-                    }
 
-    for dataset in dataset_names:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=os.path.join(hparams["save_folder"], dataset+'.csv'),
+    for dataset in hparams["splits"]:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=hparams[f"{dataset}_json"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["mel_text_pair", "wav", "label", "durations"],
         )
-
     return datasets
 
 
@@ -314,43 +308,6 @@ def to_gpu(x):
         x = x.cuda(non_blocking=True)
     return x
 
-
-def criterion(predictions, targets, log_scale_durations=True):
-    """Computes the value of the loss function and updates stats
-        Arguments
-        ---------
-        predictions: tuple
-            model predictions
-        targets: tuple
-            ground truth data
-        Returns
-        -------
-        loss: torch.Tensor
-            the loss value
-        """
-    mel_target, target_durations, mel_length, phon_len  = targets
-    mel_loss_fn = torch.nn.MSELoss()
-    dur_loss_fn = torch.nn.L1Loss()
-    assert len(mel_target.shape) == 3
-    mel_out, log_durations = predictions
-    log_durations = log_durations.squeeze()
-    if log_scale_durations:
-        log_target_durations = torch.log(target_durations.float() + 1)
-        durations = torch.clamp(torch.exp(log_durations) - 1, 0, 20)
-    mel_loss, dur_loss = 0, 0
-    #change this to perform batch level using padding mask
-    for i in range(mel_target.shape[0]):
-        if i == 0:
-            mel_loss = mel_loss_fn(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-            dur_loss = dur_loss_fn(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
-        else:
-            mel_loss = mel_loss + mel_loss_fn(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-            dur_loss = dur_loss + dur_loss_fn(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
-    mel_loss = torch.div(mel_loss, len(mel_target))
-    dur_loss = torch.div(dur_loss, len(mel_target))
-    return mel_loss + dur_loss
-
-
 def main():
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -364,18 +321,18 @@ def main():
     )
 
     sys.path.append("../")
-    from ljspeech_prepare import prepare_ljspeech_durations_and_predefined_splits
+    from ljspeech_prepare import prepare_ljspeech
     sb.utils.distributed.run_on_main(
-        prepare_ljspeech_durations_and_predefined_splits,
+        prepare_ljspeech,
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
-            "train": hparams["train_data_path"],
-            "valid": hparams["valid_data_path"],
-            "test": hparams["test_data_path"],
-            "duration": hparams["duration_path"],
-            "wavs": hparams["audio_folder"],
+            "duration_link": hparams["duration_link"],
+            "splits": hparams["splits"],
+            "split_ratio": hparams["split_ratio"],
             "seed": hparams["seed"],
+            "skip_prep": hparams["skip_prep"],
+            "create_symbol_list": True,
         },
     )
     datasets = dataio_prepare(hparams)

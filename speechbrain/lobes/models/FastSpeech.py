@@ -253,7 +253,7 @@ class FastSpeech(nn.Module):
         self.linear = nn.Linear(dec_d_model, n_mels)
 
 
-    def forward(self, tokens, durations=None):
+    def forward(self, tokens, durations=None, pace=1.0):
         """forward pass for training and inference
         Arguments
         ---------
@@ -276,7 +276,7 @@ class FastSpeech(nn.Module):
         predict_durations = self.durPred(token_feats).squeeze()
         if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
         if durations is None: dur_pred_reverse_log = torch.clamp(torch.exp(predict_durations) - 1, 0)
-        spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log)
+        spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log, pace=pace)
 
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
         attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1])
@@ -285,7 +285,7 @@ class FastSpeech(nn.Module):
         mel_post = self.linear(output_mel_feats)
         return mel_post, predict_durations
 
-def upsample(feats, durs, pace=1, padding_value=0.0):
+def upsample(feats, durs, pace=1.0, padding_value=0.0):
     """upsample encoder ouput according to durations
     Arguments
     ---------
@@ -304,7 +304,7 @@ def upsample(feats, durs, pace=1, padding_value=0.0):
     predict_durations: torch.Tensor
         predicted durations for each token
     """
-    return torch.nn.utils.rnn.pad_sequence([torch.repeat_interleave(feats[i], durs[i].long(), dim=0)
+    return torch.nn.utils.rnn.pad_sequence([torch.repeat_interleave(feats[i], (pace*durs[i]).long(), dim=0)
                                             for i in range(len(durs))],
                                             batch_first=True, padding_value=padding_value)
 
@@ -394,3 +394,54 @@ class TextMelCollate:
             labels,
             wavs
         )
+
+
+class Loss(nn.Module):
+   
+    def __init__(
+        self,
+        log_scale_durations,
+        duration_loss_weight,
+        mel_loss_weight
+    ):
+        super().__init__()
+
+        self.mel_loss = nn.L1Loss()
+        self.dur_loss = nn.L1Loss()
+        self.log_scale_durations = log_scale_durations
+        self.mel_loss_weight = mel_loss_weight
+        self.duration_loss_weight = duration_loss_weight
+
+    def forward(
+        self, predictions, targets):
+        """Computes the value of the loss function and updates stats
+        Arguments
+        ---------
+        predictions: tuple
+            model predictions
+        targets: tuple
+            ground truth data
+        Returns
+        -------
+        loss: torch.Tensor
+            the loss value
+        """
+        mel_target, target_durations, mel_length, phon_len  = targets
+        assert len(mel_target.shape) == 3
+        mel_out, log_durations = predictions
+        log_durations = log_durations.squeeze()
+        if self.log_scale_durations:
+            log_target_durations = torch.log(target_durations.float() + 1)
+            durations = torch.clamp(torch.exp(log_durations) - 1, 0, 20)
+        mel_loss, dur_loss = 0, 0
+        #change this to perform batch level using padding mask
+        for i in range(mel_target.shape[0]):
+            if i == 0:
+                mel_loss = self.mel_loss(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
+                dur_loss = self.dur_loss(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
+            else:
+                mel_loss = mel_loss + self.mel_loss(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
+                dur_loss = dur_loss + self.dur_loss(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
+        mel_loss = torch.div(mel_loss, len(mel_target))
+        dur_loss = torch.div(dur_loss, len(mel_target))
+        return mel_loss*self.mel_loss_weight + dur_loss*self.duration_loss_weight

@@ -10,7 +10,7 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref /home/wtc8/Sathvik/speechbrain_contrib_codes/speechbrain_samples/fastspeech_pr/<seed>
+output_folder: !ref results/fastspeech_exp/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
@@ -26,12 +26,17 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: /data/Database/LJSpeech-1.1
-audio_folder: !ref <data_folder>/wavs
-train_data_path: !ref <data_folder>/metadata_train.csv
-valid_data_path: !ref <data_folder>/metadata_val.csv
-test_data_path: !ref <data_folder>/metadata_test.csv
-duration_path: /home/wtc8/Sathvik/DeepForcedAligner/output_24hrs/durations/
+data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
+duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip
+
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+
+splits: ["train", "valid"]
+split_ratio: [90, 10]
+
+skip_prep: False
 
 text_cleaners: ['english_cleaners']
 
@@ -126,6 +131,11 @@ mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
   norm: !ref <norm>
   mel_scale: !ref <mel_scale>
   compression: !ref <dynamic_range_compression>
+
+criterion: !new:speechbrain.lobes.models.FastSpeech.Loss
+  log_scale_durations: true
+  duration_loss_weight: 1.0
+  mel_loss_weight: 1.0
 
 vocoder: "hifi-gan"
 pretrained_vocoder: true

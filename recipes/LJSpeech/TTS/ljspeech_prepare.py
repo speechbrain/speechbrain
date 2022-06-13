@@ -10,11 +10,14 @@ Authors
 import os
 import csv
 import json
-import logging
+import shutil
 import random
+import logging
+import subprocess
 from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
+    load_data_json
 )
 
 logger = logging.getLogger(__name__)
@@ -24,82 +27,10 @@ TRAIN_JSON = "train.json"
 VALID_JSON = "valid.json"
 TEST_JSON = "test.json"
 WAVS = "wavs"
+DURATIONS = "durations"
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
-
-def prepare_ljspeech_durations_and_predefined_splits(
-    data_folder,
-    save_folder,
-    train,
-    valid,
-    test,
-    duration,
-    wavs,
-    seed,
-):
-
-    random.seed(seed)
-    conf = {
-        "data_folder": data_folder,
-        "save_folder": save_folder,
-        "train": train,
-        "valid": valid,
-        "test":test,
-        "duration":duration,
-        "wavs":wavs,
-        "seed": seed,
-    }
-
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-
-    #check that metadata files exists in specified path
-    for filename in [train, valid, test, wavs, duration]:
-        assert os.path.exists(filename), f"{filename} not found"
-    filenames = ["train", "valid", "test"]
-
-    #create symbol list from train metadata. This will be used to do on the fly text encoding
-    lexicon_path = os.path.join(save_folder, "lexicon")
-    if os.path.exists(lexicon_path):
-        logger.info('Symbols file present')
-    else:
-        logger.info('Symbols file not present, creating from training data.')
-
-        with open(train, 'r') as f:
-            lines = f.read().split('\n')[:-1]
-        char_set = set()
-        for l in lines:
-            char_set.update(*l.lower().split('|')[1])
-        with open(lexicon_path, 'w') as f:
-            f.write('\t'.join(char_set))
-
-    #create records of metadata files
-    for filename, name in zip([train, valid, test], filenames):
-        data = []
-        with open(filename, 'r') as f:
-            lines = f.read().split('\n')
-        lines = [l.replace('.wav', '').split('|') for l in lines if len(l)>0]
-        for metadata_line in lines:
-            data.append({
-                    "ID": metadata_line[0],
-                    "speaker_id": "0",
-                    "wav": os.path.join(wavs, f"{metadata_line[0]}.wav"),
-                    "label": metadata_line[1],
-                    "durations": os.path.join(duration, metadata_line[0]+'.npy'),
-                    })
-
-        path = os.path.join(save_folder, name+'.csv')
-
-        with open(path, 'w', newline='') as csvfile:
-            fieldnames = ["ID", "speaker_id", "wav", "label", "durations"]
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for line in data:
-                writer.writerow(line)
-
-    save_opt = os.path.join(save_folder, OPT_FILE)
-    save_pkl(conf, save_opt)
 
 def prepare_ljspeech(
     data_folder,
@@ -108,6 +39,7 @@ def prepare_ljspeech(
     split_ratio=[90, 10],
     seed=1234,
     skip_prep=False,
+    **kwargs
 ):
     """
     Prepares the csv files for the LJspeech datasets.
@@ -150,7 +82,6 @@ def prepare_ljspeech(
         "save_folder": save_folder,
         "seed": seed,
     }
-
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
@@ -163,6 +94,17 @@ def prepare_ljspeech(
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)
 
+    if "duration_link" in kwargs:
+        durations_folder = os.path.join(data_folder, "durations")
+        if not os.path.exists(durations_folder):
+            logger.info("Downloading durations for fastspeech training")
+            subprocess.call(["wget","-q",   kwargs["duration_link"]])
+            subprocess.call(["unzip", "-qq", "ljspeech_DFA_durations.zip"])
+            subprocess.call(["mv", "durations", durations_folder])
+            subprocess.call(["rm", "-r", "ljspeech_DFA_durations.zip"])
+    else:
+        durations_folder = None
+
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
         logger.info("Skipping preparation, completed in previous run.")
@@ -172,7 +114,7 @@ def prepare_ljspeech(
     assert os.path.exists(meta_csv), "metadata.csv does not exist"
     assert os.path.exists(wavs_folder), "wavs/ folder does not exist"
 
-    msg = "\tCreating json file for ljspeech Dataset.."
+    msg = "Creating json file for ljspeech Dataset.."
     logger.info(msg)
 
     data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
@@ -180,15 +122,17 @@ def prepare_ljspeech(
     # Prepare csv
     if "train" in splits:
         prepare_json(
-            data_split["train"], save_json_train, wavs_folder, meta_csv
+            data_split["train"], save_json_train, wavs_folder, meta_csv, durations_folder
         )
     if "valid" in splits:
         prepare_json(
-            data_split["valid"], save_json_valid, wavs_folder, meta_csv
+            data_split["valid"], save_json_valid, wavs_folder, meta_csv, durations_folder
         )
     if "test" in splits:
-        prepare_json(data_split["test"], save_json_test, wavs_folder, meta_csv)
-
+        prepare_json(
+            data_split["test"], save_json_test, wavs_folder, meta_csv, durations_folder)
+    if "create_symbol_list" in kwargs:
+        create_symbol_file(save_folder, save_json_train)
     save_pkl(conf, save_opt)
 
 
@@ -297,7 +241,7 @@ def split_sets(data_folder, splits, split_ratio):
     return data_split, meta_csv
 
 
-def prepare_json(seg_lst, json_file, wavs_folder, csv_reader):
+def prepare_json(seg_lst, json_file, wavs_folder, csv_reader, durations_folder):
     """
     Creates json file given a list of indexes.
 
@@ -326,9 +270,26 @@ def prepare_json(seg_lst, json_file, wavs_folder, csv_reader):
             "label": label,
             "segment": True if "train" in json_file else False,
         }
+        if durations_folder is not None:
+            duration_path = os.path.join(durations_folder, id+'.npy')
+            json_dict[id].update({"durations":duration_path})
 
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
+
+def create_symbol_file(save_folder, save_json_train):
+    lexicon_path = os.path.join(save_folder, "lexicon")
+    if os.path.exists(lexicon_path):
+        logger.info('Symbols file present')
+    else:
+        logger.info('Symbols file not present, creating from training data.')
+        data = load_data_json(save_json_train)
+        char_set = set()
+        for id in data:
+            line = data[id]['label']
+            char_set.update(*line.lower())
+        with open(lexicon_path, 'w') as f:
+            f.write('\t'.join(char_set))
