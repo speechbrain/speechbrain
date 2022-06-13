@@ -34,12 +34,12 @@ def test_recipe_list(
         Path of the csv recipe file.
     avoid_list: list
         List of files for which this check must be avoided.
-    
+
     Returns
     ---------
     bool:
         True if the test passes, False otherwise.
-        
+
     """
     hparam_lst = get_all_files(
         search_folder, match_and=hparam_ext, exclude_or=avoid_list
