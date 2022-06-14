@@ -341,7 +341,7 @@ def run_recipe_tests(
     recipe_id_field="RecipeID",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
-    run_opts="--device=cpu --debug",
+    run_opts="--device=cpu",
     output_folder="tests/recipe_tests/",
     filters_fields=[],
     filters=[],
@@ -384,10 +384,15 @@ def run_recipe_tests(
     """
     # Create the output folder (where the tests results will be saved)
     create_folder(output_folder)
+    print("Test ouputs will be put in %s" % (output_folder))
 
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
-        recipe_csvfile, script_field, hparam_field
+        recipe_csvfile,
+        script_field,
+        hparam_field,
+        filters_fields=filters_fields,
+        filters=filters,
     )
 
     # Run  script (check how to get std out, std err and save them in files)
@@ -398,12 +403,12 @@ def run_recipe_tests(
             % (i + 1, len(test_script.keys()), recipe_id)
         )
 
-        output_folder = os.path.join(
+        output_fold = os.path.join(
             output_folder, recipe_id
         )  # Remove folder from the last run
-        create_folder(output_folder)
-        stdout_file = os.path.join(output_folder, "stdout.txt")
-        stderr_file = os.path.join(output_folder, "stderr.txt")
+        create_folder(output_fold)
+        stdout_file = os.path.join(output_fold, "stdout.txt")
+        stderr_file = os.path.join(output_fold, "stderr.txt")
 
         # Composing command to run
         cmd = (
@@ -412,7 +417,7 @@ def run_recipe_tests(
             + " "
             + test_hparam[recipe_id]
             + " --output_folder="
-            + output_folder
+            + output_fold
             + " "
             + test_flag[recipe_id]
             + " "
@@ -425,8 +430,8 @@ def run_recipe_tests(
         # Check return code
         if return_code != 0:
             print(
-                "\tERROR: Error in %s. Check %s for more info."
-                % (recipe_id, stderr_file)
+                "\tERROR: Error in %s. Check %s and %s for more info."
+                % (recipe_id, stderr_file, stdout_file)
             )
             check = False
 
@@ -435,15 +440,13 @@ def run_recipe_tests(
         if do_checks and len(check_str) > 0:
 
             # Check if the expected files exist
-            check_outcome = check_files(check_str, output_folder, recipe_id)
+            check_outcome = check_files(check_str, output_fold, recipe_id)
 
             # Additional checks might be added here
             if not (check_outcome):
                 check = False
 
-            check_outcome = check_performance(
-                check_str, output_folder, recipe_id
-            )
+            check_outcome = check_performance(check_str, output_fold, recipe_id)
             if not (check_outcome):
                 check = False
 
