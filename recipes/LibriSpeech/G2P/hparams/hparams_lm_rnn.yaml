@@ -21,7 +21,7 @@ phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
 # 4- Set lm_{train,valid,test}_data with the local path.
 # Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
 # It allows you to read the data much faster without slowing down the shared filesystem.
-data_folder: /localscratch/librig2p
+data_folder: null
 
 dataset: flexthink/librig2p-nostress-space
 train_data: !ref <data_folder>/sentence_train.json

@@ -14,7 +14,7 @@ trial_id: null
 
 # Data paths
 output_folder: !ref results/transformer/<seed>
-data_folder: !PLACEHOLDER # e.g. /localscratch/librig2p
+data_folder: null
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
