@@ -65,10 +65,6 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
 
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
-
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
     nb_iter: 10

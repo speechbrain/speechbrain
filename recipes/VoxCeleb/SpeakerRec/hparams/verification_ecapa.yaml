@@ -70,10 +70,6 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     attention_channels: 128
     lin_neurons: 192
 
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
-
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
