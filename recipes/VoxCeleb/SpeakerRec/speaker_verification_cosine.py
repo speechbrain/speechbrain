@@ -41,9 +41,6 @@ def compute_embedding(wavs, wav_lens):
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
         embeddings = params["embedding_model"](feats, wav_lens)
-        embeddings = params["mean_var_norm_emb"](
-            embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
-        )
     return embeddings.squeeze(1)
 
 
@@ -73,8 +70,7 @@ def compute_embedding_loop(data_loader):
 
 
 def get_verification_scores(veri_test):
-    """ Computes positive and negative scores given the verification split.
-    """
+    """Computes positive and negative scores given the verification split."""
     scores = []
     positive_scores = []
     negative_scores = []
@@ -155,11 +151,10 @@ def dataio_prep(params):
 
     data_folder = params["data_folder"]
 
-    # 1. Declarations:
-
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["train_data"], replacements={"data_root": data_folder},
+        csv_path=params["train_data"],
+        replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
         sort_key="duration", select_n=params["n_train_snts"]
@@ -167,19 +162,21 @@ def dataio_prep(params):
 
     # Enrol data
     enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+        csv_path=params["enrol_data"],
+        replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["test_data"], replacements={"data_root": data_folder},
+        csv_path=params["test_data"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, enrol_data, test_data]
 
-    # 2. Define audio pipeline:
+    # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop):
@@ -194,10 +191,10 @@ def dataio_prep(params):
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
-    # 3. Set output:
+    # Set output
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
-    # 4 Create dataloaders
+    # Create dataloaders
     train_dataloader = sb.dataio.dataloader.make_dataloader(
         train_data, **params["train_dataloader_opts"]
     )
