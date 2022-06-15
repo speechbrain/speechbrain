@@ -113,9 +113,9 @@ class CumulativeLayerNorm(nn.LayerNorm):
     >>> x_norm = CLN(x)
     """
 
-    def __init__(self, dim, elementwise_affine=True):
+    def __init__(self, dim, elementwise_affine=True, eps=1e-8):
         super(CumulativeLayerNorm, self).__init__(
-            dim, elementwise_affine=elementwise_affine, eps=1e-8
+            dim, elementwise_affine=elementwise_affine, eps=eps
         )
 
     def forward(self, x):
@@ -143,14 +143,14 @@ class CumulativeLayerNorm(nn.LayerNorm):
         return x
 
 
-def select_norm(norm, dim, shape):
+def select_norm(norm, dim, shape, eps=1e-8):
     """Just a wrapper to select the normalization type.
     """
 
     if norm == "gln":
-        return GlobalLayerNorm(dim, shape, elementwise_affine=True)
+        return GlobalLayerNorm(dim, shape, elementwise_affine=True, eps=eps)
     if norm == "cln":
-        return CumulativeLayerNorm(dim, elementwise_affine=True)
+        return CumulativeLayerNorm(dim, elementwise_affine=True, eps=eps)
     if norm == "ln":
         return nn.GroupNorm(1, dim, eps=1e-8)
     else:
