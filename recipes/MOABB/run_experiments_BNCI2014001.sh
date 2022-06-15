@@ -1,3 +1,4 @@
+# Sample script to run experiments on BNCI2014001 dataset with a leave-one-subject-out strategy with parallel processing
 nparallel=6
 data_folder='/path/to/MOABB_datasets'
 data_iterator_name='leave-one-subject-out'

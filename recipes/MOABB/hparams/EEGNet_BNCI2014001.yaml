@@ -14,16 +14,17 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'. The dataset will be automatically downloaded in this folder
-output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
+output_folder: !ref /mnt/Dilbert/dborra/results/MOABB/EEGNet_BNCI2014001/<seed> #!ref results/MOABB/EEGNet_BNCI2014001/<seed>
 
 # DATASET HPARS
 # Defining the MOABB dataset.
-dataset: !new:moabb.datasets.BNCI2014001
-subject_list: [1, 2, 3, 4, 5, 6, 7, 8, 9]  # subject list
+dataset_code: 001-2014
+data_iterator_name: !PLACEHOLDER
+target_subject_idx: !PLACEHOLDER
+target_session_idx: !PLACEHOLDER
 
-events: ['left_hand', 'right_hand', 'feet', 'tongue']
 n_classes: 4
-sample_rate: 128  # Target sampling rate (Hz)
+sample_rate: 125  # Target sampling rate (Hz)
 # tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
 # trial begins (0 s), cue (2 s, 1.25 s long); each trial is 6 s long
 # dataset interval starts from 2
@@ -31,28 +32,9 @@ sample_rate: 128  # Target sampling rate (Hz)
 tmin: 0.5
 tmax: 2.5
 T: !ref <sample_rate> * (<tmax> - <tmin>)
-# fmin, fmax band-pass filtering
-fmin: 4
-fmax: 40
-channels: ['Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4',
-           'C5', 'C3', 'C1', 'Cz', 'C2', 'C4',
-           'C6', 'CP3', 'CP1', 'CPz', 'CP2', 'CP4',
-           'P1', 'Pz', 'P2', 'POz']
 C: 22
-# Defining the MOABB paradigm and setting the pre-processing hyper-parameters for the specific dataset.
-paradigm: !new:moabb.paradigms.MotorImagery
-    events: !ref <events>
-    n_classes: !ref <n_classes>
-    fmin: !ref <fmin>
-    fmax: !ref <fmax>
-    tmin: !ref <tmin>
-    tmax: !ref <tmax>
-    channels: !ref <channels>
-    resample: !ref <sample_rate>
 
 # TRAINING HPARS
-num_parallel_processes: 6  # number of parallel processes to run
-nfolds: 4 # number of cross-validation folds (only for within_session_it, cross_session_it)
 number_of_epochs: 700 # number of training epochs
 lr: 0.001
 
@@ -89,26 +71,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
 batch_size: 512
 valid_ratio: 0.2
 
-# Data iterators
-within_session_it: !new:recipes.MOABB.dataio_iterators.WithinSession
-    paradigm: !ref <paradigm>
-    nfolds: !ref <nfolds>
-    seed: !ref <seed>
-leave_one_session_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSessionOut
-    paradigm: !ref <paradigm>
-    seed: !ref <seed>
-cross_session_it: !new:recipes.MOABB.dataio_iterators.CrossSession
-    paradigm: !ref <paradigm>
-    nfolds: !ref <nfolds>
-    seed: !ref <seed>
-leave_one_subject_out_it: !new:recipes.MOABB.dataio_iterators.LeaveOneSubjectOut
-    paradigm: !ref <paradigm>
-    seed: !ref <seed>
-data_iterators: [!ref <within_session_it>,
-                 !ref <leave_one_session_out_it>,
-                 !ref <cross_session_it>,
-                 !ref <leave_one_subject_out_it>,
-]
 
 # DATA AUGMENTATION
 rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
