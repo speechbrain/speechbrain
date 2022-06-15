@@ -152,7 +152,7 @@ def select_norm(norm, dim, shape, eps=1e-8):
     if norm == "cln":
         return CumulativeLayerNorm(dim, elementwise_affine=True, eps=eps)
     if norm == "ln":
-        return nn.GroupNorm(1, dim, eps=1e-8)
+        return nn.GroupNorm(1, dim, eps=eps)
     else:
         return nn.BatchNorm1d(dim)
 
