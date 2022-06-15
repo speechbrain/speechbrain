@@ -1,5 +1,5 @@
 # ################################
-# Model: Using RE-SepFormer for source separation
+# Model: RE-SepFormer for speech separation
 # Dataset : WSJ0-2mix and WSJ0-3mix
 # ################################
 #
