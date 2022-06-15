@@ -14,7 +14,7 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/BNCI2014001'. The dataset will be automatically downloaded in this folder
-output_folder: !ref /mnt/Dilbert/dborra/results/MOABB/EEGNet_BNCI2014001/<seed> #!ref results/MOABB/EEGNet_BNCI2014001/<seed>
+output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
 
 # DATASET HPARS
 # Defining the MOABB dataset.
