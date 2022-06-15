@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
-from speechbrain.lobes.models.dual_path import SBRNNBlock
 from speechbrain.lobes.models.dual_path import select_norm
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerEncoder,
     PositionalEncoding,
     get_lookahead_mask,
 )
+import speechbrain.nnet.RNN as SBRNN
 import copy
 
 
@@ -210,6 +210,74 @@ class SegLSTM(nn.Module):
 
         output = input + output_norm
         return output, (h, c)
+
+
+class SBRNNBlock(nn.Module):
+    """RNNBlock with output layer.
+
+    Arguments
+    ---------
+    input_size : int
+        Dimensionality of the input features.
+    hidden_channels : int
+        Dimensionality of the latent layer of the rnn.
+    num_layers : int
+        Number of the rnn layers.
+    out_size : int
+        Number of dimensions at the output of the linear layer
+    rnn_type : str
+        Type of the the rnn cell.
+    dropout : float
+        Dropout rate
+    bidirectional : bool
+        If True, bidirectional.
+
+    Example
+    ---------
+    >>> x = torch.randn(10, 100, 64)
+    >>> rnn = SBRNNBlock(64, 100, 1, 128, bidirectional=True)
+    >>> x = rnn(x)
+    >>> x.shape
+    torch.Size([10, 100, 128])
+    """
+
+    def __init__(
+        self,
+        input_size,
+        hidden_channels,
+        num_layers,
+        outsize,
+        rnn_type="LSTM",
+        dropout=0,
+        bidirectional=True,
+    ):
+        super(SBRNNBlock, self).__init__()
+
+        self.mdl = getattr(SBRNN, rnn_type)(
+            hidden_channels,
+            input_size=input_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            bidirectional=bidirectional,
+        )
+        rnn_outsize = 2 * hidden_channels if bidirectional else hidden_channels
+        self.out = nn.Linear(rnn_outsize, outsize)
+
+    def forward(self, x):
+        """Returns the transformed output.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            [B, L, N]
+            where, B = Batchsize,
+                   N = number of filters
+                   L = time points
+        """
+
+        rnn_out = self.mdl(x)[0]
+        out = self.out(rnn_out)
+        return out
 
 
 class SBTransformerBlock_wnormandskip(nn.Module):
