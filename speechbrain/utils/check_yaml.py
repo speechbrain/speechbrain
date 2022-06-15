@@ -95,7 +95,7 @@ def detect_script_vars(script_file, var_lst):
                 if re_match is not None:
                     if re_match.group(1) in var:
                         print(
-                            "\t\tAlert: potential inconsistency %s maybe used in %s (or not)."
+                            "\t\tWARNING: potential inconsistency %s maybe used in %s (or not)."
                             % (var, re_match.group(0))
                         )
                         if var not in detected_var:
@@ -199,7 +199,7 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
     )
     for unused_var in unused_vars:
         print(
-            '\tWARNING: variable "%s" not used in %s!'
+            '\tERROR: variable "%s" not used in %s!'
             % (unused_var, ", ".join([script_file, *prepare_files]))
         )
 
