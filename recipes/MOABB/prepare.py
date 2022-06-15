@@ -19,6 +19,7 @@ import argparse
 
 
 def get_output_dict(dataset,k,subject,events_list, srate_in_list, srate_out_list, fmin, fmax):
+    """This function returns the dictionary with subject-specific data."""
     output_dict = {}
     output_dict['code'] = dataset.code
     output_dict['paradigm'] = dataset.paradigm
@@ -87,7 +88,8 @@ def get_output_dict(dataset,k,subject,events_list, srate_in_list, srate_out_list
 
 
 def load_data(paradigm, dataset, idx):
-    """This function returns EEG signals and the corresponding labels. In addition metadata are provided too."""
+    """This function returns EEG signals and the corresponding labels using MOABB methods
+    In addition metadata, channel names and the sampling rate are provided too."""
     x, labels, metadata = paradigm.get_data(dataset, idx, True)
     ch_names = x.info.ch_names
     srate = x.info['sfreq']
@@ -99,6 +101,7 @@ def load_data(paradigm, dataset, idx):
 
 
 def prepare_data(data_folder, to_download):
+    """This function prepare all datasets and save them in a separate pickle for each subject."""
     for a in get_config().keys():
         set_config(a, data_folder)
 
