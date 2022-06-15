@@ -3,11 +3,10 @@
 Recipe for training neural networks to decode single EEG trials with different paradigms on MOABB datasets.
 See the supported datasets and paradigms at http://moabb.neurotechx.com/docs/api.html.
 
-To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001):
-
-    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001'
-
-The dataset will be automatically downloaded in the specified folder.
+To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001) for a specific subject, recording session and training strategy:
+    > python3 prepare.py
+    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001' --target_subject_idx 0 \
+    ----target_session_idx 0 --data_iterator_name 'leave-one-session-out'
 
 Author
 ------
@@ -22,10 +21,8 @@ from hyperpyyaml import load_hyperpyyaml
 from torch.nn import init
 import numpy as np
 import logging
-import multiprocessing as mp
+from recipes.MOABB.dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 import speechbrain as sb
-
-mp.set_start_method("spawn", force=True)
 
 
 class MOABBBrain(sb.Brain):
@@ -321,36 +318,25 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    moabb_dataset = hparams["dataset"]
-    if hparams["subject_list"] is not None:
-        moabb_dataset.subject_list = hparams["subject_list"]
-    moabb_dataset.download(path=hparams["data_folder"])
-    # defining data iterators to use
-    data_its = hparams["data_iterators"]
-
-    # defining the job list
-    jobs = []
+    # defining data iterator to use
     print("Prepare dataset iterators...")
-    for data_it in data_its:
-        for i, (tail_path, datasets) in enumerate(
-            data_it.prepare(
-                moabb_dataset, hparams["batch_size"], hparams["valid_ratio"]
-            )
-        ):
-            args = (argv, tail_path, datasets)
-            p = mp.Process(target=run_single_process, args=args)
-            jobs.append(p)
-    # starting a fixed number of parallel processes at a time
-    processes_start_idx = np.arange(len(jobs))[
-        :: hparams["num_parallel_processes"]
-    ]
+    data_iterator = None
 
-    print("Training experiments (in parallel different iterators)...")
-    for start_idx in processes_start_idx:
-        stop_idx = start_idx + hparams["num_parallel_processes"]
-        stop_idx = min(stop_idx, len(jobs))
+    if hparams["data_iterator_name"] == 'leave-one-session-out':
+        data_iterator = LeaveOneSessionOut(data_folder=hparams["data_folder"],
+                                           seed=hparams["seed"])  # within-subject and cross-session
+    elif hparams["data_iterator_name"] == 'leave-one-subject-out':
+        data_iterator = LeaveOneSubjectOut(data_folder=hparams["data_folder"],
+                                           seed=hparams["seed"])  # cross-subject and cross-session
 
-        for job_idx in np.arange(start_idx, stop_idx):
-            jobs[job_idx].start()
-        for job_idx in np.arange(start_idx, stop_idx):
-            jobs[job_idx].join()
+    if data_iterator is not None:
+        for (tail_path, datasets) in data_iterator.prepare(hparams["dataset_code"],
+                                                           hparams["batch_size"],
+                                                           hparams["sample_rate"],
+                                                           interval=[hparams["tmin"], hparams['tmax']],
+                                                           valid_ratio=hparams["valid_ratio"],
+                                                           target_subject_idx=hparams["target_subject_idx"],
+                                                           target_session_idx=hparams["target_session_idx"],
+                                                           apply_standardization=True, ):
+            run_single_process(argv, tail_path=tail_path, datasets=datasets)
+
