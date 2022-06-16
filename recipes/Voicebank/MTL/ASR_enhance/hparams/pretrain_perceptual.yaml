@@ -63,15 +63,11 @@ output_neurons: 42
 blank_index: 0
 bos_index: 0
 eos_index: 0
-#blank_index: !ref <output_neurons> - 1
-#bos_index: !ref <output_neurons> - 2
-#eos_index: !ref <output_neurons> - 2
 
 # Import perceptual model hyperparams
 model: !include:models/perceptual_model.yaml
     output_neurons: !ref <output_neurons>
     n_fft: !ref <n_fft>
-    #n_mels: !ref <n_mels>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -81,16 +77,6 @@ compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
-
-# compute_istft: !new:speechbrain.processing.features.ISTFT
-#    sample_rate: !ref <sample_rate>
-#    n_fft: !ref <n_fft>
-#    win_length: !ref <win_length>
-#    hop_length: !ref <hop_length>
-
-#fbank: !new:speechbrain.processing.features.Filterbank
-#    n_mels: !ref <n_mels>
-#    n_fft: !ref <n_fft>
 
 spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
     power: 0.5
@@ -119,8 +105,6 @@ modules:
     recognizer: !ref <model[recognizer]>
     ctc_output: !ref <model[ctc_output]>
     seq_output: !ref <model[seq_output]>
-
-#jit_module_keys: [src_embedding]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

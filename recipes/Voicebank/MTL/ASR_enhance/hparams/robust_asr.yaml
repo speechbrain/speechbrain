@@ -29,7 +29,6 @@ lr: 0.0001
 target_type: words
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
-# character_coverage: 1.0
 eval_max_key: null
 eval_min_key: null
 train_loader_options:
@@ -201,12 +200,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         seq_output: !ref <asr_model[seq_output]>
         counter: !ref <epoch_counter>
         normalizer: !ref <normalizer>
-
-# pretrain_checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-#    checkpoints_dir: pretrain
-#    recoverables:
-#        model: !ref <model>
-#        normalizer: !ref <normalizer>
 
 enhance_loss: !name:speechbrain.nnet.losses.mse_loss
 mimic_loss: !name:speechbrain.nnet.losses.mse_loss
