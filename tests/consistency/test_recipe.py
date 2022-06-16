@@ -49,7 +49,8 @@ def test_recipe_list(
 
     for file in diff_lst:
         print(
-            "\tWARNING: The file %s is not listed in %s. Please add it!"
+            "\tWARNING: The file %s is not listed in %s. Please add it. \
+                For more info see tests/consistency/README.md"
             % (file, recipe_csvfile)
         )
 
