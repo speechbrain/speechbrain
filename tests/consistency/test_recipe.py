@@ -49,7 +49,7 @@ def test_recipe_list(
 
     for file in diff_lst:
         print(
-            "\tWARNING: The file %s is not listed in %s. Please add it. \
+            "\tERROR: The file %s is not listed in %s. Please add it. \
                 For more info see tests/consistency/README.md"
             % (file, recipe_csvfile)
         )
@@ -85,7 +85,7 @@ def test_recipe_files(
             for file in files:
                 if not (os.path.exists(file.strip())):
                     print(
-                        "\tWARNING: The file %s listed in %s does not exist!"
+                        "\tERROR: The file %s listed in %s does not exist!"
                         % (file, recipe_csvfile)
                     )
                     check = False
@@ -121,7 +121,7 @@ def test_mandatory_files(
             for field in must_exist:
                 if not (os.path.exists(row[field].strip())):
                     print(
-                        "\tWARNING: The recipe %s does not contain a %s. Please add it!"
+                        "\tERROR: The recipe %s does not contain a %s. Please add it!"
                         % (row[recipe_id_field], field)
                     )
                     check = False
@@ -162,7 +162,7 @@ def test_README_links(
                             continue
                         if not (link in content):
                             print(
-                                "\tWARNING: The link to %s does not exist in %s. Please add it!"
+                                "\tERROR: The link to %s does not exist in %s. Please add it!"
                                 % (link, row[readme_field])
                             )
                             check = False
