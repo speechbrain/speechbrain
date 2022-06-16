@@ -357,5 +357,5 @@ if __name__ == "__main__":
                                                            valid_ratio=hparams["valid_ratio"],
                                                            target_subject_idx=hparams["target_subject_idx"],
                                                            target_session_idx=hparams["target_session_idx"],
-                                                           apply_standardization=True, ):
+                                                           apply_standardization=False, ):
             run_single_process(argv, tail_path=tail_path, datasets=datasets)

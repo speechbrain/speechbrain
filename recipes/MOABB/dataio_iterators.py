@@ -15,7 +15,6 @@ from itertools import islice
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import os
-import glob
 
 
 def standardize(x, m=None, s=None):
@@ -131,8 +130,9 @@ def load_data(paradigm, dataset, idx):
 
     return xx, y, labels, metadata, ch_names, srate
 
+
 def crop_signals(x, srate, interval_in, interval_out):
-    time = np.arange(interval_in[0], interval_in[1], 1/srate)
+    time = np.arange(interval_in[0], interval_in[1], 1 / srate)
     idx_start = np.argmin(np.abs(time - interval_out[0]))
     idx_stop = np.argmin(np.abs(time - interval_out[1]))
     return x[..., idx_start:idx_stop]
@@ -147,10 +147,10 @@ class LeaveOneSessionOut(object):
 
     Arguments
     ---------
-    paradigm : moabb.paradigms.??
-        Target MOABB paradigm to use.
     seed: int
         Seed for random number generators.
+    data_folder : str
+        Folder where the dataset is stored.
     """
 
     def __init__(self, seed, data_folder):
@@ -159,15 +159,15 @@ class LeaveOneSessionOut(object):
         np.random.seed(seed)
 
     def prepare(
-        self,
-        dataset_code,
-        batch_size,
-            srate,
-        interval=None,
-        valid_ratio=0.2,
-        target_subject_idx=None,
-        target_session_idx=None,
-        apply_standardization=False,
+            self,
+            dataset,
+            batch_size,
+            cached_dataset_tag,
+            interval=None,
+            valid_ratio=0.2,
+            target_subject_idx=None,
+            target_session_idx=None,
+            apply_standardization=False,
     ):
         """This function returns the pre-processed datasets (training, validation and test sets)
         Arguments
@@ -176,20 +176,27 @@ class LeaveOneSessionOut(object):
             Target MOABB dataset to use.
         batch_size: int
             Batch size.
+        cached_dataset_tag: str
+            Tag of the prepared data.
+        interval: list
+            Interval to crop EEG signals (s).
         valid_ratio: float
             Ratio of the training set to use as validation data.
         target_subject_idx: int
             Index of the subject signals to load.
         target_session_idx: int
-            Index of the session signals to load. None if leave-one-subject-out or cross-session.
-        sample_valid_from_train_examples: bool
-            Force the extraction of the validation examples from the training examples.
+            Index of the session signals to load. None if leave-one-subject-out.
+        apply_standardization: bool
+            Apply standardization after data loading.
         """
+        dataset_code = dataset.code
 
-        fpath = os.path.join(self.data_folder,
-                             dataset_code,
-                             str(int(srate)).zfill(3)+'Hz',
-                             'sub-{0}.pkl'.format(str(target_subject_idx).zfill(3)))
+        tail = os.path.join(self.data_folder,
+                            'MOABB_pickled',
+                            dataset_code,
+                            cached_dataset_tag)
+        fpath = os.path.join(tail,
+                             'sub-{0}.pkl'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)))
         with open(fpath, 'rb') as f:
             data_dict = pickle.load(f)
 
@@ -252,7 +259,7 @@ class LeaveOneSessionOut(object):
             x_valid = standardize(x_valid, m, s)
             x_test = standardize(x_test, m, s)
         # cropping
-        if interval!=original_interval:
+        if interval != original_interval:
             x_train = crop_signals(x=x_train, srate=srate, interval_in=original_interval, interval_out=interval)
             x_valid = crop_signals(x=x_valid, srate=srate, interval_in=original_interval, interval_out=interval)
             x_test = crop_signals(x=x_test, srate=srate, interval_in=original_interval, interval_out=interval)
@@ -272,7 +279,7 @@ class LeaveOneSessionOut(object):
         datasets["test"] = test_loader
         tail_path = os.path.join(
             self.iterator_tag,
-            'sub-{0}'.format(str(target_subject_idx).zfill(3)),
+            'sub-{0}'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)),
             sessions[target_session_idx],
         )
         yield (tail_path, datasets)
@@ -287,10 +294,10 @@ class LeaveOneSubjectOut(object):
 
     Arguments
     ---------
-    paradigm : moabb.paradigms.??
-        Target MOABB paradigm to use.
     seed: int
         Seed for random number generators.
+    data_folder : str
+        Folder where the dataset is stored.
     """
 
     def __init__(self, seed, data_folder):
@@ -299,15 +306,15 @@ class LeaveOneSubjectOut(object):
         np.random.seed(seed)
 
     def prepare(
-        self,
-        dataset_code,
-        batch_size,
-        srate,
-        interval=None,
-        valid_ratio=0.2,
-        target_subject_idx=None,
-        target_session_idx=None,
-        apply_standardization=False,
+            self,
+            dataset,
+            batch_size,
+            cached_dataset_tag,
+            interval=None,
+            valid_ratio=0.2,
+            target_subject_idx=None,
+            target_session_idx=None,
+            apply_standardization=False,
     ):
         """This function returns the pre-processed datasets (training, validation and test sets)
         Arguments
@@ -316,31 +323,38 @@ class LeaveOneSubjectOut(object):
             Target MOABB dataset to use.
         batch_size: int
             Batch size.
+        cached_dataset_tag: str
+            Tag of the prepared data.
+        interval: list
+            Interval to crop EEG signals (s).
         valid_ratio: float
             Ratio of the training set to use as validation data.
         target_subject_idx: int
             Index of the subject signals to load.
         target_session_idx: int
-            Index of the session signals to load. None if leave-one-subject-out or cross-session.
-        sample_valid_from_train_examples: bool
-            Force the extraction of the validation examples from the training examples.
+            Index of the session signals to load. None if leave-one-subject-out.
+        apply_standardization: bool
+            Apply standardization after data loading.
         """
+
+        dataset_code = dataset.code
         tail = os.path.join(self.data_folder,
-                                dataset_code,
-                                str(int(srate)).zfill(3) + 'Hz',)
+                            'MOABB_pickled',
+                            dataset_code,
+                            cached_dataset_tag)
         test_fpath = os.path.join(tail,
-                             'sub-{0}.pkl'.format(str(target_subject_idx).zfill(3)))
+                                  'sub-{0}.pkl'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)))
+
         with open(test_fpath, 'rb') as f:
             data_dict = pickle.load(f)
+
         x_test = data_dict['x']
         y_test = data_dict['y']
         original_interval = data_dict['interval']
+        srate = data_dict['srate']
 
-        train_fpaths = glob.glob(os.path.join(tail, '*.pkl'))
-        train_fpaths = sorted(train_fpaths)
-
-        train_fpaths = np.setdiff1d(train_fpaths, test_fpath)
-        train_fpaths = list(train_fpaths)
+        train_fpaths = [os.path.join(tail, 'sub-{0}.pkl'.format(str(dataset.subject_list[i]).zfill(3))) \
+                        for i in np.arange(len(dataset.subject_list)) if i != target_subject_idx]
 
         x_train, y_train, x_valid, y_valid = [], [], [], []
         for train_fpath in train_fpaths:
@@ -392,7 +406,7 @@ class LeaveOneSubjectOut(object):
             x_test = standardize(x_test, m, s)
 
         # cropping
-        if interval!=original_interval:
+        if interval != original_interval:
             x_train = crop_signals(x=x_train, srate=srate, interval_in=original_interval, interval_out=interval)
             x_valid = crop_signals(x=x_valid, srate=srate, interval_in=original_interval, interval_out=interval)
             x_test = crop_signals(x=x_test, srate=srate, interval_in=original_interval, interval_out=interval)
@@ -411,5 +425,5 @@ class LeaveOneSubjectOut(object):
         datasets["train"] = train_loader
         datasets["valid"] = valid_loader
         datasets["test"] = test_loader
-        tail_path = os.path.join(self.iterator_tag, 'sub-{0}'.format(str(target_subject_idx).zfill(3)), )
+        tail_path = os.path.join(self.iterator_tag, 'sub-{0}'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)) )
         yield (tail_path, datasets)
