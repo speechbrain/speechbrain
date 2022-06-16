@@ -212,7 +212,7 @@ def check_performance(
             "\tERROR: No entries %s in %s (recipe %s). See performance_check entry."
             % (epoch, filename, recipe_id)
         )
-        return
+        return False
 
     for line in lines_filt:
 
