@@ -1,22 +1,20 @@
-# Tokenizer
-This folder contains the scripts to train a tokenizer using SentencePiece (https://github.com/google/sentencepiece). The tokenizer is trained on the top of the KsponSpeech training transcriptions.
+# Tokenizer.
+This folder contains the scripts to train a tokenizer using SentencePiece (https://github.com/google/sentencepiece).
+The tokenizer is trained on the top of the AISHELL training transcriptions.
 
 # How to run
-```
-python train.py train/5K_unigram_subword_bpe.yaml
-```
-# Model link
-- 5K unigram model: [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/tokenizer.ckpt)
+`python train.py tokenizer_bpe5000.yaml`
+`python train.py train_transformer_tokenizer_bpe5000.yaml`
 
-The output folder with the logs and the tokenizers is available [here](https://drive.google.com/drive/folders/1zNGKDvHlLjQdUPrqP66vpD5RN9IIX6RC?usp=sharing).
+The output folder with the tokenizers and logs is available [here](https://drive.google.com/drive/folders/15wOIkFMHB-wwR1OW6NupcLcHbiJZJ_CU?usp=sharing).
 
-# About SpeechBrain
+# **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
 
-# Citing SpeechBrain
+# **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
