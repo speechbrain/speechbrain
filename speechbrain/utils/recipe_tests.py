@@ -446,8 +446,6 @@ def run_recipe_tests(
             if not (check_outcome):
                 check = False
 
-            check_outcome = check_performance(check_str, output_fold, recipe_id)
-            if not (check_outcome):
-                check = False
+            check &= check_performance(check_str, output_fold, recipe_id)
 
     return check
