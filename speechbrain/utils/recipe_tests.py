@@ -155,7 +155,7 @@ def check_performance(
     check field of the csv recipe file
     For instance: performance_check=[train_log.txt, train loss, <=15, epoch: 2]),
     will check the variable "train_loss" in the train_log.txt at epoch 2. It will
-    raise an error if the train_loss is <=15.
+    raise an error if the train_loss is >15.
 
     Arguments
     ---------
