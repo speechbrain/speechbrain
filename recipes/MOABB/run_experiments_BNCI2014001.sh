@@ -9,6 +9,9 @@ for target_subject_idx in {0..8}; do
         --target_subject_idx $target_subject_idx --target_session_idx 0 --data_iterator_name 'leave-one-subject-out'
 done
 )
+
+wait
+
 # LEAVE-ONE-SESSION-OUT
 (
 for target_subject_idx in {0..8}; do
@@ -18,7 +21,7 @@ for target_subject_idx in {0..8}; do
         --data_iterator_name 'leave-one-session-out'
 done
 )
-
+wait
 (
 for target_subject_idx in {0..8}; do
    ((i=i%nparallel)); ((i++==0)) && wait
