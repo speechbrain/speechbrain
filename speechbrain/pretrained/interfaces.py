@@ -2050,10 +2050,9 @@ class SpectralMaskEnhancement(Pretrained):
     ...     source="speechbrain/metricgan-plus-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> noisy = enhancer.load_audio(
-    ...     "speechbrain/metricgan-plus-voicebank/example.wav"
-    ... ).unsqueeze(0)
-    >>> enhanced = enhancer.enhance_batch(noisy, lengths=torch.ones(1))
+    >>> enhanced = enhancer.enhance_file(
+    ...     "speechbrain/metricga-plus-voicebank/example.wav"
+    ... )
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
@@ -2147,10 +2146,9 @@ class WaveformEnhancement(Pretrained):
     ...     source="speechbrain/mtl-mimic-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> noisy = enhancer.load_audio(
+    >>> enhanced = enhancer.enhance_file(
     ...     "speechbrain/mtl-mimic-voicebank/example.wav"
-    ... ).unsqueeze(0)
-    >>> enhanced = enhancer.enhance_batch(noisy)
+    ... )
     """
 
     MODULES_NEEDED = ["enhance_model"]
