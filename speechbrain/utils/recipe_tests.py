@@ -6,12 +6,11 @@ Authors
 import os
 import re
 import csv
-import errno
 import subprocess as sp
 
 
-def do_test(row, filter_fields, filters, test_field):
-    """Check if the current row of the csv recipe file has a test to run.
+def check_row_for_test(row, filter_fields, filters, test_field):
+    """Checks if the current row of the csv recipe file has a test to run.
 
     Arguments
     ---------
@@ -54,7 +53,7 @@ def prepare_test(
     filters_fields=[],
     filters=[],
 ):
-    """Check if the current row of the csv recipe file has a test to run.
+    """Extracts all the needed information to run the recipe test.
 
     Arguments
     ---------
@@ -99,7 +98,9 @@ def prepare_test(
     with open(recipe_csvfile, newline="") as csvf:
         reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
         for row in reader:
-            if not (do_test(row, filters_fields, filters, test_field)):
+            if not (
+                check_row_for_test(row, filters_fields, filters, test_field)
+            ):
                 continue
             recipe_id = row[recipe_id_field].strip()
             test_script[recipe_id] = row[script_field].strip()
@@ -113,7 +114,7 @@ def prepare_test(
 def check_files(
     check_str, output_folder, recipe_id, pattern=r"file_exists=\[(.*?)\]"
 ):
-    """Check if the output folder created by the test has the expected files.
+    """Checks if the output folder created by the test has the expected files.
 
     Arguments
     ---------
@@ -280,7 +281,7 @@ def check_threshold(threshold, value):
 
 
 def run_test_cmd(cmd, stdout_file, stderr_file):
-    """Run the command corresponding to a recipe test. The standard output and
+    """Runs the command corresponding to a recipe test. The standard output and
     the standard error is saved in the specified paths.
 
     Arguments
@@ -306,32 +307,6 @@ def run_test_cmd(cmd, stdout_file, stderr_file):
     f_stdout.close()
     f_stderr.close()
     return rc
-
-
-def create_folder(folder):
-    """Run the command corresponding to a recipe test. The standard output and
-    the standard error is saved in the specified paths.
-
-    Arguments
-    ---------
-    cmd: str
-        String corresponding to the command to run.
-    stdout_file: path
-        File where standard output is stored.
-    stderr_file: path
-        File where standard error is stored.
-
-    Returns
-    ---------
-    rc: bool
-        The return code obtained after running the command. If 0, the test is
-        run without errors. If >0 the execution failed.
-    """
-    try:
-        os.makedirs(folder)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
 
 
 def run_recipe_tests(
@@ -383,7 +358,7 @@ def run_recipe_tests(
 
     """
     # Create the output folder (where the tests results will be saved)
-    create_folder(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
     print("Test ouputs will be put in %s" % (output_folder))
 
     # Read the csv recipe file and detect which tests we have to run
@@ -403,10 +378,8 @@ def run_recipe_tests(
             % (i + 1, len(test_script.keys()), recipe_id)
         )
 
-        output_fold = os.path.join(
-            output_folder, recipe_id
-        )  # Remove folder from the last run
-        create_folder(output_fold)
+        output_fold = os.path.join(output_folder, recipe_id)
+        os.makedirs(output_fold, exist_ok=True)
         stdout_file = os.path.join(output_fold, "stdout.txt")
         stderr_file = os.path.join(output_fold, "stderr.txt")
 
@@ -441,11 +414,6 @@ def run_recipe_tests(
 
             # Check if the expected files exist
             check &= check_files(check_str, output_fold, recipe_id)
-
-            # Additional checks might be added here
-            if not (check_outcome):
-                check = False
-
             check &= check_performance(check_str, output_fold, recipe_id)
 
     return check
