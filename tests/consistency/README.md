@@ -16,7 +16,7 @@ When you write a new recipe (e.g., recipes/your_dataset/) you need to add a new 
 - Data_prep_file (optional):
     Data preparation file (e.g., `recipes/LibriSpeech/librispeech_prepare.py`)
 - Readme_file (mandatory):
-    Readme file describing the recipe (e.g., `recipes/LibriSpeech/ASR/CTC/README.md`)		
+    Readme file describing the recipe (e.g., `recipes/LibriSpeech/ASR/CTC/README.md`)
 - Result_url (mandatory):
     URL where the output folder is stored (e.g., `https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing` ).
     Note that with SpeechBrain we would like to make available the full output folder to the users. The output folder contains the logs, checkpoints, etc that help users debug and reproduce the results.
@@ -28,4 +28,4 @@ When you write a new recipe (e.g., recipes/your_dataset/) you need to add a new 
     For instance, `--data_folder=tests/samples/ASR/ --train_csv=tests/samples/annotation/ASR_train.csv --valid_csv=tests/samples/annotation/ASR_train.csv --test_csv=[tests/samples/annotation/ASR_train.csv] --number_of_epochs=10 --skip_prep=True` will run an experiments with the given train and hparams files using a tiny dataset (ASR_train.csv)
  - test_debug_checks (optional)
      Checks if the recipe test produces the expected output. For instance,`file_exists=[env.log,hyperparams.yaml,log.txt,train_log.txt,train.py,wer_ASR_train.txt,save/lm.ckpt,save/tokenizer.ckpt] performance_check=[train_log.txt, train loss, <350, epoch: 10]` will first checks if the files in the file_exists list have been created and then checks if the training loss reported in train_log.txt is below a certain threshold.
-     
+
