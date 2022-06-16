@@ -213,7 +213,7 @@ if __name__ == '__main__':
             download_data(FLAGS.data_folder, dataset)
     print('Start preparing the dataset...')
     for dataset, events_to_load, srate_in, srate_out in \
-            zip(datasets[7:], events_to_load_list[7:], srate_in_list[7:], srate_out_list[7:]):
+            zip(datasets, events_to_load_list, srate_in_list, srate_out_list):
         prepare_data(FLAGS.data_folder, dataset, events_to_load, srate_in, srate_out, fmin=FLAGS.fmin, fmax=FLAGS.fmax,
                      verbose=0)
         print('Ended: {0}'.format(dataset.code))
