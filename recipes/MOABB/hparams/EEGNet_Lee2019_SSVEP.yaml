@@ -35,22 +35,13 @@ tmax: 4
 T: !ref <sample_rate> * (<tmax> - <tmin>)
 C: 62
 
-# TRAINING HPARS
-number_of_epochs: 700 # number of training epochs
-lr: 0.001
-
-# Learning rate scheduling (cyclic learning rate is used here)
-max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
-base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
-step_size: 50 # number of training iterations per half cycle (lower step_size => faster cycles)
-
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
 # The variable avg_models can be used to average the parameters of the last (or best) N saved models before testing.
 # This can have a regularization effect. If avg_models: 1, the last (or best) model is used directly.
 test_with: 'last' # 'last' or 'best'
-test_key: "f1" # Possible opts: "loss", "f1", "auc", "acc"
+test_key: "acc" # Possible opts: "loss", "f1", "auc", "acc"
 avg_models: 10 # checkpoints to average
 
 f1: !name:sklearn.metrics.f1_score
@@ -61,6 +52,15 @@ metrics:
     f1: !ref <f1>
     acc: !ref <acc>
     cm: !ref <cm>
+
+# TRAINING HPARS
+number_of_epochs: 700 # number of training epochs
+lr: 0.001
+
+# Learning rate scheduling (cyclic learning rate is used here)
+max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
+base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
+step_size: 50 # number of training iterations per half cycle (lower step_size => faster cycles)
 
 loss: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.0

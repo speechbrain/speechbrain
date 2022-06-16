@@ -35,15 +35,6 @@ tmax: 0.8
 T: !ref <sample_rate> * (<tmax> - <tmin>)
 C: 16
 
-# TRAINING HPARS
-number_of_epochs: 700 # number of training epochs
-lr: 0.001
-
-# Learning rate scheduling (cyclic learning rate is used here)
-max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
-base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
-step_size: 50 # number of training iterations per half cycle (lower step_size => faster cycles)
-
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
@@ -61,6 +52,15 @@ metrics:
     f1: !ref <f1>
     acc: !ref <acc>
     cm: !ref <cm>
+
+# TRAINING HPARS
+number_of_epochs: 700 # number of training epochs
+lr: 0.001
+
+# Learning rate scheduling (cyclic learning rate is used here)
+max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
+base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
+step_size: 50 # number of training iterations per half cycle (lower step_size => faster cycles)
 
 loss: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.0
