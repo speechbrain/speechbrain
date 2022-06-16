@@ -15,12 +15,13 @@ Davide Borra, 2021
 
 import pickle
 import os
-import sys
 import torch
 from hyperpyyaml import load_hyperpyyaml
 from torch.nn import init
 import numpy as np
 import logging
+import sys
+from recipes.MOABB.prepare import download_data, prepare_data
 from recipes.MOABB.dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 import speechbrain as sb
 
@@ -80,7 +81,7 @@ class MOABBBrain(sb.Brain):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
         return loss
 
-    def on_fit_start(self,):
+    def on_fit_start(self, ):
         """Gets called at the beginning of ``fit()``"""
         self.init_model(self.hparams.model)
         self.init_optimizers()
@@ -125,8 +126,8 @@ class MOABBBrain(sb.Brain):
                     keys=[self.hparams.test_key],
                 )
                 is_last = (
-                    epoch
-                    > self.hparams.number_of_epochs - self.hparams.avg_models
+                        epoch
+                        > self.hparams.number_of_epochs - self.hparams.avg_models
                 )
 
                 # Check if we have to save the model
@@ -197,7 +198,7 @@ class MOABBBrain(sb.Brain):
         self.hparams.model.eval()
 
     def check_if_best(
-        self, last_eval_stats, best_eval_stats, keys,
+            self, last_eval_stats, best_eval_stats, keys,
     ):
         """Checks if the current model is the best according at least to
         one of the monitored metrics. """
@@ -313,10 +314,27 @@ def run_single_process(argv, tail_path, datasets):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
+
     # loading hparams to prepare the dataset and the data iterators
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    dataset = hparams["dataset"]
+    if hparams['to_prepare'] and not hparams['to_download']:
+        print('Using cached dataset, be sure that the dataset has been downloaded')
+
+    if hparams['to_download']:
+        print('Start downloading the dataset, it might take a while...')
+        download_data(hparams["data_folder"], dataset)
+    if hparams['to_prepare']:
+        print('Start preparing the dataset...')
+        prepare_data(hparams["data_folder"], dataset,
+                     events_to_load=hparams["original_sample_rate"],
+                     srate_in=hparams["original_sample_rate"],
+                     srate_out=hparams["sample_rate"],
+                     fmin=hparams['fmin'],
+                     fmax=hparams['fmax'])
 
     # defining data iterator to use
     print("Prepare dataset iterators...")
@@ -328,15 +346,17 @@ if __name__ == "__main__":
     elif hparams["data_iterator_name"] == 'leave-one-subject-out':
         data_iterator = LeaveOneSubjectOut(data_folder=hparams["data_folder"],
                                            seed=hparams["seed"])  # cross-subject and cross-session
-
+    cached_dataset_tag = '{0}_{1}-{2}'.format(str(int(hparams["sample_rate"])).zfill(4),
+                                              str(int(hparams['fmin'])).zfill(3),
+                                              str(int(hparams['fmax'])).zfill(3))
     if data_iterator is not None:
-        for (tail_path, datasets) in data_iterator.prepare(hparams["dataset_code"],
+
+        for (tail_path, datasets) in data_iterator.prepare(dataset,
                                                            hparams["batch_size"],
-                                                           hparams["sample_rate"],
+                                                           cached_dataset_tag=cached_dataset_tag,
                                                            interval=[hparams["tmin"], hparams['tmax']],
                                                            valid_ratio=hparams["valid_ratio"],
                                                            target_subject_idx=hparams["target_subject_idx"],
                                                            target_session_idx=hparams["target_session_idx"],
                                                            apply_standardization=True, ):
             run_single_process(argv, tail_path=tail_path, datasets=datasets)
-

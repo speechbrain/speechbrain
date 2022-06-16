@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """
-Prepare MOABB multi-session datasets.
+Prepare MOABB datasets.
 
 Author
 ------
@@ -18,10 +18,11 @@ import pickle
 import argparse
 
 
-def get_output_dict(dataset,k,subject,events_list, srate_in_list, srate_out_list, fmin, fmax):
+def get_output_dict(dataset, subject, events_to_load, srate_in, srate_out, fmin, fmax, verbose=0):
     """This function returns the dictionary with subject-specific data."""
     output_dict = {}
     output_dict['code'] = dataset.code
+    output_dict['subject_list'] = dataset.subject_list
     output_dict['paradigm'] = dataset.paradigm
     output_dict['n_sessions'] = dataset.n_sessions
     output_dict['fmin'] = fmin
@@ -29,61 +30,72 @@ def get_output_dict(dataset,k,subject,events_list, srate_in_list, srate_out_list
     output_dict['ival'] = dataset.interval
     output_dict['interval'] = list(np.array(dataset.interval) - np.min(dataset.interval))
     output_dict['reference'] = dataset.doi
-    output_dict['event_id'] = dataset.event_id
 
-    event_keys = list(dataset.event_id.keys())
+    event_id = dataset.event_id
+    output_dict['event_id'] = event_id
+    event_keys = list(event_id.keys())
     idx_sorting = []
     for e in event_keys:
-        idx_sorting.append(int(dataset.event_id[e]) - 1)
-    events = list(np.array(event_keys)[idx_sorting])
+        idx_sorting.append(int(event_id[e]) - 1)
 
+    events = [event_keys[i] for i in np.argsort(idx_sorting)]
+    if events_to_load is not None:
+        events = [e for e in events if e in events_to_load]
     output_dict['events'] = events
-    output_dict['original_srate'] = srate_in_list[k]
-    output_dict['srate'] = srate_out_list[k] if srate_out_list[k] is not None else srate_in_list[k]
-    if dataset.paradigm=='imagery':
+
+    output_dict['original_srate'] = srate_in
+    output_dict['srate'] = srate_out if srate_out is not None else srate_in
+
+    paradigm = None
+    if dataset.paradigm == 'imagery':
         paradigm = MotorImagery(
-            events=events_list[k],  # selecting all events or specific events
+            events=events_to_load,  # selecting all events or specific events
             n_classes=len(output_dict['events']),  # setting number of classes
             fmin=fmin,  # band-pass filtering
             fmax=fmax,
             channels=None,  # all channels
-            resample=srate_out_list[k]  # downsample
+            resample=srate_out  # downsample
         )
-    elif dataset.paradigm=='p300':
+    elif dataset.paradigm == 'p300':
         paradigm = P300(
             fmin=fmin,  # band-pass filtering
             fmax=fmax,
             channels=None,  # all channels
-            resample=srate_out_list[k]  # downsample
+            resample=srate_out  # downsample
         )
-    elif dataset.paradigm=='ssvep':
+    elif dataset.paradigm == 'ssvep':
         paradigm = SSVEP(
-            events=events_list[k],  # selecting all events or specific events
+            events=events_to_load,  # selecting all events or specific events
             n_classes=len(output_dict['events']),  # setting number of classes
             fmin=fmin,  # band-pass filtering
             fmax=fmax,
             channels=None,  # all channels
-            resample=srate_out_list[k]  # downsample
+            resample=srate_out  # downsample
         )
 
     x, y, labels, metadata, channels, srate = load_data(paradigm, dataset, [subject])
-    for l in np.unique(labels):
-        print(print("Number of label {0} examples: {1}".format(l, np.where(labels==l)[0].shape[0])))
-    if dataset.paradigm=='p300':
-        if output_dict['events'] == ['Target', 'NonTarget']:
-            y = 1 - y # swap NonTarget to Target
-            output_dict['events'] = [ 'NonTarget', 'Target']
-    for c in np.unique(y):
-        print("Number of class {0} examples: {1}".format(c, np.where(y==c)[0].shape[0]))
-    output_dict['channels'] = channels
 
+    if verbose == 1:
+        for l in np.unique(labels):
+            print(print("Number of label {0} examples: {1}".format(l, np.where(labels == l)[0].shape[0])))
+
+    if dataset.paradigm == 'p300':
+        if output_dict['events'] == ['Target', 'NonTarget']:
+            y = 1 - y  # swap NonTarget to Target
+            output_dict['events'] = ['NonTarget', 'Target']
+    if verbose == 1:
+        for c in np.unique(y):
+            print("Number of class {0} examples: {1}".format(c, np.where(y == c)[0].shape[0]))
+
+    output_dict['channels'] = channels
     output_dict['x'] = x
     output_dict['y'] = y
     output_dict['labels'] = labels
     output_dict['metadata'] = metadata
     output_dict['subject'] = subject
 
-    print(output_dict)
+    if verbose == 1:
+        print(output_dict)
     return output_dict
 
 
@@ -100,11 +112,53 @@ def load_data(paradigm, dataset, idx):
     return x, y, labels, metadata, ch_names, srate
 
 
-def prepare_data(data_folder, to_download):
-    """This function prepare all datasets and save them in a separate pickle for each subject."""
+def download_data(data_folder, dataset):
+    """This function download a specific MOABB dataset in a directory."""
+    # changing default download directory
     for a in get_config().keys():
         set_config(a, data_folder)
+    dataset.download()
 
+
+def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin=1, fmax=40, verbose=0):
+    """This function prepare all datasets and save them in a separate pickle for each subject."""
+    # changing default download directory
+    for a in get_config().keys():
+        set_config(a, data_folder)
+    for kk, subject in enumerate(dataset.subject_list):
+        output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
+                                      fmin=fmin, fmax=fmax, verbose=verbose)
+        tmp_output_dir = os.path.join(os.path.join(data_folder,
+                                                   'MOABB_pickled',
+                                                   output_dict['code'],
+                                                   '{0}_{1}-{2}'.format(str(int(output_dict['srate'])).zfill(4),
+                                                                        str(int(output_dict['fmin'])).zfill(3),
+                                                                        str(int(output_dict['fmax'])).zfill(3))))
+        if not os.path.isdir(tmp_output_dir):
+            os.makedirs(tmp_output_dir)
+
+        fname = 'sub-{0}.pkl'.format(str(subject).zfill(3))
+        output_dict_fpath = os.path.join(tmp_output_dir, fname)
+        with open(output_dict_fpath, "wb") as handle:
+            pickle.dump(
+                output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
+            )
+
+
+if __name__ == '__main__':
+    """Downloading and preparing multi-session MOABB datasets."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_folder', type=str, default='/path/to/MOABB_datasets',
+                        help='Folder where dataset will be downloaded')
+    parser.add_argument('--to_download', type=int, default=0,
+                        help='Download flag')
+    parser.add_argument('--fmin', type=float, default=1.,
+                        help='Lower cut-off frequency for band-pass filtering')
+    parser.add_argument('--fmax', type=float, default=40.,
+                        help='Higher cut-off frequency for band-pass filtering')
+    FLAGS, unparsed = parser.parse_known_args()
+
+    # SETTING UP P300 MOTOR IMAGERY DATASETS
     mi_datasets = [BNCI2014001(),
                    BNCI2014004(),
                    BNCI2015001(),
@@ -113,120 +167,53 @@ def prepare_data(data_folder, to_download):
                    Shin2017A(accept=True),
                    Zhou2016(),
                    ]
+    mi_srate_in_list = [250, 250, 512, 256, 1000, 1000, 250]
+    mi_srate_out_list = [125, 125, 128, 128, 125, 125, 125]
+    mi_events_to_load = [None,
+                         None,
+                         None,
+                         ['right_hand', 'feet'],
+                         None,
+                         None,
+                         None
+                         ]
+    # SETTING UP P300 DATASETS
     p300_datasets = [BNCI2014009(),
                      EPFLP300(),
                      Lee2019_ERP(),
                      bi2015a(), ]
+    p300_srate_in_list = [256, 512, 1000, 512]
+    p300_srate_out_list = [128, 128, 125, 128]
+    p300_events_to_load = [None,
+                           None,
+                           None,
+                           None,
+                           ]
+    # SETTING UP SSVEP DATASETS
     ssvep_datasets = [Lee2019_SSVEP()]
+    ssvep_srate_in_list = [1000]
+    ssvep_srate_out_list = [125]
+    ssvep_events_to_load = [None]
 
-    if to_download:
-        for k, dataset in enumerate(mi_datasets+p300_datasets+ssvep_datasets):
-            dataset.download()
+    datasets = mi_datasets + p300_datasets + ssvep_datasets
+    print('The selected datasets were: ')
+    for dataset in datasets:
+        print("-{0}".format(dataset.code))
+    srate_in_list = mi_srate_in_list + p300_srate_in_list + ssvep_srate_in_list
+    srate_out_list = mi_srate_out_list + p300_srate_out_list + ssvep_srate_out_list
+    # no resampling if srate_out=srate_in
+    for k in np.where(np.array(srate_out_list) == np.array(srate_in_list))[0]:
+        srate_out_list[k] = None
 
-    # PREPARING SSVEP DATASET
-    events_list = [None]
-    srate_in_list = [1000]
-    srate_out_list0 = [125]
-    srate_out_list1 = [250]
+    events_to_load_list = mi_events_to_load + p300_events_to_load + ssvep_events_to_load
 
-    srate_out_lists = [srate_out_list0, srate_out_list1]
-
-    for srate_out_list in srate_out_lists[:1]:
-        for k in np.where(np.array(srate_out_list)==np.array(srate_in_list))[0]:
-            srate_out_list[k] = None
-        for k, dataset in enumerate(ssvep_datasets):
-            for kk, subject in enumerate(dataset.subject_list):
-
-                output_dict=get_output_dict(dataset, k, subject, events_list, srate_in_list, srate_out_list,
-                                            fmin=1, fmax=40)
-                tmp_output_dir = os.path.join(os.path.join(data_folder,
-                                                           'MOABB_pickled',
-                                                           output_dict['code'],
-                                                           '{0}'.format(str(int(output_dict['srate'])).zfill(3)+'Hz')))
-                if not os.path.isdir(tmp_output_dir):
-                    os.makedirs(tmp_output_dir)
-                output_dict_fpath = os.path.join(tmp_output_dir, 'sub-{0}.pkl'.format(str(kk).zfill(3)))
-                with open(output_dict_fpath, "wb") as handle:
-                    pickle.dump(
-                        output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
-                    )
-
-    # PREPARING P300 DATASETS
-    events_list = [None,
-                   None,
-                   None,
-                   None,
-    ]
-
-    srate_in_list = [256, 512, 1000, 512]
-    srate_out_list0 = [128, 128, 125, 128]
-    srate_out_list1 = [256, 256, 250, 256]
-
-    srate_out_lists = [srate_out_list0, srate_out_list1]
-
-
-    for srate_out_list in srate_out_lists[:1]:
-        for k in np.where(np.array(srate_out_list)==np.array(srate_in_list))[0]:
-            srate_out_list[k] = None
-
-        for k, dataset in enumerate(p300_datasets):
-            for kk, subject in enumerate(dataset.subject_list):
-
-                output_dict=get_output_dict(dataset, k, subject, events_list, srate_in_list, srate_out_list,
-                                            fmin=1, fmax=40)
-                tmp_output_dir = os.path.join(os.path.join(data_folder,
-                                                           'MOABB_pickled',
-                                                           output_dict['code'],
-                                                           '{0}'.format(str(int(output_dict['srate'])).zfill(3)+'Hz')))
-                if not os.path.isdir(tmp_output_dir):
-                    os.makedirs(tmp_output_dir)
-                output_dict_fpath = os.path.join(tmp_output_dir, 'sub-{0}.pkl'.format(str(kk).zfill(3)))
-                with open(output_dict_fpath, "wb") as handle:
-                    pickle.dump(
-                        output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
-                    )
-
-    # PREPARING MOTOR IMAGERY DATASETS
-    events_list = [None,
-                   None,
-                   None,
-                   ['right_hand', 'feet'],
-                   None,
-                   None,
-                   None
-    ]
-
-    srate_in_list = [250, 250, 512, 256, 1000, 1000, 250]
-    srate_out_list0 = [125, 125, 128, 128, 125, 125, 125]
-    srate_out_list1 = [250, 250, 256, 256, 250, 250, 250]
-
-    srate_out_lists = [srate_out_list0, srate_out_list1]
-
-    for srate_out_list in srate_out_lists[:1]:
-        for k in np.where(np.array(srate_out_list)==np.array(srate_in_list))[0]:
-            srate_out_list[k] = None
-
-        for k, dataset in enumerate(mi_datasets):
-            for kk, subject in enumerate(dataset.subject_list):
-
-                output_dict=get_output_dict(dataset, k, subject, events_list, srate_in_list, srate_out_list,
-                                            fmin=1, fmax=40)
-                tmp_output_dir = os.path.join(os.path.join(data_folder,
-                                                           'MOABB_pickled',
-                                                           output_dict['code'],
-                                                           '{0}'.format(str(int(output_dict['srate'])).zfill(3) + 'Hz')))
-                if not os.path.isdir(tmp_output_dir):
-                    os.makedirs(tmp_output_dir)
-                output_dict_fpath = os.path.join(tmp_output_dir, 'sub-{0}.pkl'.format(str(kk).zfill(3)))
-                with open(output_dict_fpath, "wb") as handle:
-                    pickle.dump(
-                        output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
-                    )
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data_folder', type=str, default='/path/to/MOABB_datasets', help='Folder where dataset will be downloaded')
-    parser.add_argument('--to_download', type=int, default=0,
-                        help='Download flag')
-    FLAGS, unparsed = parser.parse_known_args()
-    prepare_data(data_folder=FLAGS.data_folder, to_download=FLAGS.to_download)
+    if FLAGS.to_download:
+        print('Start downloading all datasets, it might take a while...')
+        for dataset in datasets:
+            download_data(FLAGS.data_folder, dataset)
+    print('Start preparing the dataset...')
+    for dataset, events_to_load, srate_in, srate_out in \
+            zip(datasets[7:], events_to_load_list[7:], srate_in_list[7:], srate_out_list[7:]):
+        prepare_data(FLAGS.data_folder, dataset, events_to_load, srate_in, srate_out, fmin=FLAGS.fmin, fmax=FLAGS.fmax,
+                     verbose=0)
+        print('Ended: {0}'.format(dataset.code))
