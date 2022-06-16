@@ -19,8 +19,8 @@ output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
 # DATASET HPARS
 # Defining the MOABB dataset.
 dataset: !new:moabb.datasets.BNCI2014001
-to_download: False
-to_prepare: False
+to_download: True
+to_prepare: True
 data_iterator_name: !PLACEHOLDER
 target_subject_idx: !PLACEHOLDER
 target_session_idx: !PLACEHOLDER

@@ -4,8 +4,7 @@ Recipe for training neural networks to decode single EEG trials with different p
 See the supported datasets and paradigms at http://moabb.neurotechx.com/docs/api.html.
 
 To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001) for a specific subject, recording session and training strategy:
-    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001' --target_subject_idx 0 \
-    ----target_session_idx 0 --data_iterator_name 'leave-one-session-out'
+    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/data/data/fpaissan/' --target_subject_idx 0 --target_session_idx 0 --data_iterator_name 'leave-one-session-out'
 
 Author
 ------
@@ -329,7 +328,7 @@ if __name__ == "__main__":
     if hparams['to_prepare']:
         print('Start preparing the dataset...')
         prepare_data(hparams["data_folder"], dataset,
-                     events_to_load=hparams["original_sample_rate"],
+                     events_to_load=hparams["events_to_load"],
                      srate_in=hparams["original_sample_rate"],
                      srate_out=hparams["sample_rate"],
                      fmin=hparams['fmin'],
