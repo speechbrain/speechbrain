@@ -440,7 +440,7 @@ def run_recipe_tests(
         if do_checks and len(check_str) > 0:
 
             # Check if the expected files exist
-            check_outcome = check_files(check_str, output_fold, recipe_id)
+            check &= check_files(check_str, output_fold, recipe_id)
 
             # Additional checks might be added here
             if not (check_outcome):
