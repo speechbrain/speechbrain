@@ -311,7 +311,6 @@ class SBRNNBlock(nn.Module):
                    N = number of filters
                    L = time points
         """
-
         rnn_out = self.mdl(x)[0]
         out = self.out(rnn_out)
         return out
@@ -423,7 +422,6 @@ class SBTransformerBlock_wnormandskip(nn.Module):
             where, B = Batchsize,
                    L = time points
                    N = number of filters
-
         """
         src_mask = get_lookahead_mask(x) if self.causal else None
 
@@ -586,6 +584,14 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         return output
 
     def _padfeature(self, input):
+        """
+        Argument:
+        ----------
+        input : torch.Tensor of size [B, T, D]
+                    where B is Batchsize
+                          T is the chunk length
+                          D is the feature dimensionality
+        """
         B, T, D = input.shape
         rest = self.segment_size - T % self.segment_size
 
