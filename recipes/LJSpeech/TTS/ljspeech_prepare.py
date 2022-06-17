@@ -39,13 +39,13 @@ def prepare_ljspeech(
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the original VoxCeleb dataset is stored.
+        Path to the folder where the original LJspeech dataset is stored.
     save_folder : str
         The directory where to store the csv files.
     splits : list
-        List of splits to prepare from ['train', 'valid']
+        List of splits to prepare.
     split_ratio : list
-        List if int for train and validation splits
+        Proportion for train and validation splits.
     skip_prep: Bool
         If True, skip preparation.
     seed : int
@@ -53,13 +53,13 @@ def prepare_ljspeech(
 
     Example
     -------
-    >>> from recipes.VoxCeleb.voxceleb1_prepare import prepare_voxceleb
+    >>> from recipes.LJSpeech.TTS.ljspeech_prepare import prepare_ljspeech
     >>> data_folder = 'data/LJspeech/'
     >>> save_folder = 'save/'
     >>> splits = ['train', 'valid']
     >>> split_ratio = [90, 10]
     >>> seed = 1234
-    >>> prepare_voxceleb(data_folder, save_folder, splits, split_ratio, seed)
+    >>> prepare_ljspeech(data_folder, save_folder, splits, split_ratio, seed)
     """
     # setting seeds for reproducible code.
     random.seed(seed)
