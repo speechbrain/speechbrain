@@ -68,11 +68,10 @@ include:
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace:
-- https://huggingface.co/speechbrain/metricgan-plus-voicebank
-- https://huggingface.co/speechbrain/mtl-mimic-voicebank
+https://huggingface.co/speechbrain/mtl-mimic-voicebank
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing
+https://drive.google.com/drive/folders/1vSpQ5UREiBbTxNUjJjEpSYO8rLTPvQW_?usp=sharing
 
 
 ## References
