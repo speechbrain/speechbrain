@@ -112,7 +112,7 @@ mem_mdl: !new:speechbrain.lobes.models.resepformer.MemLSTM
 
 MaskNet: !new:speechbrain.lobes.models.resepformer.ResourceEfficientSeparator
     input_dim: !ref <N_encoder_out>
-    num_spk: 2
+    num_spk: !ref <num_spks>
     causal: False
     unit: !ref <RNN_latent_size>
     segment_size: 150
