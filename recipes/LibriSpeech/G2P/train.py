@@ -14,12 +14,12 @@ from speechbrain.dataio.dataset import (
 )
 from speechbrain.dataio.sampler import BalancingDataSampler
 from speechbrain.utils.data_utils import undo_padding
-import sys
-
-import speechbrain as sb
+import datasets
+import logging
 import os
 import random
-import datasets
+import speechbrain as sb
+import sys
 from enum import Enum
 from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
@@ -41,6 +41,7 @@ from io import StringIO
 from speechbrain.utils import hpopt as hp
 import numpy as np
 
+logger = logging.getLogger(__name__)
 
 G2PPredictions = namedtuple(
     "G2PPredictions",
@@ -766,6 +767,27 @@ def filter_origins(data, hparams):
     return data
 
 
+def validate_hparams(hparams):
+    result = True
+    supports_homograph = not (
+        (
+            hparams.get("char_tokenize")
+            and not hparams.get("char_token_wordwise")
+        )
+        or (
+            hparams.get("phn_tokenize")
+            and not hparams.get("phn_token_wordwise")
+        )
+    )
+    if not supports_homograph and hparams.get("homograph_epochs", 0) > 0:
+        logger.error(
+            "ERROR: Non-wordwise tokenization is not supported with "
+            "homograph disambiguation training"
+        )
+        result = False
+    return result
+
+
 DATASET_SPLITS = ["train", "valid", "test"]
 
 
@@ -1035,6 +1057,10 @@ if __name__ == "__main__":
         # Load hyperparameters file with command-line overrides
         with open(hparams_file) as fin:
             hparams = load_hyperpyyaml(fin, overrides)
+
+        # Validate hyperparameters
+        if not validate_hparams(hparams):
+            sys.exit(1)
 
         # Initialize ddp (useful only for multi-GPU DDP training)
         sb.utils.distributed.ddp_init_group(run_opts)
