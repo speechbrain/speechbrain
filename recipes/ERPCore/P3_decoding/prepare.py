@@ -18,7 +18,9 @@ import mne
 logger = logging.getLogger(__name__)
 
 
-def load_and_preprocess_p3_erp_core(hparams):
+def load_and_preprocess_p3_erp_core(
+    data_folder, sbj_id, ch_names, sf, tmin, tmax
+):
     """This function performs the data loading and pre-processing of
     each subject-specific EEG dataset."""
     # definition of the event IDs
@@ -49,20 +51,18 @@ def load_and_preprocess_p3_erp_core(hparams):
         "54": 24,
         "55": 25,
     }
-    data_fpath = glob.glob(
-        os.path.join(hparams["data_folder"], hparams["sbj_id"], "eeg", "*.set")
-    )[0]
+    data_fpath = glob.glob(os.path.join(data_folder, sbj_id, "eeg", "*.set"))[0]
     # loading EEGLab dataset
     raw_eeglab = mne.io.read_raw_eeglab(
         data_fpath, verbose="INFO", preload=True
     )
     # checking if pick specific set of EEG channels
-    if hparams["ch_names"] != []:
-        raw_eeglab.pick_channels(hparams["ch_names"])
+    if ch_names != []:
+        raw_eeglab.pick_channels(ch_names)
     # filtering between [2,20] Hz
     raw = raw_eeglab.copy().filter(l_freq=2, h_freq=20)
     # downsampling to reduce time samples to process
-    raw.resample(hparams["sf"])
+    raw.resample(sf)
     # re-referencing to the average of P9 and P10
     raw.set_eeg_reference(ref_channels=["P9", "P10"])
     # obtaining events and event_dict from annotations, essential to define EEG epochs
@@ -71,8 +71,7 @@ def load_and_preprocess_p3_erp_core(hparams):
     )
     baseline_tmin = -0.2
     baseline_tmax = 0.0
-    tmin = hparams["tmin"]
-    tmax = hparams["tmax"]
+
     # epoching EEG signals between tmin and tmax (included) and applying baseline
     # correction from -0.2 to 0. respect to stimulus onset
     evoked = mne.Epochs(

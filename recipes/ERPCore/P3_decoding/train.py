@@ -204,7 +204,14 @@ def dataio_prepare(hparams):
     Subject-specific dataset are loaded entirely in RAM as the adopted
     EEG dataset is small."""
     # loading subject-specific data
-    x, y = load_and_preprocess_p3_erp_core(hparams)
+    x, y = load_and_preprocess_p3_erp_core(
+        hparams["data_folder"],
+        hparams["sbj_id"],
+        hparams["ch_names"],
+        hparams["sf"],
+        hparams["tmin"],
+        hparams["tmax"],
+    )
     np.random.seed(hparams["seed"])
     skf = StratifiedKFold(n_splits=hparams["nfolds"])
 

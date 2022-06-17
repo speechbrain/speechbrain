@@ -122,7 +122,7 @@ def detect_script_vars(script_file, var_lst):
     return detected_var
 
 
-def check_yaml_vs_script(hparam_file, script_file, prepare_files):
+def check_yaml_vs_script(hparam_file, script_file):
     """Checks consistency between the given yaml file (hparams_file) and the
     script file. The function detects if there are variables declared in the yaml
     file, but not used in the script file.
@@ -133,8 +133,6 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         Path of the yaml file containing the hyperparameters.
     script_file : path
         Path of the script file (.py) containing the training recipe.
-    prepare_file : List(path) (optional)
-        Path list of the preparation script files (.py) containing the data preparation.
 
     Returns
     -------
@@ -154,21 +152,10 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         print("File %s not found!" % (script_file,))
         return False
 
-    if prepare_files == [""]:
-        prepare_files = []
-
-    for prepare_file in prepare_files:
-        if not (os.path.exists(prepare_file)):
-            print("File %s not found!" % (prepare_file,))
-            return False
-
     # Getting list of variables declared in yaml
     var_lst = get_yaml_var(hparam_file)
 
     # Detect which of these variables are used in the script file
-    detected_vars_prepare = []
-    for prepare_file in prepare_files:
-        detected_vars_prepare += detect_script_vars(prepare_file, var_lst)
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
@@ -192,15 +179,11 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         "optimizer_step_limit",
     ]
     unused_vars = list(
-        set(var_lst)
-        - set(detected_vars_prepare)
-        - set(detected_vars_train)
-        - set(default_run_opt_keys)
+        set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)
     )
     for unused_var in unused_vars:
         print(
-            '\tERROR: variable "%s" not used in %s!'
-            % (unused_var, ", ".join([script_file, *prepare_files]))
+            '\tERROR: variable "%s" not used in %s!' % (unused_var, script_file)
         )
 
     return len(unused_vars) == 0

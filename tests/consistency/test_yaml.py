@@ -17,11 +17,7 @@ def test_yaml_script_consistency(recipe_list="tests/recipes.csv"):
         reader = csv.DictReader(csvfile, delimiter=",", skipinitialspace=True)
         for row in reader:
             if not (
-                check_yaml_vs_script(
-                    row["Hparam_file"],
-                    row["Script_file"],
-                    row["Data_prep_file"].split(" "),
-                )
+                check_yaml_vs_script(row["Hparam_file"], row["Script_file"])
             ):
                 check = False
     assert check
