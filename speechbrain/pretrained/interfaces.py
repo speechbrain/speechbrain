@@ -2051,7 +2051,7 @@ class SpectralMaskEnhancement(Pretrained):
     ...     savedir=tmpdir,
     ... )
     >>> enhanced = enhancer.enhance_file(
-    ...     "speechbrain/metricga-plus-voicebank/example.wav"
+    ...     "speechbrain/metricgan-plus-voicebank/example.wav"
     ... )
     """
 
