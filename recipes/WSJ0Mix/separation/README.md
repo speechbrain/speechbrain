@@ -52,6 +52,8 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
 
 * Pretrained models with the training logs can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
+* The output folder (with logs and checkpoints) for the convtasnet (hparams/convtasnet.yaml) can be found [here](https://drive.google.com/drive/folders/12_Df4zsRW18YvD4hPAJAT9y_mVWnNyBm?usp=sharing).
+* The output folder (with logs and checkpoints) for the dual-path RNN (hparams/dprnn.yaml) can be found [here](https://drive.google.com/drive/folders/1Olq2077mXKqtqHluxECn1lMKIbo7xPFu?usp=sharing).
 
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-wsj02mix).
