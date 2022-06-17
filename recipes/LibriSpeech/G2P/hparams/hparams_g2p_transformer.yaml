@@ -1,5 +1,5 @@
 # ################################
-# Model: Transformer/Conformer (tokenized)
+# Model: Transformer/Conformer
 # Authors: Artem Ploujnikov 2021
 # ################################
 
@@ -14,7 +14,7 @@ trial_id: null
 
 # Data paths
 output_folder: !ref results/transformer/<seed>
-data_folder: null
+data_folder: !PLACEHOLDER # e.g. /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
@@ -64,7 +64,7 @@ character_coverage: 1.0
 skip_prep: False
 sorting: random #ascending
 origins: "*"
-graphemes_count: 30
+graphemes_count: 31
 phonemes_count: 43
 phonemes_enable_space: True
 
@@ -98,7 +98,7 @@ output_neurons: !apply:speechbrain.utils.hparams.choice
 enc_num_embeddings: !apply:speechbrain.utils.hparams.choice
     value: !ref <char_tokenize>
     choices:
-        True: !ref <char_token_output>
+        True: !ref <char_token_output> + 1
         False: !ref <graphemes_count>
 
 embedding_dim: 256

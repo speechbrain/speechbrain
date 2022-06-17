@@ -245,7 +245,7 @@ class G2PBrain(sb.Brain):
         """
         phns, phn_lens = batch.phn_encoded
         phns_base, phn_base_lens = (
-            batch.phn_raw_encoded if self.phn_tokenize else (None, None)
+            batch.phn_raw_encoded if self.hparams.phn_tokenize else (None, None)
         )
         (
             p_seq_homograph,
@@ -278,14 +278,14 @@ class G2PBrain(sb.Brain):
             self.hparams.out_phoneme_decoder,
         )
         prediction_labels = phonemes_to_label(
-            phns=hyps_homograph, encoder=self.out_phoneme_decoder
+            phns=hyps_homograph, decoder=self.hparams.out_phoneme_decoder
         )
         phns_homograph_list = undo_padding(phns_homograph, phn_lens_homograph)
         target_labels = phonemes_to_label(
-            phns_homograph_list, encoder=self.out_phoneme_decoder
+            phns_homograph_list, decoder=self.hparams.out_phoneme_decoder
         )
         self.classification_metrics_homograph.append(
-            batch.sample_ids,
+            batch.sample_id,
             predictions=prediction_labels,
             targets=target_labels,
             categories=batch.homograph_wordid,
@@ -358,7 +358,7 @@ class G2PBrain(sb.Brain):
 
     def _set_word_separator(self):
         """Determines the word separators to be used"""
-        if self.phn_tokenize:
+        if self.hparams.phn_tokenize:
             word_separator_idx = self.hparams.token_space_index
             word_separator_base_idx = self.phoneme_encoder.lab2ind[" "]
         else:
@@ -1127,7 +1127,7 @@ if __name__ == "__main__":
             if hparams.get("save_for_pretrained"):
                 min_key = (
                     "PER_homograph"
-                    if hparams.get("mode") == "homograph"
+                    if train_step.get("mode") == "homograph"
                     else "PER"
                 )
                 save_for_pretrained(hparams, min_key=min_key)

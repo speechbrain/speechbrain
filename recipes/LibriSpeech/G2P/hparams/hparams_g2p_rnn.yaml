@@ -67,7 +67,7 @@ skip_prep: False
 sorting: random #ascending
 origins: "*"
 phonemes_count: 43
-graphemes_count: 30 # including EOS/BOS
+graphemes_count: 31
 phonemes_enable_space: True
 
 # Training Parameters
@@ -95,7 +95,7 @@ output_neurons: !apply:speechbrain.utils.hparams.choice
 enc_num_embeddings: !apply:speechbrain.utils.hparams.choice
     value: !ref <char_tokenize>
     choices:
-        True: !ref <char_token_output>
+        True: !ref <char_token_output> + 1
         False: !ref <graphemes_count>
 
 enc_dropout: 0.5
