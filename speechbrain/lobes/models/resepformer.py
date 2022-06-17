@@ -15,19 +15,25 @@ EPS = torch.finfo(torch.get_default_dtype()).eps
 
 class MemLSTM(nn.Module):
     """the Mem-LSTM of SkiM --
-       Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compability with SpeechBrain.
-    args:
-        hidden_size: int, dimension of the hidden state.
-        dropout: float, dropout ratio. Default is 0.
-        bidirectional: bool, whether the LSTM layers are bidirectional.
-            Default is False.
-        mem_type: 'hc', 'h', 'c', or 'id'.
-            It controls whether the hidden (or cell) state of
-            SegLSTM will be processed by MemLSTM.
-            In 'id' mode, both the hidden and cell states will
-            be identically returned.
-        norm_type: gln, cln. cln is for causal implementation.
+    Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compability with SpeechBrain.
 
+    Arguments:
+    ---------
+    hidden_size: int,
+        Dimension of the hidden state.
+    dropout: float,
+        dropout ratio. Default is 0.
+    bidirectional: bool,
+        Whether the LSTM layers are bidirectional.
+        Default is False.
+    mem_type: 'hc', 'h', 'c', or 'id'.
+        This controls whether the hidden (or cell) state of
+        SegLSTM will be processed by MemLSTM.
+        In 'id' mode, both the hidden and cell states will
+        be identically returned.
+    norm_type: 'gln', 'cln'
+        This selects the type of normalization
+        cln is for causal implemention
 
     Example
     ---------
@@ -88,14 +94,22 @@ class MemLSTM(nn.Module):
                 norm=norm_type, dim=self.input_size, shape=3, eps=EPS
             )
 
-    def extra_repr(self) -> str:
-        return f"Mem_type: {self.mem_type}, bidirectional: {self.bidirectional}"
-
     def forward(self, hc, S):
-        # hc = (h, c), tuple of hidden and cell states from SegLSTM
-        # shape of h and c: (d, B*S, H)
-        # S: number of segments in SegLSTM
+        """The forward function for the memory RNN
 
+        Arguments
+        ---------
+        hc : torch.Tensor
+            (h, c), tuple of hidden and cell states from SegLSTM
+
+            shape of h and c: (d, B*S, H)
+                where d is the number of directions
+                      B is the batchsize
+                      S is the number chunks
+                      H is the latent dimensionality
+        S : int
+            S is the number of chunks
+        """
         if self.mem_type == "id":
             ret_val = hc
         else:
@@ -139,17 +153,24 @@ class MemLSTM(nn.Module):
 
 
 class SegLSTM(nn.Module):
-    """the Seg-LSTM of SkiM
+    """the Segment-LSTM of SkiM
     Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compatibility with SpeechBrain.
 
-    args:
-        input_size: int, dimension of the input feature.
-            The input should have shape (batch, seq_len, input_size).
-        hidden_size: int, dimension of the hidden state.
-        dropout: float, dropout ratio. Default is 0.
-        bidirectional: bool, whether the LSTM layers are bidirectional.
-            Default is False.
-        norm_type: gln, cln. cln is for causal implementation.
+    Arguments:
+    ----------
+    input_size: int,
+        dimension of the input feature.
+        The input should have shape (batch, seq_len, input_size).
+    hidden_size: int,
+        dimension of the hidden state.
+    dropout: float,
+        dropout ratio. Default is 0.
+    bidirectional: bool,
+        whether the LSTM layers are bidirectional.
+        Default is False.
+    norm_type: gln, cln.
+        This selects the type of normalization
+        cln is for causal implementation.
 
     Example
     ---------
@@ -189,8 +210,24 @@ class SegLSTM(nn.Module):
         )
 
     def forward(self, input, hc):
-        # input shape: B, T, H
+        """The forward function of the Segment LSTM
 
+        Arguments
+        ---------
+        input : torch.Tensor of size [B*S, T, H]
+            where B is the batchsize
+                  S is the number of chunks
+                  T is the chunks size
+                  H is the latent dimensionality
+
+            (h, c), tuple of hidden and cell states from SegLSTM
+
+            shape of h and c: (d, B*S, H)
+                where d is the number of directions
+                      B is the batchsize
+                      S is the number chunks
+                      H is the latent dimensionality
+        """
         B, T, H = input.shape
 
         if hc is None:
@@ -407,36 +444,47 @@ class SBTransformerBlock_wnormandskip(nn.Module):
 class ResourceEfficientSeparationPipeline(nn.Module):
     """ Resource Efficient Separation Pipeline Used for RE-SepFormer and SkiM
 
-        Note: This implementation is a generalization of the ESPNET implementation of SkiM
+    Note: This implementation is a generalization of the ESPNET implementation of SkiM
 
-        args:
-        input_size: int, dimension of the input feature.
-            Input shape shoud be (batch, length, input_size)
-        hidden_size: int, dimension of the hidden state.
-        output_size: int, dimension of the output size.
-        dropout: float, dropout ratio. Default is 0.
-        num_blocks: number of basic SkiM blocks
-        segment_size: segmentation size for splitting long features
-        bidirectional: bool, whether the RNN layers are bidirectional.
-        mem_type: 'hc', 'h', 'c', 'id' or None.
-            It controls whether the hidden (or cell) state of SegLSTM
-            will be processed by MemLSTM.
-            In 'id' mode, both the hidden and cell states will
-            be identically returned.
-            When mem_type is None, the MemLSTM will be removed.
-        norm_type: gln, cln. cln is for causal implementation.
-        seg_model: The model that processes the within segment elements
-        mem_model: The memory model that ensures continuity between the segments
+    Arguments:
+    ----------
+    input_size: int,
+        Dimension of the input feature.
+        Input shape shoud be (batch, length, input_size)
+    hidden_size: int,
+        Dimension of the hidden state.
+    output_size: int,
+        Dimension of the output size.
+    dropout: float,
+        Dropout ratio. Default is 0.
+    num_blocks: int
+        Number of basic SkiM blocks
+    segment_size: int
+        Segmentation size for splitting long features
+    bidirectional: bool,
+        Whether the RNN layers are bidirectional.
+    mem_type: 'hc', 'h', 'c', 'id' or None.
+        This controls whether the hidden (or cell) state of SegLSTM
+        will be processed by MemLSTM.
+        In 'id' mode, both the hidden and cell states will
+        be identically returned.
+        When mem_type is None, the MemLSTM will be removed.
+    norm_type: gln, cln.
+        cln is for causal implementation.
+    seg_model: class
+        The model that processes the within segment elements
+    mem_model: class
+        The memory model that ensures continuity between the segments
 
-        Example
-        ---------
-        >>> x = torch.randn(10, 100, 64)
-        >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-        >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-        >>> resepf_pipeline = ResourceEfficientSeparationPipeline(64, 64, 128, seg_model=seg_mdl, mem_model=mem_mdl)
-        >>> out = resepf_pipeline.forward(x)
-        >>> out.shape
-        torch.Size([10, 100, 128])
+    Example
+    ---------
+    >>> x = torch.randn(10, 100, 64)
+    >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
+    >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
+    >>> resepf_pipeline = ResourceEfficientSeparationPipeline(64, 64, 128, seg_model=seg_mdl, mem_model=mem_mdl)
+    >>> out = resepf_pipeline.forward(x)
+    >>> out.shape
+    torch.Size([10, 100, 128])
     """
 
     def __init__(
@@ -486,7 +534,19 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         )
 
     def forward(self, input):
-        # input shape: B, T (S*K), D
+        """The forward function of the ResourceEfficientSeparatioPipeline
+
+        This takes in a tensor of size [B, (S*K), D]
+
+        Arguments
+        ---------
+        input : torch.Tensor
+                Tensor shape [B, (S*K), D],
+                where, B = Batchsize,
+                       S = Number of chunks
+                       K = Chunksize
+                       D = number of features
+        """
         B, T, D = input.shape
 
         input, rest = self._padfeature(input=input)
@@ -537,34 +597,46 @@ class ResourceEfficientSeparationPipeline(nn.Module):
 class ResourceEfficientSeparator(nn.Module):
     """Resource Efficient Source Separator
     This is the class that implements RE-SepFormer
-    Args:
-        input_dim: input feature dimension
-        causal: bool, whether the system is causal.
-        num_spk: number of target speakers.
-        nonlinear: the nonlinear function for mask estimation,
-            select from 'relu', 'tanh', 'sigmoid'
-        layer: int, number of SkiM blocks. Default is 3.
-        unit: int, dimension of the hidden state.
-        segment_size: segmentation size for splitting long features
-        dropout: float, dropout ratio. Default is 0.
-        mem_type: 'hc', 'h', 'c', 'id', 'av'  or None.
-            It controls whether a memory representation will be used to ensure continuity between segments.
-            In 'av' mode, the summary state is is calculated by simply averaging over the time dimension of each segment
-            In 'id' mode, both the hidden and cell states
-            will be identically returned.
-            When mem_type is None, the memory model will be removed.
-        seg_model: The model that processes the within segment elements
-        mem_model: The memory model that ensures continuity between the segments
 
-        Example
-        ---------
-        >>> x = torch.randn(10, 64, 100)
-        >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-        >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
-        >>> resepformer = ResourceEfficientSeparator(64, num_spk=3, mem_type='av', seg_model=seg_mdl, mem_model=mem_mdl)
-        >>> out = resepformer.forward(x)
-        >>> out.shape
-        torch.Size([3, 10, 64, 100])
+    Arguments:
+    ----------
+    input_dim: int,
+        Input feature dimension
+    causal: bool,
+        Whether the system is causal.
+    num_spk: int,
+        Number of target speakers.
+    nonlinear: class
+        the nonlinear function for mask estimation,
+        select from 'relu', 'tanh', 'sigmoid'
+    layer: int,
+        number of blocks. Default is 2 for RE-SepFormer.
+    unit: int,
+        Dimensionality of the hidden state.
+    segment_size: int,
+        Chunk size for splitting long features
+    dropout: float,
+        dropout ratio. Default is 0.
+    mem_type: 'hc', 'h', 'c', 'id', 'av'  or None.
+        This controls whether a memory representation will be used to ensure continuity between segments.
+        In 'av' mode, the summary state is is calculated by simply averaging over the time dimension of each segment
+        In 'id' mode, both the hidden and cell states
+        will be identically returned.
+        When mem_type is None, the memory model will be removed.
+    seg_model: class,
+        The model that processes the within segment elements
+    mem_model: class,
+        The memory model that ensures continuity between the segments
+
+    Example
+    ---------
+    >>> x = torch.randn(10, 64, 100)
+    >>> seg_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
+    >>> mem_mdl = SBTransformerBlock_wnormandskip(1, 64, 8)
+    >>> resepformer = ResourceEfficientSeparator(64, num_spk=3, mem_type='av', seg_model=seg_mdl, mem_model=mem_mdl)
+    >>> out = resepformer.forward(x)
+    >>> out.shape
+    torch.Size([3, 10, 64, 100])
     """
 
     def __init__(
@@ -616,10 +688,10 @@ class ResourceEfficientSeparator(nn.Module):
 
     def forward(self, inpt: torch.Tensor):
         """Forward.
-        Args:
-            inpt (torch.Tensor): Encoded feature [B, T, N]
-        Returns:
-            mask_tensor [Nspks, B, N, T]
+        Arguments:
+        ----------
+            inpt (torch.Tensor):
+                Encoded feature [B, T, N]
         """
 
         inpt = inpt.permute(0, 2, 1)
