@@ -224,7 +224,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     counter: !ref <epoch_counter>
     scheduler: !ref <lr_annealing>
 
-infer: !name:speechbrain.lobes.models.Tacotron2.infer
+#infer: !name:speechbrain.lobes.models.Tacotron2.infer
 
 progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
   output_path: !ref <progress_sample_path>
