@@ -392,25 +392,6 @@ def dataio_prepare(hparams):
     return datasets
 
 
-def load_pretrained(hparams):
-    """This function loads a pre-trained ASR model's parameters to the model
-    defined by the user. It can either be a web-url or a simple path.
-
-
-    Arguments
-    ---------
-    hparams : dict
-        This dictionary is loaded from the `train.yaml` file, and it includes
-        all the hyperparameters needed for dataset construction and loading.
-        Expects the dict to have "save_folder" and "model" and "pretrain_model"
-    """
-    save_model_path = os.path.join(
-        hparams["save_folder"], "pretrained_model.ckpt"
-    )
-    download_file(hparams["pretrain_model"], save_model_path)
-    hparams["model"].load_state_dict(torch.load(save_model_path), strict=True)
-
-
 if __name__ == "__main__":
 
     # Reading command line arguments

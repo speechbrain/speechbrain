@@ -167,8 +167,8 @@ dec_lin: !new:speechbrain.nnet.linear.Linear
    bias: False
 
 # For MLT with CTC
-ce_cost: !name:speechbrain.nnet.nll_loss
-   label_smoothing: 0.1
+#ce_cost: !name:speechbrain.nnet.losses.nll_loss
+#   label_smoothing: 0.1
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
    joint: sum # joint [sum | concat]
