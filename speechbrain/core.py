@@ -20,6 +20,7 @@ import pathlib
 import argparse
 import tempfile
 import warnings
+from contextlib import contextmanager
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -882,8 +883,13 @@ class Brain:
                     self.optimizer.step()
                 self.optimizer.zero_grad()
                 self.optimizer_step += 1
-
+        if should_step:
+            self.on_fit_batch_end()
         return loss.detach().cpu()
+
+    def on_fit_batch_end(self):
+        """Called after ``fit_batch()``"""
+        pass
 
     def check_gradients(self, loss):
         """Check if gradients are finite and not too large.
@@ -923,9 +929,10 @@ class Brain:
                 return False
 
         # Clip gradient norm
-        torch.nn.utils.clip_grad_norm_(
-            (p for p in self.modules.parameters()), self.max_grad_norm
-        )
+        if self.max_grad_norm != 0.0:
+            torch.nn.utils.clip_grad_norm_(
+                (p for p in self.modules.parameters()), self.max_grad_norm
+            )
 
         return True
 
@@ -1280,6 +1287,38 @@ class Brain:
             avg_loss -= avg_loss / self.step
             avg_loss += float(loss) / self.step
         return avg_loss
+
+    @contextmanager
+    def no_sync(self, use=True):
+        """Copies pytorch's implementation for doing no_sync across all modules.
+
+        Explanation: nn.module.no_sync() is a context manager for when one does
+        not want to sync gradients, which happens when using both DDP and gradient accumulation.
+        Speechbrain brain's class can contain multiple modules and calling no_sync on these
+        individually would be very awkward, therefore this contextmanager exists.
+
+        Arguments
+        ---------
+        use : bool
+            If set to `False` will still sync gradients.
+        """
+        if use:
+            old_values_list = []
+            for module in self.modules.values():
+                if not hasattr(module, "require_backward_grad_sync"):
+                    # if not using DDP
+                    break
+                old_values_list.append(module.require_backward_grad_sync)
+                module.require_backward_grad_sync = False
+            yield
+            for module, old_value in zip(
+                self.modules.values(), old_values_list
+            ):
+                if not hasattr(module, "require_backward_grad_sync"):
+                    break
+                module.require_backward_grad_sync = old_value
+        else:
+            yield
 
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):
