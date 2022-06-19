@@ -58,15 +58,15 @@ Each epoch takes about 2 hours for WSJ0-2Mix and WSJ0-3Mix (DynamicMixing ) on a
 Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can be found through huggingface:
 * https://huggingface.co/speechbrain/sepformer-wsj02mix
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
+* https://huggingface.co/speechbrain/resepformer-wsj02mix
 
 * The output folder (with logs and checkpoints) for SepFormer (hparams/sepformer.yaml) can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
-* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
+* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://drive.google.com/drive/folders/1rXOyPQ7OZZMUzg7wrP1Zsa_fjFKMqaeu?usp=sharing).
 * The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://drive.google.com/drive/folders/12_Df4zsRW18YvD4hPAJAT9y_mVWnNyBm?usp=sharing).
 * The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://drive.google.com/drive/folders/1Olq2077mXKqtqHluxECn1lMKIbo7xPFu?usp=sharing).
-* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
+* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://drive.google.com/drive/folders/12HqVPpMXY-OOMsZ3xTAtkN7kk5TZ2YaL?usp=sharing).
 
 
-You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-wsj02mix).
 
 # Example calls for running the training scripts
 
