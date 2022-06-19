@@ -76,8 +76,8 @@ sentence_ctc_epochs: 10
 homograph_epochs: 20
 homograph_ctc_epochs: 10
 lexicon_batch_size: 128
-sentence_batch_size: 64
-homograph_batch_size: 64
+sentence_batch_size: 32
+homograph_batch_size: 32
 ctc_weight: 0.5
 homograph_loss_weight: 2.0
 lr: 0.0001
