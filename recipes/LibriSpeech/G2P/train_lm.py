@@ -21,6 +21,27 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from train import dataio_prep
 
+# The following hyperparameters are used in dataio_prep, shared with the
+# main G2P training script:
+# - hparams["phoneme_encoder"]
+# - hparams["origins"]
+# - hparams["phn_token_wordwise"]
+# - hparams["graphemes"]
+# - hparams["sorting"]
+# - hparams["test_data"]
+# - hparams["data_load"]
+# - hparams["token_space_index"]
+# - hparams["valid_data"]
+# - hparams["tokenizer_valid_data"]
+# - hparams["grapheme_encoder"]
+# - hparams["train_data"]
+# - hparams["eos_index"]
+# - hparams["bos_index"]
+# - hparams["tokenizer_file"]
+# - hparams["output_neurons"]
+# - hparams["tokenizer"]
+# - hparams["blank_index"]
+
 
 logger = logging.getLogger(__name__)
 

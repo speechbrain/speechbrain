@@ -74,6 +74,11 @@ All reference times are given for a Quattro P5000 GPU. These are rough estimatio
 **Note**: To speed up evaluation with the Transformer model, consider reducing the beam size. For fastest
 evaluation, use `--beam_search_beam_size 1`.
 
+# Pretrained Models
+Pretrained models can be found on the following Google drive:
+https://drive.google.com/drive/folders/1nk9ms8cQ5N07wOG4oTi9h5a1dmiPmvnv?usp=sharing
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/

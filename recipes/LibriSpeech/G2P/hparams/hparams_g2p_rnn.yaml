@@ -135,6 +135,7 @@ use_language_model: False
 beam_search_min_decode_ratio: 0
 beam_search_max_decode_ratio: 1.0
 beam_search_beam_size: 16
+beam_search_beam_size_valid: 16
 beam_search_eos_threshold: 10.0
 beam_search_using_max_attn_shift: False
 beam_search_max_attn_shift: 10
@@ -340,6 +341,23 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
     beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+
+beam_searcher_valid: !new:speechbrain.decoders.S2SRNNBeamSearcher
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    ctc_linear: !ref <ctc_lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size_valid>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
     max_attn_shift: !ref <beam_search_max_attn_shift>
