@@ -426,7 +426,10 @@ def load_yaml_test(
     test_field="Hparam_file",
     filters_fields=[],
     filters=[],
-    avoid_list=[""],
+    avoid_list=[
+        "templates/hyperparameter_optimization_speaker_id/train.yaml",
+        "templates/speaker_id/train.yaml",
+    ],
     data_folder="yaml_check_folder",
     output_folder="yaml_check_folder",
 ):
@@ -468,6 +471,20 @@ def load_yaml_test(
     data_folder = os.path.join(cwd, data_folder)
     output_folder = os.path.join(cwd, output_folder)
 
+    # Additional overrides
+    add_overrides = {
+        "manual_annot_folder": data_folder,
+        "musan_folder": data_folder,
+        "tea_models_dir": data_folder,
+        "rir_path": data_folder,
+        "wsj_root": data_folder,
+        "tokenizer_file": data_folder,
+        "commonlanguage_folder": data_folder,
+        "tea_infer_dir": data_folder,
+        "original_data_folder": data_folder,
+        "pretrain_st_dir": data_folder,
+    }
+
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
         recipe_csvfile,
@@ -488,7 +505,7 @@ def load_yaml_test(
         recipe_folder = os.path.join(cwd, recipe_folder)
         os.chdir(recipe_folder)
 
-        # Avoif files lister in avoid_list
+        # Avoid files lister in avoid_list
         if hparam_file in avoid_list:
             continue
 
@@ -502,9 +519,18 @@ def load_yaml_test(
 
         # Load hyperparameters file with command-line overrides
         overrides = {"data_folder": data_folder, "output_folder": output_folder}
+
+        # Append additional overrides when needed
+        with open(hparam_file) as f:
+            for line in f:
+                for key in add_overrides.keys():
+                    pattern = key + ":"
+                    if pattern in line and line.find(pattern) == 0:
+                        overrides.update({key: data_folder})
+
         with open(hparam_file) as fin:
             try:
-                load_hyperpyyaml(fin, overrides)
+                _ = load_hyperpyyaml(fin, overrides)
             except Exception as e:
                 print("\t" + str(e))
                 check = False
