@@ -110,7 +110,7 @@ def check_docstrings(
                         if line[0:2] == 'r"':
                             check_line = False
                             continue
-                        
+
                         check = False
                         print(
                             "\tERROR: The class %s in %s has no docstring. "

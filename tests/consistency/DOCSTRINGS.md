@@ -1,13 +1,13 @@
 # Docstrings in SpeechBrain
-All the functions or classes of SpeechBrain must have a docstring. SpeechBrain adopts the NumPy-like style for the docstrings.  
+All the functions or classes of SpeechBrain must have a docstring. SpeechBrain adopts the NumPy-like style for the docstrings.
 - Here is an example of a class:
 
 >     class SincConv(nn.Module):
 >     	 """This function implements SincConv (SincNet).
->     	
+>
 >     	 M. Ravanelli, Y. Bengio, "Speaker Recognition from raw waveform with
 >     	 SincNet", in Proc. of SLT 2018 (https://arxiv.org/abs/1808.00158)
->     	
+>
 >     	 Arguments
 >     	 ---------
 >     	 input_shape : tuple
@@ -42,7 +42,7 @@ All the functions or classes of SpeechBrain must have a docstring. SpeechBrain a
 >     	 sinc_conv.
 >     	 min_low_hz : float
 >     	 Lowest possible value (in Hz) for a filter bandwidth.
->     	
+>
 >     	 Example
 >     	 -------
 >     	 >>> inp_tensor = torch.rand([10, 16000])
@@ -57,7 +57,7 @@ Here is an example of a function:
 >     def ngram_perplexity(eval_details, logbase=10.0):
 >     	 """
 >     	 Computes perplexity from a list of individual sentence evaluations.
->     	
+>
 >     	 Arguments
 >     	 ---------
 >     	 eval_details : list
@@ -65,12 +65,12 @@ Here is an example of a function:
 >     	 `ngram_evaluation_details`
 >     	 logbase : float
 >     	 The logarithm base to use.
->     	
+>
 >     	 Returns
 >     	 -------
 >     	 float
 >     	 The computed perplexity.
->     	
+>
 >     	 Example
 >     	 -------
 >     	 >>> eval_details = [

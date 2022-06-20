@@ -24,7 +24,7 @@ def import_from_path(path):
     ---------
     path : str, pathlib.Path
         The path to the module to import
-
+    
     Returns
     -------
     module
@@ -74,7 +74,6 @@ def run_shell(cmd):
     -------
     >>> out, err, code = run_shell("echo 'hello world'")
     >>> out.decode(errors="ignore")
-    'hello world\n'
     """
 
     # Executing the command
