@@ -155,6 +155,16 @@ class S2SGreedySearcher(S2SBaseSearcher):
     """
 
     def forward(self, enc_states, wav_len):
+        """This method performs a greedy search.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        wav_len : torch.Tensor
+            The speechbrain-style relative length.
+        """
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -241,6 +251,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
         hs, c = memory
         e = self.emb(inp_tokens)
         dec_out, hs, c, w = self.dec.forward_step(
@@ -552,6 +563,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return topk_hyps, topk_scores, topk_lengths, topk_log_probs
 
     def forward(self, enc_states, wav_len):  # noqa: C901
+        """Applies beamsearch and returns the predicted tokens."""
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -823,6 +835,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             return predictions, topk_scores
 
     def ctc_forward_step(self, x):
+        """Applies a ctc step during bramsearch."""
         logits = self.ctc_fc(x)
         log_probs = self.softmax(logits)
         return log_probs
@@ -931,12 +944,14 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         self.temperature = temperature
 
     def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during beamsearch."""
         hs = None
         self.dec.attn.reset()
         c = torch.zeros(batch_size, self.dec.attn_dim, device=device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
         with torch.no_grad():
             hs, c = memory
             e = self.emb(inp_tokens)
@@ -950,6 +965,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch."""
         hs, c = memory
 
         # shape of hs: [num_layers, batch_size, n_neurons]
@@ -1035,6 +1051,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         self.temperature_lm = temperature_lm
 
     def lm_forward_step(self, inp_tokens, memory):
+        """Applies a step to the LM during beamsearch."""
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
             log_probs = self.log_softmax(logits / self.temperature_lm)
@@ -1057,6 +1074,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         return memory
 
     def reset_lm_mem(self, batch_size, device):
+        """Needed to reset the LM memory during beamsearch."""
         # set hidden_state=None, pytorch RNN will automatically set it to
         # zero vectors.
         return None
@@ -1129,6 +1147,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         self.temperature_lm = temperature_lm
 
     def lm_forward_step(self, inp_tokens, memory):
+        """Performs a step in the LM during beamsearch."""
         memory = _update_mem(inp_tokens, memory)
         if not next(self.lm.parameters()).is_cuda:
             self.lm.to(inp_tokens.device)
@@ -1137,10 +1156,12 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         return log_probs[:, -1, :], memory
 
     def permute_lm_mem(self, memory, index):
+        """Permutes the LM ,emory during beamsearch"""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
     def reset_lm_mem(self, batch_size, device):
+        """Needed to reset the LM memory during beamsearch"""
         # set hidden_state=None, pytorch RNN will automatically set it to
         # zero vectors.
         return None
@@ -1258,26 +1279,32 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         self.temperature_lm = temperature_lm
 
     def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during beamsearch."""
         return None
 
     def reset_lm_mem(self, batch_size, device):
+        """Needed to reset the LM memory during beamsearch."""
         return None
 
     def permute_mem(self, memory, index):
+        """Permutes the memory."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
     def permute_lm_mem(self, memory, index):
+        """Permutes the memory of the language model."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
 
     def lm_forward_step(self, inp_tokens, memory):
+        """Performs a step in the implemented LM module."""
         memory = _update_mem(inp_tokens, memory)
         if not next(self.lm_modules.parameters()).is_cuda:
             self.lm_modules.to(inp_tokens.device)

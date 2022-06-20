@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def import_from_path(path):
-    r"""Import module from absolute path
+    """Import module from absolute path
 
     Arguments
     ---------
@@ -49,7 +49,7 @@ def import_from_path(path):
 
 
 def run_shell(cmd):
-    r"""This function can be used to run a command in the bash shell.
+    """This function can be used to run a command in the bash shell.
 
     Arguments
     ---------

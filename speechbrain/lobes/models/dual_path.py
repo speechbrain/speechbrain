@@ -1280,7 +1280,7 @@ class SepformerWrapper(nn.Module):
                 self.reset_layer_recursively(child_layer)
 
     def forward(self, mix):
-
+        """ Processes the input tensor x and returns an output tensor."""
         mix_w = self.encoder(mix)
         est_mask = self.masknet(mix_w)
         mix_w = torch.stack([mix_w] * self.num_spks)

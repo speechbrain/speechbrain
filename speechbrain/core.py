@@ -128,7 +128,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list=None):
-    r"""Parse command-line arguments to the experiment.
+    """Parse command-line arguments to the experiment.
 
     Arguments
     ---------
@@ -329,7 +329,7 @@ class Stage(Enum):
 
 @sb.utils.checkpoints.register_checkpoint_hooks
 class Brain:
-    r"""Brain class abstracts away the details of data loops.
+    """Brain class abstracts away the details of data loops.
 
     The primary purpose of the `Brain` class is the implementation of
     the ``fit()`` method, which iterates epochs and datasets for the

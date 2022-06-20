@@ -35,6 +35,7 @@ def set_profiler_attr(func: object, set_attr: str, handler: Callable):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Wrapper implementation."""
             if "__call__" not in dir(
                 func
             ):  # Decorator for class constructor (directly)
@@ -112,7 +113,10 @@ def export(
     )
 
     def trace_handler(prof: profiler.profile):
+        """trace_handler implementation."""
+
         def log_file(export_chrome: bool = False, info: str = ""):
+            """Implementation of logging file."""
             nonlocal worker_name
             if not worker_name:
                 worker_name = "{}_{}".format(
@@ -134,9 +138,11 @@ def export(
             return os.path.join(dir_name, file_name)
 
         def export_stacks(log_path: str, metric: str):
+            """Implementation of export_stacks."""
             prof.export_stacks(log_file(), metric)
 
         def export_traces(aggregated_traces: bool = False):
+            """Implementation of export_traces."""
             if not aggregated_traces:
                 # Chrome export (also checks for dir_name existing).
                 tensorboard_handler(prof)
@@ -173,8 +179,11 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
     # Preparing the profiler to be re-used during Brain:s' lifecycles.
     def hook_profiler_stop(stop: Callable):
+        """Implementation of hook_profiler_stop."""
+
         @wraps(stop)
         def stop_wrapper():
+            """Implementation of stop_wrapper."""
             kineto_profiler = prof.profiler
             if kineto_profiler is not None:
                 stop_result = stop()
@@ -199,8 +208,11 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
     # Preparing the profiler to be re-started during Brain:s' lifecycles.
     def hook_profiler_start(start: Callable):
+        """Implementation of hook_profiler_start."""
+
         @wraps(start)
         def start_wrapper():
+            """Implementation of start_wrapper."""
             prof.step_num = 0
             prof.current_action = prof.schedule(prof.step_num)
             kineto_profiler = prof.profiler
@@ -215,6 +227,7 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
     # It's currently designed as hiding an Easter Egg.
     def merge_traces():
+        """Implementation of merge_traces."""
         # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
         trace_aggregator = "speechbrain_event_traces"
         if prof.profiler is not None:
@@ -256,8 +269,11 @@ def hook_brain_methods(
     """
     # Prepare additional hook decorators for methods of Brain:s.
     def hook_brain(f: Callable):
+        """Implementation of hook_brain."""
+
         @wraps(f)
         def hook(*f_args, **f_kwargs):
+            """Implementation of hook."""
             # The profiler stopped after __init__ so we need to get it up again and stop it manually also.
             prof.start()
             r = f(*f_args, **f_kwargs)
@@ -369,6 +385,7 @@ def profile(
         # callable(func) - polymorph: __init__ Brain constructor -or- function to be wrapped
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             # Binding variables.
             nonlocal class_hooks
             nonlocal schedule
@@ -439,6 +456,7 @@ def profile_analyst(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             return wrapped_func(*args, **kwargs)
 
         return wrapper
@@ -467,6 +485,7 @@ def profile_optimiser(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             return wrapped_func(*args, **kwargs)
 
         return wrapper
@@ -497,6 +516,7 @@ def profile_report(  # not part of unittests
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             return wrapped_func(*args, **kwargs)
 
         return wrapper

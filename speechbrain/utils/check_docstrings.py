@@ -90,6 +90,9 @@ def check_docstrings(
                 # Check if the docstring is written after the class/funct declaration
                 if check_line:
                     if line[0] != '"' and not (is_class):
+                        if line[0:2] == 'r"':
+                            check_line = False
+                            continue
                         check = False
                         if first_line:
                             print(
@@ -104,6 +107,9 @@ def check_docstrings(
                                 + "Please write it. For more info, see tests/consistency/DOCSTRINGS.md"
                             )
                     if line[0] != '"' and is_class:
+                        if line[0:2] == 'r"':
+                            check_line = False
+                            continue
                         check = False
                         print(
                             "\tERROR: The class %s in %s has no docstring. "

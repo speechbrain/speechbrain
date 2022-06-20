@@ -323,6 +323,7 @@ class BinaryMetricStats(MetricStats):
         self.positive_label = positive_label
 
     def clear(self):
+        """Clears the stored metrics."""
         self.ids = []
         self.scores = []
         self.labels = []

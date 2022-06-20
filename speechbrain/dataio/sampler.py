@@ -492,6 +492,7 @@ class DynamicBatchSampler(Sampler):
         self._generate_batches()
 
     def get_durations(self, batch):
+        """Gets durations of the elements in the batch."""
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(

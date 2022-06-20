@@ -2208,8 +2208,6 @@ class SNREstimator(Pretrained):
 
 
 class Tacotron2(Pretrained):
-    HPARAMS_NEEDED = ["model", "text_to_sequence"]
-
     """
     A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
 
@@ -2237,6 +2235,8 @@ class Tacotron2(Pretrained):
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_output)
     """
+
+    HPARAMS_NEEDED = ["model", "text_to_sequence"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2292,12 +2292,11 @@ class Tacotron2(Pretrained):
         return self.encode_batch([text])
 
     def forward(self, texts):
+        "Encodes the input texts."
         return self.encode_batch(texts)
 
 
 class HIFIGAN(Pretrained):
-    HPARAMS_NEEDED = ["generator"]
-
     """
     A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
 
@@ -2320,6 +2319,8 @@ class HIFIGAN(Pretrained):
     >>>	# Running Vocoder (spectrogram-to-waveform)
     >>>	waveforms = hifi_gan.decode_batch(mel_output)
     """
+
+    HPARAMS_NEEDED = ["generator"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2374,4 +2375,5 @@ class HIFIGAN(Pretrained):
         return waveform.squeeze(0)
 
     def forward(self, spectrogram):
+        "Decodes the input spectrograms"
         return self.decode_batch(spectrogram)
