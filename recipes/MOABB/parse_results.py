@@ -92,7 +92,6 @@ def parse_one_session_out(
     for f in folds:
         child = sorted(f.iterdir())
         for sess in child:
-            print("------- \n", sess.joinpath(metric_file), " \n -------")
             metrics = load_metrics(sess.joinpath(metric_file))
             if metrics is not None:
                 for m in stat_metrics:
@@ -299,7 +298,6 @@ def aggregate_metrics(
 
 if __name__ == "__main__":
     stat_metrics = sys.argv[2:]
-    print(stat_metrics)
     temp = aggregate_metrics(
         verbose=1, metric_file="test_metrics.pkl", stat_metrics=stat_metrics
     )
