@@ -92,6 +92,7 @@ def parse_one_session_out(
     for f in folds:
         child = sorted(f.iterdir())
         for sess in child:
+            print("------- \n", sess.joinpath(metric_file), " \n -------")
             metrics = load_metrics(sess.joinpath(metric_file))
             if metrics is not None:
                 for m in stat_metrics:
@@ -242,6 +243,20 @@ def aggregate_single(
     return temp
 
 
+available_parsers = {
+    "leave-one-session-out": parse_one_session_out,
+    "cross-session": parse_cross_section,
+    "leave-one-subject-out": parse_one_sub_out,
+    "within-session": parse_within_session,
+}
+
+available_aggrs = {
+    "leave-one-session-out": aggregate_nested,
+    "within-session": aggregate_nested,
+    "leave-one-subject-out": aggregate_single,
+    "cross-session": aggregate_single,
+}
+
 def aggregate_metrics(
     verbose=1,
     metric_file="test_metrics.pkl",
@@ -256,27 +271,16 @@ def aggregate_metrics(
     results_folder = Path(sys.argv[1])
     vis_metrics = stat_metrics
 
+    available_paradigms = list(map(lambda x: x.stem, sorted(results_folder.iterdir())))
     overall_stat = {key: [] for key in stat_metrics}
 
-    parsers = {
-        "leave-one-session-out": parse_one_session_out,
-        "cross-session": parse_cross_section,
-        "leave-one-subject-out": parse_one_sub_out,
-        "within-session": parse_within_session,
-    }
-
-    aggr = {
-        "leave-one-session-out": aggregate_nested,
-        "within-session": aggregate_nested,
-        "leave-one-subject-out": aggregate_single,
-        "cross-session": aggregate_single,
-    }
+    parsers = {k : available_parsers[k] for k in available_paradigms}
+    aggr = {k : available_aggrs[k] for k in available_paradigms}
 
     for paradigm in sorted(results_folder.iterdir()):
         results = parsers[paradigm.name](
             paradigm,
             vis_metrics,
-            metric_file=metric_file,
             stat_metrics=stat_metrics,
         )
         temp = aggr[paradigm.name](
@@ -294,10 +298,10 @@ def aggregate_metrics(
 
 
 if __name__ == "__main__":
-    metric_file = sys.argv[2]
-    stat_metrics = sys.argv[3:]
+    stat_metrics = sys.argv[2:]
+    print(stat_metrics)
     temp = aggregate_metrics(
-        verbose=1, metric_file=metric_file, stat_metrics=stat_metrics
+        verbose=1, metric_file="test_metrics.pkl", stat_metrics=stat_metrics
     )
 
     print("\nAggregated results")
