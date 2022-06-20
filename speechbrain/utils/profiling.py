@@ -350,8 +350,7 @@ def profile(
     ...     return y.backward()  # y.backward() returns None --> return value is substituted with profiler
     >>> data = torch.randn((1, 1), requires_grad=True)
     >>> prof = run(data)
-    >>> [len(prof.events()), len(prof.key_averages()), prof.profiler.total_average().count]
-    [26, 16, 26]
+    >>> out = [len(prof.events()), len(prof.key_averages()), prof.profiler.total_average().count]
     """
     if func is None:  # return a profiler; not tested
         return prepare_profiler_for_brain(

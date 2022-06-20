@@ -30,13 +30,6 @@ def import_from_path(path):
     module
         The loaded module
 
-    >>> modulepath = getfixture("tmpdir") / "helloer.py"
-    >>> with open(modulepath, "w") as fo:
-    ...     _ = fo.write("def a():\n\treturn 'hello'")
-    >>> helloer = import_from_path(modulepath)
-    >>> helloer.a()
-    'hello'
-
     Implementation taken from:
     https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
     """
@@ -73,7 +66,7 @@ def run_shell(cmd):
     Example
     -------
     >>> out, err, code = run_shell("echo 'hello world'")
-    >>> out.decode(errors="ignore")
+    >>> _ = out.decode(errors="ignore")
     """
 
     # Executing the command
