@@ -24,7 +24,7 @@ def import_from_path(path):
     ---------
     path : str, pathlib.Path
         The path to the module to import
-    
+
     Returns
     -------
     module
