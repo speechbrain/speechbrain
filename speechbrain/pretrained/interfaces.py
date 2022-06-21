@@ -28,6 +28,84 @@ from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
 
 
+def foreign_class(
+    source,
+    hparams_file="hyperparams.yaml",
+    pymodule_file="custom.py",
+    classname="CustomInterface",
+    overrides={},
+    savedir=None,
+    use_auth_token=False,
+    **kwargs,
+):
+    """Fetch and load an interface from an outside source
+
+    The source can be a location on the filesystem or online/huggingface
+
+    The pymodule file should contain a class with the given classname. An
+    instance of that class is returned. The idea is to have a custom Pretrained
+    subclass in the file. The pymodule file is also added to the python path
+    before the Hyperparams YAML file is loaded, so it can contain any custom
+    implementations that are needed.
+
+    The hyperparams file should contain a "modules" key, which is a
+    dictionary of torch modules used for computation.
+
+    The hyperparams file should contain a "pretrainer" key, which is a
+    speechbrain.utils.parameter_transfer.Pretrainer
+
+    Arguments
+    ---------
+    source : str
+        The location to use for finding the model. See
+        ``speechbrain.pretrained.fetching.fetch`` for details.
+    hparams_file : str
+        The name of the hyperparameters file to use for constructing
+        the modules necessary for inference. Must contain two keys:
+        "modules" and "pretrainer", as described.
+    pymodule_file : str
+        The name of the Python file that should be fetched.
+    classname : str
+        The name of the Class, of which an instance is created and returned
+    overrides : dict
+        Any changes to make to the hparams file when it is loaded.
+    savedir : str or Path
+        Where to put the pretraining material. If not given, will use
+        ./pretrained_models/<class-name>-hash(source).
+    use_auth_token : bool (default: False)
+        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        default is False because majority of models are public.
+
+    Returns
+    -------
+    object
+        An instance of a class with the given classname from the given pymodule file.
+    """
+    if savedir is None:
+        savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
+    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
+    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+    sys.path.append(str(pymodule_local_path.parent))
+
+    # Load the modules:
+    with open(hparams_local_path) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
+
+    # Pretraining:
+    pretrainer = hparams["pretrainer"]
+    pretrainer.set_collect_in(savedir)
+    # For distributed setups, have this here:
+    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    # Load on the CPU. Later the params can be moved elsewhere by specifying
+    # run_opts={"device": ...}
+    pretrainer.load_collected(device="cpu")
+
+    # Import class and create instance
+    module = import_from_path(pymodule_local_path)
+    cls = getattr(module, classname)
+    return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
+
+
 class Pretrained(torch.nn.Module):
     """Takes a trained model and makes predictions on new data.
 
@@ -256,6 +334,20 @@ class Pretrained(torch.nn.Module):
         hparams_local_path = fetch(
             hparams_file, source, savedir, use_auth_token
         )
+        try:
+            pymodule_local_path = fetch(
+                pymodule_file, source, savedir, use_auth_token
+            )
+            sys.path.append(str(pymodule_local_path.parent))
+        except ValueError:
+            if pymodule_file == "custom.py":
+                # The optional custom Python module file did not exist
+                # and had the default name
+                pass
+            else:
+                # Custom Python module file not found, but some other
+                # filename than the default was given.
+                raise
 
         # Load the modules:
         with open(hparams_local_path) as fin:
