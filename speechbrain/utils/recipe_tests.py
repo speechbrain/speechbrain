@@ -7,6 +7,7 @@ import os
 import re
 import csv
 import subprocess as sp
+from hyperpyyaml import load_hyperpyyaml
 
 
 def check_row_for_test(row, filter_fields, filters, test_field):
@@ -355,7 +356,6 @@ def run_recipe_tests(
     ---------
     check: True
         True if all the recipe tests pass, False otherwise.
-
     """
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
@@ -416,4 +416,123 @@ def run_recipe_tests(
             check &= check_files(check_str, output_fold, recipe_id)
             check &= check_performance(check_str, output_fold, recipe_id)
 
+    return check
+
+
+def load_yaml_test(
+    recipe_csvfile="tests/recipes.csv",
+    script_field="Script_file",
+    hparam_field="Hparam_file",
+    test_field="Hparam_file",
+    filters_fields=[],
+    filters=[],
+    avoid_list=[
+        "templates/hyperparameter_optimization_speaker_id/train.yaml",
+        "templates/speaker_id/train.yaml",
+    ],
+    data_folder="yaml_check_folder",
+    output_folder="yaml_check_folder",
+):
+    """Tests if the yaml files can be loaded without errors.
+
+    Arguments
+    ---------
+    recipe_csvfile: path
+        Path of the csv recipe file summarizing all the recipes in the repo.
+    script_field: str
+        Field of the csv recipe file containing the path of the script to run.
+    hparam_field: str
+        Field of the csv recipe file containing the path of the hparam file.
+    test_field: string
+        Field of the csv recipe file containing the test flags.
+    filter_fields: list
+        This can be used with the "filter" variable
+        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        will only run tests for ASR recipes.
+    filters: list
+        See above.
+    avoid_list: list
+        List of hparam file not to check.
+    data_folder:
+        This overrides the data_folder usually specified in the hparam files.
+    output_folder:
+        This overrides the output_folder usually specified in the hparam files.
+
+    Returns
+    ---------
+    check: True
+        True if all the hparam files are loaded correctly, False otherwise.
+    """
+
+    # Get current working directory
+    cwd = os.getcwd()
+
+    # Set data_foler and output folder
+    data_folder = os.path.join(cwd, data_folder)
+    output_folder = os.path.join(cwd, output_folder)
+
+    # Additional overrides
+    add_overrides = {
+        "manual_annot_folder": data_folder,
+        "musan_folder": data_folder,
+        "tea_models_dir": data_folder,
+        "rir_path": data_folder,
+        "wsj_root": data_folder,
+        "tokenizer_file": data_folder,
+        "commonlanguage_folder": data_folder,
+        "tea_infer_dir": data_folder,
+        "original_data_folder": data_folder,
+        "pretrain_st_dir": data_folder,
+    }
+
+    # Read the csv recipe file and detect which tests we have to run
+    test_script, test_hparam, test_flag, test_check = prepare_test(
+        recipe_csvfile,
+        script_field,
+        hparam_field,
+        test_field=test_field,
+        filters_fields=filters_fields,
+        filters=filters,
+    )
+
+    check = True
+    for i, recipe_id in enumerate(test_script.keys()):
+        hparam_file = test_hparam[recipe_id]
+        script_file = test_script[recipe_id]
+
+        # Changing working folder to recipe folder
+        recipe_folder = os.path.dirname(script_file)
+        recipe_folder = os.path.join(cwd, recipe_folder)
+        os.chdir(recipe_folder)
+
+        # Avoid files lister in avoid_list
+        if hparam_file in avoid_list:
+            continue
+
+        print(
+            "(%i/%i) Checking %s..."
+            % (i + 1, len(test_script.keys()), hparam_file)
+        )
+
+        # Get absolute path to the hparam file
+        hparam_file = os.path.join(cwd, hparam_file)
+
+        # Load hyperparameters file with command-line overrides
+        overrides = {"data_folder": data_folder, "output_folder": output_folder}
+
+        # Append additional overrides when needed
+        with open(hparam_file) as f:
+            for line in f:
+                for key in add_overrides.keys():
+                    pattern = key + ":"
+                    if pattern in line and line.find(pattern) == 0:
+                        overrides.update({key: data_folder})
+
+        with open(hparam_file) as fin:
+            try:
+                _ = load_hyperpyyaml(fin, overrides)
+            except Exception as e:
+                print("\t" + str(e))
+                check = False
+                print("\tERROR: cannot load %s" % (hparam_file))
     return check
