@@ -119,20 +119,17 @@ def prepare_common_voice(
 
     # Additional checks to make sure the data folder contains Common Voice
     check_commonvoice_folders(data_folder)
-    
+
     # Creating csv files for {train, dev, test} data
     file_pairs = zip(
         [train_tsv_file, dev_tsv_file, test_tsv_file],
-        [save_csv_train, save_csv_dev, save_csv_test]
+        [save_csv_train, save_csv_dev, save_csv_test],
     )
     for tsv_file, save_csv in file_pairs:
         create_csv(
-            tsv_file,
-            save_csv,
-            data_folder,
-            accented_letters,
-            language,
+            tsv_file, save_csv, data_folder, accented_letters, language,
         )
+
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
