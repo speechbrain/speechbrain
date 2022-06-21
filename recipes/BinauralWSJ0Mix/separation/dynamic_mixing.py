@@ -66,8 +66,6 @@ def dynamic_mix_data_prep(hparams):
 
             noise, fs_read = torchaudio.load(noise_file[0])
             noise = noise.squeeze()
-            # gain = np.clip(random.normalvariate(1, 10), -4, 15)
-            # noise = rescale(noise, torch.tensor(len(noise)), gain, scale="dB").squeeze()
 
         # select two speakers randomly
         sources = []
@@ -97,7 +95,6 @@ def dynamic_mix_data_prep(hparams):
                 spk_file, frame_offset=start, num_frames=stop - start,
             )
 
-            # peak = float(Path(spk_file).stem.split("_peak_")[-1])
             tmp = tmp[0]  # * peak  # remove channel dim and normalize
 
             if i == 0:
@@ -110,7 +107,6 @@ def dynamic_mix_data_prep(hparams):
                     first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
                 )
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
-                # assert not torch.all(torch.isnan(tmp))
 
             tmp_bi = torch.FloatTensor(len(tmp), 2)  # binaural
             subject_path_list = glob.glob(
