@@ -113,7 +113,7 @@ def fetch(
         logger.info(MSG)
         url = huggingface_hub.hf_hub_url(source, filename)
         try:
-            fetched_file = huggingface_hub.cached_download(url, use_auth_token)
+            fetched_file = huggingface_hub.cached_download(url, use_auth_token=use_auth_token)
         except HTTPError as e:
             if e.response.status_code == 404:
                 raise ValueError("File not found on HF hub")
