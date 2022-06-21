@@ -5,9 +5,9 @@ from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
 
 class EnhanceResnet(torch.nn.Module):
     """Model for enhancement based on Wide ResNet.
-    
+
     Full model description at: https://arxiv.org/pdf/2112.06068.pdf
-    
+
     Arguments
     ---------
     n_fft : int
@@ -32,7 +32,7 @@ class EnhanceResnet(torch.nn.Module):
         Portion of layer outputs to drop during training (between 0 and 1).
     mask_weight : float
         Amount of weight to give mask. 0 - no masking, 1 - full masking.
-        
+
     Example
     -------
     >>> inputs = torch.rand([10, 16000])
@@ -41,6 +41,7 @@ class EnhanceResnet(torch.nn.Module):
     >>> outputs.shape
     torch.Size([10, 16000])
     """
+
     def __init__(
         self,
         n_fft=512,
@@ -130,7 +131,7 @@ class EnhanceResnet(torch.nn.Module):
 
 class ConvBlock(torch.nn.Module):
     """Convolution block, including squeeze-and-excitation.
-    
+
     Arguments
     ---------
     input_shape : tuple of ints
@@ -143,7 +144,7 @@ class ConvBlock(torch.nn.Module):
         Name of a class to use for constructing norm layers.
     dropout : float
         Portion of block outputs to drop during training.
-        
+
     Example
     -------
     >>> inputs = torch.rand([10, 20, 30, 128])
@@ -152,6 +153,7 @@ class ConvBlock(torch.nn.Module):
     >>> outputs.shape
     torch.Size([10, 10, 30, 256])
     """
+
     def __init__(
         self,
         input_shape,
@@ -196,14 +198,14 @@ class ConvBlock(torch.nn.Module):
 
 class SEblock(torch.nn.Module):
     """Squeeze-and-excitation block.
-    
+
     Defined: https://arxiv.org/abs/1709.01507
-    
+
     Arguments
     ---------
     input_size : tuple of ints
         Expected size of the input tensor
-        
+
     Example
     -------
     >>> inputs = torch.rand([10, 20, 30, 256])
@@ -212,6 +214,7 @@ class SEblock(torch.nn.Module):
     >>> outputs.shape
     torch.Size([10, 1, 1, 256])
     """
+
     def __init__(self, input_size):
         super().__init__()
         self.linear1 = sb.nnet.linear.Linear(
