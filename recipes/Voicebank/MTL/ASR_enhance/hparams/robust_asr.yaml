@@ -163,9 +163,6 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
 opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
     weight_decay: 0.00005
@@ -198,8 +195,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 enhance_loss: !name:speechbrain.nnet.losses.mse_loss
 mimic_loss: !name:speechbrain.nnet.losses.mse_loss
-ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
 seq_loss: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: !ref <label_smoothing>
 
