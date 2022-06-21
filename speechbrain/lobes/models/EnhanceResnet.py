@@ -42,9 +42,11 @@ class EnhanceResnet(torch.nn.Module):
     -------
     >>> inputs = torch.rand([10, 16000])
     >>> model = EnhanceResnet()
-    >>> outputs = model(inputs)
+    >>> outputs, feats = model(inputs)
     >>> outputs.shape
     torch.Size([10, 16000])
+    >>> feats.shape
+    torch.Size([10, 15872])
     """
 
     def __init__(
@@ -157,7 +159,7 @@ class ConvBlock(torch.nn.Module):
     >>> block = ConvBlock(input_shape=inputs.shape, channels=256)
     >>> outputs = block(inputs)
     >>> outputs.shape
-    torch.Size([10, 10, 30, 256])
+    torch.Size([10, 20, 15, 256])
     """
 
     def __init__(
