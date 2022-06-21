@@ -77,7 +77,10 @@ class ASR(sb.core.Brain):
         src = self.modules.CNN(feats)
 
         enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
+            src,
+            tokens_bos,
+            wav_lens,
+            pad_idx=self.hparams.pad_index,
         )
 
         # output layer for ctc log-probabilities
@@ -107,7 +110,12 @@ class ASR(sb.core.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        (p_ctc, p_seq, wav_lens, hyps,) = predictions
+        (
+            p_ctc,
+            p_seq,
+            wav_lens,
+            hyps,
+        ) = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -132,15 +140,15 @@ class ASR(sb.core.Brain):
         ).sum()
 
         loss = (
-                self.hparams.ctc_weight * loss_ctc
-                + (1 - self.hparams.ctc_weight) * loss_seq
+            self.hparams.ctc_weight * loss_ctc
+            + (1 - self.hparams.ctc_weight) * loss_seq
         )
 
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
             if current_epoch % valid_search_interval == 0 or (
-                    stage == sb.Stage.TEST
+                stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
                 predicted_words = [
@@ -211,8 +219,8 @@ class ASR(sb.core.Brain):
             current_epoch = self.hparams.epoch_counter.current
             valid_search_interval = self.hparams.valid_search_interval
             if (
-                    current_epoch % valid_search_interval == 0
-                    or stage == sb.Stage.TEST
+                current_epoch % valid_search_interval == 0
+                or stage == sb.Stage.TEST
             ):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
@@ -278,7 +286,8 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -288,9 +297,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="length", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="length", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -302,7 +309,8 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="length")
 
@@ -343,7 +351,8 @@ def dataio_prepare(hparams):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -377,7 +386,8 @@ def dataio_prepare(hparams):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -394,7 +404,9 @@ def dataio_prepare(hparams):
             speed = sb.processing.speech_augmentation.SpeedPerturb(
                 16000, [x for x in range(95, 105)]
             )
-            resampled = speed(resampled.unsqueeze(0)).squeeze(0)  # torch.from_numpy(sig)
+            resampled = speed(resampled.unsqueeze(0)).squeeze(
+                0
+            )  # torch.from_numpy(sig)
         return resampled
 
     sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline_train)
@@ -419,7 +431,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "words", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "words", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     return (
@@ -460,7 +473,7 @@ if __name__ == "__main__":
             "split_ratio": hparams["split_ratio"],
             "skip_prep": hparams["skip_prep"],
             "add_fisher_corpus": hparams["add_fisher_corpus"],
-            "max_utt": hparams["max_utt"]
+            "max_utt": hparams["max_utt"],
         },
     )
 

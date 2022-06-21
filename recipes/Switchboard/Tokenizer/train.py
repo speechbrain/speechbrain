@@ -51,7 +51,7 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
             "add_fisher_corpus": hparams["add_fisher_corpus"],
             "split_ratio": hparams["split_ratio"],
-            "max_utt": hparams["max_utt"]
+            "max_utt": hparams["max_utt"],
         },
     )
 

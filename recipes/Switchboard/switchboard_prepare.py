@@ -15,7 +15,7 @@ The test data is available at:
 
 Author
 ------
-Dominik Wagner, 2022
+Dominik Wagner 2022
 """
 
 import re
@@ -33,16 +33,17 @@ logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 SAMPLERATE = 8000
 
+
 def prepare_switchboard(
-    data_folder,
-    save_folder,
-    splits=["train", "dev"],
-    split_ratio=[90, 10],
-    merge_lst=[],
-    merge_name=None,
-    skip_prep=False,
-    add_fisher_corpus=False,
-    max_utt=300
+        data_folder,
+        save_folder,
+        splits=["train", "dev"],
+        split_ratio=[90, 10],
+        merge_lst=[],
+        merge_name=None,
+        skip_prep=False,
+        add_fisher_corpus=False,
+        max_utt=300,
 ):
     """
     Main function for Switchboard data preparation.
@@ -103,15 +104,12 @@ def prepare_switchboard(
     if skip(*filenames):
         logger.info("Preparation completed in previous run, skipping.")
         return
-    
+
     train_data_folder = os.path.join(data_folder, "LDC97S62")
     for d in ["docs", "swb1_d1", "swb1_d2", "swb1_d3", "swb1_d4"]:
         swbd_folder = os.path.join(train_data_folder, d)
         if not os.path.exists(swbd_folder):
-            err_msg = (
-                    "the folder %s does not exist (it is expected in the "
-                    "Switchboard dataset)" % swbd_folder
-            )
+            err_msg = f"The folder {swbd_folder} does not exist (it is expected in the Switchboard dataset)"
             raise OSError(err_msg)
 
     if not os.path.exists(save_folder):
@@ -122,27 +120,37 @@ def prepare_switchboard(
         logger.info(f"Download transcriptions and store them in {save_folder}")
 
         download_source = "http://www.openslr.org/resources/5/switchboard_word_alignments.tar.gz"
-        download_target = os.path.join(save_folder, "switchboard_word_alignments.tar.gz")
+        download_target = os.path.join(
+            save_folder, "switchboard_word_alignments.tar.gz"
+        )
         download_file(download_source, download_target, unpack=True)
     else:
-        logger.info(f"Skipping download of transcriptions because {transcription_dir} already exists.")
+        logger.info(
+            f"Skipping download of transcriptions because {transcription_dir} already exists."
+        )
 
     assert len(splits) == len(split_ratio)
     if sum(split_ratio) != 100 and sum(split_ratio) != 1:
-        logger.error("Implausible split ratios! Make sure they equal to 1 (or 100).")
+        logger.error(
+            "Implausible split ratios! Make sure they equal to 1 (or 100)."
+        )
         sys.exit(1)
     if sum(split_ratio) == 100:
         split_ratio = [i / 100 for i in split_ratio]
 
     # collect all files containing transcriptions
     transcript_files = get_all_files(
-        os.path.join(save_folder, "swb_ms98_transcriptions"), match_and=["trans.text"]
+        os.path.join(save_folder, "swb_ms98_transcriptions"),
+        match_and=["trans.text"],
     )
-    split_lens = [int(i*len(transcript_files)) for i in split_ratio]
+    split_lens = [int(i * len(transcript_files)) for i in split_ratio]
 
-    name2disk = make_name_to_disk_dict(os.path.join(train_data_folder,
-                                                    "docs/swb1_all.dvd.tbl"))
-    logger.info(f"Made name2disk mapping dict containing {len(name2disk)} conversations.")
+    name2disk = make_name_to_disk_dict(
+        os.path.join(train_data_folder, "docs/swb1_all.dvd.tbl")
+    )
+    logger.info(
+        f"Made name2disk mapping dict containing {len(name2disk)} conversations."
+    )
 
     start = 0
     stop = 0
@@ -152,20 +160,32 @@ def prepare_switchboard(
     for i, split in enumerate(splits):
         stop += split_lens[i]
         transcript_files_split = transcript_files[start:stop]
-        logger.info(f"Preparing data for {split} split. "
-                    f"Split will contain {len(transcript_files_split)} "
-                    f"conversations separated by channel.")
+        logger.info(
+            f"Preparing data for {split} split. "
+            f"Split will contain {len(transcript_files_split)} "
+            f"conversations separated by channel."
+        )
 
         start += split_lens[i]
 
         # Keep track of the number of times each utterance appears
         utt2count = defaultdict(int)
 
-        csv_lines = [["ID", "length", "start", "stop", "channel",
-                      "wav", "words", "spk_id"]]
+        csv_lines = [
+            [
+                "ID",
+                "length",
+                "start",
+                "stop",
+                "channel",
+                "wav",
+                "words",
+                "spk_id",
+            ]
+        ]
         # Open each transcription file and extract information
         for filename in transcript_files_split:
-           with open(filename) as file:
+            with open(filename) as file:
                 for line in file:
                     str_split = line.split()
                     id = str_split[0].strip()
@@ -175,7 +195,9 @@ def prepare_switchboard(
                     wav_name = wav_name.replace(wav_name[0:2], "sw0")
                     disk = name2disk[wav_name]
 
-                    wav_path = os.path.join(train_data_folder, disk, "data", wav_name)
+                    wav_path = os.path.join(
+                        train_data_folder, disk, "data", wav_name
+                    )
                     # We want the segment start and end times in samples,
                     # so we can slice the segment from the tensor
                     seg_start = int(float(str_split[1].strip()) * SAMPLERATE)
@@ -183,16 +205,25 @@ def prepare_switchboard(
                     audio_duration = (seg_end - seg_start) / SAMPLERATE
 
                     transcription = " ".join(str_split[3:])
-                    cleaned_transcription = filter_text(transcription, dataset="train")
+                    cleaned_transcription = filter_text(
+                        transcription, dataset="train"
+                    )
 
                     # Skip empty transcriptions
                     if len(cleaned_transcription) > 0:
 
-                        csv_lines.append([id, audio_duration,
-                                          seg_start, seg_end,
-                                          channel, wav_path,
-                                          cleaned_transcription, spk_id]
-                                         )
+                        csv_lines.append(
+                            [
+                                id,
+                                audio_duration,
+                                seg_start,
+                                seg_end,
+                                channel,
+                                wav_path,
+                                cleaned_transcription,
+                                spk_id,
+                            ]
+                        )
 
                         # We store the lines from the first split
                         # (assuming this is the training data) in a separate list
@@ -221,7 +252,9 @@ def prepare_switchboard(
     if merge_lst and merge_name is not None:
         merge_files = [split_swbd + ".csv" for split_swbd in merge_lst]
         merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+            data_folder=save_folder,
+            csv_lst=merge_files,
+            merged_csv=merge_name,
         )
 
     eval2000_data_prep(data_folder, save_folder)
@@ -307,38 +340,38 @@ def filter_text(transcription: str, dataset="train"):
 
     if dataset == "train":
         transcription = transcription.upper().strip()
-        transcription = re.sub("\[.*?\]", "", transcription)
-        transcription = re.sub("\{.*?\}", "", transcription)
-        transcription = re.sub("\(.*?\)", "", transcription)
-        transcription = re.sub("<.*?>", "", transcription)
-        transcription = re.sub("_[0-9]+", "", transcription)
+        transcription = re.sub(r"\[.*?\]", "", transcription)
+        transcription = re.sub(r"\{.*?\}", "", transcription)
+        transcription = re.sub(r"\(.*?\)", "", transcription)
+        transcription = re.sub(r"<.*?>", "", transcription)
+        transcription = re.sub(r"_[0-9]+", "", transcription)
         transcription = transcription.replace("-", "")
     elif dataset in ["eval2000", "hub5", "test"]:
-        transcription = re.sub("<.*?>", "", transcription)
-        transcription = re.sub("\(%HESITATION\)", "", transcription)
+        transcription = re.sub(r"<.*?>", "", transcription)
+        transcription = re.sub(r"\(%HESITATION\)", "", transcription)
         # Remove everything within (), except when the - character occurs
         # We do this, so we can still extract partially uttered words
-        transcription = re.sub("[^-]\(.*?\)", "", transcription)
+        transcription = re.sub(r"[^-]\(.*?\)", "", transcription)
         # Only remove ( and ) around partially uttered word
-        transcription = re.sub("\)", "", transcription)
-        transcription = re.sub("\(", "", transcription)
-        transcription = re.sub("-", "", transcription)
+        transcription = re.sub(r"\)", "", transcription)
+        transcription = re.sub(r"\(", "", transcription)
+        transcription = re.sub(r"-", "", transcription)
         transcription = transcription.upper()
     elif dataset == "fisher":
         transcription = transcription.upper().strip()
-        transcription = re.sub("\)", "", transcription)
-        transcription = re.sub("\(", "", transcription)
-        transcription = re.sub("\[.*?\]", "", transcription)
-        transcription = re.sub("\{.*?\}", "", transcription)
-        transcription = re.sub("<.*?>", "", transcription)
-        transcription = re.sub("\._", "", transcription)
-        transcription = re.sub("-", "", transcription)
-        transcription = re.sub("\.", "", transcription)
+        transcription = re.sub(r"\)", "", transcription)
+        transcription = re.sub(r"\(", "", transcription)
+        transcription = re.sub(r"\[.*?\]", "", transcription)
+        transcription = re.sub(r"\{.*?\}", "", transcription)
+        transcription = re.sub(r"<.*?>", "", transcription)
+        transcription = re.sub(r"\._", "", transcription)
+        transcription = re.sub(r"-", "", transcription)
+        transcription = re.sub(r"\.", "", transcription)
     else:
         raise NameError(f"Invalid dataset descriptor '{dataset}' supplied.")
 
     # Remove redundant whitespaces
-    transcription = re.sub("\s\s+", " ", transcription)
+    transcription = re.sub(r"\s\s+", " ", transcription)
     return transcription.strip()
 
 
@@ -388,25 +421,27 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
         The directory to store the csv files at.
     """
 
-    logger.info(f"Begin preparing the eval2000 Hub5 English test set "
-                f"and transcripts (LDC2002S09 and LDC2002T43)")
+    logger.info(
+        "Begin preparing the eval2000 Hub5 English test set and transcripts (LDC2002S09 and LDC2002T43)"
+    )
 
     audio_folder = os.path.join(data_folder, "LDC2002S09/hub5e_00/english")
-    transcription_file = os.path.join(data_folder,
-                                        "LDC2002T43/2000_hub5_eng_eval_tr/reference/hub5e00.english.000405.stm")
+    transcription_file = os.path.join(
+        data_folder,
+        "LDC2002T43/2000_hub5_eng_eval_tr/reference/hub5e00.english.000405.stm",
+    )
 
     for d in [audio_folder, transcription_file]:
         if not os.path.exists(d):
-            err_msg = (
-                    "The folder %s does not exist (it is expected to "
-                    "prepare the eval2000/hub5 test set)" % d
-            )
+            err_msg = f"The folder {d} does not exist (it is expected to prepare the eval2000/hub5 test set)"
             raise OSError(err_msg)
 
-    csv_lines_callhome = [["ID", "length", "start", "stop", "channel",
-                           "wav", "words", "spk_id"]]
-    csv_lines_swbd = [["ID", "length", "start", "stop", "channel",
-                           "wav", "words", "spk_id"]]
+    csv_lines_callhome = [
+        ["ID", "length", "start", "stop", "channel", "wav", "words", "spk_id"]
+    ]
+    csv_lines_swbd = [
+        ["ID", "length", "start", "stop", "channel", "wav", "words", "spk_id"]
+    ]
 
     with open(transcription_file) as file:
         utt_count = 0
@@ -439,19 +474,31 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
                 seg_start = int(float(str_split[3].strip()) * SAMPLERATE)
                 seg_end = int(float(str_split[4].strip()) * SAMPLERATE)
             except ValueError:
-                logger.error(f"Unable to determine start and end time of segment. "
-                             f"This should not happen! Split in "
-                             f"question was: {str_split}")
+                logger.error(
+                    f"Unable to determine start and end time of segment. "
+                    f"This should not happen! Split in "
+                    f"question was: {str_split}"
+                )
 
             audio_duration = (seg_end - seg_start) / SAMPLERATE
 
             transcription = " ".join(str_split[6:])
-            cleaned_transcription = filter_text(transcription, dataset="eval2000")
+            cleaned_transcription = filter_text(
+                transcription, dataset="eval2000"
+            )
 
             # Skip empty transcriptions
             if len(cleaned_transcription) > 0:
-                utt_line = [id, audio_duration, seg_start, seg_end,
-                            channel, wav_path, cleaned_transcription, spk_id]
+                utt_line = [
+                    id,
+                    audio_duration,
+                    seg_start,
+                    seg_end,
+                    channel,
+                    wav_path,
+                    cleaned_transcription,
+                    spk_id,
+                ]
                 if is_swbd:
                     csv_lines_swbd.append(utt_line)
                 else:
@@ -459,7 +506,10 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
             utt_count += 1
 
     merge_files = []
-    for name, lines in [("swbd", csv_lines_swbd), ("callhome", csv_lines_callhome)]:
+    for name, lines in [
+        ("swbd", csv_lines_swbd),
+        ("callhome", csv_lines_callhome),
+    ]:
         filename = f"test_{name}.csv"
         csv_file = os.path.join(save_folder, filename)
         logger.info(f"Creating csv file {csv_file}")
@@ -473,7 +523,9 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
                 csv_writer.writerow(line)
 
         merge_files.append(filename)
-    merge_csvs(data_folder=save_folder, csv_lst=merge_files, merged_csv="test.csv")
+    merge_csvs(
+        data_folder=save_folder, csv_lst=merge_files, merged_csv="test.csv"
+    )
 
 
 def fisher_data_prep(data_folder: str, save_folder: str):
@@ -488,19 +540,19 @@ def fisher_data_prep(data_folder: str, save_folder: str):
         Path to the folder where the Fisher data is located.
     """
 
-    logger.info(f"Begin preparing the Fisher corpus transcripts "
-                f"(LDC2002S09 and LDC2002T43)")
+    logger.info(
+        "Begin preparing the Fisher corpus transcripts (LDC2002S09 and LDC2002T43)"
+    )
 
-    fisher_dirs = ["LDC2004T19/fe_03_p1_tran/data/trans",
-                   "LDC2005T19/fe_03_p2_tran/data/trans"]
+    fisher_dirs = [
+        "LDC2004T19/fe_03_p1_tran/data/trans",
+        "LDC2005T19/fe_03_p2_tran/data/trans",
+    ]
 
     for fisher_dir in fisher_dirs:
         joined_path = os.path.join(data_folder, fisher_dir)
         if not os.path.exists(joined_path):
-            err_msg = (
-                    "the folder %s does not exist (it is expected to prepare the "
-                    "Fisher corpus)" % joined_path
-            )
+            err_msg = f"The folder {joined_path} does not exist (it is expected to prepare the Fisher corpus)"
             raise OSError(err_msg)
 
     csv_lines = [["ID", "words"]]
@@ -523,7 +575,9 @@ def fisher_data_prep(data_folder: str, save_folder: str):
                     id = "fisher-" + str(utt_count)
                     transcription = line.split()[3:]
                     transcription = " ".join(transcription)
-                    transcription_clean = filter_text(transcription, dataset="fisher")
+                    transcription_clean = filter_text(
+                        transcription, dataset="fisher"
+                    )
 
                     # Skip empty transcriptions
                     if len(transcription_clean) > 0:
@@ -533,8 +587,10 @@ def fisher_data_prep(data_folder: str, save_folder: str):
             num_files_processed += 1
         num_dirs_processed += 1
 
-    logger.info(f"Fisher corpus: Processed {num_files_processed} files in "
-                f"{num_dirs_processed} directories.")
+    logger.info(
+        f"Fisher corpus: Processed {num_files_processed} files in "
+        f"{num_dirs_processed} directories."
+    )
 
     csv_file = os.path.join(save_folder, "fisher.csv")
     logger.info(f"Creating csv file {csv_file}")
@@ -549,7 +605,7 @@ def fisher_data_prep(data_folder: str, save_folder: str):
     return csv_lines
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     data_folder = "/nfs/data/ldc"
     save_folder = "swbd_data"
     prepare_switchboard(
@@ -560,13 +616,5 @@ if __name__ == '__main__':
         merge_lst=[],
         merge_name=None,
         skip_prep=False,
-        add_fisher_corpus=True
+        add_fisher_corpus=True,
     )
-
-
-
-
-
-
-
-

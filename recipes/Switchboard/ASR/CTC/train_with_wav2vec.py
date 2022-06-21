@@ -24,7 +24,7 @@ With the default hyperparameters, the system employs a pretrained wav2vec2 encod
 The wav2vec2 model is pretrained following the model given in the hparams file.
 
 The neural network is trained with CTC on sub-word units (based on e.g. Byte Pairwise Encoding or a unigram language
-model). 
+model).
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -177,7 +177,8 @@ class ASR(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -217,7 +218,8 @@ def dataio_prepare(hparams, tokenizer):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -244,7 +246,8 @@ def dataio_prepare(hparams, tokenizer):
             "sorting must be random, ascending or descending"
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="length")
@@ -263,7 +266,6 @@ def dataio_prepare(hparams, tokenizer):
             sort_key="length"
         )
     datasets = [train_data, valid_data] + [i for _, i in test_datasets.items()]
-
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "channel", "start", "stop")
@@ -284,7 +286,8 @@ def dataio_prepare(hparams, tokenizer):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -316,7 +319,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets
 
@@ -352,7 +356,7 @@ if __name__ == "__main__":
             "split_ratio": hparams["split_ratio"],
             "skip_prep": hparams["skip_prep"],
             "add_fisher_corpus": hparams["add_fisher_corpus"],
-            "max_utt": hparams["max_utt"]
+            "max_utt": hparams["max_utt"],
         },
     )
 
@@ -395,6 +399,6 @@ if __name__ == "__main__":
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_options"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_dataloader_options"],
         )
-
