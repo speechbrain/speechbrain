@@ -42,11 +42,11 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepF
 |NoAugment | 17.6 |
 |DynamicMixing | 19.8 |
 
-| | RE-SepFormer, WSJ0-2Mix | |
+| | RE-SepFormer, WSJ0-2Mix |
 | --- | --- |
 |DynamicMixing | 18.6 |
 
-| | SkiM, WSJ0-2Mix ||
+| | SkiM, WSJ0-2Mix |
 | --- | --- |
 |DynamicMixing | 18.1 |
 
