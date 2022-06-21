@@ -1,3 +1,8 @@
+"""Wide ResNet for Speech Enhancement.
+
+Author
+ * Peter Plantinga 2022
+"""
 import torch
 import speechbrain as sb
 from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
@@ -105,6 +110,7 @@ class EnhanceResnet(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Processes the input tensor and outputs the enhanced speech."""
 
         # Generate features
         noisy_spec = self.stft(x)
@@ -183,6 +189,7 @@ class ConvBlock(torch.nn.Module):
         self.se_block = SEblock(input_size=channels)
 
     def forward(self, x):
+        """Processes the input tensor with a convolutional block."""
         x = self.downsample(x)
         residual = self.activation(x)
         residual = self.norm1(residual)
@@ -225,6 +232,7 @@ class SEblock(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Processes the input tensor with a speech enhancement block."""
         x = torch.mean(x, dim=(1, 2), keepdim=True)
         x = self.linear1(x)
         x = torch.nn.functional.relu(x)
