@@ -71,10 +71,16 @@ phonemes_enable_space: True
 # Neural Parameters
 lexicon_epochs: 50
 lexicon_ctc_epochs: 10
+lexicon_limit_to_stop: !ref <lexicon_epochs> # No stopping by default, can override
+lexicon_limit_warmup: !ref <lexicon_epochs> # No stopping by default, can override
 sentence_epochs: 20
 sentence_ctc_epochs: 10
+sentence_limit_to_stop: 3
+sentence_limit_warmup: 3
 homograph_epochs: 20
 homograph_ctc_epochs: 10
+homograph_limit_to_stop: 5
+homograph_limit_warmup: 10
 lexicon_batch_size: 128
 sentence_batch_size: 32
 homograph_batch_size: 32
@@ -452,14 +458,20 @@ per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 per_stats_homograph: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 
-lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
     limit: !ref <lexicon_epochs>
+    limit_to_stop: !ref <lexicon_limit_to_stop>
+    limit_warmup: !ref <lexicon_limit_warmup>
 
-sentence_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+sentence_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
     limit: !ref <sentence_epochs>
+    limit_to_stop: !ref <sentence_limit_to_stop>
+    limit_warmup: !ref <sentence_limit_warmup>
 
-homograph_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+homograph_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
     limit: !ref <homograph_epochs>
+    limit_to_stop: !ref <homograph_limit_to_stop>
+    limit_warmup: !ref <homograph_limit_warmup>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
