@@ -4,6 +4,43 @@ from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
 
 
 class EnhanceResnet(torch.nn.Module):
+    """Model for enhancement based on Wide ResNet.
+    
+    Full model description at: https://arxiv.org/pdf/2112.06068.pdf
+    
+    Arguments
+    ---------
+    n_fft : int
+        Number of points in the fourier transform, see ``speechbrain.processing.features.STFT``
+    win_length : int
+        Length of stft window in ms, see ``speechbrain.processing.features.STFT``
+    hop_length : int
+        Time between windows in ms, see ``speechbrain.processing.features.STFT``
+    sample_rate : int
+        Number of samples per second of input audio.
+    channel_counts : list of ints
+        Number of output channels in each CNN block. Determines number of blocks.
+    dense_count : int
+        Number of dense layers.
+    dense_nodes : int
+        Number of nodes in the dense layers.
+    activation : function
+        Function to apply before convolution layers.
+    normalization : class
+        Name of class to use for constructing norm layers.
+    dropout : float
+        Portion of layer outputs to drop during training (between 0 and 1).
+    mask_weight : float
+        Amount of weight to give mask. 0 - no masking, 1 - full masking.
+        
+    Example
+    -------
+    >>> inputs = torch.rand([10, 16000])
+    >>> model = EnhanceResnet()
+    >>> outputs = model(inputs)
+    >>> outputs.shape
+    torch.Size([10, 16000])
+    """
     def __init__(
         self,
         n_fft=512,
@@ -13,7 +50,7 @@ class EnhanceResnet(torch.nn.Module):
         channel_counts=[128, 128, 256, 256, 512, 512],
         dense_count=2,
         dense_nodes=1024,
-        activation=torch.nn.GELU,
+        activation=torch.nn.GELU(),
         normalization=sb.nnet.normalization.BatchNorm2d,
         dropout=0.1,
         mask_weight=0.99,
@@ -92,6 +129,29 @@ class EnhanceResnet(torch.nn.Module):
 
 
 class ConvBlock(torch.nn.Module):
+    """Convolution block, including squeeze-and-excitation.
+    
+    Arguments
+    ---------
+    input_shape : tuple of ints
+        The expected size of the inputs.
+    channels : int
+        Number of output channels.
+    activation : function
+        Function applied before each block.
+    normalization : class
+        Name of a class to use for constructing norm layers.
+    dropout : float
+        Portion of block outputs to drop during training.
+        
+    Example
+    -------
+    >>> inputs = torch.rand([10, 20, 30, 128])
+    >>> block = ConvBlock(input_shape=inputs.shape, channels=256)
+    >>> outputs = block(inputs)
+    >>> outputs.shape
+    torch.Size([10, 10, 30, 256])
+    """
     def __init__(
         self,
         input_shape,
@@ -135,6 +195,23 @@ class ConvBlock(torch.nn.Module):
 
 
 class SEblock(torch.nn.Module):
+    """Squeeze-and-excitation block.
+    
+    Defined: https://arxiv.org/abs/1709.01507
+    
+    Arguments
+    ---------
+    input_size : tuple of ints
+        Expected size of the input tensor
+        
+    Example
+    -------
+    >>> inputs = torch.rand([10, 20, 30, 256])
+    >>> se_block = SEblock(input_size=inputs.shape)
+    >>> outputs = se_block(inputs)
+    >>> outputs.shape
+    torch.Size([10, 1, 1, 256])
+    """
     def __init__(self, input_size):
         super().__init__()
         self.linear1 = sb.nnet.linear.Linear(
