@@ -115,31 +115,14 @@ def fetch(
             fetched_file = huggingface_hub.hf_hub_download(
                 repo_id=source, filename=filename, use_auth_token=use_auth_token
             )
-        except EntryNotFoundError as e:  # This is for huggingface_hub >= 0.8.0
+        except HTTPError as e:
             if "404 Client Error" in str(e):
                 raise ValueError("File not found on HF hub")
             else:
                 raise
-        except HTTPError as e:  # This is for huggingface_hub < 0.8.0
-            if e.response.status_code == 404:
-                raise ValueError("File not found on HF hub")
 
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
         _missing_ok_unlink(destination)
         destination.symlink_to(sourcepath)
     return destination
-
-
-# From HuggingFace
-class EntryNotFoundError(HTTPError):
-    """
-    Raised when trying to access a hf.co URL with a valid repository and revision
-    but an invalid filename.
-    Example:
-    ```py
-    >>> from huggingface_hub import hf_hub_download
-    >>> hf_hub_download('bert-base-cased', '<non-existant-file>')
-    huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error: Entry Not Found for url: <url>
-    ```
-    """
