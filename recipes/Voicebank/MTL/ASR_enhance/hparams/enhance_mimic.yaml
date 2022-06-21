@@ -67,17 +67,11 @@ output_neurons: 42
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
-enhance_model: !new:speechbrain.lobes.models.EnhanceResnet.EnhanceResnet
+enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
     sample_rate: !ref <sample_rate>
-    channel_counts: [128, 128, 256, 256, 512, 512]
-    normalization: !name:speechbrain.nnet.normalization.BatchNorm2d
-    activation: !new:torch.nn.GELU
-    dense_count: 2
-    dense_nodes: 1024
-    dropout: 0.1
     mask_weight: !ref <mask_weight>
 
 perceptual_model: !include:models/perceptual_model.yaml
@@ -98,13 +92,13 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 modules:
-    enhance_model: !ref <enhance_model>
+    enhance_model: !ref <enhance_model[enhance_model]>
     src_embedding: !ref <perceptual_model[src_embedding]>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        enhance_model: !ref <enhance_model>
+        enhance_model: !ref <enhance_model[enhance_model]>
         counter: !ref <epoch_counter>
 
 enhance_loss: !name:speechbrain.nnet.losses.l1_loss

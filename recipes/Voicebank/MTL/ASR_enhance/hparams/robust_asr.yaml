@@ -89,13 +89,6 @@ temperature_lm: 1.25
 enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
 
-enhance_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        enhance_model: !ref <enhance_model[enhance_model]>
-    paths:
-        enhance_model: !ref <pretrained_enhance_path>/enhance_model.ckpt
-
 normalizer: !new:speechbrain.processing.features.InputNormalization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -115,11 +108,13 @@ model: !new:torch.nn.ModuleList
 asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
+        enhance_model: !ref <enhance_model[enhance_model]>
         normalizer: !ref <normalizer>
         tokenizer: !ref <tokenizer>
         asr_model: !ref <model>
         lm: !ref <asr_model[lm_model]>
     paths:
+        enhance_model: !ref <pretrained_enhance_path>/enhance_model.ckpt
         normalizer: !ref <pretrained_asr_path>/normalizer.ckpt
         tokenizer: !ref <pretrained_asr_path>/tokenizer.ckpt
         asr_model: !ref <pretrained_asr_path>/asr.ckpt
