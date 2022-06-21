@@ -104,6 +104,7 @@ class SpecAugment(torch.nn.Module):
         self.replace_with_zero = replace_with_zero
 
     def forward(self, x):
+        """Takes in input a tensors and returns an augmented one."""
         if self.apply_time_warp:
             x = self.time_warp(x)
         if self.freq_mask:

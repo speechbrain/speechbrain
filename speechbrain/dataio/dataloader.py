@@ -323,6 +323,7 @@ class LoopedLoader:
 
     @mark_as_saver
     def save(self, path):
+        """Saves the needed information."""
         with open(path, "w") as fo:
             print(self.step, file=fo)
             print(self.total_steps, file=fo)
@@ -330,6 +331,7 @@ class LoopedLoader:
 
     @mark_as_loader
     def load(self, path, end_of_epoch=True, device=None):
+        """Loads the needed information."""
         del device  # Unused here
         with open(path) as fi:
             self.step = int(fi.readline().strip())

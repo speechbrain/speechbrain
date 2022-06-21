@@ -1,3 +1,8 @@
+"""Wide ResNet for Speech Enhancement.
+
+Author
+ * Peter Plantinga 2022
+"""
 import torch
 import speechbrain as sb
 from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
@@ -37,9 +42,11 @@ class EnhanceResnet(torch.nn.Module):
     -------
     >>> inputs = torch.rand([10, 16000])
     >>> model = EnhanceResnet()
-    >>> outputs = model(inputs)
+    >>> outputs, feats = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 16000])
+    torch.Size([10, 15872])
+    >>> feats.shape
+    torch.Size([10, 63, 257])
     """
 
     def __init__(
@@ -105,6 +112,7 @@ class EnhanceResnet(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Processes the input tensor and outputs the enhanced speech."""
 
         # Generate features
         noisy_spec = self.stft(x)
@@ -151,7 +159,7 @@ class ConvBlock(torch.nn.Module):
     >>> block = ConvBlock(input_shape=inputs.shape, channels=256)
     >>> outputs = block(inputs)
     >>> outputs.shape
-    torch.Size([10, 10, 30, 256])
+    torch.Size([10, 20, 15, 256])
     """
 
     def __init__(
@@ -183,6 +191,7 @@ class ConvBlock(torch.nn.Module):
         self.se_block = SEblock(input_size=channels)
 
     def forward(self, x):
+        """Processes the input tensor with a convolutional block."""
         x = self.downsample(x)
         residual = self.activation(x)
         residual = self.norm1(residual)
@@ -209,7 +218,7 @@ class SEblock(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.rand([10, 20, 30, 256])
-    >>> se_block = SEblock(input_size=inputs.shape)
+    >>> se_block = SEblock(input_size=inputs.shape[-1])
     >>> outputs = se_block(inputs)
     >>> outputs.shape
     torch.Size([10, 1, 1, 256])
@@ -225,6 +234,7 @@ class SEblock(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Processes the input tensor with a speech enhancement block."""
         x = torch.mean(x, dim=(1, 2), keepdim=True)
         x = self.linear1(x)
         x = torch.nn.functional.relu(x)

@@ -68,6 +68,7 @@ def hpopt_mode(mode):
     """
 
     def f(cls):
+        """"Call the function that registers and returns the reporter class"""
         _hpopt_modes[mode] = cls
         return cls
 

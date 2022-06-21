@@ -156,6 +156,7 @@ class ConvBlock(torch.nn.Module):
             self.drop = torch.nn.Dropout(dropout)
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         out = self.convs(x)
         if self.reduce_conv:
             out = out + self.reduce_conv(x)
