@@ -44,9 +44,9 @@ class EnhanceResnet(torch.nn.Module):
     >>> model = EnhanceResnet()
     >>> outputs, feats = model(inputs)
     >>> outputs.shape
-    torch.Size([10, 16000])
-    >>> feats.shape
     torch.Size([10, 15872])
+    >>> feats.shape
+    torch.Size([10, 63, 257])
     """
 
     def __init__(
@@ -218,7 +218,7 @@ class SEblock(torch.nn.Module):
     Example
     -------
     >>> inputs = torch.rand([10, 20, 30, 256])
-    >>> se_block = SEblock(input_size=inputs.shape)
+    >>> se_block = SEblock(input_size=inputs.shape[-1])
     >>> outputs = se_block(inputs)
     >>> outputs.shape
     torch.Size([10, 1, 1, 256])
