@@ -15,7 +15,7 @@ from speechbrain.utils.distributed import run_on_main
 
 """Recipe for training a sequence-to-sequence ASR system with Switchboard.
 The system employs a wav2vec2 encoder and a CTC decoder.
-Decoding is performed with greedy decoding (will be extended to beam search).
+Decoding is performed with greedy decoding.
 
 To run this recipe, do the following:
 > python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
@@ -67,7 +67,6 @@ class ASR(sb.core.Brain):
         p_ctc, wav_lens = predictions
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
