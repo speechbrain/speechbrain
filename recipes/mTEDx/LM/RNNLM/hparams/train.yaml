@@ -16,7 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 # The data_folder is needed because we train the LM on the training
 # transcriptions of LibriSpeech as well.
-data_folder: /tmp-network/user/manwar/data/mTEDx #!PLACEHOLDER
+data_folder: #!PLACEHOLDER
 langs:
    -  fr
 
