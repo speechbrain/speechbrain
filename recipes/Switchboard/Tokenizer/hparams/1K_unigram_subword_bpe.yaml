@@ -5,7 +5,6 @@
 # ############################################################################
 
 output_folder: !ref results/1K_subword_unigram_max300_uppercase_v2
-train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
