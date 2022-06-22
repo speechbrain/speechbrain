@@ -78,6 +78,7 @@ class BackoffNgramLM:
         self.top_order = order
 
     def logprob(self, token, context=tuple()):
+        """Computes the backoff log weights and applies them."""
         # If a longer context is given than we can ever use,
         # just use less context.
         query_order = len(context) + 1

@@ -322,9 +322,14 @@ def dataio_prepare(hparams):
         return text_seq, mel, len_text
 
     datasets = {}
+    data_info = {
+        "train": hparams["train_json"],
+        "valid": hparams["valid_json"],
+        "test": hparams["test_json"],
+    }
     for dataset in hparams["splits"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_json"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["mel_text_pair", "wav", "label"],

@@ -251,6 +251,7 @@ class Transducer(Function):
 
     @staticmethod
     def forward(ctx, log_probs, labels, T, U, blank, reduction):
+        """Computes the transducer loss."""
         log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
@@ -287,6 +288,7 @@ class Transducer(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """Backward computations for the transducer loss."""
         grad_output = grad_output.view(-1, 1, 1, 1).to(ctx.grads)
         return ctx.grads.mul_(grad_output), None, None, None, None, None, None
 
@@ -334,6 +336,7 @@ class TransducerLoss(Module):
             raise ImportError(err_msg)
 
     def forward(self, logits, labels, T, U):
+        """Computes the transducer loss."""
         # Transducer.apply function take log_probs tensor.
         log_probs = logits.log_softmax(-1)
         return self.loss(log_probs, labels, T, U, self.blank, self.reduction)

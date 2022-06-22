@@ -2047,17 +2047,17 @@ class SpectralMaskEnhancement(Pretrained):
 
     Example
     -------
-    >>> import torchaudio
+    >>> import torch
     >>> from speechbrain.pretrained import SpectralMaskEnhancement
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
     >>> enhancer = SpectralMaskEnhancement.from_hparams(
-    ...     source="speechbrain/mtl-mimic-voicebank",
+    ...     source="speechbrain/metricgan-plus-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> noisy, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> # Channel dimension is interpreted as batch dimension here
-    >>> enhanced = enhancer.enhance_batch(noisy)
+    >>> enhanced = enhancer.enhance_file(
+    ...     "speechbrain/metricgan-plus-voicebank/example.wav"
+    ... )
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
@@ -2429,7 +2429,75 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
 
     def forward(self, noisy, lengths=None):
         """Runs enhancement on the noisy input"""
-        return self.separate_batch(noisy, lengths)
+        return self.enhance_batch(noisy, lengths)
+
+
+class WaveformEnhancement(Pretrained):
+    """A ready-to-use model for speech enhancement.
+
+    Arguments
+    ---------
+    See ``Pretrained``.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import WaveformEnhancement
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> tmpdir = getfixture("tmpdir")
+    >>> enhancer = WaveformEnhancement.from_hparams(
+    ...     source="speechbrain/mtl-mimic-voicebank",
+    ...     savedir=tmpdir,
+    ... )
+    >>> enhanced = enhancer.enhance_file(
+    ...     "speechbrain/mtl-mimic-voicebank/example.wav"
+    ... )
+    """
+
+    MODULES_NEEDED = ["enhance_model"]
+
+    def enhance_batch(self, noisy, lengths=None):
+        """Enhance a batch of noisy waveforms.
+
+        Arguments
+        ---------
+        noisy : torch.tensor
+            A batch of waveforms to perform enhancement on.
+        lengths : torch.tensor
+            The lengths of the waveforms if the enhancement model handles them.
+
+        Returns
+        -------
+        torch.tensor
+            A batch of enhanced waveforms of the same shape as input.
+        """
+        noisy = noisy.to(self.device)
+        enhanced_wav, _ = self.mods.enhance_model(noisy)
+        return enhanced_wav
+
+    def enhance_file(self, filename, output_filename=None):
+        """Enhance a wav file.
+
+        Arguments
+        ---------
+        filename : str
+            Location on disk to load file for enhancement.
+        output_filename : str
+            If provided, writes enhanced data to this file.
+        """
+        noisy = self.load_audio(filename)
+
+        # Fake a batch:
+        batch = noisy.unsqueeze(0)
+        enhanced = self.enhance_batch(batch)
+
+        if output_filename is not None:
+            torchaudio.save(output_filename, enhanced, channels_first=False)
+
+        return enhanced.squeeze(0)
+
+    def forward(self, noisy, lengths=None):
+        """Runs enhancement on the noisy input"""
+        return self.enhance_batch(noisy, lengths)
 
 
 class SNREstimator(Pretrained):
@@ -2512,8 +2580,6 @@ class SNREstimator(Pretrained):
 
 
 class Tacotron2(Pretrained):
-    HPARAMS_NEEDED = ["model", "text_to_sequence"]
-
     """
     A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
 
@@ -2524,7 +2590,7 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir="tmpdir")
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir")
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
@@ -2535,12 +2601,14 @@ class Tacotron2(Pretrained):
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir_vocoder")
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
     >>> # Running the TTS
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_output)
     """
+
+    HPARAMS_NEEDED = ["model", "text_to_sequence"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2596,12 +2664,11 @@ class Tacotron2(Pretrained):
         return self.encode_batch([text])
 
     def forward(self, texts):
+        "Encodes the input texts."
         return self.encode_batch(texts)
 
 
 class HIFIGAN(Pretrained):
-    HPARAMS_NEEDED = ["generator"]
-
     """
     A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
 
@@ -2612,18 +2679,20 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/Vocoder_HiFIGAN", savedir="tmpdir_vocoder")
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
     >>> mel_specs = torch.rand(2, 80,298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
 
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Intialize TTS (tacotron2)
-    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/TTS_Tacotron2", savedir="tmpdir_tts")
+    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir_tts")
     >>>	# Running the TTS
     >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>>	# Running Vocoder (spectrogram-to-waveform)
     >>>	waveforms = hifi_gan.decode_batch(mel_output)
     """
+
+    HPARAMS_NEEDED = ["generator"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2678,4 +2747,5 @@ class HIFIGAN(Pretrained):
         return waveform.squeeze(0)
 
     def forward(self, spectrogram):
+        "Decodes the input spectrograms"
         return self.decode_batch(spectrogram)
