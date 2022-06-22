@@ -62,15 +62,15 @@ max_grad_norm: 5.0
 loss_reduction: batchmean
 sorting: random
 
-dynamic_batching: False
-
-dynamic_batch_sampler:
-  feats_hop_size: 0.01
-  max_batch_len: 100000    # in terms of frames
-  num_buckets: 200
-  shuffle_ex: False    # re-creates batches at each epoch shuffling examples.
-  batch_ordering: descending
-  max_batch_ex: -1
+#dynamic_batching: False
+#
+#dynamic_batch_sampler:
+#  feats_hop_size: 0.01
+#  max_batch_len: 100000    # in terms of frames
+#  num_buckets: 200
+#  shuffle_ex: False    # re-creates batches at each epoch shuffling examples.
+#  batch_ordering: descending
+#  max_batch_ex: -1
 
 # stages related parameters
 lr_adam: 0.001
@@ -102,7 +102,7 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
+# vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -110,7 +110,7 @@ label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
+# unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
