@@ -1,11 +1,11 @@
 # ############################################################################
-# Model: E2E ASR with Transformer
-# Encoder: Transformer Encoder
+# Model: E2E ASR with Conformer
+# Encoder: Conformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
+# Authors:  Titouan Parcollet, Samuele Cornell
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
