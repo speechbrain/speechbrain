@@ -2137,8 +2137,6 @@ class WaveformEnhancement(Pretrained):
 
     Example
     -------
-    >>> import pytest
-    >>> pytest.skip("Skip this test for coordinating changes at huggingface")
     >>> from speechbrain.pretrained import WaveformEnhancement
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
@@ -2169,7 +2167,8 @@ class WaveformEnhancement(Pretrained):
             A batch of enhanced waveforms of the same shape as input.
         """
         noisy = noisy.to(self.device)
-        return self.modules.enhance_model(noisy)
+        enhanced_wav, _ = self.mods.enhance_model(noisy)
+        return enhanced_wav
 
     def enhance_file(self, filename, output_filename=None):
         """Enhance a wav file.
