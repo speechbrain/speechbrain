@@ -25,7 +25,7 @@ pretrained_tokenizer_path: #!PLACEHOLDER
 pretrained_lm_path: #!PLACEHOLDER
 
 # Data files
-data_folder: /tmp-network/user/manwar/data/mTEDx #!PLACEHOLDER
+data_folder: #!PLACEHOLDER
 langs:
    -  fr
 remove_punc_cap: True # remove punctuation & capitalization from text
