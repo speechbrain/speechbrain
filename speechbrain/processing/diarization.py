@@ -673,6 +673,8 @@ def spectral_clustering_sb(
 
 
 class Spec_Cluster(SpectralClustering):
+    """Performs spectral clustering using sklearn on embeddings."""
+
     def perform_sc(self, X, n_neighbors=10):
         """
         Performs spectral clustering using sklearn on embeddings.

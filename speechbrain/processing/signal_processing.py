@@ -406,6 +406,8 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     # Define sinc function, avoiding division by zero
     def sinc(x):
+        "Computes the sinc function."
+
         def _sinc(x):
             return torch.sin(x) / x
 
