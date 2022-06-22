@@ -40,9 +40,9 @@ n_train_snts: 400000 # used for normalization stats
 
 # Feature parameters
 n_mels: 80
-left_frames: 0
-right_frames: 0
-deltas: False
+# left_frames: 0
+# right_frames: 0
+# deltas: False
 
 # Dataloader options
 train_dataloader_opts:

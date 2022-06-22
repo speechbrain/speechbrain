@@ -373,34 +373,41 @@ def dataio_prepare(hparams):
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
 
+    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    train_batch_sampler = None
+    valid_batch_sampler = None
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
-        from speechbrain.dataio.batch import PaddedBatch  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hop_size = dynamic_hparams["feats_hop_size"]
-
         num_buckets = dynamic_hparams["num_buckets"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
             dynamic_hparams["max_batch_len"],
             num_buckets=num_buckets,
-            length_func=lambda x: x["duration"] * (1 / hop_size),
+            length_func=lambda x: x["duration"],
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
-        return (
-            train_data,
+        valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            test_datasets,
-            tokenizer,
-            train_batch_sampler,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
+            length_func=lambda x: x["duration"],
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
-    return (train_data, valid_data, test_datasets, tokenizer, None)
+    return (
+        train_data,
+        valid_data,
+        test_datasets,
+        tokenizer,
+        train_batch_sampler,
+        valid_batch_sampler,
+    )
 
 
 if __name__ == "__main__":
@@ -445,6 +452,7 @@ if __name__ == "__main__":
         test_datasets,
         tokenizer,
         train_bsampler,
+        valid_bsampler,
     ) = dataio_prepare(hparams)
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
@@ -467,7 +475,12 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
-        train_dataloader_opts = {"batch_sampler": train_bsampler}
+        train_dataloader_opts = {
+            "batch_sampler": train_bsampler,
+            "num_workers": hparams["num_workers"],
+        }
+    if valid_bsampler is not None:
+        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
     # Training
     asr_brain.fit(

@@ -79,6 +79,10 @@ Combining multiple microphones is a powerful approach to achieve robustness in a
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
+### Text-to-Speech (TTS) and Vocoders
+- Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech) with LJSpeech.
+- Recipes for training Vocoders such as [HiFIGAN](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech).
+
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:
 

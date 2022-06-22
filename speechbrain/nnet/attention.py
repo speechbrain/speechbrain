@@ -466,6 +466,7 @@ class RelPosMHAXL(nn.Module):
         torch.nn.init.xavier_uniform_(self.pos_bias_v)
 
     def rel_shift(self, x):
+        """Relative shift implementation."""
         # batch, head, time1, 2*time1-1.
 
         b, h, qlen, pos_len = x.size()  # (b, h, t1, t2)
@@ -827,6 +828,7 @@ class PositionalwiseFeedForward(nn.Module):
         )
 
     def forward(self, x):
+        """Applies PositionalwiseFeedForward to the input tensor x."""
         # give a tensor of shap (time, batch, fea)
         x = x.permute(1, 0, 2)
         x = self.ffn(x)
