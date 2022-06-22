@@ -111,14 +111,16 @@ def fetch(
         # Use huggingface hub's fancy cached download.
         MSG = f"Fetch {filename}: Delegating to Huggingface hub, source {str(source)}."
         logger.info(MSG)
-        url = huggingface_hub.hf_hub_url(source, filename)
         try:
-            fetched_file = huggingface_hub.cached_download(url, use_auth_token)
+            fetched_file = huggingface_hub.hf_hub_download(
+                repo_id=source, filename=filename, use_auth_token=use_auth_token
+            )
         except HTTPError as e:
-            if e.response.status_code == 404:
+            if "404 Client Error" in str(e):
                 raise ValueError("File not found on HF hub")
             else:
                 raise
+
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
         _missing_ok_unlink(destination)

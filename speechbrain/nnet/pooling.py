@@ -107,7 +107,13 @@ class Pooling1d(nn.Module):
             raise ValueError("pool_type must be 'avg' or 'max'")
 
     def forward(self, x):
+        """Performs 1d pooling to the input tensor.
 
+        Arguments
+        ---------
+        x : torch.Tensor
+            It represents a tensor for a mini-batch.
+        """
         # Put the pooling axes as the last dimension for torch.nn.pool
         x = x.transpose(-1, self.pool_axis)
 
@@ -190,7 +196,13 @@ class Pooling2d(nn.Module):
             )
 
     def forward(self, x):
+        """Performs 2d pooling to the input tensor.
 
+        Arguments
+        ---------
+        x : torch.Tensor
+            It represents a tensor for a mini-batch.
+        """
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
         # [a,b,c,d] => [a,b,c,d,1,1]
@@ -366,7 +378,13 @@ class AdaptivePool(nn.Module):
             self.pool = nn.AdaptiveAvgPool2d(output_size)
 
     def forward(self, x):
+        """Performs adpative pooling to the input tensor.
 
+        Arguments
+        ---------
+        x : torch.Tensor
+            It represents a tensor for a mini-batch.
+        """
         if x.ndim == 3:
             return self.pool(x.permute(0, 2, 1)).permute(0, 2, 1)
 

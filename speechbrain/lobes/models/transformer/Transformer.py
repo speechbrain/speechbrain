@@ -759,6 +759,7 @@ class NormalizedEmbedding(nn.Module):
         self.d_model = d_model
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         return self.emb(x) * math.sqrt(self.d_model)
 
 

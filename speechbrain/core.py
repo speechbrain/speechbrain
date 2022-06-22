@@ -5,6 +5,7 @@ Authors
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
+ * Andreas Nautsch 2022
 """
 
 import os
@@ -127,7 +128,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list=None):
-    r"""Parse command-line arguments to the experiment.
+    """Parse command-line arguments to the experiment.
 
     Arguments
     ---------
@@ -328,7 +329,7 @@ class Stage(Enum):
 
 @sb.utils.checkpoints.register_checkpoint_hooks
 class Brain:
-    r"""Brain class abstracts away the details of data loops.
+    """Brain class abstracts away the details of data loops.
 
     The primary purpose of the `Brain` class is the implementation of
     the ``fit()`` method, which iterates epochs and datasets for the
@@ -405,6 +406,9 @@ class Brain:
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
+    profiler : torch.profiler.profile
+        Context manager for profiling and benchmarking of training/inference steps.
+        Default: ``None`` (skip profiling).
 
     Example
     -------
@@ -426,9 +430,11 @@ class Brain:
         hparams=None,
         run_opts=None,
         checkpointer=None,
+        profiler=None,
     ):
         self.opt_class = opt_class
         self.checkpointer = checkpointer
+        self.profiler = profiler
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
@@ -949,6 +955,99 @@ class Brain:
         loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
+    def _fit_train(self, train_set, epoch, enable):
+        # Training stage
+        self.on_stage_start(Stage.TRAIN, epoch)
+        self.modules.train()
+
+        # Reset nonfinite count to 0 each epoch
+        self.nonfinite_count = 0
+
+        if self.train_sampler is not None and hasattr(
+            self.train_sampler, "set_epoch"
+        ):
+            self.train_sampler.set_epoch(epoch)
+
+        # Time since last intra-epoch checkpoint
+        last_ckpt_time = time.time()
+
+        with tqdm(
+            train_set,
+            initial=self.step,
+            dynamic_ncols=True,
+            disable=not enable,
+        ) as t:
+            for batch in t:
+                if self._optimizer_step_limit_exceeded:
+                    logger.info("Train iteration limit exceeded")
+                    break
+                self.step += 1
+                loss = self.fit_batch(batch)
+                self.avg_train_loss = self.update_average(
+                    loss, self.avg_train_loss
+                )
+                t.set_postfix(train_loss=self.avg_train_loss)
+
+                # Profile only if desired (steps allow the profiler to know when all is warmed up)
+                if self.profiler is not None:
+                    if self.profiler.record_steps:
+                        self.profiler.step()
+
+                # Debug mode only runs a few batches
+                if self.debug and self.step == self.debug_batches:
+                    break
+
+                if (
+                    self.checkpointer is not None
+                    and self.ckpt_interval_minutes > 0
+                    and time.time() - last_ckpt_time
+                    >= self.ckpt_interval_minutes * 60.0
+                ):
+                    # This should not use run_on_main, because that
+                    # includes a DDP barrier. That eventually leads to a
+                    # crash when the processes'
+                    # time.time() - last_ckpt_time differ and some
+                    # processes enter this block while others don't,
+                    # missing the barrier.
+                    if sb.utils.distributed.if_main_process():
+                        self._save_intra_epoch_ckpt()
+                    last_ckpt_time = time.time()
+
+        # Run train "on_stage_end" on all processes
+        self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
+        self.avg_train_loss = 0.0
+        self.step = 0
+
+    def _fit_valid(self, valid_set, epoch, enable):
+        # Validation stage
+        if valid_set is not None:
+            self.on_stage_start(Stage.VALID, epoch)
+            self.modules.eval()
+            avg_valid_loss = 0.0
+            with torch.no_grad():
+                for batch in tqdm(
+                    valid_set, dynamic_ncols=True, disable=not enable
+                ):
+                    self.step += 1
+                    loss = self.evaluate_batch(batch, stage=Stage.VALID)
+                    avg_valid_loss = self.update_average(loss, avg_valid_loss)
+
+                    # Profile only if desired (steps allow the profiler to know when all is warmed up)
+                    if self.profiler is not None:
+                        if self.profiler.record_steps:
+                            self.profiler.step()
+
+                    # Debug mode only runs a few batches
+                    if self.debug and self.step == self.debug_batches:
+                        break
+
+                # Only run validation "on_stage_end" on main process
+                self.step = 0
+                run_on_main(
+                    self.on_stage_end,
+                    args=[Stage.VALID, avg_valid_loss, epoch],
+                )
+
     def fit(
         self,
         epoch_counter,
@@ -1022,92 +1121,13 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         # Iterate epochs
         for epoch in epoch_counter:
-            # Training stage
-            self.on_stage_start(Stage.TRAIN, epoch)
-            self.modules.train()
-
-            # Reset nonfinite count to 0 each epoch
-            self.nonfinite_count = 0
-
-            if self.train_sampler is not None and hasattr(
-                self.train_sampler, "set_epoch"
-            ):
-                self.train_sampler.set_epoch(epoch)
-
-            # Time since last intra-epoch checkpoint
-            last_ckpt_time = time.time()
-
-            # Only show progressbar if requested and main_process
-            enable = progressbar and sb.utils.distributed.if_main_process()
-            with tqdm(
-                train_set,
-                initial=self.step,
-                dynamic_ncols=True,
-                disable=not enable,
-            ) as t:
-                for batch in t:
-                    if self._optimizer_step_limit_exceeded:
-                        logger.info("Train iteration limit exceeded")
-                        break
-                    self.step += 1
-                    loss = self.fit_batch(batch)
-                    self.avg_train_loss = self.update_average(
-                        loss, self.avg_train_loss
-                    )
-                    t.set_postfix(train_loss=self.avg_train_loss)
-
-                    # Debug mode only runs a few batches
-                    if self.debug and self.step == self.debug_batches:
-                        break
-
-                    if (
-                        self.checkpointer is not None
-                        and self.ckpt_interval_minutes > 0
-                        and time.time() - last_ckpt_time
-                        >= self.ckpt_interval_minutes * 60.0
-                    ):
-                        # This should not use run_on_main, because that
-                        # includes a DDP barrier. That eventually leads to a
-                        # crash when the processes'
-                        # time.time() - last_ckpt_time differ and some
-                        # processes enter this block while others don't,
-                        # missing the barrier.
-                        if sb.utils.distributed.if_main_process():
-                            self._save_intra_epoch_ckpt()
-                        last_ckpt_time = time.time()
-
-            # Run train "on_stage_end" on all processes
-            self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
-            self.avg_train_loss = 0.0
-            self.step = 0
-
-            # Validation stage
-            if valid_set is not None:
-                self.on_stage_start(Stage.VALID, epoch)
-                self.modules.eval()
-                avg_valid_loss = 0.0
-                with torch.no_grad():
-                    for batch in tqdm(
-                        valid_set, dynamic_ncols=True, disable=not enable
-                    ):
-                        self.step += 1
-                        loss = self.evaluate_batch(batch, stage=Stage.VALID)
-                        avg_valid_loss = self.update_average(
-                            loss, avg_valid_loss
-                        )
-
-                        # Debug mode only runs a few batches
-                        if self.debug and self.step == self.debug_batches:
-                            break
-
-                    # Only run validation "on_stage_end" on main process
-                    self.step = 0
-                    run_on_main(
-                        self.on_stage_end,
-                        args=[Stage.VALID, avg_valid_loss, epoch],
-                    )
+            self._fit_train(train_set=train_set, epoch=epoch, enable=enable)
+            self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
 
             # Debug mode only runs a few epochs
             if (
@@ -1224,6 +1244,11 @@ class Brain:
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
+
+                # Profile only if desired (steps allow the profiler to know when all is warmed up)
+                if self.profiler is not None:
+                    if self.profiler.record_steps:
+                        self.profiler.step()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:

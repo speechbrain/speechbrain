@@ -18,7 +18,7 @@ wav2vec2_hub: facebook/wav2vec2-large-960h-lv60-self
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -141,6 +141,7 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    annealing_factor: 0.9
    patient: 0
 
+label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
@@ -150,6 +151,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
       scheduler_model: !ref <lr_annealing_model>
       scheduler_wav2vec: !ref <lr_annealing_wav2vec>
       counter: !ref <epoch_counter>
+      tokenizer: !ref <label_encoder>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <train_log>

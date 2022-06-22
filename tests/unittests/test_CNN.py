@@ -14,6 +14,16 @@ def test_SincConv(device):
 
     assert torch.jit.trace(convolve, input)
 
+    # Multichannel case
+    input = torch.rand([10, 16000, 8], device=device)
+    convolve = SincConv(
+        input_shape=input.shape, out_channels=16, kernel_size=11, padding="same"
+    ).to(device)
+    output = convolve(input)
+    assert output.shape[-1] == 16
+
+    assert torch.jit.trace(convolve, input)
+
 
 def test_Conv1d(device):
 
