@@ -373,12 +373,34 @@ def dataio_prepare(hparams):
         datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
 
-    return (
-        train_data,
-        valid_data,
-        test_datasets,
-        tokenizer,
-    )
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.batch import PaddedBatch  # noqa
+
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        hop_size = dynamic_hparams["feats_hop_size"]
+
+        num_buckets = dynamic_hparams["num_buckets"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
+            length_func=lambda x: x["duration"] * (1 / hop_size),
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+        return (
+            train_data,
+            valid_data,
+            test_datasets,
+            tokenizer,
+            train_batch_sampler,
+        )
+
+    return (train_data, valid_data, test_datasets, tokenizer, None)
 
 
 if __name__ == "__main__":
@@ -417,7 +439,13 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, tokenizer = dataio_prepare(hparams)
+    (
+        train_data,
+        valid_data,
+        test_datasets,
+        tokenizer,
+        train_bsampler,
+    ) = dataio_prepare(hparams)
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
@@ -437,6 +465,9 @@ if __name__ == "__main__":
     asr_brain.tokenizer = hparams["tokenizer"]
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
+
+    if train_bsampler is not None:
+        train_dataloader_opts = {"batch_sampler": train_bsampler}
 
     # Training
     asr_brain.fit(

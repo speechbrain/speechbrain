@@ -1,1 +1,0 @@
-../ami_prepare.py
