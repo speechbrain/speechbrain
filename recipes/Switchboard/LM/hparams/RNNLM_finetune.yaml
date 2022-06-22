@@ -16,6 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 # The data_folder is needed because we train the LM on the training
 # transcriptions of Switchboard and Fisher as well.
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
 data_folder: !PLACEHOLDER
 splits: ["train", "dev"]
 split_ratio: [99, 1]

@@ -21,13 +21,16 @@ train_log: !ref <output_folder>/train_log.txt
 # NB: To avoid mismatch, the speech recognizer must be trained with the same
 # tokenizer used for LM training. You need to specify a local path pointing to a
 # directory containing the lm.ckpt and tokenizer.ckpt.
-# NB: You need to provide a full local path, when LM and Tokenizer are not loaded from HuggingFace.
+# NB: You need to provide a full local path, when
+# LM and Tokenizer are not loaded from HuggingFace.
 pretrained_tokenizer_path: speechbrain/asr-crdnn-rnnlm-librispeech
 
 # Data files
-data_folder: !PLACEHOLDER # local path to the Switchboard dataset (e.g. /nfs/data/swbd)
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
+data_folder: !PLACEHOLDER
 # noise/ris dataset will automatically be downloaded
-data_folder_rirs: rirs-noises # where to store noisy data for augment (change it if needed)
+# Set the location to store noisy data for augmentation here.
+data_folder_rirs: rirs-noises
 
 # Note that the test set will be created separately using the
 # Hub5/eval2000 dataset
@@ -37,7 +40,8 @@ skip_prep: False
 # We don't use the Fisher corpus for training the AM
 # (it is only used for Tokenizer and LM training)
 add_fisher_corpus: False
-# Maximum number of times the same utterance is allowed to appear in the training data
+# Maximum number of times the same utterance is
+# allowed to appear in the training data
 max_utt: 300
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
@@ -274,8 +278,8 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 # The pretrainer allows a mapping between pretrained files and instances that
 # are declared in the yaml. E.g here, we will download the file tokenizer.ckpt
-# and it will be loaded into "tokenizer" which is pointing to the <tokenizer> defined
-# before.
+# and it will be loaded into "tokenizer"
+# which is pointing to the <tokenizer> defined before.
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    collect_in: !ref <save_folder>
    loadables:

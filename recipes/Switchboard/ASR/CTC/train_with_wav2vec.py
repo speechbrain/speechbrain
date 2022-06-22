@@ -176,8 +176,7 @@ class ASR(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]},
-                min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -217,22 +216,18 @@ def dataio_prepare(hparams, tokenizer):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(
-            sort_key="length",
-        )
+        train_data = train_data.filtered_sorted(sort_key="length",)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="length",
-            reverse=True,
+            sort_key="length", reverse=True,
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["shuffle"] = False
@@ -245,8 +240,7 @@ def dataio_prepare(hparams, tokenizer):
             "sorting must be random, ascending or descending"
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="length")
@@ -285,8 +279,7 @@ def dataio_prepare(hparams, tokenizer):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate,
-                hparams["sample_rate"],
+                info.sample_rate, hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -318,8 +311,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_datasets
 

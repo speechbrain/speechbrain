@@ -8,11 +8,13 @@ output_folder: !ref results/1K_subword_unigram_max300_uppercase_v2
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: /nfs/data/ldc
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
+data_folder: !PLACEHOLDER
 splits: ["train", "dev"]
 split_ratio: [99, 1]
 add_fisher_corpus: True
-# Maximum number of times the same utterance is allowed to appear in the training data
+# Maximum number of times the same utterance is allowed
+# to appear in the training data
 max_utt: 300
 train_csv: !ref <output_folder>/train_lm.csv
 valid_csv: !ref <output_folder>/dev.csv
