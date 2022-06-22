@@ -66,7 +66,9 @@ class SpeakerBrain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        if isinstance(self.modules.compute_features, speechbrain.nnet.CNN.Leaf):
+        if isinstance(
+            self.modules.compute_features, speechbrain.lobes.features.Leaf
+        ):
             # if leaf, first normalize the wavs before feeding them to leaf
             # no normalization is needed after LEAF
             feats = self.modules.mean_var_norm(wavs, lens)

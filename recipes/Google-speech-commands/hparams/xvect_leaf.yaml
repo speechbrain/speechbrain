@@ -60,7 +60,7 @@ dataloader_options:
     num_workers: 2
 
 # Functions
-compute_features: !new:speechbrain.nnet.CNN.Leaf
+compute_features: !new:speechbrain.lobes.features.Leaf
     out_channels: !ref <n_features>
     in_channels: 1
     min_freq: 0.
