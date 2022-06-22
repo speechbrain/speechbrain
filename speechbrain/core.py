@@ -883,11 +883,11 @@ class Brain:
                     self.optimizer.step()
                 self.optimizer.zero_grad()
                 self.optimizer_step += 1
-        if should_step:
-            self.on_fit_batch_end()
+
+        self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
 
-    def on_fit_batch_end(self):
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``"""
         pass
 
@@ -929,7 +929,7 @@ class Brain:
                 return False
 
         # Clip gradient norm
-        if self.max_grad_norm != 0.0:
+        if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
             )
@@ -1300,7 +1300,7 @@ class Brain:
         Arguments
         ---------
         use : bool
-            If set to `False` will still sync gradients.
+            If set to `False` will still sync gradients, useful to make behaviour togglable.
         """
         if use:
             old_values_list = []
