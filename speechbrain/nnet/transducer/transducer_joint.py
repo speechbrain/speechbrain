@@ -93,3 +93,36 @@ class Transducer_joint(nn.Module):
                 joint = self.joint_network(joint)
 
         return self.nonlinearity(joint)
+
+class Fast_RNNT_Joiner(nn.Module):
+    def __init__(self, input_dim, inner_dim, output_dim):
+        """"""
+        super().__init__()
+        self.inner_linear = nn.Linear(input_dim, inner_dim)
+        self.output_linear = nn.Linear(inner_dim, output_dim)
+
+    def forward(self, encoder_out, decoder_out):
+        """
+        Arguments
+        ---------
+        encoder_out: torch.Tensor
+            Output from the encoder. Its shape is (N, T, s_range, C) during
+            training or (N, C) in case of streaming decoding.
+        
+        decoder_out: torch.Tensor
+            Output from the decoder. Its shape is (N, T, s_range, C) during
+            training or (N, C) in case of streaming decoding.
+        
+        Returns
+        -------
+        torch.Tensor:
+            Returns a tensor of shape (N, T, s_range, C).
+        """
+        assert encoder_out.ndim == decoder_out.ndim
+        assert encoder_out.ndim in (2, 4)
+        assert encoder_out.shape == decoder_out.shape
+
+        logit = encoder_out + decoder_out
+        logit = self.inner_linear(torch.tanh(logit))
+        output = self.output_linear(nn.functional.relu(logit))
+        return output
