@@ -84,6 +84,116 @@ def transducer_loss(
             log_probs, targets, input_lens, target_lens, blank_index, reduction,
         )
 
+def fast_rnnt_pruned_loss(
+        enc_out,
+        dec_out,
+        targets,
+        input_lens,
+        target_lens,
+        jointer,
+        blank_index,
+        prune_range,
+        loss_scale=0.5,
+        reduction="mean",
+        mode="simple",
+    ):
+    """Fast_RNNT loss, see `https://github.com/danpovey/fast_rnnt`.
+
+    Arguments
+    ---------
+    enc_out : torch.Tensor
+        The encoder/acoustic output, of shape [batch, audio_time_steps, vocab_size].
+    dec_out : torch.Tensor
+        The decoder/language output, of shape [batch, target_subwords_len+1, vocab_size]
+    targets : torch.Tensor
+        Target tensor, without any blanks, of shape [batch, target_subwords_len].
+    input_lens : torch.Tensor
+        Length of each utterance, of shape [batch, max_utterance_length].
+    target_lens : torch.Tensor
+        Length of each target sequence, of shape [batch, max_target_length].
+    jointer: 
+        The jointer network.
+    blank_index : int
+        The location of the blank symbol among the label indices.
+    reduction : str
+        Specifies the reduction to apply to the output.
+        Options: `none` | `mean` | `sum`
+    mode: str
+        The loss function type that will be applied.
+        Options: `simple` | `smoothed`
+    """
+    try:
+        import fast_rnnt
+    except ImportError:
+        err_msg = "cannot import fast_rnnt.\n"
+        err_msg += "=============================\n"
+        err_msg += "You can install Fast_RNNT using pip:\n"
+        err_msg += "pip install fast_rnnt\n"
+        raise ImportError(err_msg)
+    
+    B, T = targets.shape  #batch_size, target_subwords_len
+    S = enc_out.size(1)   #audio_time_steps
+    boundary = torch.zeros((B, 4), dtype=torch.int64)
+    boundary[:, 2] = (target_lens * T).round().int()
+    boundary[:, 3] = (input_lens * S).round().int()
+    boundary = boundary.to(enc_out.device)
+
+    if mode == "simple":
+        org_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_simple(
+            am=enc_out,
+            lm=dec_out,
+            symbols=targets,
+            termination_symbol=blank_index,
+            boundary=boundary,
+            reduction=reduction,
+            return_grad=True
+        )
+    elif mode == "smoothed":
+        org_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_smoothed(
+            am=enc_out,
+            lm=dec_out,
+            symbols=targets,
+            termination_symbol=blank_index,
+            lm_only_scale=0.5,
+            am_only_scale=0.5,
+            boundary=boundary,
+            reduction=reduction,
+            return_grad=True
+        )
+    else:
+        raise ValueError(
+            f"Undefined option: {mode}.\n"+
+            "Available modes are:\n`simple`, `smoothed`."
+        )
+    # (NOTE) prune_range: min(prune_range, target_subwords_len)
+    # ranges: [batch_size, audio_time_steps, prune_range]
+    ranges = fast_rnnt.get_rnnt_prune_ranges(
+        px_grad=px_grad,
+        py_grad=py_grad,
+        boundary=boundary,
+        s_range=prune_range,
+    )
+
+    # enc_out_pruned: [batch_size, audio_time_steps, prune_range, vocab_size]
+    # dec_out_pruned: [batch_size, audio_time_steps, prune_range, vocab_size]
+    enc_out_pruned, dec_out_pruned = fast_rnnt.do_rnnt_pruning(
+        am=enc_out,
+        lm=dec_out,
+        ranges=ranges
+    )
+
+    # logits: [batch_size, audio_time_steps, prune_range, vocab_size]
+    logits = jointer(enc_out_pruned, dec_out_pruned)
+    pruned_loss = fast_rnnt.rnnt_loss_pruned(
+        logits=logits,
+        symbols=targets,
+        ranges=ranges,
+        termination_symbol=blank_index,
+        boundary=boundary,
+        reduction=reduction,
+    )
+    loss = loss_scale * org_loss + pruned_loss
+    return loss
 
 class PitWrapper(nn.Module):
     """
