@@ -463,18 +463,15 @@ def char_map_detokenize(
 
     """
 
-    if wordwise:
-        detokenize = partial(
-            _wordwise_detokenize,
-            tokenizer=tokenizer(),
-            output_separator=" ",
-            token_separator=token_space_index,
-        )
-    else:
+    def detokenize_wordwise(item):
+        """Detokenizes the sequence one word at a time"""
+        return _wordwise_detokenize(tokenizer(), item, " ", token_space_index)
 
-        def detokenize(item):
-            """Detokenizes an item"""
-            tokenizer().sp.decode_ids(item)
+    def detokenize_regular(item):
+        """Detokenizes the entire sequence"""
+        return tokenizer().sp.decode_ids(item)
+
+    detokenize = detokenize_wordwise if wordwise else detokenize_regular
 
     def f(tokens):
         """The tokenizer function"""
