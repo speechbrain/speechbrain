@@ -56,7 +56,7 @@ https://speechbrain.github.io/tutorial_advanced.html
 A supplemental hyperparameter file is provided for hyperparameter optimiszation,
 which will turn off checkpointing and limit the number of epochs:
 
-hparams/hpfit.yaml
+hparams/hpopt.yaml
 
 You can download LibriSpeech at http://www.openslr.org/12
 

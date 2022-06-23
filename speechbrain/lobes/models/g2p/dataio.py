@@ -7,7 +7,7 @@ Authors
  * Artem Ploujnikov 2021 (minor refactoring only)
 """
 
-from functools import reduce
+from functools import reduce, partial
 import speechbrain as sb
 import torch
 import re
@@ -166,15 +166,15 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
 
-def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
+def _wordwise_detokenize(sequence, tokenizer, output_separtor, token_separator):
     """Detokenizes a sequence wordwise
 
     Arguments
     ---------
-    tokenizer: speechbrain.tokenizers.SentencePiece.SentencePiece
-        a tokenizer instance
     sequence: iterable
         the original sequence
+    tokenizer: speechbrain.tokenizers.SentencePiece.SentencePiece
+        a tokenizer instance
     output_separator: str
         the separator used in the output seauence
     token_separator: str
@@ -463,15 +463,21 @@ def char_map_detokenize(
 
     """
 
-    def detokenize_wordwise(item):
-        return _wordwise_detokenize(tokenizer(), item, " ", token_space_index)
+    if wordwise:
+        detokenize = partial(
+            _wordwise_detokenize,
+            tokenizer=tokenizer(),
+            output_separator=" ",
+            token_separator=token_space_index,
+        )
+    else:
 
-    def detokenize_regular(item):
-        return tokenizer().sp.decode_ids(item)
-
-    detokenize = detokenize_wordwise if wordwise else detokenize_regular
+        def detokenize(item):
+            """Detokenizes an item"""
+            tokenizer().sp.decode_ids(item)
 
     def f(tokens):
+        """The tokenizer function"""
         decoded_tokens = [detokenize(item) for item in tokens]
         mapped_tokens = _map_tokens_batch(decoded_tokens, char_map)
         return mapped_tokens
@@ -527,13 +533,14 @@ def lazy_init(init):
         a constructor or function that creates an object
 
     Returns
--------
+    -------
     instance: object
         the object instance
     """
     instance = None
 
     def f():
+        """The initializer function"""
         nonlocal instance
         if instance is None:
             instance = init()

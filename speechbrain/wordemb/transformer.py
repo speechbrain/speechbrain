@@ -233,12 +233,15 @@ class TransformerWordEmbeddings:
         return self._get_hidden_states(states, token_ids_word)
 
     def to(self, device):
+        """Transfers the model to the specified PyTorch device"""
         self.device = device
         self.model = self.model.to(device)
         return self
 
 
 class MissingTransformersError(Exception):
+    """Thrown when HuggingFace Transformers is not installed"""
+
     MESSAGE = "This module requires HuggingFace Transformers"
 
     def __init__(self):

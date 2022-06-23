@@ -316,6 +316,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 modules:
     model: !ref <model>
     ctc_lin: !ref <ctc_lin>
+    word_emb: null
     word_emb_enc: !ref <word_emb_enc>
 
 model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P

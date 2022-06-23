@@ -143,11 +143,6 @@ class AttentionSeq2Seq(nn.Module):
 
 
 class WordEmbeddingEncoder(nn.Module):
-    NORMS = {
-        "batch": normalization.BatchNorm1d,
-        "layer": normalization.LayerNorm,
-        "instance": normalization.InstanceNorm1d,
-    }
     """A small encoder module that reduces the dimensionality
     and normalizes word embeddings
 
@@ -525,6 +520,12 @@ class TransformerG2P(TransformerInterface):
         )
         attention = multihead_attns[-1]
         return prediction, attention
+
+    NORMS = {
+        "batch": normalization.BatchNorm1d,
+        "layer": normalization.LayerNorm,
+        "instance": normalization.InstanceNorm1d,
+    }
 
 
 def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):

@@ -315,6 +315,7 @@ modules:
     lin: !ref <lin>
     ctc_lin: !ref <ctc_lin>
     out: !ref <log_softmax>
+    word_emb: null
     word_emb_enc: !ref <word_emb_enc>
 
 model: !new:speechbrain.lobes.models.g2p.model.AttentionSeq2Seq

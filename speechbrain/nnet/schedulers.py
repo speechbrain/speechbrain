@@ -896,11 +896,13 @@ class InverseSquareRootScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the current metrics on the specified path."""
         data = {"n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)

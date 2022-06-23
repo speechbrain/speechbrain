@@ -673,6 +673,35 @@ class ClassificationStats(MetricStats):
             self.categories.extend(categories)
 
     def summarize(self, field=None):
+        """Summarize the classification metric scores
+
+        The following statistics are computed:
+
+        accuracy: the overall accuracy (# correct / # total)
+        confusion_matrix: a dictionary of type
+            {(target, prediction): num_entries} representing
+            the confusion matrix
+        classwise_stats: computes the total number of samples,
+            the number of correct classifications and accuracy
+            for each class
+        keys: all available class keys, which can be either target classes
+            or (category, target) tuples
+        predictions: all available predictions all predicions the model
+            has made
+
+        Arguments
+        ---------
+        field : str
+            If provided, only returns selected statistic. If not,
+            returns all computed statistics.
+
+        Returns
+        -------
+        float or dict
+            Returns a float if ``field`` is provided, otherwise
+            returns a dictionary containing all computed stats.
+        """
+
         self._build_lookups()
         confusion_matrix = self._compute_confusion_matrix()
         self.summary = {
@@ -776,12 +805,20 @@ class ClassificationStats(MetricStats):
         return {item: idx for idx, item in enumerate(items)}
 
     def clear(self):
+        """Clears the collected statistics"""
         self.ids = []
         self.predictions = []
         self.targets = []
         self.categories = []
 
     def write_stats(self, filestream):
+        """Outputs the stats to the specified filestream in a human-readable format
+
+        Arguments
+        ---------
+        filestream: file
+            a file-like object
+        """
         if self.summary is None:
             self.summarize()
         print(
