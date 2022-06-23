@@ -7,7 +7,7 @@ Authors
  * Artem Ploujnikov 2021 (minor refactoring only)
 """
 
-from functools import reduce, partial
+from functools import reduce
 import speechbrain as sb
 import torch
 import re
