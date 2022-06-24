@@ -26,7 +26,8 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 - https://huggingface.co/speechbrain/google_speech_command_xvector
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/1yPcXVHtrnNM0RhA_IGo8iAdezYZfoViQ?usp=sharing
+- xvector v12: https://drive.google.com/drive/folders/1yPcXVHtrnNM0RhA_IGo8iAdezYZfoViQ?usp=sharing
+- xvector leaf v35: https://drive.google.com/drive/folders/18AaNWrFUtr5OggwZxV7X7ZXvv2aQ4iMh?usp=sharing
 
 
 # **About SpeechBrain**

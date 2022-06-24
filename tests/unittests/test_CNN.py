@@ -89,7 +89,7 @@ def test_Conv2d(device):
 
 
 def test_Leaf(device):
-    from speechbrain.nnet.CNN import Leaf
+    from speechbrain.lobes.features import Leaf
 
     input = torch.rand([4, 16000], device=device)
     convolve = Leaf(
