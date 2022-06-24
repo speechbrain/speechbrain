@@ -496,13 +496,12 @@ def EER(positive_scores, negative_scores):
 
         # Finding the threshold for EER
         if (FAR - FRR).abs().item() < abs(final_FAR - final_FRR) or i == 0:
-           min_index = i
-           final_FRR = FRR.item()
-           final_FAR = FAR.item()
+            min_index = i
+            final_FRR = FRR.item()
+            final_FAR = FAR.item()
 
     # It is possible that eer != fpr != fnr. We return (FAR  + FRR) / 2 as EER.
     EER = (final_FAR + final_FRR) / 2
-
 
     return float(EER), float(thresholds[min_index])
 
