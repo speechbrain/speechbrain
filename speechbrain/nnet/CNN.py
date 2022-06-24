@@ -1271,6 +1271,13 @@ class GaborConv1d(nn.Module):
             self.bias = None
 
     def forward(self, x):
+        """Returns the output of the Gabor convolution.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channel)
+            input to convolve.
+        """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
 
@@ -1361,6 +1368,7 @@ class GaborConv1d(nn.Module):
         # with the original implementation at https://github.com/google-research/leaf-audio
 
         def get_padding_value(kernel_size):
+            """Gets the number of elements to pad."""
             kernel_sizes = (kernel_size,)
             from functools import reduce
             from operator import __add__

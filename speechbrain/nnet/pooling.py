@@ -469,6 +469,13 @@ class GaussianLowpassPooling(nn.Module):
         return torch.exp(-0.5 * (numerator / denominator) ** 2)
 
     def forward(self, x):
+        """Performs GaussianLowpass Pooling.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            3D tensor in input [batch,time,channels].
+        """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
 
@@ -501,6 +508,7 @@ class GaussianLowpassPooling(nn.Module):
         # with the original implementation at https://github.com/google-research/leaf-audio
 
         def get_padding_value(kernel_size):
+            """Get number of elements to pad."""
             kernel_sizes = (kernel_size,)
             from functools import reduce
             from operator import __add__

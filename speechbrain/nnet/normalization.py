@@ -449,6 +449,14 @@ class ExponentialMovingAverage(nn.Module):
     skip_transpose : bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 50, 40])
+    >>> pcen = ExponentialMovingAverage(40)
+    >>> out_tensor = pcen(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
     """
 
     def __init__(
@@ -472,12 +480,20 @@ class ExponentialMovingAverage(nn.Module):
         )
 
     def forward(self, x):
+        """Returns the normalized input tensor.
+
+       Arguments
+        ---------
+        x : torch.Tensor (batch, time, channels)
+            input to normalize.
+        """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
         w = torch.clamp(self._weights, min=0.0, max=1.0)
         initial_state = x[:, :, 0]
 
         def scan(init_state, x, w):
+            """Loops and accumulates."""
             x = x.permute(2, 0, 1)
             acc = init_state
             results = []
@@ -575,6 +591,13 @@ class PCEN(nn.Module):
         )
 
     def forward(self, x):
+        """Returns the normalized input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channels)
+            input to normalize.
+        """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
         alpha = torch.min(
