@@ -102,7 +102,7 @@ class G2PEvaluator:
         else:
             raise ValueError(f"unsupported eval_mode {self.hparams.eval_mode}")
 
-        ids = batch.id
+        ids = batch.sample_id
 
         phns, phn_lens = batch.phn_encoded
 
