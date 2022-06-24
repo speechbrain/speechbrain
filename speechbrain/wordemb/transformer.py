@@ -9,13 +9,14 @@ Authors
 
 import torch
 import numpy as np
+from torch import nn
 
 
 def _last_n_layers(count):
     return range(-count, 0)
 
 
-class TransformerWordEmbeddings:
+class TransformerWordEmbeddings(nn.Module):
     """A wrapper to retrieve word embeddings out of a pretrained Transformer model
     from HuggingFace Transformers (e.g. BERT)
 
@@ -90,6 +91,7 @@ class TransformerWordEmbeddings:
     DEFAULT_LAYERS = 4
 
     def __init__(self, model, tokenizer=None, layers=None, device=None):
+        super().__init__()
         if not layers:
             layers = self.DEFAULT_LAYERS
         layers = _last_n_layers(layers) if isinstance(layers, int) else layers
@@ -111,6 +113,31 @@ class TransformerWordEmbeddings:
             self.model = self.model.to(device)
         else:
             self.device = self.model.device
+
+    def forward(self, sentence, word=None):
+        """Retrieves a word embedding for the specified word within
+        a given sentence, if a word is provided, or all word embeddings
+        if only a sentence is given
+
+        Arguments
+        ---------
+        sentence: str
+            a sentence
+        word: str|int
+            a word or a word's index within the sentence. If a word
+            is given, and it is encountered multiple times in a
+            sentence, the first occurrence is used
+
+        Returns
+        -------
+        emb: torch.Tensor
+            the word embedding
+        """
+        return (
+            self.embedding(sentence, word)
+            if word
+            else self.embeddings(sentence)
+        )
 
     def embedding(self, sentence, word):
         """Retrieves a word embedding for the specified word within
@@ -159,7 +186,7 @@ class TransformerWordEmbeddings:
         Returns
         -------
         emb: torch.Tensor
-            a tensor of dimension
+            a tensor of all word embeddings
 
         """
         encoded = self.tokenizer.encode_plus(sentence, return_tensors="pt")

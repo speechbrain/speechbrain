@@ -166,15 +166,15 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
 
-def _wordwise_detokenize(sequence, tokenizer, output_separtor, token_separator):
+def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
     """Detokenizes a sequence wordwise
 
     Arguments
     ---------
-    sequence: iterable
-        the original sequence
     tokenizer: speechbrain.tokenizers.SentencePiece.SentencePiece
         a tokenizer instance
+    sequence: iterable
+        the original sequence
     output_separator: str
         the separator used in the output seauence
     token_separator: str
