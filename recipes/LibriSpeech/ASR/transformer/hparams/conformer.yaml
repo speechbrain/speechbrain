@@ -1,17 +1,17 @@
 # ############################################################################
-# Model: E2E ASR with Transformer
+# Model: E2E ASR with Conformer
 # Encoder: Conformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
+# Authors:  Titouan Parcollet, Samuele Cornell
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
-seed: 7775
+seed: 74448
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer_small/<seed>
+output_folder: !ref results/conformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -25,7 +25,7 @@ train_log: !ref <output_folder>/train_log.txt
 pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
+data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
@@ -40,28 +40,20 @@ test_csv:
     - !ref <data_folder>/test-clean.csv
     - !ref <data_folder>/test-other.csv
 
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 110
-batch_size: 16 # This works for 2x GPUs with 32GB
+number_of_epochs: 60
+batch_size: 24 # This works for 1x GPU with 40GB
 ctc_weight: 0.3
-grad_accumulation_factor: 4
+grad_accumulation_factor: 2
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
-sorting: ascending
-
-# stages related parameters
-# stage_one_epochs: 90
-lr_adam: 0.001
-# lr_sgd: 0.000025
-
-# Feature parameters
-sample_rate: 16000
-n_fft: 400
-n_mels: 80
+sorting: descending
 
 dynamic_batching: False
 
@@ -73,10 +65,19 @@ dynamic_batch_sampler:
     batch_ordering: descending
     max_batch_ex: -1
 
+# stages related parameters
+lr_adam: 0.001
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    num_workers: 12
 
 valid_dataloader_opts:
     batch_size: 1
@@ -86,12 +87,12 @@ test_dataloader_opts:
 
 ####################### Model parameters ###########################
 # Transformer
-d_model: 144
+d_model: 512
 nhead: 4
-num_encoder_layers: 12
-num_decoder_layers: 4
-d_ffn: 1024
-transformer_dropout: 0.0
+num_encoder_layers: 8
+num_decoder_layers: 6
+d_ffn: 2048
+transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 
@@ -115,15 +116,15 @@ ctc_weight_decode: 0.40
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
-    num_blocks: 2
+    num_blocks: 3
     num_layers_per_block: 1
-    out_channels: (64, 32)
-    kernel_sizes: (3, 3)
-    strides: (2, 2)
-    residuals: (False, False)
+    out_channels: (64, 64, 64)
+    kernel_sizes: (5, 5, 1)
+    strides: (2, 2, 1)
+    residuals: (False, False, True)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-    input_size: 640
+    input_size: 1280
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: !ref <nhead>
@@ -162,10 +163,6 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
     n_neurons: !ref <output_neurons>
 
-normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    update_until_epoch: 4
-
 modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
@@ -182,10 +179,6 @@ Adam: !name:torch.optim.Adam
     betas: (0.9, 0.98)
     eps: 0.000000001
 
-#SGD: !name:torch.optim.SGD
-#    lr: !ref <lr_sgd>
-#    momentum: 0.99
-#    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -230,7 +223,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
-#    model_size: !ref <d_model>
+    #model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -243,21 +236,23 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    update_until_epoch: 4
+
 augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
+    time_warp: False
     time_warp_window: 5
     time_warp_mode: bicubic
     freq_mask: True
-    n_freq_mask: 2
+    n_freq_mask: 4
     time_mask: True
-    n_time_mask: 2
+    n_time_mask: 4
     replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
+    freq_mask_width: 15
+    time_mask_width: 20
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
+speed_perturb: True
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
