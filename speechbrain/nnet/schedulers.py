@@ -129,6 +129,7 @@ class NewBobScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the current metrics on the specified path."""
         data = {
             "hyperparam_value": self.hyperparam_value,
             "metric_values": self.metric_values,
@@ -138,6 +139,7 @@ class NewBobScheduler:
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device  # Unused in here
         data = torch.load(path)
@@ -348,11 +350,13 @@ class NoamScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)
@@ -449,11 +453,13 @@ class CyclicCosineScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the curent metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device  # Unused here
         data = torch.load(path)
@@ -555,6 +561,7 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the curent metrics on the specified path."""
         data = {
             "losses": self.losses,
             "anchor": self.anchor,
@@ -564,6 +571,7 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device  # Not used
         data = torch.load(path)
@@ -572,6 +580,7 @@ class ReduceLROnPlateau:
         self.patience_counter = data["patience_counter"]
 
 
+@checkpoints.register_checkpoint_hooks
 class CyclicLRScheduler:
     """This implements a cyclical learning rate policy (CLR).
     The method cycles the learning rate between two boundaries with
@@ -697,6 +706,7 @@ class CyclicLRScheduler:
         return old_lr, new_lr
 
     def clr(self, clr_iterations):
+        """Clears interations."""
         cycle = math.floor(1 + clr_iterations / (2 * self.step_size))
         x = abs(clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == "cycle":
@@ -728,11 +738,13 @@ class CyclicLRScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "clr_iterations": self.clr_iterations}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)
@@ -834,11 +846,13 @@ class IntervalScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)

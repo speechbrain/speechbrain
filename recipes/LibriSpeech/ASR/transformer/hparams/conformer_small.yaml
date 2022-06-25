@@ -63,6 +63,16 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
+dynamic_batching: False
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 100000 # in terms of frames
+    num_buckets: 200
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: descending
+    max_batch_ex: -1
+
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>

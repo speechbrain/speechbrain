@@ -575,6 +575,71 @@ class Separation(sb.Brain):
         )
 
 
+def dataio_prep(hparams):
+    """Creates data processing pipeline"""
+
+    # 1. Define datasets
+    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["train_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["valid_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
+
+    datasets = [train_data, valid_data, test_data]
+
+    # 2. Provide audio pipelines
+
+    @sb.utils.data_pipeline.takes("mix_wav")
+    @sb.utils.data_pipeline.provides("mix_sig")
+    def audio_pipeline_mix(mix_wav):
+        mix_sig = sb.dataio.dataio.read_audio(mix_wav)
+        return mix_sig
+
+    @sb.utils.data_pipeline.takes("s1_wav")
+    @sb.utils.data_pipeline.provides("s1_sig")
+    def audio_pipeline_s1(s1_wav):
+        s1_sig = sb.dataio.dataio.read_audio(s1_wav)
+        return s1_sig
+
+    @sb.utils.data_pipeline.takes("s2_wav")
+    @sb.utils.data_pipeline.provides("s2_sig")
+    def audio_pipeline_s2(s2_wav):
+        s2_sig = sb.dataio.dataio.read_audio(s2_wav)
+        return s2_sig
+
+    if hparams["num_spks"] == 3:
+
+        @sb.utils.data_pipeline.takes("s3_wav")
+        @sb.utils.data_pipeline.provides("s3_sig")
+        def audio_pipeline_s3(s3_wav):
+            s3_sig = sb.dataio.dataio.read_audio(s3_wav)
+            return s3_sig
+
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
+    if hparams["num_spks"] == 3:
+        sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
+        sb.dataio.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
+        )
+    else:
+        sb.dataio.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
+        )
+
+    return train_data, valid_data, test_data
+
+
 if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
@@ -651,8 +716,6 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects
-    from recipes.WSJ0Mix.separation.train import dataio_prep
-
     if hparams["dynamic_mixing"]:
         from dynamic_mixing import dynamic_mix_data_prep
 
@@ -691,7 +754,19 @@ if __name__ == "__main__":
                     os.path.normpath(hparams["base_folder_dm"]) + "_processed"
                 )
 
-        train_data = dynamic_mix_data_prep(hparams)
+        # Prepare dictionary with hparams for dynamic mixing
+        dm_hparams = {
+            "train_data": hparams["train_data"],
+            "data_folder": hparams["data_folder"],
+            "base_folder_dm": hparams["base_folder_dm"],
+            "sample_rate": hparams["sample_rate"],
+            "num_spks": hparams["num_spks"],
+            "training_signal_len": hparams["training_signal_len"],
+            "dataloader_opts": hparams["dataloader_opts"],
+            "hrtf_wav_path": hparams["hrtf_wav_path"],
+        }
+        train_data = dynamic_mix_data_prep(dm_hparams)
+
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)

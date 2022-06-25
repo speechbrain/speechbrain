@@ -81,6 +81,12 @@ def detect_script_vars(script_file, var_lst):
     detected_var: list
         list of the variables detected in the script file.
     """
+    var_types = [
+        "hparams.",
+        "modules.",
+        'attr(self.hparams, "',
+        'hparams.get("',
+    ]
     detected_var = []
     with open(script_file) as f:
         for line in f:
@@ -95,21 +101,19 @@ def detect_script_vars(script_file, var_lst):
                 if re_match is not None:
                     if re_match.group(1) in var:
                         print(
-                            "\t\tAlert: potential inconsistency %s maybe used in %s (or not)."
+                            "\t\tWARNING: potential inconsistency %s maybe used in %s (or not)."
                             % (var, re_match.group(0))
                         )
                         if var not in detected_var:
                             detected_var.append(var)
                             continue
-                if "." + var in line:
-                    if var not in detected_var:
-                        detected_var.append(var)
-                        continue
-                # case: getattr(self.hparams, "waveform_target", False):
-                if 'attr(self.hparams, "' + var + '"' in line:
-                    if var not in detected_var:
-                        detected_var.append(var)
-                        continue
+
+                # Chek var types
+                for var_type in var_types:
+                    if var_type + var in line:
+                        if var not in detected_var:
+                            detected_var.append(var)
+                            continue
                 # case: tea_enc_list.append(hparams['tea{}_enc'])
                 re_var = re.search(r"\[.(.*){}(.*).\]", line)
                 if re_var is not None:
@@ -122,7 +126,7 @@ def detect_script_vars(script_file, var_lst):
     return detected_var
 
 
-def check_yaml_vs_script(hparam_file, script_file, prepare_files):
+def check_yaml_vs_script(hparam_file, script_file):
     """Checks consistency between the given yaml file (hparams_file) and the
     script file. The function detects if there are variables declared in the yaml
     file, but not used in the script file.
@@ -133,14 +137,12 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         Path of the yaml file containing the hyperparameters.
     script_file : path
         Path of the script file (.py) containing the training recipe.
-    prepare_file : List(path) (optional)
-        Path list of the preparation script files (.py) containing the data preparation.
 
     Returns
     -------
     Bool
         This function returns False if some mismatch is detected and True otherwise.
-        A warning is raised to inform about which variable has been declared but
+        An error is raised to inform about which variable has been declared but
         not used.
     """
     print("Checking %s..." % (hparam_file))
@@ -154,21 +156,10 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         print("File %s not found!" % (script_file,))
         return False
 
-    if prepare_files == [""]:
-        prepare_files = []
-
-    for prepare_file in prepare_files:
-        if not (os.path.exists(prepare_file)):
-            print("File %s not found!" % (prepare_file,))
-            return False
-
     # Getting list of variables declared in yaml
     var_lst = get_yaml_var(hparam_file)
 
     # Detect which of these variables are used in the script file
-    detected_vars_prepare = []
-    for prepare_file in prepare_files:
-        detected_vars_prepare += detect_script_vars(prepare_file, var_lst)
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
@@ -192,15 +183,124 @@ def check_yaml_vs_script(hparam_file, script_file, prepare_files):
         "optimizer_step_limit",
     ]
     unused_vars = list(
-        set(var_lst)
-        - set(detected_vars_prepare)
-        - set(detected_vars_train)
-        - set(default_run_opt_keys)
+        set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)
     )
     for unused_var in unused_vars:
         print(
-            '\tWARNING: variable "%s" not used in %s!'
-            % (unused_var, ", ".join([script_file, *prepare_files]))
+            '\tERROR: variable "%s" not used in %s!' % (unused_var, script_file)
         )
 
+    return len(unused_vars) == 0
+
+
+def extract_patterns(lines, start_pattern, end_pattern):
+    """Extracts a variables from start_pattern to end_pattern.
+
+    Arguments
+    ---------
+    lines: list
+        List of strings to parse.
+    start_pattern: string
+        String that indicated the start of the pattern.
+    end_pattern: string
+        String that indicated the end of the pattern.
+
+    Returns
+    -------
+    var_lst: list
+        List of variables detected.
+    """
+    var_lst = []
+
+    for line in lines:
+        start_indexes = [
+            index
+            for index in range(len(line))
+            if line.startswith(start_pattern, index)
+        ]
+        for index in start_indexes:
+            start_var = index + len(start_pattern)
+            line_src = line[start_var:]
+            var_name = ""
+            for char in line_src:
+                if char in end_pattern:
+                    break
+                var_name = var_name + char
+            var_lst.append(var_name)
+    return var_lst
+
+
+def check_module_vars(
+    hparam_file, script_file, module_key="modules:", module_var="self.modules."
+):
+    """Checks if the variables self.moduled.var are properly declared in the
+    hparam file.
+
+    Arguments
+    ---------
+    hparam_file : path
+        Path of the yaml file containing the hyperparameters.
+    script_file : path
+        Path of the script file (.py) containing the training recipe.
+    module_key: string
+        String that denoted the start of the module in the hparam file.
+    module_var: string
+        String that denoted the start of the module in the script file.
+    Returns
+    -------
+    Bool
+        This function returns False if some mismatch is detected and True otherwise.
+        An error is raised to inform about which variable has been used but
+        not declared.
+    """
+    stop_char = [" ", ",", "(", ")", "[", "]", "{", "}", ".", ":", "\n"]
+    module_block = False
+    end_block = [" ", "\t"]
+    avoid_lst = ["parameters", "keys", "eval", "train"]
+
+    # Extract Modules variables from the hparam file
+    module_vars_hparams = []
+    with open(hparam_file) as f:
+        for line in f:
+            if module_key in line:
+                module_block = True
+                continue
+            if line[0] not in end_block:
+                module_block = False
+
+            if module_block:
+                var = line.strip().split(":")[0]
+                module_vars_hparams.append(var)
+
+    # Extract Modules variables from the script file
+    with open(script_file) as file:
+        lines = file.readlines()
+        lines = [line.rstrip() for line in lines]
+
+    module_var_script = extract_patterns(lines, module_var, stop_char)
+    module_var_script = set(module_var_script)
+    for avoid in avoid_lst:
+        if avoid in module_var_script:
+            module_var_script.remove(avoid)
+
+    # Remove optional variables "if hasattr(self.modules, "env_corrupt"):"
+    stop_char.append('"')
+    opt_vars = extract_patterns(lines, 'if hasattr(self.modules, "', stop_char)
+    opt_vars.extend(
+        extract_patterns(lines, 'if hasattr(self.hparams, "', stop_char)
+    )
+
+    # Remove optional
+    for avoid in set(opt_vars):
+        if avoid in module_var_script:
+            module_var_script.remove(avoid)
+
+    # Check Module variavles
+    unused_vars = list(set(module_var_script) - set(module_vars_hparams))
+
+    for unused_var in unused_vars:
+        print(
+            '\tERROR: variable "self.modules.%s" used in %s, but not listed in the "modules:" section of %s'
+            % (unused_var, script_file, hparam_file)
+        )
     return len(unused_vars) == 0

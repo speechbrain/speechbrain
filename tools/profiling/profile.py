@@ -46,6 +46,7 @@ def get_funcs_to_unary_input_classifier(
     batch_label="wavs",
     lengths_label: Optional[str] = "wav_lens",
 ):
+    """Implement get_funcs_to_unary_input_classifier."""
     assert issubclass(cls, Pretrained)
     pretrained = cls.from_hparams(
         source=source, savedir=save_dir, run_opts={"device": device}
@@ -53,6 +54,7 @@ def get_funcs_to_unary_input_classifier(
     example = pretrained.load_audio(example_audio) if example_audio else None
 
     def prepare(batch_size, duration, sampling_rate=16000):
+        """Prepares input data."""
         unary_input = {
             batch_label: example[: duration * sampling_rate].repeat(
                 batch_size, 1
@@ -67,6 +69,7 @@ def get_funcs_to_unary_input_classifier(
         return unary_input
 
     def call(model, **kwargs):
+        """Calls the specified funnction."""
         getattr(model, call_func)(**kwargs)
 
     return prepare, call, pretrained
@@ -134,6 +137,7 @@ def get_funcs_to_profile(
             example = pretrained.load_audio(example_audio)
 
         def prepare(batch_size, duration, num_wavs2=10, sampling_rate=16000):
+            """Prepares input data."""
             return {
                 "wavs1": torch.rand(
                     (batch_size, duration * sampling_rate), device=device
@@ -146,6 +150,7 @@ def get_funcs_to_profile(
             }
 
         def call(model, **kwargs):
+            """Calls verify_batch."""
             model.verify_batch(**kwargs)
 
     elif pretrained_type == "VAD":  # untested
@@ -191,6 +196,7 @@ def get_funcs_to_profile(
             example = pretrained.load_audio(example_audio)
 
         def prepare(batch_size, duration, num_spks=2, sampling_rate=16000):
+            """Prepares input data."""
             return {
                 "mix": example[: duration * sampling_rate].repeat(batch_size, 1)
                 if example is not None
@@ -204,6 +210,7 @@ def get_funcs_to_profile(
             }
 
         def call(model, **kwargs):
+            """Calls estimate_batch"""
             model.estimate_batch(**kwargs)
 
     else:  # pretrained_type must be part of SpeechBrain
@@ -215,6 +222,7 @@ def get_funcs_to_profile(
 def benchmark_to_markdown(
     benchmark: List[List[str]], columns: List[str], rows: List[str]
 ):
+    """Implement benchmark to markdown."""
     cell_width = max([len(x) for x in benchmark[0]])
     fmt = "{: >%d} " % cell_width
     out = (
