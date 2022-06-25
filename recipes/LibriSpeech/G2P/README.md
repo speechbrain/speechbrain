@@ -44,6 +44,26 @@ The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders,  and many other possible variations.
 
+Language Models
+---------------
+The provided G2P model allows for the optional use of a language model trained on
+the phoneme space integrated with a beam search in order to obtain a modest improvement
+in the results.
+
+To train a language model, use the `train_lm.py` script provided.
+
+For an RNN-based language model:
+> python train_lm.py hparams/hparams_lm_rnn.yaml
+
+For a transformer-based language modle:
+> python train_lm.py hparams/hparams_lm_transformer.yaml
+
+To use a language model during training or inference
+* Copy the language model file from the location indicated by `<save_folder>/<checkpoint>/model.ckpt`
+to `<pretrained_path>/lm.ckpt`
+* Add`--use_language_model true` to the command line.
+
+
 Hyperparameter Optimization
 ---------------------------
 This recipe supports hyperparameter optimization via Oríon or other similar tools.
@@ -60,7 +80,8 @@ hparams/hpopt.yaml
 
 You can download LibriSpeech at http://www.openslr.org/12
 
-# Training Time
+Training Time
+-------------
 All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact training times will vary depending on the hyperparameters chosen and system configuration.
 
 ## RNN Models
