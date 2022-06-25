@@ -80,6 +80,15 @@ hparams/hpopt.yaml
 
 You can download LibriSpeech at http://www.openslr.org/12
 
+Pretrained Models
+-----------------
+| Release       | hyperparams file           | Test PER | Homograph % | Model link                                                                           |
+|:-------------:|:--------------------------:| --------:| --------------------------------------------------------------------------------------------------:|
+| 0.5.12        | train_g2p_rnn.yaml         | 2.71%*   |  94%*       | https://drive.google.com/drive/folders/1jpVDz6Kqtl4qp3_dsuK767mjNlqkIxTH?usp=sharing |
+| 0.5.12        | train_g2p_transformer.yaml | 2.89%*   |  89%*       | https://drive.google.com/drive/folders/1lbSjCKUit8H3FCzaDJmfBDJOkcDRH3XI?usp=sharing |
+
+* Verification pending (results based on an earlier version)
+
 Training Time
 -------------
 All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact training times will vary depending on the hyperparameters chosen and system configuration.
