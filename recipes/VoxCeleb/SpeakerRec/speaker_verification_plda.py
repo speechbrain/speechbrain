@@ -156,8 +156,7 @@ def dataio_prep(params):
 
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["train_data"],
-        replacements={"data_root": data_folder},
+        csv_path=params["train_data"], replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
         sort_key="duration", select_n=params["n_train_snts"]
@@ -165,15 +164,13 @@ def dataio_prep(params):
 
     # Enrol data
     enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["enrol_data"],
-        replacements={"data_root": data_folder},
+        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["test_data"],
-        replacements={"data_root": data_folder},
+        csv_path=params["test_data"], replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
