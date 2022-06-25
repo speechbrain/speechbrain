@@ -1047,11 +1047,15 @@ def check_tensorboard(hparams):
         the hyperparameter dictionary
     """
     if hparams["use_tensorboard"]:
-        from speechbrain.utils.train_logger import TensorboardLogger
+        try:
+            from speechbrain.utils.train_logger import TensorboardLogger
 
-        hparams["tensorboard_train_logger"] = TensorboardLogger(
-            hparams["tensorboard_logs"]
-        )
+            hparams["tensorboard_train_logger"] = TensorboardLogger(
+                hparams["tensorboard_logs"]
+            )
+        except ImportError:
+            logger.warning("Could not enable TensorBoard logging - TensorBoard is not available")
+            hparams["use_tensorboard"] = False
 
 
 if __name__ == "__main__":
