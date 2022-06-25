@@ -1054,7 +1054,9 @@ def check_tensorboard(hparams):
                 hparams["tensorboard_logs"]
             )
         except ImportError:
-            logger.warning("Could not enable TensorBoard logging - TensorBoard is not available")
+            logger.warning(
+                "Could not enable TensorBoard logging - TensorBoard is not available"
+            )
             hparams["use_tensorboard"] = False
 
 
