@@ -302,7 +302,10 @@ def download_file(
         if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
+                """ DownloadProgressBar class."""
+
                 def update_to(self, b=1, bsize=1, tsize=None):
+                    """Needed to support multigpu training."""
                     if tsize is not None:
                         self.total = tsize
                     self.update(b * bsize - self.n)
@@ -483,7 +486,7 @@ np_str_obj_array_pattern = re.compile(r"[SaUO]")
 
 
 def mod_default_collate(batch):
-    r"""Makes a tensor from list of batch values.
+    """Makes a tensor from list of batch values.
 
     Note that this doesn't need to zip(*) values together
     as PaddedBatch connects them already (by key).

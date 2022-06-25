@@ -120,6 +120,8 @@ class EpochCounterWithStopper(EpochCounter):
             raise ValueError("Stopper 'direction' must be 'min' or 'max'")
 
     def should_stop(self, current, current_metric):
+        """Returns True is training should stop (based on the performance
+        metrics)."""
         should_stop = False
         if current > self.limit_warmup:
             if self.sign * current_metric < self.sign * (
