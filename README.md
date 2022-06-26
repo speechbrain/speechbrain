@@ -144,7 +144,7 @@ Beyond providing recipes for training the models from scratch, SpeechBrain share
 | Spoken Language Understanding | Timers and Such | [CRDNN](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr) |
 | Language Identification | CommonLanguage | [ECAPA-TDNN](https://huggingface.co/speechbrain/lang-id-commonlanguage_ecapa) |
 
-The full list of pre-trained models can be found on [HuggingFace](https://huggingface.co/speechbrai)
+The full list of pre-trained models can be found on [HuggingFace](https://huggingface.co/speechbrain)
 
 ### Documentation & Tutorials
 SpeechBrain is designed to speed up the research and development of speech technologies. Hence, our code is backed-up with different levels of documentation:
