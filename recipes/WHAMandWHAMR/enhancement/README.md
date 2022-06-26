@@ -58,7 +58,7 @@ It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (
 Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through huggingface:
 * https://huggingface.co/speechbrain/sepformer-wham-enhancement
 * https://huggingface.co/speechbrain/sepformer-whamr-enhancement
-* https://huggingface.co/speechbrain/speechbrain/sepformer-whamr16k
+* https://huggingface.co/speechbrain/sepformer-whamr16k
 * Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
 
 
