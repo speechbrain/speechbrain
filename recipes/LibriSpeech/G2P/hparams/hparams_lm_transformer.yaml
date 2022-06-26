@@ -159,6 +159,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
     d_ffn: !ref <transformer_d_ffn>
     dropout: !ref <dropout>
     activation: !name:torch.nn.GELU
+    decoder_use_memory: True
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

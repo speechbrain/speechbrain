@@ -358,6 +358,7 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
     d_ffn: !ref <lm_d_ffn>
     dropout: !ref <lm_dropout>
     nhead: !ref <lm_num_heads>
+    decoder_use_memory: True
     activation: !name:torch.nn.GELU
 
 opt_class: !name:torch.optim.Adam
