@@ -323,6 +323,7 @@ class BinaryMetricStats(MetricStats):
         self.positive_label = positive_label
 
     def clear(self):
+        """Clears the stored metrics."""
         self.ids = []
         self.scores = []
         self.labels = []
@@ -421,7 +422,7 @@ class BinaryMetricStats(MetricStats):
 
             eer, threshold = EER(positive_scores, negative_scores)
 
-        pred = (self.scores >= threshold).float()
+        pred = (self.scores > threshold).float()
         true = self.labels
 
         TP = self.summary["TP"] = float(pred.mul(true).sum())
@@ -479,29 +480,28 @@ def EER(positive_scores, negative_scores):
     interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
     thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
 
-    # Computing False Rejection Rate (miss detection)
-    positive_scores = torch.cat(
-        len(thresholds) * [positive_scores.unsqueeze(0)]
-    )
-    pos_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
-    FRR = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[1]
-    del positive_scores
-    del pos_scores_threshold
+    # Variable to store the min FRR, min FAR and their corresponding index
+    min_index = 0
+    final_FRR = 0
+    final_FAR = 0
 
-    # Computing False Acceptance Rate (false alarm)
-    negative_scores = torch.cat(
-        len(thresholds) * [negative_scores.unsqueeze(0)]
-    )
-    neg_scores_threshold = negative_scores.transpose(0, 1) > thresholds
-    FAR = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[1]
-    del negative_scores
-    del neg_scores_threshold
+    for i, cur_thresh in enumerate(thresholds):
+        pos_scores_threshold = positive_scores <= cur_thresh
+        FRR = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[0]
+        del pos_scores_threshold
 
-    # Finding the threshold for EER
-    min_index = (FAR - FRR).abs().argmin()
+        neg_scores_threshold = negative_scores > cur_thresh
+        FAR = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[0]
+        del neg_scores_threshold
+
+        # Finding the threshold for EER
+        if (FAR - FRR).abs().item() < abs(final_FAR - final_FRR) or i == 0:
+            min_index = i
+            final_FRR = FRR.item()
+            final_FAR = FAR.item()
 
     # It is possible that eer != fpr != fnr. We return (FAR  + FRR) / 2 as EER.
-    EER = (FAR[min_index] + FRR[min_index]) / 2
+    EER = (final_FAR + final_FRR) / 2
 
     return float(EER), float(thresholds[min_index])
 

@@ -17,7 +17,7 @@ After training the speaker embeddings, it is possible to perform speaker verific
 `python speaker_verification_plda.py hparams/verification_plda_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
-This system achieves an EER = 3.2% on voxceleb1 + voxceleb2.
+This system achieves an EER = 3.19% on voxceleb1 + voxceleb2.
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 
@@ -33,7 +33,10 @@ After training the speaker embeddings, it is possible to perform speaker verific
 
 `python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
 
-This system achieves an EER = 0.69 % on voxceleb1 + voxceleb2.
+This system achieves:
+- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm.
+- EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
+
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # VoxCeleb2 preparation
@@ -46,7 +49,7 @@ Note that for the speaker verification experiments with Voxceleb2 the official s
 
 2. Convert .m4a to wav
 Voxceleb2 stores files with the m4a audio format. To use them within SpeechBrain you have to convert all the m4a files into wav files.
-You can do the conversion using ffmpeg(see for instance conversion scripts in https://gitmemory.com/issue/pytorch/audio/104/493137979 or https://gist.github.com/seungwonpark/4f273739beef2691cd53b5c39629d830). This operation might take several hours and should be only once.
+You can do the conversion using ffmpeg(https://gist.github.com/seungwonpark/4f273739beef2691cd53b5c39629d830). This operation might take several hours and should be only once.
 
 2. Put all the wav files in a folder called wav. You should have something like `voxceleb2/wav/id*/*.wav` (e.g, `voxceleb2/wav/id00012/21Uxsk56VDQ/00001.wav`)
 
@@ -75,7 +78,8 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 
 # PreTrained Model + Easy-Inference
-You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb).
+You can find the pre-trained ECAPA-TDNN model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb).
+You can find the pre-trained xvector models as well on [HuggingFace](https://huggingface.co/speechbrain/spkrec-xvect-voxceleb)
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

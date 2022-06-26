@@ -8,9 +8,10 @@
 # Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
+
 seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/conformer_small/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -28,7 +29,7 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -47,20 +48,30 @@ test_csv:
 number_of_epochs: 110
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
-gradient_accumulation: 4
-gradient_clipping: 5.0
+grad_accumulation_factor: 4
+max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: ascending
 
 # stages related parameters
-stage_one_epochs: 90
+# stage_one_epochs: 90
 lr_adam: 0.001
-lr_sgd: 0.000025
+# lr_sgd: 0.000025
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
+
+dynamic_batching: False
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 100000 # in terms of frames
+    num_buckets: 200
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: descending
+    max_batch_ex: -1
 
 # Dataloader options
 train_dataloader_opts:
@@ -83,7 +94,6 @@ d_ffn: 1024
 transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -91,7 +101,6 @@ label_smoothing: 0.0
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -173,10 +182,10 @@ Adam: !name:torch.optim.Adam
     betas: (0.9, 0.98)
     eps: 0.000000001
 
-SGD: !name:torch.optim.SGD
-    lr: !ref <lr_sgd>
-    momentum: 0.99
-    nesterov: True
+#SGD: !name:torch.optim.SGD
+#    lr: !ref <lr_sgd>
+#    momentum: 0.99
+#    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]

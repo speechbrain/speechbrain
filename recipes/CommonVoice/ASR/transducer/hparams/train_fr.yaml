@@ -141,10 +141,11 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
    dnn_neurons: !ref <dnn_neurons>
 
 # For MTL CTC over the encoder
-# enc_lin: !new:speechbrain.nnet.linear.Linear
-#     input_size: !ref <dnn_neurons>
-#     n_neurons: !ref <joint_dim>
-#
+enc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <joint_dim>
+
+# Uncomment for MTL with CTC
 # ctc_cost: !name:speechbrain.nnet.ctc_loss
 #    blank_index: !ref <blank_index>
 
@@ -160,13 +161,14 @@ dec: !new:speechbrain.nnet.RNN.GRU
    re_init: True
 
 # For MTL with LM over the decoder
-# dec_lin: !new:speechbrain.nnet.linear.Linear
-#     input_size: !ref <dec_neurons>
-#     n_neurons: !ref <joint_dim>
-#     bias: False
-#
-# ce_cost: !name:speechbrain.nnet.nll_loss
-#    label_smoothing: 0.1
+dec_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dec_neurons>
+   n_neurons: !ref <joint_dim>
+   bias: False
+
+# For MLT with CTC
+#ce_cost: !name:speechbrain.nnet.losses.nll_loss
+#   label_smoothing: 0.1
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
    joint: sum # joint [sum | concat]
@@ -188,8 +190,10 @@ transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
 # update model if any HEAD module is added
 modules:
    enc: !ref <enc>
+   enc_lin: !ref <enc_lin>
    emb: !ref <emb>
    dec: !ref <dec>
+   dec_lin: !ref <dec_lin>
    Tjoint: !ref <Tjoint>
    transducer_lin: !ref <transducer_lin>
    normalize: !ref <normalize>
@@ -200,13 +204,13 @@ modules:
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
 
-greedy_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-   decode_network_lst: [!ref <emb>, !ref <dec>]
-   tjoint: !ref <Tjoint>
-   classifier_network: [!ref <transducer_lin>]
-   blank_id: !ref <blank_index>
-   beam_size: 1
-   nbest: 1
+# greedy_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+#   decode_network_lst: [!ref <emb>, !ref <dec>]
+#   tjoint: !ref <Tjoint>
+#   classifier_network: [!ref <transducer_lin>]
+#   blank_id: !ref <blank_index>
+#   beam_size: 1
+#   nbest: 1
 
 beam_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
    decode_network_lst: [!ref <emb>, !ref <dec>]

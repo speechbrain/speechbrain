@@ -678,21 +678,24 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-
-    dataset = "train"
-    datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams[f"{dataset}_annotation"],
+    datasets["train"] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_annotation"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[audio_pipeline_train],
         output_keys=["id", "noisy_sig"],
     )
-    for dataset in ["valid", "test"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline_valid],
-            output_keys=["id", "noisy_sig", "clean_sig"],
-        )
+    datasets["valid"] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_annotation"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[audio_pipeline_valid],
+        output_keys=["id", "noisy_sig", "clean_sig"],
+    )
+    datasets["test"] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[audio_pipeline_valid],
+        output_keys=["id", "noisy_sig", "clean_sig"],
+    )
 
     return datasets
 

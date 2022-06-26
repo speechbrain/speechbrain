@@ -673,6 +673,8 @@ def spectral_clustering_sb(
 
 
 class Spec_Cluster(SpectralClustering):
+    """Performs spectral clustering using sklearn on embeddings."""
+
     def perform_sc(self, X, n_neighbors=10):
         """
         Performs spectral clustering using sklearn on embeddings.
@@ -738,23 +740,23 @@ class Spec_Clust_unorm:
      [0.904 0.982 0.928 1.    0.976]
      [0.966 0.997 0.972 0.976 1.   ]]
     >>> # Prunning
-    >>> prunned_sim_mat = clust.p_pruning(sim_mat, 0.3)
-    >>> print (np.around(prunned_sim_mat[5:,5:], decimals=3))
+    >>> pruned_sim_mat = clust.p_pruning(sim_mat, 0.3)
+    >>> print (np.around(pruned_sim_mat[5:,5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
      [0.    1.    0.    0.982 0.997]
      [0.    0.977 1.    0.    0.972]
      [0.    0.982 0.    1.    0.976]
      [0.    0.997 0.    0.976 1.   ]]
     >>> # Symmetrization
-    >>> sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
-    >>> print (np.around(sym_prund_sim_mat[5:,5:], decimals=3))
+    >>> sym_pruned_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
+    >>> print (np.around(sym_pruned_sim_mat[5:,5:], decimals=3))
     [[1.    0.    0.    0.    0.   ]
      [0.    1.    0.489 0.982 0.997]
      [0.    0.489 1.    0.    0.486]
      [0.    0.982 0.    1.    0.976]
      [0.    0.997 0.486 0.976 1.   ]]
     >>> # Laplacian
-    >>> laplacian = clust.get_laplacian(sym_prund_sim_mat)
+    >>> laplacian = clust.get_laplacian(sym_pruned_sim_mat)
     >>> print (np.around(laplacian[5:,5:], decimals=3))
     [[ 1.999  0.     0.     0.     0.   ]
      [ 0.     2.468 -0.489 -0.982 -0.997]
@@ -796,13 +798,13 @@ class Spec_Clust_unorm:
         sim_mat = self.get_sim_mat(X)
 
         # Refining similarity matrix with p_val
-        prunned_sim_mat = self.p_pruning(sim_mat, p_val)
+        pruned_sim_mat = self.p_pruning(sim_mat, p_val)
 
         # Symmetrization
-        sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+        sym_pruned_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
 
         # Laplacian calculation
-        laplacian = self.get_laplacian(sym_prund_sim_mat)
+        laplacian = self.get_laplacian(sym_pruned_sim_mat)
 
         # Get Spectral Embeddings
         emb, num_of_spk = self.get_spec_embs(laplacian, k_oracle)
@@ -845,7 +847,7 @@ class Spec_Clust_unorm:
         -------
         A : array
             (n_samples, n_samples).
-            Prunned affinity matrix based on p_val.
+            pruned affinity matrix based on p_val.
         """
 
         n_elems = int((1 - pval) * A.shape[0])
@@ -917,8 +919,9 @@ class Spec_Clust_unorm:
                         : min(self.max_num_spkrs, len(lambda_gap_list))
                     ]
                 )
-                + 2
-            )
+                if lambda_gap_list
+                else 0
+            ) + 2
 
             if num_of_spk < self.min_num_spkrs:
                 num_of_spk = self.min_num_spkrs
@@ -1074,16 +1077,16 @@ def do_kmeans_clustering(
 
         # Get sim matrix
         sim_mat = clust_obj.get_sim_mat(diary_obj.stat1)
-        prunned_sim_mat = clust_obj.p_pruning(sim_mat, p_val)
+        pruned_sim_mat = clust_obj.p_pruning(sim_mat, p_val)
 
         # Symmetrization
-        sym_prund_sim_mat = 0.5 * (prunned_sim_mat + prunned_sim_mat.T)
+        sym_pruned_sim_mat = 0.5 * (pruned_sim_mat + pruned_sim_mat.T)
 
         # Laplacian calculation
-        laplacian = clust_obj.get_laplacian(sym_prund_sim_mat)
+        laplacian = clust_obj.get_laplacian(sym_pruned_sim_mat)
 
         # Get Spectral Embeddings
-        emb, num_of_spk = clust_obj.get_spec_embs(laplacian, k_oracle)
+        _, num_of_spk = clust_obj.get_spec_embs(laplacian, k_oracle)
 
     # Perform kmeans directly on deep embeddings
     _, labels, _ = k_means(diary_obj.stat1, num_of_spk)

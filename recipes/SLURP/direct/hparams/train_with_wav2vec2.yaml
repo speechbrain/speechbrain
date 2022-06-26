@@ -19,7 +19,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 # The SLURP dataset will be automatically downloaded in the specified data_folder
 data_folder: !<PLACEHOLDER> # e.g, /localscratch/SLURP
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <output_folder>/train-type=direct.csv
 csv_valid: !ref <output_folder>/devel-type=direct.csv
@@ -36,7 +36,7 @@ number_of_epochs: 35
 batch_size: 6
 lr: 0.0003
 lr_wav2vec2: 0.00001
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
