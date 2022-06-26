@@ -8,6 +8,7 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
 """
+import logging
 import hashlib
 import sys
 import speechbrain
@@ -24,8 +25,12 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.batch import PaddedBatch, PaddedData
+from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
+
+logger = logging.getLogger(__name__)
 
 
 def foreign_class(
@@ -2122,6 +2127,305 @@ class SpectralMaskEnhancement(Pretrained):
             torchaudio.save(output_filename, enhanced, channels_first=False)
 
         return enhanced.squeeze(0)
+
+
+class EncodeDecodePipelineMixin:
+    """
+    A mixin for pretrained models that makes it possible to specify an encoding pipeline and a decoding pipeline
+    """
+
+    def create_pipelines(self):
+        """
+        Initializes the encode and decode pipeline
+        """
+        self._run_init_steps(self.hparams.encode_pipeline)
+        self._run_init_steps(self.hparams.decode_pipeline)
+        self.encode_pipeline = DataPipeline(
+            static_data_keys=self.INPUT_STATIC_KEYS,
+            dynamic_items=self.hparams.encode_pipeline["steps"],
+            output_keys=self.hparams.encode_pipeline["output_keys"],
+        )
+        self.decode_pipeline = DataPipeline(
+            static_data_keys=self.hparams.model_output_keys,
+            dynamic_items=self.hparams.decode_pipeline["steps"],
+            output_keys=self.OUTPUT_KEYS,
+        )
+
+    def _run_init_steps(self, pipeline_definition):
+        """Encode/decode pipelines may include initialization
+        steps, such as filling text encoders with tokens. Calling
+        this method will run them, if defined"""
+        steps = pipeline_definition.get("init", [])
+        for step in steps:
+            step_func = step.get("func")
+            if not step_func or not callable(step_func):
+                raise ValueError("Invalid pipeline init definition")
+            step_func()
+
+    def _run_pipeline(self, pipeline, input, batch):
+        if batch:
+            output = pipeline(input)
+        else:
+            output = [pipeline(item) for item in input]
+        return output
+
+    def _get_encode_pipeline_input(self, input):
+        return input if self.batch_inputs else self._itemize(input)
+
+    def _get_decode_pipeline_input(self, model_output):
+        model_output_keys = getattr(self.hparams, "model_output_keys", None)
+        pipeline_input = model_output
+        if len(model_output_keys) == 1:
+            pipeline_input = (pipeline_input,)
+        # The input to a pipeline is a dictionary. If model_output_keys
+        # is provided, the output of the model is assumed to be a collection
+        # (e.g. a list or a tuple).
+        if model_output_keys:
+            pipeline_input = dict(zip(model_output_keys, pipeline_input))
+
+        # By default, the pipeline will be applied to in batch mode
+        # to the entire model input
+        if not self.batch_outputs:
+            pipeline_input = self._itemize(pipeline_input)
+        return pipeline_input
+
+    def _itemize(self, pipeline_input):
+        first_item = next(iter(pipeline_input.values()))
+        keys, values = pipeline_input.keys(), pipeline_input.values()
+        batch_length = len(first_item)
+        return [
+            dict(zip(keys, [value[idx] for value in values]))
+            for idx in range(batch_length)
+        ]
+
+    def to_dict(self, data):
+        """
+        Converts padded batches to dictionaries, leaves
+        other data types as is
+
+        Arguments
+        ---------
+        data: object
+            a dictionary or a padded batch
+
+        Returns
+        -------
+        results: dict
+            the dictionary
+        """
+        if isinstance(data, PaddedBatch):
+            data = {
+                key: self._get_value(data, key)
+                for key in self.hparams.encode_pipeline["output_keys"]
+            }
+        return data
+
+    def _get_value(self, data, key):
+        """
+        Retrives the value associated with the specified key, dereferencing
+        .data where applicable
+
+        Arguments
+        ---------
+        data: PaddedBatch
+            a padded batch
+        key: str
+            the key
+
+        Returns
+        -------
+        result: object
+            the result
+        """
+        value = getattr(data, key)
+        if not self.input_use_padded_data and isinstance(value, PaddedData):
+            value = value.data
+        return value
+
+    @property
+    def batch_inputs(self):
+        """
+        Determines whether the input pipeline
+        operates on batches or individual examples
+        (true means batched)
+
+        Returns
+        -------
+        batch_intputs: bool
+        """
+        return self.hparams.encode_pipeline.get("batch", True)
+
+    @property
+    def input_use_padded_data(self):
+        """
+        If turned on, raw PaddedData instances will be passed to
+        the model. If turned off, only .data will be used
+
+        Returns
+        -------
+        result: bool
+            whether padded data is used as is
+        """
+        return self.hparams.encode_pipeline.get("use_padded_data", False)
+
+    @property
+    def batch_outputs(self):
+        """
+        Determines whether the output pipeline
+        operates on batches or individual examples
+        (true means batched)
+
+        Returns
+        -------
+        batch_outputs: bool
+        """
+        return self.hparams.decode_pipeline.get("batch", True)
+
+    def _collate(self, data):
+        if not self.batch_inputs:
+            collate_fn = getattr(self.hparams, "collate_fn", PaddedBatch)
+            data = collate_fn(data)
+        return data
+
+    def encode_input(self, input):
+        """
+        Encodes the inputs using the pipeline
+
+        Arguments
+        ---------
+        input: dict
+            the raw inputs
+
+        Results
+        -------
+        results: object
+
+        """
+        pipeline_input = self._get_encode_pipeline_input(input)
+        model_input = self._run_pipeline(
+            pipeline=self.encode_pipeline,
+            input=pipeline_input,
+            batch=self.batch_inputs,
+        )
+        model_input = self._collate(model_input)
+        if hasattr(model_input, "to"):
+            model_input = model_input.to(self.device)
+        return self.to_dict(model_input)
+
+    def decode_output(self, output):
+        """
+        Decodes the raw model outputs
+
+        Arguments
+        ---------
+        output: tuple
+            raw model outputs
+
+        Results
+        -------
+        result: dict or list
+            the output of the pipeline
+        """
+        pipeline_input = self._get_decode_pipeline_input(output)
+        return self._run_pipeline(
+            pipeline=self.decode_pipeline,
+            input=pipeline_input,
+            batch=self.batch_outputs,
+        )
+
+
+class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
+    """
+    A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
+    that take raw natural language text as an input and
+
+    Example
+    -------
+    >>> text = ("English is tough. It can be understood "
+    ...         "through thorough thought though")
+    >>> from speechbrain.pretrained import GraphemeToPhoneme
+    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model') # doctest: +SKIP
+    >>> phonemes = g2p.g2p(text) # doctest: +SKIP
+    """
+
+    INPUT_STATIC_KEYS = ["txt"]
+    OUTPUT_KEYS = ["phonemes"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.create_pipelines()
+        self.load_dependencies()
+
+    @property
+    def phonemes(self):
+        """Returns the available phonemes"""
+        return self.hparams.phonemes
+
+    @property
+    def language(self):
+        """Returns the language for which this model is available"""
+        return self.hparams.language
+
+    def g2p(self, text):
+        """Performs the Grapheme-to-Phoneme conversion
+
+        Arguments
+        ---------
+        text: str or list[str]
+            a single string to be encoded to phonemes - or a
+            sequence of strings
+
+        Returns
+        -------
+        result: list
+            if a single example was provided, the return value is a
+            single list of phonemes
+        """
+        single = isinstance(text, str)
+        if single:
+            text = [text]
+
+        model_inputs = self.encode_input({"txt": text})
+        self._update_graphemes(model_inputs)
+        model_outputs = self.mods.model(**model_inputs)
+        decoded_output = self.decode_output(model_outputs)
+        phonemes = decoded_output["phonemes"]
+        if single:
+            phonemes = phonemes[0]
+        return phonemes
+
+    def _update_graphemes(self, model_inputs):
+        grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
+        if grapheme_sequence_mode and grapheme_sequence_mode != "raw":
+            grapheme_encoded_key = f"grapheme_encoded_{grapheme_sequence_mode}"
+            if grapheme_encoded_key in model_inputs:
+                model_inputs["grapheme_encoded"] = model_inputs[
+                    grapheme_encoded_key
+                ]
+
+    def load_dependencies(self):
+        """Loads any relevant model dependencies"""
+        deps_pretrainer = getattr(self.hparams, "deps_pretrainer", None)
+        if deps_pretrainer:
+            deps_pretrainer.collect_files()
+            deps_pretrainer.load_collected(device=self.device)
+
+    def __call__(self, text):
+        """A convenience callable wrapper - same as G2P
+
+        Arguments
+        ---------
+        text: str or list[str]
+            a single string to be encoded to phonemes - or a
+            sequence of strings
+
+        Returns
+        -------
+        result: list
+            if a single example was provided, the return value is a
+            single list of phonemes
+        """
+        return self.g2p(text)
 
     def forward(self, noisy, lengths=None):
         """Runs enhancement on the noisy input"""
