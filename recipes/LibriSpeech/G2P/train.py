@@ -18,6 +18,7 @@ import datasets
 import logging
 import os
 import random
+import torch
 import speechbrain as sb
 import sys
 from enum import Enum
@@ -99,6 +100,82 @@ class G2PBrain(sb.Brain):
             self.hparams, "beam_searcher_valid", self.beam_searcher
         )
         self.start_epoch = None
+
+    def on_fit_start(self):
+        """Gets called at the beginning of ``fit()``, on multiple processes
+        if ``distributed_count > 0`` and backend is ddp.
+
+        Default implementation compiles the jit modules, initializes
+        optimizers, and loads the latest checkpoint to resume training.
+        """
+        # Run this *after* starting all processes since jit modules cannot be
+        # pickled.
+        self._compile_jit()
+
+        # Wrap modules with parallel backend after jit
+        self._wrap_distributed()
+
+        # Initialize optimizers after parameters are configured
+        self.init_optimizers()
+
+        # Load latest checkpoint to resume training if interrupted
+        self._recover_checkpoint()
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """Gets called at the beginning of ``evaluate()``
+
+        Default implementation loads the best-performing checkpoint for
+        evaluation, based on stored metrics.
+
+        Arguments
+        ---------
+        max_key : str
+            Key to use for finding best checkpoint (higher is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        min_key : str
+            Key to use for finding best checkpoint (lower is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        """
+        self._recover_checkpoint(min_key, max_key)
+
+    def _recover_checkpoint(self, min_key=None, max_key=None):
+        """loads the best-performing checkpoint, based on stored metrics.
+
+        Arguments
+        ---------
+        max_key : str
+            Key to use for finding best checkpoint (higher is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        min_key : str
+            Key to use for finding best checkpoint (lower is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        """
+        if self.checkpointer is not None:
+            step = self.train_step["name"]
+            logger.info(f"Attempting to restore checkpoint for step {step}")
+            result = self.checkpointer.recover_if_possible(
+                device=torch.device(self.device),
+                min_key=min_key,
+                max_key=max_key,
+                ckpt_predicate=(lambda ckpt: ckpt.meta.get("step") == step),
+            )
+            if result is None:
+                logger.info(
+                    "No checkpoint fount for step %s, "
+                    "attempting to recover any checkpoint",
+                    step,
+                )
+                result = self.checkpointer.recover_if_possible(
+                    device=torch.device(self.device),
+                    min_key=min_key,
+                    max_key=max_key,
+                )
+                if result:
+                    logger.info(
+                        "Recovered checkpoint with metadata %s", result.meta
+                    )
+                else:
+                    logger.info("No checkpoint found")
 
     def compute_forward(self, batch, stage):
         """Forward computations from the char batches to the output probabilities."""
@@ -429,7 +506,7 @@ class G2PBrain(sb.Brain):
                             "PER_homograph": per_homograph,
                         }
                     )
-                    ckpt_meta = {"PER_homograph": per}
+                    ckpt_meta = {"PER_homograph": per_homograph, "PER": per}
                     min_keys = ["PER_homograph"]
                     ckpt_predicate = self._has_homograph_per
                 else:
@@ -446,6 +523,7 @@ class G2PBrain(sb.Brain):
                 self.hparams.ckpt_enable
                 and epoch % self.hparams.ckpt_frequency == 0
             ):
+                ckpt_meta["step"] = self.train_step["name"]
                 self.checkpointer.save_and_keep_only(
                     meta=ckpt_meta,
                     min_keys=min_keys,
@@ -569,7 +647,7 @@ class G2PBrain(sb.Brain):
             self.seq_metrics.write_stats(w)
             w.write("\nPER stats:\n")
             self.per_metrics.write_stats(w)
-            print("seq2seq, and PER stats written to file", file_name)
+            logger.info("seq2seq, and PER stats written to file: %s", file_name)
 
     def _write_homograph_file(self, file_name):
         """Outputs the detailed homograph report, detailing the accuracy
@@ -1018,7 +1096,6 @@ def dataio_prep(hparams, train_step=None):
     if sample:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
     train_data, valid_data, test_data = datasets
-    valid_data.data_ids = valid_data.data_ids
     return train_data, valid_data, test_data, phoneme_encoder
 
 
@@ -1063,6 +1140,9 @@ def check_tensorboard(hparams):
 if __name__ == "__main__":
     # CLI:
     with hp.hyperparameter_optimization(objective_key="PER") as hp_ctx:
+        # Set a default PER
+        hp.report_result({"PER": 0.0})
+
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
 
         # Load hyperparameters file with command-line overrides
@@ -1109,9 +1189,9 @@ if __name__ == "__main__":
         for train_step in hparams["train_steps"]:
             epochs = train_step["epoch_counter"].limit
             if epochs < 1:
-                print(f"Skipping training step: {train_step['name']}")
+                logger.info("Skipping training step: %s", train_step["name"])
                 continue
-            print(f"Running training step: {train_step['name']}")
+            logger.info("Running training step: %s", train_step["name"])
             # Dataset IO prep: creating Dataset objects and proper encodings for phones
             train_data, valid_data, test_data, phoneme_encoder = dataio_prep(
                 hparams, train_step
@@ -1158,13 +1238,12 @@ if __name__ == "__main__":
 
             # Test
             g2p_brain.evaluate(
-                test_data, min_key="PER", test_loader_kwargs=dataloader_opts,
+                test_data,
+                min_key=train_step.get("performance_key"),
+                test_loader_kwargs=dataloader_opts,
             )
 
             if hparams.get("save_for_pretrained"):
-                min_key = (
-                    "PER_homograph"
-                    if train_step.get("mode") == "homograph"
-                    else "PER"
+                save_for_pretrained(
+                    hparams, min_key=train_step.get("performance_key")
                 )
-                save_for_pretrained(hparams, min_key=min_key)

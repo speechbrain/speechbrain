@@ -630,6 +630,7 @@ train_steps:
       wer_file: !ref <save_folder>/wer_lexicon.txt
       sample: !ref <lexicon_sample>
       sample_random: !ref <lexicon_sample_random>
+      performance_key: PER
       dataloader_opts:
           batch_size: !ref <lexicon_batch_size>
 
@@ -642,6 +643,7 @@ train_steps:
       wer_file: !ref <save_folder>/wer_sentence.txt
       sample: !ref <sentence_sample>
       sample_random: !ref <sentence_sample_random>
+      performance_key: PER
       dataloader_opts:
           batch_size: !ref <sentence_batch_size>
 
@@ -658,6 +660,7 @@ train_steps:
       sample_random: !ref <homograph_sample_random>
       wer_file: !ref <save_folder>/wer_homograph.txt
       homograph_stats_file: !ref <save_folder>/homograph_stats.txt
+      performance_key: PER_homograph
       dataloader_opts:
           batch_size: !ref <homograph_batch_size>
 
