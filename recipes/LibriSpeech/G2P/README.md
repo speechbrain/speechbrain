@@ -89,6 +89,10 @@ Pretrained Models
 
 * Verification pending (results based on an earlier version)
 
+Pretrained language models can be found at the following URLs:
+* **RNN**: https://drive.google.com/drive/folders/1Zv8SNYIXzboFatSRpmoNgRyVXl_6ucir?usp=sharing
+* **Transformer**: https://drive.google.com/drive/folders/1MPceslDRVKW7sk1Q6W6nSaWETEAqp5t5?usp=sharing
+
 Training Time
 -------------
 All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact training times will vary depending on the hyperparameters chosen and system configuration.
