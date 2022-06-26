@@ -10,7 +10,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
-**News:** the call for new sponsors (2022) is open. [Take a look here if you are interested!](https://drive.google.com/file/d/1Njn_T2qLJCLPmF2LJ_X7yxxobqK3-CPW/view?usp=sharing)
+**News:** SpeechBrain 0.5.12 has been released (June, 26 2022)!
 
 
 | **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
@@ -49,6 +49,12 @@ SpeechBrain provides efficient (GPU-friendly) speech augmentation and feature ex
 - On-the-fly feature normalization (global, sentence, batch, or speaker level).
 - On-the-fly environmental corruptions based on noise, reverberation, and babble for robust model training.
 - On-the-fly frequency and time domain SpecAugment with speed augmentation.
+- We support both SinConv and LEAF convolutional frontends.
+
+### Speech enhancement and separation
+- Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
+- Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
+- State-of-the-art performance on speech separation with Conv-TasNet, DualPath RNN, SepFormer, and RE-SepFormer.
 
 ### Speaker recognition, identification and diarization
 SpeechBrain provides different models for speaker recognition, identification, and diarization on different datasets:
@@ -57,19 +63,20 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Spectral clustering for speaker diarization (combined with speakers embeddings).
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
+### Text-to-Speech (TTS) and Vocoders
+- Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech) with LJSpeech.
+- Recipes for training Vocoders such as [HiFIGAN](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech).
+
+### Grapheme-to-Phoneme (G2P)
+We have models for converting characters into a sequence of phonemes. In particular, we have Transformer- and RNN-based models operating at sentence level (i.e, converting a full sentence into a corresponding sequence of phonemes). The models are trained with both data from Wikipedia and LibriSpeech.
+
 ###  Language Identification
 SpeechBrain provides different models for language identification.
 In particular, our best model is based on an ECAPA-TDNN trained with the [voxlingua107 dataset](http://bark.phon.ioc.ee/voxlingua107/).
 
-
 ### Speech Translation
 - Recipes for transformer and conformer-based end-to-end speech translation.
 - Possibility to choose between normal training (Attention), multi-objectives (CTC+Attention), and multitasks (ST + ASR).
-
-### Speech enhancement and separation
-- Recipes for spectral masking, spectral mapping, and time-domain speech enhancement.
-- Multiple sophisticated enhancement losses, including differentiable STOI loss, MetricGAN, and mimic loss.
-- State-of-the-art performance on speech separation with Conv-TasNet, DualPath RNN, and SepFormer.
 
 ### Self-Supervised Learning of Speech Representations
 - Recipes for wav2vec 2.0 pre-training with multiple GPUs compatible with HuggingFace models.
@@ -79,9 +86,7 @@ Combining multiple microphones is a powerful approach to achieve robustness in a
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
-### Text-to-Speech (TTS) and Vocoders
-- Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech) with LJSpeech.
-- Recipes for training Vocoders such as [HiFIGAN](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech).
+
 
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:
@@ -89,7 +94,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | wav2vec2 | WER=1.90% (test-clean) |
-| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.46% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.26% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
@@ -98,7 +103,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | CommonVoice (Kinyarwanda) | Speech Recognition | wav2vec2 + seq2seq | WER=18.91% (test) |
 | AISHELL (Mandarin) | Speech Recognition | wav2vec2 + seq2seq | CER=5.58% (test) |
 | Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
-| VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.69% (vox1-test) |
+| VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.80% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
 | VoiceBank      | Speech Enhancement | MetricGAN+| PESQ=3.08 (test)|
 | WSJ2MIX      | Speech Separation | SepFormer| SDRi=22.6 dB (test)|
@@ -129,12 +134,15 @@ Beyond providing recipes for training the models from scratch, SpeechBrain share
 | Speech Recognition | CommonVoice(Italian) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) |
 | Speech Recognition | CommonVoice(Kinyarwanda) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) |
 | Speech Recognition | AISHELL(Mandarin) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
+| Text-to-Speech | LJSpeech | [Tacotron2](https://huggingface.co/speechbrain/tts-tacotron2-ljspeech) |
 | Speaker Recognition | Voxceleb | [ECAPA-TDNN](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb) |
 | Speech Separation | WHAMR! | [SepFormer](https://huggingface.co/speechbrain/sepformer-whamr) |
 | Speech Enhancement | Voicebank | [MetricGAN+](https://huggingface.co/speechbrain/metricgan-plus-voicebank) |
+| Speech Enhancement | WHAMR! | [SepFormer](https://huggingface.co/speechbrain/sepformer-whamr-enhancement) |
 | Spoken Language Understanding | Timers and Such | [CRDNN](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr) |
 | Language Identification | CommonLanguage | [ECAPA-TDNN](https://huggingface.co/speechbrain/lang-id-commonlanguage_ecapa) |
 
+The full list of pre-trained models can be found on [HuggingFace](https://huggingface.co/speechbrai)
 
 ### Documentation & Tutorials
 SpeechBrain is designed to speed up the research and development of speech technologies. Hence, our code is backed-up with different levels of documentation:
