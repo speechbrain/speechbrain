@@ -7,16 +7,17 @@ target_session_idx=$5
 data_iterator_name=$6
 seed=$7
 
-(
 for target_subject_idx in $(seq 0 1 $(( nsbj - 1 ))); do
-   ((i=i%nparallel)); ((i++==0)) && wait
-   echo $target_subject_idx
-   python train.py $hparams --seed=$seed --data_folder $data_folder \
-        --target_subject_idx $target_subject_idx --target_session_idx $target_session_idx \
-        --data_iterator_name $data_iterator_name &
-   #pids[${target_subject_idx}]=${!}
+  echo "Subject $target_subject_idx"
+  python train.py $hparams --seed=$seed --data_folder $data_folder \
+  --target_subject_idx $target_subject_idx --target_session_idx $target_session_idx \
+  --data_iterator_name $data_iterator_name &
+
+  if [[ $(jobs -r -p | wc -l) -ge $nparallel ]]; then
+    wait -n
+  fi
+
 done
-)
-#for pid in ${pids[*]}; do
-#    wait $pid
-#done
+
+wait
+echo "All subjects done"

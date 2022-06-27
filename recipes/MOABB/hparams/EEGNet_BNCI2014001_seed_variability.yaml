@@ -58,7 +58,7 @@ metrics:
     cm: !ref <cm>
 
 # TRAINING HPARS
-number_of_epochs: 5 #was 700 # number of training epochs
+number_of_epochs: 700 # number of training epochs
 lr: 0.001
 
 # Learning rate scheduling (cyclic learning rate is used here)
@@ -73,7 +73,7 @@ optimizer: !name:torch.optim.Adam
     lr: !ref <lr>
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
     limit: !ref <number_of_epochs>
-batch_size: 512
+batch_size: 32
 valid_ratio: 0.2
 
 
@@ -83,7 +83,7 @@ valid_ratio: 0.2
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
     dims: 2
 
-# MODEL: EEGNET
+# MODEL: BASELINE EEGNET
 input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels: 8  # number of temporal filters in the temporal conv. layer
 cnn_spatial_depth_multiplier: 2  # depth multiplier for the spatial depthwise conv. layer
