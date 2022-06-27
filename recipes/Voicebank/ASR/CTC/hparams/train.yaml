@@ -14,10 +14,10 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g. /path/to/Voicebank
-train_annotation: !ref <output_folder>/train.json
-valid_annotation: !ref <output_folder>/valid.json
-test_annotation: !ref <output_folder>/test.json
+data_folder: ../../vctk-16k  # e.g. /path/to/Voicebank
+train_annotation: !ref vctk_json/train.json
+valid_annotation: !ref vctk_json/valid.json
+test_annotation: !ref vctk_json/test.json
 skip_prep: False # Skip data preparation
 
 # Training parameters

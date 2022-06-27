@@ -164,6 +164,9 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    from voicebank_prepare import download_vctk
+    download_vctk(destination=hparams["data_folder"], tmp_dir="../../tmp")
+
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
