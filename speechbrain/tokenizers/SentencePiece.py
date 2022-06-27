@@ -74,10 +74,6 @@ class SentencePiece:
         recovering words from the tokenizer.
     annotation_format : str
         The format of the annotation file. JSON or csv are the formats supported.
-    text_file: str
-        An alternate path to the text file (needed when multiple models are trained on
-        the same data file)
-
     add_dummy_prefix : bool
         If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
     Example
@@ -125,7 +121,6 @@ class SentencePiece:
         num_sequences=None,
         annotation_list_to_check=None,
         annotation_format="csv",
-        text_file=None,
         add_dummy_prefix=True,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
@@ -141,9 +136,7 @@ class SentencePiece:
 
         if self.annotation_train is not None:
             ext = os.path.splitext(self.annotation_train)[1]
-            if text_file is None:
-                text_file = self.annotation_train.replace(ext, ".txt")
-            self.text_file = text_file
+            self.text_file = self.annotation_train.replace(ext, ".txt")
 
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type

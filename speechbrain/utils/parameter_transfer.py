@@ -45,9 +45,6 @@ class Pretrainer:
     custom_hooks : mapping
         Mapping from loadable key to parameter transfer hook function. If you
         want to use a custom loading function, specify it here.
-    conditions: mapping
-        An optional mapping from loadable keys to condition values,
-        useful for loading certain elements only if a flag is turned on
     """
 
     def __init__(
@@ -56,7 +53,6 @@ class Pretrainer:
         loadables=None,
         paths=None,
         custom_hooks=None,
-        conditions=None,
     ):
         self.loadables = {}
         self.collect_in = pathlib.Path(collect_in)
@@ -68,9 +64,6 @@ class Pretrainer:
         self.custom_hooks = {}
         if custom_hooks is not None:
             self.add_custom_hooks(custom_hooks)
-        self.conditions = {}
-        if conditions is not None:
-            self.add_conditions(conditions)
 
     def set_collect_in(self, path):
         """Change the collecting path"""
@@ -118,18 +111,6 @@ class Pretrainer:
 
         """
         self.custom_hooks.update(custom_hooks)
-
-    def add_conditions(self, conditions):
-        """Update the conditions.
-
-        Arguments
-        ---------
-        conditions: mapping
-            Mapping from loadable keys to condition values,
-            useful for loading certain elements only if a flag is turned on
-
-        """
-        self.conditions.update(conditions)
 
     @staticmethod
     def split_path(path):
@@ -186,8 +167,6 @@ class Pretrainer:
         self.collect_in.mkdir(exist_ok=True)
         loadable_paths = {}
         for name in self.loadables:
-            if not self.is_loadable(name):
-                continue
             save_filename = name + PARAMFILE_EXT
             if name in self.paths:
                 source, filename = self.split_path(self.paths[name])
@@ -205,28 +184,6 @@ class Pretrainer:
             loadable_paths[name] = path
         return loadable_paths
 
-    def is_loadable(self, name):
-        """Returns True if no condition is defined or for the specified
-        loadable or if the condition is true
-
-        Arguments
-        ---------
-        name: str
-            the name of the loadable
-
-        Returns
-        -------
-        is_loadable: bool
-            whether the item should be loaded
-        """
-        if name not in self.conditions:
-            return True
-        condition = self.conditions[name]
-        if callable(condition):
-            return condition()
-        else:
-            return bool(condition)
-
     def load_collected(self, device=None):
         """Loads the files that have been collected.
 
@@ -241,8 +198,6 @@ class Pretrainer:
         )
         paramfiles = {}
         for name in self.loadables:
-            if not self.is_loadable(name):
-                continue
             filename = name + PARAMFILE_EXT
             paramfiles[name] = self.collect_in / filename
         self._call_load_hooks(paramfiles, device)
@@ -251,8 +206,6 @@ class Pretrainer:
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         for name, obj in self.loadables.items():
-            if not self.is_loadable(name):
-                continue
             loadpath = paramfiles[name]
 
             # First see if object has custom load hook:

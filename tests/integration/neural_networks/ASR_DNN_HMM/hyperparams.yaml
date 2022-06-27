@@ -1,0 +1,46 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Training params
+N_epochs: 15
+lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# Model parameters
+compute_features: !new:speechbrain.lobes.features.MFCC
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+
+linear1: !new:speechbrain.nnet.linear.Linear
+    input_size: 660
+    n_neurons: 1024
+    bias: False
+
+activation: !new:torch.nn.LeakyReLU
+
+linear2: !new:speechbrain.nnet.linear.Linear
+    input_size: 1024
+    n_neurons: 43
+    bias: False
+
+softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    compute_features: !ref <compute_features>
+    linear1: !ref <linear1>
+    linear2: !ref <linear2>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch

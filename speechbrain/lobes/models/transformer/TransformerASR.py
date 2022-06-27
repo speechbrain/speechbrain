@@ -276,7 +276,9 @@ class TransformerASR(TransformerInterface):
         )
         return prediction, multihead_attns[-1]
 
-    def encode(self, src, wav_len=None):
+    def encode(
+        self, src, wav_len=None,
+    ):
         """
         Encoder forward pass
 
@@ -351,6 +353,5 @@ class EncoderWrapper(nn.Module):
         self.transformer = transformer
 
     def forward(self, x, wav_lens=None):
-        """ Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(x, wav_lens)
         return x

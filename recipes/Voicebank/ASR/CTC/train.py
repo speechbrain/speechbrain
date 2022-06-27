@@ -118,14 +118,9 @@ def dataio_prep(hparams):
 
     # 3. Create datasets
     data = {}
-    data_info = {
-        "train": hparams["train_annotation"],
-        "valid": hparams["valid_annotation"],
-        "test": hparams["test_annotation"],
-    }
-    for dataset in data_info:
+    for dataset in ["train", "valid", "test"]:
         data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=data_info[dataset],
+            json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, text_pipeline],
             output_keys=["id", "sig", "phn_encoded"],

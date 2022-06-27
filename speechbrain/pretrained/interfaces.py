@@ -8,13 +8,10 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
 """
-import logging
 import hashlib
 import sys
-import speechbrain
 import torch
 import torchaudio
-import sentencepiece
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
@@ -25,12 +22,8 @@ import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.dataio.batch import PaddedBatch, PaddedData
-from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
-
-logger = logging.getLogger(__name__)
 
 
 def foreign_class(
@@ -385,7 +378,7 @@ class EndToEndSLU(Pretrained):
     ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
     ...     savedir=tmpdir,
     ... )
-    >>> slu_model.decode_file("tests/samples/single-mic/example6.wav")
+    >>> slu_model.decode_file("samples/audio_samples/example6.wav")
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
@@ -501,7 +494,7 @@ class EncoderDecoderASR(Pretrained):
     ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
     ...     savedir=tmpdir,
     ... )
-    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")
+    >>> asr_model.transcribe_file("samples/audio_samples/example2.flac")
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
@@ -628,7 +621,6 @@ class EncoderASR(Pretrained):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.tokenizer = self.hparams.tokenizer
         self.decoding_function = self.hparams.decoding_function
 
@@ -713,25 +705,10 @@ class EncoderASR(Pretrained):
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             predictions = self.decoding_function(encoder_out, wav_lens)
-            if isinstance(
-                self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
-            ):
-                predicted_words = [
-                    "".join(self.tokenizer.decode_ndim(token_seq))
-                    for token_seq in predictions
-                ]
-            elif isinstance(
-                self.tokenizer, sentencepiece.SentencePieceProcessor
-            ):
-                predicted_words = [
-                    self.tokenizer.decode_ids(token_seq)
-                    for token_seq in predictions
-                ]
-            else:
-                sys.exit(
-                    "The tokenizer must be sentencepiece or CTCTextEncoder"
-                )
-
+            predicted_words = [
+                self.tokenizer.decode_ids(token_seq)
+                for token_seq in predictions
+            ]
         return predicted_words, predictions
 
     def forward(self, wavs, wav_lens):
@@ -765,7 +742,7 @@ class EncoderClassifier(Pretrained):
     ... )
 
     >>> # Compute embeddings
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
+    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
     >>> embeddings =  classifier.encode_batch(signal)
 
     >>> # Classification
@@ -918,8 +895,8 @@ class SpeakerRecognition(EncoderClassifier):
     ... )
 
     >>> # Perform verification
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> signal2, fs = torchaudio.load("tests/samples/single-mic/example2.flac")
+    >>> signal, fs = torchaudio.load("samples/audio_samples/example1.wav")
+    >>> signal2, fs = torchaudio.load("samples/audio_samples/example2.flac")
     >>> score, prediction = verification.verify_batch(signal, signal2)
     """
 
@@ -1016,7 +993,7 @@ class VAD(Pretrained):
     ... )
 
     >>> # Perform VAD
-    >>> boundaries = VAD.get_speech_segments("tests/samples/single-mic/example1.wav")
+    >>> boundaries = VAD.get_speech_segments("samples/audio_samples/example1.wav")
     """
 
     HPARAMS_NEEDED = ["sample_rate", "time_resolution", "device"]
@@ -1310,11 +1287,12 @@ class VAD(Pretrained):
         prob_th[:, 0, :] = (prob_th[:, 0, :] >= 1).int()
         prob_th[:, -1, :] = (prob_th[:, -1, :] >= 1).int()
 
-        # Fix edge cases (when a speech starts in the last frames)
-        if (prob_th == 1).nonzero().shape[0] % 2 == 1:
-            prob_th = torch.cat(
-                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), dim=1
-            )
+        # Fix edge cases (when a new sentence starts in the last frame)
+        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 1:
+            prob_th[:, -2, :] = 2
+
+        if prob_th[:, -1, :] == 1 and prob_th[:, -2, :] == 0:
+            prob_th[:, -2, :] = 1
 
         # Where prob_th is 1 there is a change
         indexes = (prob_th == 1).nonzero()[:, 1].reshape(-1, 2)
@@ -1486,12 +1464,7 @@ class VAD(Pretrained):
             f.close()
 
     def energy_VAD(
-        self,
-        audio_file,
-        boundaries,
-        activation_th=0.5,
-        deactivation_th=0.0,
-        eps=1e-6,
+        self, audio_file, boundaries, activation_th=0.5, deactivation_th=0.0
     ):
         """Applies energy-based VAD within the detected speech segments.The neural
         network VAD often creates longer segments and tends to merge segments that
@@ -1516,8 +1489,6 @@ class VAD(Pretrained):
             A new speech segment is started it the energy is above activation_th.
         deactivation_th: float
             The segment is considered ended when the energy is <= deactivation_th.
-        eps: float
-            Small constant for numerical stability.
 
 
         Returns
@@ -1555,8 +1526,7 @@ class VAD(Pretrained):
             )
 
             # Energy computation within each chunk
-            energy_chunks = segment_chunks.abs().sum(-1) + eps
-            energy_chunks = energy_chunks.log()
+            energy_chunks = segment_chunks.abs().sum(-1).log()
 
             # Energy normalization
             energy_chunks = (
@@ -2028,9 +1998,7 @@ class SepformerSeparation(Pretrained):
             batch = tf(batch)
 
         est_sources = self.separate_batch(batch)
-        est_sources = (
-            est_sources / est_sources.abs().max(dim=1, keepdim=True)[0]
-        )
+        est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
         return est_sources
 
     def forward(self, mix):
@@ -2047,17 +2015,17 @@ class SpectralMaskEnhancement(Pretrained):
 
     Example
     -------
-    >>> import torch
+    >>> import torchaudio
     >>> from speechbrain.pretrained import SpectralMaskEnhancement
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
     >>> enhancer = SpectralMaskEnhancement.from_hparams(
-    ...     source="speechbrain/metricgan-plus-voicebank",
+    ...     source="speechbrain/mtl-mimic-voicebank",
     ...     savedir=tmpdir,
     ... )
-    >>> enhanced = enhancer.enhance_file(
-    ...     "speechbrain/metricgan-plus-voicebank/example.wav"
-    ... )
+    >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
+    >>> # Channel dimension is interpreted as batch dimension here
+    >>> enhanced = enhancer.enhance_batch(noisy)
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]
@@ -2128,376 +2096,9 @@ class SpectralMaskEnhancement(Pretrained):
 
         return enhanced.squeeze(0)
 
-
-class EncodeDecodePipelineMixin:
-    """
-    A mixin for pretrained models that makes it possible to specify an encoding pipeline and a decoding pipeline
-    """
-
-    def create_pipelines(self):
-        """
-        Initializes the encode and decode pipeline
-        """
-        self._run_init_steps(self.hparams.encode_pipeline)
-        self._run_init_steps(self.hparams.decode_pipeline)
-        self.encode_pipeline = DataPipeline(
-            static_data_keys=self.INPUT_STATIC_KEYS,
-            dynamic_items=self.hparams.encode_pipeline["steps"],
-            output_keys=self.hparams.encode_pipeline["output_keys"],
-        )
-        self.decode_pipeline = DataPipeline(
-            static_data_keys=self.hparams.model_output_keys,
-            dynamic_items=self.hparams.decode_pipeline["steps"],
-            output_keys=self.OUTPUT_KEYS,
-        )
-
-    def _run_init_steps(self, pipeline_definition):
-        """Encode/decode pipelines may include initialization
-        steps, such as filling text encoders with tokens. Calling
-        this method will run them, if defined"""
-        steps = pipeline_definition.get("init", [])
-        for step in steps:
-            step_func = step.get("func")
-            if not step_func or not callable(step_func):
-                raise ValueError("Invalid pipeline init definition")
-            step_func()
-
-    def _run_pipeline(self, pipeline, input, batch):
-        if batch:
-            output = pipeline(input)
-        else:
-            output = [pipeline(item) for item in input]
-        return output
-
-    def _get_encode_pipeline_input(self, input):
-        return input if self.batch_inputs else self._itemize(input)
-
-    def _get_decode_pipeline_input(self, model_output):
-        model_output_keys = getattr(self.hparams, "model_output_keys", None)
-        pipeline_input = model_output
-        if len(model_output_keys) == 1:
-            pipeline_input = (pipeline_input,)
-        # The input to a pipeline is a dictionary. If model_output_keys
-        # is provided, the output of the model is assumed to be a collection
-        # (e.g. a list or a tuple).
-        if model_output_keys:
-            pipeline_input = dict(zip(model_output_keys, pipeline_input))
-
-        # By default, the pipeline will be applied to in batch mode
-        # to the entire model input
-        if not self.batch_outputs:
-            pipeline_input = self._itemize(pipeline_input)
-        return pipeline_input
-
-    def _itemize(self, pipeline_input):
-        first_item = next(iter(pipeline_input.values()))
-        keys, values = pipeline_input.keys(), pipeline_input.values()
-        batch_length = len(first_item)
-        return [
-            dict(zip(keys, [value[idx] for value in values]))
-            for idx in range(batch_length)
-        ]
-
-    def to_dict(self, data):
-        """
-        Converts padded batches to dictionaries, leaves
-        other data types as is
-
-        Arguments
-        ---------
-        data: object
-            a dictionary or a padded batch
-
-        Returns
-        -------
-        results: dict
-            the dictionary
-        """
-        if isinstance(data, PaddedBatch):
-            data = {
-                key: self._get_value(data, key)
-                for key in self.hparams.encode_pipeline["output_keys"]
-            }
-        return data
-
-    def _get_value(self, data, key):
-        """
-        Retrives the value associated with the specified key, dereferencing
-        .data where applicable
-
-        Arguments
-        ---------
-        data: PaddedBatch
-            a padded batch
-        key: str
-            the key
-
-        Returns
-        -------
-        result: object
-            the result
-        """
-        value = getattr(data, key)
-        if not self.input_use_padded_data and isinstance(value, PaddedData):
-            value = value.data
-        return value
-
-    @property
-    def batch_inputs(self):
-        """
-        Determines whether the input pipeline
-        operates on batches or individual examples
-        (true means batched)
-
-        Returns
-        -------
-        batch_intputs: bool
-        """
-        return self.hparams.encode_pipeline.get("batch", True)
-
-    @property
-    def input_use_padded_data(self):
-        """
-        If turned on, raw PaddedData instances will be passed to
-        the model. If turned off, only .data will be used
-
-        Returns
-        -------
-        result: bool
-            whether padded data is used as is
-        """
-        return self.hparams.encode_pipeline.get("use_padded_data", False)
-
-    @property
-    def batch_outputs(self):
-        """
-        Determines whether the output pipeline
-        operates on batches or individual examples
-        (true means batched)
-
-        Returns
-        -------
-        batch_outputs: bool
-        """
-        return self.hparams.decode_pipeline.get("batch", True)
-
-    def _collate(self, data):
-        if not self.batch_inputs:
-            collate_fn = getattr(self.hparams, "collate_fn", PaddedBatch)
-            data = collate_fn(data)
-        return data
-
-    def encode_input(self, input):
-        """
-        Encodes the inputs using the pipeline
-
-        Arguments
-        ---------
-        input: dict
-            the raw inputs
-
-        Results
-        -------
-        results: object
-
-        """
-        pipeline_input = self._get_encode_pipeline_input(input)
-        model_input = self._run_pipeline(
-            pipeline=self.encode_pipeline,
-            input=pipeline_input,
-            batch=self.batch_inputs,
-        )
-        model_input = self._collate(model_input)
-        if hasattr(model_input, "to"):
-            model_input = model_input.to(self.device)
-        return self.to_dict(model_input)
-
-    def decode_output(self, output):
-        """
-        Decodes the raw model outputs
-
-        Arguments
-        ---------
-        output: tuple
-            raw model outputs
-
-        Results
-        -------
-        result: dict or list
-            the output of the pipeline
-        """
-        pipeline_input = self._get_decode_pipeline_input(output)
-        return self._run_pipeline(
-            pipeline=self.decode_pipeline,
-            input=pipeline_input,
-            batch=self.batch_outputs,
-        )
-
-
-class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
-    """
-    A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
-    that take raw natural language text as an input and
-
-    Example
-    -------
-    >>> text = ("English is tough. It can be understood "
-    ...         "through thorough thought though")
-    >>> from speechbrain.pretrained import GraphemeToPhoneme
-    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model') # doctest: +SKIP
-    >>> phonemes = g2p.g2p(text) # doctest: +SKIP
-    """
-
-    INPUT_STATIC_KEYS = ["txt"]
-    OUTPUT_KEYS = ["phonemes"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.create_pipelines()
-        self.load_dependencies()
-
-    @property
-    def phonemes(self):
-        """Returns the available phonemes"""
-        return self.hparams.phonemes
-
-    @property
-    def language(self):
-        """Returns the language for which this model is available"""
-        return self.hparams.language
-
-    def g2p(self, text):
-        """Performs the Grapheme-to-Phoneme conversion
-
-        Arguments
-        ---------
-        text: str or list[str]
-            a single string to be encoded to phonemes - or a
-            sequence of strings
-
-        Returns
-        -------
-        result: list
-            if a single example was provided, the return value is a
-            single list of phonemes
-        """
-        single = isinstance(text, str)
-        if single:
-            text = [text]
-
-        model_inputs = self.encode_input({"txt": text})
-        self._update_graphemes(model_inputs)
-        model_outputs = self.mods.model(**model_inputs)
-        decoded_output = self.decode_output(model_outputs)
-        phonemes = decoded_output["phonemes"]
-        if single:
-            phonemes = phonemes[0]
-        return phonemes
-
-    def _update_graphemes(self, model_inputs):
-        grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
-        if grapheme_sequence_mode and grapheme_sequence_mode != "raw":
-            grapheme_encoded_key = f"grapheme_encoded_{grapheme_sequence_mode}"
-            if grapheme_encoded_key in model_inputs:
-                model_inputs["grapheme_encoded"] = model_inputs[
-                    grapheme_encoded_key
-                ]
-
-    def load_dependencies(self):
-        """Loads any relevant model dependencies"""
-        deps_pretrainer = getattr(self.hparams, "deps_pretrainer", None)
-        if deps_pretrainer:
-            deps_pretrainer.collect_files()
-            deps_pretrainer.load_collected(device=self.device)
-
-    def __call__(self, text):
-        """A convenience callable wrapper - same as G2P
-
-        Arguments
-        ---------
-        text: str or list[str]
-            a single string to be encoded to phonemes - or a
-            sequence of strings
-
-        Returns
-        -------
-        result: list
-            if a single example was provided, the return value is a
-            single list of phonemes
-        """
-        return self.g2p(text)
-
     def forward(self, noisy, lengths=None):
         """Runs enhancement on the noisy input"""
-        return self.enhance_batch(noisy, lengths)
-
-
-class WaveformEnhancement(Pretrained):
-    """A ready-to-use model for speech enhancement.
-
-    Arguments
-    ---------
-    See ``Pretrained``.
-
-    Example
-    -------
-    >>> from speechbrain.pretrained import WaveformEnhancement
-    >>> # Model is downloaded from the speechbrain HuggingFace repo
-    >>> tmpdir = getfixture("tmpdir")
-    >>> enhancer = WaveformEnhancement.from_hparams(
-    ...     source="speechbrain/mtl-mimic-voicebank",
-    ...     savedir=tmpdir,
-    ... )
-    >>> enhanced = enhancer.enhance_file(
-    ...     "speechbrain/mtl-mimic-voicebank/example.wav"
-    ... )
-    """
-
-    MODULES_NEEDED = ["enhance_model"]
-
-    def enhance_batch(self, noisy, lengths=None):
-        """Enhance a batch of noisy waveforms.
-
-        Arguments
-        ---------
-        noisy : torch.tensor
-            A batch of waveforms to perform enhancement on.
-        lengths : torch.tensor
-            The lengths of the waveforms if the enhancement model handles them.
-
-        Returns
-        -------
-        torch.tensor
-            A batch of enhanced waveforms of the same shape as input.
-        """
-        noisy = noisy.to(self.device)
-        enhanced_wav, _ = self.mods.enhance_model(noisy)
-        return enhanced_wav
-
-    def enhance_file(self, filename, output_filename=None):
-        """Enhance a wav file.
-
-        Arguments
-        ---------
-        filename : str
-            Location on disk to load file for enhancement.
-        output_filename : str
-            If provided, writes enhanced data to this file.
-        """
-        noisy = self.load_audio(filename)
-
-        # Fake a batch:
-        batch = noisy.unsqueeze(0)
-        enhanced = self.enhance_batch(batch)
-
-        if output_filename is not None:
-            torchaudio.save(output_filename, enhanced, channels_first=False)
-
-        return enhanced.squeeze(0)
-
-    def forward(self, noisy, lengths=None):
-        """Runs enhancement on the noisy input"""
-        return self.enhance_batch(noisy, lengths)
+        return self.separate_batch(noisy, lengths)
 
 
 class SNREstimator(Pretrained):
@@ -2577,175 +2178,3 @@ class SNREstimator(Pretrained):
         inp = inp * rnge
         inp = inp + self.hparams.snrmin
         return inp
-
-
-class Tacotron2(Pretrained):
-    """
-    A ready-to-use wrapper for Tacotron2 (text -> mel_spec).
-
-    Arguments
-    ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
-
-    Example
-    -------
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir")
-    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
-    >>> items = [
-    ...   "A quick brown fox jumped over the lazy dog",
-    ...   "How much wood would a woodchuck chuck?",
-    ...   "Never odd or even"
-    ... ]
-    >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
-
-    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
-    >>> # Running the TTS
-    >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
-    >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_output)
-    """
-
-    HPARAMS_NEEDED = ["model", "text_to_sequence"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.text_cleaners = getattr(
-            self.hparams, "text_cleaners", ["english_cleaners"]
-        )
-        self.infer = self.hparams.model.infer
-
-    def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction
-        """
-        sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
-        return sequence, len(sequence)
-
-    def encode_batch(self, texts):
-        """Computes mel-spectrogram for a list of texts
-
-        Texts must be sorted in decreasing order on their lengths
-
-        Arguments
-        ---------
-        text: List[str]
-            texts to be encoded into spectrogram
-
-        Returns
-        -------
-        tensors of output spectrograms, output lengths and alignments
-        """
-        with torch.no_grad():
-            inputs = [
-                {
-                    "text_sequences": torch.tensor(
-                        self.text_to_seq(item)[0], device=self.device
-                    )
-                }
-                for item in texts
-            ]
-            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
-
-            lens = [self.text_to_seq(item)[1] for item in texts]
-            assert lens == sorted(
-                lens, reverse=True
-            ), "ipnut lengths must be sorted in decreasing order"
-            input_lengths = torch.tensor(lens, device=self.device)
-
-            mel_outputs_postnet, mel_lengths, alignments = self.infer(
-                inputs.text_sequences.data, input_lengths
-            )
-        return mel_outputs_postnet, mel_lengths, alignments
-
-    def encode_text(self, text):
-        """Runs inference for a single text str"""
-        return self.encode_batch([text])
-
-    def forward(self, texts):
-        "Encodes the input texts."
-        return self.encode_batch(texts)
-
-
-class HIFIGAN(Pretrained):
-    """
-    A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
-
-    Arguments
-    ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
-
-    Example
-    -------
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
-    >>> mel_specs = torch.rand(2, 80,298)
-    >>> waveforms = hifi_gan.decode_batch(mel_specs)
-
-    >>> # You can use the vocoder coupled with a TTS system
-    >>>	# Intialize TTS (tacotron2)
-    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir_tts")
-    >>>	# Running the TTS
-    >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
-    >>>	# Running Vocoder (spectrogram-to-waveform)
-    >>>	waveforms = hifi_gan.decode_batch(mel_output)
-    """
-
-    HPARAMS_NEEDED = ["generator"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.infer = self.hparams.generator.inference
-        self.first_call = True
-
-    def decode_batch(self, spectrogram):
-        """Computes waveforms from a batch of mel-spectrograms
-
-        Arguments
-        ---------
-        spectrogram: torch.tensor
-            Batch of mel-spectrograms [batch, mels, time]
-
-        Returns
-        -------
-        waveforms: torch.tensor
-            Batch of mel-waveforms [batch, 1, time]
-
-        """
-        # Prepare for inference by removing the weight norm
-        if self.first_call:
-            self.hparams.generator.remove_weight_norm()
-            self.first_call = False
-        with torch.no_grad():
-            waveform = self.infer(spectrogram.to(self.device))
-        return waveform
-
-    def decode_spectrogram(self, spectrogram):
-        """Computes waveforms from a single mel-spectrogram
-
-        Arguments
-        ---------
-        spectrogram: torch.tensor
-            mel-spectrogram [mels, time]
-
-        Returns
-        -------
-        waveform: torch.tensor
-            waveform [1, time]
-
-        audio can be saved by:
-        >>> waveform = torch.rand(1, 666666)
-        >>> sample_rate = 22050
-        >>> torchaudio.save("test.wav", waveform, sample_rate)
-        """
-        if self.first_call:
-            self.hparams.generator.remove_weight_norm()
-            self.first_call = False
-        with torch.no_grad():
-            waveform = self.infer(spectrogram.unsqueeze(0).to(self.device))
-        return waveform.squeeze(0)
-
-    def forward(self, spectrogram):
-        "Decodes the input spectrograms"
-        return self.decode_batch(spectrogram)

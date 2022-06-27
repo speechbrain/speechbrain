@@ -41,6 +41,9 @@ def compute_embedding(wavs, wav_lens):
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
         embeddings = params["embedding_model"](feats, wav_lens)
+        embeddings = params["mean_var_norm_emb"](
+            embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
+        )
     return embeddings.squeeze(1)
 
 
@@ -70,7 +73,8 @@ def compute_embedding_loop(data_loader):
 
 
 def get_verification_scores(veri_test):
-    """Computes positive and negative scores given the verification split."""
+    """ Computes positive and negative scores given the verification split.
+    """
     scores = []
     positive_scores = []
     negative_scores = []
@@ -151,6 +155,8 @@ def dataio_prep(params):
 
     data_folder = params["data_folder"]
 
+    # 1. Declarations:
+
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=params["train_data"], replacements={"data_root": data_folder},
@@ -173,7 +179,7 @@ def dataio_prep(params):
 
     datasets = [train_data, enrol_data, test_data]
 
-    # Define audio pipeline
+    # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop):
@@ -188,10 +194,10 @@ def dataio_prep(params):
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
-    # Set output
+    # 3. Set output:
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
-    # Create dataloaders
+    # 4 Create dataloaders
     train_dataloader = sb.dataio.dataloader.make_dataloader(
         train_data, **params["train_dataloader_opts"]
     )
@@ -258,6 +264,10 @@ if __name__ == "__main__":
     logger.info("Computing enroll/test embeddings...")
 
     # First run
+    enrol_dict = compute_embedding_loop(enrol_dataloader)
+    test_dict = compute_embedding_loop(test_dataloader)
+
+    # Second run (normalization stats are more stable)
     enrol_dict = compute_embedding_loop(enrol_dataloader)
     test_dict = compute_embedding_loop(test_dataloader)
 

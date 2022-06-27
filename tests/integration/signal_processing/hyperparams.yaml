@@ -1,0 +1,56 @@
+output_folder: !PLACEHOLDER
+data_folder: !PLACEHOLDER
+csv_file: !ref <data_folder>/audio_samples/csv_example2.csv
+sample_rate: 16000
+batch_size: 1
+
+sample_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_file>
+    sorting: descending
+    output_keys: [id, wav]
+    replacements:
+        data_folder: !ref <data_folder>/audio_samples
+
+add_babble: !new:speechbrain.processing.speech_augmentation.AddBabble
+    speaker_count: 4  # Must set batch size to 5 or more
+    snr_low: 0
+    snr_high: 0
+
+add_reverb: !new:speechbrain.processing.speech_augmentation.AddReverb
+    csv_file: !ref <data_folder>/rir_samples/rirs_rel.csv
+    sorting: descending
+    replacements:
+        rir_folder: !ref <data_folder>/rir_samples
+
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+    csv_file: !ref <data_folder>/noise_samples/noise_rel.csv
+    sorting: descending
+    snr_low: 0
+    snr_high: 0
+    pad_noise: False
+    start_index: 0
+    replacements:
+        noise_folder: !ref <data_folder>/noise_samples
+
+drop_freq: !new:speechbrain.processing.speech_augmentation.DropFreq
+    drop_freq_low: 0.5
+    drop_freq_high: 0.5
+    drop_count_low: 1
+    drop_count_high: 1
+    drop_width: 0.05
+
+drop_chunk: !new:speechbrain.processing.speech_augmentation.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 1000
+    drop_count_low: 1
+    drop_count_high: 1
+    drop_start: 1000
+    drop_end: 2000
+
+do_clip: !new:speechbrain.processing.speech_augmentation.DoClip
+    clip_low: 0.01
+    clip_high: 0.01
+
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [90]

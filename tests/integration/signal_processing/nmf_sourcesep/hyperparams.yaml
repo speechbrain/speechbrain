@@ -1,0 +1,51 @@
+# Basic parameters
+output_folder: results/minimal/nmf_sourcesep
+sample_rate: 16000
+
+# Data files
+data_folder: ../../../../samples/audio_samples/sourcesep_samples
+csv_train: !ref <data_folder>/csv_example_sourcesep_source1.csv
+csv_train2: !ref <data_folder>/csv_example_sourcesep_source2.csv
+csv_test: !ref <data_folder>/csv_example_sourcesep_mixture.csv
+
+# NMF parameters
+N_epochs: 50
+K: 20 # this specifies the number of template vectors to use in NMF.
+N_batch: 200
+m: 513  # length of stft vectors
+win_length: 40  # window length (in ms) for stft
+hop_length: 10  # hop length (in ms) for stft
+
+# Experiment flags:
+save_reconstructed: False   # saves the results
+copy_original_files: False    # copies the original files
+
+train_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train>
+    output_keys: [wav]
+    sorting: 'original'
+    replacements:
+        data_folder: !ref <data_folder>
+
+train_data2: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_train2>
+    output_keys: [wav]
+    sorting: 'original'
+    replacements:
+        data_folder: !ref <data_folder>
+
+test_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
+    csvpath: !ref <csv_test>
+    output_keys: [wav]
+    sorting: 'original'
+    replacements:
+        data_folder: !ref <data_folder>
+
+loader_kwargs:
+    batch_size: !ref <N_batch>
+
+compute_features: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <sample_rate>
+    n_fft: 1024
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>

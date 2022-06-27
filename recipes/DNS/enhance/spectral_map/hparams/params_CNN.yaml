@@ -1,0 +1,148 @@
+# ################################
+# Model: Baseline 1-D CNN model with log1p mapping
+# Authors: Chien-Feng Liao
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Basic parameters
+data_folder: !PLACEHOLDER # e.g, /network/datasets/dns-challenge/DNS-Challenge
+valid_folder: !ref <data_folder>/valid
+output_folder: !ref results/causalCNN/<seed>
+save_folder: !ref <output_folder>/save/
+enhanced_folder: !ref <output_folder>/enhanced/
+
+use_tensorboard: False
+tensorboard_logs: !ref results/logs/causalCNN/<seed>
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+noise_csv: !ref <save_folder>/tr_noise.csv
+train_csv: !ref <save_folder>/tr_clean.csv
+valid_csv: !ref <save_folder>/valid.csv
+test_csv: !ref <save_folder>/test.csv
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training Parameters
+N_epochs: 50
+batch_size: 8
+lr: 0.0002
+
+# Model Parameters
+kernel_size: 7
+base_channels: 2048
+padding_type: causal
+
+# FFT Parameters
+Sample_rate: 16000
+N_fft: 512
+Win_length: 32
+Hop_length: 16
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: 1
+
+activation: !new:torch.nn.LeakyReLU
+output_activation: !new:torch.nn.ReLU
+
+model: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [!ref <batch_size>, null, !ref <N_fft> // 2 + 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm1: !name:speechbrain.nnet.normalization.LayerNorm
+    act1: !ref <activation>
+    conv2: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels> // 2
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm2: !name:speechbrain.nnet.normalization.LayerNorm
+    act2: !ref <activation>
+    conv3: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels> // 4
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm3: !name:speechbrain.nnet.normalization.LayerNorm
+    act3: !ref <activation>
+    conv4: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels> // 8
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm4: !name:speechbrain.nnet.normalization.LayerNorm
+    act4: !ref <activation>
+    conv5: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels> // 16
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm5: !name:speechbrain.nnet.normalization.LayerNorm
+    act5: !ref <activation>
+    conv6: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels> // 8
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm6: !name:speechbrain.nnet.normalization.LayerNorm
+    act6: !ref <activation>
+    conv7: !name:speechbrain.nnet.CNN.Conv1d
+        out_channels: !ref <base_channels> // 4
+        kernel_size: !ref <kernel_size>
+        padding: !ref <padding_type>
+    norm7: !name:speechbrain.nnet.normalization.LayerNorm
+    act7: !ref <activation>
+    linear: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <N_fft> // 2 + 1
+        bias: False
+    act_out: !ref <output_activation>
+
+modules:
+    model: !ref <model>
+
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+    stft: !ref <compute_STFT>
+    istft: !ref <compute_ISTFT>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <output_folder>/save
+    recoverables:
+        counter: !ref <epoch_counter>
+        model: !ref <model>
+
+add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+    csv_file: !ref <noise_csv>
+    snr_low: 0
+    snr_high: 40
+    pad_noise: False
+    start_index: 0
+    csv_keys: [wav]
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    annealing_factor: 0.5
+    improvement_threshold: 0.0
+    patient: 5
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
+compute_STFT: !new:speechbrain.processing.features.STFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+    n_fft: !ref <N_fft>
+
+compute_ISTFT: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <Sample_rate>
+    win_length: !ref <Win_length>
+    hop_length: !ref <Hop_length>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

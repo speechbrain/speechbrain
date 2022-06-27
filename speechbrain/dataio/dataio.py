@@ -772,7 +772,7 @@ def get_md5(file):
 
     Example
     -------
-    >>> get_md5('tests/samples/single-mic/example1.wav')
+    >>> get_md5('samples/audio_samples/example1.wav')
     'c482d0081ca35302d30d12f1136c34e5'
     """
     # Lets read stuff in 64kb chunks!
@@ -803,7 +803,7 @@ def save_md5(files, out_file):
     None
 
     Example:
-    >>> files = ['tests/samples/single-mic/example1.wav']
+    >>> files = ['samples/audio_samples/example1.wav']
     >>> tmpdir = getfixture('tmpdir')
     >>> save_md5(files, os.path.join(tmpdir, "md5.pkl"))
     """
@@ -983,8 +983,8 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
 
     Example
     -------
-    >>> merge_csvs("tests/samples/annotation/",
-    ... ["speech.csv", "speech.csv"],
+    >>> merge_csvs("samples/audio_samples/",
+    ... ["csv_example.csv", "csv_example2.csv"],
     ... "test_csv_merge.csv")
     """
     write_path = os.path.join(data_folder, merged_csv)

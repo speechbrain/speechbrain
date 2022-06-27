@@ -138,16 +138,8 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
-# Pretrained & models folders
-**/model_checkpoints/
-**/pretrained_model_checkpoints/
-**/pretrained_models/
-
 # Results folders
 **/results/
-
-# Log folders
-**/log/
 
 # Mac OS
 .DS_Store

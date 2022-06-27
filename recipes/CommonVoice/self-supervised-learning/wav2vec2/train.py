@@ -72,10 +72,7 @@ class W2VBrain(sb.core.Brain):
             cosine_sim = torch.cosine_similarity(
                 out.projected_states, out.projected_quantized_states, dim=-1
             )
-            acc = torch.masked_select(
-                cosine_sim,
-                mask_time_indices.type(torch.BoolTensor).to(self.device),
-            ).mean()
+            acc = cosine_sim[mask_time_indices].mean()
             self.acc_metric.append(acc)
 
         return loss
@@ -251,41 +248,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig"],
     )
-
-    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
-    train_batch_sampler = None
-    valid_batch_sampler = None
-    if hparams["dynamic_batching"]:
-        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-
-        dynamic_hparams = hparams["dynamic_batch_sampler"]
-        num_buckets = dynamic_hparams["num_buckets"]
-
-        train_batch_sampler = DynamicBatchSampler(
-            train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
-        )
-
-        valid_batch_sampler = DynamicBatchSampler(
-            valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
-        )
-
-    return (
-        train_data,
-        valid_data,
-        test_data,
-        train_batch_sampler,
-        valid_batch_sampler,
-    )
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -324,13 +287,7 @@ if __name__ == "__main__":
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
-    (
-        train_data,
-        valid_data,
-        test_data,
-        train_bsampler,
-        valid_bsampler,
-    ) = dataio_prepare(hparams)
+    train_data, valid_data, test_data = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = W2VBrain(
@@ -341,25 +298,15 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Changing the samplers if dynamic batching is activated
-    train_dataloader_opts = hparams["dataloader_options"]
-    valid_dataloader_opts = hparams["test_dataloader_options"]
-
-    if train_bsampler is not None:
-        train_dataloader_opts = {
-            "batch_sampler": train_bsampler,
-            "num_workers": hparams["num_workers"],
-        }
-    if valid_bsampler is not None:
-        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+    # Adding objects to trainer.
 
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=train_dataloader_opts,
-        valid_loader_kwargs=valid_dataloader_opts,
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
     # Test

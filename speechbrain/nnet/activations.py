@@ -96,13 +96,6 @@ class GumbelSoftmax(torch.nn.Module):
         self.apply_log = apply_log
 
     def forward(self, x):
-        """Returns the Gumbel softmax of the input tensor.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            Input tensor.
-        """
         if self.apply_log:
             return torch.log(F.gumbel_softmax(x, tau=self.tau, hard=self.hard))
         return F.gumbel_softmax(x, tau=self.tau, hard=self.hard)

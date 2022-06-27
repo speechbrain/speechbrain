@@ -54,12 +54,7 @@ def print_wer_summary(wer_details, file=sys.stdout):
 
 
 def print_alignments(
-    details_by_utterance,
-    file=sys.stdout,
-    empty_symbol="<eps>",
-    separator=" ; ",
-    print_header=True,
-    sample_separator=None,
+    details_by_utterance, file=sys.stdout, empty_symbol="<eps>", separator=" ; "
 ):
     """Print WER summary and alignments.
 
@@ -76,19 +71,13 @@ def print_alignments(
     separator : str
         String that separates each token in the output. Note the spaces in the
         default.
-    print_header: bool
-        Whether to print headers
-    sample_separator: str
-        A separator to put between samples (optional)
     """
-    if print_header:
-        _print_alignments_global_header(
-            file=file, empty_symbol=empty_symbol, separator=separator
-        )
+    _print_alignments_global_header(
+        file=file, empty_symbol=empty_symbol, separator=separator
+    )
     for dets in details_by_utterance:
         if dets["scored"]:
-            if print_header:
-                _print_alignment_header(dets, file=file)
+            _print_alignment_header(dets, file=file)
             _print_alignment(
                 dets["alignment"],
                 dets["ref_tokens"],
@@ -97,8 +86,6 @@ def print_alignments(
                 empty_symbol=empty_symbol,
                 separator=separator,
             )
-            if sample_separator:
-                print(sample_separator, file=file)
 
 
 # The following internal functions are used to

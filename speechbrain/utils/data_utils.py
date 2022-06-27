@@ -7,8 +7,6 @@ Authors
 """
 
 import os
-import re
-import csv
 import shutil
 import urllib.request
 import collections.abc
@@ -16,6 +14,7 @@ import torch
 import tqdm
 import pathlib
 import speechbrain as sb
+import re
 
 
 def undo_padding(batch, lengths):
@@ -73,8 +72,8 @@ def get_all_files(
 
     Example
     -------
-    >>> get_all_files('tests/samples/RIRs', match_and=['3.wav'])
-    ['tests/samples/RIRs/rir3.wav']
+    >>> get_all_files('samples/rir_samples', match_and=['3.wav'])
+    ['samples/rir_samples/rir3.wav']
     """
 
     # Match/exclude variable initialization
@@ -151,30 +150,6 @@ def get_all_files(
                 allFiles.append(fullPath)
 
     return allFiles
-
-
-def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
-    """Gets a list from the selected field of the input csv file.
-
-    Arguments
-    ---------
-    csv_file: path
-        Path to the csv file.
-    field: str
-        Field of the csv file used to create the list.
-    delimiter: str
-        Delimiter of the csv file.
-    skipinitialspace: bool
-        Set it to true to skip initial spaces in the entries.
-    """
-    lst = []
-    with open(csvfile, newline="") as csvf:
-        reader = csv.DictReader(
-            csvf, delimiter=delimiter, skipinitialspace=skipinitialspace
-        )
-        for row in reader:
-            lst.append(row[field])
-    return lst
 
 
 def split_list(seq, num):
@@ -302,10 +277,7 @@ def download_file(
         if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
-                """ DownloadProgressBar class."""
-
                 def update_to(self, b=1, bsize=1, tsize=None):
-                    """Needed to support multigpu training."""
                     if tsize is not None:
                         self.total = tsize
                     self.update(b * bsize - self.n)
@@ -486,7 +458,7 @@ np_str_obj_array_pattern = re.compile(r"[SaUO]")
 
 
 def mod_default_collate(batch):
-    """Makes a tensor from list of batch values.
+    r"""Makes a tensor from list of batch values.
 
     Note that this doesn't need to zip(*) values together
     as PaddedBatch connects them already (by key).
@@ -558,22 +530,3 @@ def split_path(path):
     else:
         # Interpret as path to file in current directory.
         return "./", path
-
-
-def scalarize(value):
-    """Converts a namedtuple or dictionary containing tensors
-    to their scalar value
-    Arguments:
-    ----------
-    value: dict or namedtuple
-        a dictionary or named tuple of tensors
-    Returns
-    -------
-    result: dict
-        a result dictionary
-    """
-    if hasattr(value, "_asdict"):
-        value_dict = value._asdict()
-    else:
-        value_dict = value
-    return {key: item_value.item() for key, item_value in value_dict.items()}

@@ -1,8 +1,3 @@
-"""Library for checking the torchaudio backend.
-
-Authors
- * Mirco Ravanelli 2021
-"""
 import platform
 import logging
 import torchaudio

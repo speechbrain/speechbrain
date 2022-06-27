@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 
 # Brain class for language model training
 class LM(sb.core.Brain):
-    """Class that manages the training loop. See speechbrain.core.Brain."""
-
     def compute_forward(self, batch, stage):
         """Predicts the next word given the previous ones.
 
@@ -213,7 +211,6 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides("text", "tokens_bos", "tokens_eos")
     def text_pipeline(text):
-        """Defines the pipeline that processes the input text."""
         yield text
         tokens_list = tokenizer.encode_as_ids(text)
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))

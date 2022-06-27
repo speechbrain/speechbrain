@@ -42,8 +42,6 @@ from speechbrain.utils import hpopt as hp
 
 # Brain class for speech enhancement training
 class SpkIdBrain(sb.Brain):
-    """Class that manages the training loop. See speechbrain.core.Brain."""
-
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
         output probabilities over the N classes.
@@ -253,7 +251,6 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("spk_id")
     @sb.utils.data_pipeline.provides("spk_id", "spk_id_encoded")
     def label_pipeline(spk_id):
-        """Defines the pipeline to process the input speaker label."""
         yield spk_id
         spk_id_encoded = label_encoder.encode_label_torch(spk_id)
         yield spk_id_encoded
@@ -261,15 +258,10 @@ def dataio_prep(hparams):
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
-    data_info = {
-        "train": hparams["train_annotation"],
-        "valid": hparams["valid_annotation"],
-        "test": hparams["test_annotation"],
-    }
     hparams["dataloader_options"]["shuffle"] = False
-    for dataset in data_info:
+    for dataset in ["train", "valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=data_info[dataset],
+            json_path=hparams[f"{dataset}_annotation"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "spk_id_encoded"],

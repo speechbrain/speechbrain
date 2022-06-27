@@ -55,10 +55,11 @@ class ASR_Brain(sb.Brain):
 
         # output layer for seq2seq log-probabilities
         logits = self.modules.output(joint)
+        p_transducer = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
             hyps, scores, _, _ = self.hparams.Greedysearcher(x)
-            return logits, hyps
+            return p_transducer, hyps
 
         elif stage == sb.Stage.TEST:
             (
@@ -67,8 +68,8 @@ class ASR_Brain(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.Beamsearcher(x)
-            return logits, best_hyps
-        return logits
+            return p_transducer, best_hyps
+        return p_transducer
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the loss."
@@ -78,7 +79,6 @@ class ASR_Brain(sb.Brain):
         if stage != sb.Stage.TRAIN:
             predictions, hyps = predictions
 
-        # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
         self.transducer_metrics.append(
             ids, predictions, phns, wav_lens, phn_lens

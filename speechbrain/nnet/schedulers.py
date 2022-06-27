@@ -10,7 +10,6 @@ Authors
 import math
 import torch
 import logging
-
 from speechbrain.utils import checkpoints
 
 logger = logging.getLogger(__name__)
@@ -129,7 +128,6 @@ class NewBobScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the current metrics on the specified path."""
         data = {
             "hyperparam_value": self.hyperparam_value,
             "metric_values": self.metric_values,
@@ -139,7 +137,6 @@ class NewBobScheduler:
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device  # Unused in here
         data = torch.load(path)
@@ -210,10 +207,6 @@ class StepScheduler:
     decay_drop : float
         Annealing factor (the decay of the hyperparameter value is faster
         with higher ``decay_drop`` values).
-    half_life: int
-        A convenience parameter to set decay_factor such that the parameter
-        will drop to half its value at the specified epoch. May not
-        be used together with decay_factor or decay_drop
 
     Example
     -------
@@ -226,26 +219,12 @@ class StepScheduler:
     (0.5, 0.25)
     """
 
-    DEFAULT_DECAY_FACTOR = 0.5
-    DEFAULT_DECAY_DROP = 2
-
     def __init__(
-        self, initial_value, decay_factor=None, decay_drop=None, half_life=None
+        self, initial_value, decay_factor=0.5, decay_drop=2,
     ):
         self.initial_value = initial_value
-        if half_life:
-            if decay_factor or decay_drop:
-                raise ValueError(
-                    "half_life cannot be used together with decay_factor and decay_drop"
-                )
-            self.decay_factor = self._compute_half_life_decay_factor(half_life)
-            self.decay_drop = 1.0
-        else:
-            self.decay_factor = decay_factor or self.DEFAULT_DECAY_FACTOR
-            self.decay_drop = decay_drop or self.DEFAULT_DECAY_DROP
-
-    def _compute_half_life_decay_factor(self, half_life):
-        return math.exp(-math.log(2) / half_life)
+        self.decay_factor = decay_factor
+        self.decay_drop = decay_drop
 
     def __call__(self, current_epoch):
         """Returns current and new hyperparameter value.
@@ -350,13 +329,11 @@ class NoamScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)
@@ -453,13 +430,11 @@ class CyclicCosineScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device  # Unused here
         data = torch.load(path)
@@ -561,7 +536,6 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
         data = {
             "losses": self.losses,
             "anchor": self.anchor,
@@ -571,7 +545,6 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device  # Not used
         data = torch.load(path)
@@ -706,7 +679,6 @@ class CyclicLRScheduler:
         return old_lr, new_lr
 
     def clr(self, clr_iterations):
-        """Clears interations."""
         cycle = math.floor(1 + clr_iterations / (2 * self.step_size))
         x = abs(clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == "cycle":
@@ -738,173 +710,13 @@ class CyclicLRScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "clr_iterations": self.clr_iterations}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
         del end_of_epoch  # Unused in this class
         del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.clr_iterations = data["clr_iterations"]
-
-
-@checkpoints.register_checkpoint_hooks
-class IntervalScheduler:
-    """A simple scheduler implementation that sets the learning rate to
-    specific values after a specific number of steps has been reached.
-    Arguments
-    ---------
-    intervals: list
-        a list of dictionaries: {"steps": <number of steps>, "lr": the learning rate}
-        'steps' indicates the global step count at which a given
-        rate will apply
-    Example
-    -------
-    >>> import torch
-    >>> from speechbrain.nnet.schedulers import IntervalScheduler
-    >>> from speechbrain.nnet.linear import Linear
-    >>> model = Linear(input_size=3, n_neurons=4)
-    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
-    >>> scheduler = IntervalScheduler(
-    ...    intervals=[
-    ...        {"steps": 2, "lr": 0.01},
-    ...        {"steps": 5, "lr": 0.005},
-    ...        {"steps": 9, "lr": 0.001}
-    ...    ]
-    ... )
-    >>> optim.param_groups[0]["lr"]
-    1
-    >>> for _ in range(10):
-    ...     pre, post = scheduler(optim)
-    ...     print(f"{pre} -> {post}")
-    1 -> 1
-    1 -> 0.01
-    0.01 -> 0.01
-    0.01 -> 0.01
-    0.01 -> 0.005
-    0.005 -> 0.005
-    0.005 -> 0.005
-    0.005 -> 0.005
-    0.005 -> 0.001
-    0.001 -> 0.001
-    """
-
-    def __init__(self, intervals):
-        self.intervals = intervals
-        self.n_steps = 0
-        self.losses = []
-        self._compute_next()
-
-    def __call__(self, opt):
-        """
-        Arguments
-        ---------
-        opt : optimizer
-            The optimizer to update using this scheduler.
-        Returns
-        -------
-        current_lr : float
-            The learning rate before the update.
-        lr : float
-            The learning rate after the update.
-        """
-        self.n_steps += 1
-
-        current_lr = opt.param_groups[0]["lr"]
-
-        lr = self._get_lr(current_lr)
-
-        # Changing the learning rate within the optimizer
-        for param_group in opt.param_groups:
-            param_group["lr"] = lr
-
-        self.current_lr = current_lr
-        return current_lr, lr
-
-    def _compute_next(self):
-        self._next_intervals = [
-            interval
-            for interval in self.intervals
-            if interval["steps"] > self.n_steps
-        ]
-
-    def _get_lr(self, current_lr):
-        lr = current_lr
-        if self._next_intervals:
-            next_interval = self._next_intervals[0]
-            if self.n_steps >= next_interval["steps"]:
-                lr = next_interval["lr"]
-                del self._next_intervals[0]
-        return lr
-
-    @checkpoints.mark_as_saver
-    def save(self, path):
-        """Saves the current metrics on the specified path."""
-        data = {"losses": self.losses, "n_steps": self.n_steps}
-        torch.save(data, path)
-
-    @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
-        del end_of_epoch  # Unused in this class
-        del device
-        data = torch.load(path)
-        self.losses = data["losses"]
-        self.n_steps = data["n_steps"]
-        self._compute_next()
-
-
-@checkpoints.register_checkpoint_hooks
-class InverseSquareRootScheduler:
-    """The Inverse Square Root Scheduler, as defined in the T5 paper
-    https://arxiv.org/pdf/1910.10683.pdf
-    Arguments
-    ---------
-    warmup_steps : int
-        The number of steps over which the learning rate will be constant
-    """
-
-    def __init__(self, warmup_steps):
-        self.warmup_steps = warmup_steps
-        self.n_steps = 0
-
-    def __call__(self, opt):
-        """Returns current and new hyperparameter value.
-        Arguments
-        ---------
-        current_epoch : int
-            Number of times the dataset has been iterated.
-        """
-        self.n_steps += 1
-
-        current_lr = opt.param_groups[0]["lr"]
-
-        lr = self._compute_value()
-
-        # Changing the learning rate within the optimizer
-        for param_group in opt.param_groups:
-            param_group["lr"] = lr
-
-        self.current_lr = current_lr
-        return current_lr, lr
-
-    def _compute_value(self):
-        return 1 / math.sqrt(max(self.warmup_steps, self.n_steps))
-
-    @checkpoints.mark_as_saver
-    def save(self, path):
-        """Saves the current metrics on the specified path."""
-        data = {"n_steps": self.n_steps}
-        torch.save(data, path)
-
-    @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
-        """Loads the needed information."""
-        del end_of_epoch  # Unused in this class
-        del device
-        data = torch.load(path)
-        self.n_steps = data["n_steps"]

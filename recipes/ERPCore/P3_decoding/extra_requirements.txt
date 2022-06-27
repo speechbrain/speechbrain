@@ -1,0 +1,2 @@
+mne==0.22.1
+sklearn

@@ -17,7 +17,7 @@ def test_tokenizer():
         os.path.abspath("tokenizer_data/"),
         100,
         annotation_train=os.path.abspath(
-            "tests/samples/annotation/tokenizer.csv"
+            "tests/unittests/tokenizer_data/dev-clean.csv"
         ),
         annotation_read="wrd",
         model_type="bpe",
@@ -58,7 +58,7 @@ def test_tokenizer():
         os.path.abspath("tokenizer_data/"),
         100,
         annotation_train=os.path.abspath(
-            "tests/sample/annotation/tokenzer.csv"
+            "tests/unittests/tokenizer_data/dev-clean.csv"
         ),
         annotation_read="char",
         char_format_input=True,

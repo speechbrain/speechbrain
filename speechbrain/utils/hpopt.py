@@ -68,7 +68,6 @@ def hpopt_mode(mode):
     """
 
     def f(cls):
-        """"Call the function that registers and returns the reporter class"""
         _hpopt_modes[mode] = cls
         return cls
 
@@ -344,7 +343,7 @@ class HyperparameterOptimizationContext:
         File: hparams.yaml, Overrides: {'x': 1, 'y': 2}
         """
         hparams_file, run_opts, overrides_yaml = sb.parse_arguments(arg_list)
-        overrides = load_hyperpyyaml(overrides_yaml) if overrides_yaml else {}
+        overrides = load_hyperpyyaml(overrides_yaml)
         hpopt = overrides.get(KEY_HPOPT, False)
         hpopt_mode = overrides.get(KEY_HPOPT_MODE) or DEFAULT_REPORTER
         if hpopt:
@@ -375,9 +374,7 @@ class HyperparameterOptimizationContext:
             reporter = self.reporter
             if not reporter:
                 reporter = get_reporter(
-                    DEFAULT_REPORTER,
-                    *self.reporter_args,
-                    **self.reporter_kwargs,
+                    hpopt_mode, *self.reporter_args, **self.reporter_kwargs
                 )
             reporter.report_objective(self.result)
         _context["current"] = None
