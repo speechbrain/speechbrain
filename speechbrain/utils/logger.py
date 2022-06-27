@@ -168,12 +168,12 @@ def get_environment_description():
     try:
         freezed, _, _ = run_shell("pip freeze")
         python_packages_str = "Installed Python packages:\n"
-        python_packages_str += freezed.decode()
+        python_packages_str += freezed.decode(errors="replace")
     except OSError:
         python_packages_str = "Could not list python packages with pip freeze"
     try:
         git_hash, _, _ = run_shell("git rev-parse --short HEAD")
-        git_str = "Git revision:\n" + git_hash.decode()
+        git_str = "Git revision:\n" + git_hash.decode(errors="replace")
     except OSError:
         git_str = "Could not get git revision"
     if torch.cuda.is_available():

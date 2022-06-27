@@ -118,7 +118,7 @@ class Separation(sb.Brain):
         targets = [batch.s1_sig, batch.s2_sig]
         noise = batch.noise_sig[0]
 
-        if self.hparams.auto_mix_prec:
+        if self.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
@@ -236,9 +236,17 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
-            )
+            if (
+                hasattr(self.hparams, "save_all_checkpoints")
+                and self.hparams.save_all_checkpoints
+            ):
+                self.checkpointer.save_checkpoint(
+                    meta={"si-snr": stage_stats["si-snr"]}
+                )
+            else:
+                self.checkpointer.save_and_keep_only(
+                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -522,7 +530,6 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    run_opts["auto_mix_prec"] = hparams["auto_mix_prec"]
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -626,7 +633,17 @@ if __name__ == "__main__":
                     os.path.normpath(hparams["base_folder_dm"]) + "_processed"
                 )
 
-        train_data = dynamic_mix_data_prep(hparams)
+        train_data = dynamic_mix_data_prep(
+            tr_csv=hparams["train_data"],
+            data_root_folder=hparams["data_folder"],
+            base_folder_dm=hparams["base_folder_dm"],
+            sample_rate=hparams["sample_rate"],
+            num_spks=hparams["num_spks"],
+            max_training_signal_len=hparams["training_signal_len"],
+            batch_size=hparams["dataloader_opts"]["batch_size"],
+            num_workers=hparams["dataloader_opts"]["num_workers"],
+        )
+
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)

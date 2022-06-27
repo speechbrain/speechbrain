@@ -7,13 +7,6 @@ with the VoiceBank dataset.
 # How to run
 python train.py train/train.yaml
 
-# Results
-
-| Release | hyperparams file | Test WER | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml | -.-- | Not Available | 1xV100 32GB |
-
-
 # PreTrained Model
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
 https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing

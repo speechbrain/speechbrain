@@ -34,7 +34,7 @@ class EmoIdBrain(sb.Brain):
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
-        embeddings = self.modules.embedding_model(feats)
+        embeddings = self.modules.embedding_model(feats, lens)
         outputs = self.modules.classifier(embeddings)
 
         return outputs
@@ -198,9 +198,11 @@ class EmoIdBrain(sb.Brain):
                 self.step += 1
 
                 emo_ids = batch.id
-                true_vals = batch.emo_encoded.data.squeeze().tolist()
+                true_vals = batch.emo_encoded.data.squeeze(dim=1).tolist()
                 output = self.compute_forward(batch, stage=Stage.TEST)
-                predictions = torch.argmax(output, dim=-1).squeeze().tolist()
+                predictions = (
+                    torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
+                )
 
                 with open(save_file, "a", newline="") as csvfile:
                     outwriter = csv.writer(csvfile, delimiter=",")
@@ -314,7 +316,8 @@ if __name__ == "__main__":
     sb.utils.distributed.run_on_main(
         prepare_data,
         kwargs={
-            "data_folder": hparams["data_folder"],
+            "data_original": hparams["data_original"],
+            "data_transformed": hparams["data_folder"],
             "save_json_train": hparams["train_annotation"],
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],

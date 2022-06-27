@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_categorical_encoder():
+def test_categorical_encoder(device):
     from speechbrain.dataio.encoder import CategoricalEncoder
 
     encoder = CategoricalEncoder()
@@ -25,7 +25,7 @@ def test_categorical_encoder():
     encoder = CategoricalEncoder()
     encoder.update_from_iterable("abcd")
     result = encoder.decode_torch(
-        torch.tensor([[0, 0], [1, 1], [2, 2], [3, 3]])
+        torch.tensor([[0, 0], [1, 1], [2, 2], [3, 3]], device=device)
     )
     assert result == [["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]
     result = encoder.decode_ndim([[0, 0], [1, 1], [2, 2], [3, 3]])
@@ -35,7 +35,7 @@ def test_categorical_encoder():
     result = encoder.decode_ndim([[[[[0, 0], [1, 1], [2, 2], [3, 3]]]]])
     assert result == [[[[["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]]]]
     result = encoder.decode_torch(
-        torch.tensor([[[[[0, 0], [1, 1], [2, 2], [3, 3]]]]])
+        torch.tensor([[[[[0, 0], [1, 1], [2, 2], [3, 3]]]]], device=device)
     )
     assert result == [[[[["a", "a"], ["b", "b"], ["c", "c"], ["d", "d"]]]]]
     result = encoder.decode_ndim([[0, 0], [1], [2, 2, 2], []])

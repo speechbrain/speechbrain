@@ -52,6 +52,7 @@ test_dataloader_options:
 # BPE parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
+label_smoothing: 0.0
 
 # Feature parameters (FBANKS etc)
 sample_rate: 16000
@@ -171,7 +172,7 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
+    label_smoothing: !ref <label_smoothing>
 
 modules:
     enc: !ref <enc>

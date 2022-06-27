@@ -7,10 +7,9 @@
 import torch
 import torchaudio
 import numpy as np
-from speechbrain.utils.torch_audio_backend import get_torchaudio_backend
+from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
-torchaudio_backend = get_torchaudio_backend()
-torchaudio.set_audio_backend(torchaudio_backend)
+check_torchaudio_backend()
 smallVal = np.finfo("float").eps  # To avoid divide by zero
 
 
@@ -145,7 +144,10 @@ def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
     octave_band = thirdoct(fs=10000, nfft=512, num_bands=15, min_freq=150)
     c = 5.62341325  # 10^(-Beta/20) with Beta = -15
     D = torch.zeros(batch_size)
-    resampler = torchaudio.transforms.Resample(fs, 10000)
+    resampler = torchaudio.transforms.Resample(fs, 10000).to(
+        y_pred_batch.device
+    )
+
     for i in range(0, batch_size):  # Run over mini-batches
         y_true = y_true_batch[i, 0 : int(lens[i] * y_pred_batch.shape[1])]
         y_pred = y_pred_batch[i, 0 : int(lens[i] * y_pred_batch.shape[1])]

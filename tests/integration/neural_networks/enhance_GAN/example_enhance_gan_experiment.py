@@ -12,6 +12,7 @@ from hyperpyyaml import load_hyperpyyaml
 class EnhanceGanBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the enhanced signal"
+        batch = batch.to(self.device)
         wavs, lens = batch.sig
 
         noisy = self.hparams.add_noise(wavs, lens).unsqueeze(-1)
@@ -35,13 +36,13 @@ class EnhanceGanBrain(sb.Brain):
 
         # One is real, zero is fake
         if optim_name == "generator":
-            simu_target = torch.ones(batch_size, 1)
+            simu_target = torch.ones(batch_size, 1, device=self.device)
             simu_cost = self.hparams.compute_cost(simu_result, simu_target)
             real_cost = 0.0
             self.metrics["G"].append(simu_cost.detach())
         elif optim_name == "discriminator":
-            real_target = torch.ones(batch_size, 1)
-            simu_target = torch.zeros(batch_size, 1)
+            real_target = torch.ones(batch_size, 1, device=self.device)
+            simu_target = torch.zeros(batch_size, 1, device=self.device)
             real_cost = self.hparams.compute_cost(real_result, real_target)
             simu_cost = self.hparams.compute_cost(simu_result, simu_target)
             self.metrics["D"].append((real_cost + simu_cost).detach())
@@ -126,7 +127,7 @@ def data_prep(data_folder):
     return train_data, valid_data
 
 
-def main():
+def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = experiment_dir / "hyperparams.yaml"
     data_folder = "../../../../samples/audio_samples/nn_training_samples"
@@ -140,7 +141,9 @@ def main():
     train_data, valid_data = data_prep(data_folder)
 
     # Trainer initialization
-    gan_brain = EnhanceGanBrain(modules=hparams["modules"], hparams=hparams)
+    gan_brain = EnhanceGanBrain(
+        modules=hparams["modules"], hparams=hparams, run_opts={"device": device}
+    )
 
     # Training/validation loop
     gan_brain.fit(
@@ -161,5 +164,5 @@ if __name__ == "__main__":
     main()
 
 
-def test_loss():
-    main()
+def test_loss(device):
+    main(device)

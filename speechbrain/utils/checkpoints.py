@@ -160,10 +160,14 @@ def torch_parameter_transfer(obj, path, device):
 DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
     torch.optim.Optimizer: torch_recovery,
+    torch.optim.lr_scheduler._LRScheduler: torch_recovery,
+    torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
     torch.optim.Optimizer: torch_save,
+    torch.optim.lr_scheduler._LRScheduler: torch_save,
+    torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
 }
 DEFAULT_TRANSFER_HOOKS = {
     torch.nn.Module: torch_parameter_transfer,
@@ -494,7 +498,7 @@ class Checkpointer:
             self.recoverables.update(recoverables)
         else:
             rec = repr(recoverables)  # noqa: F841, rec is used in MSG
-            MSG = "Checkpointer needs a mapping (e.g. dict), \
+            MSG = f"Checkpointer needs a mapping (e.g. dict), \
                     got {rec} instead."
             raise AttributeError(MSG)
 

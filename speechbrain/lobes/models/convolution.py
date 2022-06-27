@@ -6,7 +6,7 @@ Authors
 import torch
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import BatchNorm2d
+from speechbrain.nnet.normalization import LayerNorm
 
 
 class ConvolutionFrontEnd(Sequential):
@@ -42,7 +42,7 @@ class ConvolutionFrontEnd(Sequential):
     >>> conv = ConvolutionFrontEnd(input_shape=x.shape)
     >>> out = conv(x)
     >>> out.shape
-    torch.Size([8, 30, 10])
+    torch.Size([8, 8, 3, 512])
     """
 
     def __init__(
@@ -57,7 +57,7 @@ class ConvolutionFrontEnd(Sequential):
         residuals=[True, True, True],
         conv_module=Conv2d,
         activation=torch.nn.LeakyReLU,
-        norm=BatchNorm2d,
+        norm=LayerNorm,
         dropout=0.1,
     ):
         super().__init__(input_shape=input_shape)
@@ -159,6 +159,6 @@ class ConvBlock(torch.nn.Module):
         out = self.convs(x)
         if self.reduce_conv:
             out = out + self.reduce_conv(x)
-            out = self.drop(x)
+            out = self.drop(out)
 
         return out
