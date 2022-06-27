@@ -30,7 +30,8 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+#train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 train_csv: !ref <data_folder>/train.csv
@@ -146,11 +147,12 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
    dnn_neurons: !ref <dnn_neurons>
 
 # For MTL CTC over the encoder
-# enc_lin: !new:speechbrain.nnet.linear.Linear
-#     input_size: !ref <dnn_neurons>
-#     n_neurons: !ref <joint_dim>
-#
-# ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+enc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <joint_dim>
+
+# Uncomment for MTL with CTC
+#ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 #    blank_index: !ref <blank_index>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
@@ -165,13 +167,14 @@ dec: !new:speechbrain.nnet.RNN.GRU
    re_init: True
 
 # For MTL with LM over the decoder
-# dec_lin: !new:speechbrain.nnet.linear.Linear
-#     input_size: !ref <dec_neurons>
-#     n_neurons: !ref <joint_dim>
-#     bias: False
-#
-# ce_cost: !name:speechbrain.nnet.losses.nll_loss
-#    label_smoothing: 0.1
+dec_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dec_neurons>
+   n_neurons: !ref <joint_dim>
+   bias: False
+
+# For MTL
+#ce_cost: !name:speechbrain.nnet.losses.nll_loss
+#   label_smoothing: 0.1
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
    joint: sum # joint [sum | concat]
@@ -214,6 +217,8 @@ modules:
    env_corrupt: !ref <env_corrupt>
    augmentation: !ref <augmentation>
    lm_model: !ref <lm_model>
+   enc_lin: !ref <enc_lin>
+   dec_lin: !ref <dec_lin>
 
 # for MTL
 # update model if any HEAD module is added

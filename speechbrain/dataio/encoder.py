@@ -144,6 +144,7 @@ class CategoricalEncoder:
         self.handle_special_labels(special_labels)
 
     def handle_special_labels(self, special_labels):
+        """Handles special labels such as unk_label."""
         if "unk_label" in special_labels:
             self.add_unk(special_labels["unk_label"])
 
@@ -789,6 +790,7 @@ class TextEncoder(CategoricalEncoder):
     """
 
     def handle_special_labels(self, special_labels):
+        """Handles special labels such as bos and eos."""
         super().handle_special_labels(special_labels)
         # NOTE: bos_label and eos_label are not necessarily set at all!
         # This is because None is a suitable value.
@@ -981,6 +983,7 @@ class CTCTextEncoder(TextEncoder):
     """
 
     def handle_special_labels(self, special_labels):
+        """Handles special labels such as blanks."""
         # super().handle_special_labels(special_labels)
         # NOTE: blank_label is not necessarily set at all!
         # This is because None is a suitable value.
