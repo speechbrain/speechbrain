@@ -2015,17 +2015,17 @@ class SpectralMaskEnhancement(Pretrained):
 
     Example
     -------
-    >>> import torchaudio
-    >>> from speechbrain.pretrained import SpectralMaskEnhancement
-    >>> # Model is downloaded from the speechbrain HuggingFace repo
-    >>> tmpdir = getfixture("tmpdir")
-    >>> enhancer = SpectralMaskEnhancement.from_hparams(
-    ...     source="speechbrain/mtl-mimic-voicebank",
-    ...     savedir=tmpdir,
-    ... )
-    >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
-    >>> # Channel dimension is interpreted as batch dimension here
-    >>> enhanced = enhancer.enhance_batch(noisy)
+    # >>> import torchaudio
+    # >>> from speechbrain.pretrained import SpectralMaskEnhancement
+    # >>> # Model is downloaded from the speechbrain HuggingFace repo
+    # >>> tmpdir = getfixture("tmpdir")
+    # >>> enhancer = SpectralMaskEnhancement.from_hparams(
+    # ...     source="speechbrain/mtl-mimic-voicebank",
+    # ...     savedir=tmpdir,
+    # ... )
+    # >>> noisy, fs = torchaudio.load("samples/audio_samples/example_noisy.wav")
+    # >>> # Channel dimension is interpreted as batch dimension here
+    # >>> enhanced = enhancer.enhance_batch(noisy)
     """
 
     HPARAMS_NEEDED = ["compute_stft", "spectral_magnitude", "resynth"]

@@ -528,7 +528,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         topk_hyps = topk_hyps.view(batch_size, self.topk, -1)
         topk_lengths = torch.index_select(top_lengths, dim=0, index=indices,)
         topk_lengths = topk_lengths.view(batch_size, self.topk)
-        topk_log_probs = torch.index_select(top_log_probs, dim=0, index=indices,)
+        topk_log_probs = torch.index_select(
+            top_log_probs, dim=0, index=indices,
+        )
         topk_log_probs = topk_log_probs.view(batch_size, self.topk, -1)
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
