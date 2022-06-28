@@ -976,6 +976,7 @@ class Brain:
             initial=self.step,
             dynamic_ncols=True,
             disable=not enable,
+            colour='GREEN'
         ) as t:
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
@@ -1026,7 +1027,7 @@ class Brain:
             avg_valid_loss = 0.0
             with torch.no_grad():
                 for batch in tqdm(
-                    valid_set, dynamic_ncols=True, disable=not enable
+                    valid_set, dynamic_ncols=True, disable=not enable, colour='MAGENTA'
                 ):
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
@@ -1239,7 +1240,7 @@ class Brain:
         avg_test_loss = 0.0
         with torch.no_grad():
             for batch in tqdm(
-                test_set, dynamic_ncols=True, disable=not progressbar
+                test_set, dynamic_ncols=True, disable=not progressbar, colour='CYAN'
             ):
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
