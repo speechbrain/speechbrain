@@ -14,6 +14,7 @@ Authors
 """
 import os
 import sys
+from tabnanny import verbose
 import torch
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -117,6 +118,9 @@ def dataio_prep(hparams):
         yield phn_encoded
 
     # 3. Create datasets
+    hparams["train_logger"].log_stats(
+        stats_meta={"Training on input type: ": hparams["input_type"]}
+    )
     data = {}
     data_info = {
         "train": hparams["train_annotation"],
@@ -164,8 +168,8 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    from voicebank_prepare import download_vctk
-    download_vctk(destination=hparams["data_folder"], tmp_dir="../../tmp")
+    # from voicebank_prepare import download_vctk
+    # download_vctk(destination=hparams["data_folder"], tmp_dir="../../tmp")
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -184,7 +188,7 @@ if __name__ == "__main__":
         prepare_voicebank,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["output_folder"],
+            "save_folder": hparams["json_dir"],
             "skip_prep": hparams["skip_prep"],
         },
     )

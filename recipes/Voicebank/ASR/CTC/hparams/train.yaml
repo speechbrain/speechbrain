@@ -5,19 +5,21 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1236
+seed: 123
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 input_type: clean_wav
-output_folder: !ref results/<input_type>/phn/<seed>
+results_folder: !ref results
+output_folder: !ref <results_folder>/<input_type>/phn/<seed>
 per_file: !ref <output_folder>/per.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: ../../vctk-16k  # e.g. /path/to/Voicebank
-train_annotation: !ref vctk_json/train.json
-valid_annotation: !ref vctk_json/valid.json
-test_annotation: !ref vctk_json/test.json
+json_dir: !ref vctk_json
+train_annotation: !ref <json_dir>/train.json
+valid_annotation: !ref <json_dir>/valid.json
+test_annotation: !ref <json_dir>/test.json
 skip_prep: False # Skip data preparation
 
 # Training parameters

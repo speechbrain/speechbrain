@@ -4,6 +4,10 @@ This folder contains the scripts to train a CTC acoustic model using Voicebank.
 
 Use the `download_vctk()` function in the `voicebank_prepare.py` file to
 download and resample the dataset.
+```python
+from voicebank_prepare import download_vctk
+download_vctk(destination=hparams["data_folder"], tmp_dir="../../tmp")
+```
 
 ## How to run
 
