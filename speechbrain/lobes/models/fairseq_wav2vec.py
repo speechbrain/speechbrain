@@ -250,7 +250,7 @@ class FairseqWav2Vec1(nn.Module):
         self.model = model
         self.model = self.model[0]
         if self.freeze:
-            model.eval()
+            self.model.eval()
 
         # Randomly initialized layers if pretrain is False
         if not (pretrain):

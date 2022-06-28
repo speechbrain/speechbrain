@@ -81,7 +81,6 @@ output_neurons: 5000  # Number of tokens
 blank_index: 0
 bos_index: 0
 eos_index: 0
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -90,7 +89,6 @@ beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
-ctc_decode_weight: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 
@@ -224,10 +222,10 @@ beam_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    min_decode_ratio: !ref <min_decode_ratio>
    max_decode_ratio: !ref <max_decode_ratio>
    beam_size: !ref <beam_size>
-   vocab_size: !ref <output_neurons>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
+   coverage_penalty: !ref <coverage_penalty>
    temperature: !ref <temperature>
    scorer: !ref <scorer>
 

@@ -27,7 +27,7 @@ skip_prep: False
 number_of_epochs: 6
 batch_size: 16
 lr: 0.0003
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 # Model parameters

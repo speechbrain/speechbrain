@@ -155,7 +155,7 @@ def dataio_prep(hparams):
     def audio_pipeline(wav, start, stop, duration):
         if hparams["random_chunk"]:
             duration_sample = int(duration * hparams["sample_rate"])
-            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            start = random.randint(0, duration_sample - snt_len_sample)
             stop = start + snt_len_sample
         else:
             start = int(start)
@@ -225,6 +225,7 @@ if __name__ == "__main__":
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
             "seg_dur": hparams["sentence_len"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

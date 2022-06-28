@@ -1403,6 +1403,7 @@ class QuasiRNNLayer(torch.nn.Module):
 
     def split_gate_inputs(self, y):
         # type: (Tensor) -> Tuple[Tensor, Tensor, Optional[Tensor]] # noqa F821
+        """Splits the input gates."""
         if self.output_gate:
             z, f, o = y.chunk(3, dim=-1)
         else:
@@ -1569,6 +1570,7 @@ class QuasiRNN(nn.Module):
             self.dropout = torch.nn.Dropout(self.dropout)
 
     def forward(self, x, hidden=None):
+        """Applies the QuasiRNN to the input tensor x."""
 
         next_hidden = []
 

@@ -111,6 +111,16 @@ class S2SGreedySearcher(S2SBaseSearcher):
     """
 
     def forward(self, enc_states, wav_len):
+        """This method performs a greedy search.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        wav_len : torch.Tensor
+            The speechbrain-style relative length.
+        """
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -250,6 +260,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
         hs, c = memory
         e = self.emb(inp_tokens)
         dec_out, hs, c, w = self.dec.forward_step(
@@ -275,8 +286,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The ratio of maximum decoding steps to length of encoder states.
     beam_size : int
         The width of beam.
-    vocab_size : int
-        The size of vocabulary.
     scorer: speechbrain.decoders.scorers.ScorerBuilder
         Scorer instance.
     topk : int
@@ -295,8 +304,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         than max_attn_shift.
         Reference: https://arxiv.org/abs/1904.02619
     minus_inf : float
+        Default: -1e20
         The value of minus infinity to block some path
-        of the search. (default: -1e20)
+        of the search.
     """
 
     def __init__(
@@ -306,7 +316,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         min_decode_ratio,
         max_decode_ratio,
         beam_size,
-        vocab_size,
         scorer=None,
         topk=1,
         using_eos_threshold=True,
@@ -320,7 +329,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
-        self.vocab_size = vocab_size
         self.scorer = scorer
         self.topk = topk
         self.length_normalization = length_normalization
@@ -536,6 +544,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
     def forward(self, enc_states, wav_len):  # noqa: C901
+        """Applies beamsearch and returns the predicted tokens."""
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -792,7 +801,6 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ...     beam_size=2,
-    ...     vocab_size=vocab_size,
     ...     scorer=scorer,
     ... )
     >>> enc = torch.rand([2, 6, 7])
@@ -811,12 +819,14 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         self.temperature = temperature
 
     def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during beamsearch."""
         hs = None
         self.dec.attn.reset()
         c = torch.zeros(batch_size, self.dec.attn_dim, device=device)
         return hs, c
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
         with torch.no_grad():
             hs, c = memory
             e = self.emb(inp_tokens)
@@ -830,6 +840,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         return log_probs, (hs, c), w
 
     def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch."""
         hs, c = memory
 
         # shape of hs: [num_layers, batch_size, n_neurons]

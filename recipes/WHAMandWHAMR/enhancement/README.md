@@ -46,6 +46,10 @@ Here are the SI - SNR (in dB) and PESQ on the test set of WHAM!, WHAMR! datasets
 | --- | --- | --- |
 |DynamicMixing | 10.6 | 2.84 |
 
+
+The output folder with the model checkpoints and logs for WHAMR! is available [here](https://drive.google.com/drive/folders/1V0KwkEfWwomZ0Vjox0BTnQ694_uxgu8G?usp=sharing).
+The output folder with the model checkpoints and logs for WHAM! is available [here](https://drive.google.com/drive/folders/1bbQvaiN-R79M697NnekA7Rr0jIYtO6e3?usp=sharing).
+
 # Training time
 It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (32GB).
 
@@ -53,8 +57,8 @@ It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (
 # Pretrained Models:
 Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through huggingface:
 * https://huggingface.co/speechbrain/sepformer-wham-enhancement
-* https://huggingface.co/speechbrain/sepformer-wham-enhancement
-
+* https://huggingface.co/speechbrain/sepformer-whamr-enhancement
+* https://huggingface.co/speechbrain/sepformer-whamr16k
 * Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
 
 

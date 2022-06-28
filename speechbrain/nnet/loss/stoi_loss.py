@@ -1,8 +1,10 @@
-# ################################
-# From paper: "End-to-End Waveform Utterance Enhancement for Direct Evaluation
-# Metrics Optimization by Fully Convolutional Neural Networks", TASLP, 2018
-# Authors: Szu-Wei, Fu 2020
-# ################################
+"""Library for computing STOI computation.
+Reference: "End-to-End Waveform Utterance Enhancement for Direct Evaluation
+Metrics Optimization by Fully Convolutional Neural Networks", TASLP, 2018
+
+Authors:
+    Szu-Wei, Fu 2020
+"""
 
 import torch
 import torchaudio
@@ -55,12 +57,30 @@ def thirdoct(fs, nfft, num_bands, min_freq):
 
 
 def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
-    w = torch.unsqueeze(torch.from_numpy(np.hanning(256)), 0).to(torch.float)
+    """Removes silent frames from the STOI computation.
+
+    This function can be used as a loss function for training
+    with SGD-based updates.
+
+    Arguments
+    ---------
+    x: torch.Tensor
+        The clean (reference) waveforms.
+    y: torch.Tensor
+        The degraded (enhanced) waveforms.
+    dyn_range: int
+        Dynamic range used for mask computation.
+    N: int
+        Window length.
+    K: int
+        Step size.
+    """
+    w = torch.unsqueeze(torch.from_numpy(np.hanning(N)), 0).to(torch.float)
 
     X1 = x[0 : int(x.shape[0]) // N * N].reshape(int(x.shape[0]) // N, N).T
     X2 = (
-        x[128 : (int(x.shape[0]) - 128) // N * N + 128]
-        .reshape((int(x.shape[0]) - 128) // N, N)
+        x[K : (int(x.shape[0]) - K) // N * N + K]
+        .reshape((int(x.shape[0]) - K) // N, N)
         .T
     )
     X = torch.zeros(N, X1.shape[1] + X2.shape[1])
@@ -76,8 +96,8 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
 
     Y1 = y[0 : int(y.shape[0]) // N * N].reshape(int(y.shape[0]) // N, N).T
     Y2 = (
-        y[128 : (int(y.shape[0]) - 128) // N * N + 128]
-        .reshape((int(y.shape[0]) - 128) // N, N)
+        y[K : (int(y.shape[0]) - K) // N * N + K]
+        .reshape((int(y.shape[0]) - K) // N, N)
         .T
     )
     Y = torch.zeros(N, Y1.shape[1] + Y2.shape[1])
@@ -89,17 +109,17 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
 
     x_sil = torch.cat(
         (
-            x_sil[0:128, 0],
-            (x_sil[0:128, 1:] + x_sil[128:, 0:-1]).T.flatten(),
-            x_sil[128:256, -1],
+            x_sil[0:K, 0],
+            (x_sil[0:K, 1:] + x_sil[K:, 0:-1]).T.flatten(),
+            x_sil[K:N, -1],
         ),
         axis=0,
     )
     y_sil = torch.cat(
         (
-            y_sil[0:128, 0],
-            (y_sil[0:128, 1:] + y_sil[128:, 0:-1]).T.flatten(),
-            y_sil[128:256, -1],
+            y_sil[0:K, 0],
+            (y_sil[0:K, 1:] + y_sil[K:, 0:-1]).T.flatten(),
+            y_sil[K:N, -1],
         ),
         axis=0,
     )
