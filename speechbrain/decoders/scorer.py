@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+Scorer abstractions for beam search, CTC, RNN-LMs, Transformer-LMs,
+KenLM N-gram, coverage penalty, and length rewarding scoring.
+
+Authors:
+ * Sung-Lin Yeh, 2021
+"""
+
 import torch
 import numpy as np
 import speechbrain as sb
@@ -95,16 +104,19 @@ class CTCScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
         scores, memory = self.ctc_score.forward_step(
             inp_tokens, memory, candidates, attn
         )
         return scores, memory
 
     def permute_mem(self, memory, index):
+        """Specifies memory synchronisation."""
         r, psi = self.ctc_score.permute_mem(memory, index)
         return r, psi
 
     def reset_mem(self, x, enc_lens):
+        """Specifies memory reset."""
         logits = self.ctc_fc(x)
         x = self.softmax(logits)
         self.ctc_score = CTCPrefixScore(
@@ -132,12 +144,14 @@ class RNNLMScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
             log_probs = self.softmax(logits / self.temperature)
         return log_probs, hs
 
     def permute_mem(self, memory, index):
+        """Specifies memory synchronisation."""
         if isinstance(memory, tuple):
             memory_0 = torch.index_select(memory[0], dim=1, index=index)
             memory_1 = torch.index_select(memory[1], dim=1, index=index)
@@ -147,6 +161,7 @@ class RNNLMScorer(BaseScorerInterface):
         return memory
 
     def reset_mem(self, x, enc_lens):
+        """Specifies memory reset."""
         return None
 
 
@@ -169,6 +184,7 @@ class TransformerLMScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
         with torch.no_grad():
             if memory is None:
                 memory = torch.empty(
@@ -183,10 +199,12 @@ class TransformerLMScorer(BaseScorerInterface):
         return log_probs[:, -1, :], memory
 
     def permute_mem(self, memory, index):
+        """Specifies memory synchronisation."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
     def reset_mem(self, x, enc_lens):
+        """Specifies memory reset."""
         return None
 
 
@@ -225,6 +243,7 @@ class KenLMScorer(BaseScorerInterface):
         self.id2char = token_list
 
     def score(self, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
 
@@ -259,6 +278,7 @@ class KenLMScorer(BaseScorerInterface):
         return scores, (new_memory, new_scoring_table)
 
     def permute_mem(self, memory, index):
+        """Specifies memory synchronisation."""
         state, scoring_table = memory
 
         index = index.cpu().numpy()
@@ -279,6 +299,7 @@ class KenLMScorer(BaseScorerInterface):
         return state, scoring_table
 
     def reset_mem(self, x, enc_lens):
+        """Specifies memory reset."""
         state = self.kenlm.State()
         self.lm.NullContextWrite(state)
         self.batch_index = np.arange(x.size(0))
@@ -307,6 +328,7 @@ class CoverageScorer(BaseScorerInterface):
         self.time_step = 0
 
     def score(self, inp_tokens, coverage, candidates, attn):
+        """Specifies token scoring."""
         n_bh = attn.size(0)
         self.time_step += 1
 
@@ -329,11 +351,13 @@ class CoverageScorer(BaseScorerInterface):
         return -1 * penalty / self.time_step, coverage
 
     def permute_mem(self, coverage, index):
+        """Specifies memory synchronisation."""
         # Update coverage
         coverage = torch.index_select(coverage, dim=0, index=index)
         return coverage
 
     def reset_mem(self, x, enc_lens):
+        """Specifies memory reset."""
         self.time_step = 0
         return None
 
@@ -351,6 +375,7 @@ class LengthScorer(BaseScorerInterface):
         self.vocab_size = vocab_size
 
     def score(self, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
         return (
             torch.tensor(
                 [1.0], device=inp_tokens.device, dtype=inp_tokens.dtype

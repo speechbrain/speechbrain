@@ -890,13 +890,16 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
         self.temperature = temperature
 
     def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during beamsearch."""
         return None
 
     def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
         if memory is None:
             memory = torch.empty(
                 inp_tokens.size(0), 0, device=inp_tokens.device
