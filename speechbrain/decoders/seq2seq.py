@@ -593,7 +593,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         prev_attn_peak = torch.zeros(n_bh, device=device)
         attn = None
 
-        log_probs = torch.full((n_bh, self.vocab_size), 0.0, device=device)
+        log_probs = torch.full((n_bh, self.emb.num_embeddings), 0.0, device=device)
 
         for t in range(max_decode_steps):
             # terminate condition
@@ -634,7 +634,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     fill_value=self.minus_inf,
                 )
 
-            scores = sequence_scores.unsqueeze(1).expand(-1, self.vocab_size)
+            scores = sequence_scores.unsqueeze(1).expand(-1, self.emb.num_embeddings)
             scores = scores + log_probs
 
             # Keep the original value
@@ -650,7 +650,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
             # The input for the next step, also the output of current step.
-            inp_tokens = (candidates % self.vocab_size).view(n_bh)
+            inp_tokens = (candidates % self.emb.num_embeddings).view(n_bh)
 
             scores = scores.view(n_bh)
             sequence_scores = scores
@@ -661,7 +661,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
             # The index of which beam the current top-K output came from in (t-1) timesteps.
             predecessors = (
-                torch.div(candidates, self.vocab_size, rounding_mode="floor")
+                torch.div(candidates, self.emb.num_embeddings, rounding_mode="floor")
                 + self.beam_offset.unsqueeze(1).expand_as(candidates)
             ).view(n_bh)
 

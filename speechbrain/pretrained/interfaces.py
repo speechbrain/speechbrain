@@ -379,14 +379,14 @@ class EndToEndSLU(Pretrained):
 
     Example
     -------
-    #>>> from speechbrain.pretrained import EndToEndSLU
-    #>>> tmpdir = getfixture("tmpdir")
-    #>>> slu_model = EndToEndSLU.from_hparams(
-    #...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
-    #...     savedir=tmpdir,
-    #... )
-    #>>> slu_model.decode_file("tests/samples/single-mic/example6.wav")
-    #"{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
+    >>> from speechbrain.pretrained import EndToEndSLU
+    >>> tmpdir = getfixture("tmpdir")
+    >>> slu_model = EndToEndSLU.from_hparams(
+    ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
+    ...     savedir=tmpdir,
+    ... )
+    >>> slu_model.decode_file("tests/samples/single-mic/example6.wav")
+    "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
     HPARAMS_NEEDED = ["tokenizer", "asr_model_source"]
@@ -495,14 +495,14 @@ class EncoderDecoderASR(Pretrained):
 
     Example
     -------
-    #>>> from speechbrain.pretrained import EncoderDecoderASR
-    #>>> tmpdir = getfixture("tmpdir")
-    #>>> asr_model = EncoderDecoderASR.from_hparams(
-    #...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
-    #...     savedir=tmpdir,
-    #... )
-    #>>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")
-    #"MY FATHER HAS REVEALED THE CULPRIT'S NAME"
+    >>> from speechbrain.pretrained import EncoderDecoderASR
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = EncoderDecoderASR.from_hparams(
+    ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
+    ...     savedir=tmpdir,
+    ... )
+    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")
+    "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
     HPARAMS_NEEDED = ["tokenizer"]

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Scorer abstractions for beam search, CTC, RNN-LMs, Transformer-LMs,
-KenLM N-gram, coverage penalty, and length rewarding scoring.
+Token scorer abstraction and specifications.
 
 Authors:
  * Sung-Lin Yeh, 2021
