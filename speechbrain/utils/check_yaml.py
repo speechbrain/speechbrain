@@ -100,7 +100,9 @@ def detect_script_vars(script_file, var_lst):
                 re_match = re.search(r"\[f.\{.*\}(.*).\]", line)
                 # case: getattr(self.hparams, f"{stage.name}_search".lower())
                 if re_match is None:
-                    re_match = re.search(r"self\.hparams, f\"\{.*\}(.*)\"", line)
+                    re_match = re.search(
+                        r"self\.hparams, f\"\{.*\}(.*)\"", line
+                    )
                 if re_match is not None:
                     if re_match.group(1) in var:
                         print(
