@@ -207,6 +207,9 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
    blank_index: !ref <blank_index>
    ctc_fc: !ref <ctc_lin>
 
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [!ref <coverage_scorer>, !ref <ctc_scorer>]
    weights:

@@ -161,7 +161,6 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    vocab_size: !ref <output_neurons>
     using_eos_threshold: False
     length_normalization: True
     scorer: !ref <scorer>
@@ -173,7 +172,6 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
-    vocab_size: !ref <output_neurons>
     using_eos_threshold: False
     length_normalization: True
     scorer: !ref <scorer>

@@ -104,7 +104,7 @@ eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
 lm_weight: 0.50
-ctc_weight_decode: 0.0
+ctc_decode_weight: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -267,7 +267,7 @@ rnnlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     scorer_beam_scale: 1.5
     full_scorers: [
-        !ref <transformerlm_scorer>,
+        !ref <rnnlm_scorer>,
         !ref <coverage_scorer>]
     partial_scorers: [!ref <ctc_scorer>]
     weights:

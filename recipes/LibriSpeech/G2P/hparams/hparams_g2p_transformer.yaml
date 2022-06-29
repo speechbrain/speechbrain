@@ -365,7 +365,7 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     betas: !ref (<adam_beta1>, <adam_beta2>)
 
-beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
+beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules:
         - !ref <model>
         - !ref <lin>
@@ -385,7 +385,7 @@ beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
     length_normalization: False
 
 
-beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearcher
     modules:
         - !ref <model>
         - !ref <lin>

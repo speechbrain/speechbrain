@@ -338,11 +338,26 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+    language_model: !ref <lm_model>
+    temperature: 1.15
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
+    weights:
+        ctc: !ref <ctc_decode_weight>
+        transformerlm: !ref <lm_weight>
+
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -359,7 +374,6 @@ beam_searcher_valid: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -372,7 +386,7 @@ beam_searcher_valid: !new:speechbrain.decoders.S2SRNNBeamSearcher
     coverage_penalty: !ref <beam_search_coverage_penalty>
     ctc_weight: !ref <beam_search_ctc_weight_decode>
 
-beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>

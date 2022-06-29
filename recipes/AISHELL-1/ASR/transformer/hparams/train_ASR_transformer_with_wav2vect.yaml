@@ -152,7 +152,6 @@ wav2vec_opt_class: !name:torch.optim.Adam
     betas: (0.9, 0.98)
     eps: 0.000000001
 
-
 # Scorer
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
@@ -162,7 +161,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>]
     weights:
-        ctc: !ref <ctc_decode_weight>
+        ctc: !ref <ctc_weight_decode>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]

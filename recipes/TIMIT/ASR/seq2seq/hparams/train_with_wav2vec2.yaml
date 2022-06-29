@@ -150,7 +150,6 @@ test_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>
-    vocab_size: !ref <output_neurons>
 
 model: !new:torch.nn.ModuleList
     - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
