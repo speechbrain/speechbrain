@@ -205,6 +205,7 @@ def prepare_voicebank(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
+    
     # Additional checks to make sure the data folder contains Voicebank
     check_voicebank_folders(
         train_clean_folder,
@@ -241,6 +242,7 @@ def prepare_voicebank(
         wav_lst_test, save_json_test, test_clean_folder, test_txts, lexicon
     )
 
+    
 
 def skip(*filenames):
     """
@@ -276,6 +278,7 @@ def create_lexicon(lexicon_save_filepath):
     if not os.path.isfile(lexicon_save_filepath):
         download_file(LEXICON_URL, lexicon_save_filepath)
 
+    
     # Iterate lexicon file and add the first pronunciation in the file for
     # each word to our lexicon dictionary
     lexicon = MISSING_LEXICON
@@ -292,6 +295,7 @@ def create_lexicon(lexicon_save_filepath):
         elif clean_word == line[0] and clean_word not in lexicon:
             lexicon[clean_word] = phns
 
+    
     # Add words with punctuation if they won't overwrite non-punctuated words
     for word, phns in delayed_words.items():
         if word not in lexicon:
@@ -319,15 +323,19 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
 
     # Processing all the wav files in the list
     json_dict = {}
-    for wav_file in wav_lst:  # ex:p203_122.wav
-
+    for idx, wav_file in enumerate(wav_lst):  # ex:p203_122.wav
         # Example wav_file: p232_001.wav
         noisy_path, filename = os.path.split(wav_file)
         _, noisy_dir = os.path.split(noisy_path)
         _, clean_dir = os.path.split(clean_folder)
         noisy_rel_path = os.path.join("{data_root}", noisy_dir, filename)
         clean_rel_path = os.path.join("{data_root}", clean_dir, filename)
-
+        
+        if (idx%2==0):
+            clean_noisy_mix = os.path.join("{data_root}", clean_dir, filename)
+        else:
+            clean_noisy_mix = os.path.join("{data_root}", noisy_dir, filename)
+        
         # Reading the signal (to retrieve duration in seconds)
         signal = read_audio(wav_file)
         duration = signal.shape[0] / SAMPLERATE
@@ -348,6 +356,7 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
         json_dict[snt_id] = {
             "noisy_wav": noisy_rel_path,
             "clean_wav": clean_rel_path,
+            "clean_noisy_mix": clean_noisy_mix,
             "length": duration,
             "words": word_string,
             "phones": phone_string,
@@ -382,10 +391,14 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
     device : str
         Passed directly to pytorch's ``.to()`` method. Used for resampling.
     """
-    dataset_name = "noisy-vctk-16k"
+    
+    dataset_name = "vctk-16k"
     if tmp_dir is None:
         tmp_dir = tempfile.gettempdir()
-    final_dir = os.path.join(tmp_dir, dataset_name)
+    
+    if not os.path.isdir(destination):
+        os.mkdir(destination)
+    final_dir = os.path.join(destination)
 
     if not os.path.isdir(tmp_dir):
         os.mkdir(tmp_dir)
@@ -403,6 +416,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
         prefix + "trainset_28spk_txt.zip",
     ]
 
+    # Downloads the files in tmp dir
     zip_files = []
     for url in noisy_vctk_urls:
         filename = os.path.join(tmp_dir, url.split("/")[-1])
@@ -414,16 +428,18 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
                     logger.info("... to " + tmp_file.name)
                     shutil.copyfileobj(response, tmp_file)
 
-    # Unzip
+
+    # Unzip the files in tmp dir
     for zip_file in zip_files:
         logger.info("Unzipping " + zip_file)
         shutil.unpack_archive(zip_file, tmp_dir, "zip")
-        os.remove(zip_file)
+        # os.remove(zip_file)
 
     # Move transcripts to final dir
     shutil.move(os.path.join(tmp_dir, "testset_txt"), final_dir)
     shutil.move(os.path.join(tmp_dir, "trainset_28spk_txt"), final_dir)
 
+    
     # Downsample
     dirs = [
         "noisy_testset_wav",
@@ -471,3 +487,4 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
 
     logger.info(f"Moving {final_zip} to {destination}")
     shutil.move(final_zip, os.path.join(destination, dataset_name + ".zip"))
+    
