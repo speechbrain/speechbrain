@@ -766,10 +766,10 @@ class EncoderClassifier(Pretrained):
 
     >>> # Compute embeddings
     >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> embeddings =  classifier.encode_batch(signal)
+    >>> embeddings = classifier.encode_batch(signal)
 
     >>> # Classification
-    >>> prediction =  classifier .classify_batch(signal)
+    >>> prediction = classifier.classify_batch(signal)
     """
 
     MODULES_NEEDED = [
@@ -2344,7 +2344,8 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     >>> text = ("English is tough. It can be understood "
     ...         "through thorough thought though")
     >>> from speechbrain.pretrained import GraphemeToPhoneme
-    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model') # doctest: +SKIP
+    >>> tmpdir = getfixture('tmpdir')
+    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model', savedir=tmpdir) # doctest: +SKIP
     >>> phonemes = g2p.g2p(text) # doctest: +SKIP
     """
 
@@ -2590,7 +2591,8 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir")
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_vocoder)
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
@@ -2601,7 +2603,8 @@ class Tacotron2(Pretrained):
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_tts)
     >>> # Running the TTS
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> # Running Vocoder (spectrogram-to-waveform)
@@ -2679,13 +2682,15 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
     >>> mel_specs = torch.rand(2, 80,298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
 
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Intialize TTS (tacotron2)
-    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir_tts")
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
     >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>>	# Running Vocoder (spectrogram-to-waveform)
@@ -2737,7 +2742,7 @@ class HIFIGAN(Pretrained):
         audio can be saved by:
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save("test.wav", waveform, sample_rate)
+        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
         """
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
