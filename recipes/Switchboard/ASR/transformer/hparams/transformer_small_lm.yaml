@@ -171,16 +171,16 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 # For more details about the model!
 # NB: It has to match the pre-trained TransformerLM!
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
-    vocab: !ref <output_neurons>
-    d_model: 264            # must be divisible by nhead; The number of expected features in the encoder/decoder inputs (default=512). Goes into MultiheadAttention
-    d_embedding: 128        # Embedding dimension of preliminary embedding layer
-    nhead: 12               # The number of heads in the multiheadattention models (default=8).
-    num_encoder_layers: 12  # The number of sub-encoder-layers in the encoder (default=6)
-    num_decoder_layers: 0   # The number of sub-decoder-layers in the decoder (default=6)
-    d_ffn: 1024             # The dimension of the feedforward network model (default=2048). Goes into PositionalwiseFeedForward (d_ffn=d_ffn, input_size=d_model,)
-    dropout: 0.1
-    activation: !name:torch.nn.ReLU
-    normalize_before: False
+  vocab: !ref <output_neurons>
+  d_model: 264            # must be divisible by nhead; The number of expected features in the encoder/decoder inputs (default=512). Goes into MultiheadAttention
+  d_embedding: 128        # Embedding dimension of preliminary embedding layer
+  nhead: 12               # The number of heads in the multiheadattention models (default=8).
+  num_encoder_layers: 12  # The number of sub-encoder-layers in the encoder (default=6)
+  num_decoder_layers: 0   # The number of sub-decoder-layers in the decoder (default=6)
+  d_ffn: 1024             # The dimension of the feedforward network model (default=2048). Goes into PositionalwiseFeedForward (d_ffn=d_ffn, input_size=d_model,)
+  dropout: 0.1
+  activation: !name:torch.nn.ReLU
+  normalize_before: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
