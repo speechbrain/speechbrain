@@ -11,7 +11,7 @@
 
 seed: 1312
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer_clean_text/<seed>
+output_folder: !ref results/transformer_clean_text_idx_change_small_lm/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -22,7 +22,7 @@ train_log: !ref <output_folder>/train_log.txt
 # speechbrain HuggingFace repository. However, a local path pointing to a
 # directory containing the lm.ckpt and tokenizer.ckpt may also be specified
 # instead. E.g if you want to use your own LM / tokenizer.
-pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
+pretrained_lm_tokenizer_path: /mnt/md0/user/wagnerdo/speechbrain/recipes/Switchboard/LM/results/transformer_idx_change_small/1312/save
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
@@ -49,13 +49,13 @@ test_csv:
 ckpt_interval_minutes: 30  # save checkpoint every N min
 
 # Training parameters
-# To make Transformers converge, the global bath size should be large enough.
+# To make Transformers converge, the global batch size should be large enough.
 # The global batch size is computed as:
 # batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 100
-batch_size: 32  # This works for 1x GPU with 40GB
+batch_size: 48  # This works for 1x GPU with 40GB
 ctc_weight: 0.3
 grad_accumulation_factor: 2
 max_grad_norm: 5.0
@@ -73,7 +73,7 @@ sorting: random
 #  max_batch_ex: -1
 
 # stages related parameters
-lr_adam: 0.001
+lr_adam: 0.006
 
 # Feature parameters
 sample_rate: 16000
@@ -94,19 +94,20 @@ test_dataloader_opts:
 
 ####################### Model parameters  ###########################
 # Transformer
-d_model: 512
-nhead: 4
-num_encoder_layers: 12
-num_decoder_layers: 6
-d_ffn: 2048
+transformer_input_size: 1280 # The number of expected features that go in the first linear layer of the encoder
+d_model: 256             # The number of expected features in the encoder/decoder inputs (default=512). Goes into MultiheadAttention
+nhead: 4                 # The number of heads in the multiheadattention models (default=8).
+num_encoder_layers: 12   # The number of sub-encoder-layers in the encoder (default=6)
+num_decoder_layers: 6    # The number of sub-decoder-layers in the decoder (default=6)
+d_ffn: 2048              # The dimension of the feedforward network model (default=2048). Goes into PositionalwiseFeedForward (d_ffn=d_ffn, input_size=d_model,)
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 5000
+output_neurons: 2000
 # vocab_size: 5000
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.0
+label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
@@ -117,11 +118,30 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_search_interval: 10
 valid_beam_size: 10
-test_beam_size: 66
-lm_weight: 0.60
-ctc_weight_decode: 0.40
+lm_weight: 0.30
+test_beam_size: 60
+coverage_penalty: 0.1      # coverage refers to a term that promotes longer transcripts
+ctc_weight_decode: 0.30
+temperature: 1.0          # at increased temperatures the distribution over characters becomes more uniform (goes in the softmax)
+temperature_lm: 1.0       # at increased temperatures the distribution over characters becomes more uniform (goes in the softmax)
+using_eos_threshold: False # bias the search away from short transcriptions
+eos_threshold: 1.5
+length_normalization: True
+using_max_attn_shift: False # do not allow the beam search to propose any hypotheses which attend more than tmax frames away from the previous attention peak
+max_attn_shift: 30
 
 ############################## models  ################################
+# TODO: maybe also change conv frontend to make it more similar to espnet
+#         (0): Conv2d(1, 256, kernel_size=(3, 3), stride=(2, 2))
+#        (1): ReLU()
+#        (2): Conv2d(256, 256, kernel_size=(3, 3), stride=(2, 2))
+#        (3): ReLU()
+#      )
+#      (out): Sequential(
+#        (0): Linear(in_features=5120, out_features=256, bias=True)
+#        (1): LegacyRelPositionalEncoding(
+#          (dropout): Dropout(p=0.1, inplace=False)
+#        )
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
   input_shape: (8, 10, 80)
   num_blocks: 3
@@ -132,7 +152,7 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
   residuals: (False, False, True)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-  input_size: 1280
+  input_size: !ref <transformer_input_size>
   tgt_vocab: !ref <output_neurons>
   d_model: !ref <d_model>
   nhead: !ref <nhead>
@@ -151,15 +171,16 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 # For more details about the model!
 # NB: It has to match the pre-trained TransformerLM!
 lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
-  vocab: !ref <output_neurons>
-  d_model: 768
-  nhead: 12
-  num_encoder_layers: 12
-  num_decoder_layers: 0
-  d_ffn: 3072
-  dropout: 0.0
-  activation: !name:torch.nn.GELU
-  normalize_before: False
+    vocab: !ref <output_neurons>
+    d_model: 264            # must be divisible by nhead; The number of expected features in the encoder/decoder inputs (default=512). Goes into MultiheadAttention
+    d_embedding: 128        # Embedding dimension of preliminary embedding layer
+    nhead: 12               # The number of heads in the multiheadattention models (default=8).
+    num_encoder_layers: 12  # The number of sub-encoder-layers in the encoder (default=6)
+    num_decoder_layers: 0   # The number of sub-decoder-layers in the decoder (default=6)
+    d_ffn: 1024             # The dimension of the feedforward network model (default=2048). Goes into PositionalwiseFeedForward (d_ffn=d_ffn, input_size=d_model,)
+    dropout: 0.1
+    activation: !name:torch.nn.ReLU
+    normalize_before: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -210,10 +231,13 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
   ctc_weight: !ref <ctc_weight_decode>
   lm_weight: !ref <lm_weight>
   lm_modules: !ref <lm_model>
-  temperature: 1.15
-  temperature_lm: 1.15
-  using_eos_threshold: False
-  length_normalization: True
+  temperature: !ref <temperature>
+  temperature_lm: !ref <temperature_lm>
+  using_eos_threshold: !ref <using_eos_threshold>
+  eos_threshold: !ref <eos_threshold>
+  length_normalization: !ref <length_normalization>
+  using_max_attn_shift: !ref <using_max_attn_shift>
+  max_attn_shift: !ref <max_attn_shift>
 
 log_softmax: !new:torch.nn.LogSoftmax
   dim: -1

@@ -12,7 +12,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters
 seed: 1312
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_NO_LM/<seed>
+output_folder: !ref results/CRDNN_BPE_NO_LM_OWN_TOKENIZER/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -23,7 +23,7 @@ train_log: !ref <output_folder>/train_log.txt
 # directory containing the lm.ckpt and tokenizer.ckpt.
 # NB: You need to provide a full local path, when
 # LM and Tokenizer are not loaded from HuggingFace.
-pretrained_tokenizer_path: speechbrain/asr-crdnn-rnnlm-librispeech
+pretrained_tokenizer_path: /mnt/md0/user/wagnerdo/speechbrain/recipes/Switchboard/LM/results/transformer_idx_change_small/1312/save
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
@@ -55,8 +55,8 @@ test_csv:
    - !ref <output_folder>/test.csv
 
 # Training parameters
-# number_of_epochs: 35
-number_of_epochs: 19
+number_of_epochs: 35
+# number_of_epochs: 19
 number_of_ctc_epochs: 5
 batch_size: 10
 lr: 1.0
@@ -108,7 +108,7 @@ dnn_blocks: 2
 dnn_neurons: 512
 emb_size: 128
 dec_neurons: 1024
-output_neurons: 1000  # Number of tokens
+output_neurons: 2000  # Number of tokens
 blank_index: 0
 bos_index: 0
 eos_index: 0

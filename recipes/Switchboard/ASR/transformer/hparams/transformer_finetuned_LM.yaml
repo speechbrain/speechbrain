@@ -11,7 +11,7 @@
 
 seed: 1312
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer_clean_text/<seed>
+output_folder: !ref results/transformer_clean_text_finetuned_lm/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -22,7 +22,7 @@ train_log: !ref <output_folder>/train_log.txt
 # speechbrain HuggingFace repository. However, a local path pointing to a
 # directory containing the lm.ckpt and tokenizer.ckpt may also be specified
 # instead. E.g if you want to use your own LM / tokenizer.
-pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
+pretrained_lm_tokenizer_path: /mnt/md0/user/wagnerdo/speechbrain/recipes/Switchboard/LM/results/TransformerFinetune/1312/save
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
@@ -54,7 +54,7 @@ ckpt_interval_minutes: 30  # save checkpoint every N min
 # batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 100
+number_of_epochs: 60
 batch_size: 32  # This works for 1x GPU with 40GB
 ctc_weight: 0.3
 grad_accumulation_factor: 2
@@ -122,6 +122,7 @@ lm_weight: 0.60
 ctc_weight_decode: 0.40
 
 ############################## models  ################################
+
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
   input_shape: (8, 10, 80)
   num_blocks: 3
@@ -160,6 +161,7 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM 
   dropout: 0.0
   activation: !name:torch.nn.GELU
   normalize_before: False
+
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 

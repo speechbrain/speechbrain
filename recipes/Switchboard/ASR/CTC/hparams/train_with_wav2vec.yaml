@@ -20,7 +20,10 @@ wav2vec2_hub: facebook/wav2vec2-large-lv60
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
-data_folder: !PLACEHOLDER
+data_folder: /nfs/data/ldc
+
+# We remove utterance longer than x seconds in the train/dev/test to save some memory
+avoid_if_longer_than: 60.0
 
 splits: [train, dev]
 split_ratio: [99, 1]
@@ -52,7 +55,9 @@ ckpt_interval_minutes: 30  # save checkpoint every N min
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-batch_size: 2
+#batch_size: 2
+#test_batch_size: 2
+batch_size: 4
 test_batch_size: 2
 
 dataloader_options:

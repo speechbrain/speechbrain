@@ -34,15 +34,15 @@ SAMPLERATE = 8000
 
 
 def prepare_switchboard(
-    data_folder,
-    save_folder,
-    splits=None,
-    split_ratio=None,
-    merge_lst=None,
-    merge_name=None,
-    skip_prep=False,
-    add_fisher_corpus=False,
-    max_utt=300,
+        data_folder,
+        save_folder,
+        splits=None,
+        split_ratio=None,
+        merge_lst=None,
+        merge_name=None,
+        skip_prep=False,
+        add_fisher_corpus=False,
+        max_utt=300,
 ):
     """
     Main function for Switchboard data preparation.
@@ -112,118 +112,8 @@ def prepare_switchboard(
         logger.info("Preparation completed in previous run, skipping.")
         return
 
-    train_data_folder = os.path.join(data_folder, "LDC97S62")
-    check_data_folder(train_data_folder)
-
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-
-    download_transcripts(save_folder)
-
-    assert len(splits) == len(split_ratio)
-    if sum(split_ratio) != 100 and sum(split_ratio) != 1:
-        error_msg = (
-            "Implausible split ratios! Make sure they equal to 1 (or 100)."
-        )
-        raise ValueError(error_msg)
-    if sum(split_ratio) == 100:
-        split_ratio = [i / 100 for i in split_ratio]
-
-    # collect all files containing transcriptions
-    transcript_files = get_all_files(
-        os.path.join(save_folder, "swb_ms98_transcriptions"),
-        match_and=["trans.text"],
-    )
-    split_lens = [int(i * len(transcript_files)) for i in split_ratio]
-
-    name2disk = make_name_to_disk_dict(
-        os.path.join(train_data_folder, "docs/swb1_all.dvd.tbl")
-    )
-    logger.info(
-        f"Made name2disk mapping dict containing {len(name2disk)} conversations."
-    )
-
-    start = 0
-    stop = 0
-    # We save all lines from the swbd train split, in case we want to combine them
-    # with the Fisher corpus for LM and Tokenizer training later
-    swbd_train_lines = []
-    for i, split in enumerate(splits):
-        stop += split_lens[i]
-        transcript_files_split = transcript_files[start:stop]
-        logger.info(
-            f"Preparing data for {split} split. "
-            f"Split will contain {len(transcript_files_split)} "
-            f"conversations separated by channel."
-        )
-
-        start += split_lens[i]
-
-        csv_lines = [
-            [
-                "ID",
-                "length",
-                "start",
-                "stop",
-                "channel",
-                "wav",
-                "words",
-                "spk_id",
-            ]
-        ]
-        # Open each transcription file and extract information
-        for filename in transcript_files_split:
-            with open(filename) as file:
-                for line in file:
-                    str_split = line.split()
-                    id = str_split[0].strip()
-                    channel = id.split("-")[0][-1]
-                    wav_name = id.split("-")[0][:6] + ".sph"
-                    spk_id = wav_name.replace(".sph", channel)
-                    wav_name = wav_name.replace(wav_name[0:2], "sw0")
-                    disk = name2disk[wav_name]
-
-                    wav_path = os.path.join(
-                        train_data_folder, disk, "data", wav_name
-                    )
-                    # We want the segment start and end times in samples,
-                    # so we can slice the segment from the tensor
-                    seg_start = int(float(str_split[1].strip()) * SAMPLERATE)
-                    seg_end = int(float(str_split[2].strip()) * SAMPLERATE)
-                    audio_duration = (seg_end - seg_start) / SAMPLERATE
-
-                    transcription = " ".join(str_split[3:])
-                    cleaned_transcription = filter_text(
-                        transcription, dataset="train"
-                    )
-
-                    # Skip empty transcriptions
-                    if len(cleaned_transcription) > 0:
-
-                        csv_lines.append(
-                            [
-                                id,
-                                audio_duration,
-                                seg_start,
-                                seg_end,
-                                channel,
-                                wav_path,
-                                cleaned_transcription,
-                                spk_id,
-                            ]
-                        )
-
-                        # We store the lines from the first split
-                        # (assuming this is the training data) in a separate list
-                        # so we can easily merge it with the Fisher data later
-                        if add_fisher_corpus and i == 0:
-                            swbd_train_lines.append([id, cleaned_transcription])
-
-        # Setting path for the csv file
-        csv_file = os.path.join(save_folder, str(split + ".csv"))
-        logger.info(f"Creating csv file {csv_file}")
-
-        write_csv(csv_file, csv_lines, utt_id_idx=6, max_utt=max_utt)
+    swbd_train_lines = swbd1_data_prep(data_folder, save_folder, splits, split_ratio,
+                                       add_fisher_corpus=add_fisher_corpus, max_utt=max_utt)
 
     # Merging csv file if needed
     maybe_merge_files(merge_name, merge_lst)
@@ -232,15 +122,15 @@ def prepare_switchboard(
     eval2000_data_prep(data_folder, save_folder)
 
     if add_fisher_corpus:
-        # Keep track of the number of times each utterance appears
-        # utt2count = defaultdict(int)
-
         fisher_lines = fisher_data_prep(data_folder, save_folder)
         # fisher_lines already contains a header, so we don't need to add one here
         combined_lines = fisher_lines + swbd_train_lines
 
         csv_file = os.path.join(save_folder, "train_lm.csv")
-        write_csv(csv_file, combined_lines, utt_id_idx=1, max_utt=max_utt)
+        # We set max_utt to a large number, so all utterances will be included in train_lm.csv
+        # Note that the Kaldi recipe also doesn't care about a maximum utterance number in the
+        # LM training corpus.
+        write_csv(csv_file, combined_lines, utt_id_idx=1, max_utt=999999999)
 
     logger.info("Switchboard data preparation finished.")
 
@@ -308,10 +198,6 @@ def maybe_merge_files(merge_name, merge_lst: list):
                 "You can pass a name for the merged .csv files "
                 "via the merge_name parameter. Not combining any .csv files!"
             )
-    else:
-        logger.warning(
-            "Insufficient elements to merge. Not combining any .csv files!"
-        )
 
 
 def check_data_folder(root_folder):
@@ -340,8 +226,6 @@ def download_transcripts(target_folder):
     ----------
     target_folder : str
         Desired location to store the transcripts.
-
-
     """
     transcription_dir = os.path.join(target_folder, "swb_ms98_transcriptions")
 
@@ -377,27 +261,11 @@ def skip(*filenames):
     return True
 
 
-def filter_text(transcription: str, dataset="train"):
+def filter_text(transcription: str, dataset="train", acronyms=None, acronyms_noi=None):
     """
     This function takes a string representing a sentence in one
     of the datasets and cleans it using various regular expressions.
     The types of regular expressions applied depend on the dataset.
-
-    Switchboard Training Data:
-    When applied to the training data, the function removes tags like:
-    [laughter], [noise], okay_1,  m[ost]-, because_1,
-    {alrighty}, <b_aside> <e_aside>
-
-    Eval2000 Test Data:
-    Applied on the eval2000 data, it removes things like:
-    <B_ASIDE> JUST (JU-) ALL THINGS (WE-) (DO-) (%HESITATION)
-
-    Fisher Data:
-    When applied to the Fisher transcripts, the function handles things like:
-    (( how )) cou-  [laughter] f._d._a.
-    Here we keep things in brackets like "(( how ))" because
-    it might be beneficial for LM training when there is more
-    information on the sentence. We also keep incomplete words such as "cou-".
 
     Parameters
     ----------
@@ -406,50 +274,412 @@ def filter_text(transcription: str, dataset="train"):
     dataset : str
         Either "train", "eval2000", or "fisher" depending on the type
         of data you want to clean.
-        (see the description above)
+    acronyms : dict
+        Dictionary mapping acronyms to Fisher convention (only relevant for swbd1 training data)
+    acronyms_noi : dict
+        Dictionary mapping acronyms to Fisher convention without I (only relevant for swbd1 training data)
 
     Returns
     -------
-    A string containing the cleaned sentence
+    A string containing the cleaned sentence.
 
     """
     dataset = dataset.strip().lower()
 
     if dataset == "train":
-        transcription = transcription.upper().strip()
-        transcription = re.sub(r"\[.*?\]", "", transcription)
-        transcription = re.sub(r"\{.*?\}", "", transcription)
-        transcription = re.sub(r"\(.*?\)", "", transcription)
+        # This is similar to what swbd1_data_prep.sh and swbd1_map_words.pl does.
+        transcription = re.sub(r"\[SILENCE\]", "", transcription, flags=re.IGNORECASE)
         transcription = re.sub(r"<.*?>", "", transcription)
-        transcription = re.sub(r"_[0-9]+", "", transcription)
-        transcription = transcription.replace("-", "")
+        transcription = match_swbd1(transcription.strip())
+
+        transcription = re.sub(r"\s\s+", " ", transcription)
+
+        # Convert acronyms to Fisher convention
+        if len(transcription) > 0:
+            transcription = map_acronyms(acronyms,
+                                         acronyms_noi,
+                                         transcription
+                                         )
+
+        # Split acronyms written as u._c._l._a._ into single characters (e.g. u c l a)
+        transcription = remove_acronym_symbols(transcription)
+        transcription = transcription.upper().strip()
+
     elif dataset in ["eval2000", "hub5", "test"]:
-        transcription = re.sub(r"<.*?>", "", transcription)
-        transcription = re.sub(r"\(%HESITATION\)", "", transcription)
-        # Remove everything within (), except when the - character occurs
-        # We do this, so we can still extract partially uttered words
-        transcription = re.sub(r"[^-]\(.*?\)", "", transcription)
-        # Only remove ( and ) around partially uttered word
-        transcription = re.sub(r"\)", "", transcription)
-        transcription = re.sub(r"\(", "", transcription)
-        transcription = re.sub(r"-", "", transcription)
-        transcription = transcription.upper()
+        # This is similar to what eval2000_data_prep.sh does.
+        transcription = match_eval2000(transcription.strip())
     elif dataset == "fisher":
-        transcription = transcription.upper().strip()
-        transcription = re.sub(r"\)", "", transcription)
-        transcription = re.sub(r"\(", "", transcription)
-        transcription = re.sub(r"\[.*?\]", "", transcription)
-        transcription = re.sub(r"\{.*?\}", "", transcription)
-        transcription = re.sub(r"<.*?>", "", transcription)
-        transcription = re.sub(r"\._", "", transcription)
-        transcription = re.sub(r"-", "", transcription)
-        transcription = re.sub(r"\.", "", transcription)
+        # This is similar to what fisher_data_prep.sh does.
+        transcription = match_fisher(transcription.strip())
     else:
         raise NameError(f"Invalid dataset descriptor '{dataset}' supplied.")
 
     # Remove redundant whitespaces
     transcription = re.sub(r"\s\s+", " ", transcription)
     return transcription.strip()
+
+
+def match_swbd1(text):
+    """
+    Clean transcripts in the Switchboard-1 training data.
+    The transformations we do are:
+     - remove laughter markings, e.g. [LAUGHTER-STORY] -> STORY
+     - Remove partial-words, e.g. -[40]1K becomes -1K and -[AN]Y IY becomes -Y
+    Also, curly braces, which appear to be used for "nonstandard"
+    words or non-words, are removed, e.g. {WOLMANIZED} -> WOLMANIZED
+
+    This is similar to Kaldi's swbd1_map_words.pl.
+
+    Parameters
+    ----------
+    text : str
+        Input text from the Switchboard-1 training data.
+
+    Returns
+    -------
+     A string containing the cleaned sentence.
+    """
+    tokens = text.split()
+    parsed_tokens = []
+    for token in tokens:
+        # e.g. [LAUGHTER-STORY] -> STORY; elem 1 and 3 relate to preserving trailing "-"
+        m = re.match(r"(|-)^\[LAUGHTER-(.+)\](|-)$", token, flags=re.IGNORECASE)
+        token = "".join(m.group(1, 2, 3)) if m else token
+
+        # e.g. [IT'N/ISN'T] -> IT'N
+        # Note: 1st part may include partial-word stuff, which we process further below,
+        # e.g. [LEM[GUINI]-/LINGUINI]
+        m = re.match(r"^\[(.+)/.+\](|-)$", token)
+        token = "".join(m.group(1, 2)) if m else token
+
+        # e.g. -[AN]Y -> -Y
+        m = re.match(r"^(|-)\[[^][]+\](.+)$", token)
+        token = "-" + m.group(2) if m else token
+
+        # e.g. AB[SOLUTE]- -> AB-;
+        m = re.match(r"^(.+)\[[^][]+\](|-)$", token)
+        token = "".join(m.group(1, 2)) if m else token
+
+        # e.g. EX[SPECIALLY]-/ESPECIALLY] -> EX
+        m = re.match(r"([^][]+)\[.+\]$", token)
+        token = m.group(1) if m else token
+
+        # e.g. {YUPPIEDOM} -> YUPPIEDOM
+        m = re.match(r"^\{(.+)\}$", token)
+        token = m.group(1) if m else token
+
+        # e.g. AMMU[N]IT- -> AMMU-IT
+        m = re.match(r"(\w+)\[([^][])+\](\w+)", token)
+        token = m.group(1) + "-" + m.group(3) if m else token
+
+        # e.g. THEM_1 -> THEM
+        token = re.sub(r"_\d+$", "", token)
+        parsed_tokens.append(token)
+    return " ".join(parsed_tokens)
+
+
+def match_eval2000(text):
+    """
+    Clean transcripts in the 2000 Hub5 english evaluation test (LDC2002S09  LDC2002T43)
+    See:
+    http://www.ldc.upenn.edu/Catalog/catalogEntry.jsp?catalogId=LDC2002S09
+    http://www.ldc.upenn.edu/Catalog/CatalogEntry.jsp?catalogId=LDC2002T43
+
+    This is similar to eval2000_data_prep.sh
+
+    Parameters
+    ----------
+    text : str
+        Input text from the eval2000 test data.
+
+    Returns
+    -------
+     A string containing the cleaned sentence.
+
+    """
+    cleaned_text = ""
+
+    # Remove utterance when it's just optional nonwords
+    text = text.strip().upper()
+    for nw in ["UM-HUM", "UMM", "UH-HUH", "MHM", "UH-OH"]:
+        text = text.replace(nw, "")
+
+    if "IGNORE_TIME_SEGMENT_" not in text:
+        # Remove <B_ASIDE> and <E_ASIDE>.
+        cleaned_text = re.sub(r"<.*?>", "", text)
+        # Remove everything that is declared optional e.g. (%HESITATION) or (WE-)
+        cleaned_text = re.sub(r"[\(\[].*?[\)\]]", "", cleaned_text)
+    else:
+        logger.debug(f"Ignoring eval2000 segment: {text}")
+
+    return cleaned_text
+
+
+def match_fisher(text):
+    """
+    Clean transcripts in the Fisher corpus.
+
+    This is similar to fisher_data_prep.sh
+
+    Parameters
+    ----------
+    text : str
+        Input text from the Fisher data.
+
+    Returns
+    -------
+     A string containing the cleaned sentence.
+    """
+
+    cleaned_text = ""
+
+    # Remove utterance when it's just optional nonwords
+    text = text.strip().upper()
+    for nw in ["UM-HUM", "UMM", "UH-HUH", "MHM", "UH-OH"]:
+        text = text.replace(nw, "")
+
+    if "((" not in text:
+        cleaned_text = re.sub(r"\[laugh\]", "[laughter]", text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[sigh\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[cough\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[sigh\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[mn\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[breath\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+        cleaned_text = re.sub(r"\[lipsmack\]", "[noise]", cleaned_text, flags=re.IGNORECASE)
+    return cleaned_text
+
+
+def remove_acronym_symbols(text):
+    """
+    Remove symbols according to the Fisher acronym convention.
+    This splits acronyms written as u._c._l._a._ into single characters (e.g. u c l a)
+
+    Parameters
+    ----------
+    text : str
+        Input text
+
+    Returns
+    -------
+    A string containing the cleaned text.
+
+    """
+    cleaned_text = re.sub(r"\._", " ", text)
+    cleaned_text = re.sub(r"\.", "", cleaned_text)
+    cleaned_text = re.sub(r"them_1", "them", cleaned_text, flags=re.IGNORECASE)
+    return cleaned_text
+
+
+def prepare_lexicon(lexicon_file, output_file):
+    """
+    Prepare the swbd1 lexicon for further processing.
+    The lexicon is used to find acronyms and to convert them into Fisher convention.
+
+    Parameters
+    ----------
+    lexicon_file : str
+        Path to the sw-ms98-dict.text file in the Switchboard corpus
+    output_file : str
+        Path to store the cleaned lexicon at
+
+    Returns
+    -------
+    A list containing the cleaned lexicon entries
+
+    """
+    lexicon = []
+    lex_out = open(output_file, "w")
+    with open(lexicon_file) as lf:
+        # Skip first row
+        next(lf)
+        for line in lf:
+            # Skip header
+            if line.startswith("#"):
+                continue
+            parsed_line = match_swbd1(line.strip())
+            if len(parsed_line) > 0:
+                lexicon.append(parsed_line)
+                lex_out.write(f"{parsed_line}\n")
+    return lexicon
+
+
+def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
+    """
+    Create mappings that can be used to convert acronyms in the Switchboard corpus
+    into acronyms using the Fisher corpus convention.
+
+    Examples we want to convert:
+    IBM to i._b._m.
+    BBC to b._b._c.
+    BBCs to b._b._c.s
+
+    This is what Kaldi's format_acronyms_dict.py does.
+
+    Parameters
+    ----------
+    save_folder : str
+        Folder to store the acronym map on disk
+    lexicon_file : str
+        Path to the sw-ms98-dict.text file
+    acronym_map_file : str
+        File to store the acronym map in
+
+    Returns
+    -------
+    Two dictionaries mapping from swbd acronyms to acronyms according to the Fisher corpus convention.
+    The first dict contains all entries, the other has the letter I removed.
+    """
+
+    # Taken from https://github.com/kaldi-asr/kaldi/blob/master/egs/swbd/s5c/local/MSU_single_letter.txt
+    msu_single_letter = ["A ey", "B b iy", "C s iy", "D d iy", "E iy",
+                         "F eh f", "G jh iy", "H ey ch", "I ay", "J jh ey",
+                         "K k ey", "L eh l", "M eh m", "N eh n", "O ow",
+                         "P p iy", "Q k y uw", "R aa r", "S eh s", "T t iy",
+                         "U y uw", "V v iy", "W d ah b ax l y uw", "X eh k s",
+                         "Y w ay", "Z z iy"
+                         ]
+
+    fin_lex = prepare_lexicon(lexicon_file, os.path.join(save_folder, "lexicon.txt")) + msu_single_letter
+    logger.info(f"Prepared Swbd1 + MSU single letter lexicon with {len(fin_lex)} entries")
+    fout_map = open(acronym_map_file, "w")
+
+    # Initialise single letter dictionary
+    dict_letter = {}
+    for single_letter_lex in msu_single_letter:
+        items = single_letter_lex.split()
+        dict_letter[items[0]] = single_letter_lex[len(items[0]) + 1:].strip()
+
+    for lex in fin_lex:
+        items = lex.split()
+        word = items[0]
+        lexicon = lex[len(items[0]) + 1:].strip()
+        # find acronyms from words with only letters and '
+        pre_match = re.match(r"^[A-Za-z]+$|^[A-Za-z]+\'s$|^[A-Za-z]+s$", word)
+        if pre_match:
+            # find if words in the form of xxx's is acronym
+            if word[-2:] == "'s" and (lexicon[-1] == "s" or lexicon[-1] == "z"):
+                actual_word = word[:-2]
+                actual_lexicon = lexicon[:-2]
+                acronym_lexicon = ""
+                for w in actual_word:
+                    acronym_lexicon = acronym_lexicon + dict_letter[w.upper()] + " "
+                if acronym_lexicon.strip() == actual_lexicon:
+                    acronym_mapped = ""
+                    acronym_mapped_back = ""
+                    for w in actual_word[:-1]:
+                        acronym_mapped = acronym_mapped + w.lower() + "._"
+                        acronym_mapped_back = acronym_mapped_back + w.lower() + " "
+                    acronym_mapped = acronym_mapped + actual_word[-1].lower() + ".'s"
+                    acronym_mapped_back = (
+                            acronym_mapped_back + actual_word[-1].lower() + "'s"
+                    )
+                    fout_map.write(
+                        word + "\t" + acronym_mapped + "\t" + acronym_mapped_back + "\n"
+                    )
+
+            # find if words in the form of xxxs is acronym
+            elif word[-1] == "s" and (lexicon[-1] == "s" or lexicon[-1] == "z"):
+                actual_word = word[:-1]
+                actual_lexicon = lexicon[:-2]
+                acronym_lexicon = ""
+                for w in actual_word:
+                    acronym_lexicon = acronym_lexicon + dict_letter[w.upper()] + " "
+                if acronym_lexicon.strip() == actual_lexicon:
+                    acronym_mapped = ""
+                    acronym_mapped_back = ""
+                    for w in actual_word[:-1]:
+                        acronym_mapped = acronym_mapped + w.lower() + "._"
+                        acronym_mapped_back = acronym_mapped_back + w.lower() + " "
+                    acronym_mapped = acronym_mapped + actual_word[-1].lower() + ".s"
+                    acronym_mapped_back = (
+                            acronym_mapped_back + actual_word[-1].lower() + "'s"
+                    )
+                    fout_map.write(
+                        word + "\t" + acronym_mapped + "\t" + acronym_mapped_back + "\n"
+                    )
+
+            # find if words in the form of xxx (not ended with 's or s) is acronym
+            elif word.find("'") == -1 and word[-1] != "s":
+                acronym_lexicon = ""
+                for w in word:
+                    acronym_lexicon = acronym_lexicon + dict_letter[w.upper()] + " "
+                if acronym_lexicon.strip() == lexicon:
+                    acronym_mapped = ""
+                    acronym_mapped_back = ""
+                    for w in word[:-1]:
+                        acronym_mapped = acronym_mapped + w.lower() + "._"
+                        acronym_mapped_back = acronym_mapped_back + w.lower() + " "
+                    acronym_mapped = acronym_mapped + word[-1].lower() + "."
+                    acronym_mapped_back = acronym_mapped_back + word[-1].lower()
+                    fout_map.write(
+                        word + "\t" + acronym_mapped + "\t" + acronym_mapped_back + "\n"
+                    )
+
+    fout_map.close()
+
+    # Load acronym map for further processing
+    fin_map = open(acronym_map_file, "r")
+    dict_acronym = {}
+    dict_acronym_noi = {}  # Mapping of acronyms without I, i
+    for pair in fin_map:
+        items = pair.split("\t")
+        dict_acronym[items[0]] = items[1]
+        dict_acronym_noi[items[0]] = items[1]
+    fin_map.close()
+    del dict_acronym_noi["I"]
+    del dict_acronym_noi["i"]
+
+    return dict_acronym, dict_acronym_noi
+
+
+def map_acronyms(dict_acronym, dict_acronym_noi, transcription):
+    """
+    Transform acronyms in Switchboard transcripts into Fisher corpus convention.
+
+    Examples we want to convert:
+    IBM to i._b._m.
+    BBC to b._b._c.
+    BBCs to b._b._c.s
+
+    This is what Kaldi's map_acronyms_transcripts.py does.
+
+    Parameters
+    ----------
+    dict_acronym : dict
+        Mapping from swbd acronyms to acronyms according to the Fisher corpus convention
+    dict_acronym_noi : dict
+        Mapping from swbd acronyms to acronyms according to the Fisher corpus convention with the letter I removed
+    transcription : str
+        A sentence in the Switchboard transcripts
+    Returns
+    -------
+    The original sentence but with acronyms according to the Fisher convention
+    """
+
+    items = transcription.split()
+    utt_length = len(items)
+    # First pass mapping to map I as part of acronym
+    for i in range(utt_length):
+        if items[i] == "I":
+            x = 0
+            while i - 1 - x >= 0 and re.match(r"^[A-Z]$", items[i - 1 - x]):
+                x += 1
+
+            y = 0
+            while i + 1 + y < utt_length and re.match(r"^[A-Z]$", items[i + 1 + y]):
+                y += 1
+
+            if x + y > 0:
+                for bias in range(-x, y + 1):
+                    items[i + bias] = dict_acronym[items[i + bias]]
+
+    # Second pass mapping (not mapping 'i' and 'I')
+    for i in range(len(items)):
+        if items[i] in dict_acronym_noi.keys():
+            items[i] = dict_acronym_noi[items[i]]
+    sentence = " ".join(items[1:])
+
+    return items[0] + " " + sentence
 
 
 def make_name_to_disk_dict(mapping_table: str):
@@ -481,10 +711,158 @@ def make_name_to_disk_dict(mapping_table: str):
     return name2disk
 
 
+def swbd1_data_prep(data_folder, save_folder, splits, split_ratio, add_fisher_corpus=False, max_utt=9999999999):
+    """
+    Prepare the Switchboard Phase 1 training data (LDC97S62).
+
+    Parameters
+    ----------
+    data_folder : str
+        Path to the data. Expects the LDC97S62 directory to be located there.
+    save_folder :
+        Path where the file output will be stored
+    splits : list
+        A list of data splits you want to obtain from the Switchboard dataset (usually ["train", "dev"])
+    split_ratio : list
+        List containing the portions you want to allocate to each of your data splits e.g. [90, 10]
+    add_fisher_corpus : bool
+        If True, a separate csv file called "train_lm.csv" will be createdm which contains
+        the Switchboard training data and the Fisher corpus transcripts.
+    max_utt
+        Exclude utterances once they appear more than a specified number of times
+
+    Returns
+    -------
+    A list containing the prepared data for further processing
+    """
+
+    logger.info("Starting data preparation for main Switchboard corpus")
+
+    train_data_folder = os.path.join(data_folder, "LDC97S62")
+    check_data_folder(train_data_folder)
+
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+
+    download_transcripts(save_folder)
+
+    # Make a mapping from Switchboard acronyms to Fisher convention
+    logger.info("Preparing acronym mappings")
+    lexicon_input_file = os.path.join(save_folder, "swb_ms98_transcriptions", "sw-ms98-dict.text")
+    acronym_map_output_file = os.path.join(save_folder, "acronyms.map")
+    dict_acronym, dict_acronym_noi = make_acronym_map(save_folder, lexicon_input_file, acronym_map_output_file)
+
+    assert len(splits) == len(split_ratio)
+    if sum(split_ratio) != 100 and sum(split_ratio) != 1:
+        error_msg = (
+            "Implausible split ratios! Make sure they equal to 1 (or 100)."
+        )
+        raise ValueError(error_msg)
+    if sum(split_ratio) == 100:
+        split_ratio = [i / 100 for i in split_ratio]
+
+    # collect all files containing transcriptions
+    transcript_files = get_all_files(
+        os.path.join(save_folder, "swb_ms98_transcriptions"),
+        match_and=["trans.text"],
+    )
+    split_lens = [int(i * len(transcript_files)) for i in split_ratio]
+
+    name2disk = make_name_to_disk_dict(
+        os.path.join(train_data_folder, "docs/swb1_all.dvd.tbl")
+    )
+    logger.info(
+        f"Made name2disk mapping dict containing {len(name2disk)} conversations."
+    )
+
+    start = 0
+    stop = 0
+    # We save all lines from the swbd train split, in case we want to combine them
+    # with the Fisher corpus for LM and Tokenizer training later
+    swbd_train_lines = []
+    for i, split in enumerate(splits):
+        stop += split_lens[i]
+        transcript_files_split = transcript_files[start:stop]
+        logger.info(
+            f"Preparing data for {split} split. "
+            f"Split will contain {len(transcript_files_split)} "
+            f"conversations separated by channel."
+        )
+
+        start += split_lens[i]
+
+        csv_lines = [
+            [
+                "ID",
+                "duration",
+                "start",
+                "stop",
+                "channel",
+                "wav",
+                "words",
+                "spk_id",
+            ]
+        ]
+        # Open each transcription file and extract information
+        for filename in transcript_files_split:
+            with open(filename) as file:
+                for line in file:
+                    str_split = line.split()
+                    id = str_split[0].strip()
+                    channel = id.split("-")[0][-1]
+                    wav_name = id.split("-")[0][:6] + ".sph"
+                    spk_id = wav_name.replace(".sph", channel)
+                    wav_name = wav_name.replace(wav_name[0:2], "sw0")
+                    disk = name2disk[wav_name]
+
+                    wav_path = os.path.join(
+                        train_data_folder, disk, "data", wav_name
+                    )
+                    # We want the segment start and end times in samples,
+                    # so we can slice the segment from the tensor
+                    seg_start = int(float(str_split[1].strip()) * SAMPLERATE)
+                    seg_end = int(float(str_split[2].strip()) * SAMPLERATE)
+                    audio_duration = (seg_end - seg_start) / SAMPLERATE
+
+                    transcription = " ".join(str_split[3:])
+                    cleaned_transcription = filter_text(
+                        transcription, dataset="train",
+                        acronyms=dict_acronym,
+                        acronyms_noi=dict_acronym_noi
+                    )
+
+                    # Skip empty transcriptions
+                    if len(cleaned_transcription) > 0:
+
+                        csv_lines.append(
+                            [
+                                id,
+                                audio_duration,
+                                seg_start,
+                                seg_end,
+                                channel,
+                                wav_path,
+                                cleaned_transcription,
+                                spk_id,
+                            ]
+                        )
+
+                        # We store the lines from the first split
+                        # (assuming this is the training data) in a separate list
+                        # so we can easily merge it with the Fisher data later
+                        if add_fisher_corpus and i == 0:
+                            swbd_train_lines.append([id, cleaned_transcription])
+        # Setting path for the csv file
+        csv_file = os.path.join(save_folder, str(split + ".csv"))
+        logger.info(f"Creating csv file {csv_file}")
+
+        write_csv(csv_file, csv_lines, utt_id_idx=6, max_utt=max_utt)
+    return swbd_train_lines
+
+
 def eval2000_data_prep(data_folder: str, save_folder: str):
     """
-    This function prepares the eval2000/Hub5 English
-    data (LDC2002S09 and LDC2002T43).
+    Prepare the eval2000/Hub5 English data (LDC2002S09 and LDC2002T43).
     The data serves as the test set and is separated into
     the full dataset (test.csv), the Switchboard portion
     of the dataset (test_swbd.csv) and the Callhome portion
@@ -514,10 +892,10 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
             raise OSError(err_msg)
 
     csv_lines_callhome = [
-        ["ID", "length", "start", "stop", "channel", "wav", "words", "spk_id"]
+        ["ID", "duration", "start", "stop", "channel", "wav", "words", "spk_id"]
     ]
     csv_lines_swbd = [
-        ["ID", "length", "start", "stop", "channel", "wav", "words", "spk_id"]
+        ["ID", "duration", "start", "stop", "channel", "wav", "words", "spk_id"]
     ]
 
     with open(transcription_file) as file:
@@ -604,17 +982,84 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
         data_folder=save_folder, csv_lst=merge_files, merged_csv="test.csv"
     )
 
+    glm_dir = os.path.join(
+        data_folder,
+        "LDC2002T43/2000_hub5_eng_eval_tr/reference",
+    )
+    logger.info("Start parsing mapping rules in en20000405_hub5.glm")
+    parse_glm_file(glm_dir, save_folder)
 
-def fisher_data_prep(data_folder: str, save_folder: str):
+
+def parse_glm_file(glm_dir, save_folder):
+    """
+    Parse the file called en20000405_hub5.glm.
+    This file contains the transcript filtering rules for the
+    Hub4-E and Hub5-E Evaluations.
+
+    These filtering rules are needed during inference to find valid word alternatives.
+
+    Parameters
+    ----------
+    glm_dir : str
+        Location of the en20000405_hub5.glm file in the eval2000 test set
+    save_folder : str
+        Directory to store the parsed GLM file
+    """
+    results = defaultdict(list)
+    with open(os.path.join(glm_dir, "en20000405_hub5.glm")) as file:
+        is_contraction = False
+        for line in file:
+            # Skip comments
+            if "CONTRACTIONIZER" in line:
+                is_contraction = True
+            if line.startswith(";;") or line.startswith("*"):
+                continue
+            line_split = line.split("=>")
+            if len(line_split) > 1:
+                wrd = line_split[0].replace("[", "").replace("]", "").strip()
+                # Split alternative at comment
+                if not is_contraction:
+                    alternative = line_split[1]
+                    alternative = alternative.split(";;")[0].strip()
+                    # Split alternative again add additional information
+                    alternative = alternative.split("/")[0].replace("[", "").replace("]", "").strip()
+                    results[wrd] += [alternative]
+                else:
+                    # Now we parse contraction rules (last 1000 rows or so)
+                    alternative = line_split[1].replace("/ [ ] __ [ ]", "").replace("[{", "").replace("}]", "")
+                    alternatives = alternative.split("/")
+                    alternatives = [i.replace("[", "").replace("]", "").strip() for i in alternatives]
+                    results[wrd] += alternatives
+
+    csv_file = os.path.join(save_folder, "glm.csv")
+    logger.info(f"Writing GLM csv file")
+
+    with open(csv_file, mode="w") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+
+        for wrd, alternatives in results.items():
+            line = [wrd, "|".join(alternatives)]
+            csv_writer.writerow(line)
+
+
+def fisher_data_prep(data_folder, save_folder):
     """
     Prepare Fisher data for Tokenizer and LM Training.
     The Fisher transcripts are located at
-    LDC2004T19/fe_03_p1_tran/ and LDC2005T19/fe_03_p2_tran/.
+    LDC2004T19/fe_03_p1_tran and LDC2005T19/fe_03_p2_tran.
 
     Parameters
     ----------
     data_folder : str
         Path to the folder where the Fisher data is located.
+    save_folder : str
+        Path to the folder where you want to store the prepared data.
+
+    Returns
+    -------
+    A list containing the prepared data for further processing
     """
 
     logger.info(
@@ -656,11 +1101,15 @@ def fisher_data_prep(data_folder: str, save_folder: str):
                         transcription, dataset="fisher"
                     )
 
+                    # Split acronyms written as u._c._l._a._ into single characters (e.g. u c l a)
+                    transcription_clean = remove_acronym_symbols(transcription_clean)
+                    transcription_clean = transcription_clean.upper().strip()
+
                     # Skip empty transcriptions
                     if len(transcription_clean) > 0:
                         csv_lines.append([id, transcription_clean])
                         utt_count += 1
-            # Just for accounting
+            # This is just for accounting
             num_files_processed += 1
         num_dirs_processed += 1
 
@@ -684,12 +1133,13 @@ def fisher_data_prep(data_folder: str, save_folder: str):
 
 if __name__ == "__main__":
     data_folder = "/nfs/data/ldc"
-    save_folder = "swbd_data"
+    save_folder = "/mnt/md0/user/wagnerdo/speechbrain/recipes/Switchboard/test"
+
     prepare_switchboard(
         data_folder,
         save_folder,
         splits=["train", "dev"],
-        split_ratio=[90, 10],
+        split_ratio=[99, 1],
         merge_lst=[],
         skip_prep=False,
         add_fisher_corpus=True,

@@ -32,9 +32,12 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dominik Wagner 2022
 """
-
+import csv
 import os
+import re
 import sys
+from collections import defaultdict
+
 import torch
 import logging
 from pathlib import Path
@@ -50,6 +53,32 @@ logger = logging.getLogger(__name__)
 
 # Define training procedure
 class ASR(sb.core.Brain):
+
+    def __init__(self, modules=None, opt_class=None, hparams=None,
+                 run_opts=None, checkpointer=None, profiler=None):
+
+        self.glm_alternatives = self._read_glm_csv(hparams["output_folder"])
+
+        super().__init__(modules=modules,
+                         opt_class=opt_class,
+                         hparams=hparams,
+                         run_opts=run_opts,
+                         checkpointer=checkpointer,
+                         profiler=profiler,
+                         )
+
+    def _read_glm_csv(self, save_folder):
+        alternatives_dict = defaultdict(list)
+        # additional GEEZ --> JEEZ
+        # HE IS --> HE'S
+        # THAT IS --> THAT's
+        with open(os.path.join(save_folder, "glm.csv")) as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            for row in csv_reader:
+                alternatives = row[1].split("|")
+                alternatives_dict[row[0]] += alternatives
+        return alternatives_dict
+
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
@@ -147,11 +176,124 @@ class ASR(sb.core.Brain):
                     tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
                 ]
                 target_words = [wrd.split(" ") for wrd in batch.words]
+
+                # Check for possible word alternatives and exclusions
+                if stage == sb.Stage.TEST:
+                    target_words, predicted_words = self.normalize_words(target_words, predicted_words)
+
                 self.wer_metric.append(ids, predicted_words, target_words)
 
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
+
+    def expand_contractions(self, text) -> list:
+        # specific
+        text = re.sub(r"won\'t", "WILL NOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"can\'t", "CAN NOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"let\'s", "LET US", text, flags=re.IGNORECASE)
+        text = re.sub(r"ain\'t", "AM NOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"y\'all", "YOU ALL", text, flags=re.IGNORECASE)
+        text = re.sub(r"can\'t", "CANNOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"can not", "CANNOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'cause", "BECAUSE", text, flags=re.IGNORECASE)
+
+        # general
+        text = re.sub(r"n\'t", " NOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'re", " ARE", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'s", " IS", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'d", " WOULD", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'ll", " WILL", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'t", " NOT", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'ve", " HAVE", text, flags=re.IGNORECASE)
+        text = re.sub(r"\'m", " AM", text, flags=re.IGNORECASE)
+
+        # Split linked words
+        text = re.sub(r"-", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s\s+", " ", text)
+        text = text.split()
+        return text
+
+    def expand_contractions_batch(self, text_batch):
+        parsed_batch = []
+        for batch in text_batch:
+            # Remove incomplete words
+            # batch = [re.sub(r"^-", "", t, flags=re.IGNORECASE) for t in batch]
+            batch = [t for t in batch if not t.startswith("-")]
+            text = " ".join(batch)
+            parsed = self.expand_contractions(text)
+            parsed_batch.append(parsed)
+        return parsed_batch
+
+    def normalize_words(self, target_words_batch, predicted_words_batch):
+        """
+        Remove some references and hypotheses we don't want to score.
+        We remove incomplete words (i.e. words that start with "-"), expand common contractions (e.g. I'v -> I have),
+        and split linked words (e.g. pseudo-rebel -> pseudo rebel).
+        Then we check if some of the predicted words have mapping rules according to the glm (alternatives) file.
+        Finally, we check if a predicted word is on the exclusion list.
+        The exclusion list contains stuff like "MM", "HM", "AH", "HUH", which gets mapped by the glm file,
+        into hesitations. The goal is to remove all the things that appear in the reference as optionally
+        deletable (inside parentheses), as if we delete these there is no loss, while
+        if we get them correct there is no gain.
+
+        In Kaldi, the filtering procedure looks like this (seeh local/score.sh):
+
+        cp ${ctm} ${score_dir}/tmpf;
+                cat ${score_dir}/tmpf | grep -i -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
+                grep -i -v -E '<UNK>' | \
+                grep -i -v -E ' (UH|UM|EH|MM|HM|AH|HUH|HA|ER|OOF|HEE|ACH|EEE|EW)$' | \
+                grep -v -- '-$' > ${ctm};
+
+
+        Parameters
+        ----------
+        target_words_batch : list
+            List of length <batch_size> containing lists of target words for each utterance
+        predicted_words_batch : list of list
+            List of length <batch_size> containing lists of predicted words for each utterance
+
+        Returns
+        -------
+
+        A new list containing the filtered predicted words.
+
+        """
+        excluded_words = ["[NOISE]", "[LAUGHTER]",
+                          "[VOCALIZED-NOISE]", "[VOCALIZED", "NOISE]", "<UNK>", "UH", "UM", "EH",
+                          "MM", "HM", "AH", "HUH", "HA", "ER", "OOF",
+                          "HEE", "ACH", "EEE", "EW"]
+
+        target_words_batch = self.expand_contractions_batch(target_words_batch)
+        predicted_words_batch = self.expand_contractions_batch(predicted_words_batch)
+
+        # Find all possible alternatives for each word in the target utterance
+        alternative2tgt_word_batch = []
+        for tgt_utterance in target_words_batch:
+            alternative2tgt_word = defaultdict(str)
+            for tgt_wrd in tgt_utterance:
+                # print("tgt_wrd", tgt_wrd)
+                alts = self.glm_alternatives[tgt_wrd]
+                for alt in alts:
+                    if alt != tgt_wrd and len(alt) > 0:
+                        alternative2tgt_word[alt] = tgt_wrd
+            alternative2tgt_word_batch.append(alternative2tgt_word)
+
+        # See if a predicted word is on the exclusion list
+        # and if it matches one of the valid alternatives
+        checked_predicted_words_batch = []
+        for i, pred_utterance in enumerate(predicted_words_batch):
+            alternative2tgt_word = alternative2tgt_word_batch[i]
+            checked_predicted_words = []
+            for pred_wrd in pred_utterance:
+                if pred_wrd in excluded_words:
+                    continue
+                tgt_wrd = alternative2tgt_word[pred_wrd]
+                if len(tgt_wrd) > 0:
+                    pred_wrd = tgt_wrd
+                checked_predicted_words.append(pred_wrd)
+            checked_predicted_words_batch.append(checked_predicted_words)
+        return target_words_batch, checked_predicted_words_batch
 
     def fit_batch(self, batch):
 
@@ -283,12 +425,12 @@ def dataio_prepare(hparams):
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="length")
+        train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(sort_key="length", reverse=True)
+        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
@@ -302,7 +444,7 @@ def dataio_prepare(hparams):
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
-    valid_data = valid_data.filtered_sorted(sort_key="length")
+    valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     # test is separate
     test_datasets = {}
@@ -312,7 +454,7 @@ def dataio_prepare(hparams):
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="length"
+            sort_key="duration"
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
