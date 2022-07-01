@@ -53,19 +53,26 @@ logger = logging.getLogger(__name__)
 
 # Define training procedure
 class ASR(sb.core.Brain):
-
-    def __init__(self, modules=None, opt_class=None, hparams=None,
-                 run_opts=None, checkpointer=None, profiler=None):
+    def __init__(
+        self,
+        modules=None,
+        opt_class=None,
+        hparams=None,
+        run_opts=None,
+        checkpointer=None,
+        profiler=None,
+    ):
 
         self.glm_alternatives = self._read_glm_csv(hparams["output_folder"])
 
-        super().__init__(modules=modules,
-                         opt_class=opt_class,
-                         hparams=hparams,
-                         run_opts=run_opts,
-                         checkpointer=checkpointer,
-                         profiler=profiler,
-                         )
+        super().__init__(
+            modules=modules,
+            opt_class=opt_class,
+            hparams=hparams,
+            run_opts=run_opts,
+            checkpointer=checkpointer,
+            profiler=profiler,
+        )
 
     def _read_glm_csv(self, save_folder):
         alternatives_dict = defaultdict(list)
@@ -73,7 +80,7 @@ class ASR(sb.core.Brain):
         # HE IS --> HE'S
         # THAT IS --> THAT's
         with open(os.path.join(save_folder, "glm.csv")) as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=',')
+            csv_reader = csv.reader(csv_file, delimiter=",")
             for row in csv_reader:
                 alternatives = row[1].split("|")
                 alternatives_dict[row[0]] += alternatives
@@ -179,7 +186,9 @@ class ASR(sb.core.Brain):
 
                 # Check for possible word alternatives and exclusions
                 if stage == sb.Stage.TEST:
-                    target_words, predicted_words = self.normalize_words(target_words, predicted_words)
+                    target_words, predicted_words = self.normalize_words(
+                        target_words, predicted_words
+                    )
 
                 self.wer_metric.append(ids, predicted_words, target_words)
 
@@ -228,23 +237,18 @@ class ASR(sb.core.Brain):
     def normalize_words(self, target_words_batch, predicted_words_batch):
         """
         Remove some references and hypotheses we don't want to score.
-        We remove incomplete words (i.e. words that start with "-"), expand common contractions (e.g. I'v -> I have),
+        We remove incomplete words (i.e. words that start with "-"),
+        expand common contractions (e.g. I'v -> I have),
         and split linked words (e.g. pseudo-rebel -> pseudo rebel).
-        Then we check if some of the predicted words have mapping rules according to the glm (alternatives) file.
+        Then we check if some of the predicted words have mapping rules according
+        to the glm (alternatives) file.
         Finally, we check if a predicted word is on the exclusion list.
         The exclusion list contains stuff like "MM", "HM", "AH", "HUH", which gets mapped by the glm file,
         into hesitations. The goal is to remove all the things that appear in the reference as optionally
         deletable (inside parentheses), as if we delete these there is no loss, while
         if we get them correct there is no gain.
 
-        In Kaldi, the filtering procedure looks like this (seeh local/score.sh):
-
-        cp ${ctm} ${score_dir}/tmpf;
-                cat ${score_dir}/tmpf | grep -i -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
-                grep -i -v -E '<UNK>' | \
-                grep -i -v -E ' (UH|UM|EH|MM|HM|AH|HUH|HA|ER|OOF|HEE|ACH|EEE|EW)$' | \
-                grep -v -- '-$' > ${ctm};
-
+        The procedure is adapted from Kaldi's local/score.sh script.
 
         Parameters
         ----------
@@ -259,13 +263,33 @@ class ASR(sb.core.Brain):
         A new list containing the filtered predicted words.
 
         """
-        excluded_words = ["[NOISE]", "[LAUGHTER]",
-                          "[VOCALIZED-NOISE]", "[VOCALIZED", "NOISE]", "<UNK>", "UH", "UM", "EH",
-                          "MM", "HM", "AH", "HUH", "HA", "ER", "OOF",
-                          "HEE", "ACH", "EEE", "EW"]
+        excluded_words = [
+            "[NOISE]",
+            "[LAUGHTER]",
+            "[VOCALIZED-NOISE]",
+            "[VOCALIZED",
+            "NOISE]",
+            "<UNK>",
+            "UH",
+            "UM",
+            "EH",
+            "MM",
+            "HM",
+            "AH",
+            "HUH",
+            "HA",
+            "ER",
+            "OOF",
+            "HEE",
+            "ACH",
+            "EEE",
+            "EW",
+        ]
 
         target_words_batch = self.expand_contractions_batch(target_words_batch)
-        predicted_words_batch = self.expand_contractions_batch(predicted_words_batch)
+        predicted_words_batch = self.expand_contractions_batch(
+            predicted_words_batch
+        )
 
         # Find all possible alternatives for each word in the target utterance
         alternative2tgt_word_batch = []
@@ -430,7 +454,9 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(sort_key="duration", reverse=True)
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
