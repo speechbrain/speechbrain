@@ -82,10 +82,19 @@ class G2PEvaluator:
     def load(self):
         """Loads a model from a checkpoint"""
         checkpointer = self.hparams.checkpointer
-        checkpointer.recover_if_possible(
+        ckpt = checkpointer.recover_if_possible(
             device=torch.device(self.device),
             importance_key=lambda ckpt: -ckpt.meta.get("PER", -100.0),
+            ckpt_predicate=lambda ckpt: ckpt.meta["step"]
+            == self.hparams.eval_ckpt_step,
         )
+        if ckpt:
+            logger.info("Loaded checkpoint with metadata %s", ckpt.meta)
+        else:
+            raise ValueError(
+                f"Checkpoint not found for training step {self.hparams.eval_train_step}"
+            )
+        return ckpt
 
     def evaluate_batch(self, batch):
         """
@@ -392,7 +401,7 @@ if __name__ == "__main__":
 
         # Some configurations involve curriculum training on
         # multiple steps. Load the dataset configuration for the
-        # step specified in the eval_training_step hyperparameter
+        # step specified in the eval_train_step hyperparameter
         # (or command-line argument)
         train_step = next(
             train_step
