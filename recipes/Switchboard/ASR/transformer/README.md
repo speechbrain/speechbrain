@@ -2,10 +2,10 @@
 This folder contains the scripts to train a Transformer-based speech recognizer
 using the Switchboard corpus.
 
-You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62. 
+You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
 
-The eval2000/Hub5 English test set can be found at: 
-- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09 
+The eval2000/Hub5 English test set can be found at:
+- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09
 - Transcripts: https://catalog.ldc.upenn.edu/LDC2002T43
 
 Part 1 and part 2 of the Fisher corpus are available at:
@@ -18,10 +18,11 @@ Part 1 and part 2 of the Fisher corpus are available at:
 
 # Results
 
-| Release | hyperparams file | Swbd WER | Callhome WER | HuggingFace link | Model link | GPUs | Comment
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
-| 21-05-22 | transformer.yaml | 22.00 | 30.12 | n.a. | n.a. | 1xA100 40GB | This model uses Tokenizer+LM pretrained on LibriSpeech|
-| 21-05-22 | transformer.yaml | 21.11 | 29.43 | n.a. | n.a. | 1xA100 40GB | This model uses the LibriSpeech LM but finetuned on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
+| Release | hyperparams file | Swbd WER | Callhome WER | Full Eval2000 | HuggingFace link | Model link | GPUs | Comment
+|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
+| 21-05-22 | transformer.yaml | 22.00 | 30.12 | -  | n.a. | n.a. | 1xA100 40GB | This model uses Tokenizer+LM pretrained on LibriSpeech|
+| 21-05-22 | transformer.yaml | - | - | -  | n.a. | n.a. | 1xA100 40GB | This model uses the LibriSpeech LM but finetuned on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
+| 01-07-22 | transformer_small_lm.yaml| 9.64 | 17.97 | 13.99  | n.a. | n.a. | 1xA100 40GB | This model uses an LM trained on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
 
 # Training Time
 It takes about 45 minutes for each epoch on 1 NVIDIA A100 (40GB).
