@@ -27,7 +27,7 @@ pretrained_tokenizer_path: speechbrain/asr-crdnn-rnnlm-librispeech
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
-data_folder: /nfs/data/ldc
+data_folder: !PLACEHOLDER
 # noise/ris dataset will automatically be downloaded
 # Set the location to store noisy data for augmentation here.
 data_folder_rirs: rirs-noises
@@ -37,8 +37,8 @@ data_folder_rirs: rirs-noises
 splits: ["train", "dev"]
 split_ratio: [99, 1]
 skip_prep: False
-# We don't use the Fisher corpus for training the AM
-# (it is only used for Tokenizer and LM training)
+# We don't need the Fisher corpus, here since
+# it is only used for Tokenizer and LM training
 add_fisher_corpus: False
 # Maximum number of times the same utterance is
 # allowed to appear in the training data
@@ -55,8 +55,7 @@ test_csv:
    - !ref <output_folder>/test.csv
 
 # Training parameters
-# number_of_epochs: 35
-number_of_epochs: 19
+number_of_epochs: 35
 number_of_ctc_epochs: 5
 batch_size: 10
 lr: 1.0
@@ -127,20 +126,7 @@ ctc_weight_decode: 0.30
 # lm_weight: 0.50
 # ctc_weight_decode: 0.0
 coverage_penalty: 1.8
-temperature: 0.8
-
-
-#lm_weight: 0.50
-#test_beam_size: 100
-#coverage_penalty: 0.0      # coverage refers to a term that promotes longer transcripts
-#ctc_weight_decode: 0.30
-#temperature: 2.15          # at increased temperatures the distribution over characters becomes more uniform (goes in the softmax)
-#temperature_lm: 2.15       # at increased temperatures the distribution over characters becomes more uniform (goes in the softmax)
-#using_eos_threshold: False # bias the search away from short transcriptions
-#eos_threshold: 1.5
-#length_normalization: True
-#using_max_attn_shift: False # do not allow the beam search to propose any hypotheses which attend more than tmax frames away from the previous attention peak
-#max_attn_shift: 30
+temperature: 1.25
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>

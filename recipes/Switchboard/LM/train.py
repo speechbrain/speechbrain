@@ -3,7 +3,7 @@
 
 To run this recipe, do the following:
 > pip install datasets
-> python train.py hparams/RNNLM.yaml
+> python train.py hparams/<params>.yaml
 
 Authors
  * Jianyuan Zhong 2021

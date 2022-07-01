@@ -66,10 +66,9 @@ class ASR(sb.core.Brain):
         )
 
     def _read_glm_csv(self, save_folder):
+        """Load the ARPA Hub4-E and Hub5-E alternate spellings and contractions map"""
+
         alternatives_dict = defaultdict(list)
-        # additional GEEZ --> JEEZ
-        # HE IS --> HE'S
-        # THAT IS --> THAT's
         with open(os.path.join(save_folder, "glm.csv")) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=",")
             for row in csv_reader:
@@ -131,7 +130,19 @@ class ASR(sb.core.Brain):
         return loss
 
     def expand_contractions(self, text) -> list:
-        # specific
+        """
+        Some regular expressions for expanding common contractions and for splitting linked words.
+
+        Parameters
+        ----------
+        text : str
+            Text to process
+
+        Returns
+        -------
+        A list of tokens
+        """
+        # Specific contractions
         text = re.sub(r"won\'t", "WILL NOT", text, flags=re.IGNORECASE)
         text = re.sub(r"can\'t", "CAN NOT", text, flags=re.IGNORECASE)
         text = re.sub(r"let\'s", "LET US", text, flags=re.IGNORECASE)
@@ -141,7 +152,7 @@ class ASR(sb.core.Brain):
         text = re.sub(r"can not", "CANNOT", text, flags=re.IGNORECASE)
         text = re.sub(r"\'cause", "BECAUSE", text, flags=re.IGNORECASE)
 
-        # general
+        # More general contractions
         text = re.sub(r"n\'t", " NOT", text, flags=re.IGNORECASE)
         text = re.sub(r"\'re", " ARE", text, flags=re.IGNORECASE)
         text = re.sub(r"\'s", " IS", text, flags=re.IGNORECASE)
@@ -158,10 +169,13 @@ class ASR(sb.core.Brain):
         return text
 
     def expand_contractions_batch(self, text_batch):
+        """
+        Wrapper that handles a batch of predicted or
+        target words for contraction expansion
+        """
         parsed_batch = []
         for batch in text_batch:
             # Remove incomplete words
-            # batch = [re.sub(r"^-", "", t, flags=re.IGNORECASE) for t in batch]
             batch = [t for t in batch if not t.startswith("-")]
             text = " ".join(batch)
             parsed = self.expand_contractions(text)
@@ -177,10 +191,12 @@ class ASR(sb.core.Brain):
         Then we check if some of the predicted words have mapping rules according
         to the glm (alternatives) file.
         Finally, we check if a predicted word is on the exclusion list.
-        The exclusion list contains stuff like "MM", "HM", "AH", "HUH", which gets mapped by the glm file,
-        into hesitations. The goal is to remove all the things that appear in the reference as optionally
-        deletable (inside parentheses), as if we delete these there is no loss, while
-        if we get them correct there is no gain.
+        The exclusion list contains stuff like "MM", "HM", "AH", "HUH", which would get mapped,
+        into hesitations by the glm file anyway.
+        The goal is to remove all the things that appear in the reference as optional/deletable
+        (i.e. inside parentheses).
+        If we delete these tokens, there is no loss,
+        and if we recognize them correctly, there is no gain.
 
         The procedure is adapted from Kaldi's local/score.sh script.
 
@@ -421,10 +437,6 @@ def dataio_prepare(hparams, tokenizer):
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="duration")
-
-    # test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-    #     csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
-    # )
 
     test_datasets = {}
     for csv_file in hparams["test_csv"]:

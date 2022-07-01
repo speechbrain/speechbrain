@@ -2,20 +2,19 @@
 # Model: Transformer LM of E2E ASR
 # Tokens: unigram
 # losses: NLL
-# Training: Librispeech 960h transcript + LM corpus
-# Authors:  Jianyuan Zhong 2021
+# Training: Librispeech 960h transcripts + Librispeech LM corpus
+#           + Swbd transcripts + Fisher transcripts
+# Authors:  Jianyuan Zhong 2021, Dominik Wagner 2022
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1312
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/TransformerV2/<seed>
+output_folder: !ref results/transformer_finetune/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-# The data_folder is needed because we train the LM on the training
-# transcriptions of Switchboard and Fisher as well.
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
 data_folder: !PLACEHOLDER
 splits: ["train", "dev"]
@@ -25,16 +24,12 @@ add_fisher_corpus: True
 # in the training data
 max_utt: 300
 skip_prep: False
-# train_lm.csv is the one that is created, when the Fisher
-# corpus is included in the preparation procedure
+# train_lm.csv is is created, when the Fisher
+# corpus is included in the data preparation
+# procedure via add_fisher_corpus
 train_csv: !ref <save_folder>/train_lm.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
-
-# path to the lm_corpus
-# if set to null, it will automatically download from the internet
-# in the case when there is no internet access, set this to your local file
-# lm_corpus_path: null
 
 # Language model (LM) pretraining
 # NB: To avoid mismatch, the speech recognizer must be trained with the same
@@ -42,7 +37,6 @@ test_csv: !ref <save_folder>/test.csv
 # speechbrain HuggingFace repository. However, a local path pointing to a
 # directory containing the lm.ckpt and tokenizer.ckpt may also be specified
 # instead. E.g if you want to use your own LM / tokenizer.
-# pretrained_path: speechbrain/asr-crdnn-rnnlm-librispeech
 pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Training parameters

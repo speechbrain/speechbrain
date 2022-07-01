@@ -8,7 +8,7 @@ the same tokenizer. Otherwise, a token mismatch is introduced
 and beamsearch will produce bas results when combining AM and LM.
 
 To run this recipe, do the following:
-> python train.py hparams/1K_unigram_subword_bpe.yaml
+> python train.py hparams/2K_unigram_subword_bpe.yaml
 
 
 Authors

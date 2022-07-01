@@ -2,21 +2,21 @@
 This folder contains the scripts to train a tokenizer using SentencePiece (https://github.com/google/sentencepiece).
 The tokenizer is trained using the Switchboard training transcriptions and optionally the Fisher corpus.
 
-You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62. 
+You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
 
-The eval2000/Hub5 English test set can be found at: 
-- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09 
+The eval2000/Hub5 English test set can be found at:
+- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09
 - Transcripts: https://catalog.ldc.upenn.edu/LDC2002T43
 
 Part 1 and part 2 of the Fisher corpus are available at:
 - https://catalog.ldc.upenn.edu/LDC2004T19
 - https://catalog.ldc.upenn.edu/LDC2005T19
 
-Similar to Kaldi's [swbd/s5c](https://github.com/kaldi-asr/kaldi/tree/master/egs/swbd/s5c) recipe, 
-the Fisher transcriptions can be used as an additional resource for training Tokenizer and LM. 
+As in Kaldi's [swbd/s5c](https://github.com/kaldi-asr/kaldi/tree/master/egs/swbd/s5c) recipe,
+the Fisher transcripts can be used as an additional resource for training Tokenizer and LM.
 
 # How to run
-python train.py hparams/1K_unigram_subword_bpe.yaml
+`python train.py hparams/1K_unigram_subword_bpe.yaml`
 
 
 # **About SpeechBrain**

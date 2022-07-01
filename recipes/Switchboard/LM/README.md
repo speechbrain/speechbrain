@@ -1,34 +1,30 @@
 # Language Model with Switchboard
-This folder contains recipes for finetuning language models for the Switchboard dataset. 
+This folder contains recipes for finetuning language models for the Switchboard dataset.
 It supports both an RNN-based LM and a Transformer-based LM.
 
-You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62. 
+You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
 
-The eval2000/Hub5 English test set can be found at: 
-- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09 
+The eval2000/Hub5 English test set can be found at:
+- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09
 - Transcripts: https://catalog.ldc.upenn.edu/LDC2002T43
 
 Part 1 and part 2 of the Fisher corpus are available at:
 - https://catalog.ldc.upenn.edu/LDC2004T19
 - https://catalog.ldc.upenn.edu/LDC2005T19
 
-Similar to Kaldi's [swbd/s5c](https://github.com/kaldi-asr/kaldi/tree/master/egs/swbd/s5c) recipe, 
-the Fisher transcriptions can be used as an additional resource for training Tokenizer and LM. 
+As in Kaldi's [swbd/s5c](https://github.com/kaldi-asr/kaldi/tree/master/egs/swbd/s5c) recipe,
+the Fisher transcripts can be used as an additional resource for training Tokenizer and LM.
 
 # How to run:
-python train.py hparams/RNNLM_finetune.yaml
+```
+python train.py hparams/transformer.yaml
 python train.py hparams/transformer_finetune.yaml
+```
 
 | Release | hyperparams file | Test PP | Model link | GPUs |
 | :---     | :---: | :---: | :---: | :---: |
-| 20-05-22 | RNNLM.yaml (1k BPE) | --.-- | n.a. | 1xA100 40GB |
-| 20-05-22 | transformer.yaml | --.-- | n.a. | 1xA100 40GB |
-
-
-# Training time
-Training a LM from scratch takes a lot of time. 
-Therefore, we use an existing LM trained on the LibriSpeech corpus and finetune it on Switchboard+Fisher data. 
-This reduces the training time considerably (about 40 minutes per epoch on a A100 40GB). 
+| 01-07-22 | transformer.yaml | --.-- | n.a. | 1xA100 40GB |
+| 01-07-22 | transformer_finetune.yaml | --.-- | n.a. | 1xA100 40GB |
 
 
 # **About SpeechBrain**

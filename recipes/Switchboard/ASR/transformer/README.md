@@ -20,9 +20,9 @@ Part 1 and part 2 of the Fisher corpus are available at:
 
 | Release | hyperparams file | Swbd WER | Callhome WER | Full Eval2000 | HuggingFace link | Model link | GPUs | Comment
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
-| 21-05-22 | transformer.yaml | 22.00 | 30.12 | -  | n.a. | n.a. | 1xA100 40GB | This model uses Tokenizer+LM pretrained on LibriSpeech|
-| 21-05-22 | transformer.yaml | - | - | -  | n.a. | n.a. | 1xA100 40GB | This model uses the LibriSpeech LM but finetuned on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
-| 01-07-22 | transformer_small_lm.yaml| 9.64 | 17.97 | 13.99  | n.a. | n.a. | 1xA100 40GB | This model uses an LM trained on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
+| 01-07-22 | transformer.yaml| 9.64 | 17.97 | 13.99  | n.a. | n.a. | 1xA100 40GB | This model uses an LM trained on Swbd+Fisher data (see ../../LM/hparams/transformer.yaml)|
+| 01-07-22 | transformer_finetuned_LM.yaml| 9.99 | 18.98 | 14.58  | n.a. | n.a. | 1xA100 40GB | This model uses the LibriSpeech LM but finetuned on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
+
 
 # Training Time
 It takes about 45 minutes for each epoch on 1 NVIDIA A100 (40GB).

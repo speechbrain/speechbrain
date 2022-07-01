@@ -1,10 +1,10 @@
 # Switchboard ASR with CTC models
 This folder contains the scripts to train a wav2vec based system using Switchboard.
 
-You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62. 
+You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
 
-The eval2000/Hub5 English test set can be found at: 
-- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09 
+The eval2000/Hub5 English test set can be found at:
+- Speech data: https://catalog.ldc.upenn.edu/LDC2002S09
 - Transcripts: https://catalog.ldc.upenn.edu/LDC2002T43
 
 Part 1 and part 2 of the Fisher corpus are available at:
@@ -17,10 +17,9 @@ Make sure you have the "transformers" package installed in your environment (see
 
 # Results
 
-| Release | hyperparams file | Swbd WER | Callhome WER | HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :--------:| :-----:| :-----:| :--------:|
-| 21-05-22 | train_with_wav2vec.yaml | 21.35 | 28.32 |n.a.| n.a. | 1xA100 40GB |
-
+| Release | hyperparams file | Swbd WER | Callhome WER | Full Eval2000 | HuggingFace link | Full model link | GPUs |
+|:-------------:|:---------------------------:| :-----:| :--------:| :--------:| :-----:| :-----:| :--------:|
+| 01-07-22 | train_with_wav2vec.yaml | 8.90 | 14.99 | 12.04 | n.a.| n.a. | 1xA100 40GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

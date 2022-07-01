@@ -1,20 +1,20 @@
 # ############################################################################
-# Tokenizer: subword BPE with unigram 1K
+# Tokenizer: subword BPE with unigram 2K
 # Training: Switchboard and Fisher (optional)
 # Authors:  Dominik Wagner 2022
 # ############################################################################
 
-output_folder: !ref results/2K_subword_unigram_idx_change_v4
+output_folder: !ref results/2K_subword_unigram
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
-data_folder: /nfs/data/ldc
+data_folder: !PLACEHOLDER
 splits: ["train", "dev"]
 split_ratio: [99, 1]
 add_fisher_corpus: True
 # Maximum number of times the same utterance is allowed
 # to appear in the training data
-# Note that this only filters the swbd1 data but not the Fisher data! (same as in the Kaldi recipe)
+# Note that this only filters the swbd1 data but not the Fisher data.
 max_utt: 300
 train_csv: !ref <output_folder>/train_lm.csv
 valid_csv: !ref <output_folder>/dev.csv
