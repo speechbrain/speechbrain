@@ -1,4 +1,4 @@
-"""ResNet for speaker verification
+"""ResNet PreActived for speaker verification
 
 Authors
  * Mickael Rouvier 2022
@@ -305,6 +305,8 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        x = x.unsqueeze(1)
+
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.activation1(x)
