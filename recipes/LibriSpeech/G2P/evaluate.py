@@ -136,7 +136,7 @@ class G2PEvaluator:
         scores: list
             the scores corresponding to the hypotheses
         """
-        word_emb, char_word_emb = None, None
+        _, char_word_emb = None, None
         if self._grapheme_word_separator_idx is None:
             self._grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
                 " "
@@ -190,7 +190,7 @@ class G2PEvaluator:
             the scores corresponding to the hypotheses
         """
         if self.hparams.use_word_emb:
-            raise NotImplemented(
+            raise NotImplementedError(
                 "Wordwise evaluation is not supported with word embeddings"
             )
         if self._word_separator is None:
