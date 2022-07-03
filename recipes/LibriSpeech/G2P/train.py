@@ -1112,7 +1112,7 @@ def dataio_prep(hparams, train_step=None):
     if "origins" in hparams:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
 
-    if train_step["mode"] == "homograph":
+    if train_step.get("mode") == "homograph":
         datasets = [filter_homograph_positions(dataset) for dataset in datasets]
 
     train_data, valid_data, test_data = datasets
