@@ -348,7 +348,30 @@ def test_scheduler(device):
         )
     )
     assert brain_or_pretrained.profiler.step_num == 2
-    assert len(brain_or_pretrained.profiler.events()) == 0
+    # brain_or_pretrained.profiler.profiler will be set (not None anymore)
+    # when run on cpu, there are no events - but cuda activities are recorded if existing
+    # see: https://github.com/speechbrain/speechbrain/issues/1469
+    if (
+        torch.profiler.ProfilerActivity.CUDA
+        in brain_or_pretrained.profiler.activities
+    ):
+        assert (
+            len(
+                set(
+                    [
+                        x.name
+                        for x in brain_or_pretrained.profiler.profiler.function_events
+                    ]
+                )
+                - {
+                    "cudaGetDeviceCount",
+                    "cudaGetDeviceProperties",
+                    "cudaDeviceSynchronize",
+                }
+            )
+        ) == 0
+    else:
+        assert len(brain_or_pretrained.profiler.events()) == 0
 
     # Profiling: scheduler warms-up...
     brain_or_pretrained.evaluate(
@@ -359,7 +382,27 @@ def test_scheduler(device):
         )
     )
     assert brain_or_pretrained.profiler.step_num == 3
-    assert len(brain_or_pretrained.profiler.events()) == 0
+    if (
+        torch.profiler.ProfilerActivity.CUDA
+        in brain_or_pretrained.profiler.activities
+    ):
+        assert (
+            len(
+                set(
+                    [
+                        x.name
+                        for x in brain_or_pretrained.profiler.profiler.function_events
+                    ]
+                )
+                - {
+                    "cudaGetDeviceCount",
+                    "cudaGetDeviceProperties",
+                    "cudaDeviceSynchronize",
+                }
+            )
+        ) == 0
+    else:
+        assert len(brain_or_pretrained.profiler.events()) == 0
 
     # Profiling: first trace!
     brain_or_pretrained.evaluate(
@@ -373,7 +416,9 @@ def test_scheduler(device):
     assert brain_or_pretrained.profiler.step_num == 4
     # assert len(brain_or_pretrained.profiler.events()) >= 4  # == 10  # before
     # assert len(brain_or_pretrained.profiler.key_averages()) >= 4  # == 5  # before
-    assert len(brain_or_pretrained.profiler.speechbrain_event_traces) == 1
+    assert (
+        len(brain_or_pretrained.profiler.events()) >= 1
+    )  # 1 on CPU; more w/ CUDA
 
 
 def test_tracer(device):
