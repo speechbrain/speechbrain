@@ -46,7 +46,7 @@ class Encoder(nn.Module):
         Arguments
         ---------
         mixture : Tensor
-            Tesor shape is [M, T]. M is batch size. T is #samples
+            Tensor shape is [M, T]. M is batch size. T is #samples
 
         Returns
         -------
