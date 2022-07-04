@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
+ * Sarthak Yadav 2020
 """
 import torch
 from speechbrain.processing.features import (
@@ -13,6 +14,9 @@ from speechbrain.processing.features import (
     Deltas,
     ContextWindow,
 )
+from speechbrain.nnet.CNN import GaborConv1d
+from speechbrain.nnet.normalization import PCEN
+from speechbrain.nnet.pooling import GaussianLowpassPooling
 
 
 class Fbank(torch.nn.Module):
@@ -275,3 +279,161 @@ class MFCC(torch.nn.Module):
         if self.context:
             mfccs = self.context_window(mfccs)
         return mfccs
+
+
+class Leaf(torch.nn.Module):
+    """
+    This class implements the LEAF audio frontend from
+
+    Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc. of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    window_len: float
+        length of filter window in milliseconds
+    window_stride : float
+        Stride factor of the filters in milliseconds
+    sample_rate : int,
+        Sampling rate of the input signals. It is only used for sinc_conv.
+    min_freq : float
+        Lowest possible frequency (in Hz) for a filter
+    max_freq : float
+        Highest possible frequency (in Hz) for a filter
+    use_pcen: bool
+        If True (default), a per-channel energy normalization layer is used
+    learnable_pcen: bool:
+        If True (default), the per-channel energy normalization layer is learnable
+    use_legacy_complex: bool
+        If False, torch.complex64 data type is used for gabor impulse responses
+        If True, computation is performed on two real-valued tensors
+    skip_transpose: bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 8000])
+    >>> leaf = Leaf(
+    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1
+    ... )
+    >>> out_tensor = leaf(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        window_len: float = 25.0,
+        window_stride: float = 10.0,
+        sample_rate: int = 16000,
+        input_shape=None,
+        in_channels=None,
+        min_freq=60.0,
+        max_freq=None,
+        use_pcen=True,
+        learnable_pcen=True,
+        use_legacy_complex=False,
+        skip_transpose=False,
+        n_fft=512,
+    ):
+        super(Leaf, self).__init__()
+        self.out_channels = out_channels
+        window_size = int(sample_rate * window_len // 1000 + 1)
+        window_stride = int(sample_rate * window_stride // 1000)
+
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
+
+        self.complex_conv = GaborConv1d(
+            out_channels=2 * out_channels,
+            in_channels=in_channels,
+            kernel_size=window_size,
+            stride=1,
+            padding="same",
+            bias=False,
+            n_fft=n_fft,
+            sample_rate=sample_rate,
+            min_freq=min_freq,
+            max_freq=max_freq,
+            use_legacy_complex=use_legacy_complex,
+            skip_transpose=True,
+        )
+
+        self.pooling = GaussianLowpassPooling(
+            in_channels=self.out_channels,
+            kernel_size=window_size,
+            stride=window_stride,
+            skip_transpose=True,
+        )
+        if use_pcen:
+            self.compression = PCEN(
+                self.out_channels,
+                alpha=0.96,
+                smooth_coef=0.04,
+                delta=2.0,
+                floor=1e-12,
+                trainable=learnable_pcen,
+                per_channel_smooth_coef=True,
+                skip_transpose=True,
+            )
+        else:
+            self.compression = None
+        self.skip_transpose = skip_transpose
+
+    def forward(self, x):
+        """
+        Returns the learned LEAF features
+
+        Arguments
+        ---------
+        x : torch.Tensor of shape (batch, time, 1) or (batch, time)
+            batch of input signals. 2d or 3d tensors are expected.
+        """
+
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
+        unsqueeze = x.ndim == 2
+        if unsqueeze:
+            x = x.unsqueeze(1)
+
+        outputs = self.complex_conv(x)
+        outputs = self._squared_modulus_activation(outputs)
+        outputs = self.pooling(outputs)
+        outputs = torch.maximum(
+            outputs, torch.tensor(1e-5, device=outputs.device)
+        )
+        if self.compression:
+            outputs = self.compression(outputs)
+        if not self.skip_transpose:
+            outputs = outputs.transpose(1, -1)
+        return outputs
+
+    def _squared_modulus_activation(self, x):
+        x = x.transpose(1, 2)
+        output = 2 * torch.nn.functional.avg_pool1d(
+            x ** 2.0, kernel_size=2, stride=2
+        )
+        output = output.transpose(1, 2)
+        return output
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels.
+        """
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = 1
+        else:
+            raise ValueError(
+                "Leaf expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+        return in_channels

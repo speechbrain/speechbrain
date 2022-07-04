@@ -1,21 +1,48 @@
-"""Superpowers which should be rarely used.
+"""Superpowers which should be sparingly used.
 
-This library contains functions for importing python classes and
+This library contains functions for importing python files and
 for running shell commands. Remember, with great power comes great
 responsibility.
 
 Authors
  * Mirco Ravanelli 2020
+ * Aku Rouhe 2021
 """
 
 import logging
 import subprocess
+import importlib
+import pathlib
 
 logger = logging.getLogger(__name__)
 
 
+def import_from_path(path):
+    """Import module from absolute path
+
+    Arguments
+    ---------
+    path : str, pathlib.Path
+        The path to the module to import
+
+    Returns
+    -------
+    module
+        The loaded module
+
+    Implementation taken from:
+    https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
+    """
+    path = pathlib.Path(path)
+    modulename = path.with_suffix("").name
+    spec = importlib.util.spec_from_file_location(modulename, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def run_shell(cmd):
-    r"""This function can be used to run a command in the bash shell.
+    """This function can be used to run a command in the bash shell.
 
     Arguments
     ---------
@@ -39,8 +66,7 @@ def run_shell(cmd):
     Example
     -------
     >>> out, err, code = run_shell("echo 'hello world'")
-    >>> out.decode(errors="ignore")
-    'hello world\n'
+    >>> _ = out.decode(errors="ignore")
     """
 
     # Executing the command

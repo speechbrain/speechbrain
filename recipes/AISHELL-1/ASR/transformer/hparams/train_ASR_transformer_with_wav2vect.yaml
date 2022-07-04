@@ -36,7 +36,6 @@ number_of_epochs: 80
 batch_size: 2
 ctc_weight: 0.3
 gradient_accumulation: 16
-gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 
@@ -44,12 +43,12 @@ sorting: random
 stage_one_epochs: 40
 lr_adam: 1.0
 lr_sgd: 0.000025
-lr_wav2vec: 0.0001
+# lr_wav2vec: 0.0001
 
 # Feature parameters
-sample_rate: 16000
-n_fft: 400
-n_mels: 80
+# sample_rate: 16000
+# n_fft: 400
+# n_mels: 80
 
 # Dataloader options
 train_dataloader_opts:
@@ -72,7 +71,6 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -80,7 +78,6 @@ label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0

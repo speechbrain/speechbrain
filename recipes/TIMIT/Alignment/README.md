@@ -9,7 +9,7 @@ python train.py train/train.yaml
 # Results
 
 | Release | hyperparams file | Test Accuracy | Model link | GPUs |
-|:-------------:|:---------------------------:| -----:| -----:| --------:| 
+|:-------------:|:---------------------------:| -----:| -----:| --------:|
 | 20-05-22 | train.yaml | 79.55 | [model](https://drive.google.com/drive/folders/1fXu7JAVUYxZLosH05iBTEPrJyVSCjNRi?usp=sharing)  | 1xV100 32GB |
 
 

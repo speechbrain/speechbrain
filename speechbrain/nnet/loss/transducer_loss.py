@@ -251,6 +251,7 @@ class Transducer(Function):
 
     @staticmethod
     def forward(ctx, log_probs, labels, T, U, blank, reduction):
+        """Computes the transducer loss."""
         log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
@@ -287,6 +288,7 @@ class Transducer(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """Backward computations for the transducer loss."""
         grad_output = grad_output.view(-1, 1, 1, 1).to(ctx.grads)
         return ctx.grads.mul_(grad_output), None, None, None, None, None, None
 
@@ -303,12 +305,12 @@ class TransducerLoss(Module):
     -------
     >>> import torch
     >>> loss = TransducerLoss(blank=0)
-    >>> acts = torch.randn((1,2,3,5)).cuda().log_softmax(dim=-1).requires_grad_()
+    >>> logits = torch.randn((1,2,3,5)).cuda().requires_grad_()
     >>> labels = torch.Tensor([[1,2]]).cuda().int()
     >>> act_length = torch.Tensor([2]).cuda().int()
     >>> # U = label_length+1
     >>> label_length = torch.Tensor([2]).cuda().int()
-    >>> l = loss(acts, labels, act_length, label_length)
+    >>> l = loss(logits, labels, act_length, label_length)
     >>> l.backward()
     """
 
@@ -333,5 +335,8 @@ class TransducerLoss(Module):
             err_msg += "conda install numba cudatoolkit=9.0"
             raise ImportError(err_msg)
 
-    def forward(self, log_probs, labels, T, U):
+    def forward(self, logits, labels, T, U):
+        """Computes the transducer loss."""
+        # Transducer.apply function take log_probs tensor.
+        log_probs = logits.log_softmax(-1)
         return self.loss(log_probs, labels, T, U, self.blank, self.reduction)

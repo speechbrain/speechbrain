@@ -125,19 +125,25 @@ class SLU(sb.Brain):
                 ) as writer:
                     for i in range(len(predicted_semantics)):
                         try:
-                            dict = ast.literal_eval(
+                            _dict = ast.literal_eval(
                                 " ".join(predicted_semantics[i]).replace(
                                     "|", ","
                                 )
                             )
+                            if not isinstance(_dict, dict):
+                                _dict = {
+                                    "scenario": "none",
+                                    "action": "none",
+                                    "entities": [],
+                                }
                         except SyntaxError:  # need this if the output is not a valid dictionary
-                            dict = {
+                            _dict = {
                                 "scenario": "none",
                                 "action": "none",
                                 "entities": [],
                             }
-                        dict["file"] = id_to_file[ids[i]]
-                        writer.write(dict)
+                        _dict["file"] = id_to_file[ids[i]]
+                        writer.write(_dict)
 
         return loss
 

@@ -120,33 +120,14 @@ def prepare_common_voice(
     # Additional checks to make sure the data folder contains Common Voice
     check_commonvoice_folders(data_folder)
 
-    # Creating csv file for training data
-    if train_tsv_file is not None:
-
+    # Creating csv files for {train, dev, test} data
+    file_pairs = zip(
+        [train_tsv_file, dev_tsv_file, test_tsv_file],
+        [save_csv_train, save_csv_dev, save_csv_test],
+    )
+    for tsv_file, save_csv in file_pairs:
         create_csv(
-            train_tsv_file,
-            save_csv_train,
-            data_folder,
-            accented_letters,
-            language,
-        )
-
-    # Creating csv file for dev data
-    if dev_tsv_file is not None:
-
-        create_csv(
-            dev_tsv_file, save_csv_dev, data_folder, accented_letters, language
-        )
-
-    # Creating csv file for test data
-    if test_tsv_file is not None:
-
-        create_csv(
-            test_tsv_file,
-            save_csv_test,
-            data_folder,
-            accented_letters,
-            language,
+            tsv_file, save_csv, data_folder, accented_letters, language,
         )
 
 
@@ -271,12 +252,12 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
             )
-            words = re.sub("[^" + letters + "]+", " ", words).upper()
+            words = re.sub("[^" + letters + " ]+", "", words).upper()
         elif language == "ga-IE":
             # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
             def pfxuc(a):

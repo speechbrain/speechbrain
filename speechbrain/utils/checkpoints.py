@@ -498,7 +498,7 @@ class Checkpointer:
             self.recoverables.update(recoverables)
         else:
             rec = repr(recoverables)  # noqa: F841, rec is used in MSG
-            MSG = "Checkpointer needs a mapping (e.g. dict), \
+            MSG = f"Checkpointer needs a mapping (e.g. dict), \
                     got {rec} instead."
             raise AttributeError(MSG)
 
@@ -742,9 +742,11 @@ class Checkpointer:
         if max_key and not importance_key:
 
             def importance_key(ckpt):
+                "Defines the importance key."
                 return ckpt.meta[max_key]
 
             def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
+                "Checkpoints predicate."
                 if old_predicate is not None:
                     return max_key in ckpt.meta and old_predicate(ckpt)
                 else:
@@ -753,9 +755,11 @@ class Checkpointer:
         elif min_key and not importance_key:
 
             def importance_key(ckpt):
+                "Defines the importance key."
                 return -ckpt.meta[min_key]
 
             def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
+                "Checkpoints predicate."
                 if old_predicate is not None:
                     return min_key in ckpt.meta and old_predicate(ckpt)
                 else:
