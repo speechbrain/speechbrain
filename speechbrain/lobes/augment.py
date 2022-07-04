@@ -43,13 +43,13 @@ class SpecAugment(torch.nn.Module):
         Time warp window.
     time_warp_mode : str
         Interpolation mode for time warping (default "bicubic").
-    freq_mask : bool1
+    freq_mask : bool
         Whether applying freq mask.
     freq_mask_width : int or tuple
         Freq mask width range.
     n_freq_mask : int
         Number of freq mask.
-    time_mask : int
+    time_mask : bool
         Whether applying time mask.
     time_mask_width : int or tuple
         Time mask width range.
@@ -401,6 +401,7 @@ class EnvCorrupt(torch.nn.Module):
             self.add_reverb = AddReverb(
                 reverb_prob=reverb_prob,
                 csv_file=reverb_csv,
+                rir_scale_factor=rir_scale_factor,
                 reverb_sample_rate=reverb_sample_rate,
                 clean_sample_rate=clean_sample_rate,
             )
