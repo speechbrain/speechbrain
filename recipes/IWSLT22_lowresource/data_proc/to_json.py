@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+"""
+Tamasheq-French data processing.
+
+Author
+------
+Marcely Zanon Boito 2022
+"""
+
 import sys
 import json
 

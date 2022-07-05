@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-import os
+"""Recipe for fine-tuning a wav2vec model for the ST task (no transcriptions).
+
+Author
+ * Marcely Zanon Boito, 2022
+"""
+
 import sys
 import torch
 import logging
 import speechbrain as sb
-import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
 from sacremoses import MosesDetokenizer
 
@@ -95,7 +98,6 @@ class ST(sb.core.Brain):
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
-        current_epoch = self.hparams.epoch_counter.current
 
         if self.check_gradients(loss):
             if not self.hparams.wav2vec2_frozen: #if wav2vec2 is not frozen
