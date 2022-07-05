@@ -70,6 +70,8 @@ if __name__ == "__main__":
 
     # See: https://stackoverflow.com/a/22157136
     class SmartFormatter(argparse.HelpFormatter):
+        """SmartFormatter class."""
+
         def _split_lines(self, text, width):
             if text.startswith("R|"):
                 return text[2:].splitlines()

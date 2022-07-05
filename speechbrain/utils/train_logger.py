@@ -161,11 +161,13 @@ class TensorboardLogger(TrainLogger):
                     self.global_step[dataset][stat] = new_global_step
 
     def log_audio(self, name, value, sample_rate):
+        """Add audio signal in the logs."""
         self.writer.add_audio(
             name, value, self.global_step["meta"], sample_rate=sample_rate
         )
 
     def log_figure(self, name, value):
+        """Add a figure in the logs."""
         fig = plot_spectrogram(value)
         if fig is not None:
             self.writer.add_figure(name, fig, self.global_step["meta"])
@@ -227,16 +229,6 @@ def _get_image_saver():
 
 
 class ProgressSampleLogger:
-    _DEFAULT_FORMAT_DEFS = {
-        "raw": {"extension": "pth", "saver": torch.save, "kwargs": {}},
-        "image": {
-            "extension": "png",
-            "saver": _get_image_saver(),
-            "kwargs": {},
-        },
-    }
-    DEFAULT_FORMAT = "image"
-
     """A logger that outputs samples during training progress, used primarily in speech synthesis but customizable, reusable and applicable to any other generative task
 
     Natively, this logger supports images and raw PyTorch output.
@@ -300,6 +292,16 @@ class ProgressSampleLogger:
     batch_sample_size: int
         The number of items to retrieve when extracting a batch sample
     """
+
+    _DEFAULT_FORMAT_DEFS = {
+        "raw": {"extension": "pth", "saver": torch.save, "kwargs": {}},
+        "image": {
+            "extension": "png",
+            "saver": _get_image_saver(),
+            "kwargs": {},
+        },
+    }
+    DEFAULT_FORMAT = "image"
 
     def __init__(
         self, output_path, formats=None, format_defs=None, batch_sample_size=1

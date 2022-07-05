@@ -68,6 +68,15 @@ class TransformerInterface(nn.Module):
     causal: bool, optional
         Whether the encoder should be causal or not (the decoder is always causal).
         If causal the Conformer convolutional layer is causal.
+    encoder_kdim: int, optional
+        Dimension of the key for the encoder.
+    encoder_vdim: int, optional
+        Dimension of the value for the encoder.
+    decoder_kdim: int, optional
+        Dimension of the key for the decoder.
+    decoder_vdim: int, optional
+        Dimension of the value for the decoder.
+
     """
 
     def __init__(
@@ -90,11 +99,19 @@ class TransformerInterface(nn.Module):
         attention_type: Optional[str] = "regularMHA",
         max_length: Optional[int] = 2500,
         causal: Optional[bool] = False,
+        encoder_kdim: Optional[int] = None,
+        encoder_vdim: Optional[int] = None,
+        decoder_kdim: Optional[int] = None,
+        decoder_vdim: Optional[int] = None,
     ):
         super().__init__()
         self.causal = causal
         self.attention_type = attention_type
         self.positional_encoding_type = positional_encoding
+        self.encoder_kdim = encoder_kdim
+        self.encoder_vdim = encoder_vdim
+        self.decoder_kdim = decoder_kdim
+        self.decoder_vdim = decoder_vdim
 
         assert attention_type in ["regularMHA", "RelPosMHAXL"]
         assert positional_encoding in ["fixed_abs_sine", None]
@@ -131,6 +148,8 @@ class TransformerInterface(nn.Module):
                     normalize_before=normalize_before,
                     causal=self.causal,
                     attention_type=self.attention_type,
+                    kdim=self.encoder_kdim,
+                    vdim=self.encoder_vdim,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -167,11 +186,12 @@ class TransformerInterface(nn.Module):
                 normalize_before=normalize_before,
                 causal=True,
                 attention_type="regularMHA",  # always use regular attention in decoder
+                kdim=self.decoder_kdim,
+                vdim=self.decoder_vdim,
             )
 
     def forward(self, **kwags):
-        """Users should modify this function according to their own tasks.
-        """
+        """Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
 
@@ -759,6 +779,7 @@ class NormalizedEmbedding(nn.Module):
         self.d_model = d_model
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         return self.emb(x) * math.sqrt(self.d_model)
 
 

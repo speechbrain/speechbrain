@@ -16,6 +16,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g. /localscratch/common_voice_kpd/
 output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
+rir_folder: !ref <data_folder>
 train_log: !ref <output_folder>/train_log.txt
 device: 'cuda:0'
 skip_prep: False
@@ -51,7 +52,7 @@ test_dataloader_options:
 # Added noise and reverb come from OpenRIR dataset, automatically
 # downloaded and prepared with this Environmental Corruption class.
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 3.0  # seconds
     babble_prob: 0.0
     reverb_prob: 1.0

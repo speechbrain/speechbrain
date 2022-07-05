@@ -27,6 +27,8 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
+    """Class that manages the training loop. See speechbrain.core.Brain."""
+
     def compute_forward(self, batch, stage):
         """Apply masking to convert from noisy waveforms to enhanced signals.
 
