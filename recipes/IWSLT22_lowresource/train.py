@@ -16,34 +16,35 @@ from sacremoses import MosesDetokenizer
 
 logger = logging.getLogger(__name__)
 
+
 # Define training procedure
 class ST(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
 
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig # audio
+        wavs, wav_lens = batch.sig  # audio
         tokens_bos, _ = batch.tokens_bos  # translation
 
-        #wav2vec module
-        feats = self.modules.wav2vec2(wavs) 
-         
-        #dimensionality reduction
-        src = self.modules.enc(feats) 
+        # wav2vec module
+        feats = self.modules.wav2vec2(wavs)
 
-        #transformer decoder
+        # dimensionality reduction
+        src = self.modules.enc(feats)
+
+        # transformer decoder
         dec_out = self.modules.Transformer.forward_mt_decoder_only(
             src, tokens_bos, pad_idx=self.hparams.pad_index
         )
-        
-        #logits and softmax
+
+        # logits and softmax
         pred = self.modules.seq_lin(dec_out)
         p_seq = self.hparams.log_softmax(pred)
-        
+
         # compute outputs
         hyps = None
-        if stage == sb.Stage.VALID: 
-            #the output of the encoder (enc) is used for valid search
+        if stage == sb.Stage.VALID:
+            # the output of the encoder (enc) is used for valid search
             hyps, _ = self.hparams.valid_search(src.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(src.detach(), wav_lens)
@@ -57,15 +58,15 @@ class ST(sb.core.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         # st loss
-        loss = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens,
-        )
+        loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens,)
 
         fr_detokenizer = MosesDetokenizer(lang=self.hparams.lang)
 
         if stage != sb.Stage.TRAIN:
             predictions = [
-                fr_detokenizer.detokenize(hparams["tokenizer"].decode_ids(utt_seq).split(" ")) 
+                fr_detokenizer.detokenize(
+                    hparams["tokenizer"].decode_ids(utt_seq).split(" ")
+                )
                 for utt_seq in hyps
             ]
 
@@ -74,7 +75,7 @@ class ST(sb.core.Brain):
                 for translation in batch.trans
             ]
             # it needs to be a list of list due to the extend on the bleu implementation
-            targets = [detokenized_translation] 
+            targets = [detokenized_translation]
 
             self.bleu_metric.append(ids, predictions, targets)
 
@@ -100,12 +101,12 @@ class ST(sb.core.Brain):
         loss.backward()
 
         if self.check_gradients(loss):
-            if not self.hparams.wav2vec2_frozen: #if wav2vec2 is not frozen
+            if not self.hparams.wav2vec2_frozen:  # if wav2vec2 is not frozen
                 self.wav2vec_optimizer.step()
             self.adam_optimizer.step()
-        
+
         if not self.hparams.wav2vec2_frozen:
-                self.wav2vec_optimizer.zero_grad()
+            self.wav2vec_optimizer.zero_grad()
         self.adam_optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -119,7 +120,7 @@ class ST(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called when a stage (either training, validation, test) starts."""
-        self.bleu_metric = self.hparams.bleu_computer() 
+        self.bleu_metric = self.hparams.bleu_computer()
 
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()
@@ -130,10 +131,10 @@ class ST(sb.core.Brain):
         # Compute/store important stats
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_loss
-        
-        else: #valid or test
+
+        else:  # valid or test
             stage_stats = {"loss": stage_loss}
-            stage_stats["ACC"] = self.acc_metric.summarize() 
+            stage_stats["ACC"] = self.acc_metric.summarize()
             stage_stats["BLEU"] = self.bleu_metric.summarize(field="BLEU")
             stage_stats["BLEU_extensive"] = self.bleu_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
@@ -141,36 +142,51 @@ class ST(sb.core.Brain):
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             current_epoch = self.hparams.epoch_counter.current
-            old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(stage_stats["BLEU"]) 
-            sb.nnet.schedulers.update_learning_rate(self.adam_optimizer, new_lr_adam)
+            old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
+                stage_stats["BLEU"]
+            )
+            sb.nnet.schedulers.update_learning_rate(
+                self.adam_optimizer, new_lr_adam
+            )
 
             if not self.hparams.wav2vec2_frozen:
-                    old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(stage_stats["BLEU"]) 
-                    sb.nnet.schedulers.update_learning_rate(self.wav2vec_optimizer, new_lr_wav2vec)
-                    self.hparams.train_logger.log_stats(
-                        stats_meta={"epoch": current_epoch, "lr_adam": old_lr_adam, "lr_wav2vec": old_lr_wav2vec},
-                        train_stats={"loss": self.train_stats},
-                        valid_stats= stage_stats, 
-                    )
-            else: 
+                (
+                    old_lr_wav2vec,
+                    new_lr_wav2vec,
+                ) = self.hparams.lr_annealing_wav2vec(stage_stats["BLEU"])
+                sb.nnet.schedulers.update_learning_rate(
+                    self.wav2vec_optimizer, new_lr_wav2vec
+                )
+                self.hparams.train_logger.log_stats(
+                    stats_meta={
+                        "epoch": current_epoch,
+                        "lr_adam": old_lr_adam,
+                        "lr_wav2vec": old_lr_wav2vec,
+                    },
+                    train_stats={"loss": self.train_stats},
+                    valid_stats=stage_stats,
+                )
+            else:
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": current_epoch, "lr_adam": old_lr_adam},
                     train_stats={"loss": self.train_stats},
-                    valid_stats= stage_stats,
+                    valid_stats=stage_stats,
                 )
-            
-            #create checkpoing
-            meta={"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
-            name="checkpoint_epoch" + str(current_epoch)
 
-            self.checkpointer.save_and_keep_only(meta=meta, name=name, num_to_keep=10, max_keys=["BLEU"])
+            # create checkpoing
+            meta = {"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
+            name = "checkpoint_epoch" + str(current_epoch)
 
+            self.checkpointer.save_and_keep_only(
+                meta=meta, name=name, num_to_keep=10, max_keys=["BLEU"]
+            )
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
+
 
 # Define custom data procedure
 def dataio_prepare(hparams):
@@ -224,10 +240,7 @@ def dataio_prepare(hparams):
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
-            dynamic_items=[
-                audio_pipeline_func,
-                reference_text_pipeline,
-            ],
+            dynamic_items=[audio_pipeline_func, reference_text_pipeline, ],
             output_keys=[
                 "id",
                 "sig",
@@ -244,10 +257,7 @@ def dataio_prepare(hparams):
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
-            dynamic_items=[
-                audio_pipeline,
-                reference_text_pipeline,
-            ],
+            dynamic_items=[audio_pipeline, reference_text_pipeline, ],
             output_keys=[
                 "id",
                 "sig",
@@ -332,6 +342,7 @@ def dataio_prepare(hparams):
 
     return datasets
 
+
 if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
@@ -358,16 +369,17 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Fetch pretrained modules 
+    # Fetch pretrained modules
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
-    
-    
+
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)
-    
+
     # Before training, we drop some of the wav2vec 2.0 Transformer Encoder layers
-    st_brain.modules.wav2vec2.model.encoder.layers = st_brain.modules.wav2vec2.model.encoder.layers[:hparams["keep_n_layers"]]
+    st_brain.modules.wav2vec2.model.encoder.layers = st_brain.modules.wav2vec2.model.encoder.layers[
+        : hparams["keep_n_layers"]
+    ]
 
     print(st_brain.modules)
 
