@@ -1,3 +1,9 @@
+"""Library for the Reseource-Efficient Sepformer.
+
+Authors
+ * Cem Subakan 2022
+"""
+
 import torch
 import torch.nn as nn
 from speechbrain.lobes.models.dual_path import select_norm

@@ -393,6 +393,7 @@ def classification_error(
         )
 
     def error(predictions, targets):
+        """Computes the classification error."""
         predictions = torch.argmax(probabilities, dim=-1)
         return (predictions != targets).float()
 

@@ -64,7 +64,7 @@ Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through h
 * Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-whamr).
-The 16kHz version of the sepformer can be found [here](https://huggingface.co/speechbrain/speechbrain/sepformer-whamr16k).
+The 16kHz version of the sepformer can be found [here](https://huggingface.co/speechbrain/sepformer-whamr16k).
 
 # Example calls for running the training scripts
 

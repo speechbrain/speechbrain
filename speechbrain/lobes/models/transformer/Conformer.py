@@ -99,7 +99,7 @@ class ConvolutionModule(nn.Module):
         )
 
     def forward(self, x, mask=None):
-
+        """ Processes the input tensor x and returns the output an output tensor"""
         out = self.layer_norm(x)
         out = out.transpose(1, 2)
         out = self.bottleneck(out)
@@ -224,7 +224,6 @@ class ConformerEncoderLayer(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
     ):
-
         """
         Arguments
         ----------

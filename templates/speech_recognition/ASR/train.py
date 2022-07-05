@@ -56,6 +56,8 @@ logger = logging.getLogger(__name__)
 
 # Brain class for speech recognition training
 class ASR(sb.Brain):
+    """Class that manages the training loop. See speechbrain.core.Brain."""
+
     def compute_forward(self, batch, stage):
         """Runs all the computation of the CTC + seq2seq ASR. It returns the
         posterior probabilities of the CTC and seq2seq networks.

@@ -46,7 +46,7 @@ class Encoder(nn.Module):
         Arguments
         ---------
         mixture : Tensor
-            Tesor shape is [M, T]. M is batch size. T is #samples
+            Tensor shape is [M, T]. M is batch size. T is #samples
 
         Returns
         -------
@@ -535,6 +535,7 @@ class ChannelwiseLayerNorm(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """Resets the parameters."""
         self.gamma.data.fill_(1)
         self.beta.data.zero_()
 
@@ -575,6 +576,7 @@ class GlobalLayerNorm(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """Resets the parameters."""
         self.gamma.data.fill_(1)
         self.beta.data.zero_()
 
