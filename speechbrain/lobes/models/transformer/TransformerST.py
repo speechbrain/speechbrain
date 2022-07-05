@@ -341,7 +341,7 @@ class TransformerST(TransformerASR):
             memory_key_padding_mask=src_key_padding_mask,
         )
 
-        return decoder_out 
+        return decoder_out
 
     def decode_asr(self, tgt, encoder_out):
         """This method implements a decoding step for the transformer model.

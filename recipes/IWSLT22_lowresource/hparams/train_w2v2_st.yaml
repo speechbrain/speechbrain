@@ -36,11 +36,11 @@ wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
 
 # wav2vec 2.0 specific parameters
 wav2vec2_frozen: False
-keep_n_layers: 6 # keep first N layers from the Transformer Encoder stack inside the wav2vec 2.0 model 
+keep_n_layers: 6 # keep first N layers from the Transformer Encoder stack inside the wav2vec 2.0 model
 
 # Training parameters
 number_of_epochs: 100
-lr: 0.001 
+lr: 0.001
 lr_wav2vec: 0.00001
 sorting: ascending
 batch_size: 4
@@ -53,14 +53,14 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 dataloader_options:
     batch_size: !ref <batch_size>
-    num_workers: 4 
+    num_workers: 4
 
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
     num_workers: 4
 
 # Feature parameters (W2V2 etc)
-features_dim: 768 #base wav2vec output dimension 
+features_dim: 768 #base wav2vec output dimension
 
 #projection for w2v
 enc_dnn_layers: 1
@@ -74,7 +74,7 @@ num_decoder_layers: 3
 d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 1000 # /!\ needs to be changed accordingly to the vocabulary 
+output_neurons: 1000 # /!\ needs to be changed accordingly to the vocabulary
 attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 
 # Outputs
@@ -109,7 +109,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 
 #transformer decoder
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.TransformerST # yamllint disable-line rule:line-length
-    input_size: !ref <embedding_size> 
+    input_size: !ref <embedding_size>
     tgt_vocab: !ref <output_neurons>
     num_encoder_layers: 0
     num_decoder_layers: !ref <num_decoder_layers>
@@ -120,7 +120,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.Transformer
     activation: !ref <activation>
     attention_type: !ref <attention_type>
     normalize_before: True
-    causal: False 
+    causal: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -140,7 +140,7 @@ model: !new:torch.nn.ModuleList
 
 adam_opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
- 
+
 wav2vec_opt_class: !name:torch.optim.Adam
     lr: !ref <lr_wav2vec>
 
@@ -151,9 +151,9 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr>
     improvement_threshold: 0.0025
-    annealing_factor: 0.5 
+    annealing_factor: 0.5
     patient: 2
- 
+
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_wav2vec>
     improvement_threshold: 0.0025
@@ -172,7 +172,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, null] 
+    modules: [!ref <Transformer>, !ref <seq_lin>, null]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>

@@ -240,7 +240,7 @@ def dataio_prepare(hparams):
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
-            dynamic_items=[audio_pipeline_func, reference_text_pipeline, ],
+            dynamic_items=[audio_pipeline_func, reference_text_pipeline],
             output_keys=[
                 "id",
                 "sig",
@@ -257,7 +257,7 @@ def dataio_prepare(hparams):
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
-            dynamic_items=[audio_pipeline, reference_text_pipeline, ],
+            dynamic_items=[audio_pipeline, reference_text_pipeline],
             output_keys=[
                 "id",
                 "sig",
