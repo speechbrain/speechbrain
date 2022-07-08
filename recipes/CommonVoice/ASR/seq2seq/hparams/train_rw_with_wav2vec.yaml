@@ -106,7 +106,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoints
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead
