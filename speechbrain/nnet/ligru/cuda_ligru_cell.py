@@ -41,6 +41,9 @@ _preamble_gradient_tanh = """
 template <typename T> __device__ T gradient_activation_hcand(T x) { return 1 - x * x; }
 """
 
+_preamble_gradient_sin = """
+template <typename T> __device__ T gradient_activation_hcand(T x) { return cos(x); }
+"""
 
 def transform_tensor_to_cupy(x):
     """Transform a PyTorch Tensor located on device="cuda" to a CuPy array.
@@ -187,8 +190,10 @@ class _ligru_cell_cupy(autograd.Function):
             preamble_gradient = _preamble_gradient_leaky_relu
         elif activation_function_name == "Tanh":
             preamble_gradient = _preamble_gradient_tanh
-        else:
+        elif activation_function_name == "ReLU":
             preamble_gradient = _preamble_gradient_relu
+        else:
+            preamble_gradient = _preamble_gradient_sin
 
         _ligru_cell_backward_kernel = cp.ElementwiseKernel(
             "T grad_out, T dh_prev, T zt, T at, T drop_mask, T ht, T hcand",
