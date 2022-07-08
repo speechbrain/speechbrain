@@ -17,7 +17,7 @@ Make sure you have the "transformers" package installed in your environment (see
 
 # Results
 
-| Release | hyperparams file | Swbd WER | Callhome WER | Full Eval2000 | HuggingFace link | Full model link | GPUs |
+| Release | hyperparams file | Swbd WER | Callhome WER | Eval2000 WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :--------:| :--------:| :-----:| :-----:| :--------:|
 | 01-07-22 | train_with_wav2vec.yaml | 8.90 | 14.99 | 12.04 | n.a.| n.a. | 1xA100 40GB |
 
