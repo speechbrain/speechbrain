@@ -268,7 +268,7 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
 
 
 def load_g2p_checkpoint(
-    hparams_file_name, path=None, best=False, train_step=None
+    hparams_file_name, path=None, best=False, train_step=None, run_opts=None
 ):
     """Loads a G2P model from a checkpoint using the specified
     criteria
@@ -286,6 +286,8 @@ def load_g2p_checkpoint(
     train_step: str
         whether or not to use checkpoints only from a specific
         training step
+    run_opts: dict
+        the run options
 
     Returns
     -------
@@ -320,7 +322,9 @@ def load_g2p_checkpoint(
 
     print(f"Using checkpoint {ckpt.path} with metadata {ckpt.meta}")
 
-    return GraphemeToPhoneme(hparams=hparams, modules=hparams["modules"])
+    return GraphemeToPhoneme(
+        hparams=hparams, modules=hparams["modules"], run_opts=run_opts
+    )
 
 
 def main():
@@ -383,6 +387,7 @@ def main():
             path=arguments.ckpt,
             best=arguments.ckpt_best,
             train_step=arguments.ckpt_train_step,
+            run_opts=run_opts,
         )
     else:
         g2p = GraphemeToPhoneme.from_hparams(

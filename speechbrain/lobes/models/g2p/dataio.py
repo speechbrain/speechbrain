@@ -319,7 +319,7 @@ def add_bos_eos(seq=None, encoder=None):
     seq_bos = encoder.prepend_bos_index(seq)
     if not torch.is_tensor(seq_bos):
         seq_bos = torch.tensor(seq_bos)
-    yield torch.tensor(seq_bos.long())
+    yield seq_bos.long()
     yield torch.tensor(len(seq_bos))
     seq_eos = encoder.append_eos_index(seq)
     if not torch.is_tensor(seq_eos):
