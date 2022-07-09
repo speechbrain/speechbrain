@@ -546,7 +546,18 @@ encode_pipeline:
           takes: grapheme_encoded_list
           provides:
               - grapheme_encoded
+              - grapheme_len
               - grapheme_encoded_eos
+              - grapheme_len_eos
+        - func: !name:speechbrain.lobes.models.g2p.dataio.word_emb_pipeline
+              word_emb: !ref <word_emb>
+              grapheme_encoder: !ref <grapheme_encoder>
+              use_word_emb: !ref <use_word_emb>
+          takes:
+              - txt
+              - grapheme_encoded
+              - grapheme_len
+          provides: word_emb
 
 
 decode_pipeline:

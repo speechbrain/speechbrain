@@ -570,7 +570,9 @@ def _apply_word_emb(word_emb_enc, emb_char, word_emb):
         the resulting (concatenated) tensor
     """
     word_emb_enc = (
-        word_emb_enc(word_emb) if word_emb_enc is not None else word_emb
+        word_emb_enc(word_emb.data)
+        if word_emb_enc is not None
+        else word_emb.data
     )
     return torch.cat([emb_char, word_emb_enc], dim=-1)
 
