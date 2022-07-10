@@ -867,7 +867,10 @@ class Brain:
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            with self.no_sync(not should_step):
+                self.scaler.scale(
+                    loss / self.grad_accumulation_factor
+                ).backward()
             if should_step:
                 self.scaler.unscale_(self.optimizer)
                 if self.check_gradients(loss):
@@ -877,7 +880,8 @@ class Brain:
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
+            with self.no_sync(not should_step):
+                (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
                     self.optimizer.step()
@@ -888,7 +892,20 @@ class Brain:
         return loss.detach().cpu()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """Called after ``fit_batch()``"""
+        """Called after ``fit_batch()``, meant for calculating and logging metrics.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        outputs : list or dictionary of torch.Tensors
+            Returned value of compute_forward().
+        loss : torch.Tensor
+            Returned value of compute_objectives().
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
         pass
 
     def check_gradients(self, loss):
