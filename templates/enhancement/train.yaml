@@ -25,6 +25,7 @@ data_folder: ./data
 output_folder: !ref ./results/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+rir_folder: !ref <data_folder>
 
 # Path where data manifest files will be stored
 # The data manifest files are created by the data preparation script.
@@ -73,7 +74,7 @@ resynth: !name:speechbrain.processing.signal_processing.resynthesize
 # downloaded and prepared with this Environmental Corruption class.
 # The babble is generated from other utterances in each batch.
 env_corruption: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 10
     noise_snr_low: 0
     noise_snr_high: 15
