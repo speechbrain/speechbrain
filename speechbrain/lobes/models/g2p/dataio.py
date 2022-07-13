@@ -640,6 +640,6 @@ def word_emb_pipeline(
             seq=grapheme_encoded.unsqueeze(0),
             seq_len=grapheme_encoded_len.unsqueeze(0),
             word_separator=word_separator_idx,
-        )
+        ).squeeze(0)
 
-    return char_word_emb.squeeze(0)
+    return char_word_emb
