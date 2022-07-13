@@ -533,10 +533,7 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 
 
 def spectral_embedding_sb(
-    adjacency,
-    n_components=8,
-    norm_laplacian=True,
-    drop_first=True,
+    adjacency, n_components=8, norm_laplacian=True, drop_first=True,
 ):
     """Returns spectral embeddings.
 
@@ -605,10 +602,7 @@ def spectral_embedding_sb(
     laplacian *= -1
 
     vals, diffusion_map = eigsh(
-        laplacian,
-        k=n_components,
-        sigma=1.0,
-        which="LM",
+        laplacian, k=n_components, sigma=1.0, which="LM",
     )
 
     embedding = diffusion_map.T[n_components::-1]
@@ -624,11 +618,7 @@ def spectral_embedding_sb(
 
 
 def spectral_clustering_sb(
-    affinity,
-    n_clusters=8,
-    n_components=None,
-    random_state=None,
-    n_init=10,
+    affinity, n_clusters=8, n_components=None, random_state=None, n_init=10,
 ):
     """Performs spectral clustering.
 
@@ -672,9 +662,7 @@ def spectral_clustering_sb(
     n_components = n_clusters if n_components is None else n_components
 
     maps = spectral_embedding_sb(
-        affinity,
-        n_components=n_components,
-        drop_first=False,
+        affinity, n_components=n_components, drop_first=False,
     )
 
     _, labels, _ = k_means(
@@ -705,16 +693,13 @@ class Spec_Cluster(SpectralClustering):
 
         # Computation of affinity matrix
         connectivity = kneighbors_graph(
-            X,
-            n_neighbors=n_neighbors,
-            include_self=True,
+            X, n_neighbors=n_neighbors, include_self=True,
         )
         self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
 
         # Perform spectral clustering on affinity matrix
         self.labels_ = spectral_clustering_sb(
-            self.affinity_matrix_,
-            n_clusters=self.n_clusters,
+            self.affinity_matrix_, n_clusters=self.n_clusters,
         )
         return self
 
@@ -1168,9 +1153,7 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
         num_of_spk = k_oracle
 
         clustering = AgglomerativeClustering(
-            n_clusters=num_of_spk,
-            affinity="cosine",
-            linkage="ward",
+            n_clusters=num_of_spk, affinity="cosine", linkage="ward",
         ).fit(diary_obj.stat1)
         labels = clustering.labels_
 
