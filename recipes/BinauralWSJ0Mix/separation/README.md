@@ -37,11 +37,15 @@ Here are the SNRi results (in dB) as well as ITD and ILD errors as the metric fo
 | --- | --- | --- | --- |
 |ConvTasnet-independent| 12.39 | 6.17 | 0.32 |
 |ConvTasnet-cross| 11.9 | 5.69 | 0.37 |
-|ConvTasnet-parallel| 11.69 | 3.23 | 0.23 |
+|ConvTasnet-parallel| 16.93 | 2.38 | 0.09 |
+|ConvTasnet-parallel-noise| 18.25 | 5.56 | 0.23 |
+|ConvTasnet-parallel-reverb| 6.95 | 0.0 | 0.40 |
 
 * ConvTasnet-independent.yaml refers to ConvTasnet is applied to each channel independently.
 * ConvTasnet-cross.yaml refers to cross-channel features like ILD or IPD are concatenated to the encoder output.
 * ConvTasnet-parallel.yaml refers to the proposed multiinput-multi-output (MIMO) TasNet in the original paper [1].
+* ConvTasnet-parallel-noise.yaml refers to the above Tasnet applied to 2 speakers with DEMAND noise.
+* ConvTasnet-parallel-noise.yaml refers to the above Tasnet applied to 2 speakers with reverberance(RT60) from the [BRIR Sim Set](http://iosr.uk/software/index.php).
 
 The output folders with the checkpoints, logs, etc are available [here](https://drive.google.com/drive/folders/17FFwlIq6MQLHT9RXPgeYssti5TEeEXsx?usp=sharing)
 
