@@ -1052,12 +1052,22 @@ def dataio_prep(hparams, train_step=None):
         {
             "func": phn_bos_eos_pipeline_item,
             "takes": ["phn_encoded"],
-            "provides": ["phn_encoded_bos", "phn_encoded_eos"],
+            "provides": [
+                "phn_encoded_bos",
+                "phn_len_bos",
+                "phn_encoded_eos",
+                "phn_len_eos",
+            ],
         },
         {
             "func": grapheme_bos_eos_pipeline_item,
             "takes": ["grapheme_encoded"],
-            "provides": ["grapheme_encoded_bos", "grapheme_encoded_eos"],
+            "provides": [
+                "grapheme_encoded_bos",
+                "grapheme_len_bos",
+                "grapheme_encoded_eos",
+                "grapheme_len_eos",
+            ],
         },
     ]
 
