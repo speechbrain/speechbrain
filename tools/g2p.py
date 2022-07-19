@@ -310,6 +310,15 @@ def load_g2p_checkpoint(
                 else None
             ),
         )
+        if not ckpt and train_step == "homograph":
+            ckpt = checkpointer.recover_if_possible(
+                min_key="PER_homograph",
+                ckpt_predicate=(
+                    (lambda ckpt: ckpt.meta.get("step") == train_step)
+                    if train_step is not None
+                    else None
+                ),
+            )
     elif path:
         ckpt = checkpointer.recover_if_possible(
             ckpt_predicate=lambda ckpt: ckpt.path == path
