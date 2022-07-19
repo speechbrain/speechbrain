@@ -1267,11 +1267,20 @@ if __name__ == "__main__":
             )
 
             # Test
-            g2p_brain.evaluate(
-                test_data,
-                min_key=train_step.get("performance_key"),
-                test_loader_kwargs=dataloader_opts,
-            )
+            skip_test = False
+            if isinstance(hparams["skip_test"], bool):
+                skip_test = hparams["skip_test"]
+            else:
+                skip_test = train_step["name"] in hparams["skip_test"].split(
+                    ","
+                )
+
+            if not skip_test:
+                g2p_brain.evaluate(
+                    test_data,
+                    min_key=train_step.get("performance_key"),
+                    test_loader_kwargs=dataloader_opts,
+                )
 
             if hparams.get("save_for_pretrained"):
                 save_for_pretrained(

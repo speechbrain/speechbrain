@@ -67,6 +67,9 @@ tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 skip_prep: False
 sorting: random #ascending
 origins: "*"
+# skip_test can be a Boolean value or a list of steps for which
+# the test stage can be skipped
+skip_test: null
 phonemes_count: 43
 graphemes_count: 31
 phonemes_enable_space: True
