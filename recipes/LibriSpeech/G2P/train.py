@@ -1267,13 +1267,9 @@ if __name__ == "__main__":
             )
 
             # Test
-            skip_test = False
-            if isinstance(hparams["skip_test"], bool):
-                skip_test = hparams["skip_test"]
-            else:
-                skip_test = train_step["name"] in hparams["skip_test"].split(
-                    ","
-                )
+            skip_test = hparams.get("skip_test", False)
+            if isinstance(skip_test, str):
+                skip_test = train_step["name"] in skip_test.split(",")
 
             if not skip_test:
                 g2p_brain.evaluate(
