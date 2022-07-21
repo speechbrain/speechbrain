@@ -268,7 +268,12 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
 
 
 def load_g2p_checkpoint(
-    hparams_file_name, path=None, best=False, train_step=None, run_opts=None
+    hparams_file_name,
+    path=None,
+    best=False,
+    train_step=None,
+    run_opts=None,
+    overrides=None
 ):
     """Loads a G2P model from a checkpoint using the specified
     criteria
@@ -288,6 +293,9 @@ def load_g2p_checkpoint(
         training step
     run_opts: dict
         the run options
+    overrides: dict
+        command-line parameters to overrde the ones supplied
+        in hparams
 
     Returns
     -------
@@ -295,7 +303,7 @@ def load_g2p_checkpoint(
         a pretrained G2P model, initialized from a checkpoint
     """
     with open(hparams_file_name) as hparams_file:
-        hparams = load_hyperpyyaml(hparams_file)
+        hparams = load_hyperpyyaml(hparams_file, overrides)
     checkpointer = hparams.get("checkpointer")
     if checkpointer is None:
         raise ValueError(
@@ -397,6 +405,7 @@ def main():
             best=arguments.ckpt_best,
             train_step=arguments.ckpt_train_step,
             run_opts=run_opts,
+            overrides=overrides
         )
     else:
         g2p = GraphemeToPhoneme.from_hparams(
