@@ -210,4 +210,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
