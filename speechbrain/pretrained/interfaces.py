@@ -289,6 +289,7 @@ class Pretrained(torch.nn.Module):
         overrides={},
         savedir=None,
         use_auth_token=False,
+        revision=None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -332,16 +333,20 @@ class Pretrained(torch.nn.Module):
         use_auth_token : bool (default: False)
             If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because majority of models are public.
+        revision : str
+            The model revision corresponding to the HuggingFace Hub model revision.
+            This is particularly useful if you wish to pin your code to a particular
+            version of a model hosted at HuggingFace.
         """
         if savedir is None:
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
-            hparams_file, source, savedir, use_auth_token
+            hparams_file, source, savedir, use_auth_token, revision
         )
         try:
             pymodule_local_path = fetch(
-                pymodule_file, source, savedir, use_auth_token
+                pymodule_file, source, savedir, use_auth_token, revision
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
