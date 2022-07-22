@@ -273,7 +273,7 @@ def load_g2p_checkpoint(
     best=False,
     train_step=None,
     run_opts=None,
-    overrides=None
+    overrides=None,
 ):
     """Loads a G2P model from a checkpoint using the specified
     criteria
@@ -405,7 +405,7 @@ def main():
             best=arguments.ckpt_best,
             train_step=arguments.ckpt_train_step,
             run_opts=run_opts,
-            overrides=overrides
+            overrides=overrides,
         )
     else:
         g2p = GraphemeToPhoneme.from_hparams(
