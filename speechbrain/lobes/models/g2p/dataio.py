@@ -8,6 +8,7 @@ Authors
 """
 
 from functools import reduce
+from speechbrain.wordemb.util import expand_to_chars
 import speechbrain as sb
 import torch
 import re
@@ -319,10 +320,12 @@ def add_bos_eos(seq=None, encoder=None):
     if not torch.is_tensor(seq_bos):
         seq_bos = torch.tensor(seq_bos)
     yield seq_bos.long()
+    yield torch.tensor(len(seq_bos))
     seq_eos = encoder.append_eos_index(seq)
     if not torch.is_tensor(seq_eos):
         seq_eos = torch.tensor(seq_eos)
     yield seq_eos.long()
+    yield torch.tensor(len(seq_eos))
 
 
 def beam_search_pipeline(char_lens, encoder_out, beam_searcher):
@@ -594,3 +597,49 @@ def remove_special(phn):
         the original list, without any special tokens
     """
     return [token for token in phn if "<" not in token]
+
+
+def word_emb_pipeline(
+    txt,
+    grapheme_encoded,
+    grapheme_encoded_len,
+    grapheme_encoder=None,
+    word_emb=None,
+    use_word_emb=None,
+):
+    """Applies word embeddings, if applicable. This function is meant
+    to be used as part of the encoding pipeline
+
+    Arguments
+    ---------
+    txt: str
+        the raw text
+    grapheme_encoded: torch.tensor
+        the encoded graphemes
+    grapheme_encoded_len: torch.tensor
+        encoded grapheme lengths
+    grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
+        the text encoder used for graphemes
+    word_emb: callable
+        the model that produces word embeddings
+    use_word_emb: bool
+        a flag indicated if word embeddings are to be applied
+
+    Returns
+    -------
+    char_word_emb: torch.tensor
+        Word embeddings, expanded to the character dimension
+    """
+    char_word_emb = None
+
+    if use_word_emb:
+        raw_word_emb = word_emb().embeddings(txt)
+        word_separator_idx = grapheme_encoder.lab2ind[" "]
+        char_word_emb = expand_to_chars(
+            emb=raw_word_emb.unsqueeze(0),
+            seq=grapheme_encoded.unsqueeze(0),
+            seq_len=grapheme_encoded_len.unsqueeze(0),
+            word_separator=word_separator_idx,
+        ).squeeze(0)
+
+    return char_word_emb

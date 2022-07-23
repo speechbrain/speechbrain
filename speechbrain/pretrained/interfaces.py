@@ -182,11 +182,9 @@ class Pretrained(torch.nn.Module):
 
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)
-        for mod in self.mods:
-            self.mods[mod].to(self.device)
-
-            if mod not in modules:
-                raise ValueError(f"Need modules['{mod}']")
+        for module in self.mods.values():
+            if module is not None:
+                module.to(self.device)
 
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
