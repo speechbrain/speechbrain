@@ -32,6 +32,8 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | German | 2021-10-28 | train_de.yaml | No | 4.32 | 13.99 | 4.93 | 15.37 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-de) | -- | 1x V100 16GB |
 | Dutch | 2021-07-21 | train_nl_with_wav2vec.yaml | No | 8.44 | 14.79 | 14.26 | 20.97 | -- | -- | 1xRTX3090 24GB |
 
+The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/11NMzY0zV-NqJmPMyZfC3RtT64bYe-G_O?usp=sharing).
+
 ## How to simply use pretrained models to transcribe my audio file?
 
 SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories (see the results table above) corresponding to our different models for CommonVoice.

@@ -1332,6 +1332,7 @@ class Tacotron2(nn.Module):
     ...    postnet_n_convolutions=5,
     ...    decoder_no_early_stopping=False
     ... )
+    >>> _ = model.eval()
     >>> inputs = torch.tensor([
     ...     [13, 12, 31, 14, 19],
     ...     [31, 16, 30, 31, 0],
@@ -1339,7 +1340,7 @@ class Tacotron2(nn.Module):
     >>> input_lengths = torch.tensor([5, 4])
     >>> outputs, output_lengths, alignments = model.infer(inputs, input_lengths)
     >>> outputs.shape, output_lengths.shape, alignments.shape
-    (torch.Size([2, 80, 32]), torch.Size([2]), torch.Size([2, 32, 5]))
+    (torch.Size([2, 80, 1]), torch.Size([2]), torch.Size([2, 1, 5]))
     """
 
     def __init__(

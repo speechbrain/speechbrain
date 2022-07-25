@@ -24,6 +24,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | Kinyarwanda | 2020-12-11 | train_rw_with_wav2vec.yaml | No | 6.20 | 20.07 | 8.25 | 23.12 | Not Avail. | [model](https://drive.google.com/drive/folders/12_BDenvOqEERDZLAN-KdiAHklvuo35tx?usp=sharing) | 2xV100 32GB |
 | Dutch | 2021-07-21 | train_nl_with_wav2vec.yaml | No | 3.72 | 12.17 | 5.49 | 16.89 | -- | -- | 1xRTX3090 24GB |
 
+The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/11NMzY0zV-NqJmPMyZfC3RtT64bYe-G_O?usp=sharing).
 
 ## How to simply use pretrained models to transcribe my audio file?
 

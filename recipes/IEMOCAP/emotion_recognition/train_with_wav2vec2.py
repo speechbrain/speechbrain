@@ -3,7 +3,7 @@
 The system classifies 4 emotions ( anger, happiness, sadness, neutrality) with wav2vec2.
 
 To run this recipe, do the following:
-> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml --data_folder /path/to/IEMOCAP
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml --data_folder /path/to/IEMOCAP_full_release
 
 For more wav2vec2/HuBERT results, please see https://arxiv.org/pdf/2111.02735.pdf
 
@@ -195,9 +195,14 @@ def dataio_prep(hparams):
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "emo_encoded"],
@@ -242,13 +247,13 @@ if __name__ == "__main__":
     sb.utils.distributed.run_on_main(
         prepare_data,
         kwargs={
-            "data_original": hparams["data_original"],
-            "data_transformed": hparams["data_folder"],
+            "data_original": hparams["data_folder"],
             "save_json_train": hparams["train_annotation"],
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],
             "split_ratio": [80, 10, 10],
             "different_speakers": hparams["different_speakers"],
+            "test_spk_id": hparams["test_spk_id"],
             "seed": hparams["seed"],
         },
     )
