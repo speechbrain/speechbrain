@@ -569,6 +569,7 @@ class Conv2d(nn.Module):
         padding_mode="reflect",
         skip_transpose=False,
         weight_norm=False,
+        conv_init=None,
     ):
         super().__init__()
 
@@ -607,6 +608,8 @@ class Conv2d(nn.Module):
             groups=groups,
             bias=bias,
         )
+        if conv_init == 'kaiming':
+            nn.init.kaiming_normal_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)

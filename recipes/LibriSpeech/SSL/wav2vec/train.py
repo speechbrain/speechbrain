@@ -13,24 +13,22 @@ import os.path as osp
 import logging
 import sys
 import time
-import math
+import random
+from pathlib import Path
 from functools import partial
 
+import numpy as np
 import speechbrain as sb
 import torch
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel
-from speechbrain.utils.data_utils import batch_pad_right
 from hyperpyyaml import load_hyperpyyaml
 
 from speechbrain import Stage
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
-from speechbrain.dataio.sampler import (
-    DynamicBatchSampler,
-    DistributedSamplerWrapper,
-)
-from speechbrain.lobes.models.wav2vec import compute_mask
+from speechbrain.dataio.sampler import DynamicBatchSampler
+from speechbrain.lobes.models.wav2vec import w2v_mask_collate_fn
 
 
 PYTHON_VERSION_MAJOR = 3
@@ -46,6 +44,7 @@ class W2V2Brain(sb.core.Brain):
         target embeddings as well as other metrics of interest.
         """
         wavs, wav_lens, mask = batch
+        # print(self.optimizer_step, ids)
         wavs, wav_lens, mask = (
             wavs.to(self.device),
             wav_lens.to(self.device),
@@ -55,16 +54,8 @@ class W2V2Brain(sb.core.Brain):
         # normalisation already done in dataloader
         latents = self.modules.latent_extractor(wavs, normalize_signal=False)
 
-        disable_halfprec = (
-            self.hparams.disable_halfprec
-            if hasattr(self.hparams, "disable_halfprec")
-            else False
-        )
         results = self.modules.latent_encoder(
-            latents,
-            mask=mask,
-            wav_lens=wav_lens,
-            disable_halfprec=disable_halfprec,
+            latents, mask=mask, wav_lens=wav_lens,
         )
 
         embeddings = results["embeddings"]
@@ -129,6 +120,7 @@ class W2V2Brain(sb.core.Brain):
                         * self.hparams.diversity_loss_weight
                         * objectives["num_masked"]
                     )
+
                 self.scaler.scale(
                     backprop_loss / self.grad_accumulation_factor
                 ).backward()
@@ -138,9 +130,9 @@ class W2V2Brain(sb.core.Brain):
                     self.scaler.unscale_(self.optimizer)
                     if self.check_gradients(loss):
                         self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    self.optimizer_step += 1
                     self.optimizer.zero_grad()
+                    self.optimizer_step += 1
+                    self.scaler.update()
         else:
             with self.no_sync(not should_step):
                 outputs = self.compute_forward(batch, Stage.TRAIN)
@@ -157,10 +149,13 @@ class W2V2Brain(sb.core.Brain):
                         * self.hparams.diversity_loss_weight
                         * objectives["num_masked"]
                     )
+
                 (backprop_loss / self.grad_accumulation_factor).backward()
                 objectives["total_loss"] = backprop_loss.detach()
+
                 if should_step:
-                    self.optimizer.step()
+                    if self.check_gradients(loss):
+                        self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.optimizer_step += 1
 
@@ -184,6 +179,9 @@ class W2V2Brain(sb.core.Brain):
             and self.optimizer_step % self.hparams.log_interval == 0
         ):
 
+            # Create a dictionary and fill it with everything we
+            # want to log such as contrastive loss, diversity loss,
+            # learning rate etc.
             log_dct = {
                 k: (v.item() if isinstance(v, torch.Tensor) else v)
                 for k, v in objectives.items()
@@ -225,7 +223,7 @@ class W2V2Brain(sb.core.Brain):
                 )
             self.checkpointer.save_and_keep_only(
                 end_of_epoch=True,
-                num_to_keep=2,
+                num_to_keep=5,
                 meta={"valid_acc": stage_loss},
                 verbosity=logging.DEBUG,
             )
@@ -309,16 +307,7 @@ def dataio_prepare(hparams):
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
-
-    w2v_mask_collate_fn_partial = partial(
-        w2v_mask_collate_fn,
-        get_out_len_fn=get_output_lengths,
-        mask_prob=hparams["mask_prob"],
-        mask_length=hparams["mask_length"],
-        max_dur=hparams["max_sample_dur"],
-    )
 
     train_sampler = DynamicBatchSampler(
         train_data,
@@ -326,17 +315,23 @@ def dataio_prepare(hparams):
         num_buckets=hparams["train_num_buckets"],
         length_func=lambda x: x["duration"],
         batch_ordering="random",
+        shuffle=True,
     )
-    if torch.distributed.is_initialized():
-        train_sampler = DistributedSamplerWrapper(train_sampler)
 
-    train_loader = SaveableDataLoader(
-        train_data,
-        batch_sampler=train_sampler,
-        collate_fn=w2v_mask_collate_fn_partial,
-        num_workers=6,
-        pin_memory=True,
+    w2v_mask_collate_fn_partial = partial(
+        w2v_mask_collate_fn,
+        get_out_len_fn=get_output_lengths,
+        mask_prob=hparams["mask_prob"],
+        mask_length=hparams["mask_length"],
     )
+
+    train_loader_kwargs = {
+        "batch_sampler": train_sampler,
+        "collate_fn": w2v_mask_collate_fn_partial,
+        "num_workers": hparams["train_num_workers"],
+        "pin_memory": True,
+    }
+
     valid_loader = SaveableDataLoader(
         valid_data,
         collate_fn=w2v_mask_collate_fn_partial,
@@ -345,84 +340,7 @@ def dataio_prepare(hparams):
         pin_memory=True,
     )
 
-    return train_loader, valid_loader
-
-
-def w2v_mask_collate_fn(
-    samples_lst, get_out_len_fn, mask_prob, mask_length, max_dur=16.0
-):
-    """ This creates a batch from a list of samples and also creates
-    the boolean mask that will be used to mask the inputs of the latent
-    encoder. To create the mask we need to know the output shape after the
-    latent extractor, therefore the argument `get_out_len_fn`.
-    One could also create masks per sample (when loading the audio file) and
-    then collate them but at that time one doesn't know the length of the
-    shortest sample in the batch (which determines the number of masked frames)
-    so it's better this way.
-    This function also has the feature to split samples longer than `max_dur` into
-    smaller chunks, which helps reduce the memory usage of attention based systems.
-
-    Arguments
-    ---------
-    samples_lst : list
-        List of samples returned by the audio_pipeline.
-    get_out_len_fn : function
-        Function that calculates length of sample after it passes through feature extractor.
-    mask_prob : float
-        Approximate percentage of frames to mask.
-    mask_length : int
-        Number of contiguous frames that will be masked.
-    max_dur : float
-        Samples longer than this will be split so they're shorter.
-    Returns
-    -------
-    wavs_padded : torch.Tensor, shape (B, T)
-        Audio arrays with right-sided padding.
-    wav_lens : torch.Tensor, shape (B,)
-        For each sample the percentage of the array that is not padding.
-    mask : torch.Tensor, shape (B, T)
-        Boolean mask to mask frames.
-    """
-    wav_lst, latent_length_lst = [], []
-    # If the sample is longer than `max_dur` create several shorter samples from it.
-    # Using max of all samples because if we considered the splitting for each sample separately
-    # then it could happen that some samples would be just below `max_dur` and others just above,
-    # and splitting those above would result in an unnecessarily large amount of padding.
-    max_sample_dur = max(
-        sample["sig"].size(0) / 16000 for sample in samples_lst
-    )
-    will_break = max_sample_dur > max_dur
-    splits = math.ceil(max_sample_dur / max_dur)
-    for sample in samples_lst:
-        sig = sample["sig"]
-        if will_break:
-            for i in range(splits):
-                sample_len_split = math.ceil(sample["sig"].size(0) / splits)
-                wav_lst.append(
-                    sample["sig"][
-                        i * sample_len_split : (i + 1) * sample_len_split
-                    ]
-                )
-                latent_length = get_out_len_fn(
-                    torch.as_tensor(wav_lst[-1].size(0))
-                ).item()
-                latent_length_lst.append(latent_length)
-        else:
-            wav_lst.append(sig)
-            latent_length = get_out_len_fn(torch.as_tensor(sig.size(-1)))
-            latent_length_lst.append(latent_length.item())
-    bs = len(wav_lst)
-    wavs_padded, wav_lens = batch_pad_right(wav_lst)
-
-    batch_time_len = max(latent_length_lst)
-    mask = compute_mask(
-        (bs, batch_time_len,), latent_length_lst, mask_prob, mask_length
-    )
-    return (
-        torch.as_tensor(wavs_padded),
-        torch.as_tensor(wav_lens),
-        torch.as_tensor(mask, dtype=torch.bool),
-    )
+    return train_data, valid_loader, train_loader_kwargs
 
 
 def _setup_wandb(hparams):
@@ -461,7 +379,6 @@ def _setup_wandb(hparams):
 
 def main():
     logger.setLevel(logging.INFO)
-    print(sys.argv[1:])
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -496,7 +413,7 @@ def main():
         _setup_wandb(hparams)
 
     # Part that matters starts here.
-    train_loader, valid_loader = dataio_prepare(hparams)
+    train_dataset, valid_loader, train_loader_kwargs = dataio_prepare(hparams)
 
     brain = W2V2Brain(
         modules=hparams["modules"],
@@ -508,8 +425,9 @@ def main():
 
     brain.fit(
         brain.hparams.epoch_counter,
-        train_loader,
+        train_dataset,
         valid_loader,
+        train_loader_kwargs=train_loader_kwargs,
         progressbar=False,
     )
 

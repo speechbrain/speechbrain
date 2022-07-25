@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class GumbelVectorQuantizer(nn.Module):
     def __init__(self, input_dim, num_vars, temp_tuple, groups, vq_dim):
-        """Vector quantization using gumbel softmax.
+        """Vector quantization using gumbel softmax. Copied from fairseq implementation.
         Arguments
         ---------
             input_dim: int
@@ -83,9 +83,6 @@ class GumbelVectorQuantizer(nn.Module):
         result["prob_perplex"] = torch.exp(
             -torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1)
         ).sum()
-        # avg_probs = torch.softmax(x.view(bsz * tsz * self.groups, -1).float(), dim=-1)
-        # prob_diversity = torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1).mean() + self.max_ent
-        # result["prob_diversity"] = prob_diversity
 
         result["temp"] = self.curr_temp
 

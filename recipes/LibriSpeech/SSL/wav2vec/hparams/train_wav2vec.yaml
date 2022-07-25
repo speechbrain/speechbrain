@@ -1,12 +1,10 @@
-seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: /idiap/resource/database/LibriSpeech
 save_folder: data
 output_folder: exp-test
 
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
+test_splits: ["test-clean"]
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
@@ -19,12 +17,12 @@ avoid_if_shorter_than: 2.5
 log_interval: 25
 use_wandb: False
 auto_mix_prec: True
-disable_halfprec: True
+max_grad_norm: 100.
 
 number_of_epochs: 300
 optimizer_step_limit: 400000
 train_num_buckets: 70
-max_sample_dur: 16.0
+train_num_workers: 4
 
 sample_rate: 16000
 lr: 0.002
@@ -33,7 +31,7 @@ seconds_per_batch: 160
 encoder_layerdrop: 0.05
 
 diversity_loss_weight: 0.2
-mask_prob: 0.65
+mask_prob: 0.6
 mask_length: 10
 
 embedding_dim: 768
@@ -48,7 +46,7 @@ optimizer: !name:torch.optim.AdamW
 
 test_dataloader_options:
     batch_size: 8
-    num_workers: 6
+    num_workers: 4
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>

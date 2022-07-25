@@ -1,17 +1,15 @@
-import math
 import logging
-from more_itertools import sample
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import random
 import numpy as np
-from contextlib import contextmanager
 
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerEncoder,
     PositionalEncoding,
 )
+from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.convolution import ConvolutionFrontEnd
 from speechbrain.nnet.CNN import Conv1d
@@ -43,7 +41,7 @@ class W2VLatentExtractor(nn.Module):
         kernel_sizes=[11, 3, 3, 3, 3, 3, 3],
         strides=[5, 2, 2, 2, 2, 2, 2],
         dropout=0.0,
-        conv_init=None,  # will remove
+        conv_init="kaiming",
     ):
         super().__init__()
 
@@ -70,6 +68,7 @@ class W2VLatentExtractor(nn.Module):
             dropout=dropout,
             conv_bias=False,
             padding="valid",
+            conv_init=conv_init,
         )
         self.norm = nn.LayerNorm(out_channels[-1])
 
@@ -104,7 +103,6 @@ class W2VLatentEncoder(nn.Module):
         d_ffn=3072,
         nhead=8,
         dropout=0.1,
-        attention_dropout=0.1,
         layerdrop_prob=0.05,
         normalize_before=True,
     ):
@@ -121,11 +119,6 @@ class W2VLatentEncoder(nn.Module):
             normalize_before=normalize_before,
             layerdrop_prob=layerdrop_prob,
         )
-        # for module in self.encoder.modules():
-        #     if isinstance(module, nn.Linear):
-        #         module.weight.data.normal_(mean=0.0, std=0.02)
-        #         if module.bias is not None:
-        #             module.bias.data.zero_()
 
     def forward(self, x_pos, padding_mask=None):
         x_pos, attn_lst = self.encoder(
@@ -207,12 +200,7 @@ class EncoderWrapper(nn.Module):
         )
 
     def forward(
-        self,
-        latents,
-        wav_lens=None,
-        padding_mask=None,
-        mask=None,
-        disable_halfprec=False,
+        self, latents, wav_lens=None, padding_mask=None, mask=None,
     ):
         """
         Arguments
@@ -228,15 +216,14 @@ class EncoderWrapper(nn.Module):
         """
         results = {}
         T = latents.size(1)
-        with torch.cuda.amp.autocast(enabled=not disable_halfprec):
-            latents = self.input_projector(latents)
-            latents = self.dropout_encoder_input(latents)
+        latents = self.input_projector(latents)
+        latents = self.dropout_encoder_input(latents)
 
-            if mask is not None:
-                latents[mask] = self.mask_emb.to(latents.dtype)
-                num_masked = mask.sum()
-                results["num_masked"] = num_masked
-                results["ratio_masked"] = num_masked / mask.numel()
+        if mask is not None:
+            latents[mask] = self.mask_emb.to(latents.dtype)
+            num_masked = mask.sum()
+            results["num_masked"] = num_masked
+            results["ratio_masked"] = num_masked / mask.numel()
 
         if wav_lens is not None:
             wav_lens = torch.round(wav_lens * T)
@@ -253,7 +240,7 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
     """ This creates the boolean mask for a target shape which respects
     the sample lengths and will half roughly ``mask_prob`` entries set to
     ``True``.
-    
+
     Arguments
     ---------
     shape : list of ints, like (N, M)
@@ -313,3 +300,54 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
             mask[i, extra_indcs] = True
         mask[i, mask_idc] = True
     return mask
+
+
+def w2v_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length):
+    """ This creates a batch from a list of samples and also creates
+    the boolean mask that will be used to mask the inputs of the latent
+    encoder. To create the mask we need to know the output shape after the
+    latent extractor, therefore the argument `get_out_len_fn`.
+    One could also create masks per sample (when loading the audio file) and
+    then collate them but at that time one doesn't know the length of the
+    shortest sample in the batch (which determines the number of masked frames)
+    so it's better this way.
+
+    Arguments
+    ---------
+    samples_lst : list
+        List of samples returned by the audio_pipeline.
+    get_out_len_fn : function
+        Function that calculates length of sample after it passes through feature extractor.
+    mask_prob : float
+        Approximate percentage of frames to mask.
+    mask_length : int
+        Number of contiguous frames that will be masked.
+    Returns
+    -------
+    wavs_padded : torch.Tensor, shape (B, T)
+        Audio arrays with right-sided padding.
+    wav_lens : torch.Tensor, shape (B,)
+        For each sample the percentage of the array that is not padding.
+    mask : torch.Tensor, shape (B, T)
+        Boolean mask to mask frames.
+    """
+    wav_lst, latent_length_lst = [], []
+    ids = []
+    for sample in samples_lst:
+        ids.append(sample["id"])
+        sig = sample["sig"]
+        wav_lst.append(sig)
+        latent_length = get_out_len_fn(torch.as_tensor(sig.size(-1)))
+        latent_length_lst.append(latent_length.item())
+    bs = len(wav_lst)
+    wavs_padded, wav_lens = batch_pad_right(wav_lst)
+
+    batch_time_len = max(latent_length_lst)
+    mask = compute_mask(
+        (bs, batch_time_len,), latent_length_lst, mask_prob, mask_length
+    )
+    return (
+        torch.as_tensor(wavs_padded),
+        torch.as_tensor(wav_lens),
+        torch.as_tensor(mask, dtype=torch.bool),
+    )
