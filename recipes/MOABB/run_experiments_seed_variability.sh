@@ -1,6 +1,6 @@
 # Script to test seed variability
 # Example:
-# nohup ./run_experiments_seed_variability.sh 'hparams/EEGNet_EPFLP300_seed_variability.yaml' '/path/to/MOABB/data' \
+# ./run_experiments_seed_variability.sh 'hparams/EEGNet_EPFLP300_seed_variability.yaml' '/path/to/MOABB/data' \
 # 'results/MOABB/EEGNet_EPFLP300_seed_variability' 8 8 4 1431 0
 hparams=$1
 data_folder=$2 #MOABB data folder
