@@ -1,0 +1,103 @@
+###################################################
+# Classification of P300 of EPFLP300 MOABB dataset using EEGNet.
+# EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
+# EPFLP300 from .
+#
+# Author
+# ------
+# Davide Borra, 2022
+# Mirco Ravanelli, 2022
+# Francesco Paissan, 2022
+###################################################
+seed: 1234
+__set_torchseed: !apply:torch.manual_seed [!ref <seed>]
+
+# DIRECTORIES
+data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
+output_folder: !ref results/MOABB/EEGNet_EPFLP300_seed_variability/<seed> #to change
+
+# DATASET HPARS
+# Defining the MOABB dataset.
+dataset: !new:moabb.datasets.EPFLP300
+to_download: False
+to_prepare: False
+data_iterator_name: !PLACEHOLDER
+target_subject_idx: !PLACEHOLDER
+target_session_idx: !PLACEHOLDER
+events_to_load: null # all events will be loaded
+original_sample_rate: 512 # Original sampling rate provided by dataset authors
+sample_rate: 128 # Target sampling rate (Hz)
+fmin: 1 # band-pass filtering cut-off frequencies
+fmax: 40
+n_classes: 2
+tmin: 0.
+tmax: 0.8
+T: !ref <sample_rate> * (<tmax> - <tmin>)
+C: 32
+
+# We here specify how to perfom test:
+# - If test_with: 'last' we perform test with the latest model.
+# - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
+# The variable avg_models can be used to average the parameters of the last (or best) N saved models before testing.
+# This can have a regularization effect. If avg_models: 1, the last (or best) model is used directly.
+test_with: 'best' # 'last' or 'best'
+test_key: "f1" # Possible opts: "loss", "f1", "auc", "acc"
+avg_models: 10 # checkpoints to average
+
+f1: !name:sklearn.metrics.f1_score
+    pos_label: 1
+acc: !name:sklearn.metrics.balanced_accuracy_score
+cm: !name:sklearn.metrics.confusion_matrix
+metrics:
+    f1: !ref <f1>
+    acc: !ref <acc>
+    cm: !ref <cm>
+
+# TRAINING HPARS
+number_of_epochs: 800 # number of training epochs
+lr: 0.001
+
+# Learning rate scheduling (cyclic learning rate is used here)
+max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
+base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
+step_size: 50 # number of training iterations per half cycle (lower step_size => faster cycles)
+
+loss: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: 0.0
+
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
+    limit: !ref <number_of_epochs>
+batch_size: 64
+valid_ratio: 0.2
+
+# DATA AUGMENTATION: None
+
+# DATA NORMALIZATION
+normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
+    dims: 2
+
+# MODEL: BASELINE EEGNET
+input_shape: [null, !ref <T>, !ref <C>, null]
+cnn_temporal_kernels: 8  # number of temporal filters in the temporal conv. layer
+cnn_spatial_depth_multiplier: 2  # depth multiplier for the spatial depthwise conv. layer
+cnn_spatial_max_norm: 1.  # kernel max-norm constaint of the spatial depthwise conv. layer
+cnn_septemporal_depth_multiplier: 1  # depth multiplier for the separable temporal conv. layer
+dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
+dropout: 0.5  # dropout rate
+
+model: !new:speechbrain.lobes.models.EEGNet.EEGNet
+    input_shape: !ref <input_shape>
+    cnn_temporal_kernels: !ref <cnn_temporal_kernels>
+    cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
+    cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
+    cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
+    dense_n_neurons: !ref <n_classes>
+    dense_max_norm: !ref <dense_max_norm>
+    dropout: !ref <dropout>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
