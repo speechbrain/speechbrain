@@ -16,7 +16,10 @@ import copy
 from speechbrain.nnet.linear import Linear
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 import speechbrain.nnet.RNN as SBRNN
+
+from speechbrain.nnet.activations import Swish
 
 
 EPS = 1e-8
@@ -1402,10 +1405,11 @@ class SBConformerEncoderBlock(nn.Module):
 
         """
         if self.use_positional_encoding:
-            import pdb
-
-            pdb.set_trace()
-            pos_enc = self.pos_enc(x)
+            pos_enc = self.pos_enc(
+                torch.ones(
+                    x.shape[0], x.shape[1] * 2 - 1, x.shape[2], device=x.device
+                )
+            )
             return self.mdl(x, pos_embs=pos_enc)[0]
         else:
             return self.mdl(x)[0]
