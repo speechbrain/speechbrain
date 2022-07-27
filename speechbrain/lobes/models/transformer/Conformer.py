@@ -338,28 +338,35 @@ class ConformerEncoder(nn.Module):
             ]
         )
         self.norm = LayerNorm(d_model, eps=1e-6)
+        self.attention_type = attention_type
 
     def forward(
         self,
         src,
-        pos_embs,
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         """
         Arguments
         ----------
         src : torch.Tensor
             The sequence to the encoder layer.
-        pos_embs: torch.Tensor, torch.nn.Module,
-            Module or tensor containing the input sequence positional embeddings
-            If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
-            where S is the sequence length, and E is the embedding dimension.
         src_mask : torch.Tensor, optional
             The mask for the src sequence.
         src_key_padding_mask : torch.Tensor, optional
             The mask for the src keys per batch.
+        pos_embs: torch.Tensor, torch.nn.Module,
+            Module or tensor containing the input sequence positional embeddings
+            If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
+            where S is the sequence length, and E is the embedding dimension.
         """
+
+        if self.attention_type == "RelPosMHAXL":
+            if pos_embs is None:
+                raise ValueError(
+                    "The chosen attention type for the Conformer is RelPosMHAXL. For this attention type, the positional embeddings are mandatory"
+                )
 
         output = src
         attention_lst = []
