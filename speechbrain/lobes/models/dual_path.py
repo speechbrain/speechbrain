@@ -1344,6 +1344,9 @@ class SBConformerEncoderBlock(nn.Module):
     ---------
     >>> x = torch.randn(10, 100, 64)
     >>> block = SBConformerEncoderBlock(1, 64, 8)
+    >>> from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+    >>> pos_enc = PositionalEncoding(64)
+    >>> pos_embs = pos_enc(torch.ones(1, 199, 64))
     >>> x = block(x)
     >>> x.shape
     torch.Size([10, 100, 64])
@@ -1362,10 +1365,12 @@ class SBConformerEncoderBlock(nn.Module):
         activation="swish",
         kernel_size=31,
         bias=True,
-        use_positional_encoding=False,
+        use_positional_encoding=True,
+        attention_type="RelPosMHAXL",
     ):
         super(SBConformerEncoderBlock, self).__init__()
         self.use_positional_encoding = use_positional_encoding
+        self.attention_type = attention_type
 
         if activation == "relu":
             activation = nn.ReLU
@@ -1387,10 +1392,17 @@ class SBConformerEncoderBlock(nn.Module):
             activation=activation,
             kernel_size=kernel_size,
             bias=bias,
+            attention_type=attention_type,
         )
 
-        if use_positional_encoding:
+        if self.attention_type == "RelPosMHAXL":
+            # for RelPosMHAXL, we need the positional encoding (not optional)
             self.pos_enc = PositionalEncoding(input_size=d_model)
+        elif self.attention_type == "regularMHA":
+            if self.use_positional_encoding:
+                self.pos_enc = PositionalEncoding(input_size=d_model)
+        else:
+            raise ValueError("Unsupported attention type")
 
     def forward(self, x):
         """Returns the transformed output.
@@ -1404,12 +1416,18 @@ class SBConformerEncoderBlock(nn.Module):
                    N = number of filters
 
         """
-        if self.use_positional_encoding:
+        if self.attention_type == "RelPosMHAXL":
             pos_enc = self.pos_enc(
                 torch.ones(
                     x.shape[0], x.shape[1] * 2 - 1, x.shape[2], device=x.device
                 )
             )
             return self.mdl(x, pos_embs=pos_enc)[0]
+        elif self.attention_type == "regularMHA":
+            if self.use_positional_encoding:
+                pos_embs = self.pos_enc(x)
+                return self.mdl(x + pos_embs)[0]
+            else:
+                return self.mdl(x)[0]
         else:
-            return self.mdl(x)[0]
+            raise ValueError("Unsupported attention type")
