@@ -1284,36 +1284,6 @@ class Brain:
         self.step = 0
         return avg_test_loss
 
-    @contextmanager
-    def no_sync(self, use=True):
-        """ Copies pytorch's implementation for doing no_sync across all modules.
-
-        Explanation: nn.module.no_sync() is a context manager for when one does
-        not want to sync gradients, which happens when using both DDP and gradient accumulation.
-        Speechbrain brain's class can contain multiple modules and calling no_sync on these
-        individually would be very awkward, therefore this contextmanager exists.
-
-        Arguments
-        ---------
-        use : bool
-            If set to `False` will still sync gradients.
-        """
-        if use:
-            old_values_list = []
-            for model in self.modules.values():
-                # if not using DDP
-                if not hasattr(model, "require_backward_grad_sync"):
-                    break
-                old_values_list.append(model.require_backward_grad_sync)
-                model.require_backward_grad_sync = False
-            yield
-            for model, old_value in zip(self.modules.values(), old_values_list):
-                if not hasattr(model, "require_backward_grad_sync"):
-                    break
-                model.require_backward_grad_sync = old_value
-        else:
-            yield
-
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.
 

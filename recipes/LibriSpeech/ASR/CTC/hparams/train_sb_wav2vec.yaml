@@ -35,14 +35,14 @@ test_csv:
 avoid_if_longer_than: 16.0
 avoid_if_shorter_than: 1.
 
+pretrained_model: !PLACEHOLDER
+
 # Training parameters
 number_of_epochs: 45
 lr: 0.5
 lr_wav2vec: 0.0001
 auto_mix_prec: False
 sample_rate: 16000
-
-pretrained_model: !PLACEHOLDER 
 
 seconds_per_batch: 160
 

@@ -122,7 +122,7 @@ def ddp_init_group(run_opts):
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
+                "experiment.py hyperparams.yaml --distributed_launch "
                 "--distributed_backend=nccl"
             )
         else:

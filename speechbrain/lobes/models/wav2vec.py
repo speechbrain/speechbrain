@@ -5,10 +5,7 @@ import torch.nn as nn
 import random
 import numpy as np
 
-from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerEncoder,
-    PositionalEncoding,
-)
+from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.convolution import ConvolutionFrontEnd
@@ -92,41 +89,6 @@ class W2VLatentExtractor(nn.Module):
         return input_lengths.to(torch.long)
 
 
-class W2VLatentEncoder(nn.Module):
-    """NOTE: Will remove and instead directly use ``TransformerEncoder``
-    """
-
-    def __init__(
-        self,
-        embedding_dim=768,
-        num_layers=12,
-        d_ffn=3072,
-        nhead=8,
-        dropout=0.1,
-        layerdrop_prob=0.05,
-        normalize_before=True,
-    ):
-        # TODO: attention_dropout not used
-        super().__init__()
-        self.embedding_dim = embedding_dim
-        self.encoder = TransformerEncoder(
-            num_layers=num_layers,
-            nhead=nhead,
-            d_ffn=d_ffn,
-            d_model=embedding_dim,
-            dropout=dropout,
-            activation=nn.GELU,
-            normalize_before=normalize_before,
-            layerdrop_prob=layerdrop_prob,
-        )
-
-    def forward(self, x_pos, padding_mask=None):
-        x_pos, attn_lst = self.encoder(
-            x_pos, src_key_padding_mask=padding_mask,
-        )
-        return x_pos, attn_lst
-
-
 class W2VTargetQuantiser(nn.Module):
     """ Wraps ``GumbelVectorQuantizer``, see for documentation on
     arguments.
@@ -186,7 +148,7 @@ class EncoderWrapper(nn.Module):
         self,
         in_dim,
         embedding_dim,
-        latent_encoder=W2VLatentEncoder(),
+        latent_encoder,
         positional_encoding=PositionalEncoding,
         dropout_encoder_input=0.05,
     ):
@@ -230,7 +192,9 @@ class EncoderWrapper(nn.Module):
             padding_mask = ~length_to_mask(wav_lens, dtype=bool)
 
         latents = latents + self.positional_encoding(latents)
-        feats, _ = self.latent_encoder(latents, padding_mask)
+        feats, _ = self.latent_encoder(
+            latents, src_key_padding_mask=padding_mask
+        )
 
         results["embeddings"] = feats
         return results

@@ -399,7 +399,7 @@ class Conv1d(nn.Module):
             bias=bias,
         )
 
-        if conv_init == 'kaiming':
+        if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
 
         if weight_norm:
@@ -608,7 +608,7 @@ class Conv2d(nn.Module):
             groups=groups,
             bias=bias,
         )
-        if conv_init == 'kaiming':
+        if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
 
         if weight_norm:

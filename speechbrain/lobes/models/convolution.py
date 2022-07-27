@@ -60,7 +60,7 @@ class ConvolutionFrontEnd(Sequential):
         norm=LayerNorm,
         dropout=0.1,
         conv_bias=True,
-        padding='same',
+        padding="same",
         conv_init=None,
     ):
         super().__init__(input_shape=input_shape)
@@ -127,8 +127,8 @@ class ConvBlock(torch.nn.Module):
         norm=None,
         dropout=0.1,
         conv_bias=True,
-        padding='same',
-        conv_init=None
+        padding="same",
+        conv_init=None,
     ):
         super().__init__()
         self.convs = Sequential(input_shape=input_shape)

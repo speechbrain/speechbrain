@@ -13,11 +13,8 @@ import os.path as osp
 import logging
 import sys
 import time
-import random
-from pathlib import Path
 from functools import partial
 
-import numpy as np
 import speechbrain as sb
 import torch
 import torch.nn.functional as F
@@ -50,7 +47,7 @@ class W2V2Brain(sb.core.Brain):
             wav_lens.to(self.device),
             mask.to(self.device),
         )
-        B = wavs.size(0)
+        batch_size = wavs.size(0)
         # normalisation already done in dataloader
         latents = self.modules.latent_extractor(wavs, normalize_signal=False)
 
@@ -62,9 +59,11 @@ class W2V2Brain(sb.core.Brain):
 
         embeddings = embeddings[mask]
         embeddings = self.modules.feat_proj(embeddings)
-        results["embeddings"] = embeddings.view(B, -1, embeddings.size(1))
+        results["embeddings"] = embeddings.view(
+            batch_size, -1, embeddings.size(1)
+        )
 
-        latents = latents[mask].view(B, -1, latents.size(2))
+        latents = latents[mask].view(batch_size, -1, latents.size(2))
         targets, meta = self.modules.target_quantiser(latents)
         results.update(meta)
         results["targets"] = targets

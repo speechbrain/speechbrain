@@ -1,11 +1,17 @@
+"""
+Gumbel Softmax implementation with multiple groups possible.
+
+Authors
+ * Rudolf A. Braun 2022
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 class GumbelVectorQuantizer(nn.Module):
-    def __init__(self, input_dim, num_vars, temp_tuple, groups, vq_dim):
-        """Vector quantization using gumbel softmax. Copied from fairseq implementation.
+    """Vector quantization using gumbel softmax. Copied from fairseq implementation.
         Arguments
         ---------
             input_dim: int
@@ -18,7 +24,9 @@ class GumbelVectorQuantizer(nn.Module):
                 Number of groups for vector quantization.
             vq_dim: int
                 Dimensionality of the resulting quantized vector.
-        """
+    """
+
+    def __init__(self, input_dim, num_vars, temp_tuple, groups, vq_dim):
         super().__init__()
 
         self.groups = groups

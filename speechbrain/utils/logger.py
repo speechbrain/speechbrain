@@ -101,7 +101,7 @@ def setup_logging(
         recursive_update(config, overrides)
         logging.config.dictConfig(config)
     else:
-        logging.basicConfig(level=default_level, format='%(asctime)s | %(module)s-%(lineno)d | %(levelname)s | %(message)s')
+        logging.basicConfig(level=default_level)
 
 
 def format_order_of_magnitude(number, abbreviate=True):

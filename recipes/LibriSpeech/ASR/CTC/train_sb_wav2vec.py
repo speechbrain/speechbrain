@@ -23,7 +23,7 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.dataio.dataloader import SaveableDataLoader, LoopedLoader
+from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
@@ -55,7 +55,9 @@ class ASR(sb.Brain):
 
         # Forward pass
         latents = self.modules.extractor(wavs)
-        feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)["embeddings"]
+        feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[
+            "embeddings"
+        ]
         x = self.modules.enc(feats)
 
         # Compute outputs
@@ -215,10 +217,12 @@ def dataio_prepare(hparams):
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
-    train_data.filtered_sorted(sort_key="duration", reverse=True, 
+    train_data.filtered_sorted(
+        sort_key="duration",
+        reverse=True,
         key_max_value={"duration": hparams["avoid_if_longer_than"]},
-        key_min_value={"duration": hparams["avoid_if_shorter_than"]},)
-
+        key_min_value={"duration": hparams["avoid_if_shorter_than"]},
+    )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
@@ -288,9 +292,20 @@ def dataio_prepare(hparams):
         ["id", "sig", "wrd", "char_list", "tokens_bos", "tokens_eos", "tokens"],
     )
 
-    train_sampler = DynamicBatchSampler(train_data, hparams['seconds_per_batch'], num_buckets=60, 
-                                        length_func=lambda x: x["duration"], shuffle=True, batch_ordering='random')
-    train_data = SaveableDataLoader(train_data, batch_sampler=train_sampler, collate_fn=PaddedBatch, num_workers=6)
+    train_sampler = DynamicBatchSampler(
+        train_data,
+        hparams["seconds_per_batch"],
+        num_buckets=60,
+        length_func=lambda x: x["duration"],
+        shuffle=True,
+        batch_ordering="random",
+    )
+    train_data = SaveableDataLoader(
+        train_data,
+        batch_sampler=train_sampler,
+        collate_fn=PaddedBatch,
+        num_workers=6,
+    )
 
     return train_data, valid_data, test_datasets, label_encoder
 
@@ -349,10 +364,20 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    pretrained_model_path_extract = hparams["pretrained_model"] + "/latent_extractor.ckpt"
-    pretrained_model_path_encode = hparams["pretrained_model"] + "/latent_encoder.ckpt"
-    sb.utils.checkpoints.torch_recovery(hparams["modules"]["extractor"], pretrained_model_path_extract, False)
-    sb.utils.checkpoints.torch_recovery(hparams["modules"]["encoder_wrapper"], pretrained_model_path_encode, False)
+    pretrained_model_path_extract = (
+        hparams["pretrained_model"] + "/latent_extractor.ckpt"
+    )
+    pretrained_model_path_encode = (
+        hparams["pretrained_model"] + "/latent_encoder.ckpt"
+    )
+    sb.utils.checkpoints.torch_recovery(
+        hparams["modules"]["extractor"], pretrained_model_path_extract, False
+    )
+    sb.utils.checkpoints.torch_recovery(
+        hparams["modules"]["encoder_wrapper"],
+        pretrained_model_path_encode,
+        False,
+    )
 
     # Training
     asr_brain.fit(

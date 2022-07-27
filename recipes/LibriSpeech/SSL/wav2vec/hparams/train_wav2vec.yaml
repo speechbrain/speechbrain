@@ -31,7 +31,7 @@ seconds_per_batch: 160
 encoder_layerdrop: 0.05
 
 diversity_loss_weight: 0.2
-mask_prob: 0.6
+mask_prob: 0.65
 mask_length: 10
 
 embedding_dim: 768
@@ -56,11 +56,15 @@ extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
   strides: !ref <latentextractor_strides>
   out_channels: [128, 256, 256, 512, 512, 1024, 1024]
 
-encoder: !new:speechbrain.lobes.models.wav2vec.W2VLatentEncoder
-  embedding_dim: !ref <embedding_dim>
+encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
+  d_model: !ref <embedding_dim>
   num_layers: 12
+  nhead: 8
+  d_ffn: 3072
   dropout: 0.1
   layerdrop_prob: !ref <encoder_layerdrop>
+  normalize_before: True
+  activation: !name:torch.nn.GELU
 
 encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
   in_dim: 1024

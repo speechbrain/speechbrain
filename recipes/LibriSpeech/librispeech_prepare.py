@@ -285,7 +285,7 @@ def create_csv(
     # Setting path for the csv file
     csv_file = os.path.join(save_folder, split + ".csv")
     if os.path.exists(csv_file):
-        logger.info('Csv file %s already exists, not recreating.' % csv_file)
+        logger.info("Csv file %s already exists, not recreating." % csv_file)
         return
 
     # Preliminary prints

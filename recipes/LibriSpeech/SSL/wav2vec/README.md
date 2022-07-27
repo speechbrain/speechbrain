@@ -1,6 +1,6 @@
 # wav2vec 2.0 pretraining with SpeechBrain
 
-To run call `python train.py hparams/train_wav2vec.yaml --find_unused_parameters --max_grad_norm 0.0`
+To run call `python train.py hparams/train_wav2vec.yaml --find_unused_parameters --grad_accumulation_factor 16` (you can lower grad accum if you use DDP)
 
 See config file for model definition.
 
