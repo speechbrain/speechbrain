@@ -88,7 +88,7 @@ Pretrained Models
 | 0.5.12        | train_g2p_transformer.yaml | 2.89               |  92%        | https://drive.google.com/drive/folders/1lbSjCKUit8H3FCzaDJmfBDJOkcDRH3XI?usp=sharing |
 
 NOTE: Sentence PER is reported as achieved at the end of the sentence training step. Nominal PER on
-librispeech data may increase post fine-tuning due to a distribution shift in labeling, if reevaluated. 
+librispeech data may increase post fine-tuning due to a distribution shift in labeling, if reevaluated.
 To replicate the result exactly, train with --homograph_epochs=0.
 
 
