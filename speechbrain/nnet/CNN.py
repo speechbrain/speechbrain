@@ -536,9 +536,10 @@ class Conv2d(nn.Module):
         If True, the additive bias b is adopted.
     max_norm: float
         kernel max-norm.
-    transpose: bool
-        If True, the convolution is done with the format (B, C, H, W).
+    swap: bool
+        If True, the convolution is done with the format (B, C, W, H).
         If False, the convolution is dine with (B, H, W, C).
+        Active only if skip_transpose is False.
     skip_transpose : bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
@@ -570,7 +571,7 @@ class Conv2d(nn.Module):
         bias=True,
         padding_mode="reflect",
         max_norm=None,
-        transpose=False,
+        swap=False,
         skip_transpose=False,
         weight_norm=False,
     ):
@@ -591,7 +592,7 @@ class Conv2d(nn.Module):
         self.padding_mode = padding_mode
         self.unsqueeze = False
         self.max_norm = max_norm
-        self.transpose = transpose
+        self.swap = swap
         self.skip_transpose = skip_transpose
 
         if input_shape is None and in_channels is None:
@@ -626,11 +627,10 @@ class Conv2d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        x = x.transpose(1, -1)  # (B, H, W, C)-->(B, C, W, H)
-        if self.transpose:
-            x = x.transpose(-1, -2)  # (B, C, W, H)-->(B, C, H, W)
         if not self.skip_transpose:
             x = x.transpose(1, -1)
+            if self.swap:
+                x = x.transpose(-1, -2)
 
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -657,13 +657,11 @@ class Conv2d(nn.Module):
 
         if self.unsqueeze:
             wx = wx.squeeze(1)
-        if self.transpose:
-            wx = wx.transpose(-1, -2)  # (B, C, H, W)-->(B, C, W, H)
-        wx = wx.transpose(1, -1)  # (B, H, W, C)
-        
+
         if not self.skip_transpose:
             wx = wx.transpose(1, -1)
-
+            if self.swap:
+                wx = wx.transpose(1, 2)
         return wx
 
     def _manage_padding(

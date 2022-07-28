@@ -80,7 +80,7 @@ class EEGNet(torch.nn.Module):
                 padding="same",
                 padding_mode="constant",
                 bias=False,
-                transpose=True,
+                swap=True,
             ),
         )
         self.conv_module.add_module(
@@ -103,7 +103,7 @@ class EEGNet(torch.nn.Module):
                 padding="valid",
                 bias=False,
                 max_norm=cnn_spatial_max_norm,
-                transpose=True,
+                swap=True,
             ),
         )
         self.conv_module.add_module(
@@ -134,7 +134,7 @@ class EEGNet(torch.nn.Module):
                 padding="same",
                 padding_mode="constant",
                 bias=False,
-                transpose=True,
+                swap=True,
             ),
         )
 
@@ -149,7 +149,7 @@ class EEGNet(torch.nn.Module):
                 kernel_size=(1, 1),
                 padding="valid",
                 bias=False,
-                transpose=True,
+                swap=True,
             ),
         )
         self.conv_module.add_module(

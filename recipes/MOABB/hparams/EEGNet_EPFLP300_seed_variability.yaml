@@ -40,7 +40,7 @@ C: 32
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
 # The variable avg_models can be used to average the parameters of the last (or best) N saved models before testing.
 # This can have a regularization effect. If avg_models: 1, the last (or best) model is used directly.
-test_with: 'best' # 'last' or 'best'
+test_with: 'lastt' # 'last' or 'best'
 test_key: "f1" # Possible opts: "loss", "f1", "auc", "acc"
 avg_models: 10 # checkpoints to average
 
