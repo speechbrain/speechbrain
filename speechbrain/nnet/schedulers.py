@@ -580,6 +580,7 @@ class ReduceLROnPlateau:
         self.patience_counter = data["patience_counter"]
 
 
+@checkpoints.register_checkpoint_hooks
 class CyclicLRScheduler:
     """This implements a cyclical learning rate policy (CLR).
     The method cycles the learning rate between two boundaries with
@@ -755,14 +756,12 @@ class CyclicLRScheduler:
 class IntervalScheduler:
     """A simple scheduler implementation that sets the learning rate to
     specific values after a specific number of steps has been reached.
-
     Arguments
     ---------
     intervals: list
         a list of dictionaries: {"steps": <number of steps>, "lr": the learning rate}
         'steps' indicates the global step count at which a given
         rate will apply
-
     Example
     -------
     >>> import torch
@@ -806,7 +805,6 @@ class IntervalScheduler:
         ---------
         opt : optimizer
             The optimizer to update using this scheduler.
-
         Returns
         -------
         current_lr : float
@@ -858,3 +856,55 @@ class IntervalScheduler:
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
         self._compute_next()
+
+
+@checkpoints.register_checkpoint_hooks
+class InverseSquareRootScheduler:
+    """The Inverse Square Root Scheduler, as defined in the T5 paper
+    https://arxiv.org/pdf/1910.10683.pdf
+    Arguments
+    ---------
+    warmup_steps : int
+        The number of steps over which the learning rate will be constant
+    """
+
+    def __init__(self, warmup_steps):
+        self.warmup_steps = warmup_steps
+        self.n_steps = 0
+
+    def __call__(self, opt):
+        """Returns current and new hyperparameter value.
+        Arguments
+        ---------
+        current_epoch : int
+            Number of times the dataset has been iterated.
+        """
+        self.n_steps += 1
+
+        current_lr = opt.param_groups[0]["lr"]
+
+        lr = self._compute_value()
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _compute_value(self):
+        return 1 / math.sqrt(max(self.warmup_steps, self.n_steps))
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {"n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch  # Unused in this class
+        del device
+        data = torch.load(path)
+        self.n_steps = data["n_steps"]
