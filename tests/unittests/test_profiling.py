@@ -68,15 +68,16 @@ def test_profile_class(device):
 
 
 def test_profile_func(device):
-    import torch
-    from pytest import raises
-    from torch.optim import SGD
-    from speechbrain.core import Brain
-    from torch.autograd.profiler import record_function
+    # import torch
+    # from pytest import raises
+    # from torch.optim import SGD
+    # from speechbrain.core import Brain
+    # from torch.autograd.profiler import record_function
     from speechbrain.utils.profiling import profile
 
     # from speechbrain.utils.profiling import events_diff
 
+    """
     class SimpleBrain(Brain):
         def compute_forward(self, batch, stage):
             return self.modules.model(batch[0])
@@ -96,6 +97,7 @@ def test_profile_func(device):
             with record_function("or that (?)"):
                 that = torch.nn.functional.l1_loss(predictions, batch[1])
             return that
+    """
 
     @profile
     def train(brain, train_set, valid_set):
@@ -103,6 +105,7 @@ def test_profile_func(device):
             epoch_counter=range(10), train_set=train_set, valid_set=valid_set
         )
 
+    """
     model = torch.nn.Linear(in_features=10, out_features=10, device=device)
     inputs = torch.rand(10, 10, device=device)
     targets = torch.rand(10, 10, device=device)
@@ -126,6 +129,7 @@ def test_profile_func(device):
     # print(prof_nitty_gritty.key_averages().table(sort_by="cpu_time_total"))
     # assert len(prof_nitty_gritty.events()) >= 2500  # 3030 with torch==1.10.1
     # assert len(prof_nitty_gritty.key_averages()) >= 60  # 74 with torch==1.10.1
+    """
 
     # The outputs of this diff are only for visualisation, ``simple_delta._build_tree()`` will throw an error.
     """
@@ -647,7 +651,8 @@ def test_aggregated_traces(device):
 
 def test_profile_details(device):
     import torch
-    from copy import deepcopy
+
+    # from copy import deepcopy
     from torch.optim import SGD
     from speechbrain.core import Brain
     from speechbrain.utils.profiling import (
@@ -743,7 +748,7 @@ def test_profile_details(device):
     brain_optimiser.fit(
         epoch_counter=range(10), train_set=train_set, valid_set=valid_set
     )
-    key_avg_fit = deepcopy(brain_optimiser.profiler.events().key_averages())
+    # key_avg_fit = deepcopy(brain_optimiser.profiler.events().key_averages())
     """print(brain_optimiser.profiler.events().key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg       CPU Mem  Self CPU Mem    # of Calls
@@ -764,9 +769,11 @@ def test_profile_details(device):
     """
 
     brain_optimiser.evaluate(test_set=test_set)
+    """
     key_avg_evaluate = deepcopy(
         brain_optimiser.profiler.events().key_averages()
     )
+    """
     """print(brain_optimiser.profiler.events().key_averages().table(sort_by="cpu_time_total", row_limit=10))
     -------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
                                                        Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg       CPU Mem  Self CPU Mem    # of Calls
