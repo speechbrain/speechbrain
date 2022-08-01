@@ -569,15 +569,19 @@ def events_diff(
             bb.remove(bb[k])
 
     return aa, bb
+"""
 
 
 def report_time(events: object, verbose=False, upper_control_limit=False):
-    " ""Summary reporting of total time - see: torch.autograd.profiler_util
-    " ""
+    """Summary reporting of total time - see: torch.autograd.profiler_util
+    """
     # Aggregate CPU & CUDA time.
+    """
     if isinstance(events, FunctionEvent):
         function_events = events
-    elif isinstance(events, profiler.profile):
+    elif
+    """
+    if isinstance(events, profiler.profile):
         function_events = events.events()
     elif hasattr(events, "profiler"):  # assumes speechbrain.core.Brain
         function_events = events.profiler.events()
@@ -601,21 +605,26 @@ def report_time(events: object, verbose=False, upper_control_limit=False):
         cpu_time = total.self_cpu_time_total
         cuda_time = total.self_cuda_time_total
 
+    """
     if verbose:
         print("CPU time: {}".format(_format_time(cpu_time)))
         if cuda_time > 0:
             print("CUDA time: {}".format(_format_time(cuda_time)))
+    """
 
     return cpu_time, cuda_time
 
 
 def report_memory(handler: object, verbose=False):
-    " ""Summary reporting of total time - see: torch.autograd.profiler_util
-    " ""
+    """Summary reporting of total time - see: torch.autograd.profiler_util
+    """
     # Aggregate CPU & CUDA time.
+    """
     if isinstance(handler, FunctionEvent):
         events = handler
-    elif isinstance(handler, profiler.profile):
+    elif
+    """
+    if isinstance(handler, profiler.profile):
         events = handler.events()
     elif hasattr(handler, "profiler"):  # assumes speechbrain.core.Brain
         events = handler.profiler.events()
@@ -624,7 +633,7 @@ def report_memory(handler: object, verbose=False):
             "Expected a FunctionEvent; profiler.profile, or a SpeechBrain."
         )
 
-    " ""memory allocation during each time step is of relevance, e.g. for visualisation - time intensive for lots events
+    """memory allocation during each time step is of relevance, e.g. for visualisation - time intensive for lots events
     mem_times = np.unique(
         [[x.time_range.start, x.time_range.end] for x in events]
     )
@@ -640,7 +649,7 @@ def report_memory(handler: object, verbose=False):
     # variable names instead of labeling pandas' columns
     cpu_mem = np.max(cpu_memory)
     cuda_mem = np.max(cuda_memory)
-    " ""
+    """
 
     cpu_mem = cuda_mem = 0
     for e in events:
@@ -657,10 +666,11 @@ def report_memory(handler: object, verbose=False):
             if leaf_cuda_mem > cuda_mem:
                 cuda_mem = leaf_cuda_mem
 
+    """
     if verbose:
         print("Peak CPU Mem: {}".format(_format_memory(cpu_mem)))
         if cuda_mem > 0:
             print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem)))
+    """
 
     return cpu_mem, cuda_mem
-"""
