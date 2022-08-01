@@ -36,7 +36,7 @@ def prepare_binaural_wsj0mix(
 
     if "noise" in experiment_name:
         create_binaural_wsj0mix2_noise_csv(datapath, savepath, fs, version)
-    if "reverb" in experiment_name:
+    elif "reverb" in experiment_name:
         create_binaural_wsj0mix2_reverb_csv(datapath, savepath, fs, version)
     elif n_spks == 2:
         create_binaural_wsj0mix2_csv(datapath, savepath, fs, version)

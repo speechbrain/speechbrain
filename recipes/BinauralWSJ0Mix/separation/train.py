@@ -709,17 +709,30 @@ if __name__ == "__main__":
         )
         file.extractall(path=hparams["data_folder"])
 
+    sys.path.append(hparams["datasets_generation"])
+    if "noise" in hparams["experiment_name"]:
+        from create_wav_2speakers_noise import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(hparams["data_folder"], "noise")
+    elif "reverb" in hparams["experiment_name"]:
+        from create_wav_2speakers_reverb import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(hparams["data_folder"], "reverb")
+    elif hparams["num_spks"] == 2:
+        from create_wav_2speakers import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(
+            hparams["data_folder"], "2speakers"
+        )
+    else:
+        from create_wav_3speakers import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(
+            hparams["data_folder"], "3speakers"
+        )
+
     if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
         print("Generate Binaural WSJ0Mix dataset automatically")
-        sys.path.append(hparams["datasets_generation"])
-        if "noise" in hparams["experiment_name"]:
-            from create_wav_2speakers_noise import create_binaural_wsj0mix
-        elif "reverb" in hparams["experiment_name"]:
-            from create_wav_2speakers_reverb import create_binaural_wsj0mix
-        elif hparams["num_spks"] == 2:
-            from create_wav_2speakers import create_binaural_wsj0mix
-        else:
-            from create_wav_3speakers import create_binaural_wsj0mix
         run_on_main(
             create_binaural_wsj0mix,
             kwargs={
