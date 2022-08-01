@@ -6,8 +6,11 @@ Author:
 import numpy as np
 from copy import deepcopy
 from torch import profiler
-from itertools import chain
 from functools import wraps
+from typing import Any, Callable, Iterable, Optional
+
+# from typing import List
+# from itertools import chain
 
 """
 from torch.autograd.profiler_util import (  # pytorch v1.10.1
@@ -17,7 +20,6 @@ from torch.autograd.profiler_util import (  # pytorch v1.10.1
     _format_memory,
 )
 """
-from typing import Any, Callable, Iterable, Optional, List
 
 
 def set_profiler_attr(func: object, set_attr: str, handler: Callable):
