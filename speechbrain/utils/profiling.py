@@ -8,12 +8,15 @@ from copy import deepcopy
 from torch import profiler
 from itertools import chain
 from functools import wraps
+
+"""
 from torch.autograd.profiler_util import (  # pytorch v1.10.1
     EventList,
     FunctionEvent,
     _format_time,
     _format_memory,
 )
+"""
 from typing import Any, Callable, Iterable, Optional, List
 
 
@@ -225,9 +228,10 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
         return start_wrapper
 
+    """
     # It's currently designed as hiding an Easter Egg.
     def merge_traces():
-        """Implementation of merge_traces."""
+        " ""Implementation of merge_traces." ""
         # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
         trace_aggregator = "speechbrain_event_traces"
         if prof.profiler is not None:
@@ -250,11 +254,12 @@ def prepare_profiler_for_brain(prof: profiler.profile):
                 return prof.events()
         else:
             return []
+    """
 
     # Augment torch's profiler.
     setattr(prof, "start", hook_profiler_start(getattr(prof, "start")))
     setattr(prof, "stop", hook_profiler_stop(getattr(prof, "stop")))
-    setattr(prof, "merge_traces", merge_traces)
+    # setattr(prof, "merge_traces", merge_traces)
 
     # Return so it can be readily assigned elsewhere :)
     return prof
@@ -521,13 +526,14 @@ def profile_report(  # not part of unittests
         return wrapper
 
 
+"""
 def events_diff(
     a: EventList, b: EventList, filter_by: str = "count",
 ):
-    """Takes two ``EventList``:s in, filters events of equal value (default: by the count of events).
+    " ""Takes two ``EventList``:s in, filters events of equal value (default: by the count of events).
 
     The purpose of the results of this diff are for visualisation only (to see the difference between implementations).
-    """
+    " ""
     # Making copies from the originals instead of simply adding the diff directly might be slower (preserves structure).
     aa = deepcopy(a)
     bb = deepcopy(b)
@@ -566,8 +572,8 @@ def events_diff(
 
 
 def report_time(events: object, verbose=False, upper_control_limit=False):
-    """Summary reporting of total time - see: torch.autograd.profiler_util
-    """
+    " ""Summary reporting of total time - see: torch.autograd.profiler_util
+    " ""
     # Aggregate CPU & CUDA time.
     if isinstance(events, FunctionEvent):
         function_events = events
@@ -604,8 +610,8 @@ def report_time(events: object, verbose=False, upper_control_limit=False):
 
 
 def report_memory(handler: object, verbose=False):
-    """Summary reporting of total time - see: torch.autograd.profiler_util
-    """
+    " ""Summary reporting of total time - see: torch.autograd.profiler_util
+    " ""
     # Aggregate CPU & CUDA time.
     if isinstance(handler, FunctionEvent):
         events = handler
@@ -618,7 +624,7 @@ def report_memory(handler: object, verbose=False):
             "Expected a FunctionEvent; profiler.profile, or a SpeechBrain."
         )
 
-    """memory allocation during each time step is of relevance, e.g. for visualisation - time intensive for lots events
+    " ""memory allocation during each time step is of relevance, e.g. for visualisation - time intensive for lots events
     mem_times = np.unique(
         [[x.time_range.start, x.time_range.end] for x in events]
     )
@@ -634,7 +640,7 @@ def report_memory(handler: object, verbose=False):
     # variable names instead of labeling pandas' columns
     cpu_mem = np.max(cpu_memory)
     cuda_mem = np.max(cuda_memory)
-    """
+    " ""
 
     cpu_mem = cuda_mem = 0
     for e in events:
@@ -657,3 +663,4 @@ def report_memory(handler: object, verbose=False):
             print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem)))
 
     return cpu_mem, cuda_mem
+"""
