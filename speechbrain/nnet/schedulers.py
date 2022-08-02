@@ -901,6 +901,7 @@ class InverseSquareRootScheduler:
         data = {"n_steps": self.n_steps}
 
 
+@checkpoints.register_checkpoint_hooks
 class WarmCoolDecayLRSchedule:
     """Warms up, very slowly decays and cools down LR at the end of training.
 

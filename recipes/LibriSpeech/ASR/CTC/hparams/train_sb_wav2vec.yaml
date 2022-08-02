@@ -95,10 +95,15 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
   out_channels: [128, 256, 256, 512, 512, 1024, 1024]
 
-encoder: !new:speechbrain.lobes.models.wav2vec.W2VLatentEncoder
+encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
+  d_model: 768
   num_layers: 12
+  nhead: 8
+  d_ffn: 3072
   dropout: 0.1
   layerdrop_prob: 0.05
+  normalize_before: True
+  activation: !name:torch.nn.GELU
 
 encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
   in_dim: 1024
