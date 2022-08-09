@@ -288,6 +288,7 @@ class Pretrained(torch.nn.Module):
         savedir=None,
         use_auth_token=False,
         revision=None,
+        overrides_must_match=False,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -359,7 +360,7 @@ class Pretrained(torch.nn.Module):
 
         # Load the modules:
         with open(hparams_local_path) as fin:
-            hparams = load_hyperpyyaml(fin, overrides)
+            hparams = load_hyperpyyaml(fin, overrides, overrides_must_match=overrides_must_match)
 
         # Pretraining:
         pretrainer = hparams["pretrainer"]
