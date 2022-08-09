@@ -288,7 +288,7 @@ class Pretrained(torch.nn.Module):
         savedir=None,
         use_auth_token=False,
         revision=None,
-        overrides_must_match=False,
+        overrides_must_match=True,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
