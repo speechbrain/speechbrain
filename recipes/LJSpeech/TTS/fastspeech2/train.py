@@ -205,7 +205,7 @@ class FastSpeech2Brain(sb.Brain):
             return
         tokens, input_lengths, *_ = self.last_batch
         token = tokens[index][:input_lengths[index]]
-        mel_post, predicted_durations =  self.hparams.model(token.unsqueeze(0))
+        mel_post, *_ =  self.hparams.model(token.unsqueeze(0))
         self.hparams.progress_sample_logger.remember(
             infer_output=self.process_mel(mel_post, [len(mel_post[0])])
         )

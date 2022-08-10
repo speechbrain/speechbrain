@@ -6,6 +6,7 @@ Authors
 """
 
 import torch
+import librosa
 from torch import nn
 import sys
 sys.path.append('../../../')
@@ -224,10 +225,10 @@ class FastSpeech2(nn.Module):
         self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
         self.durPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
         self.pitchPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
-        self.energyPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size, n_units=513)
+        self.energyPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
         self.pitchEmbed = nn.Conv1d(1, enc_d_model, pitch_pred_kernel_size, padding=pitch_pred_kernel_size//2)
 
-        self.energyEmbed = nn.Conv1d(513, enc_d_model, pitch_pred_kernel_size, padding=pitch_pred_kernel_size//2)
+        self.energyEmbed = nn.Conv1d(1, enc_d_model, energy_pred_kernel_size, padding=energy_pred_kernel_size//2)
         self.encoder = TransformerEncoder(num_layers=enc_num_layers,
                                         nhead=enc_num_head,
                                         d_ffn=enc_ffn_dim,
@@ -287,11 +288,11 @@ class FastSpeech2(nn.Module):
         else:
             pitch = self.pitchEmbed(predict_pitch).transpose(2, 1)
         spec_feats = spec_feats.add(pitch)
-        predict_energy = self.energyPred(spec_feats)
+        predict_energy = self.energyPred(spec_feats).transpose(2, 1)
         if energy is not None:
-            energy = self.energyEmbed(energy).transpose(2, 1)
+            energy = self.energyEmbed(energy.unsqueeze(1)).transpose(2, 1)
         else:
-            energy = self.energyEmbed(predict_energy.transpose(2, 1)).transpose(2, 1)
+            energy = self.energyEmbed(predict_energy).transpose(2, 1)
         spec_feats = spec_feats.add(energy)
         
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
@@ -386,7 +387,7 @@ class TextMelCollate:
         mel_padded.zero_()
         pitch_padded = torch.FloatTensor(len(batch), max_target_len)
         pitch_padded.zero_()
-        energy_padded = torch.FloatTensor(len(batch), 513, max_target_len)
+        energy_padded = torch.FloatTensor(len(batch), max_target_len)
         energy_padded.zero_()
         output_lengths = torch.LongTensor(len(batch))
         labels, wavs = [], []
@@ -398,7 +399,7 @@ class TextMelCollate:
             energy = batch[idx][4]
             mel_padded[i, :, : mel.size(1)] = mel
             pitch_padded[i, :pitch.size(0)] = pitch
-            energy_padded[i, :, :energy.size(1)] = energy
+            energy_padded[i, :energy.size(0)] = energy
             output_lengths[i] = mel.size(1)
             labels.append(raw_batch[idx]['label'])
             wavs.append(raw_batch[idx]['wav'])
@@ -461,7 +462,7 @@ class Loss(nn.Module):
         assert len(mel_target.shape) == 3
         mel_out, log_durations, predicted_pitch, predicted_energy = predictions
         predicted_pitch = predicted_pitch.squeeze()
-        predicted_energy = predicted_energy.squeeze().transpose(2, 1)
+        predicted_energy = predicted_energy.squeeze()
         target_energy = target_energy.squeeze()
         target_pitch = target_pitch.squeeze()
         log_durations = log_durations.squeeze()
@@ -498,6 +499,7 @@ def mel_spectogram(
     f_max,
     power,
     normalized,
+    min_max_energy_norm,
     norm,
     mel_scale,
     compression,
@@ -535,32 +537,31 @@ def mel_spectogram(
         input audio signal
     """
     from torchaudio import transforms
-    audio_to_spec = transforms.Spectrogram(
-                                        hop_length=hop_length,
-                                        win_length=win_length,
-                                        n_fft=n_fft,
-                                        power=power,
-                                        normalized=normalized,
-                                        ).to(audio.device)
+    audio_to_mel = transforms.MelSpectrogram(
+        sample_rate=sample_rate,
+        hop_length=hop_length,
+        win_length=win_length,
+        n_fft=n_fft,
+        n_mels=n_mels,
+        f_min=f_min,
+        f_max=f_max,
+        power=power,
+        normalized=normalized,
+        norm=norm,
+        mel_scale=mel_scale,
+    ).to(audio.device)
 
-    spec_to_mel = transforms.MelScale(
-                                    sample_rate=sample_rate,
-                                    f_min=f_min,
-                                    f_max=f_max,
-                                    n_mels=n_mels,
-                                    n_stft=(n_fft // 2 + 1),
-                                    mel_scale=mel_scale,
-                                    norm=norm,
-                                    ).to(audio.device)
-    spec = audio_to_spec(audio)
-    #energy  =#
-    # exit()
-    mel = spec_to_mel(spec)
+    mel = audio_to_mel(audio)
 
+    rmse = librosa.feature.rms(y=audio, frame_length=n_fft, hop_length=hop_length)[0]
+    rmse = torch.from_numpy(rmse)
+    if min_max_energy_norm:
+        rmse = (rmse - torch.min(rmse))/(torch.max(rmse) - torch.min(rmse))
+    
     if compression:
         mel = dynamic_range_compression(mel)
 
-    return mel, spec
+    return mel, rmse
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
     """Dynamic range compression for audio signals
