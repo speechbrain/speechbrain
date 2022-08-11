@@ -27,6 +27,7 @@ Authors
 import os
 import sys
 import torch
+import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from audio_mnist_prepare import prepare_audio_mnist
@@ -232,10 +233,14 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
+        info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        if info.num_channels > 1:
+            sig = torch.mean(sig, dim=1)
+        resampled = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return resampled
 
     # Define label pipeline:
     @sb.utils.data_pipeline.takes("spk_id")
