@@ -30,7 +30,9 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 # Results
 
-Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
+* You can listen to example results on the test set of WSJ0-2/3Mix with SepFormer through this [page](https://sourceseparationresearch.com/static/sepformer_example_results/sepformer_results.html).
+
+* Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
