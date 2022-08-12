@@ -194,9 +194,9 @@ class LinearScheduler:
 
 
 class LinearWarmupScheduler:
-    """Create a schedule with a learning rate that decreases linearly 
+    """Create a schedule with a learning rate that decreases linearly
     from the initial lr set in the optimizer to 0, after
-    a warmup period during which it increases linearly 
+    a warmup period during which it increases linearly
     from 0 to the initial lr set in the optimizer.
 
     Arguments
@@ -216,6 +216,8 @@ class LinearWarmupScheduler:
     0.0
     >>> scheduler.get_next_value()
     0.5
+    >>> scheduler.get_next_value()
+    1.0
     >>> scheduler.get_next_value()
     0.5
     >>> scheduler.get_next_value()
@@ -237,13 +239,17 @@ class LinearWarmupScheduler:
             Number of steps the model has been updated.
         """
         if current_step < self.num_warmup_steps:
-            return float(current_step) / float(max(1, self.num_warmup_steps))*self.lr0
-        return self.lr0*max(
-            0.0, 
-            float(self.num_training_steps - current_step) / 
-            float(max(1, self.num_training_steps - self.num_warmup_steps))
+            return (
+                float(current_step)
+                / float(max(1, self.num_warmup_steps))
+                * self.lr0
+            )
+        return self.lr0 * max(
+            0.0,
+            float(self.num_training_steps - current_step)
+            / float(max(1, self.num_training_steps - self.num_warmup_steps)),
         )
-    
+
     def get_next_value(self):
         """Returns the next learning rate value for the hyperparameter.
         """
