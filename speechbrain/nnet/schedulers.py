@@ -193,6 +193,65 @@ class LinearScheduler:
         return self.value_at_epoch[old_index], self.value_at_epoch[index]
 
 
+class LinearWarmupScheduler:
+    """Create a schedule with a learning rate that decreases linearly 
+    from the initial lr set in the optimizer to 0, after
+    a warmup period during which it increases linearly 
+    from 0 to the initial lr set in the optimizer.
+
+    Arguments
+    ---------
+    initial_value : float
+        The value upon initialization (lr0).
+    num_warmup_steps : int
+        Number of warmup steps. The learning rate reaches lr0 at
+        ``num_warmup_steps + 1`` step.
+    num_training_steps: int
+        The total number of training steps.
+
+    Example
+    -------
+    >>> scheduler = LinearWarmupScheduler(1.0, 2, 4)
+    >>> scheduler.get_next_value()
+    0.0
+    >>> scheduler.get_next_value()
+    0.5
+    >>> scheduler.get_next_value()
+    0.5
+    >>> scheduler.get_next_value()
+    0.0
+    """
+
+    def __init__(self, initial_value, num_warmup_steps, num_training_steps):
+        self.lr0 = initial_value
+        self.num_warmup_steps = num_warmup_steps
+        self.num_training_steps = num_training_steps
+        self.current_step = 0
+
+    def __call__(self, current_step):
+        """Returns the current and new value for the hyperparameter.
+
+        Arguments
+        ---------
+        current_step : int
+            Number of steps the model has been updated.
+        """
+        if current_step < self.num_warmup_steps:
+            return float(current_step) / float(max(1, self.num_warmup_steps))*self.lr0
+        return self.lr0*max(
+            0.0, 
+            float(self.num_training_steps - current_step) / 
+            float(max(1, self.num_training_steps - self.num_warmup_steps))
+        )
+    
+    def get_next_value(self):
+        """Returns the next learning rate value for the hyperparameter.
+        """
+        new_value = self.__call__(self.current_step)
+        self.current_step += 1
+        return new_value
+
+
 class StepScheduler:
     """Learning rate scheduler with step annealing technique.
 
