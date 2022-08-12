@@ -82,12 +82,15 @@ You can download LibriSpeech at http://www.openslr.org/12
 
 Pretrained Models
 -----------------
-| Release       | hyperparams file           | Test PER | Homograph % | Model link                                                                           |
+| Release       | hyperparams file           | Sentence Test PER | Homograph % | Model link                                                                           |
 |:-------------:|:--------------------------:| --------:| --------------------------------------------------------------------------------------------------:|
-| 0.5.12        | train_g2p_rnn.yaml         | 2.71%*   |  94%*       | https://drive.google.com/drive/folders/1jpVDz6Kqtl4qp3_dsuK767mjNlqkIxTH?usp=sharing |
-| 0.5.12        | train_g2p_transformer.yaml | 2.89%*   |  89%*       | https://drive.google.com/drive/folders/1lbSjCKUit8H3FCzaDJmfBDJOkcDRH3XI?usp=sharing |
+| 0.5.12        | train_g2p_rnn.yaml         | 2.72               |  94%        | https://drive.google.com/drive/folders/1jpVDz6Kqtl4qp3_dsuK767mjNlqkIxTH?usp=sharing |
+| 0.5.12        | train_g2p_transformer.yaml | 2.89               |  92%        | https://drive.google.com/drive/folders/1lbSjCKUit8H3FCzaDJmfBDJOkcDRH3XI?usp=sharing |
 
-* Verification pending (results based on an earlier version)
+NOTE: Sentence PER is reported as achieved at the end of the sentence training step. Nominal PER on
+librispeech data may increase post fine-tuning due to a distribution shift in labeling, if reevaluated.
+To replicate the result exactly, train with --homograph_epochs=0.
+
 
 Pretrained language models can be found at the following URLs:
 * **RNN**: https://drive.google.com/drive/folders/1Zv8SNYIXzboFatSRpmoNgRyVXl_6ucir?usp=sharing
