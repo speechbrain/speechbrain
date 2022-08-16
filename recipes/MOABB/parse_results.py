@@ -5,7 +5,9 @@ Snippet to aggregate results based on four different EEG training paradigms
 
 To run this script (e.g., exp_results: results/MOABB/EEGNet_BNCI2014001/<seed>; required metrics: ["acc", "loss", "f1"]):
 
-    > python3 parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 acc loss f1
+    > python3 parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 test_metrics.pkl acc loss f1
+
+Use valid_metrics.pkl for results on the validation test.
 
 Author
 ------
@@ -270,16 +272,19 @@ def aggregate_metrics(
     results_folder = Path(sys.argv[1])
     vis_metrics = stat_metrics
 
+
     available_paradigms = list(map(lambda x: x.stem, sorted(results_folder.iterdir())))
     overall_stat = {key: [] for key in stat_metrics}
 
     parsers = {k : available_parsers[k] for k in available_paradigms}
     aggr = {k : available_aggrs[k] for k in available_paradigms}
 
+
     for paradigm in sorted(results_folder.iterdir()):
         results = parsers[paradigm.name](
             paradigm,
             vis_metrics,
+            metric_file=metric_file,
             stat_metrics=stat_metrics,
         )
         temp = aggr[paradigm.name](
@@ -297,9 +302,10 @@ def aggregate_metrics(
 
 
 if __name__ == "__main__":
-    stat_metrics = sys.argv[2:]
+    metric_file = sys.argv[2]
+    stat_metrics = sys.argv[3:]
     temp = aggregate_metrics(
-        verbose=1, metric_file="test_metrics.pkl", stat_metrics=stat_metrics
+        verbose=1, metric_file=metric_file, stat_metrics=stat_metrics
     )
 
     print("\nAggregated results")

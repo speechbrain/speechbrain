@@ -19,8 +19,8 @@ from torch.nn import init
 import numpy as np
 import logging
 import sys
-from recipes.MOABB.prepare import download_data, prepare_data
-from recipes.MOABB.dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
+from prepare import download_data, prepare_data
+from dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 import speechbrain as sb
 
 

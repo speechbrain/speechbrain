@@ -1,3 +1,4 @@
 moabb==0.4.6
 mne==0.24.1
+orion
 sklearn
