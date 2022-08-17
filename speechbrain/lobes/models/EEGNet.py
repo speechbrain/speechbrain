@@ -59,12 +59,23 @@ class EEGNet(torch.nn.Module):
         dropout=0.5,
         dense_max_norm=0.25,
         dense_n_neurons=4,
-        activation=torch.nn.ELU(),
+        activation_type='elu',
     ):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
         self.default_sf = 128  # sampling rate of the original publication (Hz)
+
+        if activation_type == 'elu':
+            activation = torch.nn.ELU()
+        elif activation_type == 'relu':
+            activation = torch.nn.ReLU()
+        elif activation_type == 'leaky_relu':
+            activation = torch.nn.LeakyReLU()
+        elif activation_type == 'prelu':
+            activation = torch.nn.PReLU()
+        else:
+            raise ValueError("Wrong hidden activation function")
 
         T = input_shape[1]
         C = input_shape[2]
