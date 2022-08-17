@@ -193,11 +193,13 @@ class LinearScheduler:
         return self.value_at_epoch[old_index], self.value_at_epoch[index]
 
 
+@checkpoints.register_checkpoint_hooks
 class LinearWarmupScheduler:
     """Create a schedule with a learning rate that decreases linearly
     from the initial lr set in the optimizer to 0, after
     a warmup period during which it increases linearly
     from 0 to the initial lr set in the optimizer.
+    * Ge Li 2022
 
     Arguments
     ---------
@@ -230,7 +232,7 @@ class LinearWarmupScheduler:
         self.num_training_steps = num_training_steps
         self.current_step = 0
 
-    def __call__(self, current_step):
+    def calculate_lr(self, current_step):
         """Returns the current and new value for the hyperparameter.
 
         Arguments
@@ -253,7 +255,7 @@ class LinearWarmupScheduler:
     def get_next_value(self):
         """Returns the next learning rate value for the hyperparameter.
         """
-        new_value = self.__call__(self.current_step)
+        new_value = self.calculate_lr(self.current_step)
         self.current_step += 1
         return new_value
 
