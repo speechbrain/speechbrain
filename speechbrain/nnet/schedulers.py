@@ -259,6 +259,28 @@ class LinearWarmupScheduler:
         self.current_step += 1
         return new_value
 
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {
+            "initial_value": self.lr0,
+            "num_warmup_steps": self.num_warmup_steps,
+            "num_training_steps": self.num_training_steps,
+            "current_step": self.current_step,
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch  # Unused in this class
+        del device  # Unused in here
+        data = torch.load(path)
+        self.lr0 = data["initial_value"]
+        self.num_warmup_steps = data["num_warmup_steps"]
+        self.num_training_steps = data["num_training_steps"]
+        self.current_step = data["current_step"]
+
 
 class StepScheduler:
     """Learning rate scheduler with step annealing technique.
