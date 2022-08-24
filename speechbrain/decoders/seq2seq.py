@@ -278,9 +278,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
     beam_size : int
         The width of beam.
     topk : int
-        The number of hypothesis to return. (default: 1)
+        The number of hypothesis to return and its respective scores. (default: 1)
     return_log_probs : bool
-        Whether to return log-probabilities. (default: False)
+        Whether to return log-probabilities, instead of probabilities. (default: False)
     using_eos_threshold : bool
         Whether to use eos threshold. (default: true)
     eos_threshold : float
