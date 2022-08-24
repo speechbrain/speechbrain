@@ -832,7 +832,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.return_log_probs:
             return predictions, topk_scores, log_probs
         else:
-            return predictions, topk_scores
+            return predictions, topk_scores, torch.exp(log_probs)
 
     def ctc_forward_step(self, x):
         """Applies a ctc step during bramsearch."""
