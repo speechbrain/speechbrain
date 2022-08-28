@@ -354,10 +354,10 @@ if __name__ == "__main__":
     asr_brain.tokenizer = label_encoder
 
     pretrained_model_path_extract = (
-        hparams["pretrained_model"] + "/latent_extractor.ckpt"
+        hparams["wav2vec2_hub"] + "/latent_extractor.ckpt"
     )
     pretrained_model_path_encode = (
-        hparams["pretrained_model"] + "/latent_encoder.ckpt"
+        hparams["wav2vec2_hub"] + "/latent_encoder.ckpt"
     )
     sb.utils.checkpoints.torch_recovery(
         hparams["modules"]["extractor"], pretrained_model_path_extract, False
