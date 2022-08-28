@@ -409,7 +409,7 @@ def main():
         )
     else:
         g2p = GraphemeToPhoneme.from_hparams(
-            hparams_file_name=hparams_file_name,
+            hparams_file=hparams_file_name,
             source=arguments.model,
             overrides=overrides,
             run_opts=run_opts,
