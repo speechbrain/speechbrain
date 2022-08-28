@@ -3,14 +3,14 @@
 The system employs wav2vec as its encoder. Decoding is performed with
 ctc greedy decoder.
 To run this recipe, do the following:
-> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
+> python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
+are used as basic recognition tokens.
 
 Authors
+ * Rudolf A Braun 2022
+ * Titouan Parcollet 2022
  * Sung-Lin Yeh 2021
- * Titouan Parcollet 2021
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
  * Abdel Heba 2020
@@ -23,9 +23,6 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.dataio.dataloader import SaveableDataLoader
-from speechbrain.dataio.sampler import DynamicBatchSampler
-from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
@@ -39,7 +36,6 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
@@ -48,16 +44,21 @@ class ASR(sb.Brain):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
 
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        latents = self.modules.extractor(wavs)
-        feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[
-            "embeddings"
-        ]
+
+        # Handling SpeechBrain vs HuggingFance pretrained models
+        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
+            latents = self.modules.extractor(wavs)
+            feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[
+                "embeddings"
+            ]
+        else:  # HuggingFace pretrained model
+            feats = self.modules.wav2vec2(wavs)
+
         x = self.modules.enc(feats)
 
         # Compute outputs
@@ -76,14 +77,9 @@ class ASR(sb.Brain):
         p_ctc, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
             tokens = torch.cat([tokens, tokens], dim=0)
             tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
 
@@ -104,9 +100,9 @@ class ASR(sb.Brain):
 
     def fit_batch(self, batch):
         should_step = self.step % self.grad_accumulation_factor == 0
+
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            raise RuntimeError("Always crashes :(")
             self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
@@ -134,13 +130,6 @@ class ASR(sb.Brain):
                 self.optimizer_step += 1
 
         return loss.detach().cpu()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -194,9 +183,17 @@ class ASR(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
-        self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-            self.modules.encoder_wrapper.latent_encoder.parameters()
-        )
+        # Handling SpeechBrain vs HuggingFance pretrained models
+        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.encoder_wrapper.latent_encoder.parameters()
+            )
+
+        else:  # HuggingFace pretrained model
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.wav2vec2.parameters()
+            )
+
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
         )
@@ -217,12 +214,26 @@ def dataio_prepare(hparams):
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
-    train_data.filtered_sorted(
-        sort_key="duration",
-        reverse=True,
-        key_max_value={"duration": hparams["avoid_if_longer_than"]},
-        key_min_value={"duration": hparams["avoid_if_shorter_than"]},
-    )
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(sort_key="duration")
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+
+    elif hparams["sorting"] == "random":
+        pass
+
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
@@ -255,7 +266,7 @@ def dataio_prepare(hparams):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "wrd", "char_list", "tokens_list", "tokens"
     )
     def text_pipeline(wrd):
         yield wrd
@@ -263,10 +274,6 @@ def dataio_prepare(hparams):
         yield char_list
         tokens_list = label_encoder.encode_sequence(char_list)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
@@ -274,8 +281,6 @@ def dataio_prepare(hparams):
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     special_labels = {
-        "bos_label": hparams["bos_index"],
-        "eos_label": hparams["eos_index"],
         "blank_label": hparams["blank_index"],
     }
     label_encoder.load_or_create(
@@ -288,23 +293,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "char_list", "tokens_bos", "tokens_eos", "tokens"],
-    )
-
-    train_sampler = DynamicBatchSampler(
-        train_data,
-        hparams["seconds_per_batch"],
-        num_buckets=60,
-        length_func=lambda x: x["duration"],
-        shuffle=True,
-        batch_ordering="random",
-    )
-    train_data = SaveableDataLoader(
-        train_data,
-        batch_sampler=train_sampler,
-        collate_fn=PaddedBatch,
-        num_workers=6,
+        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
     )
 
     return train_data, valid_data, test_datasets, label_encoder
