@@ -1078,6 +1078,7 @@ class WarmCoolDecayLRSchedule:
 
     @checkpoints.mark_as_saver
     def save(self, path):
+        """Saves the current metrics on the specified path."""
         data = {
             "base_lr": self.base_lr,
             "warmup": self.warmup,
@@ -1089,6 +1090,7 @@ class WarmCoolDecayLRSchedule:
 
     @checkpoints.mark_as_loader
     def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
         del end_of_epoch
         del device
         data = torch.load(path)

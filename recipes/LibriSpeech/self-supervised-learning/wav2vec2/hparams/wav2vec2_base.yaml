@@ -9,16 +9,13 @@ save_folder: !ref <output_folder>/save
 # Logging file for every N optimizer steps (many lines)
 train_steps_log: !ref <output_folder>/train_steps_log.txt
 # Logging file per epoch
-train_log: !ref <output_folder>/train_stage_log.txt
+train_stage_log: !ref <output_folder>/train_stage_log.txt
 
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean"]
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
-test_csv:
-   - !ref <output_folder>/test-clean.csv
-   - !ref <output_folder>/test-other.csv
 skip_prep: False
 
 avoid_if_longer_than: 30.0
@@ -34,7 +31,6 @@ optimizer_step_limit: 400000
 
 # Dynamic Batching parameters
 train_num_buckets: 70
-train_num_workers: 4
 seconds_per_batch: 200 # Fits in a 32GB GPUs (V100)
 
 train_dataloader_options:
@@ -45,7 +41,6 @@ test_dataloader_options:
    num_workers: 4
 
 # Training parameters
-sample_rate: 16000
 lr: 0.0005
 warmup: 30000
 # This is equivalent to optimizer_step_limit - warmup
@@ -121,7 +116,7 @@ lr_scheduler: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
    total_steps: !ref <optimizer_step_limit>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-   checkpoints_dir: !ref <output_folder>
+   checkpoints_dir: !ref <save_folder>
    recoverables:
       latent_extractor: !ref <extractor>
       latent_encoder: !ref <encoder_wrapper>

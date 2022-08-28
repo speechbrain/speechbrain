@@ -1,3 +1,12 @@
+"""Components necessary to build a wav2vec 2.0 architecture following the
+original paper: https://arxiv.org/abs/2006.11477.
+
+Authors
+* Rudolf A Braun 2022
+* Guillermo Cambara 2022
+* Titouan Parcollet 2022
+"""
+
 import logging
 import torch
 import torch.nn.functional as F

@@ -67,11 +67,14 @@ class GumbelVectorQuantizer(nn.Module):
         )
 
     def update_temp(self, steps):
+        """ Update the temperature given the current step """
         self.curr_temp = max(
             self.max_temp * self.temp_decay ** steps, self.min_temp
         )
 
     def forward(self, x):
+        """ Forward the latent vector to obtain a quantised output """
+
         result = {
             "num_vars": self.num_vars * self.groups,
             "temp": self.curr_temp,

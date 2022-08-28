@@ -20,7 +20,7 @@ wav2vec_output_dim: 768 # This corresponds to the embedding size of the w2v2
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded if uncommented
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100"] # ["train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -52,16 +52,10 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
-# If set to a value higher than 0, some dropout will be applied at the
-# output of the wav2vec2 model my randomly masking entirely "frames".
-mask_prob: 0.2
-mask_length: 1
-
 # Model parameters
 dnn_activation: !name:torch.nn.LeakyReLU
 dnn_neurons: 1024
 dnn_dropout: 0.15
-freeze_wav2vec: False
 
 # Outputs
 output_neurons: 31  # BPE size, index(blank/eos/bos) = 0
