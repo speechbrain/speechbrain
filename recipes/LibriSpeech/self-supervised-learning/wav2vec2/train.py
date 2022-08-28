@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Recipe for pretraining wav2vec2. See config file for model definition.
+"""Recipe for pretraining wav2vec2 (https://arxiv.org/abs/2006.11477).
+See config file for model definition.
+See the readme of the recipe for advices on the pretraining that may appear
+a bit challenging depending on your available resources.
 
 To run this recipe call python train.py hparams/train_wav2vec.yaml --find_unused_parameters --max_grad_norm 0.0
 
 Authors
     * Rudolf Braun 2022
     * Guillermo Cámbara 2022
+    * Titouan Parcollet 2022
 """
 
-import os
-import os.path as osp
 import logging
 import sys
 import time
@@ -26,11 +28,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.lobes.models.wav2vec import w2v_mask_collate_fn
-
-
-PYTHON_VERSION_MAJOR = 3
-PYTHON_VERSION_MINOR = 7
-
+from speechbrain.lobes.models.wav2vec import sample_negatives
 
 logger = logging.getLogger(__name__)
 
@@ -41,22 +39,25 @@ class W2V2Brain(sb.core.Brain):
         target embeddings as well as other metrics of interest.
         """
         wavs, wav_lens, mask = batch
-        # print(self.optimizer_step, ids)
         wavs, wav_lens, mask = (
             wavs.to(self.device),
             wav_lens.to(self.device),
             mask.to(self.device),
         )
         batch_size = wavs.size(0)
-        # normalisation already done in dataloader
+
+        # Mormalisation already done in dataloader
+        # 1. Go through features extractor
         latents = self.modules.latent_extractor(wavs, normalize_signal=False)
 
+        # 2. Go through latent (Transformer).
         results = self.modules.latent_encoder(
             latents, mask=mask, wav_lens=wav_lens,
         )
 
         embeddings = results["embeddings"]
 
+        # 3. Mask some of the latent and projection
         embeddings = embeddings[mask]
         embeddings = self.modules.feat_proj(embeddings)
         results["embeddings"] = embeddings.view(
@@ -64,6 +65,8 @@ class W2V2Brain(sb.core.Brain):
         )
 
         latents = latents[mask].view(batch_size, -1, latents.size(2))
+
+        # 4. Apply the quantiser as well
         targets, meta = self.modules.target_quantiser(latents)
         results.update(meta)
         results["targets"] = targets
@@ -75,9 +78,14 @@ class W2V2Brain(sb.core.Brain):
 
         embeddings = forward_outputs["embeddings"]
         targets = forward_outputs["targets"]
-        negs = sample_negatives(targets, 100)
+
+        negs = sample_negatives(targets, self.hparams["num_negatives"])
 
         loss, accuracy = self.hparams.loss(embeddings, targets, negs)
+
+        # This is only used for logging purpose
+        if stage != sb.Stage.TRAIN:
+            self.acc_metric.append(accuracy)
 
         objectives = {
             "loss": loss,
@@ -97,6 +105,18 @@ class W2V2Brain(sb.core.Brain):
                     "temp": forward_outputs["temp"],
                 }
             )
+
+        # Compute the loss given the original equation from the paper
+        loss = objectives["loss"]
+        if self.hparams.diversity_loss_weight == 0.0:
+            objectives["backprop_loss"] = loss
+        else:
+            objectives["backprop_loss"] = (
+                loss
+                + objectives["diversity_loss"]
+                * self.hparams.diversity_loss_weight
+                * objectives["num_masked"]
+            )
         return objectives
 
     def fit_batch(self, batch):
@@ -109,25 +129,15 @@ class W2V2Brain(sb.core.Brain):
                     objectives = self.compute_objectives(
                         outputs, batch, Stage.TRAIN
                     )
-                loss = objectives["loss"]
-                if self.hparams.diversity_loss_weight == 0.0:
-                    backprop_loss = loss
-                else:
-                    backprop_loss = (
-                        loss
-                        + objectives["diversity_loss"]
-                        * self.hparams.diversity_loss_weight
-                        * objectives["num_masked"]
-                    )
 
                 self.scaler.scale(
-                    backprop_loss / self.grad_accumulation_factor
+                    objectives["backprop_loss"] / self.grad_accumulation_factor
                 ).backward()
 
-                objectives["total_loss"] = backprop_loss.detach()
+                objectives["total_loss"] = objectives["backprop_loss"].detach()
                 if should_step:
                     self.scaler.unscale_(self.optimizer)
-                    if self.check_gradients(loss):
+                    if self.check_gradients(objectives["backprop_loss"]):
                         self.scaler.step(self.optimizer)
                     self.optimizer.zero_grad()
                     self.optimizer_step += 1
@@ -138,22 +148,14 @@ class W2V2Brain(sb.core.Brain):
                 objectives = self.compute_objectives(
                     outputs, batch, Stage.TRAIN
                 )
-                loss = objectives["loss"]
-                if self.hparams.diversity_loss_weight == 0.0:
-                    backprop_loss = loss
-                else:
-                    backprop_loss = (
-                        loss
-                        + objectives["diversity_loss"]
-                        * self.hparams.diversity_loss_weight
-                        * objectives["num_masked"]
-                    )
 
-                (backprop_loss / self.grad_accumulation_factor).backward()
-                objectives["total_loss"] = backprop_loss.detach()
+                (
+                    objectives["backprop_loss"] / self.grad_accumulation_factor
+                ).backward()
+                objectives["total_loss"] = objectives["backprop_loss"].detach()
 
                 if should_step:
-                    if self.check_gradients(loss):
+                    if self.check_gradients(objectives["backprop_loss"]):
                         self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.optimizer_step += 1
@@ -161,18 +163,20 @@ class W2V2Brain(sb.core.Brain):
         if should_step:
             self.on_fit_batch_end(objectives)
 
-        return objectives["loss"].detach()
+        return objectives["backprop_loss"].detach()
 
     def on_fit_batch_end(self, objectives):
-        """ Called after fit_batch(), updates learning rate and does logging. """
+        """ Called after fit_batch(), updates learning rate and does per-step logging. """
         if isinstance(self.modules.target_quantiser, DistributedDataParallel):
             w2v_model = self.modules.target_quantiser.module
         else:
             w2v_model = self.modules.target_quantiser
+
         w2v_model.quantiser.update_temp(self.optimizer_step)
 
         self.hparams.lr_scheduler(self.optimizer, self.optimizer_step)
 
+        # Perform step-wise logging (only reported in log.log)
         if (
             hasattr(self.hparams, "log_interval")
             and self.optimizer_step % self.hparams.log_interval == 0
@@ -194,73 +198,44 @@ class W2V2Brain(sb.core.Brain):
                 log_dct["stats/run_time"] = run_time_since_last_log
             self.time_last_log = time.time()
 
-            log_str = (
-                f"Optimizer step: {self.optimizer_step} - Objectives: {log_dct}"
-            )
-            logger.info(log_str)
-
-            if self.hparams.use_wandb:
-                run_on_main(
-                    wandb.log,
-                    kwargs={"data": log_dct, "step": self.optimizer_step},
-                )
+            self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
 
     def evaluate_batch(self, batch, stage):
         """ Returns accuracy on contrastive objective. """
         out = self.compute_forward(batch, stage=stage)
         objectives = self.compute_objectives(out, batch, stage=stage)
-        return objectives["accuracy"].cpu()
+        return objectives["backprop_loss"].detach().cpu()
+
+    def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
+        if stage != sb.Stage.TRAIN:
+            self.acc_metric = []
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         if stage == sb.Stage.VALID:
-            logger.info(
-                f"Update: {self.optimizer_step} - valid_accuracy: {stage_loss:.3f}"
-            )
-            if self.hparams.use_wandb:
-                wandb.log(
-                    {"valid_acuracy": stage_loss}, step=self.optimizer_step
+            stage_stats = {"loss": stage_loss}
+            if stage == sb.Stage.TRAIN:
+                self.train_stats = stage_stats
+            else:
+                stage_stats["accuracy"] = sum(self.acc_metric) / len(
+                    self.acc_metric
                 )
+
+            self.hparams.train_stage_logger.log_stats(
+                stats_meta={
+                    "epoch": epoch,
+                    "steps": self.optimizer_step,
+                    "lr": self.optimizer.param_groups[0]["lr"],
+                },
+                train_stats=self.train_stats,
+                valid_stats=stage_stats,
+            )
+
             self.checkpointer.save_and_keep_only(
                 end_of_epoch=True,
                 num_to_keep=5,
-                meta={"valid_acc": stage_loss},
-                verbosity=logging.DEBUG,
+                meta={"valid_loss": stage_loss},
             )
-
-    def update_average(self, loss, avg_loss):
-        if avg_loss == 0.0:
-            avg_loss = loss.item()
-        else:
-            avg_loss = 0.99 * avg_loss + 0.01 * loss.item()
-        return avg_loss
-
-
-def sample_negatives(y, num_neg):
-    """ Samples negatives from target tensor y.
-    Arguments
-    ---------
-    y : torch.Tensor
-        Tensor of shape (B, T, C)
-    num_neg : int
-        Number of negatives to sample.
-    Returns
-    -------
-    negs : torch.Tensor
-        Negatives in shape (N, B, T, C)
-    """
-    B, T, C = y.shape
-    high = T - 1
-    with torch.no_grad():
-        targets = torch.arange(T).unsqueeze(-1).expand(-1, num_neg).flatten()
-        neg_indcs = torch.randint(low=0, high=high, size=(B, T * num_neg))
-        # negative should not be target and to make distribution uniform shift all >
-        neg_indcs[neg_indcs >= targets] += 1
-
-    neg_indcs = neg_indcs + torch.arange(B).unsqueeze(1) * high
-    y = y.view(-1, C)
-    negs = y[neg_indcs.view(-1)]
-    negs = negs.view(B, T, num_neg, C).permute(2, 0, 1, 3)  # to N, B, T, C
-    return negs
 
 
 def dataio_prepare(hparams):
@@ -270,7 +245,7 @@ def dataio_prepare(hparams):
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
-    # we sort training data to speed up training and get better results.
+    # We remove longer and shorter files from the train.
     train_data = train_data.filtered_sorted(
         sort_key="duration",
         key_max_value={"duration": hparams["avoid_if_longer_than"]},
@@ -280,12 +255,14 @@ def dataio_prepare(hparams):
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
-    # We also sort the validation data so it is faster to validate
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data]
 
     def get_output_lengths(input_lengths):
+        """ Function to get the output length of the feature extractor this is
+            necessery to compute the masks of wav2vec2.
+        """
+
         def _conv_out_length(input_length, kernel_size, stride):
             return torch.floor((input_length - kernel_size) / stride + 1)
 
@@ -301,6 +278,8 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
         assert sig.dim() == 1, sig.dim()
+
+        # Audio normalization
         with torch.no_grad():
             sig = F.layer_norm(sig, sig.shape)
         return sig
@@ -308,6 +287,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
+    # We create the DynamicBatch Sampler
     train_sampler = DynamicBatchSampler(
         train_data,
         hparams["seconds_per_batch"],
@@ -317,6 +297,8 @@ def dataio_prepare(hparams):
         shuffle=True,
     )
 
+    # We define the custom collation function that is necessary for w2v2 to
+    # generate masks.
     w2v_mask_collate_fn_partial = partial(
         w2v_mask_collate_fn,
         get_out_len_fn=get_output_lengths,
@@ -327,7 +309,7 @@ def dataio_prepare(hparams):
     train_loader_kwargs = {
         "batch_sampler": train_sampler,
         "collate_fn": w2v_mask_collate_fn_partial,
-        "num_workers": hparams["train_num_workers"],
+        "num_workers": hparams["train_dataloader_options"]["num_workers"],
         "pin_memory": True,
     }
 
@@ -340,40 +322,6 @@ def dataio_prepare(hparams):
     )
 
     return train_data, valid_loader, train_loader_kwargs
-
-
-def _setup_wandb(hparams):
-    global wandb
-    import wandb
-
-    id_file = osp.join(hparams["output_folder"], "id")
-    if not hparams["distributed_launch"] or (
-        hparams["distributed_launch"] and int(os.environ["RANK"]) == 0
-    ):
-        # This should run when not using distributed training OR
-        # when using and this is the rank 0 node of distributed training.
-        dct = {
-            k: hparams.get(k)
-            for k in hparams.keys()
-            if hparams[k].__class__.__name__ in ("str", "int", "float", "bool")
-        }  # collects hparams to log
-        if os.path.exists(id_file):
-            id, name = open(id_file).read().split()
-            logger.info(
-                f"Loading ID {id} and name {name} for wandb from existing file {id_file}"
-            )
-            run = wandb.init(
-                project="wav2vec", resume="allow", config=dct, id=id, name=name,
-            )
-        else:
-            run = wandb.init(project="wav2vec", resume="allow", config=dct)
-            id = run.id
-            name = run.name
-            logger.info(
-                f"Creating new ID {id} and name {name} for wandb, putting in file {id_file}"
-            )
-            with open(id_file, "w") as fh:
-                fh.write(f"{id} {name}")
 
 
 def main():
@@ -407,9 +355,6 @@ def main():
             "skip_prep": hparams["skip_prep"],
         },
     )
-
-    if hparams["use_wandb"]:
-        _setup_wandb(hparams)
 
     # Part that matters starts here.
     train_dataset, valid_loader, train_loader_kwargs = dataio_prepare(hparams)

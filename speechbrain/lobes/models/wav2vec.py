@@ -266,6 +266,34 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
     return mask
 
 
+def sample_negatives(y, num_neg):
+    """ Samples negatives from target tensor y.
+    Arguments
+    ---------
+    y : torch.Tensor
+        Tensor of shape (B, T, C)
+    num_neg : int
+        Number of negatives to sample.
+    Returns
+    -------
+    negs : torch.Tensor
+        Negatives in shape (N, B, T, C)
+    """
+    B, T, C = y.shape
+    high = T - 1
+    with torch.no_grad():
+        targets = torch.arange(T).unsqueeze(-1).expand(-1, num_neg).flatten()
+        neg_indcs = torch.randint(low=0, high=high, size=(B, T * num_neg))
+        # negative should not be target and to make distribution uniform shift all >
+        neg_indcs[neg_indcs >= targets] += 1
+
+    neg_indcs = neg_indcs + torch.arange(B).unsqueeze(1) * high
+    y = y.view(-1, C)
+    negs = y[neg_indcs.view(-1)]
+    negs = negs.view(B, T, num_neg, C).permute(2, 0, 1, 3)  # to N, B, T, C
+    return negs
+
+
 def w2v_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length):
     """ This creates a batch from a list of samples and also creates
     the boolean mask that will be used to mask the inputs of the latent

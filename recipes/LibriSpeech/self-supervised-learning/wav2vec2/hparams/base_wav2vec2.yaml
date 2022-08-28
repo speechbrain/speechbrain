@@ -1,6 +1,15 @@
-data_folder: /idiap/resource/database/LibriSpeech
-save_folder: data
-output_folder: exp-test
+# ################################
+# Model: wav2vec2
+# Authors: Rudolf A Braun 2022, Guillermo Cambara 2022, Titouan Parcollet 2022
+# ################################
+
+data_folder: !PLACEHOLDER
+output_folder: wav2vec2-base
+save_folder: !ref <output_folder>/save
+# Logging file for every N optimizer steps (many lines)
+train_steps_log: !ref <output_folder>/train_steps_log.txt
+# Logging file per epoch
+train_log: !ref <output_folder>/train_stage_log.txt
 
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
@@ -12,30 +21,50 @@ test_csv:
    - !ref <output_folder>/test-other.csv
 skip_prep: False
 
-avoid_if_longer_than: 16.
-avoid_if_shorter_than: 2.5
-log_interval: 25
-use_wandb: False
+avoid_if_longer_than: 30.0
+avoid_if_shorter_than: 1.0
+log_interval: 25 # Logging every N optimizer steps
 auto_mix_prec: True
 max_grad_norm: 100.
 
+# The training will either stops at number_of_epochs or optimizer_step_limit
+# I.e. the first that is reached.
 number_of_epochs: 300
 optimizer_step_limit: 400000
+
+# Dynamic Batching parameters
 train_num_buckets: 70
 train_num_workers: 4
+seconds_per_batch: 200 # Fits in a 32GB GPUs (V100)
 
+train_dataloader_options:
+   num_workers: 4
+
+test_dataloader_options:
+   batch_size: 8 # DynamicBatching not used at testing time
+   num_workers: 4
+
+# Training parameters
 sample_rate: 16000
-lr: 0.002
-warmup: 20000
-seconds_per_batch: 160
-encoder_layerdrop: 0.05
+lr: 0.0005
+warmup: 30000
+# This is equivalent to optimizer_step_limit - warmup
+# Necessary to do to have a linear warmup and linear decay directly
+# If cooldown < optimizer_step_limit - warmup then a third step with a slower
+# decay is applied in the middle (see the implementation of the scheduler)
+cooldown: 360000
 
-diversity_loss_weight: 0.2
+# Loss parameters
+diversity_loss_weight: 0.1
 mask_prob: 0.65
 mask_length: 10
+num_negatives: 100
 
+# Model parameters
 embedding_dim: 768
+extractor_dim: 1024
 final_dim: 256
+encoder_layerdrop: 0.05
 latentextractor_kernels: [11, 3, 3, 3, 3, 3, 3]
 latentextractor_strides: [5, 2, 2, 2, 2, 2, 2]
 
@@ -44,17 +73,13 @@ optimizer: !name:torch.optim.AdamW
    weight_decay: 0.01
    eps: 0.000001
 
-test_dataloader_options:
-   batch_size: 8
-   num_workers: 4
-
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
    kernel_sizes: !ref <latentextractor_kernels>
    strides: !ref <latentextractor_strides>
-   out_channels: [128, 256, 256, 512, 512, 1024, 1024]
+   out_channels: [128, 256, 256, 512, 512, !ref <extractor_dim>, !ref <extractor_dim>]
 
 encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
    d_model: !ref <embedding_dim>
@@ -67,13 +92,13 @@ encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncode
    activation: !name:torch.nn.GELU
 
 encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
-   in_dim: 1024
+   in_dim: !ref <extractor_dim>
    embedding_dim: !ref <embedding_dim>
    latent_encoder: !ref <encoder>
    dropout_encoder_input: 0.1
 
 target_quantiser: !new:speechbrain.lobes.models.wav2vec.W2VTargetQuantiser
-   in_dim: 1024
+   in_dim: !ref <extractor_dim>
    out_dim: !ref <final_dim>
 
 feat_proj: !new:torch.nn.Linear
@@ -92,7 +117,7 @@ loss: !new:speechbrain.nnet.losses.ContrastiveLoss
 lr_scheduler: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
    lr: !ref <lr>
    warmup: !ref <warmup>
-   cooldown: 30000
+   cooldown: !ref <cooldown>
    total_steps: !ref <optimizer_step_limit>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
@@ -104,3 +129,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
       target_quantiser: !ref <target_quantiser>
       scheduler: !ref <lr_scheduler>
       counter: !ref <epoch_counter>
+
+train_steps_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_steps_log>
+
+train_stage_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_stage_log>
