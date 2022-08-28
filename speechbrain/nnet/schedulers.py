@@ -899,6 +899,7 @@ class InverseSquareRootScheduler:
     def save(self, path):
         """Saves the current metrics on the specified path."""
         data = {"n_steps": self.n_steps}
+        torch.save(data, path)
 
 
 @checkpoints.register_checkpoint_hooks
