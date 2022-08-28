@@ -30,6 +30,14 @@ class W2VLatentExtractor(nn.Module):
         Strides of convolutional layers.
     dropout : float
         Dropout of CNN.
+
+    Example
+    -------
+    >>> extractor = W2VLatentExtractor()
+    >>> inputs = torch.rand(10, 5000)
+    >>> outputs = extractor(inputs)
+    >>> outputs.shape
+    torch.Size([10, 14, 512])
     """
 
     def __init__(
@@ -90,8 +98,16 @@ class W2VLatentExtractor(nn.Module):
 
 
 class W2VTargetQuantiser(nn.Module):
-    """ Wraps ``GumbelVectorQuantizer``, see for documentation on
+    """ Wraps ``nnet.quantiser.GumbelVectorQuantizer``, see for documentation on
     arguments.
+
+    Example
+    -------
+    >>> quantiser = W2VTargetQuantiser()
+    >>> inputs = torch.rand(10, 12, 512)
+    >>> output, meta = quantiser(inputs)
+    >>> output.shape
+    torch.Size([10, 12, 256])
     """
 
     def __init__(
@@ -142,6 +158,15 @@ class EncoderWrapper(nn.Module):
         Uninitialized nn.module for adding positional information, will use ``embedding_dim``.
     dropout_encoder_input : float
         Dropout on encoder input.
+
+    Example
+    -------
+    >>> encoder = TransformerEncoder(d_model=768, num_layers=4, nhead=4, d_ffn=1024)
+    >>> wrapper = EncoderWrapper(1024, 768, encoder)
+    >>> inputs = torch.rand(10, 12, 1024)
+    >>> outputs = wrapper(inputs)
+    >>> output["embeddings"].shape
+    torch.Size([10, 12, 768])
     """
 
     def __init__(
@@ -215,6 +240,7 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
         Percentage to mask.
     mask_length: int
         Length of contiguous subsequence to mask.
+
     Returns
     -------
     mask : numpy.ndarray
@@ -314,6 +340,7 @@ def w2v_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length):
         Approximate percentage of frames to mask.
     mask_length : int
         Number of contiguous frames that will be masked.
+
     Returns
     -------
     wavs_padded : torch.Tensor, shape (B, T)

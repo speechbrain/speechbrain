@@ -12,18 +12,26 @@ import torch.nn.functional as F
 
 class GumbelVectorQuantizer(nn.Module):
     """Vector quantization using gumbel softmax. Copied from fairseq implementation.
-        Arguments
-        ---------
-            input_dim: int
-                Input dimension (channels).
-            num_vars: int
-                Number of quantized vectors per group.
-            temp_tuple: float
-                Temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor).
-            groups: int
-                Number of groups for vector quantization.
-            vq_dim: int
-                Dimensionality of the resulting quantized vector.
+    Arguments
+    ---------
+        input_dim: int
+            Input dimension (channels).
+        num_vars: int
+            Number of quantized vectors per group.
+        temp_tuple: float
+            Temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor).
+        groups: int
+            Number of groups for vector quantization.
+        vq_dim: int
+            Dimensionality of the resulting quantized vector.
+
+    Example
+    -------
+    >>> quantiser = GumbelVectorQuantizer(128, 100, (2.0, 0.25, 0.999995,), 2, 50 )
+    >>> inputs = torch.rand(10, 12, 128)
+    >>> output = quantiser(inputs)
+    >>> output["x"].shape
+    torch.Size([10, 12, 50])
     """
 
     def __init__(self, input_dim, num_vars, temp_tuple, groups, vq_dim):
