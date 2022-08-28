@@ -202,7 +202,7 @@ class W2V2Brain(sb.core.Brain):
             if self.hparams.use_wandb:
                 run_on_main(
                     wandb.log,
-                    kwargs={"data": log_dct, "step": self.optimizer_step,},
+                    kwargs={"data": log_dct, "step": self.optimizer_step},
                 )
 
     def evaluate_batch(self, batch, stage):
@@ -218,7 +218,7 @@ class W2V2Brain(sb.core.Brain):
             )
             if self.hparams.use_wandb:
                 wandb.log(
-                    {"valid_acuracy": stage_loss,}, step=self.optimizer_step,
+                    {"valid_acuracy": stage_loss}, step=self.optimizer_step
                 )
             self.checkpointer.save_and_keep_only(
                 end_of_epoch=True,

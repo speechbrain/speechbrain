@@ -40,67 +40,67 @@ latentextractor_kernels: [11, 3, 3, 3, 3, 3, 3]
 latentextractor_strides: [5, 2, 2, 2, 2, 2, 2]
 
 optimizer: !name:torch.optim.AdamW
-  lr: !ref <lr>
-  weight_decay: 0.01
-  eps: 0.000001
+   lr: !ref <lr>
+   weight_decay: 0.01
+   eps: 0.000001
 
 test_dataloader_options:
-    batch_size: 8
-    num_workers: 4
+   batch_size: 8
+   num_workers: 4
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+   limit: !ref <number_of_epochs>
 
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
-  kernel_sizes: !ref <latentextractor_kernels>
-  strides: !ref <latentextractor_strides>
-  out_channels: [128, 256, 256, 512, 512, 1024, 1024]
+   kernel_sizes: !ref <latentextractor_kernels>
+   strides: !ref <latentextractor_strides>
+   out_channels: [128, 256, 256, 512, 512, 1024, 1024]
 
 encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
-  d_model: !ref <embedding_dim>
-  num_layers: 12
-  nhead: 8
-  d_ffn: 3072
-  dropout: 0.1
-  layerdrop_prob: !ref <encoder_layerdrop>
-  normalize_before: True
-  activation: !name:torch.nn.GELU
+   d_model: !ref <embedding_dim>
+   num_layers: 12
+   nhead: 8
+   d_ffn: 3072
+   dropout: 0.1
+   layerdrop_prob: !ref <encoder_layerdrop>
+   normalize_before: True
+   activation: !name:torch.nn.GELU
 
 encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
-  in_dim: 1024
-  embedding_dim: !ref <embedding_dim>
-  latent_encoder: !ref <encoder>
-  dropout_encoder_input: 0.1
+   in_dim: 1024
+   embedding_dim: !ref <embedding_dim>
+   latent_encoder: !ref <encoder>
+   dropout_encoder_input: 0.1
 
 target_quantiser: !new:speechbrain.lobes.models.wav2vec.W2VTargetQuantiser
-  in_dim: 1024
-  out_dim: !ref <final_dim>
+   in_dim: 1024
+   out_dim: !ref <final_dim>
 
 feat_proj: !new:torch.nn.Linear
-  in_features: !ref <embedding_dim>
-  out_features: !ref <final_dim>
+   in_features: !ref <embedding_dim>
+   out_features: !ref <final_dim>
 
 modules:
-  latent_extractor: !ref <extractor>
-  latent_encoder: !ref <encoder_wrapper>
-  feat_proj: !ref <feat_proj>
-  target_quantiser: !ref <target_quantiser>
+   latent_extractor: !ref <extractor>
+   latent_encoder: !ref <encoder_wrapper>
+   feat_proj: !ref <feat_proj>
+   target_quantiser: !ref <target_quantiser>
 
 loss: !new:speechbrain.nnet.losses.ContrastiveLoss
-  logit_temp: 0.1
+   logit_temp: 0.1
 
 lr_scheduler: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
-    lr: !ref <lr>
-    warmup: !ref <warmup>
-    cooldown: 30000
-    total_steps: !ref <optimizer_step_limit>
+   lr: !ref <lr>
+   warmup: !ref <warmup>
+   cooldown: 30000
+   total_steps: !ref <optimizer_step_limit>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <output_folder>
-    recoverables:
-        latent_extractor: !ref <extractor>
-        latent_encoder: !ref <encoder_wrapper>
-        feat_proj: !ref <feat_proj>
-        target_quantiser: !ref <target_quantiser>
-        scheduler: !ref <lr_scheduler>
-        counter: !ref <epoch_counter>
+   checkpoints_dir: !ref <output_folder>
+   recoverables:
+      latent_extractor: !ref <extractor>
+      latent_encoder: !ref <encoder_wrapper>
+      feat_proj: !ref <feat_proj>
+      target_quantiser: !ref <target_quantiser>
+      scheduler: !ref <lr_scheduler>
+      counter: !ref <epoch_counter>
