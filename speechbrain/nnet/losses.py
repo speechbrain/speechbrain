@@ -1197,6 +1197,17 @@ def nll_loss_kd(
 
 class ContrastiveLoss(nn.Module):
     """Contrastive loss as used in wav2vec2.
+
+    Reference
+    ---------
+    wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations
+    https://arxiv.org/abs/2006.11477
+
+    Arguments
+    ---------
+    logit_temp : torch.Float
+        A temperature to devide the logits.
+
     """
 
     def __init__(self, logit_temp):
@@ -1213,7 +1224,8 @@ class ContrastiveLoss(nn.Module):
             Feature extractor target embeddings with shape (B, T, C).
         negs : torch.Tensor
             Negative embeddings from feature extractor with shape (N, B, T, C)
-        where N is number of negatives.
+        where N is number of negatives. Can be obtained with our sample_negatives
+        function (check in lobes/wav2vec2).
         """
         neg_is_pos = (y == negs).all(-1)
         y = y.unsqueeze(0)
