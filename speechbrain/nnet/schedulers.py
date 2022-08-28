@@ -993,18 +993,68 @@ class InverseSquareRootScheduler:
 
 @checkpoints.register_checkpoint_hooks
 class WarmCoolDecayLRSchedule:
-    """Warms up, very slowly decays and cools down LR at the end of training.
+    """Warms up linearly, very slowly decays and cools down linearly again
+    at the end of training. This is a three steps scheduler.
 
-    Based on: # https://twitter.com/giffmana/status/1489340465904242694?s=20&t=qDOdeMB30Dn16n1fXZbPXg
+    Reference
+    ---------
+    Scaling Vision Transformers
+    arxiv.org/abs/2106.04560
+
+    Arguments
+    ---------
+        lr : float
+            The max learning rate to reach after warmup.
+        warmup : int
+            Number of warmup steps (following a linear increase).
+        cooldown : int
+            Number of cooldown steps (following a linear decrease).
+        total_steps : int
+            Total number of steps (used to decay).
+        decay_factor : float
+            Decay factor applied every decay_every steps.
+        decay_every : int
+            Apply the decay factor to the learning rate every decay_every steps.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler = WarmCoolDecayLRSchedule(lr=1, warmup=2, total_steps=6, decay_factor=0.5, decay_every=1, cooldown=1)
+    >>> optim.param_groups[0]["lr"]
+    0.5
+    >>> scheduler(optim, 1)
+    >>> optim.param_groups[0]["lr"]
+    0.5
+    >>> scheduler(optim, 2)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    >>> scheduler(optim, 3)
+    >>> optim.param_groups[0]["lr"]
+    0.5
+    >>> scheduler(optim, 4)
+    >>> optim.param_groups[0]["lr"]
+    0.25
+    >>> scheduler(optim, 5)
+    >>> optim.param_groups[0]["lr"]
+    0.12500000000000003
+    >>> scheduler(optim, 6)
+    >>> optim.param_groups[0]["lr"]
+    0.0
     """
 
-    def __init__(self, lr, warmup, cooldown, total_steps, decay_per_100k=0.75):
+    def __init__(
+        self, lr, warmup, cooldown, total_steps, decay_factor, decay_every
+    ):
         super(WarmCoolDecayLRSchedule, self).__init__()
         self.base_lr = lr
         self.warmup = warmup
         self.cooldown = cooldown
         self.total_steps = total_steps
-        self.power = math.log(decay_per_100k) / 100_000
+        self.power = math.log(decay_factor) / decay_every
 
     def __call__(self, opt, num_updates):
         if num_updates < self.warmup:
