@@ -170,11 +170,12 @@ class EncoderWrapper(nn.Module):
 
     Example
     -------
+    >>> from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
     >>> encoder = TransformerEncoder(d_model=768, num_layers=4, nhead=4, d_ffn=1024)
     >>> wrapper = EncoderWrapper(1024, 768, encoder)
     >>> inputs = torch.rand(10, 12, 1024)
     >>> outputs = wrapper(inputs)
-    >>> output["embeddings"].shape
+    >>> outputs["embeddings"].shape
     torch.Size([10, 12, 768])
     """
 

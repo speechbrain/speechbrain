@@ -1025,7 +1025,7 @@ class WarmCoolDecayLRSchedule:
     >>> output = model(inp_tensor)
     >>> scheduler = WarmCoolDecayLRSchedule(lr=1, warmup=2, total_steps=6, decay_factor=0.5, decay_every=1, cooldown=1)
     >>> optim.param_groups[0]["lr"]
-    0.5
+    1
     >>> scheduler(optim, 1)
     >>> optim.param_groups[0]["lr"]
     0.5
