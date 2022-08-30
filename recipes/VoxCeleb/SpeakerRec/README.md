@@ -26,7 +26,6 @@ Run the following command to train speaker embeddings using [ECAPA-TDNN](https:/
 
 `python train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml`
 
-
 The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
 
 After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
@@ -34,10 +33,12 @@ After training the speaker embeddings, it is possible to perform speaker verific
 `python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
 
 This system achieves:
-- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm.
+- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm
 - EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
 
 These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
+
+Below you can find the results from model trained on VoxCeleb 2 dev set and tested on VoxSRC derivatives. Note that however, the models are trained under a very limited condition (single GPU so batch_size=2) and no score normalization at test time.
 
 # VoxCeleb2 preparation
 Voxceleb2 audio files are released in m4a format. All the files must be converted in wav files before
@@ -70,11 +71,15 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 # Performance summary
 
-[Speaker Verification Results with Voxceleb 1 + Voxceleb2]
+[Speaker verification results with Voxceleb 1 + Voxceleb 2]
 | System          | Dataset    | EER  | Model/Log Link |
 |-----------------|------------|------| -----|
-| Xvector + PLDA  | VoxCeleb 1,2 | 3.2% | https://drive.google.com/drive/folders/1TLKByLRkgkUiDV2coMrIh-OMHANrnOl-?usp=sharing |
-| ECAPA-TDNN      | Voxceleb 1,2 | 0.69% | https://drive.google.com/file/d/1EziERcHD_gyE6qc8DbxPKU1isVf7pbNl/view?usp=sharing|
+| Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://drive.google.com/drive/folders/1TLKByLRkgkUiDV2coMrIh-OMHANrnOl-?usp=sharing |
+| ECAPA-TDNN      | Voxceleb 1,2 | 0.80% | https://drive.google.com/file/d/1EziERcHD_gyE6qc8DbxPKU1isVf7pbNl/view?usp=sharing  |
+
+[Speaker verification results with Voxceleb 2 development set, no score normalization ]
+| System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
+| ECAPA-TDNN      | VoxCeleb 2   | 1.30% | 1.98% | 3.62% | (to be updated) |
 
 
 # PreTrained Model + Easy-Inference
