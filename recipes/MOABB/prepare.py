@@ -120,29 +120,33 @@ def download_data(data_folder, dataset):
     dataset.download()
 
 
-def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin=1, fmax=40, verbose=0):
+def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin, fmax, overwrite_prepared=False, verbose=0):
     """This function prepare all datasets and save them in a separate pickle for each subject."""
     # changing default download directory
     for a in get_config().keys():
         set_config(a, data_folder)
-    for kk, subject in enumerate(dataset.subject_list):
-        output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
-                                      fmin=fmin, fmax=fmax, verbose=verbose)
-        tmp_output_dir = os.path.join(os.path.join(data_folder,
-                                                   'MOABB_pickled',
-                                                   output_dict['code'],
-                                                   '{0}_{1}-{2}'.format(str(int(output_dict['srate'])).zfill(4),
-                                                                        str(int(output_dict['fmin'])).zfill(3),
-                                                                        str(int(output_dict['fmax'])).zfill(3))))
-        if not os.path.isdir(tmp_output_dir):
-            os.makedirs(tmp_output_dir)
 
-        fname = 'sub-{0}.pkl'.format(str(subject).zfill(3))
-        output_dict_fpath = os.path.join(tmp_output_dir, fname)
-        with open(output_dict_fpath, "wb") as handle:
-            pickle.dump(
-                output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
-            )
+    tmp_output_dir = os.path.join(os.path.join(data_folder,
+                                               'MOABB_pickled',
+                                               dataset.code,
+                                               '{0}_{1}-{2}'.format(str(int(srate_out if srate_out is not None else
+                                                                            srate_in)).zfill(4),
+                                                                    str(int(fmin)).zfill(3),
+                                                                    str(int(fmax)).zfill(3))))
+    if (not os.path.isdir(tmp_output_dir)) or overwrite_prepared:
+        os.makedirs(tmp_output_dir)
+        for kk, subject in enumerate(dataset.subject_list):
+            output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
+                                          fmin=fmin, fmax=fmax, verbose=verbose)
+
+            fname = 'sub-{0}.pkl'.format(str(subject).zfill(3))
+            output_dict_fpath = os.path.join(tmp_output_dir, fname)
+            with open(output_dict_fpath, "wb") as handle:
+                pickle.dump(
+                    output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
+                )
+    else:
+        print('Skipping, the dataset has already been prepared...')
 
 
 if __name__ == '__main__':
@@ -158,7 +162,7 @@ if __name__ == '__main__':
                         help='Higher cut-off frequency for band-pass filtering')
     FLAGS, unparsed = parser.parse_known_args()
 
-    # SETTING UP P300 MOTOR IMAGERY DATASETS
+    # SETTING UP MOTOR IMAGERY DATASETS
     mi_datasets = [BNCI2014001(),
                    BNCI2014004(),
                    BNCI2015001(),
