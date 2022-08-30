@@ -175,13 +175,13 @@ activation_type: 'elu'
 model: !new:speechbrain.lobes.models.EEGNet.EEGNet
     input_shape: !ref <input_shape>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
-    cnn_temporal_kernelsize: (!ref <cnn_temporal_kernels>, 1)
+    cnn_temporal_kernelsize: !ref (<cnn_temporal_kernelsize>, 1)
     cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
     cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
-    cnn_spatial_pool: (!ref <cnn_spatial_pool>, 1)
+    cnn_spatial_pool: !ref (<cnn_spatial_pool>, 1)
     cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
-    cnn_septemporal_kernelsize: (!ref <cnn_septemporal_kernelsize>, 1)
-    cnn_septemporal_pool: (!ref <cnn_septemporal_pool>, 1)
+    cnn_septemporal_kernelsize: !ref (<cnn_septemporal_kernelsize>, 1)
+    cnn_septemporal_pool: !ref (<cnn_septemporal_pool>, 1)
     activation_type: !ref <activation_type>
     dense_max_norm: !ref <dense_max_norm>
     dropout: !ref <dropout>
