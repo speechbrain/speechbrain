@@ -6,14 +6,13 @@
 This is the recipe for the best system from the IWSLT 2022 low-resource task, as described in the original paper.
 The speech translation model comprises a wav2vec 2.0 encoder and a Transformer decoder. It is trained end-to-end without any auxiliary loss. The recipe allows for removing the last layers of the Transformer Encoder inside the wav2vec 2.0 in order to reduce the number of training parameters.
 
-## Data Pre-processing
+## Data Downloading
 
-For preparing the dataset, please run this command:
+For downloading the dataset used for this experiment, please run the following command.
 
 ```
-bash data_proc/prepare_iwslt22.sh
+git clone https://github.com/mzboito/IWSLT2022_Tamasheq_data.git
 ```
-This pre-processing requires the command line extension for sentencepiece, available here: https://github.com/google/sentencepiece
 
 ## Training
 

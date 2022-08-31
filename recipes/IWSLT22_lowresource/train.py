@@ -9,12 +9,10 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
-
-
-logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -365,6 +363,9 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    # creates a logger
+    logger = logging.getLogger(__name__)
+
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -384,6 +385,16 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    # Data preparation
+    from recipes.IWSLT22_lowresource import prepare_iwslt22
+
+    run_on_main(
+        prepare_iwslt22.data_proc,
+        kwargs={
+            "dataset_folder": hparams["root_data_folder"],
+            "output_folder": hparams["data_folder"],
+        },
+    )
     # Load datasets for training, valid, and test, trains and applies tokenizer
     datasets, tokenizer = dataio_prepare(hparams)
 
