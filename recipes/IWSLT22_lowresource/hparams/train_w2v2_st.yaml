@@ -18,18 +18,8 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: data_proc/IWSLT2022_Tamasheq_data/taq_fra_clean/json_version/
-tokenizer_file: data_proc/IWSLT2022_Tamasheq_data/taq_fra_clean/train/spm_unigram1000.model
 lang: "fr" #for the BLEU score detokenization
-
-
-# Load pretrained the tokenizer
-tokenizer: !new:sentencepiece.SentencePieceProcessor
-pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: ./tokenizer
-    loadables:
-        tokenizer: !ref <tokenizer>
-    paths:
-        tokenizer: !ref <tokenizer_file>
+vocab_size: 1000 #for SentencePiece tokenizer (unigram)
 
 # URL for the HuggingFace model we want to load (BASE here)
 wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
@@ -42,11 +32,16 @@ keep_n_layers: 6 # keep first N layers from the Transformer Encoder stack inside
 number_of_epochs: 100
 lr: 0.001
 lr_wav2vec: 0.00001
-sorting: ascending
 batch_size: 4
 test_batch_size: 4
 loss_reduction: batchmean
 ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Data sorting parameters
+sorting: ascending
+sorting_min_duration: 1
+sorting_max_duration: 5
+
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -60,7 +55,7 @@ test_dataloader_options:
     num_workers: 4
 
 # Feature parameters (W2V2 etc)
-features_dim: 768 #base wav2vec output dimension
+features_dim: 768 #base wav2vec output dimension, for large replace by 1024
 
 #projection for w2v
 enc_dnn_layers: 1
@@ -74,7 +69,7 @@ num_decoder_layers: 3
 d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 1000 # /!\ needs to be changed accordingly to the vocabulary
+output_neurons: !ref <vocab_size> # /!\ needs to be changed accordingly to the vocabulary
 attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 
 # Outputs

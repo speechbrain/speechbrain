@@ -10,7 +10,7 @@ import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.tokenizers.SentencePiece import SentencePiece
 from sacremoses import MosesDetokenizer
 
 
@@ -65,7 +65,7 @@ class ST(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             predictions = [
                 fr_detokenizer.detokenize(
-                    hparams["tokenizer"].decode_ids(utt_seq).split(" ")
+                    tokenizer.sp.decode_ids(utt_seq).split(" ")
                 )
                 for utt_seq in hyps
             ]
@@ -222,15 +222,29 @@ def dataio_prepare(hparams):
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
         yield translation
-        tokens_list = hparams["tokenizer"].encode_as_ids(translation)
+        tokens_list = tokenizer.sp.encode_as_ids(translation)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
 
-    datasets = {}
     data_folder = hparams["data_folder"]
+
+    # 1. train tokenizer on the data
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["vocab_size"],
+        annotation_train=data_folder + "/train.json",
+        annotation_read="trans",
+        annotation_format="json",
+        model_type="unigram",
+        bos_id=hparams["bos_index"],
+        eos_id=hparams["eos_index"],
+    )
+
+    # 2. load data and tokenize with trained tokenizer
+    datasets = {}
     for dataset in ["train", "valid"]:
         json_path = f"{data_folder}/{dataset}.json"
 
@@ -273,17 +287,16 @@ def dataio_prepare(hparams):
     # faster  because we minimize zero-padding. In most of the cases, this
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
-        # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": 1},
-                key_max_value={"duration": 5},
+                key_min_value={"duration": hparams["sorting_min_duration"]},
+                key_max_value={"duration": hparams["sorting_max_duration"]},
                 sort_key="duration",
                 reverse=True,
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1},
-                key_max_value={"duration": 5},
+                key_min_value={"duration": hparams["sorting_min_duration"]},
+                key_max_value={"duration": hparams["sorting_max_duration"]},
                 sort_key="duration",
                 reverse=True,
             )
@@ -301,14 +314,14 @@ def dataio_prepare(hparams):
         # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": 1},
-                key_max_value={"duration": 5},
+                key_min_value={"duration": hparams["sorting_min_duration"]},
+                key_max_value={"duration": hparams["sorting_max_duration"]},
                 sort_key="duration",
                 reverse=True,
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1},
-                key_max_value={"duration": 5},
+                key_min_value={"duration": hparams["sorting_min_duration"]},
+                key_max_value={"duration": hparams["sorting_max_duration"]},
                 sort_key="duration",
                 reverse=True,
             )
@@ -327,11 +340,13 @@ def dataio_prepare(hparams):
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
                 key_min_value={"duration": 3},
-                key_max_value={"duration": 5},
+                key_max_value={"duration": hparams["sorting_max_duration"]},
                 sort_key="duration",
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1}, key_max_value={"duration": 5},
+                key_min_value={"duration": hparams["sorting_min_duration"]},
+                key_max_value={"duration": hparams["sorting_max_duration"]},
+                sort_key="duration",
             )
 
         hparams["dataloader_options"]["shuffle"] = True
@@ -340,7 +355,7 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    return datasets
+    return datasets, tokenizer
 
 
 if __name__ == "__main__":
@@ -369,19 +384,13 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Fetch pretrained modules
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
-
-    # We can now directly create the datasets for training, valid, and test
-    datasets = dataio_prepare(hparams)
+    # Load datasets for training, valid, and test, trains and applies tokenizer
+    datasets, tokenizer = dataio_prepare(hparams)
 
     # Before training, we drop some of the wav2vec 2.0 Transformer Encoder layers
     st_brain.modules.wav2vec2.model.encoder.layers = st_brain.modules.wav2vec2.model.encoder.layers[
         : hparams["keep_n_layers"]
     ]
-
-    print(st_brain.modules)
 
     # Training
     st_brain.fit(

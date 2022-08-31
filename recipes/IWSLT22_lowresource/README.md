@@ -11,7 +11,7 @@ The speech translation model comprises a wav2vec 2.0 encoder and a Transformer d
 For preparing the dataset, please run this command:
 
 ```
-bash data_proc/prepare_tamasheq.sh
+bash data_proc/prepare_iwslt22.sh
 ```
 This pre-processing requires the command line extension for sentencepiece, available here: https://github.com/google/sentencepiece
 
