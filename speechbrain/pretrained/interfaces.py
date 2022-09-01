@@ -381,11 +381,11 @@ class EndToEndSLU(Pretrained):
     -------
     >>> from speechbrain.pretrained import EndToEndSLU
     >>> tmpdir = getfixture("tmpdir")
-    >>> slu_model = EndToEndSLU.from_hparams(
+    >>> slu_model = EndToEndSLU.from_hparams(  # doctest: +SKIP
     ...     source="speechbrain/slu-timers-and-such-direct-librispeech-asr",
     ...     savedir=tmpdir,
     ... )
-    >>> slu_model.decode_file("tests/samples/single-mic/example6.wav")
+    >>> slu_model.decode_file("tests/samples/single-mic/example6.wav")  # doctest: +SKIP
     "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
     """
 
@@ -497,11 +497,11 @@ class EncoderDecoderASR(Pretrained):
     -------
     >>> from speechbrain.pretrained import EncoderDecoderASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = EncoderDecoderASR.from_hparams(
+    >>> asr_model = EncoderDecoderASR.from_hparams(  # doctest: +SKIP
     ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
     ...     savedir=tmpdir,
     ... )
-    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")
+    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")  # doctest: +SKIP
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 
