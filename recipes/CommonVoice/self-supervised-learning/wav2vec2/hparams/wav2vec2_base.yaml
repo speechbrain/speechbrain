@@ -93,7 +93,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2Pretrain
     source: !ref <wav2vec2_hub>
-    save_path: !ref <save_folder>/wav2vec2_checkpoints
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
     mask_prob: !ref <mask_prob>
     mask_length: !ref <mask_length>
 
