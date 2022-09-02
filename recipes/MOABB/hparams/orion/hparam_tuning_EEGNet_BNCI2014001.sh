@@ -34,7 +34,7 @@ orion hunt -n $HPOPT_EXPERIMENT_NAME -c $HPOPT_CONFIG_FILE --exp-max-trials=250 
 	--cnn_pool_type~"choices(['avg','max'])" \
 	--dense_max_norm~"uniform(0.1, 2)" \
 	--dropout~"uniform(0.0, 0.50)" \
-	--activation_type~"choices(['elu', 'relu', 'leaky_relu', 'prelu'])" \
+	--activation_type~"choices(['elu', 'relu', 'leaky_relu'])" \
 	--snr_pink_low~"uniform(-5.0, 5.0)" \
 	--snr_pink_high~"uniform(15.0, 30.0)" \
   --snr_white_low~"uniform(5.0, 15.0)" \
