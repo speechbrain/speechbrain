@@ -7,6 +7,7 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
+ * Andreas Nautsch 2022
 """
 import logging
 import hashlib
@@ -15,6 +16,7 @@ import speechbrain
 import torch
 import torchaudio
 import sentencepiece
+from enum import Enum
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
@@ -29,8 +31,72 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
+from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
+
+
+class InferenceDetailLevel(Enum):
+    """
+    Verbosity level for return values of pretrained interfaces.
+
+    Examples for EncoderDecoderASR (to give an idea).
+
+    TOP1_HYP
+    --------
+    > 'SUNDAY IS THE BEST PART OF THE WEEK'
+
+    TOP1_HYP_SCORES
+    ---------------
+    > (-1.86, 'SUNDAY IS THE BEST PART OF THE WEEK')
+
+    TOP1_HYP_DETAILS
+    ----------------
+    > (-1.86, 'SUNDAY IS THE BEST PART OF THE WEEK')
+    > [(-4.63, '▁SUN'), (-0.99, 'DAY'), (-2.26, '▁IS'), (-1.32, '▁THE'), (-2.48, '▁BE'), (-0.12, 'ST'),
+    >  (-2.67, '▁PART'), (-0.52, '▁OF'), (-1.33, '▁THE'), (-2.91, '▁WEEK')]
+
+    TOP_K_HYP
+    ---------
+    > ['SUNDAY IS THE BEST PART OF THE WEEK',
+    >  'SUNDAY IS THE BEST PART OF THE DAY',
+    >  'SUNDAY IS THE BEST PART OF A WEEK',
+    >  'SUNDAY IS THE BEST PART OF THE WORK',
+    >  'SUNDAY WAS THE BEST PART OF THE WEEK']
+
+    TOP_K_HYP_SCORES
+    ----------------
+    > [(-1.86, 'SUNDAY IS THE BEST PART OF THE WEEK'),
+    >  (-2.32, 'SUNDAY IS THE BEST PART OF THE DAY'),
+    >  (-2.33, 'SUNDAY IS THE BEST PART OF A WEEK'),
+    >  (-2.34, 'SUNDAY IS THE BEST PART OF THE WORK'),
+    >  (-2.36, 'SUNDAY WAS THE BEST PART OF THE WEEK')]
+
+    TOP_K_HYP_DETAILS
+    -----------------
+    > [(-1.86, 'SUNDAY IS THE BEST PART OF THE WEEK'),
+    >  (-2.32, 'SUNDAY IS THE BEST PART OF THE DAY'),
+    >  (-2.33, 'SUNDAY IS THE BEST PART OF A WEEK'),
+    >  (-2.34, 'SUNDAY IS THE BEST PART OF THE WORK'),
+    >  (-2.36, 'SUNDAY WAS THE BEST PART OF THE WEEK')]
+    > [[(-4.63, '▁SUN'), (-0.99, 'DAY'), (-2.26, '▁IS'), (-1.32, '▁THE'), (-2.48, '▁BE'), (-0.12, 'ST'),
+    >   (-2.67, '▁PART'), (-0.52, '▁OF'), (-1.33, '▁THE'), (-2.91, '▁WEEK')],
+    >  [(-4.63, '▁SUN'), (-0.99, 'DAY'), (-2.26, '▁IS'), (-1.32, '▁THE'), (-2.48, '▁BE'), (-0.12, 'ST'),
+    >   (-2.67, '▁PART'), (-0.52, '▁OF'), (-1.33, '▁THE'), (-8.04, '▁DAY')],
+    >  [(-4.63, '▁SUN'), (-0.99, 'DAY'), (-2.26, '▁IS'), (-1.32, '▁THE'), (-2.48, '▁BE'), (-0.12, 'ST'),
+    >   (-2.67, '▁PART'), (-0.52, '▁OF'), (-6.57, '▁A'), (-2.78, '▁WEEK')],
+    >  [(-4.63, '▁SUN'), (-0.99, 'DAY'), (-2.26, '▁IS'), (-1.32, '▁THE'), (-2.48, '▁BE'), (-0.12, 'ST'),
+    >   (-2.67, '▁PART'), (-0.52, '▁OF'), (-1.33, '▁THE'), (-7.90, '▁WORK')],
+    >  [(-4.63, '▁SUN'), (-0.99, 'DAY'), (-7.73, '▁WAS'), (-1.30, '▁THE'), (-2.70, '▁BE'), (-0.19, 'ST'),
+    >   (-2.65, '▁PART'), (-0.50, '▁OF'), (-1.16, '▁THE'), (-2.78, '▁WEEK')]]
+    """
+
+    TOP1_HYP = 1
+    TOP1_HYP_SCORES = 2
+    TOP1_HYP_DETAILS = 3
+    TOP_K_HYP = 4
+    TOP_K_HYP_SCORES = 5
+    TOP_K_HYP_DETAILS = 6
 
 
 def foreign_class(
@@ -39,6 +105,7 @@ def foreign_class(
     pymodule_file="custom.py",
     classname="CustomInterface",
     overrides={},
+    overrides_must_match=True,
     savedir=None,
     use_auth_token=False,
     **kwargs,
@@ -74,6 +141,9 @@ def foreign_class(
         The name of the Class, of which an instance is created and returned
     overrides : dict
         Any changes to make to the hparams file when it is loaded.
+    overrides_must_match : bool
+        Whether an error will be thrown when an override does not match
+        a corresponding key in the yaml_stream.
     savedir : str or Path
         Where to put the pretraining material. If not given, will use
         ./pretrained_models/<class-name>-hash(source).
@@ -88,13 +158,23 @@ def foreign_class(
     """
     if savedir is None:
         savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
-    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
-    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+    hparams_local_path = fetch(
+        hparams_file,
+        source=source,
+        savedir=savedir,
+        use_auth_token=use_auth_token,
+    )
+    pymodule_local_path = fetch(
+        pymodule_file,
+        source=source,
+        savedir=savedir,
+        use_auth_token=use_auth_token,
+    )
     sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
     with open(hparams_local_path) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides, overrides_must_match)
 
     # Pretraining:
     pretrainer = hparams["pretrainer"]
@@ -512,13 +592,15 @@ class EncoderDecoderASR(Pretrained):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
 
-    def transcribe_file(self, path):
+    def transcribe_file(self, path, detail_level=None):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments
         ---------
         path : str
             Path to audio file which to transcribe.
+        detail_level : Option[InferenceDetailLevel]
+            Verboseness level of result; default: None (legacy output)
 
         Returns
         -------
@@ -529,10 +611,10 @@ class EncoderDecoderASR(Pretrained):
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
-        return predicted_words[0]
+        if detail_level is None:
+            return self.transcribe_batch(batch, rel_length, None)[0][0]
+        else:
+            return self.transcribe_batch(batch, rel_length, detail_level)
 
     def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states
@@ -563,7 +645,7 @@ class EncoderDecoderASR(Pretrained):
         encoder_out = self.mods.encoder(wavs, wav_lens)
         return encoder_out
 
-    def transcribe_batch(self, wavs, wav_lens):
+    def transcribe_batch(self, wavs, wav_lens, detail_level=None):
         """Transcribes the input audio into a sequence of words
 
         The waveforms should already be in the model's desired format.
@@ -581,6 +663,8 @@ class EncoderDecoderASR(Pretrained):
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
             Used for ignoring padding.
+        detail_level : Option[InferenceDetailLevel]
+            Verboseness level of result; default: None (legacy output)
 
         Returns
         -------
@@ -592,12 +676,133 @@ class EncoderDecoderASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
-            predicted_words = [
-                self.tokenizer.decode_ids(token_seq)
-                for token_seq in predicted_tokens
-            ]
-        return predicted_words, predicted_tokens
+            if detail_level == InferenceDetailLevel.TOP1_HYP:
+                topk_tokens, topk_lens, _, _ = self.mods.decoder(
+                    encoder_out, wav_lens
+                )
+                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+                predicted_tokens = undo_padding(best_hyps, best_lens)
+                predicted_words = [
+                    self.tokenizer.decode_ids(token_seq)
+                    for token_seq in predicted_tokens
+                ]
+                return predicted_words
+            elif detail_level == InferenceDetailLevel.TOP1_HYP_SCORES:
+                topk_tokens, topk_lens, topk_scores, _ = self.mods.decoder(
+                    encoder_out, wav_lens
+                )
+                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+                predicted_tokens = undo_padding(best_hyps, best_lens)
+                predicted_words = [
+                    self.tokenizer.decode_ids(token_seq)
+                    for token_seq in predicted_tokens
+                ]
+                return predicted_words, list(topk_scores.T[0, :])
+            elif detail_level == InferenceDetailLevel.TOP1_HYP_DETAILS:
+                (
+                    topk_tokens,
+                    topk_lens,
+                    topk_scores,
+                    topk_log_probs,
+                ) = self.mods.decoder(encoder_out, wav_lens)
+                best_hyps, best_lens, best_prob = (
+                    topk_tokens[:, 0, :],
+                    topk_lens[:, 0],
+                    topk_log_probs[:, 0, :],
+                )
+                predicted_tokens = undo_padding(best_hyps, best_lens)
+                predicted_log_prob = undo_padding(best_prob, best_lens)
+                predicted_words = [
+                    self.tokenizer.decode_ids(token_seq)
+                    for token_seq in predicted_tokens
+                ]
+                tkns = []
+                for pred_tkns in predicted_tokens:
+                    tkns.append(self.tokenizer.id_to_piece(pred_tkns))
+                return (
+                    predicted_words,
+                    list(topk_scores.T[0, :]),
+                    predicted_tokens,
+                    predicted_log_prob,
+                    tkns,
+                )
+            elif detail_level == InferenceDetailLevel.TOP_K_HYP:
+                predictions = []
+                topk_tokens, topk_lens, _, _ = self.mods.decoder(
+                    encoder_out, wav_lens
+                )
+                for i in range(topk_lens.shape[1]):
+                    best_hyps, best_lens = topk_tokens[:, i, :], topk_lens[:, i]
+                    predicted_tokens = undo_padding(best_hyps, best_lens)
+                    predicted_words = [
+                        self.tokenizer.decode_ids(token_seq)
+                        for token_seq in predicted_tokens
+                    ]
+                    predictions.append(predicted_words)
+                return predictions
+            elif detail_level == InferenceDetailLevel.TOP_K_HYP_SCORES:
+                predictions = []
+                topk_tokens, topk_lens, topk_scores, _ = self.mods.decoder(
+                    encoder_out, wav_lens
+                )
+                for i in range(topk_lens.shape[1]):
+                    best_hyps, best_lens = topk_tokens[:, i, :], topk_lens[:, i]
+                    predicted_tokens = undo_padding(best_hyps, best_lens)
+                    predicted_words = [
+                        self.tokenizer.decode_ids(token_seq)
+                        for token_seq in predicted_tokens
+                    ]
+                    predictions.append(predicted_words)
+                return predictions, list(map(list, topk_scores.T))
+            elif detail_level == InferenceDetailLevel.TOP_K_HYP_DETAILS:
+                predictions = []
+                token_ids = []
+                log_probs = []
+                tokens = []
+                (
+                    topk_tokens,
+                    topk_lens,
+                    topk_scores,
+                    topk_log_probs,
+                ) = self.mods.decoder(encoder_out, wav_lens)
+                for i in range(topk_lens.shape[1]):
+                    best_hyps, best_lens, best_prob = (
+                        topk_tokens[:, i, :],
+                        topk_lens[:, i],
+                        topk_log_probs[:, i, :],
+                    )
+                    predicted_tokens = undo_padding(best_hyps, best_lens)
+                    predicted_log_prob = undo_padding(best_prob, best_lens)
+                    predicted_words = [
+                        self.tokenizer.decode_ids(token_seq)
+                        for token_seq in predicted_tokens
+                    ]
+                    predictions.append(predicted_words)
+                    token_ids.append(predicted_tokens)
+                    log_probs.append(predicted_log_prob)
+                    tkns = []
+                    for pred_tkns in predicted_tokens:
+                        tkns.append(self.tokenizer.id_to_piece(pred_tkns))
+                    tokens.append(tkns)
+                return (
+                    predictions,
+                    list(map(list, topk_scores.T)),
+                    token_ids,
+                    log_probs,
+                    tokens,
+                )
+            else:
+                # the legacy default
+                topk_tokens, topk_lens, _, _ = self.mods.decoder(
+                    encoder_out, wav_lens
+                )
+                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+                predicted_tokens = undo_padding(best_hyps, best_lens)
+                predicted_words = [
+                    self.tokenizer.decode_ids(token_seq)
+                    for token_seq in predicted_tokens
+                ]
+                return predicted_words, predicted_tokens
 
     def forward(self, wavs, wav_lens):
         """Runs full transcription - note: no gradients through decoding"""
