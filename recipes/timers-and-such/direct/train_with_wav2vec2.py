@@ -317,7 +317,7 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

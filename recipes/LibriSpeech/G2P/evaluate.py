@@ -8,6 +8,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
+from speechbrain.wordemb.util import expand_to_chars
 from train import dataio_prep, load_dependencies
 from types import SimpleNamespace
 from tqdm.auto import tqdm
@@ -74,14 +75,26 @@ class G2PEvaluator:
             if getattr(self.hparams, "phonemes_enable_space", None)
             else self._flatten_results_jumbled
         )
+        self._grapheme_word_separator_idx = None
+        if self.hparams.use_word_emb:
+            self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
     def load(self):
         """Loads a model from a checkpoint"""
         checkpointer = self.hparams.checkpointer
-        checkpointer.recover_if_possible(
+        ckpt = checkpointer.recover_if_possible(
             device=torch.device(self.device),
             importance_key=lambda ckpt: -ckpt.meta.get("PER", -100.0),
+            ckpt_predicate=lambda ckpt: ckpt.meta["step"]
+            == self.hparams.eval_ckpt_step,
         )
+        if ckpt:
+            logger.info("Loaded checkpoint with metadata %s", ckpt.meta)
+        else:
+            raise ValueError(
+                f"Checkpoint not found for training step {self.hparams.eval_train_step}"
+            )
+        return ckpt
 
     def evaluate_batch(self, batch):
         """
@@ -96,7 +109,7 @@ class G2PEvaluator:
         batch = batch.to(self.device)
         grapheme_encoded = getattr(batch, self.grapheme_key)
         if self.hparams.eval_mode == "sentence":
-            hyps, scores = self._get_phonemes(grapheme_encoded)
+            hyps, scores = self._get_phonemes(grapheme_encoded, char=batch.char)
         elif self.hparams.eval_mode == "word":
             hyps, scores = self._get_phonemes_wordwise(batch.grapheme_encoded)
         else:
@@ -110,7 +123,7 @@ class G2PEvaluator:
             ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder,
         )
 
-    def _get_phonemes(self, grapheme_encoded, phn_encoded_bos=None):
+    def _get_phonemes(self, grapheme_encoded, phn_encoded=None, char=None):
         """Runs the model and the beam search to retrieve the phoneme sequence
         corresponding to the provided grapheme sequence
 
@@ -122,6 +135,9 @@ class G2PEvaluator:
         phn_encoded_bos: speechbrain.dataio.batch.PaddedData
             An encoded phoneme sequence (optional)
 
+        char: str
+            Raw character input (needed for word embeddings)
+
         Returns
         -------
         hyps: list
@@ -129,9 +145,14 @@ class G2PEvaluator:
         scores: list
             the scores corresponding to the hypotheses
         """
-        if not phn_encoded_bos:
-            grapheme_encoded_data, _ = grapheme_encoded
-            phn_encoded_bos = (
+        _, char_word_emb = None, None
+        if self._grapheme_word_separator_idx is None:
+            self._grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
+                " "
+            ]
+        if not phn_encoded:
+            grapheme_encoded_data, grapheme_lens = grapheme_encoded
+            phn_encoded = (
                 torch.ones(len(grapheme_encoded_data), 1).to(
                     grapheme_encoded_data.device
                 )
@@ -140,10 +161,26 @@ class G2PEvaluator:
                     grapheme_encoded_data.device
                 ),
             )
+            char_word_emb = self._apply_word_embeddings(grapheme_encoded, char)
         p_seq, char_lens, encoder_out, _ = self.modules.model(
-            grapheme_encoded=grapheme_encoded, phn_encoded=phn_encoded_bos,
+            grapheme_encoded=grapheme_encoded,
+            phn_encoded=phn_encoded,
+            word_emb=char_word_emb,
         )
         return self.beam_searcher(encoder_out, char_lens)
+
+    def _apply_word_embeddings(self, grapheme_encoded, char):
+        char_word_emb = None
+        if self.hparams.use_word_emb:
+            grapheme_encoded_data, grapheme_lens = grapheme_encoded
+            word_emb = self.modules.word_emb.batch_embeddings(char)
+            char_word_emb = expand_to_chars(
+                emb=word_emb,
+                seq=grapheme_encoded_data,
+                seq_len=grapheme_lens,
+                word_separator=self._grapheme_word_separator_idx,
+            )
+        return char_word_emb
 
     def _get_phonemes_wordwise(self, grapheme_encoded):
         """Retrieves the phoneme sequence corresponding to the provided grapheme
@@ -161,6 +198,10 @@ class G2PEvaluator:
         scores: list
             the scores corresponding to the hypotheses
         """
+        if self.hparams.use_word_emb:
+            raise NotImplementedError(
+                "Wordwise evaluation is not supported with word embeddings"
+            )
         if self._word_separator is None:
             self._word_separator = self.hparams.phoneme_encoder.lab2ind[" "]
         hyps, scores = [], []
@@ -360,7 +401,7 @@ if __name__ == "__main__":
 
         # Some configurations involve curriculum training on
         # multiple steps. Load the dataset configuration for the
-        # step specified in the eval_training_step hyperparameter
+        # step specified in the eval_train_step hyperparameter
         # (or command-line argument)
         train_step = next(
             train_step

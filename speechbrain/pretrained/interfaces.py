@@ -262,11 +262,9 @@ class Pretrained(torch.nn.Module):
 
         # Put modules on the right device, accessible with dot notation
         self.mods = torch.nn.ModuleDict(modules)
-        for mod in self.mods:
-            self.mods[mod].to(self.device)
-
-            if mod not in modules:
-                raise ValueError(f"Need modules['{mod}']")
+        for module in self.mods.values():
+            if module is not None:
+                module.to(self.device)
 
         # Check MODULES_NEEDED and HPARAMS_NEEDED and
         # make hyperparams available with dot notation
@@ -369,6 +367,7 @@ class Pretrained(torch.nn.Module):
         overrides={},
         savedir=None,
         use_auth_token=False,
+        revision=None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -412,16 +411,20 @@ class Pretrained(torch.nn.Module):
         use_auth_token : bool (default: False)
             If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because majority of models are public.
+        revision : str
+            The model revision corresponding to the HuggingFace Hub model revision.
+            This is particularly useful if you wish to pin your code to a particular
+            version of a model hosted at HuggingFace.
         """
         if savedir is None:
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
-            hparams_file, source, savedir, use_auth_token
+            hparams_file, source, savedir, use_auth_token, revision
         )
         try:
             pymodule_local_path = fetch(
-                pymodule_file, source, savedir, use_auth_token
+                pymodule_file, source, savedir, use_auth_token, revision
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -971,10 +974,10 @@ class EncoderClassifier(Pretrained):
 
     >>> # Compute embeddings
     >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> embeddings =  classifier.encode_batch(signal)
+    >>> embeddings = classifier.encode_batch(signal)
 
     >>> # Classification
-    >>> prediction =  classifier .classify_batch(signal)
+    >>> prediction = classifier.classify_batch(signal)
     """
 
     MODULES_NEEDED = [
@@ -2549,7 +2552,8 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     >>> text = ("English is tough. It can be understood "
     ...         "through thorough thought though")
     >>> from speechbrain.pretrained import GraphemeToPhoneme
-    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model') # doctest: +SKIP
+    >>> tmpdir = getfixture('tmpdir')
+    >>> g2p = GraphemeToPhoneme.from_hparams('path/to/model', savedir=tmpdir) # doctest: +SKIP
     >>> phonemes = g2p.g2p(text) # doctest: +SKIP
     """
 
@@ -2795,7 +2799,8 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir")
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_vocoder)
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
@@ -2806,7 +2811,8 @@ class Tacotron2(Pretrained):
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_tts)
     >>> # Running the TTS
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> # Running Vocoder (spectrogram-to-waveform)
@@ -2884,13 +2890,15 @@ class HIFIGAN(Pretrained):
 
     Example
     -------
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
     >>> mel_specs = torch.rand(2, 80,298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
 
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Intialize TTS (tacotron2)
-    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir_tts")
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
     >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>>	# Running Vocoder (spectrogram-to-waveform)
@@ -2942,7 +2950,7 @@ class HIFIGAN(Pretrained):
         audio can be saved by:
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
-        >>> torchaudio.save("test.wav", waveform, sample_rate)
+        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
         """
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
