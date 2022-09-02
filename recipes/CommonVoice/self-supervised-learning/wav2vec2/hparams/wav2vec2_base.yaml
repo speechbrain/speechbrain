@@ -35,7 +35,7 @@ avoid_if_shorter_than: 1.0
 # paper (for the masking).
 mask_length: 10
 mask_prob: 0.65
-freeze_wav2vec: False
+# freeze_wav2vec: False
 
 number_of_epochs: 100
 lr_adam: 2.0 # This will get reduced by the training scheduler
@@ -57,14 +57,33 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 batch_size: 12
 test_batch_size: 8
 gradient_accumulation: 8
+num_workers: 4
 
 dataloader_options:
     batch_size: !ref <batch_size>
-    num_workers: 4
+    num_workers: !ref <num_workers>
 
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
-    num_workers: 4
+    num_workers: !ref <num_workers>
+
+# IMPORTANT 2: We encourage you to use dynamic batching by setting it to True
+# Instead of the default setting. While the recipe will work directly by setting
+# it to True, you will first need to read the tutorial on dynamic batching to
+# properly adapt the hyperparameters to your GPU memory! Using Dynamic Batching
+# will drastically optimise your GPU utilization and decrease your training time.
+# Be careful to also adjust the gradient accumulation when using dynamic batching.
+# This setup will work with 32GB GPUs.
+# Dynamic Batching parameters, if used are:
+dynamic_batching: False
+dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
+max_batch_size: 64 # Max number of samples per batch, per gpu.
+dynamic_batch_sampler:
+    max_batch_len: !ref <dyn_batch_len>
+    max_batch_ex: !ref <max_batch_size>
+    shuffle_ex: True
+    batch_ordering: !ref <sorting>
+    num_buckets: 30
 
 #
 # Functions and classes
@@ -74,7 +93,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2Pretrain
     source: !ref <wav2vec2_hub>
-    save_path: !ref <save_folder>/wav2vec2_checkpoints
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
     mask_prob: !ref <mask_prob>
     mask_length: !ref <mask_length>
 

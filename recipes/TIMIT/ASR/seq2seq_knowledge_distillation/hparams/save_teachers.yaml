@@ -20,7 +20,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
 
 # Training parameters
-number_of_epochs: 1
+# number_of_epochs: 1
 batch_size: 8
 sorting: ascending
 
@@ -39,10 +39,10 @@ bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
 # Decoding parameters
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 16
-eos_threshold: 1.5
+# min_decode_ratio: 0.0
+# max_decode_ratio: 1.0
+# beam_size: 16
+# eos_threshold: 1.5F
 
 # teacher models
 num_tea: 10
@@ -55,7 +55,7 @@ tea_models_dir: !PLACEHOLDER
 # Temperature
 temperature: 1
 # distillation weight alpha
-alpha: 1
+# alpha: 1
 # different stages in dataset
 stage: ["train", "valid", "test"]
 
@@ -476,8 +476,8 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+# epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+#    limit: !ref <number_of_epochs>
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

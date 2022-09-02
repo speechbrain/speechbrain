@@ -26,8 +26,7 @@ from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training"
-    """
+    """Class for speaker embedding training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
@@ -76,8 +75,7 @@ class SpeakerBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         spkid, _ = batch.spk_id_encoded
@@ -155,7 +153,7 @@ def dataio_prep(hparams):
     def audio_pipeline(wav, start, stop, duration):
         if hparams["random_chunk"]:
             duration_sample = int(duration * hparams["sample_rate"])
-            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            start = random.randint(0, duration_sample - snt_len_sample)
             stop = start + snt_len_sample
         else:
             start = int(start)
@@ -183,7 +181,9 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="spk_id",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="spk_id",
     )
 
     # 4. Set output:
@@ -225,6 +225,7 @@ if __name__ == "__main__":
             "splits": ["train", "dev"],
             "split_ratio": [90, 10],
             "seg_dur": hparams["sentence_len"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

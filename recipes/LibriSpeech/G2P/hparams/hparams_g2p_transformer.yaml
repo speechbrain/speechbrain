@@ -1,0 +1,691 @@
+# ################################
+# Model: Transformer/Conformer
+# Authors: Artem Ploujnikov 2021
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Hyperparameter optimization (disabled by default)
+hpopt: False
+hpopt_mode: generic
+trial_id: null
+
+# Data paths
+output_folder: !ref results/transformer/<seed>
+data_folder: !PLACEHOLDER # e.g. /localscratch/librig2p
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
+enable_interim_reports: True
+grapheme_tokenizer_output_folder: !ref <save_folder>/grapheme_tokenizer
+phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
+ckpt_frequency: 1
+ckpt_enable: True
+enable_metrics: True
+
+
+pretrained_path: !ref <save_folder>/pretrained_models
+
+
+dataset: flexthink/librig2p-nostress-space
+lexicon_train_data: lexicon_train
+lexicon_valid_data: lexicon_valid
+lexicon_test_data: !ref lexicon_test
+lexicon_sample: null
+lexicon_sample_random: False
+sentence_train_data: !ref sentence_train
+sentence_valid_data: !ref sentence_valid
+sentence_test_data: !ref sentence_test
+sentence_sample: null
+sentence_sample_random: False
+homograph_train_data: !ref homograph_train
+homograph_valid_data: !ref homograph_valid
+homograph_test_data: !ref homograph_test
+homograph_sample: null
+homograph_sample_random: False
+homograph_balance: True
+tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
+tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
+
+# Tokenizers
+char_tokenize: False
+char_token_type: unigram  # ["unigram", "bpe", "char"]
+char_token_output: 512
+char_token_wordwise: True
+phn_tokenize: False
+phn_token_type: unigram  # ["unigram", "bpe", "char"]
+phn_token_output: 512  # index(blank/eos/bos/unk) = 0
+phn_token_wordwise: True
+character_coverage: 1.0
+
+skip_prep: False
+sorting: random #ascending
+origins: "*"
+# skip_test can be a Boolean value or a list of steps for which
+# the test stage can be skipped
+skip_test: null
+graphemes_count: 31
+phonemes_count: 43
+phonemes_enable_space: True
+
+# Neural Parameters
+lexicon_epochs: 50
+lexicon_ctc_epochs: 10
+lexicon_limit_to_stop: !ref <lexicon_epochs> # No stopping by default, can override
+lexicon_limit_warmup: !ref <lexicon_epochs> # No stopping by default, can override
+sentence_epochs: 20
+sentence_ctc_epochs: 10
+sentence_limit_to_stop: 3
+sentence_limit_warmup: 3
+homograph_epochs: 20
+homograph_ctc_epochs: 10
+homograph_limit_to_stop: 5
+homograph_limit_warmup: 10
+lexicon_batch_size: 128
+sentence_batch_size: 32
+homograph_batch_size: 32
+ctc_weight: 0.5
+homograph_loss_weight: 2.0
+lr: 0.0001
+lr_min: 0.00001
+lr_dont_halve_until_epoch: 1
+lr_patience: 1
+adam_beta1: 0.99
+adam_beta2: 0.998
+save_for_pretrained: True
+
+# Model parameters
+output_neurons: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: !ref <phn_token_output> + 1
+        False: !ref <phonemes_count>
+
+enc_num_embeddings: !apply:speechbrain.utils.hparams.choice
+    value: !ref <char_tokenize>
+    choices:
+        True: !ref <char_token_output> + 1
+        False: !ref <graphemes_count>
+
+embedding_dim: 256
+enc_num_layers: 2
+dec_num_layers: 2
+transformer_d_model: 512
+transformer_d_ffn: 4096
+transformer_num_heads: 8
+transformer_dropout: 0.1
+transformer_normalize_before: True
+transformer_encoder_module: conformer
+transformer_kernel_size: 15
+transformer_causal: True
+embedding_type: regular
+
+# Determines whether to use BOS (beginning-of-sequence) or EOS (end-of-sequence) tokens
+# Available modes:
+# raw: no BOS/EOS tokens are added
+# bos: a beginning-of-sequence token is added
+# eos: an end-of-sequence token is added
+grapheme_sequence_mode: eos
+phoneme_sequence_mode: bos
+
+max_length: 2500
+
+# Special Token information
+bos_index: 1
+eos_index: 2
+blank_index: 3
+unk_index: 3
+token_space_index: 512
+
+# Language Model
+lm_d_model: 128
+lm_enc_num_layers: 3
+lm_dec_num_layers: 3
+lm_d_ffn: 2048
+lm_num_heads: 4
+lm_dropout: 0.1
+
+# Beam Searcher
+use_language_model: False
+beam_search_min_decode_ratio: 0
+beam_search_max_decode_ratio: 1.0
+beam_search_beam_size: 8
+beam_search_beam_size_valid: 1
+beam_search_eos_threshold: 1.5
+beam_search_using_max_attn_shift: False
+beam_search_max_attn_shift: 10
+beam_search_coverage_penalty: 0.0
+beam_search_lm_weight: 0.5
+beam_search_ctc_weight_decode: 0.4
+beam_search_temperature: 1.0
+beam_search_temperature_lm: 1.0
+
+# Word embeddings
+use_word_emb: False
+word_emb_model: bert-base-uncased
+word_emb_dim: 768
+word_emb_enc_dim: 256
+word_emb_norm_type: batch
+
+# Evaluation parameters
+eval_dataset: train
+eval_train_step: sentence
+eval_ckpt_step: !ref <eval_train_step>
+eval_batch_size: 128
+eval_batch_count: 1
+eval_reporting: raw
+eval_prediction_sample_size: 10
+eval_mode: sentence
+eval_output_wer_file: False
+eval_wer_file: !ref <save_folder>/wer_eval.txt
+
+
+select_n_sentences: None
+
+graphemes:
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
+
+phonemes:
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
+
+enc_input_dim: !apply:speechbrain.lobes.models.g2p.model.input_dim
+    use_word_emb: !ref <use_word_emb>
+    word_emb_enc_dim: !ref <word_emb_enc_dim>
+    embedding_dim: !ref <embedding_dim>
+
+phn_char_map: !apply:speechbrain.lobes.models.g2p.dataio.build_token_char_map
+    tokens: !ref <phonemes>
+
+char_phn_map: !apply:speechbrain.lobes.models.g2p.dataio.flip_map
+    map_dict: !ref <phn_char_map>
+
+
+# Models
+char_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <enc_input_dim>
+    n_neurons: !ref <transformer_d_model>
+    bias: True
+
+phn_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <embedding_dim>
+    n_neurons: !ref <transformer_d_model>
+    bias: True
+
+lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <transformer_d_model>
+    n_neurons: !ref <output_neurons>
+    bias: False
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <transformer_d_model>
+    n_neurons: !ref <output_neurons>
+
+encoder_emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
+    d_model: !ref <transformer_d_model>
+    vocab: !ref <graphemes_count>
+
+emb_norm: !new:speechbrain.lobes.models.transformer.Transformer.NormalizedEmbedding
+    d_model: !ref <transformer_d_model>
+    vocab: !ref <phonemes_count>
+
+encoder_emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <enc_num_embeddings>
+    embedding_dim: !ref <embedding_dim>
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <embedding_dim>
+
+word_emb_enc: !new:speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder
+    word_emb_dim: !ref <word_emb_dim>
+    word_emb_enc_dim: !ref <word_emb_enc_dim>
+    norm_type: !ref <word_emb_norm_type>
+
+word_emb: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
+    init: !name:speechbrain.wordemb.transformer.TransformerWordEmbeddings
+        model: !ref <word_emb_model>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    model: !ref <model>
+    ctc_lin: !ref <ctc_lin>
+    word_emb: null
+    word_emb_enc: !ref <word_emb_enc>
+
+model: !new:speechbrain.lobes.models.g2p.model.TransformerG2P
+    encoder_emb: !apply:speechbrain.utils.hparams.choice
+        value: !ref <embedding_type>
+        choices:
+            regular: !ref <encoder_emb>
+            normalized: !ref <encoder_emb_norm>
+    char_lin: !ref <char_lin>
+    phn_lin: !ref <phn_lin>
+    lin: !ref <lin>
+    out: !ref <log_softmax>
+    emb: !apply:speechbrain.utils.hparams.choice
+        value: !ref <embedding_type>
+        choices:
+            regular: !ref <emb>
+            normalized: !ref <emb_norm>
+    d_model: !ref <transformer_d_model>
+    nhead: !ref <transformer_num_heads>
+    num_encoder_layers: !ref <enc_num_layers>
+    num_decoder_layers: !ref <dec_num_layers>
+    d_ffn: !ref <transformer_d_ffn>
+    dropout: !ref <transformer_dropout>
+    max_length: !ref <max_length>
+    activation: !name:torch.nn.GELU
+    normalize_before: !ref <transformer_normalize_before>
+    encoder_module: !ref <transformer_encoder_module>
+    kernel_size: !ref <transformer_kernel_size>
+    causal: !ref <transformer_causal>
+    use_word_emb: !ref <use_word_emb>
+    word_emb_enc: !ref <word_emb_enc>
+
+
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
+    vocab: !ref <phonemes_count>
+    d_model: !ref <lm_d_model>
+    num_encoder_layers: !ref <lm_enc_num_layers>
+    num_decoder_layers: !ref <lm_dec_num_layers>
+    d_ffn: !ref <lm_d_ffn>
+    dropout: !ref <lm_dropout>
+    nhead: !ref <lm_num_heads>
+    decoder_use_memory: True
+    activation: !name:torch.nn.GELU
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+
+beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules:
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    using_eos_threshold: False
+    length_normalization: False
+
+
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
+    modules:
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
+    lm_modules:
+        - !ref <lm_model>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    lm_weight: !ref <beam_search_lm_weight>
+    temperature: !ref <beam_search_temperature>
+    temperature_lm: !ref <beam_search_temperature_lm>
+    using_eos_threshold: False
+    length_normalization: False
+
+
+beam_searcher_valid: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules:
+        - !ref <model>
+        - !ref <lin>
+        - !ref <ctc_lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <beam_search_min_decode_ratio>
+    max_decode_ratio: !ref <beam_search_max_decode_ratio>
+    beam_size: !ref <beam_search_beam_size_valid>
+    eos_threshold: !ref <beam_search_eos_threshold>
+    using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
+    max_attn_shift: !ref <beam_search_max_attn_shift>
+    coverage_penalty: !ref <beam_search_coverage_penalty>
+    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    using_eos_threshold: False
+    length_normalization: False
+
+
+lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    lr_min: !ref <lr_min>
+    dont_halve_until_epoch: !ref <lr_dont_halve_until_epoch>
+    patience: !ref <lr_patience>
+
+homograph_extractor: !new:speechbrain.lobes.models.g2p.homograph.SubsequenceExtractor
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
+
+seq_cost_metric: !name:speechbrain.nnet.losses.nll_loss
+    reduction: batch
+
+homograph_cost: !new:speechbrain.lobes.models.g2p.homograph.SubsequenceLoss
+    seq_cost: !ref <seq_cost>
+
+seq_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !ref <seq_cost_metric>
+
+seq_stats_homograph: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !ref <seq_cost_metric>
+
+classification_stats_homograph: !name:speechbrain.utils.metric_stats.ClassificationStats
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
+per_stats_homograph: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+
+lexicon_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
+    limit: !ref <lexicon_epochs>
+    limit_to_stop: !ref <lexicon_limit_to_stop>
+    limit_warmup: !ref <lexicon_limit_warmup>
+    direction: min
+
+sentence_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
+    limit: !ref <sentence_epochs>
+    limit_to_stop: !ref <sentence_limit_to_stop>
+    limit_warmup: !ref <sentence_limit_warmup>
+    direction: min
+
+homograph_epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
+    limit: !ref <homograph_epochs>
+    limit_to_stop: !ref <homograph_limit_to_stop>
+    limit_warmup: !ref <homograph_limit_warmup>
+    direction: min
+
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        ctc_lin: !ref <ctc_lin>
+        lexicon_counter: !ref <lexicon_epoch_counter>
+        sentence_counter: !ref <sentence_epoch_counter>
+        homograph_counter: !ref <homograph_epoch_counter>
+
+model_output_keys:
+    - p_seq
+    - char_lens
+    - encoder_out
+
+grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
+
+grapheme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <grapheme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <char_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: char
+        model_type: !ref <char_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_format: json
+        text_file: !ref <save_folder>/grapheme_annotations.txt
+
+
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <phoneme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <phn_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: phn
+        model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_format: json
+        text_file: !ref <save_folder>/phoneme_annotations.txt
+
+
+out_phoneme_decoder_tok: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize
+    tokenizer: !ref <phoneme_tokenizer>
+    char_map: !ref <char_phn_map>
+    token_space_index: !ref <token_space_index>
+    wordwise: !ref <phn_token_wordwise>
+
+out_phoneme_decoder_raw: !name:speechbrain.lobes.models.g2p.dataio.text_decode
+    encoder: !ref <phoneme_encoder>
+
+out_phoneme_decoder: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: !ref <out_phoneme_decoder_tok>
+        False: !ref <out_phoneme_decoder_raw>
+
+
+encode_pipeline:
+    batch: False
+    use_padded_data: True
+    output_keys:
+        - grapheme_list
+        - grapheme_encoded_list
+        - grapheme_encoded
+    init:
+        - func: !name:speechbrain.lobes.models.g2p.dataio.enable_eos_bos
+              encoder: !ref <grapheme_encoder>
+              tokens: !ref <graphemes>
+              bos_index: !ref <bos_index>
+              eos_index: !ref <eos_index>
+        - func: !name:speechbrain.lobes.models.g2p.dataio.enable_eos_bos
+              encoder: !ref <phoneme_encoder>
+              tokens: !ref <phonemes>
+              bos_index: !ref <bos_index>
+              eos_index: !ref <eos_index>
+    steps:
+        - func: !name:speechbrain.lobes.models.g2p.dataio.clean_pipeline
+              graphemes: !ref <graphemes>
+          takes: txt
+          provides: txt_cleaned
+        - func: !name:speechbrain.lobes.models.g2p.dataio.grapheme_pipeline
+              grapheme_encoder: !ref <grapheme_encoder>
+          takes: txt_cleaned
+          provides:
+              - grapheme_list
+              - grapheme_encoded_list
+              - grapheme_encoded_raw
+        - func: !name:speechbrain.lobes.models.g2p.dataio.add_bos_eos
+              encoder: !ref <grapheme_encoder>
+          takes: grapheme_encoded_list
+          provides:
+              - grapheme_encoded_bos
+              - grapheme_len_bos
+              - grapheme_encoded
+              - grapheme_len
+        - func: !name:speechbrain.lobes.models.g2p.dataio.word_emb_pipeline
+              word_emb: !ref <word_emb>
+              grapheme_encoder: !ref <grapheme_encoder>
+              use_word_emb: !ref <use_word_emb>
+          takes:
+              - txt
+              - grapheme_encoded
+              - grapheme_len
+          provides: word_emb
+
+
+decode_pipeline:
+    batch: True
+    output_keys:
+        - phonemes
+    steps:
+        - func: !name:speechbrain.lobes.models.g2p.dataio.beam_search_pipeline
+              beam_searcher: !ref <beam_searcher>
+          takes:
+              - char_lens
+              - encoder_out
+          provides:
+              - hyps
+              - scores
+        - func: !apply:speechbrain.utils.hparams.choice
+              value: !ref <phn_tokenize>
+              choices:
+                  True: !apply:speechbrain.lobes.models.g2p.dataio.char_map_detokenize
+                      tokenizer: !ref <phoneme_tokenizer>
+                      char_map: !ref <char_phn_map>
+                      token_space_index: !ref <token_space_index>
+                      wordwise: !ref <phn_token_wordwise>
+                  False: !name:speechbrain.lobes.models.g2p.dataio.phoneme_decoder_pipeline
+                      phoneme_encoder: !ref <phoneme_encoder>
+          takes:
+              - hyps
+          provides:
+              - phonemes
+
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        model: !ref <model>
+        ctc_lin: !ref <ctc_lin>
+    paths:
+        model: !ref <pretrained_path>/model.ckpt
+        ctc_lin: !ref <pretrained_path>/ctc_lin.ckpt
+
+train_steps:
+    - name: lexicon
+      train_data: !ref <lexicon_train_data>
+      valid_data: !ref <lexicon_valid_data>
+      test_data: !ref <lexicon_test_data>
+      epoch_counter: !ref <lexicon_epoch_counter>
+      ctc_epochs: !ref <lexicon_ctc_epochs>
+      wer_file: !ref <save_folder>/wer_lexicon.txt
+      sample: !ref <lexicon_sample>
+      sample_random: !ref <lexicon_sample_random>
+      performance_key: PER
+      dataloader_opts:
+          batch_size: !ref <lexicon_batch_size>
+
+    - name: sentence
+      train_data: !ref <sentence_train_data>
+      valid_data: !ref <sentence_valid_data>
+      test_data: !ref <sentence_test_data>
+      epoch_counter: !ref <sentence_epoch_counter>
+      ctc_epochs: !ref <sentence_ctc_epochs>
+      wer_file: !ref <save_folder>/wer_sentence.txt
+      sample: !ref <sentence_sample>
+      sample_random: !ref <sentence_sample_random>
+      performance_key: PER
+      dataloader_opts:
+          batch_size: !ref <sentence_batch_size>
+
+    - name: homograph
+      train_data: !ref <homograph_train_data>
+      valid_data: !ref <homograph_valid_data>
+      test_data: !ref <homograph_test_data>
+      epoch_counter: !ref <homograph_epoch_counter>
+      ctc_epochs: !ref <homograph_ctc_epochs>
+      mode: homograph
+      balance: !ref <homograph_balance>
+      balance_on: homograph_wordid
+      sample: !ref <homograph_sample>
+      sample_random: !ref <homograph_sample_random>
+      wer_file: !ref <save_folder>/wer_homograph.txt
+      homograph_stats_file: !ref <save_folder>/homograph_stats.txt
+      performance_key: PER_homograph
+      dataloader_opts:
+          batch_size: !ref <homograph_batch_size>
+
+
+deps_pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        lm: !ref <lm_model>
+    paths:
+        lm: !ref <pretrained_path>/lm.ckpt
+    conditions:
+        lm: !ref <use_language_model>

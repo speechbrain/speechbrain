@@ -20,14 +20,14 @@ class AudioNormalizer:
     Example
     -------
     >>> import torchaudio
-    >>> example_file = 'samples/audio_samples/example_multichannel.wav'
+    >>> example_file = 'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
     >>> signal, sr = torchaudio.load(example_file, channels_first = False)
     >>> normalizer = AudioNormalizer(sample_rate=8000)
     >>> normalized = normalizer(signal, sr)
     >>> signal.shape
-    torch.Size([33882, 2])
+    torch.Size([160000, 4])
     >>> normalized.shape
-    torch.Size([16941])
+    torch.Size([80000])
 
     NOTE
     ----

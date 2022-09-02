@@ -81,8 +81,7 @@ class ASR(sb.Brain):
         joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
 
         # Output layer for transducer log-probabilities
-        logits = self.modules.transducer_lin(joint)
-        p_transducer = self.hparams.log_softmax(logits)
+        logits_transducer = self.modules.transducer_lin(joint)
 
         # Compute outputs
         if stage == sb.Stage.TRAIN:
@@ -106,17 +105,17 @@ class ASR(sb.Brain):
                 p_ce = self.modules.dec_lin(h)
                 p_ce = self.hparams.log_softmax(p_ce)
             if return_CE and return_CTC:
-                return p_ctc, p_ce, p_transducer, wav_lens
+                return p_ctc, p_ce, logits_transducer, wav_lens
             elif return_CTC:
-                return p_ctc, p_transducer, wav_lens
+                return p_ctc, logits_transducer, wav_lens
             elif return_CE:
-                return p_ce, p_transducer, wav_lens
+                return p_ce, logits_transducer, wav_lens
             else:
-                return p_transducer, wav_lens
+                return logits_transducer, wav_lens
 
         elif stage == sb.Stage.VALID:
             best_hyps, scores, _, _ = self.hparams.Greedysearcher(x)
-            return p_transducer, wav_lens, best_hyps
+            return logits_transducer, wav_lens, best_hyps
         else:
             (
                 best_hyps,
@@ -124,7 +123,7 @@ class ASR(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.Beamsearcher(x)
-            return p_transducer, wav_lens, best_hyps
+            return logits_transducer, wav_lens, best_hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
@@ -141,7 +140,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TRAIN:
             if len(predictions) == 4:
-                p_ctc, p_ce, p_transducer, wav_lens = predictions
+                p_ctc, p_ce, logits_transducer, wav_lens = predictions
                 CTC_loss = self.hparams.ctc_cost(
                     p_ctc, tokens, wav_lens, token_lens
                 )
@@ -149,7 +148,7 @@ class ASR(sb.Brain):
                     p_ce, tokens_eos, length=token_eos_lens
                 )
                 loss_transducer = self.hparams.transducer_cost(
-                    p_transducer, tokens, wav_lens, token_lens
+                    logits_transducer, tokens, wav_lens, token_lens
                 )
                 loss = (
                     self.hparams.ctc_weight * CTC_loss
@@ -161,12 +160,12 @@ class ASR(sb.Brain):
                 # one of the 2 heads (CTC or CE) is still computed
                 # CTC alive
                 if current_epoch <= self.hparams.number_of_ctc_epochs:
-                    p_ctc, p_transducer, wav_lens = predictions
+                    p_ctc, logits_transducer, wav_lens = predictions
                     CTC_loss = self.hparams.ctc_cost(
                         p_ctc, tokens, wav_lens, token_lens
                     )
                     loss_transducer = self.hparams.transducer_cost(
-                        p_transducer, tokens, wav_lens, token_lens
+                        logits_transducer, tokens, wav_lens, token_lens
                     )
                     loss = (
                         self.hparams.ctc_weight * CTC_loss
@@ -174,26 +173,26 @@ class ASR(sb.Brain):
                     )
                 # CE for decoder alive
                 else:
-                    p_ce, p_transducer, wav_lens = predictions
+                    p_ce, logits_transducer, wav_lens = predictions
                     CE_loss = self.hparams.ce_cost(
                         p_ce, tokens_eos, length=token_eos_lens
                     )
                     loss_transducer = self.hparams.transducer_cost(
-                        p_transducer, tokens, wav_lens, token_lens
+                        logits_transducer, tokens, wav_lens, token_lens
                     )
                     loss = (
                         self.hparams.ce_weight * CE_loss
                         + (1 - self.hparams.ctc_weight) * loss_transducer
                     )
             else:
-                p_transducer, wav_lens = predictions
+                logits_transducer, wav_lens = predictions
                 loss = self.hparams.transducer_cost(
-                    p_transducer, tokens, wav_lens, token_lens
+                    logits_transducer, tokens, wav_lens, token_lens
                 )
         else:
-            p_transducer, wav_lens, predicted_tokens = predictions
+            logits_transducer, wav_lens, predicted_tokens = predictions
             loss = self.hparams.transducer_cost(
-                p_transducer, tokens, wav_lens, token_lens
+                logits_transducer, tokens, wav_lens, token_lens
             )
 
         if stage != sb.Stage.TRAIN:
@@ -354,7 +353,7 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

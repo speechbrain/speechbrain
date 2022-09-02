@@ -6,6 +6,7 @@ Authors:
   * Aku Rouhe 2020
   * Samuele Cornell 2020
   * Ralf Leibold 2020
+  * Artem Ploujnikov 2021
   * Andreas Nautsch 2021
 """
 import torch
@@ -20,6 +21,7 @@ from torch.utils.data import (
 import numpy as np
 from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
+from collections import Counter
 from scipy.stats import lognorm
 
 logger = logging.getLogger(__name__)
@@ -492,6 +494,7 @@ class DynamicBatchSampler(Sampler):
         self._generate_batches()
 
     def get_durations(self, batch):
+        """Gets durations of the elements in the batch."""
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
@@ -704,7 +707,8 @@ class DynamicBatchSampler(Sampler):
 # Heavily inspired by Catalyst, which is under Apache 2.0 licence.
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
-    """This wrapper allows using any sampler with Distributed Data Parallel (DDP) correctly.
+    """This wrapper allows using any sampler (for example batch) with Distributed Data Parallel (DDP)
+    correctly.
 
     Passing blindly the sampler to each DDP process will cause to have access
     within each process to all the data in the dataset instead of only a subset
@@ -738,3 +742,77 @@ class DistributedSamplerWrapper(DistributedSampler):
         super().set_epoch(epoch)
         if hasattr(self.sampler, "set_epoch"):
             self.sampler.set_epoch(epoch)
+
+
+class BalancingDataSampler(ReproducibleWeightedRandomSampler):
+    """A data sampler that takes a single key from the dataset and
+    ensures an approximately equal distribution by that key
+
+    Arguments
+    ---------
+    dataset: DynamicItemDataset
+        the dataset form which samples will be drawn
+    key: str
+        the key from which samples will be taken
+    num_samples : int
+        Number of samples to draw
+    replacement : bool
+        To draw with replacement or not (within an epoch of num_samples).
+    seed : int
+        The base seed to use for the random number generator. It is recommended
+        to use a value which has a good mix of 0 and 1 bits.
+    epoch : int
+        The epoch to start at.
+
+    Example
+    -------
+    >>> from speechbrain.dataio.sampler import BalancingDataSampler
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> sample_data = {
+    ...   1: {"category": "A",
+    ...       "text": "This is a test"},
+    ...   2: {"category": "A",
+    ...       "text": "This is a second test"},
+    ...   3: {"category": "B",
+    ...       "text": "This is a third test"}
+    ...  }
+    >>> dataset = DynamicItemDataset(data=sample_data)
+    >>> sampler = BalancingDataSampler(
+    ...     dataset=dataset,
+    ...     key="category",
+    ...     num_samples=10
+    ... )
+    >>> sampler.weights
+    tensor([0.5000, 0.5000, 1.0000], dtype=torch.float64)
+    >>> it = iter(sampler)
+    >>> [next(it) for _ in range(10)]
+    [2, 2, 1, 2, 2, 0, 1, 1, 1, 2]
+    """
+
+    def __init__(
+        self,
+        dataset,
+        key,
+        num_samples=None,
+        replacement=True,
+        seed=563375142,
+        epoch=0,
+        **kwargs,
+    ):
+        self.dataset = dataset
+        self.key = key
+        if not num_samples:
+            num_samples = len(dataset)
+        weights = self._compute_weights()
+        super().__init__(
+            weights, num_samples, replacement, seed, epoch, **kwargs
+        )
+
+    def _compute_weights(self):
+        with self.dataset.output_keys_as([self.key]):
+            class_ids = [item[self.key] for item in self.dataset]
+            class_counter = Counter(class_ids)
+        weights = 1 / torch.tensor(
+            [class_counter[class_id] for class_id in class_ids]
+        )
+        return weights

@@ -323,6 +323,7 @@ class BinaryMetricStats(MetricStats):
         self.positive_label = positive_label
 
     def clear(self):
+        """Clears the stored metrics."""
         self.ids = []
         self.scores = []
         self.labels = []
@@ -421,7 +422,7 @@ class BinaryMetricStats(MetricStats):
 
             eer, threshold = EER(positive_scores, negative_scores)
 
-        pred = (self.scores >= threshold).float()
+        pred = (self.scores > threshold).float()
         true = self.labels
 
         TP = self.summary["TP"] = float(pred.mul(true).sum())
@@ -479,29 +480,28 @@ def EER(positive_scores, negative_scores):
     interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
     thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
 
-    # Computing False Rejection Rate (miss detection)
-    positive_scores = torch.cat(
-        len(thresholds) * [positive_scores.unsqueeze(0)]
-    )
-    pos_scores_threshold = positive_scores.transpose(0, 1) <= thresholds
-    FRR = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[1]
-    del positive_scores
-    del pos_scores_threshold
+    # Variable to store the min FRR, min FAR and their corresponding index
+    min_index = 0
+    final_FRR = 0
+    final_FAR = 0
 
-    # Computing False Acceptance Rate (false alarm)
-    negative_scores = torch.cat(
-        len(thresholds) * [negative_scores.unsqueeze(0)]
-    )
-    neg_scores_threshold = negative_scores.transpose(0, 1) > thresholds
-    FAR = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[1]
-    del negative_scores
-    del neg_scores_threshold
+    for i, cur_thresh in enumerate(thresholds):
+        pos_scores_threshold = positive_scores <= cur_thresh
+        FRR = (pos_scores_threshold.sum(0)).float() / positive_scores.shape[0]
+        del pos_scores_threshold
 
-    # Finding the threshold for EER
-    min_index = (FAR - FRR).abs().argmin()
+        neg_scores_threshold = negative_scores > cur_thresh
+        FAR = (neg_scores_threshold.sum(0)).float() / negative_scores.shape[0]
+        del neg_scores_threshold
+
+        # Finding the threshold for EER
+        if (FAR - FRR).abs().item() < abs(final_FAR - final_FRR) or i == 0:
+            min_index = i
+            final_FRR = FRR.item()
+            final_FAR = FAR.item()
 
     # It is possible that eer != fpr != fnr. We return (FAR  + FRR) / 2 as EER.
-    EER = (FAR[min_index] + FRR[min_index]) / 2
+    EER = (final_FAR + final_FRR) / 2
 
     return float(EER), float(thresholds[min_index])
 
@@ -571,3 +571,316 @@ def minDCF(
     c_min, min_index = torch.min(c_det, dim=0)
 
     return float(c_min), float(thresholds[min_index])
+
+
+class ClassificationStats(MetricStats):
+    """Computes statistics pertaining to multi-label
+    classification tasks, as well as tasks that can be loosely interpreted as such for the purpose of
+    evaluations
+
+    Example
+    -------
+    >>> import sys
+    >>> from speechbrain.utils.metric_stats import ClassificationStats
+    >>> cs = ClassificationStats()
+    >>> cs.append(
+    ...     ids=["ITEM1", "ITEM2", "ITEM3", "ITEM4"],
+    ...     predictions=[
+    ...         "M EY K AH",
+    ...         "T EY K",
+    ...         "B AE D",
+    ...         "M EY K",
+    ...     ],
+    ...     targets=[
+    ...         "M EY K",
+    ...         "T EY K",
+    ...         "B AE D",
+    ...         "M EY K",
+    ...     ],
+    ...     categories=[
+    ...         "make",
+    ...         "take",
+    ...         "bad",
+    ...         "make"
+    ...     ]
+    ... )
+    >>> cs.write_stats(sys.stdout)
+    Overall Accuracy: 75%
+    <BLANKLINE>
+    Class-Wise Accuracy
+    -------------------
+    bad -> B AE D : 1 / 1 (100.00%)
+    make -> M EY K: 1 / 2 (50.00%)
+    take -> T EY K: 1 / 1 (100.00%)
+    <BLANKLINE>
+    Confusion
+    ---------
+    Target: bad -> B AE D
+      -> B AE D   : 1 / 1 (100.00%)
+    Target: make -> M EY K
+      -> M EY K   : 1 / 2 (50.00%)
+      -> M EY K AH: 1 / 2 (50.00%)
+    Target: take -> T EY K
+      -> T EY K   : 1 / 1 (100.00%)
+    >>> summary = cs.summarize()
+    >>> summary['accuracy']
+    0.75
+    >>> summary['classwise_stats'][('bad', 'B AE D')]
+    {'total': 1.0, 'correct': 1.0, 'accuracy': 1.0}
+    >>> summary['classwise_stats'][('make', 'M EY K')]
+    {'total': 2.0, 'correct': 1.0, 'accuracy': 0.5}
+    >>> summary['keys']
+    [('bad', 'B AE D'), ('make', 'M EY K'), ('take', 'T EY K')]
+    >>> summary['predictions']
+    ['B AE D', 'M EY K', 'M EY K AH', 'T EY K']
+    >>> summary['classwise_total']
+    {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 2.0, ('take', 'T EY K'): 1.0}
+    >>> summary['classwise_correct']
+    {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 1.0, ('take', 'T EY K'): 1.0}
+    >>> summary['classwise_accuracy']
+    {('bad', 'B AE D'): 1.0, ('make', 'M EY K'): 0.5, ('take', 'T EY K'): 1.0}
+    """
+
+    def __init__(self):
+        super()
+        self.clear()
+        self.summary = None
+
+    def append(self, ids, predictions, targets, categories=None):
+        """
+        Appends inputs, predictions and targets to internal
+        lists
+
+        Arguments
+        ---------
+        ids: list
+            the string IDs for the samples
+        predictions: list
+            the model's predictions (human-interpretable,
+            preferably strings)
+        targets: list
+            the ground truths (human-interpretable, preferably strings)
+        categories: list
+            an additional way to classify training
+            samples. If available, the categories will
+            be combined with targets
+        """
+        self.ids.extend(ids)
+        self.predictions.extend(predictions)
+        self.targets.extend(targets)
+        if categories is not None:
+            self.categories.extend(categories)
+
+    def summarize(self, field=None):
+        """Summarize the classification metric scores
+
+        The following statistics are computed:
+
+        accuracy: the overall accuracy (# correct / # total)
+        confusion_matrix: a dictionary of type
+            {(target, prediction): num_entries} representing
+            the confusion matrix
+        classwise_stats: computes the total number of samples,
+            the number of correct classifications and accuracy
+            for each class
+        keys: all available class keys, which can be either target classes
+            or (category, target) tuples
+        predictions: all available predictions all predicions the model
+            has made
+
+        Arguments
+        ---------
+        field : str
+            If provided, only returns selected statistic. If not,
+            returns all computed statistics.
+
+        Returns
+        -------
+        float or dict
+            Returns a float if ``field`` is provided, otherwise
+            returns a dictionary containing all computed stats.
+        """
+
+        self._build_lookups()
+        confusion_matrix = self._compute_confusion_matrix()
+        self.summary = {
+            "accuracy": self._compute_accuracy(),
+            "confusion_matrix": confusion_matrix,
+            "classwise_stats": self._compute_classwise_stats(confusion_matrix),
+            "keys": self._available_keys,
+            "predictions": self._available_predictions,
+        }
+        for stat in ["total", "correct", "accuracy"]:
+            self.summary[f"classwise_{stat}"] = {
+                key: key_stats[stat]
+                for key, key_stats in self.summary["classwise_stats"].items()
+            }
+        if field is not None:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def _compute_accuracy(self):
+        return sum(
+            prediction == target
+            for prediction, target in zip(self.predictions, self.targets)
+        ) / len(self.ids)
+
+    def _build_lookups(self):
+        self._available_keys = self._get_keys()
+        self._available_predictions = list(
+            sorted(set(prediction for prediction in self.predictions))
+        )
+        self._keys_lookup = self._index_lookup(self._available_keys)
+        self._predictions_lookup = self._index_lookup(
+            self._available_predictions
+        )
+
+    def _compute_confusion_matrix(self):
+        confusion_matrix = torch.zeros(
+            len(self._available_keys), len(self._available_predictions)
+        )
+        for key, prediction in self._get_confusion_entries():
+            key_idx = self._keys_lookup[key]
+            prediction_idx = self._predictions_lookup[prediction]
+            confusion_matrix[key_idx, prediction_idx] += 1
+        return confusion_matrix
+
+    def _compute_classwise_stats(self, confusion_matrix):
+        total = confusion_matrix.sum(dim=-1)
+
+        # This can be used with "classes" that are not
+        # statically determined; for example, they could
+        # be constructed from seq2seq predictions. As a
+        # result, one cannot use the diagonal
+        key_targets = (
+            self._available_keys
+            if not self.categories
+            else [target for _, target in self._available_keys]
+        )
+        correct = torch.tensor(
+            [
+                (
+                    confusion_matrix[idx, self._predictions_lookup[target]]
+                    if target in self._predictions_lookup
+                    else 0
+                )
+                for idx, target in enumerate(key_targets)
+            ]
+        )
+        accuracy = correct / total
+        return {
+            key: {
+                "total": item_total.item(),
+                "correct": item_correct.item(),
+                "accuracy": item_accuracy.item(),
+            }
+            for key, item_total, item_correct, item_accuracy in zip(
+                self._available_keys, total, correct, accuracy
+            )
+        }
+
+    def _get_keys(self):
+        if self.categories:
+            keys = zip(self.categories, self.targets)
+        else:
+            keys = self.targets
+        return list(sorted(set(keys)))
+
+    def _get_confusion_entries(self):
+        if self.categories:
+            result = (
+                ((category, target), prediction)
+                for category, target, prediction in zip(
+                    self.categories, self.targets, self.predictions
+                )
+            )
+        else:
+            result = zip(self.targets, self.predictions)
+        result = list(result)
+        return result
+
+    def _index_lookup(self, items):
+        return {item: idx for idx, item in enumerate(items)}
+
+    def clear(self):
+        """Clears the collected statistics"""
+        self.ids = []
+        self.predictions = []
+        self.targets = []
+        self.categories = []
+
+    def write_stats(self, filestream):
+        """Outputs the stats to the specified filestream in a human-readable format
+
+        Arguments
+        ---------
+        filestream: file
+            a file-like object
+        """
+        if self.summary is None:
+            self.summarize()
+        print(
+            f"Overall Accuracy: {self.summary['accuracy']:.0%}", file=filestream
+        )
+        print(file=filestream)
+        self._write_classwise_stats(filestream)
+        print(file=filestream)
+        self._write_confusion(filestream)
+
+    def _write_classwise_stats(self, filestream):
+        self._write_header("Class-Wise Accuracy", filestream=filestream)
+        key_labels = {
+            key: self._format_key_label(key) for key in self._available_keys
+        }
+        longest_key_label = max(len(label) for label in key_labels.values())
+        for key in self._available_keys:
+            stats = self.summary["classwise_stats"][key]
+            padded_label = self._pad_to_length(
+                self._format_key_label(key), longest_key_label
+            )
+            print(
+                f"{padded_label}: {int(stats['correct'])} / {int(stats['total'])} ({stats['accuracy']:.2%})",
+                file=filestream,
+            )
+
+    def _write_confusion(self, filestream):
+        self._write_header("Confusion", filestream=filestream)
+        longest_prediction = max(
+            len(prediction) for prediction in self._available_predictions
+        )
+        confusion_matrix = self.summary["confusion_matrix"].int()
+        totals = confusion_matrix.sum(dim=-1)
+        for key, key_predictions, total in zip(
+            self._available_keys, confusion_matrix, totals
+        ):
+            target_label = self._format_key_label(key)
+            print(f"Target: {target_label}", file=filestream)
+            (indexes,) = torch.where(key_predictions > 0)
+            total = total.item()
+            for index in indexes:
+                count = key_predictions[index].item()
+                prediction = self._available_predictions[index]
+                padded_label = self._pad_to_length(
+                    prediction, longest_prediction
+                )
+                print(
+                    f"  -> {padded_label}: {count} / {total} ({count / total:.2%})",
+                    file=filestream,
+                )
+
+    def _write_header(self, header, filestream):
+        print(header, file=filestream)
+        print("-" * len(header), file=filestream)
+
+    def _pad_to_length(self, label, length):
+        padding = max(0, length - len(label))
+        return label + (" " * padding)
+
+    def _format_key_label(self, key):
+        if self.categories:
+            category, target = key
+            label = f"{category} -> {target}"
+        else:
+            label = key
+        return label

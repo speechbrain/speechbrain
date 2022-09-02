@@ -189,7 +189,7 @@ def read_audio(waveforms_obj):
     -------
     >>> dummywav = torch.rand(16000)
     >>> import os
-    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> tmpfile = str(getfixture('tmpdir') / "wave.wav")
     >>> write_audio(tmpfile, dummywav, 16000)
     >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
     >>> loaded = read_audio(asr_example["wav"])
@@ -257,7 +257,7 @@ def read_audio_multichannel(waveforms_obj):
     -------
     >>> dummywav = torch.rand(16000, 2)
     >>> import os
-    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> tmpfile = str(getfixture('tmpdir') / "wave.wav")
     >>> write_audio(tmpfile, dummywav, 16000)
     >>> asr_example = { "wav": tmpfile, "spk_id": "foo", "words": "foo bar"}
     >>> loaded = read_audio(asr_example["wav"])
@@ -305,7 +305,7 @@ def write_audio(filepath, audio, samplerate):
     Example
     -------
     >>> import os
-    >>> tmpfile = os.path.join(str(getfixture('tmpdir')),  "wave.wav")
+    >>> tmpfile = str(getfixture('tmpdir') / "wave.wav")
     >>> dummywav = torch.rand(16000, 2)
     >>> write_audio(tmpfile, dummywav, 16000)
     >>> loaded = read_audio(tmpfile)
@@ -605,7 +605,7 @@ def write_txt_file(data, filename, sampling_rate=None):
     -------
     >>> tmpdir = getfixture('tmpdir')
     >>> signal=torch.tensor([1,2,3,4])
-    >>> write_txt_file(signal, os.path.join(tmpdir, 'example.txt'))
+    >>> write_txt_file(signal, tmpdir / 'example.txt')
     """
     del sampling_rate  # Not used.
     # Check if the path of filename exists
@@ -642,7 +642,7 @@ def write_stdout(data, filename=None, sampling_rate=None):
     -------
     >>> tmpdir = getfixture('tmpdir')
     >>> signal = torch.tensor([[1,2,3,4]])
-    >>> write_stdout(signal, tmpdir + '/example.txt')
+    >>> write_stdout(signal, tmpdir / 'example.txt')
     [1, 2, 3, 4]
     """
     # Managing Torch.Tensor
@@ -772,7 +772,7 @@ def get_md5(file):
 
     Example
     -------
-    >>> get_md5('samples/audio_samples/example1.wav')
+    >>> get_md5('tests/samples/single-mic/example1.wav')
     'c482d0081ca35302d30d12f1136c34e5'
     """
     # Lets read stuff in 64kb chunks!
@@ -803,9 +803,9 @@ def save_md5(files, out_file):
     None
 
     Example:
-    >>> files = ['samples/audio_samples/example1.wav']
+    >>> files = ['tests/samples/single-mic/example1.wav']
     >>> tmpdir = getfixture('tmpdir')
-    >>> save_md5(files, os.path.join(tmpdir, "md5.pkl"))
+    >>> save_md5(files, tmpdir / "md5.pkl")
     """
     # Initialization of the dictionary
     md5_dict = {}
@@ -830,7 +830,7 @@ def save_pkl(obj, file):
 
     Example
     -------
-    >>> tmpfile = os.path.join(getfixture('tmpdir'), "example.pkl")
+    >>> tmpfile = getfixture('tmpdir') / "example.pkl"
     >>> save_pkl([1, 2, 3, 4, 5], tmpfile)
     >>> load_pkl(tmpfile)
     [1, 2, 3, 4, 5]
@@ -983,8 +983,10 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
 
     Example
     -------
-    >>> merge_csvs("samples/audio_samples/",
-    ... ["csv_example.csv", "csv_example2.csv"],
+    >>> tmpdir = getfixture('tmpdir')
+    >>> os.symlink(os.path.realpath("tests/samples/annotation/speech.csv"), tmpdir / "speech.csv")
+    >>> merge_csvs(tmpdir,
+    ... ["speech.csv", "speech.csv"],
     ... "test_csv_merge.csv")
     """
     write_path = os.path.join(data_folder, merged_csv)

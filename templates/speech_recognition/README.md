@@ -9,7 +9,7 @@ Given the training transcriptions, the tokenizers decide which word pieces alloc
 SpeechBrain relies on the popular [SentencePiece](https://github.com/google/sentencepiece) for tokenization. To train the tokenizer:
 
 ```
-cd python train.py tokenizer.yaml
+cd Tokenizer
 python train.py tokenizer.yaml
 ```
 
