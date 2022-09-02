@@ -13,7 +13,7 @@ cd ../..
 
 orion hunt -n $HPOPT_EXPERIMENT_NAME -c $HPOPT_CONFIG_FILE --exp-max-trials=250  \
 	./run_experiments_seed_variability.sh hparams/EEGNet_EPFLP300_hparam_search.yaml \
-	/home/dborra/Documents/data $OUTPUT_FOLDER 1 1 'random_seed' 1 f1 valid_metrics.pkl false true \
+	/home/dborra/Documents/data $OUTPUT_FOLDER 7 1 'random_seed' 1 f1 valid_metrics.pkl false true \
   --number_of_epochs~"uniform(100, 1000,discrete=True)" \
 	--avg_models~"uniform(1, 20,discrete=True)" \
 	--fmax~"choices([20,30,40,50])" \
