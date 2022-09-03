@@ -119,11 +119,9 @@ test_beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
-lm_weight: 0.50
 ctc_weight_decode: 0.3
 coverage_penalty: 1.8
 temperature: 1.25
-temperature_lm: 1.25
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>

@@ -118,7 +118,6 @@ valid_search_interval: 10
 valid_beam_size: 10
 lm_weight: 0.30
 test_beam_size: 60
-coverage_penalty: 0.1
 ctc_weight_decode: 0.30
 temperature: 1.0
 temperature_lm: 1.0

@@ -16,7 +16,7 @@ As in Kaldi's [swbd/s5c](https://github.com/kaldi-asr/kaldi/tree/master/egs/swbd
 the Fisher transcripts can be used as an additional resource for training Tokenizer and LM.
 
 # How to run
-`python train.py hparams/1K_unigram_subword_bpe.yaml`
+`python train.py hparams/2K_unigram_subword_bpe.yaml`
 
 
 # **About SpeechBrain**
