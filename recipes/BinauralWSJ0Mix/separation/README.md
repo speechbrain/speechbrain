@@ -15,13 +15,13 @@ python train.py hparams/convtasnet-parallel.yaml
                 --data_folder yourpath/binaural-wsj0mix/2speakers
                 --wsj_root yourpath/to/wsj/
 ```
-The data_folder will be automatically created from the wsj_root one.
+The training data will be automatically created from the `wsj_root`, which is the root folder that contains
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
 
 
 # Binaural WSJ0-2mix and WSJ0-3mix dataset creation
-* The best way to create the datasets is using the the scripts at https://github.com/huangzj421/Binaural-WSJ0Mix. The train.py will download it under data_folder if not exists.
-* Also the train.py will create Binaural WSJ0Mix datasets automatically with wsj_root specified:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/to/wsj/`
+* The training data generation scripts are at https://github.com/huangzj421/Binaural-WSJ0Mix. But the `train.py` also automatically downloads and generates the data. It puts the data under the path specified in `data_folder`.
+* The default command to run that automatically generate the data given wsj0 folder:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/wsj0-mix/wsj0`
 
 
 # Dynamic Mixing:
