@@ -531,7 +531,7 @@ class EncoderDecoderASR(Pretrained):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
 
-    def transcribe_file(self, path,):
+    def transcribe_file(self, path):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments

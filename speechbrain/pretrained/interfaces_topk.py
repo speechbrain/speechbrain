@@ -4,8 +4,10 @@
 Authors:
  * Andreas Nautsch 2022
 """
-from speechbrain.pretrained.interfaces import *
+import torch
 from enum import Enum
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.pretrained.interfaces import Pretrained
 
 
 class InferenceDetailLevel(Enum):
@@ -71,7 +73,9 @@ class InferenceDetailLevel(Enum):
     TOP_K_HYP_DETAILS = 6
 
 
-class EncoderDecoderASRTopK(Pretrained):  # inherits directly from Pretrained (not from EncoderDecoderASR)
+class EncoderDecoderASRTopK(
+    Pretrained
+):  # inherits directly from Pretrained (not from EncoderDecoderASR)
     """A ready-to-use Encoder-Decoder ASR model which returns top-k results.
     """
 
