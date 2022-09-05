@@ -14,6 +14,23 @@ from torch.nn import functional as F
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, get_key_padding_mask
 
+
+class PositionalEmbedding(nn.Module):
+    def __init__(self, embed_dim):
+        super(PositionalEmbedding, self).__init__()
+        self.demb = embed_dim
+        inv_freq = 1 / (10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim))
+        self.register_buffer('inv_freq', inv_freq)
+
+    def forward(self, seq_len, mask, device, dtype):
+        pos_seq = torch.arange(seq_len, device=device).to(dtype)
+
+        sinusoid_inp = torch.matmul(torch.unsqueeze(pos_seq, -1),
+                                    torch.unsqueeze(self.inv_freq, 0))
+        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=1)
+        return pos_emb[None, :, :] * mask[:, :, None]
+
+
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
     Arguments
@@ -225,7 +242,8 @@ class FastSpeech(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-
+        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(enc_d_model)
+        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(dec_d_model)
         self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
         self.durPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
         self.encoder = TransformerEncoder(num_layers=enc_num_layers,
@@ -268,10 +286,23 @@ class FastSpeech(nn.Module):
         predict_durations: torch.Tensor
             predicted durations for each token
         """
+        import matplotlib.pyplot as plt
+        
         token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
-        attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1])
-        token_feats, memory = self.encoder(token_feats, src_mask=None, src_key_padding_mask=srcmask)
+        # plt.imshow(srcmask.detach().cpu().numpy())
+        # plt.savefig('tokens.png')
+        # print(tokens.shape)
+        
+        pos = self.sinusoidal_positional_embed_encoder(token_feats.shape[1], srcmask, token_feats.device, token_feats.dtype)
+        token_feats = torch.add(token_feats, pos)
+        attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1]).permute(0, 2, 1).bool()
+        # plt.imshow(attn_mask.detach().cpu().numpy()[-1])
+        # print(attn_mask.shape)
+        # plt.colorbar()
+        # plt.savefig('attn.png')
+        # exit()
+        token_feats, memory = self.encoder(token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
 
         predict_durations = self.durPred(token_feats).squeeze()
         if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
@@ -279,8 +310,10 @@ class FastSpeech(nn.Module):
         spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log, pace=pace)
 
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
-        attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1])
-        output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=None, src_key_padding_mask=srcmask)
+        attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1]).permute(0, 2, 1).bool()
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats.shape[1], srcmask, spec_feats.device, spec_feats.dtype)
+        spec_feats = torch.add(spec_feats, pos)
+        output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
 
         mel_post = self.linear(output_mel_feats)
         return mel_post, predict_durations

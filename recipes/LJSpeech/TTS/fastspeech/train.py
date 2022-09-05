@@ -248,8 +248,18 @@ def dataio_prepare(hparams):
         durs_seq = torch.from_numpy(durs).int()
         text_seq = input_encoder.encode_sequence_torch(label.lower()).int()
         assert len(text_seq) == len(durs) #ensure every token has a duration
-        audio = sb.dataio.dataio.read_audio(wav)
-        mel = hparams["mel_spectogram"](audio=audio)
+        mel_save_path = os.path.join('tmp', Path(wav).stem+'.npy')
+        if not os.path.exists('tmp'):
+            os.mkdir('tmp')
+        if os.path.exists(mel_save_path):
+            with open(mel_save_path, 'rb') as f:
+                mel = np.load(f)
+            mel = torch.from_numpy(mel)
+        else:
+            audio = sb.dataio.dataio.read_audio(wav)
+            mel = hparams["mel_spectogram"](audio=audio)
+            with open(mel_save_path, 'wb') as f:
+                np.save(f, mel.numpy())
         return text_seq, durs_seq, mel, len(text_seq)
 
     #define splits and load it as sb dataset
@@ -354,8 +364,6 @@ def main():
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    if hparams.get("save_for_pretrained"):
-        fastspeech_brain.save_for_pretrained()
 
 if __name__ == "__main__":
     main()
