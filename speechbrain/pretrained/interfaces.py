@@ -488,16 +488,18 @@ class EndToEndSLU(Pretrained):
             Each predicted token id.
         """
         with torch.no_grad():
-            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+            wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.beam_searcher(
+            topk_tokens, topk_lens, _, _ = self.mods.beam_searcher(
                 encoder_out, wav_lens
             )
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+            predicted_tokens = undo_padding(best_hyps, best_lens)
             predicted_words = [
                 self.tokenizer.decode_ids(token_seq)
                 for token_seq in predicted_tokens
             ]
-        return predicted_words, predicted_tokens
+            return predicted_words, predicted_tokens
 
     def forward(self, wavs, wav_lens):
         """Runs full decoding - note: no gradients through decoding"""
