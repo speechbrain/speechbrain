@@ -1,0 +1,138 @@
+# ########################################
+# Emotion recognition from speech using RECOLA
+#
+#  * Author: Sina Alisamir
+# ########################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 0
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+emotion_dimension: arousal # arousal or valence
+feature_type: MFB # MFB or W2V2
+# w2v2_hub: LeBenchmark/wav2vec2-FR-2.6K-base # facebook/wav2vec2-base # any huggingface hub!
+# w2v2_chunk: 15.98 # chunking long audio files (in seconds) to fit w2v2 model when not enough memory size is available
+hidden_size: 64
+feat_size: 40 #40
+data_path: /data/datasets/original/RECOLA_2016
+data_path_audio: !ref <data_path>/recordings_audio
+data_path_arousal: !ref <data_path>/ratings_gold_standard/arousal
+data_path_valence: !ref <data_path>/ratings_gold_standard/valence
+experiment_folder: /data/Experiments/sb/RECOLA2_MFB
+data_processed_folder: !ref <experiment_folder>/Audio
+output_folder: !ref <experiment_folder>/MFB2_<emotion_dimension>_<hidden_size>_seed_<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Path where data manifest files will be stored
+train_annotation: !ref <experiment_folder>/train.json
+valid_annotation: !ref <experiment_folder>/dev.json
+test_annotation: !ref <experiment_folder>/test.json
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:expBrain.loss_ccc
+    # metric: !name:speechbrain.nnet.losses.classification_error
+        # reduction: batch
+
+# early_stopping: True
+# early_stopping_tolerance: 15
+# early_stopping_reached: False
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training Parameters
+number_of_epochs: 250
+batch_size: 1
+lr: 0.001
+sample_rate: 16000
+shuffle: True
+random_chunk: True
+drop_last: False
+
+# Feature parameters
+n_mels: !ref <feat_size>
+left_frames: 0
+right_frames: 0
+deltas: False
+
+
+# Number of emotions
+out_n_neurons: 1 
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 2  # 2 on linux but 0 works on windows
+    drop_last: !ref <drop_last>
+
+# Functions
+# compute_features: !new:speechbrain.lobes.features.Fbank
+#     n_mels: !ref <n_mels>
+#     left_frames: !ref <left_frames>
+#     right_frames: !ref <right_frames>
+#     deltas: !ref <deltas>
+#     n_fft: 2028
+# compute_features: !new:expBrain.logFbank
+# log: !new:expBrain.torchLog
+
+#freeze all wav2vec2
+# freeze_wav2vec2: True #False
+# freeze_wav2vec2_conv: True
+# wav2vec2_hub: !ref <w2v2_hub>
+# wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+#     source: !ref <wav2vec2_hub>
+#     output_norm: True
+#     freeze: !ref <freeze_wav2vec2>
+#     freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
+#     save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+# embedding_model: !new:speechbrain.nnet.RNN.GRU
+#     input_size: !ref <feat_size>
+#     hidden_size: !ref <hidden_size>
+
+embedding_model: !new:torch.nn.GRU
+    input_size: !ref <feat_size>
+    hidden_size: !ref <hidden_size>
+    num_layers: 1
+    batch_first: True
+
+classifier: !new:torch.nn.Linear
+    in_features: !ref <hidden_size>
+    out_features: !ref <out_n_neurons>
+
+tanh: !new:torch.nn.Tanh
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounterWithStopper
+    limit: !ref <number_of_epochs>
+    limit_to_stop: 15
+    limit_warmup: 15
+    direction: "min"
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: True
+
+modules:
+    # wav2vec2: !ref <wav2vec2>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+    tanh: !ref <tanh>
+    mean_var_norm: !ref <mean_var_norm>
+
+compute_cost: !new:expBrain.CCC_Loss
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        # wav2vec2: !ref <wav2vec2>
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        normalizer: !ref <mean_var_norm>
+        counter: !ref <epoch_counter>
