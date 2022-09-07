@@ -300,7 +300,7 @@ def download_file(
     """
     try:
         # make sure all processing reached here before main preocess create dest_dir
-        sb.distributed.ddp_barrier()
+        sb.utils.distributed.ddp_barrier()
         if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
