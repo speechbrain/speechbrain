@@ -286,36 +286,34 @@ class FastSpeech(nn.Module):
         predict_durations: torch.Tensor
             predicted durations for each token
         """
-        import matplotlib.pyplot as plt
         
         token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
-        # plt.imshow(srcmask.detach().cpu().numpy())
-        # plt.savefig('tokens.png')
-        # print(tokens.shape)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
         
         pos = self.sinusoidal_positional_embed_encoder(token_feats.shape[1], srcmask, token_feats.device, token_feats.dtype)
-        token_feats = torch.add(token_feats, pos)
+        token_feats = torch.add(token_feats, pos) * srcmask_inverted
+        
         attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1]).permute(0, 2, 1).bool()
-        # plt.imshow(attn_mask.detach().cpu().numpy()[-1])
-        # print(attn_mask.shape)
-        # plt.colorbar()
-        # plt.savefig('attn.png')
-        # exit()
-        token_feats, memory = self.encoder(token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
-
+        
+        token_feats, _ = self.encoder(token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
+        token_feats = token_feats * srcmask_inverted
+        
         predict_durations = self.durPred(token_feats).squeeze()
         if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
         if durations is None: dur_pred_reverse_log = torch.clamp(torch.exp(predict_durations) - 1, 0)
         spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log, pace=pace)
-
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1]).permute(0, 2, 1).bool()
         pos = self.sinusoidal_positional_embed_decoder(spec_feats.shape[1], srcmask, spec_feats.device, spec_feats.dtype)
-        spec_feats = torch.add(spec_feats, pos)
-        output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
-
+        spec_feats = torch.add(spec_feats, pos)* srcmask_inverted
+        output_mel_feats, _, *_ = self.decoder(spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
+        output_mel_feats = output_mel_feats* srcmask_inverted
         mel_post = self.linear(output_mel_feats)
+        
+        mel_post = mel_post* srcmask_inverted
+       
         return mel_post, predict_durations
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
@@ -461,12 +459,14 @@ class Loss(nn.Module):
         """
         mel_target, target_durations, mel_length, phon_len  = targets
         assert len(mel_target.shape) == 3
+        
         mel_out, log_durations = predictions
+        # print(mel_target.shape, mel_out.shape, mel_length, target_durations.sum(1))
+        # exit()
         log_durations = log_durations.squeeze()
         if self.log_scale_durations:
             log_target_durations = torch.log(target_durations.float() + 1)
-            durations = torch.clamp(torch.exp(log_durations) - 1, 0, 20)
-        mel_loss, dur_loss = 0, 0
+            durations = torch.clamp(torch.exp(log_durations) - 1, min=0)
         #change this to perform batch level using padding mask
         for i in range(mel_target.shape[0]):
             if i == 0:

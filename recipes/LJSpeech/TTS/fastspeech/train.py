@@ -84,7 +84,7 @@ class FastSpeechBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         x, y, metadata = batch_to_gpu(batch, return_metadata=True)
-        self.last_batch = [x[0], y[-1], predictions[0], *metadata]
+        self.last_batch = [x[0], y[-1], predictions[0], y[2], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
         return self.hparams.criterion(predictions, y)
 
@@ -218,14 +218,16 @@ class FastSpeechBrain(sb.Brain):
 
         if self.last_batch is None:
             return
-        _, _, mel, _, wavs = self.last_batch
+        _, _, mel, lens, _, wavs = self.last_batch
         mel = mel[:self.hparams.progress_batch_sample_size]
         assert self.hparams.vocoder == 'hifi-gan' and self.hparams.pretrained_vocoder is True, 'Specified vocoder not supported yet'
         logger.info(f'Generating audio with pretrained {self.hparams.vocoder_source} vocoder')
         hifi_gan = HIFIGAN.from_hparams(source=self.hparams.vocoder_source, savedir=self.hparams.vocoder_download_path)
         waveforms = hifi_gan.decode_batch(mel.transpose(2, 1))
-        for idx, wav in enumerate(waveforms):
-
+       
+        
+        for idx, wav in enumerate(waveforms):  
+            wav = wav[:, :int(lens[idx]*torch.div(waveforms.shape[-1], mel.shape[1], rounding_mode='floor'))]
             path = os.path.join(self.hparams.progress_sample_path, str(self.last_epoch),  f"pred_{Path(wavs[idx]).stem}.wav")
             torchaudio.save(path, wav, self.hparams.sample_rate)
 
@@ -248,18 +250,10 @@ def dataio_prepare(hparams):
         durs_seq = torch.from_numpy(durs).int()
         text_seq = input_encoder.encode_sequence_torch(label.lower()).int()
         assert len(text_seq) == len(durs) #ensure every token has a duration
-        mel_save_path = os.path.join('tmp', Path(wav).stem+'.npy')
-        if not os.path.exists('tmp'):
-            os.mkdir('tmp')
-        if os.path.exists(mel_save_path):
-            with open(mel_save_path, 'rb') as f:
-                mel = np.load(f)
-            mel = torch.from_numpy(mel)
-        else:
-            audio = sb.dataio.dataio.read_audio(wav)
-            mel = hparams["mel_spectogram"](audio=audio)
-            with open(mel_save_path, 'wb') as f:
-                np.save(f, mel.numpy())
+        
+        audio = sb.dataio.dataio.read_audio(wav)
+        mel = hparams["mel_spectogram"](audio=audio)
+        
         return text_seq, durs_seq, mel, len(text_seq)
 
     #define splits and load it as sb dataset

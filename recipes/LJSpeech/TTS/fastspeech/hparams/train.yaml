@@ -10,17 +10,17 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/fastspeech_exp_test/<seed>
+output_folder: !ref results/fastspeech_exp_test3/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
-epochs: 200
+epochs: 500
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_min_run: 10
-progress_samples_interval: 5
+progress_samples_interval: 1
 progress_batch_sample_size: 4
 
 #################################
@@ -63,7 +63,7 @@ mel_normalized: False
 learning_rate: 0.001
 weight_decay: 0.0000001
 grad_clip_thresh: 1.0 
-batch_size: 48 #minimum 2
+batch_size: 56 #minimum 2
 betas: [0.9, 0.98]
 ################################
 # Model Parameters and model   #
