@@ -19,8 +19,13 @@ wav2vec2_hub: facebook/wav2vec2-large-lv60
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here
 data_folder: !PLACEHOLDER
 
-# We remove utterance longer than x seconds to save some memory
-avoid_if_longer_than: 60.0
+# We remove utterances longer than x seconds to save some memory
+# When set to 15 seconds, a tiny portion (31 of 192k) utterances 
+# will be removed from the train set. 
+# This allows for training with batch_size=4 on 40GB VRAM. 
+# Set to anything > 30 seconds to include all utterances. 
+# The longest utterance in the test set is 15.52 seconds. 
+avoid_if_longer_than: 15.52
 
 splits: [train, dev]
 split_ratio: [99, 1]
