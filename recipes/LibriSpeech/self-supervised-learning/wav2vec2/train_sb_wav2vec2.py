@@ -143,7 +143,7 @@ class W2V2Brain(sb.core.Brain):
                     self.optimizer_step += 1
                     self.scaler.update()
         else:
-            with self.no_sync(not should_step) and torch.autocast(
+            with self.no_sync(not should_step) and torch.cuda.amp.autocast(
                 torch.bfloat16
             ):
                 outputs = self.compute_forward(batch, Stage.TRAIN)
