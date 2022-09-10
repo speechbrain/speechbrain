@@ -190,6 +190,7 @@ class W2V2Brain(sb.core.Brain):
                 for k, v in objectives.items()
             }
             current_lr = self.optimizer.param_groups[0]["lr"]
+            log_dct["steps"] = self.optimizer_step
             log_dct["lr"] = current_lr
             log_dct["avg_loss"] = self.avg_train_loss
 
