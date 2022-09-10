@@ -198,7 +198,8 @@ class W2V2Brain(sb.core.Brain):
                 log_dct["stats/run_time"] = run_time_since_last_log
             self.time_last_log = time.time()
 
-            self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
+            if sb.utils.distributed.if_main_process():
+                self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
 
     def evaluate_batch(self, batch, stage):
         """ Returns accuracy on contrastive objective. """
