@@ -417,7 +417,7 @@ class Conv1d(nn.Module):
             x = x.transpose(1, -1).contiguous()
 
         if self.unsqueeze:
-            x = x.unsqueeze(1)
+            x = x.unsqueeze(1).contiguous()
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -440,7 +440,7 @@ class Conv1d(nn.Module):
         wx = self.conv(x)
 
         if self.unsqueeze:
-            wx = wx.squeeze(1)
+            wx = wx.squeeze(1).contiguous()
 
         if not self.skip_transpose:
             wx = wx.transpose(1, -1).contiguous()
@@ -627,7 +627,7 @@ class Conv2d(nn.Module):
             x = x.transpose(1, -1).contiguous()
 
         if self.unsqueeze:
-            x = x.unsqueeze(1)
+            x = x.unsqueeze(1).contiguous()
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -645,7 +645,7 @@ class Conv2d(nn.Module):
         wx = self.conv(x)
 
         if self.unsqueeze:
-            wx = wx.squeeze(1)
+            wx = wx.squeeze(1).contiguous()
 
         if not self.skip_transpose:
             wx = wx.transpose(1, -1).contiguous()
