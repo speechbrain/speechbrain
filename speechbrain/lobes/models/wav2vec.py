@@ -326,7 +326,9 @@ def sample_negatives(y, num_neg):
     neg_indcs = neg_indcs + torch.arange(B).unsqueeze(1) * high
     y = y.view(-1, C)
     negs = y[neg_indcs.view(-1)]
-    negs = negs.view(B, T, num_neg, C).permute(2, 0, 1, 3)  # to N, B, T, C
+    negs = (
+        negs.view(B, T, num_neg, C).permute(2, 0, 1, 3).contiguous()
+    )  # to N, B, T, C
     return negs
 
 
