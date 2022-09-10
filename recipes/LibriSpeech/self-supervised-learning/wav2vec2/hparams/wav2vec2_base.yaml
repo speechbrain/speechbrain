@@ -21,7 +21,7 @@ skip_prep: False
 avoid_if_longer_than: 30.0
 avoid_if_shorter_than: 1.0
 log_interval: 25 # Logging every N optimizer steps
-auto_mix_prec: False
+auto_mix_prec: True
 max_grad_norm: 100.
 
 # The training will either stops at number_of_epochs or optimizer_step_limit
