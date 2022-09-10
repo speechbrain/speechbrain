@@ -79,7 +79,7 @@ class W2V2Brain(sb.core.Brain):
         embeddings = forward_outputs["embeddings"]
         targets = forward_outputs["targets"]
 
-        negs = sample_negatives(targets, self.hparams["num_negatives"])
+        negs = sample_negatives(targets, self.hparams.num_negatives)
 
         loss, accuracy = self.hparams.loss(embeddings, targets, negs)
 
