@@ -493,7 +493,7 @@ class Conv1d(nn.Module):
             )
 
         # Kernel size must be odd
-        if self.kernel_size % 2 == 0:
+        if not self.padding == "valid" and self.kernel_size[0] % 2 == 0:
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)
@@ -702,7 +702,9 @@ class Conv2d(nn.Module):
             raise ValueError("Expected 3d or 4d inputs. Got " + len(shape))
 
         # Kernel size must be odd
-        if self.kernel_size[0] % 2 == 0 or self.kernel_size[1] % 2 == 0:
+        if not self.padding == "valid" and (
+            self.kernel_size[0] % 2 == 0 or self.kernel_size[1] % 2 == 0
+        ):
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)
