@@ -414,10 +414,10 @@ class Conv1d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
         """
         if not self.skip_transpose:
-            x = x.transpose(1, -1).contiguous()
+            x = x.transpose(1, -1)
 
         if self.unsqueeze:
-            x = x.unsqueeze(1).contiguous()
+            x = x.unsqueeze(1)
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -440,10 +440,10 @@ class Conv1d(nn.Module):
         wx = self.conv(x)
 
         if self.unsqueeze:
-            wx = wx.squeeze(1).contiguous()
+            wx = wx.squeeze(1)
 
         if not self.skip_transpose:
-            wx = wx.transpose(1, -1).contiguous()
+            wx = wx.transpose(1, -1)
 
         return wx
 
@@ -624,10 +624,10 @@ class Conv2d(nn.Module):
 
         """
         if not self.skip_transpose:
-            x = x.transpose(1, -1).contiguous()
+            x = x.transpose(1, -1)
 
         if self.unsqueeze:
-            x = x.unsqueeze(1).contiguous()
+            x = x.unsqueeze(1)
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -645,10 +645,10 @@ class Conv2d(nn.Module):
         wx = self.conv(x)
 
         if self.unsqueeze:
-            wx = wx.squeeze(1).contiguous()
+            wx = wx.squeeze(1)
 
         if not self.skip_transpose:
-            wx = wx.transpose(1, -1).contiguous()
+            wx = wx.transpose(1, -1)
 
         return wx
 
