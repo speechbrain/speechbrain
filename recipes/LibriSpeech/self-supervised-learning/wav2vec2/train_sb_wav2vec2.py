@@ -214,14 +214,15 @@ class W2V2Brain(sb.core.Brain):
             self.acc_metric = []
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
+
+        stage_stats = {"loss": stage_loss}
+        if stage == sb.Stage.TRAIN:
+            self.train_stats = stage_stats
         if stage == sb.Stage.VALID:
-            stage_stats = {"loss": stage_loss}
-            if stage == sb.Stage.TRAIN:
-                self.train_stats = stage_stats
-            else:
-                stage_stats["accuracy"] = sum(self.acc_metric) / len(
-                    self.acc_metric
-                )
+
+            stage_stats["accuracy"] = sum(self.acc_metric) / len(
+                self.acc_metric
+            )
 
             self.hparams.train_stage_logger.log_stats(
                 stats_meta={
