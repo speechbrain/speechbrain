@@ -84,7 +84,7 @@ class W2V2Brain(sb.core.Brain):
         loss, accuracy = self.hparams.loss(embeddings, targets, negs)
 
         # This is only used for logging purpose
-        if stage != sb.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN and sb.utils.distributed.if_main_process():
             self.acc_metric.append(accuracy)
 
         objectives = {
@@ -218,8 +218,9 @@ class W2V2Brain(sb.core.Brain):
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
-        if stage == sb.Stage.VALID:
 
+        if stage == sb.Stage.VALID:
+            print(self.acc_metric)
             stage_stats["accuracy"] = sum(self.acc_metric) / len(
                 self.acc_metric
             )
