@@ -176,7 +176,7 @@ class W2V2Brain(sb.core.Brain):
 
         self.hparams.lr_scheduler(self.optimizer, self.optimizer_step)
 
-        # Perform step-wise logging (only reported in log.log)
+        # Perform step-wise logging
         if (
             hasattr(self.hparams, "log_interval")
             and self.optimizer_step % self.hparams.log_interval == 0
