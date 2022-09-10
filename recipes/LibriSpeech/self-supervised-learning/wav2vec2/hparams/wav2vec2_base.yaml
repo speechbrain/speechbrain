@@ -20,7 +20,7 @@ skip_prep: False
 
 avoid_if_longer_than: 30.0
 avoid_if_shorter_than: 1.0
-log_interval: 25 # Logging every N optimizer steps
+log_interval: 1000 # Logging every N optimizer steps
 auto_mix_prec: True
 max_grad_norm: 100.
 
