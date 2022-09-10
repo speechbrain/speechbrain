@@ -143,13 +143,12 @@ class W2V2Brain(sb.core.Brain):
                     self.optimizer_step += 1
                     self.scaler.update()
         else:
-            with self.no_sync(not should_step) and torch.cuda.amp.autocast(
-                torch.bfloat16
-            ):
-                outputs = self.compute_forward(batch, Stage.TRAIN)
-                objectives = self.compute_objectives(
-                    outputs, batch, Stage.TRAIN
-                )
+            with self.no_sync(not should_step):
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    outputs = self.compute_forward(batch, Stage.TRAIN)
+                    objectives = self.compute_objectives(
+                        outputs, batch, Stage.TRAIN
+                    )
 
                 (
                     objectives["backprop_loss"] / self.grad_accumulation_factor
