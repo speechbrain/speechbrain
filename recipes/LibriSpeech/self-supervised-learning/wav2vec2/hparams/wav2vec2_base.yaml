@@ -57,10 +57,10 @@ num_negatives: 100
 
 # Model parameters
 embedding_dim: 768
-extractor_dim: 1024
+extractor_dim: 512
 final_dim: 256
 encoder_layerdrop: 0.05
-latentextractor_kernels: [11, 3, 3, 3, 3, 3, 3]
+latentextractor_kernels: [10, 3, 3, 3, 3, 2, 2]
 latentextractor_strides: [5, 2, 2, 2, 2, 2, 2]
 
 optimizer: !name:torch.optim.AdamW
@@ -74,7 +74,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
    kernel_sizes: !ref <latentextractor_kernels>
    strides: !ref <latentextractor_strides>
-   out_channels: [128, 256, 256, 512, 512, !ref <extractor_dim>, !ref <extractor_dim>]
+   out_channels: [512, 512, 512, 512, 512, !ref <extractor_dim>, !ref <extractor_dim>]
 
 encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
    d_model: !ref <embedding_dim>
