@@ -196,7 +196,7 @@ class W2V2Brain(sb.core.Brain):
 
             if hasattr(self, "time_last_log"):
                 run_time_since_last_log = time.time() - self.time_last_log
-                log_dct["stats/run_time"] = run_time_since_last_log
+                log_dct["run_time"] = run_time_since_last_log
             self.time_last_log = time.time()
 
             if sb.utils.distributed.if_main_process():
