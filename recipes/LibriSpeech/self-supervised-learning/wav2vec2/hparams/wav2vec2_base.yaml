@@ -47,7 +47,7 @@ warmup: 30000
 # Necessary to do to have a linear warmup and linear decay directly
 # If cooldown < optimizer_step_limit - warmup then a third step with a slower
 # decay is applied in the middle (see the implementation of the scheduler)
-cooldown: 360000
+cooldown: 370000
 
 # Loss parameters
 diversity_loss_weight: 0.1
