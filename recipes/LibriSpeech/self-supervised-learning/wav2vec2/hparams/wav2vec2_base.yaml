@@ -61,7 +61,7 @@ extractor_dim: 512
 final_dim: 256
 encoder_layerdrop: 0.05
 latentextractor_kernels: [11, 3, 3, 3, 3, 3, 3]
-latentextractor_strides: [5, 2, 2, 2, 2, 3, 3]
+latentextractor_strides: [5, 2, 2, 2, 2, 2, 3]
 
 optimizer: !name:torch.optim.AdamW
    lr: !ref <lr>
