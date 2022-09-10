@@ -1047,7 +1047,13 @@ class WarmCoolDecayLRSchedule:
     """
 
     def __init__(
-        self, lr, warmup, cooldown, total_steps, decay_factor, decay_every
+        self,
+        lr,
+        warmup,
+        cooldown,
+        total_steps,
+        decay_factor=0.75,
+        decay_every=100000,
     ):
         super(WarmCoolDecayLRSchedule, self).__init__()
         self.base_lr = lr
