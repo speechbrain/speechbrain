@@ -199,6 +199,12 @@ class W2V2Brain(sb.core.Brain):
                 log_dct["run_time"] = run_time_since_last_log
             self.time_last_log = time.time()
 
+            self.checkpointer.save_and_keep_only(
+                end_of_epoch=True,
+                num_to_keep=5,
+                meta={"valid_loss": self.avg_train_loss},
+            )
+
             if sb.utils.distributed.if_main_process():
                 self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
 
