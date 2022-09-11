@@ -2,14 +2,30 @@
 This script provides some utility functions that can be used
 during inference of ASR models.
 
+The intended use is to import `normalize_words` after decoding and tokenization.
+Note that this will only work, when UPPERCASE letters are used throughout the recipe.
 
 Author
 ------
 Dominik Wagner 2022
 """
 import re
+import os
+import csv
 import string
 from collections import defaultdict
+
+
+def read_glm_csv(save_folder):
+    """Load the ARPA Hub4-E and Hub5-E alternate spellings and contractions map"""
+
+    alternatives_dict = defaultdict(list)
+    with open(os.path.join(save_folder, "glm.csv")) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=",")
+        for row in csv_reader:
+            alternatives = row[1].split("|")
+            alternatives_dict[row[0]] += alternatives
+    return alternatives_dict
 
 
 def expand_contractions(text) -> list:
@@ -92,7 +108,7 @@ def expand_contractions_batch(text_batch):
 
 
 def normalize_words(
-    glm_alternatives, target_words_batch, predicted_words_batch
+    target_words_batch, predicted_words_batch, glm_alternatives=None
 ):
     """
     Remove some references and hypotheses we don't want to score.
@@ -151,12 +167,12 @@ def normalize_words(
     alternative2tgt_word_batch = []
     for tgt_utterance in target_words_batch:
         alternative2tgt_word = defaultdict(str)
-        for tgt_wrd in tgt_utterance:
-            # print("tgt_wrd", tgt_wrd)
-            alts = glm_alternatives[tgt_wrd]
-            for alt in alts:
-                if alt != tgt_wrd and len(alt) > 0:
-                    alternative2tgt_word[alt] = tgt_wrd
+        if glm_alternatives is not None:
+            for tgt_wrd in tgt_utterance:
+                alts = glm_alternatives[tgt_wrd]
+                for alt in alts:
+                    if alt != tgt_wrd and len(alt) > 0:
+                        alternative2tgt_word[alt] = tgt_wrd
         alternative2tgt_word_batch.append(alternative2tgt_word)
 
     # See if a predicted word is on the exclusion list,

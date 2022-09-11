@@ -61,9 +61,11 @@ class ASR(sb.core.Brain):
         run_opts=None,
         checkpointer=None,
         profiler=None,
+        normalize_fn=None,
     ):
 
         self.glm_alternatives = self._read_glm_csv(hparams["output_folder"])
+        self.normalize_fn = normalize_fn
 
         super().__init__(
             modules=modules,
@@ -183,9 +185,9 @@ class ASR(sb.core.Brain):
                 target_words = [wrd.split(" ") for wrd in batch.words]
 
                 # Check for possible word alternatives and exclusions
-                if stage == sb.Stage.TEST:
-                    target_words, predicted_words = self.normalize_words(
-                        target_words, predicted_words
+                if stage == sb.Stage.TEST and self.normalize_fn is not None:
+                    target_words, predicted_words = self.normalize_fn(
+                        self.glm_alternatives, target_words, predicted_words
                     )
 
                 self.wer_metric.append(ids, predicted_words, target_words)
@@ -625,6 +627,7 @@ if __name__ == "__main__":
 
     # 1.  # Dataset prep (parsing Librispeech)
     from switchboard_prepare import prepare_switchboard  # noqa
+    from normalize_util import normalize_words  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -662,6 +665,7 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
+        normalize_fn=normalize_words,
     )
 
     # adding objects to trainer:
