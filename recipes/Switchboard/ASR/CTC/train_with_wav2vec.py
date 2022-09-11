@@ -109,7 +109,7 @@ class ASR(sb.core.Brain):
             # Check for possible word alternatives and exclusions
             if stage == sb.Stage.TEST and self.normalize_fn is not None:
                 target_words, predicted_words = self.normalize_fn(
-                    self.glm_alternatives, target_words, predicted_words
+                    target_words, predicted_words
                 )
 
             self.wer_metric.append(ids, predicted_words, target_words)
