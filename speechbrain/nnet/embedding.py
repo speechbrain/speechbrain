@@ -60,7 +60,7 @@ class Embedding(nn.Module):
     >>> e = emb(torch.LongTensor([[0, 1, 2], [3, 4, 2]]))
     >>> e.shape
     torch.Size([2, 3, 3])
-     """
+    """
 
     def __init__(
         self,

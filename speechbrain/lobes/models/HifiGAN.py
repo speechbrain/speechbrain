@@ -42,8 +42,7 @@ LRELU_SLOPE = 0.1
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamique range compression for audio signals
-    """
+    """Dynamique range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -225,8 +224,7 @@ class ResBlock1(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
         for l in self.convs1:
             l.remove_weight_norm()
         for l in self.convs2:
@@ -290,8 +288,7 @@ class ResBlock2(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
         for l in self.convs:
             l.remove_weight_norm()
 
@@ -439,8 +436,7 @@ class HifiganGenerator(torch.nn.Module):
         return o
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
 
         for l in self.ups:
             l.remove_weight_norm()
@@ -738,8 +734,7 @@ class HifiganDiscriminator(nn.Module):
 
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
-    """computes the Fourier transform of short overlapping windows of the input
-    """
+    """computes the Fourier transform of short overlapping windows of the input"""
     o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]

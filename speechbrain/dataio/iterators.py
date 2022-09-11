@@ -13,19 +13,19 @@ from speechbrain.dataio.batch import PaddedBatch
 
 @dataclass(order=True)
 class LengthItem:
-    """ Data class for lenghts"""
+    """Data class for lenghts"""
 
     length: int
     data: Any = field(compare=False)
 
 
 def total_length_with_padding(lengths):
-    """ Determines how long would batch be (with padding)"""
+    """Determines how long would batch be (with padding)"""
     return len(lengths) * max(lengths)
 
 
 def padding_ratio(lengths):
-    """ Determines how much of batch is padding."""
+    """Determines how much of batch is padding."""
     return 1.0 - sum(lengths) / total_length_with_padding(lengths)
 
 

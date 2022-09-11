@@ -144,8 +144,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape, eps=1e-8):
-    """Just a wrapper to select the normalization type.
-    """
+    """Just a wrapper to select the normalization type."""
 
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True, eps=eps)
@@ -744,8 +743,7 @@ class DPTNetBlock(nn.Module):
 
 
 def _get_activation_fn(activation):
-    """Just a wrapper to get the activation functions.
-    """
+    """Just a wrapper to get the activation functions."""
 
     if activation == "relu":
         return F.relu
@@ -1280,7 +1278,7 @@ class SepformerWrapper(nn.Module):
                 self.reset_layer_recursively(child_layer)
 
     def forward(self, mix):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         mix_w = self.encoder(mix)
         est_mask = self.masknet(mix_w)
         mix_w = torch.stack([mix_w] * self.num_spks)

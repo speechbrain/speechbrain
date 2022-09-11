@@ -212,25 +212,25 @@ class PitWrapper(nn.Module):
 
     def forward(self, preds, targets):
         """
-            Arguments
-            ---------
-            preds : torch.Tensor
-                Network predictions tensor, of shape
-                [batch, channels, ..., sources].
-            targets : torch.Tensor
-                Target tensor, of shape [batch, channels, ..., sources].
+        Arguments
+        ---------
+        preds : torch.Tensor
+            Network predictions tensor, of shape
+            [batch, channels, ..., sources].
+        targets : torch.Tensor
+            Target tensor, of shape [batch, channels, ..., sources].
 
-            Returns
-            -------
-            loss : torch.Tensor
-                Permutation invariant loss for current examples, tensor of
-                shape [batch]
+        Returns
+        -------
+        loss : torch.Tensor
+            Permutation invariant loss for current examples, tensor of
+            shape [batch]
 
-            perms : list
-                List of indexes for optimal permutation of the inputs over
-                sources.
-                e.g., [(0, 1, 2), (2, 1, 0)] for three sources and 2 examples
-                per batch.
+        perms : list
+            List of indexes for optimal permutation of the inputs over
+            sources.
+            e.g., [(0, 1, 2), (2, 1, 0)] for three sources and 2 examples
+            per batch.
         """
         losses = []
         perms = []

@@ -49,8 +49,7 @@ _DL_URL = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
 
 
 class LibrispeechLmConfig(datasets.BuilderConfig):
-    """builder config for LibriSpeech LM
-    """
+    """builder config for LibriSpeech LM"""
 
     lm_corpus_path: Optional[str] = None
 

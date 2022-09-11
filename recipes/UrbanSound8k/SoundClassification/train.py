@@ -32,8 +32,7 @@ from confusion_matrix_fig import create_cm_fig
 
 
 class UrbanSound8kBrain(sb.core.Brain):
-    """Class for sound class embedding training"
-    """
+    """Class for sound class embedding training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -91,8 +90,7 @@ class UrbanSound8kBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using class-id as label.
-        """
+        """Computes the loss using class-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         classid, _ = batch.class_string_encoded

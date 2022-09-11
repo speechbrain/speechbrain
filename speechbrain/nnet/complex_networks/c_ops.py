@@ -183,7 +183,7 @@ def complex_conv_op(
 def unitary_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
-    """ Returns a matrice of unitary complex numbers.
+    """Returns a matrice of unitary complex numbers.
 
     Arguments
     ---------
@@ -224,7 +224,7 @@ def unitary_init(
 def complex_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
-    """ Returns a matrice of complex numbers initialized as described in:
+    """Returns a matrice of complex numbers initialized as described in:
     "Deep Complex Networks", Trabelsi C. et al.
 
     Arguments
@@ -268,7 +268,7 @@ def complex_init(
 
 
 def affect_init(real_weight, imag_weight, init_func, criterion):
-    """ Applies the weight initialization function given to the parameters.
+    """Applies the weight initialization function given to the parameters.
 
     Arguments
     ---------
@@ -288,7 +288,7 @@ def affect_init(real_weight, imag_weight, init_func, criterion):
 def affect_conv_init(
     real_weight, imag_weight, kernel_size, init_func, criterion
 ):
-    """ Applies the weight initialization function given to the parameters.
+    """Applies the weight initialization function given to the parameters.
     This is specifically written for convolutional layers.
 
     Arguments

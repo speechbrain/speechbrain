@@ -24,8 +24,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 class EmoIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + emotion classifier.
-        """
+        """Computation pipeline based on a encoder + emotion classifier."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -57,8 +56,7 @@ class EmoIdBrain(sb.Brain):
         return loss.detach()
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         _, lens = batch.sig
         emoid, _ = batch.emo_encoded
 

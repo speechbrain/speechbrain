@@ -115,7 +115,7 @@ def gevd(a, b=None):
 
 
 def svdl(a):
-    """ Singular Value Decomposition (Left Singular Vectors).
+    """Singular Value Decomposition (Left Singular Vectors).
 
     This function finds the eigenvalues and eigenvectors of the
     input multiplied by its transpose (a x a.T).
@@ -221,7 +221,7 @@ def f(ws):
 
 
 def finv(wsh):
-    """ Inverse transform 1
+    """Inverse transform 1
 
     This method takes a block matrix representing a complex Hermitian
     matrix and converts it to a complex matrix represented by its

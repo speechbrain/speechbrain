@@ -176,8 +176,7 @@ def prepare_ami(
 
 
 def get_RTTM_per_rec(segs, spkrs_list, rec_id):
-    """Prepares rttm for each recording
-    """
+    """Prepares rttm for each recording"""
 
     rttm = []
 
@@ -319,8 +318,7 @@ def is_overlapped(end1, start2):
 
 
 def merge_rttm_intervals(rttm_segs):
-    """Merges adjacent segments in rttm if they overlap.
-    """
+    """Merges adjacent segments in rttm if they overlap."""
     # For one recording
     # rec_id = rttm_segs[0][1]
     rttm_segs.sort(key=lambda x: float(x[3]))
@@ -351,8 +349,7 @@ def merge_rttm_intervals(rttm_segs):
 
 
 def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
-    """Divides bigger segments into smaller sub-segments
-    """
+    """Divides bigger segments into smaller sub-segments"""
 
     shift = max_subseg_dur - overlap
     subsegments = []

@@ -484,8 +484,7 @@ class CLayerNorm(torch.nn.Module):
         )
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of complex values.
-        """
+        """Checks the input and returns the number of complex values."""
 
         if input_shape[self.dim] % 2 == 0:
             return input_shape[self.dim] // 2

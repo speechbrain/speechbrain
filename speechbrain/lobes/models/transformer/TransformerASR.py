@@ -351,6 +351,6 @@ class EncoderWrapper(nn.Module):
         self.transformer = transformer
 
     def forward(self, x, wav_lens=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(x, wav_lens)
         return x

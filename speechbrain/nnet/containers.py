@@ -164,8 +164,7 @@ class LengthsCapableSequential(Sequential):
         super().__init__(*args, **kwargs)
 
     def append(self, *args, **kwargs):
-        """Add a layer to the list of layers, inferring shape if necessary.
-        """
+        """Add a layer to the list of layers, inferring shape if necessary."""
         # Add lengths arg inference here.
         super().append(*args, **kwargs)
         latest_forward_method = list(self.values())[-1].forward

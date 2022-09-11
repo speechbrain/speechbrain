@@ -253,8 +253,7 @@ class LinearWarmupScheduler:
         )
 
     def get_next_value(self):
-        """Returns the next learning rate value for the hyperparameter.
-        """
+        """Returns the next learning rate value for the hyperparameter."""
         new_value = self.calculate_lr(self.current_step)
         self.current_step += 1
         return new_value
