@@ -29,11 +29,9 @@ Authors
  * Andreas Nautsch 2021
  * Dominik Wagner 2022
 """
-import csv
+import functools
 import os
-import re
 import sys
-from collections import defaultdict
 
 import torch
 import logging
@@ -61,7 +59,6 @@ class ASR(sb.Brain):
         normalize_fn=None,
     ):
 
-        self.glm_alternatives = self._read_glm_csv(hparams["output_folder"])
         self.normalize_fn = normalize_fn
 
         super().__init__(
@@ -72,16 +69,6 @@ class ASR(sb.Brain):
             checkpointer=checkpointer,
             profiler=profiler,
         )
-
-    def _read_glm_csv(self, save_folder):
-        """Load the ARPA Hub4-E and Hub5-E alternate spellings and contractions map"""
-        alternatives_dict = defaultdict(list)
-        with open(os.path.join(save_folder, "glm.csv")) as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=",")
-            for row in csv_reader:
-                alts = row[1].split("|")
-                alternatives_dict[row[0]] += alts
-        return alternatives_dict
 
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -181,153 +168,13 @@ class ASR(sb.Brain):
             # Check for possible word alternatives and exclusions
             if stage == sb.Stage.TEST and self.normalize_fn is not None:
                 target_words, predicted_words = self.normalize_fn(
-                    self.glm_alternatives, target_words, predicted_words
+                    target_words, predicted_words
                 )
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def expand_contractions(self, text) -> list:
-        """
-        Some regular expressions for expanding common contractions and for splitting linked words.
-
-        Parameters
-        ----------
-        text : str
-            Text to process
-
-        Returns
-        -------
-        A list of tokens
-        """
-        # Specific contractions
-        text = re.sub(r"won\'t", "WILL NOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"can\'t", "CAN NOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"let\'s", "LET US", text, flags=re.IGNORECASE)
-        text = re.sub(r"ain\'t", "AM NOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"y\'all", "YOU ALL", text, flags=re.IGNORECASE)
-        text = re.sub(r"can\'t", "CANNOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"can not", "CANNOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'cause", "BECAUSE", text, flags=re.IGNORECASE)
-
-        # More general contractions
-        text = re.sub(r"n\'t", " NOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'re", " ARE", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'s", " IS", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'d", " WOULD", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'ll", " WILL", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'t", " NOT", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'ve", " HAVE", text, flags=re.IGNORECASE)
-        text = re.sub(r"\'m", " AM", text, flags=re.IGNORECASE)
-
-        # Split linked words
-        text = re.sub(r"-", " ", text, flags=re.IGNORECASE)
-        text = re.sub(r"\s\s+", " ", text)
-        text = text.split()
-        return text
-
-    def expand_contractions_batch(self, text_batch):
-        """
-        Wrapper that handles a batch of predicted or
-        target words for contraction expansion
-        """
-        parsed_batch = []
-        for batch in text_batch:
-            # Remove incomplete words
-            batch = [t for t in batch if not t.startswith("-")]
-            text = " ".join(batch)
-            parsed = self.expand_contractions(text)
-            parsed_batch.append(parsed)
-        return parsed_batch
-
-    def normalize_words(self, target_words_batch, predicted_words_batch):
-        """
-        Remove some references and hypotheses we don't want to score.
-        We remove incomplete words (i.e. words that start with "-"),
-        expand common contractions (e.g. I'v -> I have),
-        and split linked words (e.g. pseudo-rebel -> pseudo rebel).
-        Then we check if some of the predicted words have mapping rules according
-        to the glm (alternatives) file.
-        Finally, we check if a predicted word is on the exclusion list.
-        The exclusion list contains stuff like "MM", "HM", "AH", "HUH", which would get mapped,
-        into hesitations by the glm file anyway.
-        The goal is to remove all the things that appear in the reference as optional/deletable
-        (i.e. inside parentheses).
-        If we delete these tokens, there is no loss,
-        and if we recognize them correctly, there is no gain.
-
-        The procedure is adapted from Kaldi's local/score.sh script.
-
-        Parameters
-        ----------
-        target_words_batch : list
-            List of length <batch_size> containing lists of target words for each utterance
-        predicted_words_batch : list of list
-            List of length <batch_size> containing lists of predicted words for each utterance
-
-        Returns
-        -------
-
-        A new list containing the filtered predicted words.
-
-        """
-        excluded_words = [
-            "[NOISE]",
-            "[LAUGHTER]",
-            "[VOCALIZED-NOISE]",
-            "[VOCALIZED",
-            "NOISE]",
-            "<UNK>",
-            "UH",
-            "UM",
-            "EH",
-            "MM",
-            "HM",
-            "AH",
-            "HUH",
-            "HA",
-            "ER",
-            "OOF",
-            "HEE",
-            "ACH",
-            "EEE",
-            "EW",
-        ]
-
-        target_words_batch = self.expand_contractions_batch(target_words_batch)
-        predicted_words_batch = self.expand_contractions_batch(
-            predicted_words_batch
-        )
-
-        # Find all possible alternatives for each word in the target utterance
-        alternative2tgt_word_batch = []
-        for tgt_utterance in target_words_batch:
-            alternative2tgt_word = defaultdict(str)
-            for tgt_wrd in tgt_utterance:
-                # print("tgt_wrd", tgt_wrd)
-                alts = self.glm_alternatives[tgt_wrd]
-                for alt in alts:
-                    if alt != tgt_wrd and len(alt) > 0:
-                        alternative2tgt_word[alt] = tgt_wrd
-            alternative2tgt_word_batch.append(alternative2tgt_word)
-
-        # See if a predicted word is on the exclusion list
-        # and if it matches one of the valid alternatives
-        checked_predicted_words_batch = []
-        for i, pred_utterance in enumerate(predicted_words_batch):
-            alternative2tgt_word = alternative2tgt_word_batch[i]
-            checked_predicted_words = []
-            for pred_wrd in pred_utterance:
-                if pred_wrd in excluded_words:
-                    continue
-                tgt_wrd = alternative2tgt_word[pred_wrd]
-                if len(tgt_wrd) > 0:
-                    pred_wrd = tgt_wrd
-                checked_predicted_words.append(pred_wrd)
-            checked_predicted_words_batch.append(checked_predicted_words)
-        return target_words_batch, checked_predicted_words_batch
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -549,7 +396,11 @@ if __name__ == "__main__":
 
     # Dataset prep (parsing Switchboard)
     from switchboard_prepare import prepare_switchboard  # noqa
-    from normalize_util import normalize_words  # noqa
+    from normalize_util import normalize_words, read_glm_csv  # noqa
+
+    normalize_fn = functools.partial(
+        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
+    )
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
@@ -586,7 +437,7 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
-        normalize_fn=normalize_words,
+        normalize_fn=normalize_fn,
     )
 
     # We dynamically add the tokenizer to our brain class.
