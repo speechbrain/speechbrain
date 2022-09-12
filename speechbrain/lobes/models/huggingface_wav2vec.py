@@ -275,14 +275,14 @@ class HuggingFaceWav2Vec2(nn.Module):
         """
 
         if self.normalize_wav:
-            wav = F.layer_norm(wav, wav.shape)
+            wav = F.layer_norm(wav, (wav.shape[-1],))
 
         # Extract wav2vec output
         out = self.model(wav)[0]
 
         # We normalize the output if required
         if self.output_norm:
-            out = F.layer_norm(out, out.shape)
+            out = F.layer_norm(out, (out.shape[-1],))
 
         return out
 
@@ -359,7 +359,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         batch_size, raw_sequence_length = wav.shape
 
         if self.normalize_wav:
-            wav = F.layer_norm(wav, wav.shape)
+            wav = F.layer_norm(wav, (wav.shape[-1],))
 
         sequence_length = self.model._get_feat_extract_output_lengths(
             raw_sequence_length
