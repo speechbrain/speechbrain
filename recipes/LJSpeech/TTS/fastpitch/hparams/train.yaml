@@ -67,7 +67,7 @@ learning_rate: 0.001
 weight_decay: 0.000000001
 grad_clip_thresh: 1.0
 batch_size: 48 #minimum 2
-betas: [0.98, 0.99]
+betas: [0.90, 0.99]
 ################################
 # Model Parameters and model   #
 ################################
@@ -77,7 +77,7 @@ symbols_embedding_dim: 384
 
 # Encoder parameters
 enc_num_layers: 6
-enc_num_head: 2
+enc_num_head: 1
 enc_d_model: 384
 enc_ffn_dim: 1536
 enc_k_dim: 384
@@ -86,7 +86,7 @@ enc_dropout: 0.1
 
 # Decoder parameters
 dec_num_layers: 6
-dec_num_head: 2
+dec_num_head: 1
 dec_d_model: 384
 dec_ffn_dim: 1536
 dec_k_dim: 384
