@@ -461,8 +461,6 @@ class Loss(nn.Module):
         assert len(mel_target.shape) == 3
         
         mel_out, log_durations = predictions
-        # print(mel_target.shape, mel_out.shape, mel_length, target_durations.sum(1))
-        # exit()
         log_durations = log_durations.squeeze()
         if self.log_scale_durations:
             log_target_durations = torch.log(target_durations.float() + 1)
