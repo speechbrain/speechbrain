@@ -247,14 +247,19 @@ def dataio_prepare(hparams):
         assert len(text_seq) == len(durs) #ensure every token has a duration
         audio = sb.dataio.dataio.read_audio(wav)
         mel = hparams["mel_spectogram"](audio=audio)
-        pitch = torchaudio.functional.compute_kaldi_pitch(waveform=audio,
-                                                        sample_rate=hparams["sample_rate"],
-                                                        frame_length=(hparams["n_fft"] / hparams["sample_rate"] * 1000),
-                                                        frame_shift=(hparams["hop_length"] / hparams["sample_rate"] * 1000),
-                                                        min_f0=hparams["min_f0"],
-                                                        max_f0=hparams["max_f0"],
-                                                        )[:, 0]
-        pitch = pitch[:mel.shape[-1]]
+        pitch_path = os.path.join(hparams["pitch_path"], Path(wav).stem)+'.pt'
+        if not os.path.exists(pitch_path):
+            pitch = torchaudio.functional.compute_kaldi_pitch(waveform=audio,
+                                                            sample_rate=hparams["sample_rate"],
+                                                            frame_length=(hparams["n_fft"] / hparams["sample_rate"] * 1000),
+                                                            frame_shift=(hparams["hop_length"] / hparams["sample_rate"] * 1000),
+                                                            min_f0=hparams["min_f0"],
+                                                            max_f0=hparams["max_f0"],
+                                                            )[:, 0]
+            pitch = pitch[:mel.shape[-1]]
+            torch.save(pitch, pitch_path)
+        else:
+            pitch = torch.load(pitch_path)
         return text_seq, durs_seq, mel, pitch, len(text_seq)
 
     #define splits and load it as sb dataset
@@ -326,7 +331,7 @@ def main():
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
+    if not os.path.exists(hparams["pitch_path"]) : os.mkdir(hparams["pitch_path"])
     sys.path.append("../")
     from ljspeech_prepare import prepare_ljspeech
     sb.utils.distributed.run_on_main(

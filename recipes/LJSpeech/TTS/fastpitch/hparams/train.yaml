@@ -15,7 +15,7 @@ save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
-epochs: 1000
+epochs: 100
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
@@ -28,6 +28,7 @@ progress_batch_sample_size: 4
 #################################
 data_folder: /data/Database/LJSpeech-1.1  #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
 duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip
+pitch_path: tmp
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
