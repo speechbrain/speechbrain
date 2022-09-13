@@ -39,10 +39,9 @@ test_batch_size: 4
 loss_reduction: batchmean
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Data sorting parameters
+# Data sorting parameters: sorting_debug_duration replaces sorting_min_duration in debug mode
 sorting: ascending
 sorting_min_duration: 1
-# this replaces sorting_min_duration in debug mode
 sorting_debug_duration: 3 
 sorting_max_duration: 5
 
