@@ -337,7 +337,7 @@ def dataio_prepare(hparams):
         # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": 3},
+                key_min_value={"duration": hparams["sorting_debug_duration"]},
                 key_max_value={"duration": hparams["sorting_max_duration"]},
                 sort_key="duration",
             )
@@ -386,7 +386,7 @@ if __name__ == "__main__":
     )
 
     # Data preparation
-    from recipes.IWSLT22_lowresource import prepare_iwslt22
+    import prepare_iwslt22
 
     run_on_main(
         prepare_iwslt22.data_proc,
