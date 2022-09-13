@@ -23,7 +23,7 @@ For instance: Using ``keep_n_layers: 10'' means that only the first 10 layers in
 
 For launching training:
 ```
-python train.py hparams/w2v2_st.yaml
+python train.py hparams/train_w2v2_st.yaml
 
 ```
 
