@@ -106,7 +106,7 @@ def ddp_barrier():
 
 def ddp_init_group(run_opts):
     """This function will initialize the ddp group if
-    distributed_launch=True bool is given in the python command line.
+    distributed_launch bool is given in the python command line.
 
     The ddp group will use distributed_backend arg for setting the
     DDP communication protocol. `RANK` Unix variable will be used for
@@ -122,7 +122,7 @@ def ddp_init_group(run_opts):
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
+                "experiment.py hyperparams.yaml --distributed_launch "
                 "--distributed_backend=nccl"
             )
         else:
@@ -135,7 +135,7 @@ def ddp_init_group(run_opts):
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
+                "experiment.py hyperparams.yaml --distributed_launch "
                 "--distributed_backend=nccl"
             )
         rank = int(os.environ["RANK"])
@@ -177,8 +177,8 @@ def ddp_init_group(run_opts):
         if "local_rank" in run_opts and run_opts["local_rank"] > 0:
             raise ValueError(
                 "DDP is disabled, local_rank must not be set.\n"
-                "For DDP training, please use --distributed_launch=True. "
+                "For DDP training, please use --distributed_launch. "
                 "For example:\n\tpython -m torch.distributed.launch "
                 "experiment.py hyperparams.yaml "
-                "--distributed_launch=True --distributed_backend=nccl"
+                "--distributed_launch --distributed_backend=nccl"
             )
