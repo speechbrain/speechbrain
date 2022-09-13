@@ -123,6 +123,10 @@ class W2VBrain(sb.core.Brain):
 
                 # anneal lr every update
                 self.hparams.noam_annealing(self.optimizer)
+                # decay gumbel temperature until it reaches the minimum value
+                self.modules.wav2vec2.module.model.set_gumbel_temperature(
+                    max(self.hparams.gumbel_temp_max * self.hparams.gumbel_temp_decay ** self.step //
+                        self.hparams.gradient_accumulation, self.hparams.gumbel_temp_min))
 
         return loss.detach()
 
