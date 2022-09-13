@@ -33,8 +33,8 @@ class ST(sb.core.Brain):
         # transformer decoder
         if self.distributed_launch:
             dec_out = self.modules.Transformer.module.forward_mt_decoder_only(
-            src, tokens_bos, pad_idx=self.hparams.pad_index
-        )
+                src, tokens_bos, pad_idx=self.hparams.pad_index
+            )
         else:
             dec_out = self.modules.Transformer.forward_mt_decoder_only(
                 src, tokens_bos, pad_idx=self.hparams.pad_index
