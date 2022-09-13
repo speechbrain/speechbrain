@@ -42,9 +42,8 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Data sorting parameters: sorting_debug_duration replaces sorting_min_duration in debug mode
 sorting: ascending
 sorting_min_duration: 1
-sorting_debug_duration: 3 
+sorting_debug_duration: 3
 sorting_max_duration: 5
-
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
