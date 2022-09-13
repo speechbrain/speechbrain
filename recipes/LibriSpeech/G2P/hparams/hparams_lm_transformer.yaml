@@ -1,13 +1,14 @@
 # ############################################################################
-# Model: Language model with a recurrent neural network (RNNLM)
-# Training: mini-librispeech transcripts
+# Model: Language model with a transformer neural network (TRANSFORMERLM)
+# Training: LibriG2P
 # Authors:  Ju-Chieh Chou 2020, Jianyuan Zhong 2021, Mirco Ravanelli 2021
+#           Artem Ploujnikov 2021
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/RNNLM/
+output_folder: !ref results/TRANSFORMERLM/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -209,10 +210,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
-# Pretrain the tokenizer
-# pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-#     loadables:
-#         phoneme_tokenizer: !ref <phoneme_tokenizer>
-#     paths:
-#         phoneme_tokenizer: !ref <tokenizer_file>

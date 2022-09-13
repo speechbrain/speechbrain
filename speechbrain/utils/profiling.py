@@ -6,15 +6,20 @@ Author:
 import numpy as np
 from copy import deepcopy
 from torch import profiler
-from itertools import chain
 from functools import wraps
+from typing import Any, Callable, Iterable, Optional
+
+# from typing import List
+# from itertools import chain
+
+"""
 from torch.autograd.profiler_util import (  # pytorch v1.10.1
     EventList,
     FunctionEvent,
     _format_time,
     _format_memory,
 )
-from typing import Any, Callable, Iterable, Optional, List
+"""
 
 
 def set_profiler_attr(func: object, set_attr: str, handler: Callable):
@@ -225,9 +230,10 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
         return start_wrapper
 
+    """
     # It's currently designed as hiding an Easter Egg.
     def merge_traces():
-        """Implementation of merge_traces."""
+        " ""Implementation of merge_traces." ""
         # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
         trace_aggregator = "speechbrain_event_traces"
         if prof.profiler is not None:
@@ -250,11 +256,12 @@ def prepare_profiler_for_brain(prof: profiler.profile):
                 return prof.events()
         else:
             return []
+    """
 
     # Augment torch's profiler.
     setattr(prof, "start", hook_profiler_start(getattr(prof, "start")))
     setattr(prof, "stop", hook_profiler_stop(getattr(prof, "stop")))
-    setattr(prof, "merge_traces", merge_traces)
+    # setattr(prof, "merge_traces", merge_traces)
 
     # Return so it can be readily assigned elsewhere :)
     return prof
@@ -521,13 +528,14 @@ def profile_report(  # not part of unittests
         return wrapper
 
 
+"""
 def events_diff(
     a: EventList, b: EventList, filter_by: str = "count",
 ):
-    """Takes two ``EventList``:s in, filters events of equal value (default: by the count of events).
+    " ""Takes two ``EventList``:s in, filters events of equal value (default: by the count of events).
 
     The purpose of the results of this diff are for visualisation only (to see the difference between implementations).
-    """
+    " ""
     # Making copies from the originals instead of simply adding the diff directly might be slower (preserves structure).
     aa = deepcopy(a)
     bb = deepcopy(b)
@@ -563,15 +571,19 @@ def events_diff(
             bb.remove(bb[k])
 
     return aa, bb
+"""
 
 
 def report_time(events: object, verbose=False, upper_control_limit=False):
     """Summary reporting of total time - see: torch.autograd.profiler_util
     """
     # Aggregate CPU & CUDA time.
+    """
     if isinstance(events, FunctionEvent):
         function_events = events
-    elif isinstance(events, profiler.profile):
+    elif
+    """
+    if isinstance(events, profiler.profile):
         function_events = events.events()
     elif hasattr(events, "profiler"):  # assumes speechbrain.core.Brain
         function_events = events.profiler.events()
@@ -595,10 +607,12 @@ def report_time(events: object, verbose=False, upper_control_limit=False):
         cpu_time = total.self_cpu_time_total
         cuda_time = total.self_cuda_time_total
 
+    """
     if verbose:
         print("CPU time: {}".format(_format_time(cpu_time)))
         if cuda_time > 0:
             print("CUDA time: {}".format(_format_time(cuda_time)))
+    """
 
     return cpu_time, cuda_time
 
@@ -607,9 +621,12 @@ def report_memory(handler: object, verbose=False):
     """Summary reporting of total time - see: torch.autograd.profiler_util
     """
     # Aggregate CPU & CUDA time.
+    """
     if isinstance(handler, FunctionEvent):
         events = handler
-    elif isinstance(handler, profiler.profile):
+    elif
+    """
+    if isinstance(handler, profiler.profile):
         events = handler.events()
     elif hasattr(handler, "profiler"):  # assumes speechbrain.core.Brain
         events = handler.profiler.events()
@@ -651,9 +668,11 @@ def report_memory(handler: object, verbose=False):
             if leaf_cuda_mem > cuda_mem:
                 cuda_mem = leaf_cuda_mem
 
+    """
     if verbose:
         print("Peak CPU Mem: {}".format(_format_memory(cpu_mem)))
         if cuda_mem > 0:
             print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem)))
+    """
 
     return cpu_mem, cuda_mem

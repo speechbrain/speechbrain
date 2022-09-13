@@ -4,7 +4,6 @@ import torch
 import torchaudio
 import glob
 import os
-from pathlib import Path
 import random
 from speechbrain.processing.signal_processing import rescale
 from speechbrain.dataio.batch import PaddedBatch
@@ -43,7 +42,7 @@ def dynamic_mix_data_prep(hparams):
     spk_list = [x for x in spk_hashtable.keys()]
     spk_weights = [x / sum(spk_weights) for x in spk_weights]
 
-    if "wham" in Path(hparams["data_folder"]).stem:
+    if "noise" in hparams["experiment_name"]:
         noise_files = get_wham_noise_filenames(hparams)
 
     @sb.utils.data_pipeline.takes("mix_wav")
@@ -61,7 +60,7 @@ def dynamic_mix_data_prep(hparams):
             spk_list, hparams["num_spks"], replace=False, p=spk_weights
         )
 
-        if "wham" in Path(hparams["data_folder"]).stem:
+        if "noise" in hparams["experiment_name"]:
             noise_file = np.random.choice(noise_files, 1, replace=False)
 
             noise, fs_read = torchaudio.load(noise_file[0])
@@ -108,30 +107,48 @@ def dynamic_mix_data_prep(hparams):
                 )
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
 
-            tmp_bi = torch.FloatTensor(len(tmp), 2)  # binaural
-            subject_path_list = glob.glob(
-                os.path.join(hparams["hrtf_wav_path"], "subject*")
-            )
-            subject_path = np.random.choice(subject_path_list)
-            azimuth_list = (
-                [-80, -65, -55] + list(range(-45, 46, 5)) + [55, 65, 80]
-            )
-            azimuth = np.random.choice(azimuth_list)
-
-            for i, loc in enumerate(["left", "right"]):
-
+            if "reverb" in hparams["experiment_name"]:
+                tmp = torch.stack((tmp, tmp), 1)
+                reverb_time = np.random.choice(
+                    ["0_1s", "0_2s", "0_4s", "0_7s", "0_8s"]
+                )
+                azimuth = np.random.choice(list(range(-90, 91, 5)))
                 hrtf_file = os.path.join(
-                    subject_path,
-                    "{}az{}.wav".format(
-                        azimuth.astype("str").replace("-", "neg"), loc
-                    ),
+                    hparams["hrtf_wav_path"],
+                    reverb_time,
+                    "CATT_{}_{}.wav".format(reverb_time, azimuth),
                 )
                 hrtf, sr = torchaudio.load(hrtf_file)
                 transform = torchaudio.transforms.Resample(sr, fs_read)
-                hrtf = transform(hrtf[:, np.random.randint(50)])
-                tmp_bi[:, i] = torch.from_numpy(
+                hrtf = transform(hrtf)
+                tmp_bi = torch.from_numpy(
                     fftconvolve(tmp.numpy(), hrtf.numpy(), mode="same")
                 )
+            else:
+                tmp_bi = torch.FloatTensor(len(tmp), 2)  # binaural
+                subject_path_list = glob.glob(
+                    os.path.join(hparams["hrtf_wav_path"], "subject*")
+                )
+                subject_path = np.random.choice(subject_path_list)
+                azimuth_list = (
+                    [-80, -65, -55] + list(range(-45, 46, 5)) + [55, 65, 80]
+                )
+                azimuth = np.random.choice(azimuth_list)
+
+                for i, loc in enumerate(["left", "right"]):
+
+                    hrtf_file = os.path.join(
+                        subject_path,
+                        "{}az{}.wav".format(
+                            azimuth.astype("str").replace("-", "neg"), loc
+                        ),
+                    )
+                    hrtf, sr = torchaudio.load(hrtf_file)
+                    transform = torchaudio.transforms.Resample(sr, fs_read)
+                    hrtf = transform(hrtf[:, np.random.randint(50)])
+                    tmp_bi[:, i] = torch.from_numpy(
+                        fftconvolve(tmp.numpy(), hrtf.numpy(), mode="same")
+                    )
 
             # Make relative source energy same with original
             spatial_scaling = torch.sqrt(
@@ -149,10 +166,11 @@ def dynamic_mix_data_prep(hparams):
 
         sources = torch.stack(sources)
         mixture = torch.sum(sources, 0)
-        if "wham" in Path(hparams["data_folder"]).stem:
+        if "noise" in hparams["experiment_name"]:
             len_noise = len(noise)
             len_mix = len(mixture)
             min_len = min(len_noise, len_mix)
+            noise = torch.swapaxes(noise, 0, 1)
             mixture = mixture[:min_len] + noise[:min_len]
 
         max_amp = max(
@@ -174,7 +192,7 @@ def dynamic_mix_data_prep(hparams):
         if hparams["num_spks"] == 2:
             yield None
 
-        if "wham" in Path(hparams["data_folder"]).stem:
+        if "noise" in hparams["experiment_name"]:
             mean_source_lvl = sources.abs().mean()
             mean_noise_lvl = noise.abs().mean()
             noise = (mean_source_lvl / mean_noise_lvl) * noise
