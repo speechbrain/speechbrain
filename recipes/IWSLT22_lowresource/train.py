@@ -51,12 +51,12 @@ class ST(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        (p_seq, wav_lens, hyps,) = predictions
+        (p_seq, wav_lens, hyps) = predictions
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         # st loss
-        loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens,)
+        loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         fr_detokenizer = MosesDetokenizer(lang=self.hparams.lang)
 
@@ -215,7 +215,7 @@ def dataio_prepare(hparams):
     # decoder during training, the tokens with EOS for computing the cost function.
     @sb.utils.data_pipeline.takes("trans")
     @sb.utils.data_pipeline.provides(
-        "trans", "tokens_list", "tokens_bos", "tokens_eos",
+        "trans", "tokens_list", "tokens_bos", "tokens_eos"
     )
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
