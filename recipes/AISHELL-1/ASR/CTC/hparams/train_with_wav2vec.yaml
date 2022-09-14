@@ -68,7 +68,7 @@ dropout: 0.15
 tokenizer: !apply:transformers.BertTokenizer.from_pretrained
    pretrained_model_name_or_path: bert-base-chinese
 # bert-base-chinese tokens length
-output_neurons: 21128 
+output_neurons: 21128
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
@@ -104,44 +104,44 @@ SpeedPerturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 #    noise_snr_high: 15
 
 SpecAugment: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
+   time_warp: True
+   time_warp_window: 5
+   time_warp_mode: bicubic
+   freq_mask: True
+   n_freq_mask: 2
+   time_mask: True
+   n_time_mask: 2
+   replace_with_zero: False
+   freq_mask_width: 30
+   time_mask_width: 40
 
 enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <wav2vec_output_dim>]
-    linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <dnn_neurons>
-        bias: True
-    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation: !new:torch.nn.LeakyReLU
-    drop: !new:torch.nn.Dropout
-        p: !ref <dropout>
-    linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <dnn_neurons>
-        bias: True
-    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation2: !new:torch.nn.LeakyReLU
-    drop2: !new:torch.nn.Dropout
-        p: !ref <dropout>
-    linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <dnn_neurons>
-        bias: True
-    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation3: !new:torch.nn.LeakyReLU
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation: !new:torch.nn.LeakyReLU
+   drop: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !new:torch.nn.LeakyReLU
+   drop2: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !new:torch.nn.LeakyReLU
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
-    source: !ref <wav2vec2_hub>
-    output_norm: True
-    freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: !ref <save_folder>/wav2vec2_checkpoint
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dnn_neurons>
@@ -154,41 +154,41 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
    blank_index: !ref <blank_index>
 
 modules:
-    wav2vec2: !ref <wav2vec2>
-    enc: !ref <enc>
-    ctc_lin: !ref <ctc_lin>
+   wav2vec2: !ref <wav2vec2>
+   enc: !ref <enc>
+   ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <ctc_lin>]
+   - [!ref <enc>, !ref <ctc_lin>]
 
 model_opt_class: !name:torch.optim.Adadelta
-    lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
 
 wav2vec_opt_class: !name:torch.optim.Adam
-    lr: !ref <lr_wav2vec>
+   lr: !ref <lr_wav2vec>
 
 lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
 
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_wav2vec>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.9
-    patient: 0
+   initial_value: !ref <lr_wav2vec>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.9
+   patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        wav2vec2: !ref <wav2vec2>
-        model: !ref <model>
-        scheduler_model: !ref <lr_annealing_model>
-        scheduler_wav2vec: !ref <lr_annealing_wav2vec>
-        counter: !ref <epoch_counter>
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      wav2vec2: !ref <wav2vec2>
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+      counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <train_log>

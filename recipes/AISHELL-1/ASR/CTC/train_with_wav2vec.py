@@ -77,7 +77,9 @@ class ASR(sb.Brain):
 
             for sequence in sequences:
                 # Decode token terms to words
-                predicted_tokens = self.tokenizer.convert_ids_to_tokens(sequence)
+                predicted_tokens = self.tokenizer.convert_ids_to_tokens(
+                    sequence
+                )
 
                 predicted_words = []
                 for c in predicted_tokens:
@@ -91,9 +93,7 @@ class ASR(sb.Brain):
                 predicted_words_list.append(predicted_words)
 
             self.cer_metric.append(
-                ids=ids,
-                predict=predicted_words_list,
-                target=target_words_list,
+                ids=ids, predict=predicted_words_list, target=target_words_list,
             )
 
         return loss
@@ -192,6 +192,7 @@ class ASR(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
+
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -252,7 +253,7 @@ def dataio_prepare(hparams):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        wrd = ''.join(wrd.split(" "))
+        wrd = "".join(wrd.split(" "))
         yield wrd
         tokens_list = tokenizer(wrd)["input_ids"]
         yield tokens_list
@@ -385,5 +386,5 @@ if __name__ == "__main__":
     asr_brain.evaluate(
         test_data,
         min_key="CER",
-        test_loader_kwargs=hparams["test_dataloader_opts"]
+        test_loader_kwargs=hparams["test_dataloader_opts"],
     )
