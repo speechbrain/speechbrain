@@ -39,7 +39,7 @@ class ST(sb.core.Brain):
             dec_out = self.modules.Transformer.forward_mt_decoder_only(
                 src, tokens_bos, pad_idx=self.hparams.pad_index
             )
-  
+
         # logits and softmax
         pred = self.modules.seq_lin(dec_out)
         p_seq = self.hparams.log_softmax(pred)
