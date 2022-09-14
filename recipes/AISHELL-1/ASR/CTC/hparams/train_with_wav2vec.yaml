@@ -17,8 +17,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/aishell
-# noise/ris dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder> # Change this is needed
+
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_data: !ref <output_folder>/train.csv
@@ -75,7 +74,6 @@ output_neurons: 21128
 blank_index: 0
 bos_index: 1
 eos_index: 2
-pad_index: 0
 
 # AISHELL-1 has spaces between words in the transcripts,
 # which Chinese writing normally does not do.
@@ -88,20 +86,9 @@ split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-normalize: !new:speechbrain.processing.features.InputNormalization
-   norm_type: global
-
 SpeedPerturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
    sample_rate: !ref <sample_rate>
    speeds: [90, 100, 110]
-
-# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#    openrir_folder: !ref <data_folder_rirs>
-#    babble_prob: 0.0
-#    reverb_prob: 0.0
-#    noise_prob: 1.0
-#    noise_snr_low: 0
-#    noise_snr_high: 15
 
 SpecAugment: !new:speechbrain.lobes.augment.SpecAugment
    time_warp: True
