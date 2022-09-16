@@ -17,8 +17,10 @@ import math
 import sys
 import torch
 import speechbrain as sb
+import os
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils import data_utils
+from speechbrain.utils.train_logger import plot_spectrogram
 
 
 # Brain class for speech enhancement training
@@ -128,8 +130,26 @@ class DiffusionBrain(sb.Brain):
 
         return loss
 
-    def generate_samples(self):
-        pass
+    def generate_samples(self, epoch_sample_path):
+        """Generates samples from diffusion"""
+        result = self.hparams.generation_pipeline(
+            batch_size=self.hparams.eval_num_samples,
+            output_type="numpy")
+        samples = torch.from_numpy(result.images).squeeze(-1)
+        spec_sample_path = os.path.join(
+            epoch_sample_path,
+            "spec"
+        )
+        if not os.path.exists(spec_sample_path):
+            os.makedirs(spec_sample_path)
+        for idx, sample in enumerate(samples):
+            spec_file_name = os.path.join(spec_sample_path, f"spec_{idx}.png")
+            self.save_spectrogram_sample(sample, spec_file_name)
+
+    def save_spectrogram_sample(self, sample, file_name):
+        fig = plot_spectrogram(sample)
+        if fig is not None:
+            fig.savefig(file_name)
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
@@ -192,6 +212,13 @@ class DiffusionBrain(sb.Brain):
                 {"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stats,
             )
+
+        if stage != sb.Stage.TRAIN:
+            epoch_sample_path = os.path.join(
+                self.hparams.sample_folder,
+                str(epoch)
+            )
+            self.generate_samples(epoch_sample_path)
 
 
 DATASET_SPLITS = ["train", "valid", "test"]

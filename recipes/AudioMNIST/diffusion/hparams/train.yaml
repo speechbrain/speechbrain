@@ -13,6 +13,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: ./data
 output_folder: !ref ./results/diffusion/<seed>
 save_folder: !ref <output_folder>/save
+sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -52,11 +53,15 @@ spec_hop_length: 256
 spec_win_length: 1024
 spec_norm: "slaney"
 spec_mel_scale: "slaney"
+sample_size: 128
 min_level_db: -100.0
 
+# Evaluation Parameters
+eval_num_samples: 10
+
 # Feature extraction
-compute_features: !new:torch.nn.Sequential
-    - !new:torchaudio.transforms.MelSpectrogram
+compute_features: !new:speechbrain.nnet.containers.Sequential
+    spec: !new:torchaudio.transforms.MelSpectrogram
         n_fft: !ref <spec_n_fft>
         f_min: !ref <spec_f_min>
         f_max: !ref <spec_f_max>
@@ -66,11 +71,9 @@ compute_features: !new:torch.nn.Sequential
         win_length: !ref <spec_win_length>
         norm: !ref <spec_norm>
         mel_scale: !ref <spec_mel_scale>
-    - !new:torchaudio.transforms.AmplitudeToDB
-    - !new:custom_transforms.Normalize
+    amp2db: !new:torchaudio.transforms.AmplitudeToDB
+    norm: !new:custom_transforms.Normalize
         min_level_db: !ref <min_level_db>
-
-
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
@@ -82,6 +85,7 @@ unet: !apply:speechbrain.nnet.diffusion.unet_2d
   in_channels: 1
   out_channels: 1
   layers_per_block: 2
+  sample_size: !ref <sample_size>
   block_out_channels: 
     - 128
     - 128
@@ -109,6 +113,11 @@ noise_scheduler: !apply:speechbrain.nnet.diffusion.scheduler
     num_train_timesteps: !ref <train_timesteps>
     tensor_format: pt
 
+generation_pipeline: !apply:speechbrain.nnet.diffusion.pipeline
+    name: ddpm
+    unet: !ref <unet>
+    scheduler: !ref <noise_scheduler>
+
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -126,8 +135,6 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 modules:
     unet: !ref <unet>
     compute_features: !ref <compute_features>
-    mean_var_norm: !ref <mean_var_norm>
-
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
