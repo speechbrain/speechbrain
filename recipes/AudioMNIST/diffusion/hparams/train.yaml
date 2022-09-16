@@ -1,0 +1,155 @@
+# #################################
+# Basic training parameters for a spectrogram-based
+# diffusion model
+#
+# Author:
+#  * Artem Ploujnikov 2022
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+data_folder: ./data
+output_folder: !ref ./results/diffusion/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Feature parameters
+n_mels: 80
+
+# Training Parameters
+dataset: flexthink/audiomnist
+sample_rate_src: 48000
+sample_rate_tgt: 22050
+number_of_epochs: 35
+batch_size: 16
+lr_start: 0.001
+lr_warmup_steps: 500
+train_timesteps: 1000
+adam_beta1: 0.95
+adam_beta2: 0.999
+adam_weight_decay: 0.000001
+adam_epsilon: 0.00000001
+downsample_factor: 64
+dataloader_options:
+    batch_size: !ref <batch_size>
+
+
+# Spectrogram Parameters
+spec_n_fft: 1024
+spec_f_min: 0
+spec_f_max: 8000
+spec_n_mels: 80
+spec_power: 1
+spec_hop_length: 256
+spec_win_length: 1024
+spec_norm: "slaney"
+spec_mel_scale: "slaney"
+min_level_db: -100.0
+
+# Feature extraction
+compute_features: !new:torch.nn.Sequential
+    - !new:torchaudio.transforms.MelSpectrogram
+        n_fft: !ref <spec_n_fft>
+        f_min: !ref <spec_f_min>
+        f_max: !ref <spec_f_max>
+        n_mels: !ref <spec_n_mels>
+        power: !ref <spec_power>
+        hop_length: !ref <spec_hop_length>
+        win_length: !ref <spec_win_length>
+        norm: !ref <spec_norm>
+        mel_scale: !ref <spec_mel_scale>
+    - !new:torchaudio.transforms.AmplitudeToDB
+    - !new:custom_transforms.Normalize
+        min_level_db: !ref <min_level_db>
+
+
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss
+
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+unet: !apply:speechbrain.nnet.diffusion.unet_2d
+  in_channels: 1
+  out_channels: 1
+  layers_per_block: 2
+  block_out_channels: 
+    - 128
+    - 128
+    - 256
+    - 256
+    - 512
+    - 512
+  down_block_types:
+    - "DownBlock2D"
+    - "DownBlock2D"
+    - "DownBlock2D"
+    - "DownBlock2D"
+    - "AttnDownBlock2D"
+    - "DownBlock2D"
+  up_block_types:
+    - "UpBlock2D"
+    - "AttnUpBlock2D"
+    - "UpBlock2D"
+    - "UpBlock2D"
+    - "UpBlock2D"
+    - "UpBlock2D"
+
+noise_scheduler: !apply:speechbrain.nnet.diffusion.scheduler
+    name: ddpm
+    num_train_timesteps: !ref <train_timesteps>
+    tensor_format: pt
+
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: True
+
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    unet: !ref <unet>
+    compute_features: !ref <compute_features>
+    mean_var_norm: !ref <mean_var_norm>
+
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_start>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+
+# This function manages learning rate annealing over the epochs.
+# We here use the simple lr annealing method that linearly decreases
+# the lr from the initial value to the final one.
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicCosineScheduler
+    lr_initial: !ref <lr_start>
+    n_warmup_steps: !ref <lr_warmup_steps>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        unet: !ref <unet>
+        mean_var_norm: !ref <mean_var_norm>
+        counter: !ref <epoch_counter>
