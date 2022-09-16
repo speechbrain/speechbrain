@@ -155,7 +155,7 @@ class Pretrainer:
             # Interpret as path to file in current directory.
             return "./", path
 
-    def collect_files(self, default_source=None):
+    def collect_files(self, default_source=None, huggingface_cache_dir=None):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -172,6 +172,8 @@ class Pretrainer:
             This is used for each loadable which doesn't have a path already
             specified. If the loadable has key "asr", then the file to look for is
             default_source/asr.ckpt
+        huggingface_cache_dir : str
+            Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
 
         Returns
         -------
@@ -200,7 +202,11 @@ class Pretrainer:
                     "and no default_source given!"
                 )
             path = fetch(
-                filename, source, self.collect_in, save_filename=save_filename
+                filename,
+                source,
+                self.collect_in,
+                save_filename=save_filename,
+                huggingface_cache_dir=huggingface_cache_dir,
             )
             loadable_paths[name] = path
         return loadable_paths

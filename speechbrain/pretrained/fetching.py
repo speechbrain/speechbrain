@@ -3,6 +3,7 @@
 Authors:
  * Aku Rouhe 2021
  * Samuele Cornell 2021
+ * Andreas Nautsch 2022
 """
 import urllib.request
 import urllib.error
@@ -31,6 +32,7 @@ def fetch(
     save_filename=None,
     use_auth_token=False,
     revision=None,
+    huggingface_cache_dir=None,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -70,6 +72,8 @@ def fetch(
         The model revision corresponding to the HuggingFace Hub model revision.
         This is particularly useful if you wish to pin your code to a particular
         version of a model hosted at HuggingFace.
+    huggingface_cache_dir: str
+        Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
     Returns
     -------
     pathlib.Path
@@ -122,6 +126,7 @@ def fetch(
                 filename=filename,
                 use_auth_token=use_auth_token,
                 revision=revision,
+                cache_dir=huggingface_cache_dir,
             )
         except HTTPError as e:
             if "404 Client Error" in str(e):
