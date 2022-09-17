@@ -73,13 +73,13 @@ class DiffusionBrain(sb.Brain):
 
         # Compute features
         feats = self.modules.compute_features(wavs)
+        feats = feats.transpose(-1, -2)
         feats = feats.unsqueeze(1)
 
         # Randomly initialize time steps for each image
         timesteps = torch.randint(
             0, self.hparams.train_timesteps, (len(feats),),
             device=self.device)
-
 
         # UNet downsamples features in multiples of 2. Reshape to ensure
         # there are no mismatched tensors due to ambiguity
@@ -92,7 +92,6 @@ class DiffusionBrain(sb.Brain):
             feats,
             (batch_dim, channel_dim, desired_time_dim, desired_feats_dim)
         )
-
         # Add noise
         noise = torch.randn_like(feats)
         feats_noisy = self.hparams.noise_scheduler.add_noise(
