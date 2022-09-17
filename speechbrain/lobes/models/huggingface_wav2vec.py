@@ -84,10 +84,10 @@ class HuggingFaceWav2Vec2(nn.Module):
         (inside huggingface Wav2VecModel() class).
         If False, the model will not apply spec augment. We set this to false to prevent from doing it twice.
     output_all_hiddens : bool (default: False)
-        If True, the forward fuction outputs the hidden states from all transformer layers
+        If True, the forward function outputs the hidden states from all transformer layers.
         For example wav2vec2-base has 12 transformer layers and the output is of shape (13, B, T, C),
-        where a projection of the CNN output is added to the beginning
-        If False, the forward fuction outputs the hidden states only from the last transformer layer
+        where a projection of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer.
 
     Example
     -------
