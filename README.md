@@ -152,6 +152,11 @@ SpeechBrain is designed to speed up the research and development of speech techn
 ### Under development
 We are currently implementing speech synthesis pipelines and real-time speech processing pipelines. An interface with the Finite State Transducers (FST) implemented by the [Kaldi 2 team](https://github.com/k2-fsa/k2) is under development.
 
+# Conference Tutorials
+SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
+- [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1tVQK4UnGWnVeFbqiywTWOoYJaHio1gBR?usp=sharing)
+- [Interspeech 2021 YouTube recordings](https://www.youtube.com/results?search_query=Interspeech+speechbrain+)
+
 # Quick installation
 SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.
 SpeechBrain can be installed via PyPI. Moreover,  a local installation can be used by those users that what to run experiments and modify/customize the toolkit. SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
