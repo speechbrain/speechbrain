@@ -38,7 +38,7 @@ adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
-downsample_factor: 64
+downsample_factor: 16
 dataloader_options:
     batch_size: !ref <batch_size>
 
@@ -56,6 +56,9 @@ spec_mel_scale: "slaney"
 sample_size: 128
 min_level_db: -100.0
 
+# Vocoder Settings
+vocoder_model: speechbrain/tts-hifigan-ljspeech
+
 # Evaluation Parameters
 eval_num_samples: 10
 
@@ -72,8 +75,15 @@ compute_features: !new:speechbrain.nnet.containers.Sequential
         norm: !ref <spec_norm>
         mel_scale: !ref <spec_mel_scale>
     amp2db: !new:torchaudio.transforms.AmplitudeToDB
-    norm: !new:custom_transforms.Normalize
-        min_level_db: !ref <min_level_db>
+
+norm: !new:custom_transforms.Normalize
+    min_level_db: !ref <min_level_db>
+
+denorm: !new:custom_transforms.Denormalize
+    min_level_db: !ref <min_level_db>
+
+
+dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 
 compute_cost: !name:speechbrain.nnet.losses.mse_loss
 
@@ -88,14 +98,10 @@ unet: !apply:speechbrain.nnet.diffusion.unet_2d
   sample_size: !ref <sample_size>
   block_out_channels: 
     - 128
-    - 128
-    - 256
     - 256
     - 512
-    - 512
+    - 1024
   down_block_types:
-    - "DownBlock2D"
-    - "DownBlock2D"
     - "DownBlock2D"
     - "DownBlock2D"
     - "AttnDownBlock2D"
@@ -103,8 +109,6 @@ unet: !apply:speechbrain.nnet.diffusion.unet_2d
   up_block_types:
     - "UpBlock2D"
     - "AttnUpBlock2D"
-    - "UpBlock2D"
-    - "UpBlock2D"
     - "UpBlock2D"
     - "UpBlock2D"
 
@@ -125,9 +129,8 @@ generation_pipeline: !apply:speechbrain.nnet.diffusion.pipeline
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: True
+vocoder: !apply:speechbrain.pretrained.interfaces.HIFIGAN.from_hparams
+    source: !ref <vocoder_model>
 
 
 # Objects in "modules" dict will have their parameters moved to the correct
@@ -135,6 +138,10 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 modules:
     unet: !ref <unet>
     compute_features: !ref <compute_features>
+    dynamic_range_compression: !ref <dynamic_range_compression>
+    vocoder: !ref <vocoder>
+    norm: !ref <norm>
+    denorm: !ref <denorm>
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -158,5 +165,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         unet: !ref <unet>
-        mean_var_norm: !ref <mean_var_norm>
         counter: !ref <epoch_counter>

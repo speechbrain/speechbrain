@@ -19,8 +19,10 @@ import torch
 import speechbrain as sb
 import os
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.dataio.dataio import write_audio
 from speechbrain.utils import data_utils
 from speechbrain.utils.train_logger import plot_spectrogram
+from speechbrain.dataio.dataio import length_to_mask
 
 
 # Brain class for speech enhancement training
@@ -90,13 +92,26 @@ class DiffusionBrain(sb.Brain):
             feats_dim / self.hparams.downsample_factor) * self.hparams.downsample_factor
         feats, _ = data_utils.pad_right_to(
             feats,
-            (batch_dim, channel_dim, desired_time_dim, desired_feats_dim)
+            (batch_dim, channel_dim, desired_time_dim, desired_feats_dim),
+            value=self.hparams.min_level_db
         )
+        feats = self.modules.norm(feats)
         # Add noise
         noise = torch.randn_like(feats)
+
         feats_noisy = self.hparams.noise_scheduler.add_noise(
             feats, noise, timesteps)
 
+        # Match padding on the noise
+        feats_noisy[:, :, :, self.hparams.spec_n_mels:] = -1.
+        max_len = feats_noisy.size(2)
+        mask = length_to_mask(lens * max_len, max_len).bool()
+        mask = mask.unsqueeze(1).unsqueeze(-1)
+        mask = mask.expand(*feats_noisy.shape)
+        feats_noisy[~mask] = -1.
+        tail = time_dim % self.hparams.downsample_factor
+        if tail > 0:
+            feats_noisy[:, :, -tail:, :] = -1.
         return feats_noisy, lens, timesteps
 
     def compute_objectives(self, predictions, batch, stage):
@@ -131,10 +146,19 @@ class DiffusionBrain(sb.Brain):
 
     def generate_samples(self, epoch_sample_path):
         """Generates samples from diffusion"""
+        samples = self.generate_spectrograms()
+        self.save_spectrograms(samples, epoch_sample_path)
+        
+        wav = self.generate_audio(samples)
+        self.save_audio(wav, epoch_sample_path)
+
+    def generate_spectrograms(self):
         result = self.hparams.generation_pipeline(
             batch_size=self.hparams.eval_num_samples,
             output_type="numpy")
-        samples = torch.from_numpy(result.images).squeeze(-1)
+        return torch.from_numpy(result.images).squeeze(-1)
+
+    def save_spectrograms(self, samples, epoch_sample_path):
         spec_sample_path = os.path.join(
             epoch_sample_path,
             "spec"
@@ -145,10 +169,32 @@ class DiffusionBrain(sb.Brain):
             spec_file_name = os.path.join(spec_sample_path, f"spec_{idx}.png")
             self.save_spectrogram_sample(sample, spec_file_name)
 
+
     def save_spectrogram_sample(self, sample, file_name):
         fig = plot_spectrogram(sample)
         if fig is not None:
             fig.savefig(file_name)
+
+    def generate_audio(self, samples):
+        vocoder_in = samples[:, :, :self.hparams.spec_n_mels]
+        vocoder_in = vocoder_in.transpose(-1, -2)
+        vocoder_in = self.modules.denorm(vocoder_in)
+        vocoder_in = self.modules.dynamic_range_compression(vocoder_in)
+        return self.modules.vocoder(vocoder_in)
+
+    def save_audio(self, wav, epoch_sample_path):
+        wav_sample_path = os.path.join(
+            epoch_sample_path,
+            "wav"
+        )
+        if not os.path.exists(wav_sample_path):
+            os.makedirs(wav_sample_path)
+        for idx, sample in enumerate(wav):
+            wav_file_name = os.path.join(wav_sample_path, f"sample_{idx}.wav")
+            self.save_audio_sample(sample.squeeze(0), wav_file_name)
+
+    def save_audio_sample(self, sample, file_name):
+        write_audio(file_name, sample, self.hparams.sample_rate_tgt)
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
