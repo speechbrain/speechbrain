@@ -154,8 +154,8 @@ We are currently implementing speech synthesis pipelines and real-time speech pr
 
 # Conference Tutorials
 SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
-- [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1tVQK4UnGWnVeFbqiywTWOoYJaHio1gBR?usp=sharing)
-- [Interspeech 2021 YouTube recordings](https://www.youtube.com/results?search_query=Interspeech+speechbrain+)
+- [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1d6GAquxw6rZBI-7JvfUQ_-upeiKstJEo?usp=sharing)
+- [Interspeech 2021 YouTube recordings.](https://www.youtube.com/results?search_query=Interspeech+speechbrain+)
 
 # Quick installation
 SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.
