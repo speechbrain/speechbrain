@@ -8,7 +8,7 @@ To run this recipe, do the following:
 > python train.py hparams/train.yaml
 
 With the default hyperparameters, the system employs a CRDNN encoder.
-The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
+The decoder is based on a standard GRU. Beamsearch coupled with a RNN
 language model is used on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
@@ -31,18 +31,41 @@ Authors
  * Mohamed Anwar 2022
 """
 
+import os
 import sys
 import torch
 import logging
-import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from recipes.mTEDx.mtedx_prepare import remove_punctuations
 
 logger = logging.getLogger(__name__)
-# Define training procedure
 
+def write_transcriptions(hyps, refs, stage, epoch):
+    """
+    A function to write the resulting transcription of the valid/test set
+    for every epoch. The resulting files 
+    """
+    stage = "valid" if stage == sb.Stage.VALID else "test"
+    # make sure the transcription folder exists
+    trans_dir = os.path.join(hparams["output_folder"], "trans")
+    os.makedirs(trans_dir, exist_ok=True)
+    # write the returns predicted & true transcriptions
+    hyp_filename = (
+        f"{stage}_{epoch}.hyp" if hparams["remove_punc_cap"]
+                            else f"{stage}_punc_cap_{epoch}.hyp"
+    )
+    hyp_filepath = os.path.join(trans_dir, hyp_filename)
+    ref_filepath = os.path.join(trans_dir, f"{stage}_{epoch}.ref")
+    with open(hyp_filepath, 'a') as hyp_fout, \
+        open(ref_filepath, 'a') as ref_fout:
+        for hyp, ref in zip(hyps, refs):
+            hyp_fout.write(" ".join(hyp)+'\n')
+            ref_fout.write(" ".join(ref)+'\n')
+
+
+# Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -75,19 +98,25 @@ class ASR(sb.Brain):
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
 
-        # Use fast-rnnt pruned loss function
+        # TODO: restructure this (IMPORTANT!)
         if self.hparams.transducer_cost.func.__name__ == "fast_rnnt_pruned_loss":
             if stage == sb.Stage.TRAIN:
                 # apply linear layer only to adjust dims
-                enc_out, dec_out = x, h
+                enc_out, dec_out = x, h #? added
+                # enc_out = self.modules.enc_lin(x) # (B, T, V)
+                # dec_out = self.modules.dec_lin(h) # (B, S+1, V)
                 return enc_out, dec_out, wav_lens
             elif stage == sb.Stage.VALID:
-                enc_out = x
-                dec_out = h
+                enc_out = x #? added
+                dec_out = h #? added
+                # enc_out = self.modules.enc_lin(x) # (B, T, V)
+                # dec_out = self.modules.dec_lin(h) # (B, S+1, V)
                 best_hyps, scores, _, _ = self.hparams.Greedysearcher(enc_out)
                 return enc_out, dec_out, wav_lens, best_hyps
             else:
                 enc_out, dec_out = x, h
+                # enc_out = self.modules.enc_lin(x) # (B, T, V)
+                # dec_out = self.modules.dec_lin(h) # (B, S+1, V)
                 (
                     best_hyps,
                     best_scores,
@@ -140,6 +169,8 @@ class ASR(sb.Brain):
                 best_hyps, scores, _, _ = self.hparams.Greedysearcher(x)
                 return logits_transducer, wav_lens, best_hyps
             else:
+                # ! ANWAR CHANGE IT BACK TO BEAM
+                # best_hyps, scores, _, _ = self.hparams.Greedysearcher(x)
                 (
                     best_hyps,
                     best_scores,
@@ -182,8 +213,14 @@ class ASR(sb.Brain):
                 func_name = self.hparams.transducer_cost.func.__name__
                 if func_name == "fast_rnnt_pruned_loss":
                     enc_out, dec_out, wav_lens = predictions
+                    plot_dir = os.path.join(
+                        self.hparams.output_folder, "plots", "train",
+                        str(current_epoch)
+                    )
+                    os.makedirs(plot_dir, exist_ok=True)
                     loss = self.hparams.transducer_cost(
-                        enc_out, dec_out, tokens, wav_lens, token_lens
+                        enc_out, dec_out, tokens, wav_lens, token_lens,
+                        ids, current_epoch, plot_dir=plot_dir
                     )
                 else:
                     # one of the 2 heads (CTC or CE) is still computed
@@ -222,8 +259,14 @@ class ASR(sb.Brain):
             func_name = self.hparams.transducer_cost.func.__name__
             if func_name == "fast_rnnt_pruned_loss":
                 enc_out, dec_out, wav_lens, predicted_tokens = predictions
+                plot_dir = os.path.join(
+                    self.hparams.output_folder, "plots", "valid",
+                    str(current_epoch)
+                )
+                os.makedirs(plot_dir, exist_ok=True)
                 loss = self.hparams.transducer_cost(
-                    enc_out, dec_out, tokens, wav_lens, token_lens
+                    enc_out, dec_out, tokens, wav_lens, token_lens,
+                    ids, current_epoch, plot_dir=plot_dir
                 )
             else:
                 logits_transducer, wav_lens, predicted_tokens = predictions
@@ -240,6 +283,16 @@ class ASR(sb.Brain):
             target_words = [words.split(" ") for words in batch.words]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
+            # write valid/test transcriptions
+            run_on_main(
+                write_transcriptions,
+                kwargs={
+                    "hyps": predicted_words,
+                    "refs": target_words,
+                    "stage": stage,
+                    "epoch": current_epoch,
+                }
+            )
 
         return loss
 
@@ -280,29 +333,89 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.hparams.tensorboard_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
+            if not self.debug:
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.hparams.tensorboard_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
-        elif stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stage_stats,
-            )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
 
- 
+    def transcribe_dataset(self, dataset, min_key, loader_kwargs):
+        """
+        Transcribes a given dataset.
+
+        Arguments
+        ---------
+        dataset : Dataset, DataLoader
+            If a DataLoader is given, it is iterated directly. Otherwise passed
+            to ``self.make_dataloader()``.
+        min_key : str
+            Key to use for finding best checkpoint, passed to
+            ``on_evaluate_start()``.
+        loader_kwargs: dict
+            Kwargs passed to ``make_dataloader()`` if ``dataset`` is not a
+            DataLoader.
+            NOTE: ``loader_kwargs["ckpt_prefix"]`` gets automatically
+            overwritten to ``None`` (so that the test DataLoader  is not added
+            to the checkpointer).
+
+        Returns
+        -------
+        hyps: list(str)
+            A list of the predicted transcriptions for the input dataset.
+        refs: list(str)
+            A list of the true transcriptions for the input dataset.
+        test_loss: float
+            The average loss score over the whole input dataset.
+        wer_score: float
+            The Word Error Rate score.
+        cer_score: float
+            The Character Error Rate score.
+        """
+        # If dataset isn't a Dataloader, we create it. 
+        if not isinstance(dataset, torch.utils.data.DataLoader):
+            loader_kwargs["ckpt_prefix"] = None
+            dataset = self.make_dataloader(
+                dataset, sb.Stage.TEST, **loader_kwargs
+            )
+        # We call the on_evaluate_start that will load the best model
+        self.on_evaluate_start(min_key=min_key)
+        self.on_stage_start(sb.Stage.TEST, epoch=None)
+        # We set the model to eval mode (remove dropout etc)
+        self.modules.eval()
+        self.step = 0
+        avg_test_loss = 0.0
+        # Now we iterate over the dataset
+        from tqdm import tqdm
+        with torch.no_grad():
+            for batch in tqdm(dataset, dynamic_ncols=True):
+                # Make sure that your compute_forward returns the predictions.
+                # In the case of the template, when stage = TEST, a beam search
+                # is applied in compute_forward(). 
+                self.step += 1
+                loss = self.evaluate_batch(batch, stage=sb.Stage.TEST)
+                avg_test_loss = self.update_average(loss, avg_test_loss)
+        # retrieve hyptheses & references
+        hyps, refs = [], []
+        for utt in self.wer_metric.scores:
+            hyps.append(" ".join(utt["hyp_tokens"]))
+            refs.append(" ".join(utt["ref_tokens"]))
+    
+        return (
+            hyps, refs, avg_test_loss,
+            self.wer_metric.summarize("error_rate"), #WER
+            self.cer_metric.summarize("error_rate"), #CER
+        )
+
+
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -320,7 +433,9 @@ def dataio_prepare(hparams):
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration",
+            reverse = hparams["sorting"] == "descending",
+            key_max_value = {"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
@@ -338,7 +453,9 @@ def dataio_prepare(hparams):
         json_path=hparams["valid_json"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(
-        sort_key="duration", reverse=hparams["sorting"] == "descending"
+        sort_key="duration",
+        reverse=hparams["sorting"] == "descending",
+        key_max_value = {"duration": hparams["avoid_if_longer_than"]},
     )
 
     # We also sort the test data so it is faster to test
@@ -359,20 +476,8 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav_obj):
-        info = torchaudio.info(wav_obj["file"])
-        # read the audio file
-        audio_segment, _ = torchaudio.load(
-            wav_obj["file"],
-            num_frames = int((wav_obj["end"]-wav_obj["start"])*info.sample_rate),
-            frame_offset = int(wav_obj["start"]*info.sample_rate)
-        )
-        # change the sample rate if needed
-        resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
-        )(audio_segment)
-        # change the signal to mono (1 channel)
-        audio_segment_mono = torch.mean(resampled, dim=0, keepdim=True)
-        return audio_segment_mono.squeeze()
+        sig = sb.dataio.dataio.read_audio(wav_obj["file"])
+        return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -402,24 +507,56 @@ def dataio_prepare(hparams):
         ["id", "sig", "words", "tokens_list", "tokens_bos", "tokens_eos",
         "tokens"],
     )
+    train_batch_sampler = None
+    valid_batch_sampler = None
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        max_batch_len = eval(str(dynamic_hparams["max_batch_len"]))
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            max_batch_len,
+            num_buckets=dynamic_hparams["num_buckets"],
+            length_func=lambda x: x["duration"],
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            max_batch_len,
+            num_buckets=dynamic_hparams["num_buckets"],
+            length_func=lambda x: x["duration"],
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
     return (
         train_data,
         valid_data,
         test_data,
+        train_batch_sampler,
+        valid_batch_sampler,
     )
 
 
 if __name__ == "__main__":
 
-    # CLI:
+    # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+    with open(hparams_file) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
+    
+    # setting seed for reproducibility
+    # src: https://pytorch.org/docs/stable/notes/randomness.html
+    seed = hparams["seed"]
+    torch.manual_seed(seed)
+    import random; random.seed(seed)
+    import numpy as np; np.random.seed(seed)
+    # torch.use_deterministic_algorithms(True) #for CUDA
 
     # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
-
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -428,7 +565,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # 1.  # Dataset prep (parsing mTEDx)
+    # Dataset preparation (parsing mTEDx)
     from recipes.mTEDx.mtedx_prepare import prepare_mtedx
 
     # multi-gpu (ddp) save data preparation
@@ -446,6 +583,8 @@ if __name__ == "__main__":
         train_data,
         valid_data,
         test_data,
+        train_bsampler,
+        valid_bsampler,
     ) = dataio_prepare(hparams)
 
     # We download the pretrained LM and the tokenizer from HuggingFace (or elsewhere
@@ -463,15 +602,46 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # We dynamicaly add the tokenizer to our brain class.
+    # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
+    train_dataloader_opts = hparams["train_dataloader_opts"]
+    valid_dataloader_opts = hparams["valid_dataloader_opts"]
+
+    if train_bsampler is not None:
+        train_dataloader_opts = {"batch_sampler": train_bsampler}
+    if valid_bsampler is not None:
+        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=valid_dataloader_opts,
     )
+
+    # Evaluating
+    avg_loss = asr_brain.evaluate(
+        valid_data, min_key="WER",
+        test_loader_kwargs=hparams["valid_dataloader_opts"]
+    )
+    print("AVERAGE LOSS:", avg_loss)
+    print("WER:", asr_brain.wer_metric.summarize("error_rate"))
+    print("CER:", asr_brain.cer_metric.summarize("error_rate"))
+    # write the returns predicted & true transcriptions
+    import os
+    hyp_filename = (
+        "valid.hyp" if hparams["remove_punc_cap"] else "valid_punc_cap.hyp"
+    )
+    hyp_filepath = os.path.join(hparams["output_folder"], hyp_filename)
+    ref_filepath = os.path.join(hparams["output_folder"], "valid.ref")
+    with open(hyp_filepath, 'w') as hyp_fout, \
+        open(ref_filepath, 'w') as ref_fout:
+        for utt in asr_brain.wer_metric.scores:
+            hyp = " ".join(utt["hyp_tokens"])
+            ref = " ".join(utt["ref_tokens"])
+            hyp_fout.write(hyp+'\n')
+            ref_fout.write(ref+'\n')
+    

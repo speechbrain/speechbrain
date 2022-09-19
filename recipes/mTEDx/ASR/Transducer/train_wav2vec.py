@@ -4,14 +4,13 @@ The system employs a wav2vec2 encoder and a CTC decoder.
 Decoding is performed with greedy decoding (will be extended to beam search).
 
 To run this recipe, do the following:
-> python train_wav2vec.py hparams/train_with_wav2vec2.yaml
+> python train_wav2vec.py hparams/train_wav2vec_pruned.yaml
 
 With the default hyperparameters, the system employs a pretrained wav2vec2 encoder.
-The wav2vec2 model is pretrained following the model given in the hprams file.
+The wav2vec2 model is pretrained following the model given in the hparams file.
 It may be dependent on the language.
 
-The neural network is trained with CTC on sub-word units estimated with
-Byte Pairwise Encoding (BPE).
+The neural network is trained with FastRNNT loss on character units.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try

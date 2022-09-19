@@ -3,7 +3,7 @@
 # Encoder: CRDNN model
 # Decoder: GRU + beamsearch + RNNLM
 # Tokens: BPE with unigram
-# losses: Transducer
+# losses: Pruned FastRNNT
 # Training: mTEDx-fr
 # Authors:  Mohamed Anwar 2022
 # ############################################################################
@@ -11,35 +11,39 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/mTEDx_fr/CASCADE/CRDNN_pruned
+output_folder: !ref !PLACEHOLDER
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 
-# Language model (LM) pretraining
-# NB: To avoid mismatch, the speech recognizer must be trained with the same
-# tokenizer used for LM training. Here, we download everything from the
-# speechbrain HuggingFace repository. However, a local path pointing to a
-# directory containing the lm.ckpt and tokenizer.ckpt may also be specified
-# instead. E.g if you want to use your own LM / tokenizer.
-pretrained_tokenizer_path: #!PLACEHOLDER
-pretrained_lm_path: #!PLACEHOLDER
-
 # Data files
-data_folder: #!PLACEHOLDER
+data_folder: !PLACEHOLDER
 langs:
-   -  fr
+   - fr
 remove_punc_cap: True # remove punctuation & capitalization from text
 
 train_json: !ref <data_folder>/train_fr.json
 valid_json: !ref <data_folder>/valid_fr.json
 test_json:  !ref <data_folder>/test_fr.json
 
+# pre-trained LM model
+pretrained_lm_path: !PLACEHOLDER
+pretrained_tokenizer_path: !PLACEHOLDER
+
+# We remove train/valid utterances longer than 20s
+avoid_if_longer_than: 20.0
+
 # Training parameters
 number_of_epochs: 30
-batch_size: 8
-batch_size_valid: 2 #for valid & test
-lr: 1
-sorting: random #ascending, descending, random
+batch_size: 20
+batch_size_valid: 10 #for valid & test
+lr: 1.0
+sorting: descending #ascending, descending, random
+# MTL for encoder with CTC (uncomment enc_lin layer)
+#number_of_ctc_epochs: 2
+#ctc_weight: 0.33
+# MTL for decoder with CE (uncomment dec_lin layer)
+#number_of_ce_epochs: 2
+#ce_weight: 0.33
 dynamic_batching: False
 
 # Feature parameters
@@ -141,10 +145,11 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 transducer_cost: !name:speechbrain.nnet.losses.fast_rnnt_pruned_loss
    blank_index: !ref <blank_index>
-   prune_range: 115 # how many symbols to keep for each frame.
-   loss_scale: 0.5 #scale for the `mode` loss before adding pruned_loss
-   jointer: !ref <Tjoint>
+   prune_range: 5 # how many symbols to keep for each frame.
    mode: simple  #simple | smoothed
+   loss_scale: 0.5 #scale for the `mode` loss before adding pruned_loss
+   warmup_epochs: 3 # epochs to learn the `mode` loss before adding the pruned_loss
+   jointer: !ref <Tjoint>
    reduction: mean
 
 # This is the RNNLM that is used according to the Huggingface repository
@@ -219,6 +224,9 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <output_folder>/train_log.txt
+
+tensorboard_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+   save_dir: !ref <output_folder>/logs
 
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 

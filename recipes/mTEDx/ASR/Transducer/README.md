@@ -36,11 +36,12 @@ $ python train.py hparams/train_pruned.yaml
 $ python train_wav2vec.py hparams/train_wav2vec_pruned.yaml
 ```
 
-# Librispeech 100H Results
+# mTEDx French Results
 
 | Release | hyperparams file | Val. CER | Val. WER | Test WER (test clean) | Model link | GPUs |
 |:-------------:|:---------------------------:| ------:| :-----------:| :------------------:| --------:| :-----------:|
-| 2020-10-22 | train.yaml |  5.2 | GS: 11.45 | BS (beam=4): 11.03 | Not Available | 1xRTX-8000 48GB |
+| 2022-08-10 | train_wav2vec_pruned.yaml |  4.49 | GS: 10.66 | GS: 12.59 | Not Available | 4xV100 32GB |
+| 2022-07-20 | train_unpruned.yaml | 21.22 | GS: 47.04 | BS (beam=4): 57.24 | Not Available | 4xV100 32GB |
 
 
 # **About SpeechBrain**

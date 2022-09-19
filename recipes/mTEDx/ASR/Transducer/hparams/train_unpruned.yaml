@@ -18,7 +18,7 @@ save_folder: !ref <output_folder>/save
 # Data files
 data_folder: !PLACEHOLDER
 langs:
-   -  fr
+   - fr
 remove_punc_cap: True # remove punctuation & capitalization from text
 
 train_json: !ref <data_folder>/train_fr.json
