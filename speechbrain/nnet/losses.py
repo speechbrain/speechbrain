@@ -7,6 +7,7 @@ Authors
  * Hwidong Na 2020
  * Yan Gao 2020
  * Titouan Parcollet 2020
+ * Mohamed Anwar 2022
 """
 
 import math
@@ -15,6 +16,7 @@ import logging
 import functools
 import numpy as np
 import torch.nn as nn
+from typing import List
 import torch.nn.functional as F
 from itertools import permutations
 from speechbrain.dataio.dataio import length_to_mask
@@ -31,7 +33,7 @@ def transducer_loss(
     target_lens,
     blank_index,
     reduction="mean",
-    use_torchaudio=True,
+    framework="torchaudio",
 ):
     """Transducer loss, see `speechbrain/nnet/loss/transducer_loss.py`.
 
@@ -49,14 +51,14 @@ def transducer_loss(
         The location of the blank symbol among the label indices.
     reduction : str
         Specifies the reduction to apply to the output: 'mean' | 'batchmean' | 'sum'.
-    use_torchaudio: bool
-        If True, use Transducer loss implementation from torchaudio, otherwise,
-        use Speechbrain Numba implementation.
+    framework : str
+        A string describing the framework to use for the RNNT loss:
+        'speechbrain' | 'torchaudio' | 'fast_rnnt' (default: torchaudio).
     """
     input_lens = (input_lens * logits.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()
 
-    if use_torchaudio:
+    if framework == "torchaudio":
         try:
             from torchaudio.functional import rnnt_loss
         except ImportError:
@@ -75,7 +77,7 @@ def transducer_loss(
             blank=blank_index,
             reduction=reduction,
         )
-    else:
+    elif framework == "speechbrain":
         from speechbrain.nnet.loss.transducer_loss import Transducer
 
         # Transducer.apply function take log_probs tensor.
@@ -83,6 +85,93 @@ def transducer_loss(
         return Transducer.apply(
             log_probs, targets, input_lens, target_lens, blank_index, reduction,
         )
+    elif framework == "fast_rnnt":
+        try:
+            import fast_rnnt
+        except ImportError:
+            err_msg = "cannot import fast_rnnt.\n"
+            err_msg += "=============================\n"
+            err_msg += "You can install Fast_RNNT using pip:\n"
+            err_msg += "pip install fast_rnnt\n"
+            raise ImportError(err_msg)
+        
+        batch_size = log_probs.size(0)
+        boundary = torch.zeros((batch_size, 4), dtype=torch.int64)
+        boundary[:, 2] = target_lens
+        boundary[:, 3] = input_lens
+        boundary = boundary.to(log_probs.device)
+        return fast_rnnt.rnnt_loss(
+            logits=log_probs,
+            symbols=targets,
+            termination_symbol=blank_index,
+            boundary=boundary,
+            reduction=reduction,
+        )
+    else:
+        raise ValueError(
+            "Passed framework for the transducer_loss should be:\n" +
+            f"('speechbrain' | 'torchaudio' | 'fast_rnnt'), given {framework}"
+        )
+
+
+def save_and_plot_tot_grad(
+    px_grad: torch.Tensor,
+    py_grad: torch.Tensor,
+    ids: List[str],
+    x_lens: torch.Tensor,
+    y_lens: torch.Tensor,
+    plot_dir: str
+):
+    """Save and plot the tot_grad.
+    Args:
+      px_grad:
+        A tensor of shape (B, S, T+1). It contains the fake gradient.
+      py_grad:
+        A tensor of shape (B, S+1, T). It contains the fake gradient.
+      x_lens:
+        A 1-D tensor of shape (B,), specifying the number of valid acoustic
+        frames in tot_grad for each utterance in the batch.
+      y_lens:
+        A 1-D tensor of shape (B,), specifying the number of valid tokens
+        in tot_grad for each utterance in the batch.
+      plot_dir: a path where the plot will be saved.
+    """
+    import os
+    import matplotlib.pyplot as plt
+    B = px_grad.size(0) #batch_size
+    S = px_grad.size(1) #text_length
+    T = px_grad.size(2) - 1 #audio_length
+    px_grad_pad = torch.zeros(
+        (B, 1, T + 1), dtype=px_grad.dtype, device=px_grad.device
+    )
+    py_grad_pad = torch.zeros(
+        (B, S + 1, 1), dtype=py_grad.dtype, device=py_grad.device
+    )
+
+    px_grad_padded = torch.cat([px_grad, px_grad_pad], dim=1)
+    py_grad_padded = torch.cat([py_grad, py_grad_pad], dim=2)
+
+    # tot_grad's shape (B, S+1, T+1)
+    tot_grad = px_grad_padded + py_grad_padded
+    tot_grad = tot_grad.detach().cpu().permute(0, 2, 1)
+
+    ext = "png"  # supported types: png, ps, pdf, svg
+
+    x_lens = x_lens.tolist()
+    y_lens = y_lens.tolist()
+
+    tot_grad = tot_grad.unbind(0)
+    i = np.random.randint(0, B) #choose random id from the batch
+    grad = tot_grad[i][:x_lens[i], :y_lens[i]]
+
+    filename = os.path.join(plot_dir, f"{ids[i]}.{ext}")
+    #  plt.matshow(grad.t(), origin="lower", cmap="gray")
+    plt.matshow(grad.t(), origin="lower")
+    plt.xlabel("t")
+    plt.ylabel("u")
+    plt.title(ids[i])
+    plt.savefig(filename)
+    plt.close()
 
 def fast_rnnt_pruned_loss(
         enc_out,
@@ -90,12 +179,16 @@ def fast_rnnt_pruned_loss(
         targets,
         input_lens,
         target_lens,
+        ids,
+        curr_epoch,
         jointer,
         blank_index,
         prune_range,
         loss_scale=0.5,
+        warmup_epochs=2,
         reduction="mean",
         mode="simple",
+        plot_dir=None,
     ):
     """Fast_RNNT loss, see `https://github.com/danpovey/fast_rnnt`.
 
@@ -111,10 +204,24 @@ def fast_rnnt_pruned_loss(
         Length of each utterance, of shape [batch, max_utterance_length].
     target_lens : torch.Tensor
         Length of each target sequence, of shape [batch, max_target_length].
+    ids: list(str)
+        A list of utterance ids in the batch. It's use mainly for plotting
+        the total fake gradient.
+    curr_epoch: int
+        The index of the current epoch, starting from 1.
     jointer: 
         The jointer network.
     blank_index : int
         The location of the blank symbol among the label indices.
+    prune_range: int
+        How many symbols to keep for every frame (default = 5).
+    loss_scale: float
+        The scale for the `mode` loss. If `mode=simple`, then it's the scale
+        for the simple loss (default = 0.5).
+    warmup_epochs: int
+        The number of warmup epochs where we only learn the `mode` loss. After
+        the warmup_epochs, we are going to learn both the `mode` loss & the
+        pruned_loss.
     reduction : str
         Specifies the reduction to apply to the output.
         Options: `none` | `mean` | `sum`
@@ -139,7 +246,7 @@ def fast_rnnt_pruned_loss(
     boundary = boundary.to(enc_out.device)
 
     if mode == "simple":
-        org_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_simple(
+        mode_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_simple(
             am=enc_out,
             lm=dec_out,
             symbols=targets,
@@ -149,7 +256,7 @@ def fast_rnnt_pruned_loss(
             return_grad=True
         )
     elif mode == "smoothed":
-        org_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_smoothed(
+        mode_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_smoothed(
             am=enc_out,
             lm=dec_out,
             symbols=targets,
@@ -165,6 +272,12 @@ def fast_rnnt_pruned_loss(
             f"Undefined option: {mode}.\n"+
             "Available modes are:\n`simple`, `smoothed`."
         )
+    # PLOT ALIGNMENT (10%)
+    if plot_dir and np.random.random() >= 0.9: 
+        save_and_plot_tot_grad(
+            px_grad, py_grad, ids, boundary[:, 3], boundary[:, 2], plot_dir
+        )
+    
     # (NOTE) prune_range: min(prune_range, target_subwords_len)
     # ranges: [batch_size, audio_time_steps, prune_range]
     ranges = fast_rnnt.get_rnnt_prune_ranges(
@@ -192,7 +305,13 @@ def fast_rnnt_pruned_loss(
         boundary=boundary,
         reduction=reduction,
     )
-    loss = loss_scale * org_loss + pruned_loss
+    warmup = curr_epoch / warmup_epochs
+    pruned_loss_scale = (
+        0.0
+        if warmup < 1.0
+        else (0.1 if warmup > 1.0 and warmup < 2.0 else 1.0)
+    )
+    loss = loss_scale * mode_loss + pruned_loss_scale * pruned_loss
     return loss
 
 class PitWrapper(nn.Module):

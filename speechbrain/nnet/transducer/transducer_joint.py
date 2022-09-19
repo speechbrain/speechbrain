@@ -2,6 +2,7 @@
 
 Author
     Abdelwahab HEBA 2020
+    Mohamed Anwar 2022
 """
 
 import torch
@@ -96,7 +97,20 @@ class Transducer_joint(nn.Module):
 
 class Fast_RNNT_Joiner(nn.Module):
     def __init__(self, input_dim, inner_dim, output_dim):
-        """"""
+        """
+        A simple two-layer joiner network for the pruned Fast-RNNT loss.
+        Adapted from this recipe:
+        https://github.com/k2-fsa/icefall/blob/master/egs/librispeech/ASR/pruned_transducer_stateless/joiner.py
+
+        Arguments
+        ---------
+        input_dim : int
+            The input dimension of this network.
+        inner_dim: int
+            The dimension of the hidden layer.
+        output_dim : int
+            The output dimension from this network.
+        """
         super().__init__()
         self.inner_linear = nn.Linear(input_dim, inner_dim)
         self.output_linear = nn.Linear(inner_dim, output_dim)
