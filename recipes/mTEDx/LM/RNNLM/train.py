@@ -108,15 +108,18 @@ def dataio_prepare(hparams):
     for lang in langs:
         for group in ["train", "valid", "test"]:
             text_data_files[group].append(
-                os.path.join(data_folder, f"{lang}-{lang}", "data", group,
-                            "txt", f"{group}.{lang}")
+                os.path.join(
+                    data_folder,
+                    f"{lang}-{lang}",
+                    "data",
+                    group,
+                    "txt",
+                    f"{group}.{lang}",
+                )
             )
 
     logging.debug("prepare data and generate datasets")
-    datasets = load_dataset(
-        "text",
-        data_files=text_data_files,
-    )
+    datasets = load_dataset("text", data_files=text_data_files,)
 
     logging.debug("convert huggingface's dataset to DynamicItemDataset")
     train_data = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(

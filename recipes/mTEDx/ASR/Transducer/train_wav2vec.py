@@ -59,7 +59,7 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         # get predictions
         enc_out, dec_out, wav_lens = predictions
-        
+
         # # plot alignment ONLY when training
         # if stage != sb.Stage.TRAIN:
         #     plot_dir = os.path.join(
@@ -70,13 +70,21 @@ class ASR(sb.core.Brain):
         # else:
         #     plot_dir = None
         loss = self.hparams.transducer_cost(
-            enc_out, dec_out, tokens, wav_lens, tokens_lens,
-            ids, current_epoch, plot_dir=None
+            enc_out,
+            dec_out,
+            tokens,
+            wav_lens,
+            tokens_lens,
+            ids,
+            current_epoch,
+            plot_dir=None,
         )
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_tokens, scores, _, _ = self.hparams.Greedysearcher(enc_out)
+            predicted_tokens, scores, _, _ = self.hparams.Greedysearcher(
+                enc_out
+            )
             predicted_words = [
                 self.tokenizer.sp.decode_ids(utt_seq).split(" ")
                 for utt_seq in predicted_tokens
@@ -200,14 +208,15 @@ def dataio_prepare(hparams, tokenizer):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["train_json"], replacements={"data_root": data_folder},
+        json_path=hparams["train_json"],
+        replacements={"data_root": data_folder},
     )
     if hparams["sorting"] in {"ascending", "descending"}:
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(
-            sort_key = "duration",
-            reverse = hparams["sorting"] == "descending",
-            key_max_value = {"duration": hparams["avoid_if_longer_than"]},
+            sort_key="duration",
+            reverse=hparams["sorting"] == "descending",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
@@ -219,7 +228,8 @@ def dataio_prepare(hparams, tokenizer):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["valid_json"], replacements={"data_root": data_folder},
+        json_path=hparams["valid_json"],
+        replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(
@@ -268,8 +278,15 @@ def dataio_prepare(hparams, tokenizer):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "words", "tokens_list", "tokens_bos", "tokens_eos",
-        "tokens"],
+        [
+            "id",
+            "sig",
+            "words",
+            "tokens_list",
+            "tokens_bos",
+            "tokens_eos",
+            "tokens",
+        ],
     )
     return train_data, valid_data, test_data
 
@@ -285,8 +302,12 @@ if __name__ == "__main__":
     # src: https://pytorch.org/docs/stable/notes/randomness.html
     seed = hparams["seed"]
     torch.manual_seed(seed)
-    import random; random.seed(seed)
-    import numpy as np; np.random.seed(seed)
+    import random
+
+    random.seed(seed)
+    import numpy as np
+
+    np.random.seed(seed)
     # torch.use_deterministic_algorithms(True) #for CUDA
 
     # If distributed_launch=True then
@@ -321,7 +342,7 @@ if __name__ == "__main__":
         annotation_read="words",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
-        annotation_format="json"
+        annotation_format="json",
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
@@ -361,17 +382,22 @@ if __name__ == "__main__":
     print("WER:", asr_brain.wer_metric.summarize("error_rate"))
     print("CER:", asr_brain.cer_metric.summarize("error_rate"))
     # write the returns predicted & true transcriptions
-    import os
+
     test_lang = hparams["test_lang"]
     hyp_filename = (
-        f"test_{test_lang}.hyp" if hparams["remove_punc_cap"] else f"test_punc_cap_{test_lang}.hyp"
+        f"test_{test_lang}.hyp"
+        if hparams["remove_punc_cap"]
+        else f"test_punc_cap_{test_lang}.hyp"
     )
     hyp_filepath = os.path.join(hparams["output_folder"], hyp_filename)
-    ref_filepath = os.path.join(hparams["output_folder"], f"test_{test_lang}.ref")
-    with open(hyp_filepath, 'w') as hyp_fout, \
-        open(ref_filepath, 'w') as ref_fout:
+    ref_filepath = os.path.join(
+        hparams["output_folder"], f"test_{test_lang}.ref"
+    )
+    with open(hyp_filepath, "w") as hyp_fout, open(
+        ref_filepath, "w"
+    ) as ref_fout:
         for utt in asr_brain.wer_metric.scores:
             hyp = " ".join(utt["hyp_tokens"])
             ref = " ".join(utt["ref_tokens"])
-            hyp_fout.write(hyp+'\n')
-            ref_fout.write(ref+'\n')
+            hyp_fout.write(hyp + "\n")
+            ref_fout.write(ref + "\n")

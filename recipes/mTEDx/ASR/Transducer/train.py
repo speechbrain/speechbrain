@@ -42,10 +42,11 @@ from recipes.mTEDx.mtedx_prepare import remove_punctuations
 
 logger = logging.getLogger(__name__)
 
+
 def write_transcriptions(hyps, refs, stage, epoch):
     """
     A function to write the resulting transcription of the valid/test set
-    for every epoch. The resulting files 
+    for every epoch. The resulting files
     """
     stage = "valid" if stage == sb.Stage.VALID else "test"
     # make sure the transcription folder exists
@@ -53,16 +54,18 @@ def write_transcriptions(hyps, refs, stage, epoch):
     os.makedirs(trans_dir, exist_ok=True)
     # write the returns predicted & true transcriptions
     hyp_filename = (
-        f"{stage}_{epoch}.hyp" if hparams["remove_punc_cap"]
-                            else f"{stage}_punc_cap_{epoch}.hyp"
+        f"{stage}_{epoch}.hyp"
+        if hparams["remove_punc_cap"]
+        else f"{stage}_punc_cap_{epoch}.hyp"
     )
     hyp_filepath = os.path.join(trans_dir, hyp_filename)
     ref_filepath = os.path.join(trans_dir, f"{stage}_{epoch}.ref")
-    with open(hyp_filepath, 'a') as hyp_fout, \
-        open(ref_filepath, 'a') as ref_fout:
+    with open(hyp_filepath, "a") as hyp_fout, open(
+        ref_filepath, "a"
+    ) as ref_fout:
         for hyp, ref in zip(hyps, refs):
-            hyp_fout.write(" ".join(hyp)+'\n')
-            ref_fout.write(" ".join(ref)+'\n')
+            hyp_fout.write(" ".join(hyp) + "\n")
+            ref_fout.write(" ".join(ref) + "\n")
 
 
 # Define training procedure
@@ -99,16 +102,19 @@ class ASR(sb.Brain):
         h, _ = self.modules.dec(e_in)
 
         # TODO: restructure this (IMPORTANT!)
-        if self.hparams.transducer_cost.func.__name__ == "fast_rnnt_pruned_loss":
+        if (
+            self.hparams.transducer_cost.func.__name__
+            == "fast_rnnt_pruned_loss"
+        ):
             if stage == sb.Stage.TRAIN:
                 # apply linear layer only to adjust dims
-                enc_out, dec_out = x, h #? added
+                enc_out, dec_out = x, h  # ? added
                 # enc_out = self.modules.enc_lin(x) # (B, T, V)
                 # dec_out = self.modules.dec_lin(h) # (B, S+1, V)
                 return enc_out, dec_out, wav_lens
             elif stage == sb.Stage.VALID:
-                enc_out = x #? added
-                dec_out = h #? added
+                enc_out = x  # ? added
+                dec_out = h  # ? added
                 # enc_out = self.modules.enc_lin(x) # (B, T, V)
                 # dec_out = self.modules.dec_lin(h) # (B, S+1, V)
                 best_hyps, scores, _, _ = self.hparams.Greedysearcher(enc_out)
@@ -214,13 +220,21 @@ class ASR(sb.Brain):
                 if func_name == "fast_rnnt_pruned_loss":
                     enc_out, dec_out, wav_lens = predictions
                     plot_dir = os.path.join(
-                        self.hparams.output_folder, "plots", "train",
-                        str(current_epoch)
+                        self.hparams.output_folder,
+                        "plots",
+                        "train",
+                        str(current_epoch),
                     )
                     os.makedirs(plot_dir, exist_ok=True)
                     loss = self.hparams.transducer_cost(
-                        enc_out, dec_out, tokens, wav_lens, token_lens,
-                        ids, current_epoch, plot_dir=plot_dir
+                        enc_out,
+                        dec_out,
+                        tokens,
+                        wav_lens,
+                        token_lens,
+                        ids,
+                        current_epoch,
+                        plot_dir=plot_dir,
                     )
                 else:
                     # one of the 2 heads (CTC or CE) is still computed
@@ -260,13 +274,21 @@ class ASR(sb.Brain):
             if func_name == "fast_rnnt_pruned_loss":
                 enc_out, dec_out, wav_lens, predicted_tokens = predictions
                 plot_dir = os.path.join(
-                    self.hparams.output_folder, "plots", "valid",
-                    str(current_epoch)
+                    self.hparams.output_folder,
+                    "plots",
+                    "valid",
+                    str(current_epoch),
                 )
                 os.makedirs(plot_dir, exist_ok=True)
                 loss = self.hparams.transducer_cost(
-                    enc_out, dec_out, tokens, wav_lens, token_lens,
-                    ids, current_epoch, plot_dir=plot_dir
+                    enc_out,
+                    dec_out,
+                    tokens,
+                    wav_lens,
+                    token_lens,
+                    ids,
+                    current_epoch,
+                    plot_dir=plot_dir,
                 )
             else:
                 logits_transducer, wav_lens, predicted_tokens = predictions
@@ -291,7 +313,7 @@ class ASR(sb.Brain):
                     "refs": target_words,
                     "stage": stage,
                     "epoch": current_epoch,
-                }
+                },
             )
 
         return loss
@@ -380,7 +402,7 @@ class ASR(sb.Brain):
         cer_score: float
             The Character Error Rate score.
         """
-        # If dataset isn't a Dataloader, we create it. 
+        # If dataset isn't a Dataloader, we create it.
         if not isinstance(dataset, torch.utils.data.DataLoader):
             loader_kwargs["ckpt_prefix"] = None
             dataset = self.make_dataloader(
@@ -395,11 +417,12 @@ class ASR(sb.Brain):
         avg_test_loss = 0.0
         # Now we iterate over the dataset
         from tqdm import tqdm
+
         with torch.no_grad():
             for batch in tqdm(dataset, dynamic_ncols=True):
                 # Make sure that your compute_forward returns the predictions.
                 # In the case of the template, when stage = TEST, a beam search
-                # is applied in compute_forward(). 
+                # is applied in compute_forward().
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=sb.Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
@@ -408,11 +431,13 @@ class ASR(sb.Brain):
         for utt in self.wer_metric.scores:
             hyps.append(" ".join(utt["hyp_tokens"]))
             refs.append(" ".join(utt["ref_tokens"]))
-    
+
         return (
-            hyps, refs, avg_test_loss,
-            self.wer_metric.summarize("error_rate"), #WER
-            self.cer_metric.summarize("error_rate"), #CER
+            hyps,
+            refs,
+            avg_test_loss,
+            self.wer_metric.summarize("error_rate"),  # WER
+            self.cer_metric.summarize("error_rate"),  # CER
         )
 
 
@@ -422,7 +447,8 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["train_json"], replacements={"data_root": data_folder},
+        json_path=hparams["train_json"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -434,8 +460,8 @@ def dataio_prepare(hparams):
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration",
-            reverse = hparams["sorting"] == "descending",
-            key_max_value = {"duration": hparams["avoid_if_longer_than"]},
+            reverse=hparams["sorting"] == "descending",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
@@ -450,12 +476,13 @@ def dataio_prepare(hparams):
 
     # We also sort the validation data so it is faster to validate
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["valid_json"], replacements={"data_root": data_folder},
+        json_path=hparams["valid_json"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(
         sort_key="duration",
         reverse=hparams["sorting"] == "descending",
-        key_max_value = {"duration": hparams["avoid_if_longer_than"]},
+        key_max_value={"duration": hparams["avoid_if_longer_than"]},
     )
 
     # We also sort the test data so it is faster to test
@@ -504,8 +531,15 @@ def dataio_prepare(hparams):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "words", "tokens_list", "tokens_bos", "tokens_eos",
-        "tokens"],
+        [
+            "id",
+            "sig",
+            "words",
+            "tokens_list",
+            "tokens_bos",
+            "tokens_eos",
+            "tokens",
+        ],
     )
     train_batch_sampler = None
     valid_batch_sampler = None
@@ -545,13 +579,17 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    
+
     # setting seed for reproducibility
     # src: https://pytorch.org/docs/stable/notes/randomness.html
     seed = hparams["seed"]
     torch.manual_seed(seed)
-    import random; random.seed(seed)
-    import numpy as np; np.random.seed(seed)
+    import random
+
+    random.seed(seed)
+    import numpy as np
+
+    np.random.seed(seed)
     # torch.use_deterministic_algorithms(True) #for CUDA
 
     # If distributed_launch=True then
@@ -624,24 +662,25 @@ if __name__ == "__main__":
 
     # Evaluating
     avg_loss = asr_brain.evaluate(
-        valid_data, min_key="WER",
-        test_loader_kwargs=hparams["valid_dataloader_opts"]
+        valid_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["valid_dataloader_opts"],
     )
     print("AVERAGE LOSS:", avg_loss)
     print("WER:", asr_brain.wer_metric.summarize("error_rate"))
     print("CER:", asr_brain.cer_metric.summarize("error_rate"))
     # write the returns predicted & true transcriptions
-    import os
+
     hyp_filename = (
         "valid.hyp" if hparams["remove_punc_cap"] else "valid_punc_cap.hyp"
     )
     hyp_filepath = os.path.join(hparams["output_folder"], hyp_filename)
     ref_filepath = os.path.join(hparams["output_folder"], "valid.ref")
-    with open(hyp_filepath, 'w') as hyp_fout, \
-        open(ref_filepath, 'w') as ref_fout:
+    with open(hyp_filepath, "w") as hyp_fout, open(
+        ref_filepath, "w"
+    ) as ref_fout:
         for utt in asr_brain.wer_metric.scores:
             hyp = " ".join(utt["hyp_tokens"])
             ref = " ".join(utt["ref_tokens"])
-            hyp_fout.write(hyp+'\n')
-            ref_fout.write(ref+'\n')
-    
+            hyp_fout.write(hyp + "\n")
+            ref_fout.write(ref + "\n")

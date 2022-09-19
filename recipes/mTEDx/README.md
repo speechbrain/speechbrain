@@ -16,7 +16,7 @@ bash download_mtedx.sh
 ## How the data should look like
 
 After downloading the audio data, you need to process the audio data and split
-the whole talks into different segments and align it with the correct text. 
+the whole talks into different segments and align it with the correct text.
 All of that can be done by running this
 [python script](https://github.com/Anwarvic/mTEDx_auxiliary/blob/main/process_mtedx.py):
 ```

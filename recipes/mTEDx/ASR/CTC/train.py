@@ -230,14 +230,15 @@ def dataio_prepare(hparams, tokenizer):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["train_json"], replacements={"data_root": data_folder},
+        json_path=hparams["train_json"],
+        replacements={"data_root": data_folder},
     )
     if hparams["sorting"] in {"ascending", "descending"}:
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(
-            sort_key = "duration",
-            reverse = hparams["sorting"] == "descending",
-            key_max_value = {"duration": hparams["avoid_if_longer_than"]},
+            sort_key="duration",
+            reverse=hparams["sorting"] == "descending",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
@@ -256,18 +257,17 @@ def dataio_prepare(hparams, tokenizer):
     valid_data = valid_data.filtered_sorted(
         sort_key="duration",
         reverse=hparams["sorting"] == "descending",
-        key_max_value = {"duration": hparams["avoid_if_longer_than"]},
+        key_max_value={"duration": hparams["avoid_if_longer_than"]},
     )
 
     # We also sort the test data so it is faster to test
     test_data = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams["test_json"],
-        replacements={"data_root": data_folder},
+        json_path=hparams["test_json"], replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(
         sort_key="duration",
         reverse=hparams["sorting"] == "descending",
-        key_test={"lang": lambda x: x == hparams["test_lang"]}
+        key_test={"lang": lambda x: x == hparams["test_lang"]},
     )
 
     datasets = [train_data, valid_data, test_data]
@@ -283,9 +283,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("words")
-    @sb.utils.data_pipeline.provides(
-        "words", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("words", "tokens_list", "tokens")
     def text_pipeline(words):
         if hparams["remove_punc_cap"]:
             words = remove_punctuations(words.lower())
@@ -319,8 +317,12 @@ if __name__ == "__main__":
     # src: https://pytorch.org/docs/stable/notes/randomness.html
     seed = hparams["seed"]
     torch.manual_seed(seed)
-    import random; random.seed(seed)
-    import numpy as np; np.random.seed(seed)
+    import random
+
+    random.seed(seed)
+    import numpy as np
+
+    np.random.seed(seed)
     # torch.use_deterministic_algorithms(True) #for CUDA
 
     # If distributed_launch=True then
@@ -355,7 +357,7 @@ if __name__ == "__main__":
         annotation_read="words",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
-        annotation_format="json"
+        annotation_format="json",
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
@@ -392,18 +394,22 @@ if __name__ == "__main__":
     print("CER:", asr_brain.cer_metric.summarize("error_rate"))
     # write the returns predicted & true transcriptions
     import os
+
     test_lang = hparams["test_lang"]
     hyp_filename = (
-        f"test_{test_lang}.hyp" if hparams["remove_punc_cap"] 
+        f"test_{test_lang}.hyp"
+        if hparams["remove_punc_cap"]
         else f"test_punc_cap_{test_lang}.hyp"
     )
     hyp_filepath = os.path.join(hparams["output_folder"], hyp_filename)
-    ref_filepath = os.path.join(hparams["output_folder"], f"test_{test_lang}.ref")
-    with open(hyp_filepath, 'w') as hyp_fout, \
-        open(ref_filepath, 'w') as ref_fout:
+    ref_filepath = os.path.join(
+        hparams["output_folder"], f"test_{test_lang}.ref"
+    )
+    with open(hyp_filepath, "w") as hyp_fout, open(
+        ref_filepath, "w"
+    ) as ref_fout:
         for utt in asr_brain.wer_metric.scores:
             hyp = " ".join(utt["hyp_tokens"])
             ref = " ".join(utt["ref_tokens"])
-            hyp_fout.write(hyp+'\n')
-            ref_fout.write(ref+'\n')
-    
+            hyp_fout.write(hyp + "\n")
+            ref_fout.write(ref + "\n")

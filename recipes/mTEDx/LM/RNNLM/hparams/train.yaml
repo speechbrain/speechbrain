@@ -18,7 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 # transcriptions of original mTEDx as well.
 data_folder: !PLACEHOLDER
 langs:
-   - !PLACEHOLDER
+   - fr
 
 # Tokenizer model
 tokenizer_file: !PLACEHOLDER

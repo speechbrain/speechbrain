@@ -5,7 +5,7 @@ wav2vec model. Before running this recipe, make sure to read this [README](../..
 **Note:**\
 Wav2vec model used in this recipe is pre-trained on the French language.
 In order to use another language, don't forget to change the `wav2vec2_hub`
-in the `train_wav2vec.yaml` YAML file. 
+in the `train_wav2vec.yaml` YAML file.
 
 
 # How to run

@@ -23,7 +23,7 @@ remove_punc_cap: True # remove punctuation & capitalization from text
 
 train_json: !ref <data_folder>/train_fr.json
 valid_json: !ref <data_folder>/valid_fr.json
-test_json:  !ref <data_folder>/test_fr.json
+test_json: !ref <data_folder>/test_fr.json
 
 # pre-trained LM model
 pretrained_lm_path: !PLACEHOLDER

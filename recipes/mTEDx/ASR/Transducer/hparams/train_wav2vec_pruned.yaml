@@ -25,7 +25,7 @@ remove_punc_cap: True # remove punctuation & capitalization from text
 
 train_json: !ref <data_folder>/train_fr.json
 valid_json: !ref <data_folder>/valid_fr.json
-test_json:  !ref <data_folder>/test_fr.json
+test_json: !ref <data_folder>/test_fr.json
 
 # We remove train/valid utterances longer than 20s
 avoid_if_longer_than: 20.0
@@ -80,16 +80,16 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
 enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <wav2vec_output_dim>]
-    linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <output_neurons>
-        bias: True
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <output_neurons>
+      bias: True
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
-    source: !ref <wav2vec2_hub>
-    output_norm: True
-    freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: !ref <save_folder>/wav2vec2_checkpoint
 
 emb: !new:speechbrain.nnet.embedding.Embedding
    num_embeddings: !ref <output_neurons>
@@ -115,7 +115,7 @@ transducer_cost: !name:speechbrain.nnet.losses.fast_rnnt_pruned_loss
    prune_range: 5 # how many symbols to keep for each frame.
    mode: simple  #simple | smoothed
    loss_scale: 0.5 #scale for the `mode` loss before adding pruned_loss
-   warmup_epochs: 3 # epochs to learn the `mode` loss before adding the pruned_loss
+   warmup_epochs: 3 # epochs for the `mode` loss before adding the pruned_loss
    jointer: !ref <Tjoint>
    reduction: mean
 
@@ -130,12 +130,12 @@ model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <Tjoint>]
 
 model_opt_class: !name:torch.optim.Adadelta
-    lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
 
 wav2vec_opt_class: !name:torch.optim.Adam
-    lr: !ref <lr_wav2vec>
+   lr: !ref <lr_wav2vec>
 
 Greedysearcher: !new:speechbrain.decoders.transducer.FastRNNTBeamSearcher
    decode_network_lst: [!ref <emb>, !ref <dec>]
@@ -151,19 +151,19 @@ lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
    patient: 0
 
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_wav2vec>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.9
-    patient: 0
+   initial_value: !ref <lr_wav2vec>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.9
+   patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        wav2vec2: !ref <wav2vec2>
-        model: !ref <model>
-        scheduler_model: !ref <lr_annealing_model>
-        scheduler_wav2vec: !ref <lr_annealing_wav2vec>
-        counter: !ref <epoch_counter>
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      wav2vec2: !ref <wav2vec2>
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+      counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <output_folder>/train_log.txt
@@ -175,24 +175,3 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
-
-# # LANGUAGE MODEL
-# lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-#    output_neurons: !ref <output_neurons>
-#    embedding_dim: 128
-#    activation: !name:torch.nn.LeakyReLU
-#    dropout: 0.5
-#    rnn_layers: 4
-#    rnn_neurons: 512
-#    dnn_blocks: 1
-#    dnn_neurons: 256
-#    return_hidden: True  # For inference
-
-# pretrained_lm_path: /scratch/1/user/manwar/results/mTEDx_fr/RNNLM/save/CKPT+2022-05-23+15-47-46+00/model.ckpt
-
-# pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-#    collect_in: !ref <save_folder>
-#    loadables:
-#       lm: !ref <lm_model>
-#    paths:
-#       lm: !ref <pretrained_lm_path>

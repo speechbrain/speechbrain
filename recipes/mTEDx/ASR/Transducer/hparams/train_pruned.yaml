@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref !PLACEHOLDER
+output_folder: !PLACEHOLDER
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 
@@ -23,7 +23,7 @@ remove_punc_cap: True # remove punctuation & capitalization from text
 
 train_json: !ref <data_folder>/train_fr.json
 valid_json: !ref <data_folder>/valid_fr.json
-test_json:  !ref <data_folder>/test_fr.json
+test_json: !ref <data_folder>/test_fr.json
 
 # pre-trained LM model
 pretrained_lm_path: !PLACEHOLDER
@@ -148,7 +148,7 @@ transducer_cost: !name:speechbrain.nnet.losses.fast_rnnt_pruned_loss
    prune_range: 5 # how many symbols to keep for each frame.
    mode: simple  #simple | smoothed
    loss_scale: 0.5 #scale for the `mode` loss before adding pruned_loss
-   warmup_epochs: 3 # epochs to learn the `mode` loss before adding the pruned_loss
+   warmup_epochs: 3 # epochs for the `mode` loss before adding the pruned_loss
    jointer: !ref <Tjoint>
    reduction: mean
 

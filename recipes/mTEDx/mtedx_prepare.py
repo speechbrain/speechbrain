@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def prepare_mtedx(
-    data_folder,
-    save_folder,
-    langs=[],
+    data_folder, save_folder, langs=[],
 ):
     """
     This function prepares the json files for the mTEDx dataset.
@@ -39,12 +37,12 @@ def prepare_mtedx(
     >>> save_folder = 'mTEDx_prepared'
     >>> langs = ["fr", "es"]
     >>> prepare_mtedx(data_folder, save_folder, langs)
-    """ 
+    """
     # Saving folder
     os.makedirs(save_folder, exist_ok=True)
-    
+
     langs.sort()
-    # checks for one json file that have all needed data for give langs. 
+    # checks for one json file that have all needed data for give langs.
     if skip(save_folder, langs):
         logger.info("Skipping preparation, completed in previous run.")
         return
@@ -80,20 +78,20 @@ def create_json(data_folder, save_folder, langs, group):
     """
     # Setting path for the json file
     json_file = os.path.join(save_folder, f"{group}_{'_'.join(langs)}.json")
-    
+
     # skip if the file already exists
     if os.path.exists(json_file):
         logger.info(f"{json_file} already exists. Skipping!!")
         return
-    
+
     logger.info(f"Creating json file in {json_file}")
     group_data = {}
     for lang in langs:
         logger.info(f"Processing language: {lang}, group: {group}")
         with open(os.path.join(data_folder, lang, f"{group}.json")) as fin:
             group_data.extend(json.loads(fin))
-    # write dict into json file    
-    with open(json_file, 'w', encoding='utf8') as fout:
+    # write dict into json file
+    with open(json_file, "w", encoding="utf8") as fout:
         fout.write(json.dumps(group_data, indent=4, ensure_ascii=False))
     logger.info(f"{json_file} successfully created!")
 
@@ -115,11 +113,11 @@ def skip(save_folder, langs):
     bool
         If True, the preparation is skipped. Otherwise, it must be done.
     """
-    langs = '_'.join(langs)
+    langs = "_".join(langs)
     return (
-        os.path.exists(os.path.join(save_folder, f"train_{langs}.json")) and
-        os.path.exists(os.path.join(save_folder, f"valid_{langs}.json")) and
-        os.path.exists(os.path.join(save_folder, f"test_{langs}.json"))
+        os.path.exists(os.path.join(save_folder, f"train_{langs}.json"))
+        and os.path.exists(os.path.join(save_folder, f"valid_{langs}.json"))
+        and os.path.exists(os.path.join(save_folder, f"test_{langs}.json"))
     )
 
 
@@ -147,15 +145,15 @@ def check_mtedx_folders(data_folder, lang, group):
     audio_data = os.listdir(os.path.join(data_folder, lang, group))
     if len(json_data) != len(audio_data):
         raise ValueError(
-            f"{lang}/{group} data doesn't match!! Actual audio data is" + 
-            f"{len(audio_data)}, while audio data written in json file is" +
-            f"{len(json_data)}!"
+            f"{lang}/{group} data doesn't match!! Actual audio data is"
+            + f"{len(audio_data)}, while audio data written in json file is"
+            + f"{len(json_data)}!"
         )
     return True
 
 
-#helpful function
+# helpful function
 def remove_punctuations(text):
     """Removes punctuations from text"""
-    PUNCS = string.punctuation+'،؟؛¿¡—÷×»«‹›'
-    return text.translate(str.maketrans('', '', PUNCS)).strip()
+    PUNCS = string.punctuation + "،؟؛¿¡—÷×»«‹›"
+    return text.translate(str.maketrans("", "", PUNCS)).strip()
