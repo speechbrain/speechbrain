@@ -94,7 +94,7 @@ def transducer_loss(
             err_msg += "You can install Fast_RNNT using pip:\n"
             err_msg += "pip install fast_rnnt\n"
             raise ImportError(err_msg)
-        
+
         batch_size = log_probs.size(0)
         boundary = torch.zeros((batch_size, 4), dtype=torch.int64)
         boundary[:, 2] = target_lens
@@ -109,8 +109,8 @@ def transducer_loss(
         )
     else:
         raise ValueError(
-            "Passed framework for the transducer_loss should be:\n" +
-            f"('speechbrain' | 'torchaudio' | 'fast_rnnt'), given {framework}"
+            "Passed framework for the transducer_loss should be:\n"
+            + f"('speechbrain' | 'torchaudio' | 'fast_rnnt'), given {framework}"
         )
 
 
@@ -120,7 +120,7 @@ def save_and_plot_tot_grad(
     ids: List[str],
     x_lens: torch.Tensor,
     y_lens: torch.Tensor,
-    plot_dir: str
+    plot_dir: str,
 ):
     """Save and plot the tot_grad.
     Args:
@@ -138,9 +138,10 @@ def save_and_plot_tot_grad(
     """
     import os
     import matplotlib.pyplot as plt
-    B = px_grad.size(0) #batch_size
-    S = px_grad.size(1) #text_length
-    T = px_grad.size(2) - 1 #audio_length
+
+    B = px_grad.size(0)  # batch_size
+    S = px_grad.size(1)  # text_length
+    T = px_grad.size(2) - 1  # audio_length
     px_grad_pad = torch.zeros(
         (B, 1, T + 1), dtype=px_grad.dtype, device=px_grad.device
     )
@@ -161,8 +162,8 @@ def save_and_plot_tot_grad(
     y_lens = y_lens.tolist()
 
     tot_grad = tot_grad.unbind(0)
-    i = np.random.randint(0, B) #choose random id from the batch
-    grad = tot_grad[i][:x_lens[i], :y_lens[i]]
+    i = np.random.randint(0, B)  # choose random id from the batch
+    grad = tot_grad[i][: x_lens[i], : y_lens[i]]
 
     filename = os.path.join(plot_dir, f"{ids[i]}.{ext}")
     #  plt.matshow(grad.t(), origin="lower", cmap="gray")
@@ -173,23 +174,24 @@ def save_and_plot_tot_grad(
     plt.savefig(filename)
     plt.close()
 
+
 def fast_rnnt_pruned_loss(
-        enc_out,
-        dec_out,
-        targets,
-        input_lens,
-        target_lens,
-        ids,
-        curr_epoch,
-        jointer,
-        blank_index,
-        prune_range,
-        loss_scale=0.5,
-        warmup_epochs=2,
-        reduction="mean",
-        mode="simple",
-        plot_dir=None,
-    ):
+    enc_out,
+    dec_out,
+    targets,
+    input_lens,
+    target_lens,
+    ids,
+    curr_epoch,
+    jointer,
+    blank_index,
+    prune_range,
+    loss_scale=0.5,
+    warmup_epochs=2,
+    reduction="mean",
+    mode="simple",
+    plot_dir=None,
+):
     """Fast_RNNT loss, see `https://github.com/danpovey/fast_rnnt`.
 
     Arguments
@@ -209,7 +211,7 @@ def fast_rnnt_pruned_loss(
         the total fake gradient.
     curr_epoch: int
         The index of the current epoch, starting from 1.
-    jointer: 
+    jointer:
         The jointer network.
     blank_index : int
         The location of the blank symbol among the label indices.
@@ -237,9 +239,9 @@ def fast_rnnt_pruned_loss(
         err_msg += "You can install Fast_RNNT using pip:\n"
         err_msg += "pip install fast_rnnt\n"
         raise ImportError(err_msg)
-    
-    B, T = targets.shape  #batch_size, target_subwords_len
-    S = enc_out.size(1)   #audio_time_steps
+
+    B, T = targets.shape  # batch_size, target_subwords_len
+    S = enc_out.size(1)  # audio_time_steps
     boundary = torch.zeros((B, 4), dtype=torch.int64)
     boundary[:, 2] = (target_lens * T).round().int()
     boundary[:, 3] = (input_lens * S).round().int()
@@ -253,7 +255,7 @@ def fast_rnnt_pruned_loss(
             termination_symbol=blank_index,
             boundary=boundary,
             reduction=reduction,
-            return_grad=True
+            return_grad=True,
         )
     elif mode == "smoothed":
         mode_loss, (px_grad, py_grad) = fast_rnnt.rnnt_loss_smoothed(
@@ -265,19 +267,19 @@ def fast_rnnt_pruned_loss(
             am_only_scale=0.5,
             boundary=boundary,
             reduction=reduction,
-            return_grad=True
+            return_grad=True,
         )
     else:
         raise ValueError(
-            f"Undefined option: {mode}.\n"+
-            "Available modes are:\n`simple`, `smoothed`."
+            f"Undefined option: {mode}.\n"
+            + "Available modes are:\n`simple`, `smoothed`."
         )
     # PLOT ALIGNMENT (10%)
-    if plot_dir and np.random.random() >= 0.9: 
+    if plot_dir and np.random.random() >= 0.9:
         save_and_plot_tot_grad(
             px_grad, py_grad, ids, boundary[:, 3], boundary[:, 2], plot_dir
         )
-    
+
     # (NOTE) prune_range: min(prune_range, target_subwords_len)
     # ranges: [batch_size, audio_time_steps, prune_range]
     ranges = fast_rnnt.get_rnnt_prune_ranges(
@@ -290,9 +292,7 @@ def fast_rnnt_pruned_loss(
     # enc_out_pruned: [batch_size, audio_time_steps, prune_range, vocab_size]
     # dec_out_pruned: [batch_size, audio_time_steps, prune_range, vocab_size]
     enc_out_pruned, dec_out_pruned = fast_rnnt.do_rnnt_pruning(
-        am=enc_out,
-        lm=dec_out,
-        ranges=ranges
+        am=enc_out, lm=dec_out, ranges=ranges
     )
 
     # logits: [batch_size, audio_time_steps, prune_range, vocab_size]
@@ -307,12 +307,11 @@ def fast_rnnt_pruned_loss(
     )
     warmup = curr_epoch / warmup_epochs
     pruned_loss_scale = (
-        0.0
-        if warmup < 1.0
-        else (0.1 if warmup > 1.0 and warmup < 2.0 else 1.0)
+        0.0 if warmup < 1.0 else (0.1 if warmup > 1.0 and warmup < 2.0 else 1.0)
     )
     loss = loss_scale * mode_loss + pruned_loss_scale * pruned_loss
     return loss
+
 
 class PitWrapper(nn.Module):
     """

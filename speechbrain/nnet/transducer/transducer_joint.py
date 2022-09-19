@@ -95,22 +95,23 @@ class Transducer_joint(nn.Module):
 
         return self.nonlinearity(joint)
 
-class Fast_RNNT_Joiner(nn.Module):
-    def __init__(self, input_dim, inner_dim, output_dim):
-        """
-        A simple two-layer joiner network for the pruned Fast-RNNT loss.
-        Adapted from this recipe:
-        https://github.com/k2-fsa/icefall/blob/master/egs/librispeech/ASR/pruned_transducer_stateless/joiner.py
 
-        Arguments
-        ---------
-        input_dim : int
-            The input dimension of this network.
-        inner_dim: int
-            The dimension of the hidden layer.
-        output_dim : int
-            The output dimension from this network.
-        """
+class Fast_RNNT_Joiner(nn.Module):
+    """
+    A simple two-layer joiner network for the pruned Fast-RNNT loss.
+    Adapted from this recipe:
+    https://github.com/k2-fsa/icefall/blob/master/egs/librispeech/ASR/pruned_transducer_stateless/joiner.py
+
+    Arguments
+    ---------
+    input_dim : int
+        The input dimension of this network.
+    inner_dim: int
+        The dimension of the hidden layer.
+    output_dim : int
+        The output dimension from this network.
+    """
+    def __init__(self, input_dim, inner_dim, output_dim):
         super().__init__()
         self.inner_linear = nn.Linear(input_dim, inner_dim)
         self.output_linear = nn.Linear(inner_dim, output_dim)
@@ -122,11 +123,11 @@ class Fast_RNNT_Joiner(nn.Module):
         encoder_out: torch.Tensor
             Output from the encoder. Its shape is (N, T, s_range, C) during
             training or (N, C) in case of streaming decoding.
-        
+
         decoder_out: torch.Tensor
             Output from the decoder. Its shape is (N, T, s_range, C) during
             training or (N, C) in case of streaming decoding.
-        
+
         Returns
         -------
         torch.Tensor:
