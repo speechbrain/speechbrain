@@ -388,7 +388,7 @@ if __name__ == "__main__":
     )
 
     # 1.  # Dataset prep (parsing Librispeech)
-    from prepare import prepare_aishell  # noqa
+    from aishell_prepare import prepare_aishell  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
