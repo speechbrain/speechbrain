@@ -111,6 +111,7 @@ class Fast_RNNT_Joiner(nn.Module):
     output_dim : int
         The output dimension from this network.
     """
+
     def __init__(self, input_dim, inner_dim, output_dim):
         super().__init__()
         self.inner_linear = nn.Linear(input_dim, inner_dim)
