@@ -249,9 +249,7 @@ def dataio_prepare(hparams):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("transcript")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "tokens_list", "tokens")
     def text_pipeline(wrd):
         wrd = "".join(wrd.split(" "))
         yield wrd
