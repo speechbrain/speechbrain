@@ -327,7 +327,6 @@ if __name__ == "__main__":
     )
 
     # 1.  # Dataset prep (parsing Librispeech)
-    sys.path.append("../../")
     from prepare import prepare_aishell  # noqa
 
     # multi-gpu (ddp) save data preparation

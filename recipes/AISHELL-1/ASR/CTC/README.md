@@ -12,7 +12,7 @@ specify a different tokenizer in the speech recognition recipe.
 
 2- Train the speech recognizer
 ```
-python train_with_wav2vec.py hparams/train_with_wav2vec.yaml --data_folder=/localscratch/aishell/
+python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
 ```
 
 Make sure to have "transformers" installed.
