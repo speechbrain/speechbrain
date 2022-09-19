@@ -91,21 +91,21 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 enc: !new:speechbrain.nnet.containers.Sequential
    input_shape: [null, null, !ref <wav2vec_output_dim>]
    linear1: !name:speechbrain.nnet.linear.Linear
-      n_neurons: 1024
+      n_neurons: <dnn_neurons>
       bias: True
    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation: !new:torch.nn.LeakyReLU
    drop: !new:torch.nn.Dropout
       p: 0.15
    linear2: !name:speechbrain.nnet.linear.Linear
-      n_neurons: 1024
+      n_neurons: <dnn_neurons>
       bias: True
    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation2: !new:torch.nn.LeakyReLU
    drop2: !new:torch.nn.Dropout
       p: 0.15
    linear3: !name:speechbrain.nnet.linear.Linear
-      n_neurons: 1024
+      n_neurons: <dnn_neurons>
       bias: True
    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation3: !new:torch.nn.LeakyReLU
