@@ -9,19 +9,19 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/mTEDx_fr/RNNLM
+output_folder: !PLACEHOLDER
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 # The data_folder is needed because we train the LM on the training
-# transcriptions of LibriSpeech as well.
-data_folder: #!PLACEHOLDER
+# transcriptions of original mTEDx as well.
+data_folder: !PLACEHOLDER
 langs:
-   -  fr
+   - !PLACEHOLDER
 
 # Tokenizer model
-tokenizer_file: ./results/mTEDx_fr/Tokenizer/1K_subword_unigram/1000_unigram.model
+tokenizer_file: !PLACEHOLDER
 
 # Training parameters
 number_of_epochs: 20
@@ -32,14 +32,14 @@ accu_steps: 1 # Gradient accumulation to simulate large batch training
 
 # Dataloader options
 train_dataloader_opts:
-    batch_size: !ref <batch_size>
-    shuffle: True
+   batch_size: !ref <batch_size>
+   shuffle: True
 
 valid_dataloader_opts:
-    batch_size: 16
+   batch_size: 16
 
 test_dataloader_opts:
-    batch_size: 16
+   batch_size: 16
 
 # Model parameters
 emb_size: 128
@@ -58,52 +58,52 @@ eos_index: 2 #depends on the tokenizer
 
 # Functions (RNN cell is LSTM by default)
 model: !new:speechbrain.lobes.models.RNNLM.RNNLM
-    output_neurons: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-    activation: !ref <activation>
-    dropout: !ref <dropout>
-    rnn_layers: !ref <rnn_layers>
-    rnn_neurons: !ref <hidden_size>
-    dnn_blocks: !ref <dnn_blocks>
-    dnn_neurons: !ref <dnn_neurons>
+   output_neurons: !ref <output_neurons>
+   embedding_dim: !ref <emb_size>
+   activation: !ref <activation>
+   dropout: !ref <dropout>
+   rnn_layers: !ref <rnn_layers>
+   rnn_neurons: !ref <hidden_size>
+   dnn_blocks: !ref <dnn_blocks>
+   dnn_neurons: !ref <dnn_neurons>
 
 modules:
-    model: !ref <model>
+   model: !ref <model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        scheduler: !ref <lr_annealing>
-        counter: !ref <epoch_counter>
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      scheduler: !ref <lr_annealing>
+      counter: !ref <epoch_counter>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
+   apply_log: True
 
 optimizer: !name:torch.optim.Adam
-    lr: !ref <lr>
-    betas: (0.9, 0.98)
-    eps: 0.000000001
+   lr: !ref <lr>
+   betas: (0.9, 0.98)
+   eps: 0.000000001
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
+   limit: !ref <number_of_epochs>
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+   save_file: !ref <train_log>
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        tokenizer: !ref <tokenizer>
-    paths:
-        tokenizer: !ref <tokenizer_file>
+   collect_in: !ref <save_folder>
+   loadables:
+      tokenizer: !ref <tokenizer>
+   paths:
+      tokenizer: !ref <tokenizer_file>

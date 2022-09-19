@@ -1,8 +1,7 @@
 """
-This script assumes that data was downloaded, and it just prepares the data
-for training.
+Data preparation.
 
-You can download the data from here: http://www.openslr.org/100
+Download: http://www.openslr.org/100
 
 Author
 ------
@@ -10,11 +9,9 @@ Mohamed Anwar (Anwarvic) 2022
 """
 
 import os
-import yaml
 import json
 import string
 import logging
-# from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +22,7 @@ def prepare_mtedx(
     langs=[],
 ):
     """
-    This class prepares the csv files for the mTEDx dataset.
-    Download link: http://www.openslr.org/12
+    This function prepares the json files for the mTEDx dataset.
 
     Arguments
     ---------
@@ -39,22 +35,26 @@ def prepare_mtedx(
 
     Example
     -------
-    >>> data_folder = 'datasets/LibriSpeech'
-    >>> save_folder = 'librispeech_prepared'
+    >>> data_folder = 'datasets/mTEDx'
+    >>> save_folder = 'mTEDx_prepared'
     >>> langs = ["fr", "es"]
     >>> prepare_mtedx(data_folder, save_folder, langs)
     """ 
     # Saving folder
     os.makedirs(save_folder, exist_ok=True)
-
+    
+    langs.sort()
+    # checks for one json file that have all needed data for give langs. 
     if skip(save_folder, langs):
         logger.info("Skipping preparation, completed in previous run.")
         return
     else:
         logger.info("Data_preparation...")
 
-    # TODO: Additional checks to make sure the data folder contains mTEDx
-    # check_mtedx_folders(data_folder, langs)
+    # Additional checks to make sure the data folder contains mTEDx
+    for lang in langs:
+        for group in ["train", "valid", "test"]:
+            check_mtedx_folders(data_folder, lang, group)
 
     # create json files for each group
     for group in ["test", "valid", "train"]:
@@ -87,45 +87,11 @@ def create_json(data_folder, save_folder, langs, group):
         return
     
     logger.info(f"Creating json file in {json_file}")
+    group_data = {}
     for lang in langs:
         logger.info(f"Processing language: {lang}, group: {group}")
-        base_dir = \
-            os.path.join(data_folder, f"{lang}-{lang}", "data", group, "txt")
-        
-        # parse YAML file containing audio info
-        with open( os.path.join(base_dir, f"{group}.yaml"), "r") as fin:
-            audio_samples = yaml.load(fin, Loader=yaml.Loader)
-        
-        # parse text file containing text info
-        with open( os.path.join(base_dir, f"{group}.{lang}"), "r") as fin:
-            text_samples = fin.readlines()
-        
-        # sanity check
-        assert len(text_samples) == len(audio_samples), \
-            f"Data mismatch with language: {lang}, group: {group}"
-        
-        # combine text & audio information
-        group_data = {}
-        for i in range(len(audio_samples)):
-            audio, text = audio_samples[i], text_samples[i]
-            # ignore audios >= 20 seconds & <= 0.1 in `train`
-            if (
-                group == "train"
-                and (audio["duration"] > 20 or audio["duration"] < 0.1)
-            ):
-                continue
-            audio_filepath = \
-                f"{lang}-{lang}/data/{group}/wav/{audio['speaker_id']}.flac"
-            group_data[audio["speaker_id"]+f"_{i}"] = {
-                "wav": {
-                    "file": "{data_root}/" + audio_filepath,
-                    "start": audio["offset"],
-                    "end": audio["offset"]+audio["duration"],
-                },
-                "words": text.strip(),
-                "duration": audio["duration"],
-                "lang": lang,
-            }
+        with open(os.path.join(data_folder, lang, f"{group}.json")) as fin:
+            group_data.extend(json.loads(fin))
     # write dict into json file    
     with open(json_file, 'w', encoding='utf8') as fout:
         fout.write(json.dumps(group_data, indent=4, ensure_ascii=False))
@@ -157,21 +123,35 @@ def skip(save_folder, langs):
     )
 
 
-def check_mtedx_folders(data_folder, splits):
+def check_mtedx_folders(data_folder, lang, group):
     """
     Check if the data folder actually contains the mTEDx dataset.
     If it does not, an error is raised.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder: str
+        Path to the folder where the original mTEDx dataset is stored.
+    lang: str
+        A string describing the language code.
+    group: str
+        A string describing the data group, e.g "test".
 
     Raises
     ------
-    OSError
-        If LibriSpeech is not found at the specified path.
+    ValueError
+        If data in json file didn't match real data.
     """
-    pass
+    with open(os.path.join(data_folder, lang, f"{group}.json")) as fin:
+        json_data = json.load(fin)
+    audio_data = os.listdir(os.path.join(data_folder, lang, group))
+    if len(json_data) != len(audio_data):
+        raise ValueError(
+            f"{lang}/{group} data doesn't match!! Actual audio data is" + 
+            f"{len(audio_data)}, while audio data written in json file is" +
+            f"{len(json_data)}!"
+        )
+    return True
 
 
 #helpful function

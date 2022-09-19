@@ -4,13 +4,13 @@
 # Authors:  Abdel Heba 2021, Mohamed Anwar 2022
 # ############################################################################
 
-output_folder: !ref ./results/mTEDx_fr/Tokenizer/1K_subword_unigram
+output_folder: !PLACEHOLDER
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER
 langs:
-   -  fr
+   - !PLACEHOLDER
 
 train_json: !ref <data_folder>/train_fr.json
 valid_json: !ref <data_folder>/valid_fr.json
