@@ -82,14 +82,10 @@ enc: !new:speechbrain.nnet.containers.Sequential
       n_neurons: !ref <dnn_neurons>
       bias: True
    activation: !ref <dnn_activation>
-   drop: !new:torch.nn.Dropout
-      p: 0.15
    linear2: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
    activation2: !ref <dnn_activation>
-   drop2: !new:torch.nn.Dropout
-      p: 0.15
    linear3: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
