@@ -81,21 +81,18 @@ enc: !new:speechbrain.nnet.containers.Sequential
    linear1: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
-   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation: !ref <dnn_activation>
    drop: !new:torch.nn.Dropout
       p: 0.15
    linear2: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
-   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation2: !ref <dnn_activation>
    drop2: !new:torch.nn.Dropout
       p: 0.15
    linear3: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
-   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation3: !ref <dnn_activation>
 
 # enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
