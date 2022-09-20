@@ -41,6 +41,8 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
     # Iterate all groups if none is provided
     if param_group is None:
         groups = range(len(optimizer.param_groups))
+    else:
+        groups = param_group
 
     for i in groups:
         old_lr = optimizer.param_groups[i]["lr"]
