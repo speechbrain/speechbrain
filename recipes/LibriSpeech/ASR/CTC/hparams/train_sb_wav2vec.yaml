@@ -76,11 +76,33 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 #   sample_rate: !ref <sample_rate>
 #   speeds: [95, 100, 105]
 
-enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+enc: !new:speechbrain.nnet.containers.Sequential
    input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation: !ref <dnn_activation>
-   dnn_blocks: 3
-   dnn_neurons: !ref <dnn_neurons>
+   drop: !new:torch.nn.Dropout
+      p: 0.15
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !ref <dnn_activation>
+   drop2: !new:torch.nn.Dropout
+      p: 0.15
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !ref <dnn_activation>
+
+# enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+#   input_shape: [null, null, !ref <wav2vec_output_dim>]
+#   activation: !ref <dnn_activation>
+#   dnn_blocks: 3
+#   dnn_neurons: !ref <dnn_neurons>
 
 # standard parameters for the BASE model
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
