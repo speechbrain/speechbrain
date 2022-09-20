@@ -78,7 +78,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    input_shape: [null, null, !ref <wav2vec_output_dim>]
-   activation: !ref <dnn_activation>
+   activation: !name:torch.nn.LeakyReLU
    dnn_blocks: 3
    dnn_neurons: !ref <dnn_neurons>
 
