@@ -97,7 +97,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
 
 # standard parameters for the BASE model
 extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
-   out_channels: [512, 512, 512, 512, 512, 1024, 1024]
+   out_channels: [512, 512, 512, 512, 512, 512, 512]
 
 # standard parameters for the BASE model
 encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
@@ -112,7 +112,7 @@ encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncode
 
 # standard parameters for the BASE model
 encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
-   in_dim: 1024
+   in_dim: 512
    embedding_dim: 768
    latent_encoder: !ref <encoder>
    dropout_encoder_input: 0.1
