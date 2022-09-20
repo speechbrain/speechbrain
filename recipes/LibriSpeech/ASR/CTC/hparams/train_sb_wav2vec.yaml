@@ -81,15 +81,12 @@ enc: !new:speechbrain.nnet.containers.Sequential
    linear1: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
-   activation: !ref <dnn_activation>
    linear2: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
-   activation2: !ref <dnn_activation>
    linear3: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
-   activation3: !ref <dnn_activation>
 
 # enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 #   input_shape: [null, null, !ref <wav2vec_output_dim>]
