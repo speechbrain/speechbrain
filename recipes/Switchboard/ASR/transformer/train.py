@@ -472,13 +472,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing Librispeech)
     from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
-
-    normalize_fn = functools.partial(
-        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
-    )
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -508,6 +503,12 @@ if __name__ == "__main__":
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
+
+    # Helper function that removes optional/deletable parts of the transcript
+    # for cleaner performance metrics
+    normalize_fn = functools.partial(
+        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
+    )
 
     # Trainer initialization
     asr_brain = ASR(

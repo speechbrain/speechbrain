@@ -368,10 +368,6 @@ if __name__ == "__main__":
     from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
 
-    normalize_fn = functools.partial(
-        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
-    )
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -405,6 +401,12 @@ if __name__ == "__main__":
 
     # Create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
+
+    # Helper function that removes optional/deletable parts of the transcript
+    # for cleaner performance metrics
+    normalize_fn = functools.partial(
+        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
+    )
 
     # Trainer initialization
     asr_brain = ASR(

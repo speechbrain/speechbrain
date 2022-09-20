@@ -1,4 +1,5 @@
-# Switchboard ASR with seq2seq models (CTC + attention).
+# Switchboard ASR with seq2seq models (CTC + attention)
+
 This folder contains the scripts to train a seq2seq CNN-RNN-based system on the Switchboard dataset.
 
 You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
@@ -18,7 +19,7 @@ Part 1 and part 2 of the Fisher corpus are available at:
 
 | Release | hyperparams file | Swbd WER | Callhome WER | Eval2000 WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:|
-| 08-07-22 | train_BPE_2000.yaml | 15.01 | 24.44 | 19.90 | n.a. | n.a.| 1xA100 40GB |
+|  17-09-22 | train_BPE_2000.yaml | 16.01  | 25.12 | 20.71 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-switchboard) | n.a. | 1xA100 40GB |
 
 
 # **About SpeechBrain**

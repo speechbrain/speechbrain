@@ -398,10 +398,6 @@ if __name__ == "__main__":
     from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
 
-    normalize_fn = functools.partial(
-        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
-    )
-
     # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_switchboard,
@@ -429,6 +425,12 @@ if __name__ == "__main__":
     # we download the pretrained LM and Tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
+
+    # Helper function that removes optional/deletable parts of the transcript
+    # for cleaner performance metrics
+    normalize_fn = functools.partial(
+        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
+    )
 
     # Trainer initialization
     asr_brain = ASR(

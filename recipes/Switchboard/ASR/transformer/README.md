@@ -1,6 +1,6 @@
-# Switchboard ASR with Transformers.
-This folder contains the scripts to train a Transformer-based speech recognizer
-using the Switchboard corpus.
+# Switchboard ASR with Transformers
+
+This folder contains the scripts to train a transformer-based speech recognizer on the Switchboard dataset.
 
 You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
 
@@ -12,16 +12,15 @@ Part 1 and part 2 of the Fisher corpus are available at:
 - https://catalog.ldc.upenn.edu/LDC2004T19
 - https://catalog.ldc.upenn.edu/LDC2005T19
 
-
 # How to run
 `python train.py hparams/<hparam_file>.yaml`
 
 # Results
 
-| Release | hyperparams file | Swbd WER | Callhome WER | Eval2000 WER | HuggingFace link | Model link | GPUs | Comment
+| Release | hyperparams file | Swbd WER | Callhome WER | Eval2000 WER | HuggingFace link | Full model link | GPUs | Comment
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
-| 01-07-22 | transformer.yaml| 9.64 | 17.97 | 13.99  | n.a. | n.a. | 1xA100 40GB | This model uses an LM trained on Swbd+Fisher data (see ../../LM/hparams/transformer.yaml)|
-| 01-07-22 | transformer_finetuned_LM.yaml| 9.99 | 18.98 | 14.58  | n.a. | n.a. | 1xA100 40GB | This model uses the LibriSpeech LM but finetuned on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
+| 17-09-22  | transformer.yaml | 9.80 | 17.89 | 13.94  | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-switchboard) | n.a. | 1xA100 40GB | This model uses an LM trained on Swbd+Fisher data (see ../../LM/hparams/transformer.yaml)|
+| 17-09-22  | transformer_finetuned_LM.yaml| 9.99 | 18.98 | 14.58  | n.a. | n.a. | 1xA100 40GB | This model uses the LibriSpeech LM but finetuned on Swbd+Fisher data (see ../../LM/hparams/transformer_finetune.yaml)|
 
 
 # Training Time

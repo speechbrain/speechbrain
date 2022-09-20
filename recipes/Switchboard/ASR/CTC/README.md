@@ -1,5 +1,6 @@
 # Switchboard ASR with CTC models
-This folder contains the scripts to train a wav2vec based system using Switchboard.
+
+This folder contains the scripts to train a wav2vec2-based system on the Switchboard dataset.
 
 You can download the Switchboard data at https://catalog.ldc.upenn.edu/LDC97S62.
 
@@ -19,7 +20,7 @@ Make sure you have the "transformers" package installed in your environment (see
 
 | Release | hyperparams file | Swbd WER | Callhome WER | Eval2000 WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :--------:| :--------:| :-----:| :-----:| :--------:|
-| 01-07-22 | train_with_wav2vec.yaml | 8.90 | 14.99 | 12.04 | n.a.| n.a. | 1xA100 40GB |
+| 17-09-22 | train_with_wav2vec.yaml | 8.76 | 14.67 | 11.78        | [HuggingFace](https://huggingface.co/speechbrain/asr-wav2vec2-switchboard) | n.a. | 4xA100 40GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
