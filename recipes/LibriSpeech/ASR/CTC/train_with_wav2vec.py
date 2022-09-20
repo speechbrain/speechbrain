@@ -349,24 +349,13 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    # We load the pretrained wav2vec2 model
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(hparams["device"])
+
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
-
-    pretrained_model_path_extract = (
-        hparams["wav2vec2_hub"] + "/latent_extractor.ckpt"
-    )
-    pretrained_model_path_encode = (
-        hparams["wav2vec2_hub"] + "/latent_encoder.ckpt"
-    )
-    sb.utils.checkpoints.torch_recovery(
-        hparams["modules"]["extractor"], pretrained_model_path_extract, False
-    )
-    sb.utils.checkpoints.torch_recovery(
-        hparams["modules"]["encoder_wrapper"],
-        pretrained_model_path_encode,
-        False,
-    )
 
     # Training
     asr_brain.fit(
