@@ -69,9 +69,9 @@ blank_index: 0
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-   sample_rate: !ref <sample_rate>
-   speeds: [95, 100, 105]
+# augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+#   sample_rate: !ref <sample_rate>
+#   speeds: [95, 100, 105]
 
 enc: !new:speechbrain.nnet.containers.Sequential
    input_shape: [null, null, !ref <wav2vec_output_dim>]
