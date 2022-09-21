@@ -42,6 +42,7 @@ dynamic_batch_sampler:
    left_bucket_len: 200
    multiplier: 1.1
    shuffle: False # if true re-creates batches at each epoch shuffling examples.
+   num_buckets: 33 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
 
 # Feature parameters
 sample_rate: 16000
