@@ -652,7 +652,7 @@ class WaveformEncoder(Pretrained):
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
         results = self.encode_batch(batch, rel_length)
-        return results["embedding"]
+        return results["embeddings"]
 
     def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states
