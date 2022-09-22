@@ -836,7 +836,9 @@ class Deltas(torch.nn.Module):
 
         # Derivative estimation (with a fixed convolutional kernel)
         delta_coeff = (
-            torch.nn.functional.conv1d(x, self.kernel, groups=x.shape[1])
+            torch.nn.functional.conv1d(
+                x, self.kernel.to(x.device), groups=x.shape[1]
+            )
             / self.denom
         )
 

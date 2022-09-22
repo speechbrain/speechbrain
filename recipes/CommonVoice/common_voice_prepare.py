@@ -242,6 +242,18 @@ def create_csv(
                 "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
             ).upper()
 
+        if language == "de":
+            # this replacement helps preserve the case of ß
+            # (and helps retain solitary occurrences of SS)
+            # since python's upper() converts ß to SS.
+            words = words.replace("ß", "0000ß0000")
+            words = re.sub("[^’'A-Za-z0-9öÖäÄüÜß]+", " ", words).upper()
+            words = words.replace("'", " ")
+            words = words.replace("’", " ")
+            words = words.replace(
+                "0000SS0000", "ß"
+            )  # replace 0000SS0000 back to ß as its initial presence in the corpus
+
         if language == "fr":
             # Replace J'y D'hui etc by J_ D_hui
             words = words.replace("'", " ")
