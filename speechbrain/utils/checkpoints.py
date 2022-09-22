@@ -162,12 +162,14 @@ DEFAULT_LOAD_HOOKS = {
     torch.optim.Optimizer: torch_recovery,
     torch.optim.lr_scheduler._LRScheduler: torch_recovery,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
+    torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
     torch.optim.Optimizer: torch_save,
     torch.optim.lr_scheduler._LRScheduler: torch_save,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
+    torch.cuda.amp.grad_scaler.GradScaler: torch_save,
 }
 DEFAULT_TRANSFER_HOOKS = {
     torch.nn.Module: torch_parameter_transfer,
