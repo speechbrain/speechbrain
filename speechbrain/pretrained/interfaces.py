@@ -677,7 +677,7 @@ class WaveformEncoder(Pretrained):
         """
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        encoder_out = self.mods.encoder(wavs, wav_lens=wav_lens)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
         return encoder_out
 
     def forward(self, wavs, wav_lens):
