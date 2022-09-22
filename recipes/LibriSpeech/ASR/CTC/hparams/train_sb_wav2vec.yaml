@@ -72,9 +72,9 @@ blank_index: 0
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-# augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-#   sample_rate: !ref <sample_rate>
-#   speeds: [95, 100, 105]
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+   sample_rate: !ref <sample_rate>
+   speeds: [95, 100, 105]
 
 enc: !new:speechbrain.nnet.containers.Sequential
    input_shape: [null, null, !ref <wav2vec_output_dim>]
@@ -115,7 +115,7 @@ encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncode
    nhead: 8
    d_ffn: 3072
    dropout: 0.1
-   layerdrop_prob: 0.05
+   layerdrop_prob: 0.0
    normalize_before: True
    activation: !name:torch.nn.GELU
 
@@ -162,7 +162,7 @@ lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr_wav2vec>
    improvement_threshold: 0.0025
-   annealing_factor: 0.9
+   annealing_factor: 0.7
    patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
