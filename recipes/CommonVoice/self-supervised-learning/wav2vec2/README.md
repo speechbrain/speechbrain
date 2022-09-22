@@ -4,7 +4,7 @@ This folder contains the scripts to train a wav2vec2 based system using CommonVo
 # SpeechBrain VS HuggingFace wav2vec2 training ??
 As usual, our goal at SpeechBrain remains to offer as much flexibility to the user as possible. Hence, wav2vec2 pretraining can be achieved in two different ways: fully with SpeechBrain, or following our HuggingFace interface. Both approaches give similar results. Indeed we tested both with a BASE model pretrained on LibriSpeech and fine-tuned on LibriSpeech for ASR, IEMOCAP for emotion recognition and VoxCeleb 1 for speaker identification. Therefore, it is up to the user to decide what training scheme he/she wish to follow. A full SpeechBrain training offers a unique flexibility for further research (e.g. changing the loss, changing the architecture, modifying absolutely everything with wav2vec2), while the HuggingFace pretraining offers a good interfacing with the transformers library.
 
-**On CommonVoice, we officialy provide only a fully HuggingFace recipe. If you wish to use the HuggingFace pretraining, please go to our [LibriSpeech recipe](#)**
+**On CommonVoice, we officialy provide only a fully HuggingFace recipe. If you wish to use the HuggingFace pretraining, please go to our [LibriSpeech recipe](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/self-supervised-learning/wav2vec2)**
 
 # Requirements
 The HuggingFace *transformers* library must be installed first.
