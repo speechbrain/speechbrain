@@ -493,11 +493,12 @@ class Conv1d(nn.Module):
             )
 
         # Kernel size must be odd
-        if not self.padding == "valid" and self.kernel_size[0] % 2 == 0:
+        if not self.padding == "valid" and self.kernel_size % 2 == 0:
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)
             )
+
         return in_channels
 
     def remove_weight_norm(self):
