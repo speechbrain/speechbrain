@@ -21,6 +21,7 @@ import logging
 import sys
 from prepare import download_data, prepare_data
 from dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
+from torchinfo import summary
 import speechbrain as sb
 
 
@@ -83,6 +84,10 @@ class MOABBBrain(sb.Brain):
         """Gets called at the beginning of ``fit()``"""
         self.init_model(self.hparams.model)
         self.init_optimizers()
+        in_shape = (1,)+tuple(self.hparams.input_shape[1:-1])+(1,)
+        model_summary = summary(self.hparams.model, input_size=in_shape)
+        with open(os.path.join(self.hparams.exp_dir, 'model.txt'), "w") as text_file:
+            text_file.write(str(model_summary))
 
     def on_stage_start(self, stage, epoch=None):
         "Gets called when a stage (either training, validation, test) starts."
@@ -296,6 +301,9 @@ def perform_evaluation(brain, hparams, datasets, dataset_key="test"):
 def run_single_process(argv, tail_path, datasets):
     """This function wraps up a single process (e.g., the training of a single cross-validation fold
     with a specific hparams file and experiment directory)"""
+    # overriding number of channels (sampled from the entire set of channels)
+    n_sampled_channels = datasets['train'].dataset.tensors[0].shape[-2]
+    argv += ['--C', str(n_sampled_channels)]
     # loading hparams for the each training and evaluation processes
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -312,7 +320,6 @@ def run_single_process(argv, tail_path, datasets):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-
     # loading hparams to prepare the dataset and the data iterators
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -332,7 +339,10 @@ if __name__ == "__main__":
                      srate_in=hparams["original_sample_rate"],
                      srate_out=hparams["sample_rate"],
                      fmin=hparams['fmin'],
-                     fmax=hparams['fmax'])
+                     fmax=hparams['fmax'],
+                     idx_subject_to_prepare=hparams["target_subject_idx"] \
+                         if hparams["data_iterator_name"] == 'leave-one-session-out' else -1
+                     )
 
     # defining data iterator to use
     print("Prepare dataset iterators...")
@@ -348,13 +358,13 @@ if __name__ == "__main__":
                                               str(int(hparams['fmin'])).zfill(3),
                                               str(int(hparams['fmax'])).zfill(3))
     if data_iterator is not None:
-
-        for (tail_path, datasets) in data_iterator.prepare(dataset,
-                                                           hparams["batch_size"],
-                                                           cached_dataset_tag=cached_dataset_tag,
-                                                           interval=[hparams["tmin"], hparams['tmax']],
-                                                           valid_ratio=hparams["valid_ratio"],
-                                                           target_subject_idx=hparams["target_subject_idx"],
-                                                           target_session_idx=hparams["target_session_idx"],
-                                                           apply_standardization=False, ):
-            run_single_process(argv, tail_path=tail_path, datasets=datasets)
+        tail_path, datasets = data_iterator.prepare(dataset,
+                                                    hparams["batch_size"],
+                                                    cached_dataset_tag=cached_dataset_tag,
+                                                    interval=[hparams["tmin"], hparams['tmax']],
+                                                    n_steps_channel_selection=hparams["n_steps_channel_selection"],
+                                                    valid_ratio=hparams["valid_ratio"],
+                                                    target_subject_idx=hparams["target_subject_idx"],
+                                                    target_session_idx=hparams["target_session_idx"],
+                                                    apply_standardization=False, )
+        run_single_process(argv, tail_path=tail_path, datasets=datasets)

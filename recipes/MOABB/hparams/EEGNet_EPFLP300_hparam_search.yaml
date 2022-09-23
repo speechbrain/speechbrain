@@ -29,12 +29,13 @@ original_sample_rate: 512 # Original sampling rate provided by dataset authors
 sample_rate: 128 # Target sampling rate (Hz)
 fmin: 1 # band-pass filtering cut-off frequencies
 fmax: 40
-n_classes: 2
+n_steps_channel_selection: 3
 tmin: 0.
 tmax: 0.8
-T: !ref <sample_rate> * (<tmax> - <tmin>)
+T: !apply:math.floor
+    - !ref <sample_rate> * (<tmax> - <tmin>)
 C: 32
-
+n_classes: 2
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
 # - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
@@ -136,18 +137,18 @@ augment_noise: !new:speechbrain.processing.augmentation.Augmenter
     add_noise_pink: !ref <add_noise_pink>
     add_noise_white: !ref <add_noise_white>
 
-augment: !new:speechbrain.processing.augmentation.Augmenter
-    parallel_augment: True
-    concat_original: True
-    min_augmentations: !ref <n_augmentations>
-    max_augmentations: !ref <n_augmentations>
-    repeat_augment: !ref <repeat_augment>
-    shuffle_augmentations: True
-    rand_amp: !ref <rand_amp>
-    time_shift: !ref <time_shift>
-    chunk_dropper: !ref <chunk_dropper>
-    augment_noise: !ref <augment_noise>
-    add_muscular_noise: !ref <add_muscular_noise>
+# augment: !new:speechbrain.processing.augmentation.Augmenter
+#     parallel_augment: True
+#     concat_original: True
+#     min_augmentations: !ref <n_augmentations>
+#     max_augmentations: !ref <n_augmentations>
+#     repeat_augment: !ref <repeat_augment>
+#     shuffle_augmentations: True
+#     rand_amp: !ref <rand_amp>
+#     time_shift: !ref <time_shift>
+#     chunk_dropper: !ref <chunk_dropper>
+#     augment_noise: !ref <augment_noise>
+#     add_muscular_noise: !ref <add_muscular_noise>
 
 # DATA NORMALIZATION
 dims_to_normalize: 2 # 1 or 2

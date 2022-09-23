@@ -16,7 +16,6 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import os
 
-
 def standardize(x, m=None, s=None):
     """This function standardizes each input EEG channel (x) using mean value (m)
     and standard deviation (s)."""
@@ -105,37 +104,36 @@ def get_dataloader(batch_size,
     return train_loader, valid_loader, test_loader
 
 
-def load_data(paradigm, dataset, idx):
-    """This function load EEG data and useful variables (labels, metadata channel names and sampling rate)."""
-    x, labels, metadata = paradigm.get_data(dataset, idx, True)
-    ch_names = x.info.ch_names
-    srate = x.info.sfreq
-
-    x = x.get_data()
-    # forcing time steps to be = (tmax-tmin)*srate after mne resampling procedure
-    if paradigm.resample is not None:
-        xx = np.zeros(
-            x.shape[:-1]
-            + (int(paradigm.resample * (paradigm.tmax - paradigm.tmin)),)
-        )
-        stop = x.shape[-1]
-        if x.shape[-1] > xx.shape[-1]:
-            stop = xx.shape[-1]
-        xx = x[..., :stop]
-    else:
-        xx = x.copy()[..., :-1]
-    y = [dataset.event_id[yy] for yy in labels]
-    y = np.array(y)
-    y -= y.min()
-
-    return xx, y, labels, metadata, ch_names, srate
-
-
 def crop_signals(x, srate, interval_in, interval_out):
+    """Function that crops signals within a fixed window"""
     time = np.arange(interval_in[0], interval_in[1], 1 / srate)
     idx_start = np.argmin(np.abs(time - interval_out[0]))
     idx_stop = np.argmin(np.abs(time - interval_out[1]))
     return x[..., idx_start:idx_stop]
+
+
+def get_neighbour_channels(adjacency_mtx, ch_names, n_steps=1, seed_nodes=['Cz']):
+    """Function that samples a subset of channels from a seed channel including neighbour channels within a fixed number of steps in the adjacency matrix"""
+    sel_channels = []
+    for i in np.arange(n_steps):
+        tmp_sel_channels = []
+        for node in seed_nodes:
+            idx_node = np.where(node == np.array(ch_names))[0][0]
+            idx_linked_nodes = np.where(adjacency_mtx[idx_node, :] > 0)[0]  #find indices linked to the node
+            linked_channels = np.array(ch_names)[idx_linked_nodes]
+            tmp_sel_channels.extend(list(linked_channels))
+        seed_nodes = tmp_sel_channels
+        sel_channels.extend(tmp_sel_channels)
+    sel_channels = np.unique(sel_channels)
+    return sel_channels
+
+
+def sample_channels(x, adjacency_mtx, ch_names, n_steps, seed_nodes=['Cz']):
+    """Function that select only selected channels from the input data"""
+    sel_channels = get_neighbour_channels(adjacency_mtx, ch_names, n_steps=n_steps, seed_nodes=seed_nodes)
+    idx_sel_channels = [i for i, ch in enumerate(ch_names) if ch in sel_channels]
+    idx_sel_channels = np.array(idx_sel_channels)  #idx selected channels
+    return x[:, idx_sel_channels, :]
 
 
 class LeaveOneSessionOut(object):
@@ -164,6 +162,7 @@ class LeaveOneSessionOut(object):
             batch_size,
             cached_dataset_tag,
             interval=None,
+            n_steps_channel_selection=None,
             valid_ratio=0.2,
             target_subject_idx=None,
             target_session_idx=None,
@@ -263,7 +262,14 @@ class LeaveOneSessionOut(object):
             x_train = crop_signals(x=x_train, srate=srate, interval_in=original_interval, interval_out=interval)
             x_valid = crop_signals(x=x_valid, srate=srate, interval_in=original_interval, interval_out=interval)
             x_test = crop_signals(x=x_test, srate=srate, interval_in=original_interval, interval_out=interval)
-
+        # channel sampling
+        if n_steps_channel_selection is not None:
+            x_train = sample_channels(x_train, data_dict['adjacency_mtx'], data_dict['channels'],
+                                      n_steps=n_steps_channel_selection)
+            x_valid = sample_channels(x_valid, data_dict['adjacency_mtx'], data_dict['channels'],
+                                      n_steps=n_steps_channel_selection)
+            x_test = sample_channels(x_test, data_dict['adjacency_mtx'], data_dict['channels'],
+                                     n_steps=n_steps_channel_selection)
         # swap axes: from (N_examples, C, T) to (N_examples, T, C)
         x_train = np.swapaxes(x_train, -1, -2)
         x_valid = np.swapaxes(x_valid, -1, -2)
@@ -282,7 +288,7 @@ class LeaveOneSessionOut(object):
             'sub-{0}'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)),
             sessions[target_session_idx],
         )
-        yield (tail_path, datasets)
+        return tail_path, datasets
 
 
 class LeaveOneSubjectOut(object):
@@ -311,6 +317,7 @@ class LeaveOneSubjectOut(object):
             batch_size,
             cached_dataset_tag,
             interval=None,
+            n_steps_channel_selection=None,
             valid_ratio=0.2,
             target_subject_idx=None,
             target_session_idx=None,
@@ -411,11 +418,19 @@ class LeaveOneSubjectOut(object):
             x_valid = crop_signals(x=x_valid, srate=srate, interval_in=original_interval, interval_out=interval)
             x_test = crop_signals(x=x_test, srate=srate, interval_in=original_interval, interval_out=interval)
 
+        # channel sampling
+        if n_steps_channel_selection is not None:
+            x_train = sample_channels(x_train, data_dict['adjacency_mtx'], data_dict['channels'],
+                                      n_steps=n_steps_channel_selection)
+            x_valid = sample_channels(x_valid, data_dict['adjacency_mtx'], data_dict['channels'],
+                                      n_steps=n_steps_channel_selection)
+            x_test = sample_channels(x_test, data_dict['adjacency_mtx'], data_dict['channels'],
+                                     n_steps=n_steps_channel_selection)
+
         # swap axes: from (N_examples, C, T) to (N_examples, T, C)
         x_train = np.swapaxes(x_train, -1, -2)
         x_valid = np.swapaxes(x_valid, -1, -2)
         x_test = np.swapaxes(x_test, -1, -2)
-        print(x_train.shape)
         # dataloaders
         train_loader, valid_loader, test_loader = get_dataloader(batch_size,
                                                                  (x_train, y_train),
@@ -426,4 +441,4 @@ class LeaveOneSubjectOut(object):
         datasets["valid"] = valid_loader
         datasets["test"] = test_loader
         tail_path = os.path.join(self.iterator_tag, 'sub-{0}'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)) )
-        yield (tail_path, datasets)
+        return tail_path, datasets

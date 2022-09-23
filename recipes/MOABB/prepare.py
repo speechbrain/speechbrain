@@ -16,6 +16,8 @@ from mne.utils.config import set_config, get_config
 import os
 import pickle
 import argparse
+from mne.channels import find_ch_adjacency
+import scipy
 
 
 def get_output_dict(dataset, subject, events_to_load, srate_in, srate_out, fmin, fmax, verbose=0):
@@ -73,7 +75,7 @@ def get_output_dict(dataset, subject, events_to_load, srate_in, srate_out, fmin,
             resample=srate_out  # downsample
         )
 
-    x, y, labels, metadata, channels, srate = load_data(paradigm, dataset, [subject])
+    x, y, labels, metadata, channels, adjacency_mtx, srate = load_data(paradigm, dataset, [subject])
 
     if verbose == 1:
         for l in np.unique(labels):
@@ -88,6 +90,7 @@ def get_output_dict(dataset, subject, events_to_load, srate_in, srate_out, fmin,
             print("Number of class {0} examples: {1}".format(c, np.where(y == c)[0].shape[0]))
 
     output_dict['channels'] = channels
+    output_dict['adjacency_mtx'] = adjacency_mtx
     output_dict['x'] = x
     output_dict['y'] = y
     output_dict['labels'] = labels
@@ -104,12 +107,15 @@ def load_data(paradigm, dataset, idx):
     In addition metadata, channel names and the sampling rate are provided too."""
     x, labels, metadata = paradigm.get_data(dataset, idx, True)
     ch_names = x.info.ch_names
+    adjacency, _ = find_ch_adjacency(x.info, ch_type='eeg')
+    adjacency_mtx = scipy.sparse.csr_matrix.toarray(adjacency)  # from sparse mtx to ndarray
+
     srate = x.info['sfreq']
     x = x.get_data()
     y = [dataset.event_id[yy] for yy in labels]
     y = np.array(y)
     y -= y.min()
-    return x, y, labels, metadata, ch_names, srate
+    return x, y, labels, metadata, ch_names, adjacency_mtx, srate
 
 
 def download_data(data_folder, dataset):
@@ -120,7 +126,8 @@ def download_data(data_folder, dataset):
     dataset.download()
 
 
-def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin, fmax, overwrite_prepared=False, verbose=0):
+def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin, fmax, overwrite_prepared=False,
+                 idx_subject_to_prepare=-1,  save_prepared_dataset=True, verbose=0):
     """This function prepare all datasets and save them in a separate pickle for each subject."""
     # changing default download directory
     for a in get_config().keys():
@@ -133,20 +140,30 @@ def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin
                                                                             srate_in)).zfill(4),
                                                                     str(int(fmin)).zfill(3),
                                                                     str(int(fmax)).zfill(3))))
-    if (not os.path.isdir(tmp_output_dir)) or overwrite_prepared:
+    if not os.path.isdir(tmp_output_dir):
         os.makedirs(tmp_output_dir)
-        for kk, subject in enumerate(dataset.subject_list):
+
+    if idx_subject_to_prepare < 0:
+        subject_to_prepare = dataset.subject_list
+    else:
+        subject_to_prepare = [dataset.subject_list[idx_subject_to_prepare]]
+
+    for kk, subject in enumerate(subject_to_prepare):
+        fname = 'sub-{0}.pkl'.format(str(subject).zfill(3))
+        output_dict_fpath = os.path.join(tmp_output_dir, fname)
+
+        if os.path.isfile(output_dict_fpath) and not overwrite_prepared:
+            print('Skipping, the dataset has already been prepared...')
+            with open(output_dict_fpath, "rb") as handle:
+                output_dict = pickle.load(handle)
+        else:
             output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
                                           fmin=fmin, fmax=fmax, verbose=verbose)
-
-            fname = 'sub-{0}.pkl'.format(str(subject).zfill(3))
-            output_dict_fpath = os.path.join(tmp_output_dir, fname)
-            with open(output_dict_fpath, "wb") as handle:
-                pickle.dump(
-                    output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
-                )
-    else:
-        print('Skipping, the dataset has already been prepared...')
+            if save_prepared_dataset:
+                with open(output_dict_fpath, "wb") as handle:
+                    pickle.dump(
+                        output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
+                    )
 
 
 if __name__ == '__main__':

@@ -76,6 +76,12 @@ class EEGNet(torch.nn.Module):
             activation = torch.nn.PReLU()
         else:
             raise ValueError("Wrong hidden activation function")
+            
+        if cnn_temporal_kernelsize[0] % 2 == 0:
+            cnn_temporal_kernelsize = (cnn_temporal_kernelsize[0]-1,1)
+        if cnn_septemporal_kernelsize[0] % 2 == 0:
+            cnn_septemporal_kernelsize = (cnn_septemporal_kernelsize[0]-1,1)
+
 
         T = input_shape[1]
         C = input_shape[2]
