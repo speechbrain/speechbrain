@@ -1,30 +1,17 @@
-# mTEDx ASR with CTC models.
-This folder contains the scripts to train a wav2vec based system using mTEDx.
-You can train either a single-language wav2vec model or multilingual
-wav2vec model. Before running this recipe, make sure to read this
-[README](../../README.md) file first.
+# Tokenizer
+This folder contains the scripts to train a tokenizer using SentencePiece
+(https://github.com/google/sentencepiece). The tokenizer is trained on the top
+of the mTEDx-French training transcriptions.
 
-**Note:**\
-Wav2vec model used in this recipe is pre-trained on the French language.
-In order to use another language, don't forget to change the `wav2vec2_hub`
-in the `train_wav2vec.yaml` YAML file.
+Make sure to the mTEDx [README](../../README.md) file first.
 
 
 # How to run
 
-To train a single-language wav2vec model, run:
+To train a BPE tokenizer with 1k vocabulary, run the following command:
 ```bash
-$ python train.py hparams/train_wav2vec.yaml
+python train.py train/1K_unigram_subword_bpe.yaml
 ```
-
-To train a multilingual wav2vec model, run:
-```bash
-$ python train.py hparams/train_xlsr.yaml
-```
-
-# Results
-
-TODO
 
 
 # **About SpeechBrain**

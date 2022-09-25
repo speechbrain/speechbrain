@@ -1,30 +1,26 @@
-# mTEDx ASR with CTC models.
-This folder contains the scripts to train a wav2vec based system using mTEDx.
-You can train either a single-language wav2vec model or multilingual
-wav2vec model. Before running this recipe, make sure to read this
+# Language Model with mTEDx
+This folder contains recipes for training language models for the mTEDx Dataset.
+This recipe supports only an RNN-based LM.
+The scripts rely on the HuggingFace dataset, which manages data reading and
+loading from large text corpora.
+
+Before running this recipe, make sure to read the mTEDx
 [README](../../README.md) file first.
 
-**Note:**\
-Wav2vec model used in this recipe is pre-trained on the French language.
-In order to use another language, don't forget to change the `wav2vec2_hub`
-in the `train_wav2vec.yaml` YAML file.
-
-
-# How to run
-
-To train a single-language wav2vec model, run:
+# Extra Dependency:
+Make sure you have the HuggingFace dataset installed. If not, run the following
+command:
 ```bash
-$ python train.py hparams/train_wav2vec.yaml
+pip install -r extra_requirements.txt
 ```
 
-To train a multilingual wav2vec model, run:
+# How to run:
+
+To train a RNNLM on single/multiple language(s), run the following command:
+
 ```bash
-$ python train.py hparams/train_xlsr.yaml
+python train.py hparams/train.yaml
 ```
-
-# Results
-
-TODO
 
 
 # **About SpeechBrain**

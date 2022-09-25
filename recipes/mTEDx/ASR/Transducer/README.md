@@ -1,13 +1,21 @@
 # mTEDx ASR with Transducer models.
-This folder contains scripts necessary to run an ASR experiment with the mTEDx dataset. Before running this recipe, make sure to read this [README](../../README.md) file first.
+This folder contains scripts necessary to run an ASR experiment with the mTEDx
+dataset. Before running this recipe, make sure to read this 
+[README](../../README.md) file first.
 
 # Extra-Dependencies
-This recipe supports three implementations of the transducer loss, see `framework` arg in the yaml file:
-1. Transducer loss from torchaudio (this requires torchaudio version >= 0.10.0) (Default).
-2. Speechbrain implementation using Numba. To use it, please set `framework=speechbrain` in the yaml file. This version is implemented within SpeechBrain and  allows you to directly access the python code of the transducer loss (and directly modify it if needed).
+This recipe supports three implementations of the transducer loss, see
+`framework` arg in the yaml file:
+1. Transducer loss from torchaudio (this requires torchaudio version >= 0.10.0)
+(Default).
+2. Speechbrain implementation using Numba. To use it, please set
+`framework=speechbrain` in the yaml file. This version is implemented within
+SpeechBrain and  allows you to directly access the python code of the
+transducer loss (and directly modify it if needed).
 3. FastRNNT (pruned / unpruned) loss function.
   - To use the un-pruned loss function, please set `framewor=fastrnnt`.
-  - To use the pruned loss function, please change the whole `tranducer_cost` yaml variable.
+  - To use the pruned loss function, please change the whole `tranducer_cost`
+  yaml variable.
 
 If you are planning to use speechbrain RNNT loss function, install `numba`:
 ```
