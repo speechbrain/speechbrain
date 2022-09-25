@@ -5,7 +5,7 @@
 # ############################################################################
 
 output_folder: !PLACEHOLDER
-train_log: !ref <output_folder>/train_log.txt
+# train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER

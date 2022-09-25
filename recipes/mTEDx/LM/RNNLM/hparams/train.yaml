@@ -52,7 +52,7 @@ dnn_neurons: 256
 
 # Outputs
 output_neurons: 1000 # index(blank/eos/bos) = 0
-blank_index: 0
+# blank_index: 0
 bos_index: 1 #depends on the tokenizer
 eos_index: 2 #depends on the tokenizer
 

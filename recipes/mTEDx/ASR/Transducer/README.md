@@ -13,8 +13,8 @@ This recipe supports three implementations of the transducer loss, see
 SpeechBrain and  allows you to directly access the python code of the
 transducer loss (and directly modify it if needed).
 3. FastRNNT (pruned / unpruned) loss function.
-  - To use the un-pruned loss function, please set `framewor=fastrnnt`.
-  - To use the pruned loss function, please change the whole `tranducer_cost`
+  - To use the un-pruned loss function, please set `framework=fastrnnt`.
+  - To use the pruned loss function, please change the whole `transducer_cost`
   yaml variable.
 
 If you are planning to use speechbrain RNNT loss function, install `numba`:
