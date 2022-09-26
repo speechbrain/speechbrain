@@ -1,6 +1,6 @@
 # mTEDx ASR with Transducer models.
 This folder contains scripts necessary to run an ASR experiment with the mTEDx
-dataset. Before running this recipe, make sure to read this 
+dataset. Before running this recipe, make sure to read this
 [README](../../README.md) file first.
 
 # Extra-Dependencies
