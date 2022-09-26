@@ -24,7 +24,47 @@ $ python train.py hparams/train_xlsr.yaml
 
 # Results
 
-TODO
+<table>
+    <thead>
+        <tr>
+            <th>Release</th>
+            <th>hyperparams file</th>
+            <th>Val. CER</th>
+            <th>Val. WER</th>
+            <th colspan=4 style="text-align:center">Test WER</th>
+            <th>Model link</th>
+            <th>GPUs</th>
+        </tr>
+    </thead>
+    <tbody>
+      <tr>
+            <td>2022-08-10</td>
+            <td>train_wav2vec.yaml</td>
+            <td>GS: 4.49</td>
+            <td>GS: 10.66</td>
+            <td>GS: es-> -</td>
+            <td>GS: fr-> 12.59</td>
+            <td>GS: pt-> -</td>
+            <td>GS: it-> -</td>
+            <td>Not Available</td>
+            <td>4xV100 32GB</td>
+        </tr>
+        <tr>
+            <td>2022-08-10</td>
+            <td>train_xlsr.yaml</td>
+            <td>GS(avg.): 5.87</td>
+            <td>GS(avg.): 15.24</td>
+            <td>GS: es-> 14.72</td>
+            <td>GS: fr-> 17.72</td>
+            <td>GS: pt-> 17.11</td>
+            <td>GS: it-> 17.87</td>
+            <td>Not Available</td>
+            <td>4xV100 32GB</td>
+        </tr>
+    </tbody>
+</table>
+
+
 
 
 # **About SpeechBrain**
