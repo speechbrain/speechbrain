@@ -12,7 +12,6 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !PLACEHOLDER
-wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 
 # Data files

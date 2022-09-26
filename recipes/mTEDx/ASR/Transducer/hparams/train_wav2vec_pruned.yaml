@@ -36,9 +36,6 @@ lr: 1
 lr_wav2vec: 0.0001
 sorting: descending #ascending, descending, random
 
-# Feature parameters
-sample_rate: 16000
-
 batch_size: 2
 batch_size_valid: 2 #for valid & test
 
@@ -57,7 +54,6 @@ token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
 wav2vec_output_dim: 1024
 freeze_wav2vec: False
 output_neurons: 161  # vocab size, index(blank/eos/bos) = 0
@@ -70,11 +66,6 @@ eos_index: !ref <blank_index>
 # Decoding parameters
 beam_size: 4
 nbest: 1
-# by default {state,expand}_beam = 2.3 as mention in paper
-# https://arxiv.org/abs/1904.02619
-state_beam: 2.3
-expand_beam: 2.3
-lm_weight: 0.50
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -107,9 +98,6 @@ Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Fast_RNNT_Joiner
    inner_dim: !ref <joint_dim>
    output_dim: !ref <output_neurons>
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-   apply_log: True
-
 transducer_cost: !name:speechbrain.nnet.losses.fast_rnnt_pruned_loss
    blank_index: !ref <blank_index>
    prune_range: 5 # how many symbols to keep for each frame.
@@ -141,8 +129,8 @@ Greedysearcher: !new:speechbrain.decoders.transducer.FastRNNTBeamSearcher
    decode_network_lst: [!ref <emb>, !ref <dec>]
    tjoint: !ref <Tjoint>
    blank_id: !ref <blank_index>
-   beam_size: 4
-   nbest: 1
+   beam_size: !ref <beam_size>
+   nbest: !ref <nbest>
 
 lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>

@@ -34,13 +34,10 @@ test_lang: fr
 
 # Training parameters
 number_of_epochs: 30
-number_of_ctc_epochs: 15
 lr: 1.0
 lr_wav2vec: 0.0001
-ctc_weight: 0.3
 sorting: descending # ascending, descending
 auto_mix_prec: True
-sample_rate: 16000
 max_grad_norm: -1
 
 batch_size: 2
@@ -76,14 +73,6 @@ output_neurons: 237  # BPE size, index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 1
 eos_index: 2
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 80
-eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 140
-ctc_weight_decode: 0.0
-temperature: 1.50
 
 #
 # Functions and classes
@@ -97,21 +86,21 @@ enc: !new:speechbrain.nnet.containers.Sequential
       n_neurons: 1024
       bias: True
    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
-   activation: !new:torch.nn.LeakyReLU
+   activation: !ref <activation>
    drop: !new:torch.nn.Dropout
       p: 0.15
    linear2: !name:speechbrain.nnet.linear.Linear
       n_neurons: 1024
       bias: True
    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
-   activation2: !new:torch.nn.LeakyReLU
+   activation2: !ref <activation>
    drop2: !new:torch.nn.Dropout
       p: 0.15
    linear3: !name:speechbrain.nnet.linear.Linear
       n_neurons: 1024
       bias: True
    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
-   activation3: !new:torch.nn.LeakyReLU
+   activation3: !ref <activation>
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
    source: !ref <wav2vec2_hub>

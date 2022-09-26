@@ -662,20 +662,17 @@ if __name__ == "__main__":
 
     # Evaluating
     avg_loss = asr_brain.evaluate(
-        valid_data,
+        test_data,
         min_key="WER",
-        test_loader_kwargs=hparams["valid_dataloader_opts"],
+        test_loader_kwargs=hparams["test_dataloader_opts"],
     )
     print("AVERAGE LOSS:", avg_loss)
     print("WER:", asr_brain.wer_metric.summarize("error_rate"))
     print("CER:", asr_brain.cer_metric.summarize("error_rate"))
     # write the returns predicted & true transcriptions
 
-    hyp_filename = (
-        "valid.hyp" if hparams["remove_punc_cap"] else "valid_punc_cap.hyp"
-    )
-    hyp_filepath = os.path.join(hparams["output_folder"], hyp_filename)
-    ref_filepath = os.path.join(hparams["output_folder"], "valid.ref")
+    hyp_filepath = os.path.join(hparams["output_folder"], "test.hyp")
+    ref_filepath = os.path.join(hparams["output_folder"], "test.ref")
     with open(hyp_filepath, "w") as hyp_fout, open(
         ref_filepath, "w"
     ) as ref_fout:
