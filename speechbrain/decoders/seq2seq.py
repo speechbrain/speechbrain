@@ -32,7 +32,6 @@ class S2SBaseSearcher(torch.nn.Module):
     scores
         The sum of log probabilities (and possibly
         additional heuristic scores) for each prediction.
-
     """
 
     def __init__(
@@ -876,9 +875,35 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     **kwargs
         Arguments to pass to S2SBeamSearcher
 
-    Example:
-    --------
-    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from speechbrain.decoders import S2STransformerBeamSearcher
+    >>> batch_size=8
+    >>> n_channels=6
+    >>> input_size=40
+    >>> d_model=128
+    >>> tgt_vocab=140
+    >>> src = torch.rand([batch_size, n_channels, input_size])
+    >>> tgt = torch.randint(0, tgt_vocab, [batch_size, n_channels])
+    >>> net = TransformerASR(
+    ...    tgt_vocab, input_size, d_model, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ... )
+    >>> ctc_lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
+    >>> lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
+    >>> searcher = S2STransformerBeamSearcher(
+    ...     modules=[net, lin],
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     using_eos_threshold=False,
+    ...     beam_size=7,
+    ...     temperature=1.15,
+    ... )
+    >>> enc, dec = net.forward(src, tgt)
+    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(

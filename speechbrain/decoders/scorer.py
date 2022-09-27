@@ -91,6 +91,47 @@ class CTCScorer(BaseScorerInterface):
     ctc_window_size : int
         Compute the ctc scores over the time frames using windowing
         based on attention peaks. If 0, no windowing applied. (default: 0)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from speechbrain.decoders import S2STransformerBeamSearcher, CTCScorer, ScorerBuilder
+    >>> batch_size=8
+    >>> n_channels=6
+    >>> input_size=40
+    >>> d_model=128
+    >>> tgt_vocab=140
+    >>> src = torch.rand([batch_size, n_channels, input_size])
+    >>> tgt = torch.randint(0, tgt_vocab, [batch_size, n_channels])
+    >>> net = TransformerASR(
+    ...    tgt_vocab, input_size, d_model, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ... )
+    >>> ctc_lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
+    >>> lin = Linear(input_shape=(1, 40, d_model), n_neurons=tgt_vocab)
+    >>> eos_index = 2
+    >>> ctc_scorer = CTCScorer(
+    ...    ctc_fc=ctc_lin,
+    ...    blank_index=0,
+    ...    eos_index=eos_index,
+    ... )
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[ctc_scorer],
+    ...     weights={'ctc': 1.0}
+    ... )
+    >>> searcher = S2STransformerBeamSearcher(
+    ...     modules=[net, lin],
+    ...     bos_index=1,
+    ...     eos_index=eos_index,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     using_eos_threshold=False,
+    ...     beam_size=7,
+    ...     temperature=1.15,
+    ...     scorer=scorer
+    ... )
+    >>> enc, dec = net.forward(src, tgt)
+    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(
@@ -134,6 +175,67 @@ class RNNLMScorer(BaseScorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.RNNLM import RNNLM
+    >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
+    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, ScorerBuilder
+    >>> input_size=17
+    >>> vocab_size=11
+    >>> emb = torch.nn.Embedding(
+    ...     embedding_dim=input_size,
+    ...     num_embeddings=vocab_size,
+    ... )
+    >>> d_model=7
+    >>> dec = AttentionalRNNDecoder(
+    ...     rnn_type="gru",
+    ...     attn_type="content",
+    ...     hidden_size=3,
+    ...     attn_dim=3,
+    ...     num_layers=1,
+    ...     enc_dim=d_model,
+    ...     input_size=input_size,
+    ... )
+    >>> n_channels=3
+    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> lm_weight = 0.4
+    >>> lm_model = RNNLM(
+    ...     embedding_dim=d_model,
+    ...     output_neurons=vocab_size,
+    ...     dropout=0.0,
+    ...     rnn_neurons=128,
+    ...     dnn_neurons=64,
+    ...     return_hidden=True,
+    ... )
+    >>> rnnlm_scorer = RNNLMScorer(
+    ...     language_model=lm_model,
+    ...     temperature=1.25,
+    ... )
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[rnnlm_scorer],
+    ...     weights={'rnnlm': lm_weight}
+    ... )
+    >>> beam_size=5
+    >>> searcher = S2SRNNBeamSearcher(
+    ...     embedding=emb,
+    ...     decoder=dec,
+    ...     linear=seq_lin,
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     topk=2,
+    ...     using_eos_threshold=False,
+    ...     beam_size=beam_size,
+    ...     temperature=1.25,
+    ...     scorer=scorer
+    ... )
+    >>> batch_size=2
+    >>> enc = torch.rand([batch_size, n_channels, d_model])
+    >>> wav_len = torch.ones([batch_size])
+    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
     """
 
     def __init__(self, language_model, temperature=1.0):
@@ -174,6 +276,72 @@ class TransformerLMScorer(BaseScorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
+    >>> from speechbrain.decoders import S2STransformerBeamSearcher, TransformerLMScorer, CTCScorer, ScorerBuilder
+    >>> input_size=17
+    >>> vocab_size=11
+    >>> d_model=128
+    >>> net = TransformerASR(
+    ...     tgt_vocab=vocab_size,
+    ...     input_size=input_size,
+    ...     d_model=d_model,
+    ...     nhead=8,
+    ...     num_encoder_layers=1,
+    ...     num_decoder_layers=1,
+    ...     d_ffn=256,
+    ...     activation=torch.nn.GELU
+    ... )
+    >>> lm_model = TransformerLM(
+    ...     vocab=vocab_size,
+    ...     d_model=d_model,
+    ...     nhead=8,
+    ...     num_encoder_layers=1,
+    ...     num_decoder_layers=0,
+    ...     d_ffn=256,
+    ...     activation=torch.nn.GELU,
+    ... )
+    >>> n_channels=6
+    >>> ctc_lin = Linear(input_size=d_model, n_neurons=vocab_size)
+    >>> seq_lin = Linear(input_size=d_model, n_neurons=vocab_size)
+    >>> eos_index = 2
+    >>> ctc_scorer = CTCScorer(
+    ...     ctc_fc=ctc_lin,
+    ...     blank_index=0,
+    ...     eos_index=eos_index,
+    ... )
+    >>> transformerlm_scorer = TransformerLMScorer(
+    ...     language_model=lm_model,
+    ...     temperature=1.15,
+    ... )
+    >>> ctc_decode_weight=0.4
+    >>> lm_weight=0.6
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[transformerlm_scorer, ctc_scorer],
+    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight}
+    ... )
+    >>> beam_size=5
+    >>> searcher = S2STransformerBeamSearcher(
+    ...     modules=[net, seq_lin],
+    ...     bos_index=1,
+    ...     eos_index=eos_index,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     using_eos_threshold=False,
+    ...     beam_size=beam_size,
+    ...     temperature=1.15,
+    ...     scorer=scorer
+    ... )
+    >>> batch_size=2
+    >>> wav_len = torch.ones([batch_size])
+    >>> src = torch.rand([batch_size, n_channels, input_size])
+    >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
+    >>> enc, dec = net.forward(src, tgt)
+    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
     """
 
     def __init__(self, language_model, temperature=1.0):
@@ -318,6 +486,69 @@ class CoverageScorer(BaseScorerInterface):
     threshold: float
         The penalty increases when the coverage of a frame is more
         than given threshold. (default: 0.5)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.RNNLM import RNNLM
+    >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
+    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, CoverageScorer, ScorerBuilder
+    >>> input_size=17
+    >>> vocab_size=11
+    >>> emb = torch.nn.Embedding(
+    ...     num_embeddings=vocab_size,
+    ...     embedding_dim=input_size
+    ... )
+    >>> d_model=7
+    >>> dec = AttentionalRNNDecoder(
+    ...     rnn_type="gru",
+    ...     attn_type="content",
+    ...     hidden_size=3,
+    ...     attn_dim=3,
+    ...     num_layers=1,
+    ...     enc_dim=d_model,
+    ...     input_size=input_size,
+    ... )
+    >>> n_channels=3
+    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> lm_weight = 0.4
+    >>> coverage_penalty = 1.0
+    >>> lm_model = RNNLM(
+    ...     embedding_dim=d_model,
+    ...     output_neurons=vocab_size,
+    ...     dropout=0.0,
+    ...     rnn_neurons=128,
+    ...     dnn_neurons=64,
+    ...     return_hidden=True,
+    ... )
+    >>> rnnlm_scorer = RNNLMScorer(
+    ...     language_model=lm_model,
+    ...     temperature=1.25,
+    ... )
+    >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[rnnlm_scorer, coverage_scorer],
+    ...     weights={'rnnlm': lm_weight, 'coverage': coverage_penalty}
+    ... )
+    >>> beam_size=5
+    >>> searcher = S2SRNNBeamSearcher(
+    ...     embedding=emb,
+    ...     decoder=dec,
+    ...     linear=seq_lin,
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     topk=2,
+    ...     using_eos_threshold=False,
+    ...     beam_size=beam_size,
+    ...     temperature=1.25,
+    ...     scorer=scorer
+    ... )
+    >>> batch_size=2
+    >>> enc = torch.rand([batch_size, n_channels, d_model])
+    >>> wav_len = torch.ones([batch_size])
+    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
     """
 
     def __init__(self, vocab_size, threshold=0.5):
@@ -399,6 +630,76 @@ class ScorerBuilder:
     scorer_beam_scale : float
         The scale decides the number of pruned tokens for partial scorers:
         int(beam_size * scorer_beam_scale).
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
+    >>> from speechbrain.decoders import S2STransformerBeamSearcher, TransformerLMScorer, CoverageScorer, CTCScorer, ScorerBuilder
+    >>> input_size=17
+    >>> vocab_size=11
+    >>> d_model=128
+    >>> net = TransformerASR(
+    ...     tgt_vocab=vocab_size,
+    ...     input_size=input_size,
+    ...     d_model=d_model,
+    ...     nhead=8,
+    ...     num_encoder_layers=1,
+    ...     num_decoder_layers=1,
+    ...     d_ffn=256,
+    ...     activation=torch.nn.GELU
+    ... )
+    >>> lm_model = TransformerLM(
+    ...     vocab=vocab_size,
+    ...     d_model=d_model,
+    ...     nhead=8,
+    ...     num_encoder_layers=1,
+    ...     num_decoder_layers=0,
+    ...     d_ffn=256,
+    ...     activation=torch.nn.GELU,
+    ... )
+    >>> n_channels=6
+    >>> ctc_lin = Linear(input_size=d_model, n_neurons=vocab_size)
+    >>> seq_lin = Linear(input_size=d_model, n_neurons=vocab_size)
+    >>> eos_index = 2
+    >>> ctc_scorer = CTCScorer(
+    ...     ctc_fc=ctc_lin,
+    ...     blank_index=0,
+    ...     eos_index=eos_index,
+    ... )
+    >>> transformerlm_scorer = TransformerLMScorer(
+    ...     language_model=lm_model,
+    ...     temperature=1.15,
+    ... )
+    >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
+    >>> ctc_decode_weight=0.4
+    >>> lm_weight=0.6
+    >>> coverage_penalty = 1.0
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[transformerlm_scorer, coverage_scorer],
+    ...     partial_scorers=[ctc_scorer],
+    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight, 'coverage': coverage_penalty}
+    ... )
+    >>> beam_size=5
+    >>> searcher = S2STransformerBeamSearcher(
+    ...     modules=[net, seq_lin],
+    ...     bos_index=1,
+    ...     eos_index=eos_index,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     using_eos_threshold=False,
+    ...     beam_size=beam_size,
+    ...     topk=3,
+    ...     temperature=1.15,
+    ...     scorer=scorer
+    ... )
+    >>> batch_size=2
+    >>> wav_len = torch.ones([batch_size])
+    >>> src = torch.rand([batch_size, n_channels, input_size])
+    >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
+    >>> enc, dec = net.forward(src, tgt)
+    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
     """
 
     def __init__(
