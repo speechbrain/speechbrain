@@ -80,12 +80,15 @@ rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
     amp_low: 0.5
     amp_high: 1.5
 
-# random positive or negative shifts of 500 ms
-shift: !apply:math.floor
-    - !ref <sample_rate> * 0.500
+# random positive or negative shifts of 250 ms
+min_shift: !apply:math.floor
+  - !ref 0 - <sample_rate> * 0.25
+max_shift: !apply:math.floor
+  - !ref 0 + <sample_rate> * 0.25
+
 time_shift: !new:speechbrain.processing.speech_augmentation.RandomShift
-    min_shift: -!ref <shift>
-    max_shift: !ref <shift>
+    min_shift: !ref <min_shift>
+    max_shift: !ref <max_shift>
     dim: 1
 
 # random zeroing portions of 50-200 ms of signals
