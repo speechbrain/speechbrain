@@ -289,10 +289,10 @@ class HuggingFaceWav2Vec2(nn.Module):
         out = self.model(wav, output_hidden_states=True)
 
         if self.output_all_hiddens:
-            out = torch.stack(list(out[2]), dim=0)
+            out = torch.stack(list(out.hidden_states), dim=0)
             norm_shape = out.shape[-3:]
         else:
-            out = out[0]
+            out = out.last_hidden_state
             norm_shape = out.shape
 
         # We normalize the output if required
