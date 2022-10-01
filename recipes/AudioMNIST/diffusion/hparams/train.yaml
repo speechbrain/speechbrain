@@ -56,7 +56,7 @@ spec_norm: "slaney"
 spec_mel_scale: "slaney"
 spec_norm_mean: 0.5
 spec_norm_std: 0.5
-sample_size: 128
+spec_sample_size: 80
 min_level_db: -100.0
 
 # Vocoder Settings
@@ -65,6 +65,7 @@ vocoder_model: speechbrain/tts-hifigan-ljspeech
 # Evaluation Parameters
 eval_num_samples: 10
 eval_generate_audio: True
+eval_show_progress: True
 
 # Feature extraction
 compute_features: !new:speechbrain.nnet.containers.Sequential
@@ -95,43 +96,20 @@ compute_cost: !name:speechbrain.nnet.losses.mse_loss
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
-unet: !apply:speechbrain.nnet.diffusion.unet_2d
+unet: !new:speechbrain.nnet.unet.UNetModel
   in_channels: 1
+  model_channels: 64
   out_channels: 1
-  layers_per_block: 2
-  sample_size: !ref <sample_size>
-  block_out_channels: 
-    - 128
-    - 128
-    - 256
-    - 256
-    - 512
-    - 512
-  down_block_types:
-    - "DownBlock2D"
-    - "DownBlock2D"
-    - "DownBlock2D"
-    - "DownBlock2D"
-    - "AttnDownBlock2D"
-    - "DownBlock2D"
-  up_block_types:
-    - "UpBlock2D"
-    - "AttnUpBlock2D"
-    - "UpBlock2D"
-    - "UpBlock2D"
-    - "UpBlock2D"
-    - "UpBlock2D"
+  num_res_blocks: 4
+  attention_resolutions: [32, 16, 8]
 
-noise_scheduler: !apply:speechbrain.nnet.diffusion.scheduler
-    name: ddpm
-    num_train_timesteps: !ref <train_timesteps>
-    tensor_format: pt
+noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
-generation_pipeline: !apply:speechbrain.nnet.diffusion.pipeline
-    name: ddpm
-    unet: !ref <unet>
-    scheduler: !ref <noise_scheduler>
-
+diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
+    model: !ref <unet>
+    timesteps: !ref <train_timesteps>
+    noise: !ref <noise>
+    show_progress: !ref <eval_show_progress>
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -147,6 +125,7 @@ vocoder: !name:speechbrain.pretrained.interfaces.HIFIGAN.from_hparams
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
     unet: !ref <unet>
+    diffusion: !ref <diffusion>
     compute_features: !ref <compute_features>
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>
