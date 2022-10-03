@@ -23,7 +23,7 @@ class Diffuser(nn.Module):
         the underlying model
     """
 
-    def __init__(self, model, timesteps, noise=None, device=None):
+    def __init__(self, model, timesteps, noise=None):
         super().__init__()
         self.model = model
         self.timesteps = timesteps
@@ -33,7 +33,6 @@ class Diffuser(nn.Module):
             self.noise = _NOISE_FUNCTIONS[noise]
         else:
             self.noise = noise
-        self.device = device
 
     def distort(self, x, timesteps=None):
         """Adds noise to a batch of data"""
@@ -57,14 +56,16 @@ class Diffuser(nn.Module):
         -------
         pred: torch.Tensor
             the model output 0 prdicted noise
-        target: torch.Tensor
-            the target (obtained by applying the)
+        noise: torch.Tensor
+            the noise being applied
+        noisy_sample
+            the sample with the noise applied
         """
-        if not timesteps:
+        if timesteps is None:
             timesteps = sample_timesteps(x, self.timesteps)
-        pred = self.model(x, timesteps=timesteps)
-        target = self.distort(x, timesteps=timesteps, **kwargs)
-        return pred, target
+        noisy_sample, noise = self.distort(x, timesteps=timesteps, **kwargs)
+        pred = self.model(noisy_sample, timesteps=timesteps)
+        return pred, noise, noisy_sample
 
     def sample(self, shape):
         """Generates the number of samples indicated by the
@@ -85,11 +86,6 @@ class Diffuser(nn.Module):
 
     def forward(self, x, timesteps=None):
         return self.distort(x, timesteps)
-
-    def to(self, device=None, dtype=None, non_blocking=None):
-        if device:
-            self.device = device
-        super().to(device, dtype, non_blocking)
 
 
 DDPM_DEFAULT_BETA_START = 0.0001
@@ -168,6 +164,15 @@ class DenoisingDiffusion(Diffuser):
         self.register_buffer(
             "posterior_mean_weight_step", posterior_mean_weight_step
         )
+        sample_pred_model_coefficient = (1. / alphas_cumprod).sqrt()
+
+        self.register_buffer(
+            "sample_pred_model_coefficient", sample_pred_model_coefficient
+        )
+        sample_pred_noise_coefficient = (1. / alphas_cumprod - 1).sqrt()
+        self.register_buffer(
+            "sample_pred_noise_coefficient", sample_pred_noise_coefficient
+        )
         self.show_progress = show_progress
 
     def compute_coefficients(self):
@@ -203,10 +208,11 @@ class DenoisingDiffusion(Diffuser):
             noise = self.noise(x, **kwargs)
         signal_coefficients = self.signal_coefficients[timesteps]
         noise_coefficients = self.noise_coefficients[timesteps]
-        return (
+        noisy_sample = (
             unsqueeze_as(signal_coefficients, x) * x
             + unsqueeze_as(noise_coefficients, noise) * noise
         )
+        return noisy_sample, noise
 
     @torch.no_grad()
     def sample(self, shape):
@@ -224,12 +230,15 @@ class DenoisingDiffusion(Diffuser):
         result: torch.Tensor
             the generated sample(s)
         """
-        sample = self.noise(torch.zeros(*shape, device=self.device))
+        sample = self.noise(torch.zeros(*shape, device=self.alphas.device))
         steps = reversed(range(self.timesteps))
         if self.show_progress:
             steps = tqdm(steps, desc=DESC_SAMPLING, total=self.timesteps)
         for timestep_number in steps:
-            timestep = torch.ones(shape[0], dtype=torch.long) * timestep_number
+            timestep = (
+                torch.ones(shape[0], dtype=torch.long, device=self.alphas.device) 
+                * timestep_number
+            )
             sample = self.sample_step(sample, timestep)
         return sample
 
@@ -250,7 +259,17 @@ class DenoisingDiffusion(Diffuser):
         predicted_sample: torch.Tensor
             the predicted sample (denoised by one step`)
         """
-        sample_start = self.model(sample, timestep)
+        model_out = self.model(sample, timestep)
+        noise = self.noise(sample)
+        sample_start = (
+            unsqueeze_as(
+                self.sample_pred_model_coefficient[timestep], sample
+            ) * sample
+            -
+            unsqueeze_as(
+                self.sample_pred_noise_coefficient[timestep], model_out
+            ) * model_out
+        )
         weight_start = unsqueeze_as(
             self.posterior_mean_weight_start[timestep], sample_start
         )
@@ -258,7 +277,6 @@ class DenoisingDiffusion(Diffuser):
             self.posterior_mean_weight_step[timestep], sample
         )
         mean = weight_start * sample_start + weight_step * sample
-        noise = self.noise(sample)
         log_variance = unsqueeze_as(
             self.posterior_log_variance[timestep], noise
         )
@@ -267,7 +285,7 @@ class DenoisingDiffusion(Diffuser):
 
 
 def sample_timesteps(x, num_timesteps):
-    return torch.randint(num_timesteps, (x.size(0),))
+    return torch.randint(num_timesteps, (x.size(0),), device=x.device)
 
 
 class GaussianNoise(nn.Module):
@@ -304,7 +322,7 @@ class LengthMaskedGaussianNoise(nn.Module):
             mask = length_to_mask(lens * max_len, max_len).bool()
             mask_shape = self._compute_mask_shape(noise, max_len)
             mask = mask.view(mask_shape)
-            noise.masked_fill_(mask, 0.0)
+            noise.masked_fill_(~mask, 0.0)
         return noise
 
     def _compute_mask_shape(self, noise, max_len):
@@ -317,5 +335,6 @@ class LengthMaskedGaussianNoise(nn.Module):
 
 
 _NOISE_FUNCTIONS = {
-    "gaussian": GaussianNoise,
+    "gaussian": GaussianNoise(),
 }
+

@@ -52,9 +52,9 @@ class DiffusionBrain(sb.Brain):
         # Compute features, embeddings, and predictions
         feats, lens = self.prepare_features(batch.sig, stage)
 
-        pred, target = self.modules.diffusion.train_sample(feats, lens=lens)
+        pred, noise, noisy_sample = self.modules.diffusion.train_sample(feats, lens=lens)
 
-        return pred, feats, target
+        return pred, noise, noisy_sample
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -148,15 +148,15 @@ class DiffusionBrain(sb.Brain):
         """
         _, lens = batch.sig
 
-        recs, feats, noise = predictions
+        preds, noise, noisy_sample = predictions
 
         loss = self.hparams.compute_cost(
-            recs.squeeze(1), noise.squeeze(1), length=lens
+            preds.squeeze(1), noise.squeeze(1), length=lens
         )
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
-            batch.file_name, recs, feats, lens, reduction="batch"
+            batch.file_name, preds, noise, lens, reduction="batch"
         )
 
         return loss
@@ -220,6 +220,7 @@ class DiffusionBrain(sb.Brain):
             vocoder_in, ref=self.hparams.spec_ref, power=1.0
         )
         vocoder_in = self.modules.dynamic_range_compression(vocoder_in)
+        vocoder_in = vocoder_in.squeeze(1)
         return self.vocoder(vocoder_in)
 
     def save_audio(self, wav, epoch_sample_path):
@@ -348,6 +349,7 @@ def dataio_prep(hparams):
             dynamic_items=[audio_pipeline],
             output_keys=["file_name", "sig", "digit", "speaker_id"],
         )
+#        datasets_splits[split_id].data_ids = datasets_splits[split_id].data_ids[:2000]
 
     return datasets_splits
 
@@ -402,3 +404,4 @@ if __name__ == "__main__":
         min_key="error",
         test_loader_kwargs=hparams["dataloader_options"],
     )
+

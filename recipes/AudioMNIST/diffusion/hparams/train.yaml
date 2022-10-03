@@ -38,7 +38,7 @@ adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
-downsample_factor: 32
+downsample_factor: 16
 dataloader_options:
     batch_size: !ref <batch_size>
 
