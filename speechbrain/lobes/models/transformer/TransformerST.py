@@ -303,6 +303,46 @@ class TransformerST(TransformerASR):
 
         return encoder_out, decoder_out
 
+    def forward_mt_decoder_only(self, src, tgt, pad_idx=0):
+        """This method implements a forward step for mt task using a wav2vec encoder
+        (same than above, but without the encoder stack)
+
+        Arguments
+        ----------
+        src (transcription): tensor
+            output features from the w2v2 encoder
+        tgt (translation): tensor
+            The sequence to the decoder (required).
+        pad_idx : int
+            The index for <pad> token (default=0).
+        """
+
+        (
+            src_key_padding_mask,
+            tgt_key_padding_mask,
+            src_mask,
+            tgt_mask,
+        ) = self.make_masks_for_mt(src, tgt, pad_idx=pad_idx)
+
+        tgt = self.custom_tgt_module(tgt)
+
+        if self.attention_type == "RelPosMHAXL":
+            # use standard sinusoidal pos encoding in decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)
+
+        decoder_out, _, multihead = self.decoder(
+            tgt=tgt,
+            memory=src,
+            memory_mask=src_mask,
+            tgt_mask=tgt_mask,
+            tgt_key_padding_mask=tgt_key_padding_mask,
+            memory_key_padding_mask=src_key_padding_mask,
+        )
+
+        return decoder_out
+
     def decode_asr(self, tgt, encoder_out):
         """This method implements a decoding step for the transformer model.
 
