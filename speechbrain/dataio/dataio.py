@@ -198,7 +198,7 @@ def read_audio(waveforms_obj):
     -------
     torch.Tensor
         1-channel: audio tensor with shape: `(samples, )`.
-        >=2-channels:, audio tensor with shape: `(samples, channels)`.
+        >=2-channels: audio tensor with shape: `(samples, channels)`.
 
     Example
     -------
