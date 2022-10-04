@@ -1,0 +1,37 @@
+# ############################################################################
+# Tokenizer: 1K subwords BPE with unigram
+# Training: mTEDx
+# Authors:  Abdel Heba 2021, Mohamed Anwar 2022
+# ############################################################################
+
+output_folder: !PLACEHOLDER
+# train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER
+langs:
+   - !PLACEHOLDER
+
+train_json: !ref <data_folder>/train_fr.json
+valid_json: !ref <data_folder>/valid_fr.json
+
+# Training parameters
+token_type: unigram  # ["unigram", "bpe", "char"]
+token_output: 1000  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+json_read: words
+bos_index: 1
+eos_index: 2
+
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_format: json
+   annotation_train: !ref <train_json>
+   annotation_read: !ref <json_read>
+   model_type: !ref <token_type> # ["unigram", "bpe", "char"]
+   character_coverage: !ref <character_coverage>
+   bos_id: !ref <bos_index>
+   eos_id: !ref <eos_index>
+   annotation_list_to_check: [!ref <train_json>, !ref <valid_json>]

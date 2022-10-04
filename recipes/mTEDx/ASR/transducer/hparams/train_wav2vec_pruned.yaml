@@ -1,0 +1,165 @@
+# ############################################################################
+# Model: E2E ASR with attention-based ASR
+# Encoder: Wav2vec2 pre-trained model
+# Decoder: GRU
+# Tokens: character BPE
+# losses: Pruned FastRNNT
+# Training: mTEDx-fr
+# Authors:  Mohamed Anwar 2022
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !PLACEHOLDER
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+
+wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-large
+
+# Data files
+data_folder: !PLACEHOLDER
+langs:
+   - fr
+remove_punc_cap: True # remove punctuation & capitalization from text
+
+train_json: !ref <data_folder>/train_fr.json
+valid_json: !ref <data_folder>/valid_fr.json
+test_json: !ref <data_folder>/test_fr.json
+
+# We remove train/valid utterances longer than 20s
+avoid_if_longer_than: 20.0
+
+# Training parameters
+number_of_epochs: 30
+lr: 1
+lr_wav2vec: 0.0001
+sorting: descending #ascending, descending, random
+
+batch_size: 2
+batch_size_valid: 2 #for valid & test
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size_valid>
+
+test_dataloader_opts:
+   batch_size: !ref <batch_size_valid>
+
+# BPE parameters
+token_type: char  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
+
+# Model parameters
+wav2vec_output_dim: 1024
+freeze_wav2vec: False
+output_neurons: 161  # vocab size, index(blank/eos/bos) = 0
+dec_neurons: !ref <output_neurons>
+joint_dim: 1024
+blank_index: 0
+bos_index: !ref <blank_index>
+eos_index: !ref <blank_index>
+
+# Decoding parameters
+beam_size: 4
+nbest: 1
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+enc: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <output_neurons>
+      bias: True
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+   num_embeddings: !ref <output_neurons>
+   consider_as_one_hot: True
+   blank_id: !ref <blank_index>
+
+dec: !new:speechbrain.nnet.RNN.GRU
+   input_shape: [null, null, !ref <output_neurons> - 1]
+   hidden_size: !ref <dec_neurons>
+   num_layers: 1
+   re_init: True
+
+Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Fast_RNNT_Joiner
+   input_dim: !ref <output_neurons>
+   inner_dim: !ref <joint_dim>
+   output_dim: !ref <output_neurons>
+
+transducer_cost: !name:speechbrain.nnet.losses.fast_rnnt_pruned_loss
+   blank_index: !ref <blank_index>
+   prune_range: 5 # how many symbols to keep for each frame.
+   mode: simple  #simple | smoothed
+   loss_scale: 0.5 #scale for the `mode` loss before adding pruned_loss
+   warmup_epochs: 3 # epochs for the `mode` loss before adding the pruned_loss
+   jointer: !ref <Tjoint>
+   reduction: mean
+
+modules:
+   wav2vec2: !ref <wav2vec2>
+   enc: !ref <enc>
+   emb: !ref <emb>
+   dec: !ref <dec>
+   Tjoint: !ref <Tjoint>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <Tjoint>]
+
+model_opt_class: !name:torch.optim.Adadelta
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
+
+wav2vec_opt_class: !name:torch.optim.Adam
+   lr: !ref <lr_wav2vec>
+
+Greedysearcher: !new:speechbrain.decoders.transducer.FastRNNTBeamSearcher
+   decode_network_lst: [!ref <emb>, !ref <dec>]
+   tjoint: !ref <Tjoint>
+   blank_id: !ref <blank_index>
+   beam_size: !ref <beam_size>
+   nbest: !ref <nbest>
+
+lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_wav2vec>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.9
+   patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      wav2vec2: !ref <wav2vec2>
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <output_folder>/train_log.txt
+
+tensorboard_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+   save_dir: !ref <output_folder>/logs
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: True

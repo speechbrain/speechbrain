@@ -1,5 +1,7 @@
-# CommonVoice ASR with Transducers.
-This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
+# mTEDx ASR with Transducer models.
+This folder contains scripts necessary to run an ASR experiment with the mTEDx
+dataset. Before running this recipe, make sure to read this
+[README](../../README.md) file first.
 
 # Extra-Dependencies
 This recipe supports three implementations of the transducer loss, see
@@ -25,24 +27,30 @@ If you are planning to use FastRNNT loss function, install `FastRNNT`:
 pip install FastRNNT
 ```
 
-# How to run
-python train.py hparams/{hparam_file}.py
+# How to run it
 
-# Data preparation
-It is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Hence, audio files are downsampled on the fly within the dataio function of the training script.
+To run Transducer experiments
+```bash
+# CRDNN Transducer + PyTorch RNNT loss
+$ python train.py hparams/train.yaml
 
-# Languages
-Here is a list of the different languages that we tested within the CommonVoice dataset
-with our transducers:
-- French
+# CRDNN Transducer + FastRNNT unpruned loss
+$ python train.py hparams/train_unpruned.yaml
 
-# Results
+# CRDNN Transducer + FastRNNT pruned loss
+$ python train.py hparams/train_pruned.yaml
 
-| Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
-| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
-| French | 2020-06-22 | train_fr.yaml | No | 6.70 | 18.97 | 7.41 | 20.18 | [model](https://drive.google.com/drive/folders/1ZwY2FaRl1gfFbupodph_xRiGj4h25I08?usp=sharing) | 2xV100 16GB |
+# Wav2vec Transducer + FastRNNT pruned loss
+$ python train_wav2vec.py hparams/train_wav2vec_pruned.yaml
+```
 
-The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/11NMzY0zV-NqJmPMyZfC3RtT64bYe-G_O?usp=sharing).
+# mTEDx French Results
+
+| Release | hyperparams file | Val. CER | Val. WER | Test WER | Model link | GPUs |
+|:-------------:|:---------------------------:| ------:| :-----------:| :------------------:| --------:| :-----------:|
+| 2022-08-10 | train_wav2vec_pruned.yaml |  4.49 | GS: 10.66 | GS: 12.59 | Not Available | 4xV100 32GB |
+| 2022-07-20 | train_unpruned.yaml | 21.22 | GS: 47.04 | BS (beam=4): 57.24 | Not Available | 4xV100 32GB |
+
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

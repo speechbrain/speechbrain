@@ -3,62 +3,57 @@
 # Encoder: CRDNN model
 # Decoder: GRU + beamsearch + RNNLM
 # Tokens: BPE with unigram
-# losses: Transducer
-# Training: Librispeech 100h
-# Authors:  Abdel HEBA, Mirco Ravanelli, Sung-Lin Yeh 2020
+# losses: Unpruned FastRNNT
+# Training: mTEDx-fr
+# Authors:  Mohamed Anwar 2022
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/cv_transducer/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_folder: !PLACEHOLDER
 save_folder: !ref <output_folder>/save
-train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
-train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
-dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
-test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
-accented_letters: True
-language: fr # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
-train_csv: !ref <save_folder>/train.csv
-valid_csv: !ref <save_folder>/dev.csv
-test_csv: !ref <save_folder>/test.csv
-skip_prep: False # Skip data preparation
+data_folder: !PLACEHOLDER
+langs:
+   - fr
+remove_punc_cap: True # remove punctuation & capitalization from text
 
-# We remove utterance slonger than 10s in the train/dev/test sets as
-# longer sentences certainly correspond to "open microphones".
-avoid_if_longer_than: 10.0
+train_json: !ref <data_folder>/train_fr.json
+valid_json: !ref <data_folder>/valid_fr.json
+test_json: !ref <data_folder>/test_fr.json
+
+# pre-trained LM model
+pretrained_lm_path: !PLACEHOLDER
+pretrained_tokenizer_path: !PLACEHOLDER
+
+# We remove train/valid utterances longer than 20s
+avoid_if_longer_than: 20.0
 
 # Training parameters
 number_of_epochs: 30
-batch_size: 6
-batch_size_valid: 1
+batch_size: 8
+batch_size_valid: 2 #for valid & test
 lr: 1.0
-sorting: ascending
-ckpt_interval_minutes: 15 # save checkpoint every N min
+sorting: descending #ascending, descending, random
 # MTL for encoder with CTC (uncomment enc_lin layer)
 #number_of_ctc_epochs: 2
 #ctc_weight: 0.33
 # MTL for decoder with CE (uncomment dec_lin layer)
 #number_of_ce_epochs: 2
 #ce_weight: 0.33
+dynamic_batching: False
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
-n_mels: 80
+n_mels: 40
 
 opt_class: !name:torch.optim.Adadelta
    lr: !ref <lr>
    rho: 0.95
    eps: 1.e-8
-
-# BPE parameters
-token_type: unigram  # ["unigram", "bpe", "char"]
-character_coverage: 1.0
 
 # Dataloader options
 train_dataloader_opts:
@@ -73,13 +68,13 @@ test_dataloader_opts:
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
-cnn_blocks: 3
-cnn_channels: (128, 200, 256)
-inter_layer_pooling_size: (2, 2, 2)
+cnn_blocks: 2
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
 cnn_kernelsize: (3, 3)
 time_pooling_size: 4
 rnn_class: !name:speechbrain.nnet.RNN.LSTM
-rnn_layers: 5
+rnn_layers: 4
 rnn_neurons: 1024
 rnn_bidirectional: True
 dnn_blocks: 2
@@ -96,6 +91,8 @@ nbest: 1
 # https://arxiv.org/abs/1904.02619
 state_beam: 2.3
 expand_beam: 2.3
+lm_weight: 0.50
+
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -108,18 +105,17 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_fft: !ref <n_fft>
    n_mels: !ref <n_mels>
 
-# Frequency domain SpecAugment
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-   time_warp: True
-   time_warp_window: 5
-   time_warp_mode: bicubic
-   freq_mask: True
-   n_freq_mask: 2
-   time_mask: True
-   n_time_mask: 2
-   replace_with_zero: False
-   freq_mask_width: 30
-   time_mask_width: 40
+# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+#    openrir_folder: !ref <data_folder_rirs>
+#    babble_prob: 0.0
+#    reverb_prob: 0.0
+#    noise_prob: 1.0
+#    noise_snr_low: 0
+#    noise_snr_high: 15
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+   sample_rate: !ref <sample_rate>
+   speeds: [95, 100, 105]
 
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
    input_shape: [null, null, !ref <n_mels>]
@@ -141,12 +137,11 @@ enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
    dnn_neurons: !ref <dnn_neurons>
 
 # For MTL CTC over the encoder
-enc_lin: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <dnn_neurons>
-   n_neurons: !ref <joint_dim>
-
-# Uncomment for MTL with CTC
-# ctc_cost: !name:speechbrain.nnet.ctc_loss
+# enc_lin: !new:speechbrain.nnet.linear.Linear
+#     input_size: !ref <dnn_neurons>
+#     n_neurons: !ref <joint_dim>
+#
+# ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 #    blank_index: !ref <blank_index>
 
 emb: !new:speechbrain.nnet.embedding.Embedding
@@ -161,14 +156,13 @@ dec: !new:speechbrain.nnet.RNN.GRU
    re_init: True
 
 # For MTL with LM over the decoder
-dec_lin: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <dec_neurons>
-   n_neurons: !ref <joint_dim>
-   bias: False
-
-# For MLT with CTC
-#ce_cost: !name:speechbrain.nnet.losses.nll_loss
-#   label_smoothing: 0.1
+# dec_lin: !new:speechbrain.nnet.linear.Linear
+#     input_size: !ref <dec_neurons>
+#     n_neurons: !ref <joint_dim>
+#     bias: False
+#
+# ce_cost: !name:speechbrain.nnet.losses.nll_loss
+#    label_smoothing: 0.1
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
    joint: sum # joint [sum | concat]
@@ -183,42 +177,59 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
    apply_log: True
 
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
-   framework: torchaudio
    blank_index: !ref <blank_index>
+   framework: fast_rnnt #speechbrain, torchaudio, fast_rnnt
+
+# NB: It has to match the pre-trained RNNLM!!
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+   output_neurons: !ref <output_neurons>
+   embedding_dim: 128
+   activation: !name:torch.nn.LeakyReLU
+   dropout: 0.5
+   rnn_layers: 4
+   rnn_neurons: 512
+   dnn_blocks: 1
+   dnn_neurons: 256
+   return_hidden: True  # For inference
 
 # for MTL
 # update model if any HEAD module is added
 modules:
    enc: !ref <enc>
-   enc_lin: !ref <enc_lin>
    emb: !ref <emb>
    dec: !ref <dec>
-   dec_lin: !ref <dec_lin>
    Tjoint: !ref <Tjoint>
    transducer_lin: !ref <transducer_lin>
    normalize: !ref <normalize>
+   # env_corrupt: !ref <env_corrupt>
    augmentation: !ref <augmentation>
+   lm_model: !ref <lm_model>
 
 # for MTL
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
 
-# greedy_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-#   decode_network_lst: [!ref <emb>, !ref <dec>]
-#   tjoint: !ref <Tjoint>
-#   classifier_network: [!ref <transducer_lin>]
-#   blank_id: !ref <blank_index>
-#   beam_size: 1
-#   nbest: 1
+# Tokenizer initialization
+tokenizer: !new:sentencepiece.SentencePieceProcessor
 
-beam_searcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+   decode_network_lst: [!ref <emb>, !ref <dec>]
+   tjoint: !ref <Tjoint>
+   classifier_network: [!ref <transducer_lin>]
+   blank_id: !ref <blank_index>
+   beam_size: 1
+   nbest: 1
+
+Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
    decode_network_lst: [!ref <emb>, !ref <dec>]
    tjoint: !ref <Tjoint>
    classifier_network: [!ref <transducer_lin>]
    blank_id: !ref <blank_index>
    beam_size: !ref <beam_size>
    nbest: !ref <nbest>
+   lm_module: !ref <lm_model>
+   lm_weight: !ref <lm_weight>
    state_beam: !ref <state_beam>
    expand_beam: !ref <expand_beam>
 
@@ -236,8 +247,20 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
       normalizer: !ref <normalize>
       counter: !ref <epoch_counter>
 
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+   collect_in: !ref <save_folder>
+   loadables:
+      lm: !ref <lm_model>
+      tokenizer: !ref <tokenizer>
+   paths:
+      lm: !ref <pretrained_lm_path>
+      tokenizer: !ref <pretrained_tokenizer_path>
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-   save_file: !ref <train_log>
+   save_file: !ref <output_folder>/train_log.txt
+
+tensorboard_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+   save_dir: !ref <output_folder>/logs
 
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 

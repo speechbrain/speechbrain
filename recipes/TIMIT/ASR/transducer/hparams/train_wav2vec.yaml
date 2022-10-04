@@ -133,7 +133,7 @@ output: !new:speechbrain.nnet.linear.Linear
 #    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
-    use_torchaudio: True
+    framework: torchaudio
     blank_index: !ref <blank_index>
 
 model: !new:torch.nn.ModuleList [[
@@ -205,7 +205,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 transducer_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.transducer_loss
-        use_torchaudio: True
+        framework: torchaudio
         blank_index: !ref <blank_index>
         reduction: none
 

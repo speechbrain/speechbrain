@@ -1,0 +1,164 @@
+# ################################
+# Model: wav2vec2 + DNN + CTC
+# Authors: Titouan Parcollet 2021
+#          Mohamed Anwar 2022
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !PLACEHOLDER
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the biggest LeBenchmark wav2vec french.
+wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-large
+
+# Data files
+data_folder: !PLACEHOLDER
+langs:
+   - fr
+remove_punc_cap: True # remove punctuation & capitalization from text
+
+train_json: !ref <data_folder>/train_fr.json
+valid_json: !ref <data_folder>/valid_fr.json
+test_json: !ref <data_folder>/test_fr.json
+
+# We remove train utterances longer than 10s
+avoid_if_longer_than: 20.0
+test_lang: fr
+
+# Training parameters
+number_of_epochs: 30
+lr: 1.0
+lr_wav2vec: 0.0001
+sorting: descending # ascending, descending
+auto_mix_prec: True
+max_grad_norm: -1
+
+batch_size: 4
+batch_size_valid: 2 #for valid & test
+
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: 4
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size_valid>
+   num_workers: 4
+
+test_dataloader_opts:
+   batch_size: !ref <batch_size_valid>
+   num_workers: 4
+
+# BPE parameters
+token_type: char  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+wav2vec_output_dim: 1024
+dnn_neurons: 1024
+freeze_wav2vec: False
+
+# Outputs
+output_neurons: 161  # BPE size, index(blank/eos/bos) = 0
+
+# Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
+blank_index: 0
+bos_index: 1
+eos_index: 2
+
+#
+# Functions and classes
+#
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+enc: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation: !ref <activation>
+   drop: !new:torch.nn.Dropout
+      p: 0.15
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !ref <activation>
+   drop2: !new:torch.nn.Dropout
+      p: 0.15
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !ref <activation>
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <output_neurons>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+   blank_index: !ref <blank_index>
+
+modules:
+   wav2vec2: !ref <wav2vec2>
+   enc: !ref <enc>
+   ctc_lin: !ref <ctc_lin>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <enc>, !ref <ctc_lin>]
+
+model_opt_class: !name:torch.optim.Adadelta
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
+
+wav2vec_opt_class: !name:torch.optim.Adam
+   lr: !ref <lr_wav2vec>
+
+lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_wav2vec>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.9
+   patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      wav2vec2: !ref <wav2vec2>
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+tensorboard_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+   save_dir: !ref <output_folder>/logs
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: True
