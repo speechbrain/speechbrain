@@ -29,7 +29,9 @@ try:
     import transformers
     from transformers import AutoConfig, AutoModel
     from transformers import Wav2Vec2ForPreTraining
-    from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
+    from transformers.models.wav2vec2.modeling_wav2vec2 import (
+        _compute_mask_indices,
+    )
 
 except ImportError:
     MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
@@ -52,10 +54,15 @@ def _check_model_source(path, save_path):
         is_local = False
 
     # Check if source is downloaded already
-    sink = pathlib.Path(save_path + "/models--" + path.replace("/", "--") + "/snapshots")
+    sink = pathlib.Path(
+        save_path + "/models--" + path.replace("/", "--") + "/snapshots"
+    )
     if sink.exists():
         sink = sink / os.listdir(str(sink))[0]  # there's a hash-id subfolder
-        if any(File.endswith(".bin") or File.endswith(".ckpt") for File in os.listdir(str(sink))):
+        if any(
+            File.endswith(".bin") or File.endswith(".ckpt")
+            for File in os.listdir(str(sink))
+        ):
             is_local = True
             local_path = str(sink)
         else:
@@ -76,9 +83,7 @@ def _check_model_source(path, save_path):
                 is_sb = True
                 return is_sb, checkpoint_filename
     else:
-        files = model_info(
-            path
-        ).siblings  # get the list of files of the Hub
+        files = model_info(path).siblings  # get the list of files of the Hub
 
         # Test if it's an HuggingFace model or a SB one
         for File in files:
@@ -100,9 +105,7 @@ def _check_model_source(path, save_path):
 def config_return_hidden_states(config):
     """Sets `output_hidden_states = True` for a transformer config.
     """
-    config.output_hidden_states = (
-        True  # We want the hidden states as well!
-    )
+    config.output_hidden_states = True  # We want the hidden states as well!
     return config
 
 
@@ -223,23 +226,21 @@ def wav2vec2_pretraining_forward(model, data, mask_prob, mask_length):
     # value.
     full_sentence_indices = np.ones((batch_size, sequence_length))
     sampled_negative_indices = transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
-            (batch_size, sequence_length.numpy()),
-            num_negatives=model.config.num_negatives,
-            mask_time_indices=full_sentence_indices,
-        )
+        (batch_size, sequence_length.numpy()),
+        num_negatives=model.config.num_negatives,
+        mask_time_indices=full_sentence_indices,
+    )
 
     negative_sample_indices = torch.tensor(
-        sampled_negative_indices,
-        device=data.device,
-        dtype=torch.long,
+        sampled_negative_indices, device=data.device, dtype=torch.long,
     )
 
     # 3. prepare the output
     out = model(
-            data,
-            mask_time_indices=torch_mask_time_indices,
-            sampled_negative_indices=negative_sample_indices,
-        )
+        data,
+        mask_time_indices=torch_mask_time_indices,
+        sampled_negative_indices=negative_sample_indices,
+    )
     norm_shape = torch_mask_time_indices
 
     return out, norm_shape
@@ -282,7 +283,7 @@ class HuggingFaceModel(nn.Module):
         `self.model = override_hf_model_partial_fn(self.model)`
         Default (None) skips that step.
     norm_input : bool or str (default: None)
-        If True, a layer_norm (affine) will be applied to the given input. 
+        If True, a layer_norm (affine) will be applied to the given input.
         If a string, a model parameter is assigned instead: `self.norm_input = eval(f"self.model.{norm_input}")`
         Default (None) skips that step.
     norm_output : bool or str (default: None)
@@ -307,21 +308,24 @@ class HuggingFaceModel(nn.Module):
     >>> model = HuggingFaceModel(model_hub, save_path=save_path, modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2), forward_partial_fn=partial(wav2vec2_forward, output_all_hiddens=True))
     >>> outputs = model(inputs)
     """
+
     def __init__(
-            self,
-            source,
-            save_path,
-            for_pretraining_cls=None,
-            forward_partial_fn: Union[Callable, None] = None,
-            forward_returns_tuple: bool = False,
-            modify_state_dict_partial_fn: Union[Callable, None] = None,
-            override_hf_config_partial_fn: Union[Callable, None] = None,
-            override_hf_model_partial_fn: Union[Callable, None] = None,
-            norm_input: Union[str, bool, None] = None,
-            norm_output: Union[str, bool, None] = None,
-            freeze=True,
-            freeze_nested_models_their_calls: Union[List[str], str, None] = None,
-            cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",  # TODO check if nothing breaks
+        self,
+        source,
+        save_path,
+        for_pretraining_cls=None,
+        forward_partial_fn: Union[Callable, None] = None,
+        forward_returns_tuple: bool = False,
+        modify_state_dict_partial_fn: Union[Callable, None] = None,
+        override_hf_config_partial_fn: Union[Callable, None] = None,
+        override_hf_model_partial_fn: Union[Callable, None] = None,
+        norm_input: Union[str, bool, None] = None,
+        norm_output: Union[str, bool, None] = None,
+        freeze=True,
+        freeze_nested_models_their_calls: Union[List[str], str, None] = None,
+        cache_dir: Union[
+            str, pathlib.Path, None
+        ] = "pretrained_models",  # TODO check if nothing breaks
     ):
         super().__init__()
 
@@ -342,7 +346,10 @@ class HuggingFaceModel(nn.Module):
             self.model = for_pretraining_cls(config)
         else:
             # Fetch model architecture
-            if hasattr(config, "auto_map") and AutoModel.__name__ in config.auto_map:
+            if (
+                hasattr(config, "auto_map")
+                and AutoModel.__name__ in config.auto_map
+            ):
                 model = AutoModel.from_config(config, cache_dir=cache_dir)
             else:  # AutoModel.from_config case: type(config) in AutoModel._model_mapping.keys() /or: raise ValueError
                 model = AutoModel.from_config(config)
@@ -374,9 +381,11 @@ class HuggingFaceModel(nn.Module):
         if forward_partial_fn is not None:
             if isinstance(forward_partial_fn, partial):
                 self.forward_partial_fn = forward_partial_fn
-                self.forward_partial_fn.keywords['model'] = self.model
+                self.forward_partial_fn.keywords["model"] = self.model
             else:
-                self.forward_partial_fn = partial(forward_partial_fn, model=self.model)
+                self.forward_partial_fn = partial(
+                    forward_partial_fn, model=self.model
+                )
         else:
             self.forward_partial_fn = partial(default_forward, model=self.model)
 
@@ -405,11 +414,21 @@ class HuggingFaceModel(nn.Module):
             self.model.train()
             if freeze_nested_models_their_calls is not None:
                 if type(freeze_nested_models_their_calls) is list:
-                    freeze_nested_models_their_calls = [freeze_nested_models_their_calls]
+                    freeze_nested_models_their_calls = [
+                        freeze_nested_models_their_calls
+                    ]
                 for nested_freeze_call in freeze_nested_models_their_calls:
                     eval(f"self.model.{nested_freeze_call}()")
 
-    def _from_pretrained(self, source, config, model, modify_state_dict_partial_fn, save_path, cache_dir):
+    def _from_pretrained(
+        self,
+        source,
+        config,
+        model,
+        modify_state_dict_partial_fn,
+        save_path,
+        cache_dir,
+    ):
         """This function manages the source checking and loading of the params.
         # 1. Is the model from HF or a local path
         # 2. Is the model pretrained with HF or SpeechBrain
@@ -422,14 +441,22 @@ class HuggingFaceModel(nn.Module):
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
-                filename=ckpt_file, source=source, savedir=save_path, cache_dir=cache_dir,
+                filename=ckpt_file,
+                source=source,
+                savedir=save_path,
+                cache_dir=cache_dir,
             )
             # We transfer the parameters from the checkpoint.
-            self._load_sb_pretrained_parameters(ckpt_full_path, modify_state_dict_partial_fn=modify_state_dict_partial_fn)
+            self._load_sb_pretrained_parameters(
+                ckpt_full_path,
+                modify_state_dict_partial_fn=modify_state_dict_partial_fn,
+            )
         else:
             self.model = model.from_pretrained(source, cache_dir=save_path)
 
-    def _load_sb_pretrained_parameters(self, path, modify_state_dict_partial_fn):
+    def _load_sb_pretrained_parameters(
+        self, path, modify_state_dict_partial_fn
+    ):
         """Loads the parameter of a HuggingFace model pretrained with SpeechBrain
         and the HuggingFace Pretrain Object. It is necessary to perform a custom
         loading because HuggingFace adds a level to the checkpoint when storing
@@ -483,7 +510,7 @@ class HuggingFaceModel(nn.Module):
 
         # If all forward outputs need to be passed on, do so
         if self.forward_returns_tuple:
-            return out, *more, norm_shape
+            return (out, *more, norm_shape)
         else:
             return out
 
@@ -545,19 +572,31 @@ class HuggingFaceWav2Vec2(HuggingFaceModel):
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=False,
-        cache_dir: Union[str, pathlib.Path, None] = None,  # TODO "pretrained_models_hf_cache"
+        cache_dir: Union[
+            str, pathlib.Path, None
+        ] = None,  # TODO "pretrained_models_hf_cache"
     ):
-        super().__init__(source,
-                         save_path=save_path,
-                         norm_input=transformers.Wav2Vec2FeatureExtractor.from_pretrained(source, cache_dir=save_path),
-                         norm_output=output_norm,
-                         freeze=freeze,
-                         modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2),
-                         forward_partial_fn=partial(wav2vec2_forward, output_all_hiddens=output_all_hiddens),
-                         override_hf_model_partial_fn=partial(model_set_spectral_augmentation, apply_spec_augment=apply_spec_augment),
-                         freeze_nested_models_their_calls="feature_extractor._freeze_parameters" if freeze_feature_extractor else None,
-                         cache_dir=cache_dir,
-                         )
+        super().__init__(
+            source,
+            save_path=save_path,
+            norm_input=transformers.Wav2Vec2FeatureExtractor.from_pretrained(
+                source, cache_dir=save_path
+            ),
+            norm_output=output_norm,
+            freeze=freeze,
+            modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2),
+            forward_partial_fn=partial(
+                wav2vec2_forward, output_all_hiddens=output_all_hiddens
+            ),
+            override_hf_model_partial_fn=partial(
+                model_set_spectral_augmentation,
+                apply_spec_augment=apply_spec_augment,
+            ),
+            freeze_nested_models_their_calls="feature_extractor._freeze_parameters"
+            if freeze_feature_extractor
+            else None,
+            cache_dir=cache_dir,
+        )
 
 
 class HuggingFaceWav2Vec2Pretrain(HuggingFaceModel):
@@ -611,7 +650,11 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceModel):
             for_pretraining_cls=Wav2Vec2ForPreTraining,
             override_hf_config_partial_fn=partial(config_return_hidden_states),
             norm_input=normalize_wav,
-            forward_partial_fn=partial(wav2vec2_pretraining_forward, mask_prob=mask_prob, mask_length=mask_length),
+            forward_partial_fn=partial(
+                wav2vec2_pretraining_forward,
+                mask_prob=mask_prob,
+                mask_length=mask_length,
+            ),
             forward_returns_tuple=True,
             freeze=False,
         )
