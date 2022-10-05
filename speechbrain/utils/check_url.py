@@ -21,7 +21,7 @@ def get_url(path):
         Path of the file where to search for URLs.
 
     Returns
-    ---------
+    -------
     urls: list
         a list of all the URLs found in the specified path.
     """
@@ -55,7 +55,7 @@ def get_all_urls(file_lst, avoid_urls):
         List of URLs to avoid.
 
     Returns
-    ---------
+    -------
     urls: dict
         A dictionary where the keys are the detected URLs and the values
     are the files where the URLs are found.
@@ -95,7 +95,7 @@ def check_url(url):
         URL to check
 
     Returns
-    ---------
+    -------
     Bool
         False if the URL is broken, True otherwise.
     """
@@ -109,7 +109,7 @@ def check_url(url):
         return False
 
 
-def test_links(
+def check_links(
     folder=".",
     match_or=[".py", ".md", ".txt"],
     exclude_or=[".pyc"],
