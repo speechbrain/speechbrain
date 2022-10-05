@@ -3,12 +3,14 @@
 Authors:
  * Aku Rouhe 2021
  * Samuele Cornell 2021
+ * Andreas Nautsch 2022
 """
 import urllib.request
 import urllib.error
 import pathlib
 import logging
 import huggingface_hub
+from typing import Union
 from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ def fetch(
     save_filename=None,
     use_auth_token=False,
     revision=None,
+    cache_dir: Union[str, pathlib.Path, None] = None,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -70,6 +73,8 @@ def fetch(
         The model revision corresponding to the HuggingFace Hub model revision.
         This is particularly useful if you wish to pin your code to a particular
         version of a model hosted at HuggingFace.
+    cache_dir: str or Path (default: None)
+        Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
     Returns
     -------
     pathlib.Path
@@ -122,6 +127,7 @@ def fetch(
                 filename=filename,
                 use_auth_token=use_auth_token,
                 revision=revision,
+                cache_dir=cache_dir,
             )
         except HTTPError as e:
             if "404 Client Error" in str(e):
