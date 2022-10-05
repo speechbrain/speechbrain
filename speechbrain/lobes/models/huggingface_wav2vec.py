@@ -377,8 +377,10 @@ class HuggingFaceModel(nn.Module):
         if norm_input is not None:
             if type(norm_input) is str:
                 self.norm_input = eval(f"self.model.{norm_input}")
-            else:
+            elif type(norm_input) is bool:
                 self.norm_input = norm_input
+            else:
+                raise ValueError(f"norm_input should be bool or str")
         else:
             self.norm_input = False
 
@@ -398,8 +400,10 @@ class HuggingFaceModel(nn.Module):
         if norm_output is not None:
             if type(norm_output) is str:
                 self.norm_output = eval(f"self.model.{norm_output}")
-            else:
+            elif type(norm_input) is bool:
                 self.norm_output = norm_output
+            else:
+                raise ValueError(f"norm_output should be bool or str")
         else:
             self.norm_output = False
 
@@ -588,7 +592,7 @@ class HuggingFaceWav2Vec2(HuggingFaceModel):
             save_path=save_path,
             norm_input=transformers.Wav2Vec2FeatureExtractor.from_pretrained(
                 source, cache_dir=save_path
-            ),
+            ).do_normalize,
             norm_output=output_norm,
             freeze=freeze,
             modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2),
