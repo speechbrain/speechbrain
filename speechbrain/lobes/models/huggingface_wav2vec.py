@@ -188,14 +188,19 @@ def wav2vec2_forward(model, data, output_all_hiddens):
 
 
 def wav2vec2_pretraining_forward(model, data, mask_prob, mask_length):
-    """
+    """Takes an input waveform and return its corresponding wav2vec encoding.
 
     Parameters
     ----------
-    model
-    data
-    mask_prob
-    mask_length
+    model : transformers.AutoModel
+        A valid HuggingFace transformers model.
+    data : torch.Tensor (signal)
+        A batch of audio signals to transform to features.
+    mask_prob : float (default: 0.65)
+        Probability of masking a given frame. Default is taken from the paper.
+    mask_length : float (default: 10)
+        Length (i.e. number of consecutive masked frames). Default is taken from
+        the paper.
 
     Returns
     -------
@@ -487,7 +492,8 @@ class HuggingFaceModel(nn.Module):
             )
 
     def forward(self, data):
-        """Process data (token streams, wavs, ...). This function wraps weight-freezing."""
+        """Process data (token streams, wavs, ...). This function wraps weight-freezing.
+        """
         # If we freeze, we simply remove all grads and features from the graph.
         if self.freeze:
             with torch.no_grad():
@@ -496,7 +502,8 @@ class HuggingFaceModel(nn.Module):
         return self._forward(data)
 
     def _forward(self, data):
-        """Wrapper for partial forward function (as per interface init); handles generic data norms."""
+        """Wrapper for partial forward function (as per interface init); handles generic data norms.
+        """
         # We normalize the input if required
         if self.norm_input:
             data = F.layer_norm(data, data.shape)
