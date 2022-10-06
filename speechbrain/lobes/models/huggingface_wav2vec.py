@@ -44,6 +44,22 @@ logger = logging.getLogger(__name__)
 def _check_model_source(path, save_path):
     """Checks if the pretrained model has been trained with SpeechBrain and
     is hosted locally or on a HuggingFace hub.
+
+    Called as static function in HuggingFaceModel._from_pretrained.
+
+    Arguments
+    ---------
+    path : str
+        Used as "source"; local path or HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+    save_path : str
+        norm_output (dir) of the downloaded model.
+
+    Returns
+    -------
+    is_sb : bool
+        Whether/not the model is deserializable w/ SpeechBrain or not (then, model conversion is needed).
+    checkpoint_filename : str
+        as of HuggingFace documentation: file name relative to the repo root (guaranteed to be here).
     """
     checkpoint_filename = ""
     source = pathlib.Path(path)
@@ -104,6 +120,18 @@ def _check_model_source(path, save_path):
 
 def config_return_hidden_states(config):
     """Sets `output_hidden_states = True` for a transformer config.
+
+    To be used as HuggingFaceModel init argument `override_hf_config_partial_fn=partial(config_return_hidden_states)`.
+
+    Arguments
+    ---------
+    config : from AutoConfig.from_pretrained
+        Valid HuggingFace transformers config object.
+
+    Returns
+    -------
+    config : from AutoConfig.from_pretrained
+        Valid HuggingFace transformers config object; with `output_hidden_states = True`
     """
     config.output_hidden_states = True  # We want the hidden states as well!
     return config
@@ -111,16 +139,54 @@ def config_return_hidden_states(config):
 
 def model_set_spectral_augmentation(model, apply_spec_augment):
     """Sets `model.config.apply_spec_augment` the flag to a specific value.
+
+    To be used as HuggingFaceModel init argument:
+        override_hf_model_partial_fn=partial(
+            model_set_spectral_augmentation,
+            apply_spec_augment=apply_spec_augment,
+        )
+
+    Arguments
+    ---------
+    model : from AutoModel.from_config
+        Valid HuggingFace transformers model object.
+    apply_spec_augment : bool
+        If True, the model will apply spec augment on the output of feature extractor
+        (e.g., inside huggingface Wav2VecModel() class, see: https://arxiv.org/abs/1904.08779).
+        If False, the model will not apply spec augment. We set this to `false` to prevent from doing it twice.
+
+    Returns
+    -------
+    model : from AutoModel.from_config
+        Valid HuggingFace transformers model object; with flag set as desired.
     """
     model.config.apply_spec_augment = apply_spec_augment
     return model
 
 
 def modify_state_dict_wav2vec2(path):
-    """Function to be used in HuggingFaceModel._load_sb_pretrained_parameters.
+    """A custom loading ensures SpeechBrain compatibility for Pretrain and model
+    de/serialization. Here, the scope is to remove '.wav2vec2' before loading.
 
-    A custom loading ensures SpeechBrain compatibility for Pretrain and model
-    de/serialization. Here, '.wav2vec2' is removed before loading.
+    To be used as HuggingFaceModel init argument:
+        `modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2)`.
+
+    Called in: HuggingFaceModel._load_sb_pretrained_parameters; `path` argument is handled in that scope.
+
+    If you have another state dict to be modified:
+     * create your function in your recipe (copy this one and modify as you see fit)
+     * pass it to HuggingFaceModel init as a partial callable
+    This function serves as a reference example to your implementation, only.
+
+    Arguments
+    ---------
+    path : str
+        Checkpoint path; file name relative to the repo root.
+
+    Returns
+    -------
+    modified_state_dict : see torch.load
+        SpeechBrain-valid deserialized pretrained model.
     """
     modified_state_dict = {}
     orig_state_dict = torch.load(path, map_location="cpu")
@@ -136,7 +202,33 @@ def modify_state_dict_wav2vec2(path):
 
 def default_forward(model, data):
     """Takes input data and returns its forward pass of a given model.
-     To be used in: HuggingFaceModel._forward.
+
+    Default for HuggingFaceModel init argument:
+        `forward_partial_fn: Union[Callable, None] = None`
+    as it is invoked by:
+        `self.forward_partial_fn = partial(default_forward, model=self.model)`.
+
+        Note: `model` is a required parameter, and handled in the init function scope.
+
+    Called in: HuggingFaceModel._forward - invoked by:
+        `out, *more, norm_shape = self.forward_partial_fn(data=data)`.
+
+        Some perspective:
+         * `out` is expected to be the first return value;
+         * `norm_shape` is expected to be the last return value;
+         * `*more` captures whatever else you might want to come up with.
+
+        Note: the `*more` might appear surprising there. It is used again at the end of HuggingFaceModel._forward as:
+            if self.forward_returns_tuple:  # parameter of HuggingFaceModel objects
+                return (out, *more, norm_shape)  # re-established the exact same tuple as returned by this function
+            else:
+                return out  # usually, one is interested in the (normalized) output of the inner forward function
+
+    If you have another forward function:
+     * create your function in your recipe (copy this one and modify as you see fit)
+     * pass it to HuggingFaceModel init as a partial callable
+    This function serves as a reference example to your implementation, only.
+    Check out `wav2vec2_forward` and `wav2vec2_pretraining_forward` below for more reference examples.
 
     Arguments
     ---------
@@ -160,12 +252,34 @@ def default_forward(model, data):
 def wav2vec2_forward(model, data, output_all_hiddens):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
+    Used in `HuggingFaceWav2Vec2(HuggingFaceModel)` init when calling `super().__init__` as:
+        forward_partial_fn=partial(
+                wav2vec2_forward,
+                output_all_hiddens=output_all_hiddens  # here (default) values are assigned to this partial
+            )
+    Then, `forward_partial_fn` is handled in the HuggingFaceModel init by:
+        self.forward_partial_fn = forward_partial_fn
+        self.forward_partial_fn.keywords["model"] = self.model
+
+    If you have another forward function:
+     * create your function in your recipe (copy this one and modify as you see fit)
+     * pass it to HuggingFaceModel init as a partial callable
+    This function serves as a reference example to your implementation, only.
+
+    See above `default_forward` documentation.
+
     Arguments
     ---------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
     data : torch.Tensor (signal)
         A batch of audio signals to transform to features.
+    output_all_hiddens : bool
+        If True, the forward function outputs the hidden states from all transformer layers.
+        For example wav2vec2-base has 12 transformer layers and the output is of shape (13, B, T, C),
+        where a projection of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer.
+
 
     Returns
     -------
@@ -190,15 +304,32 @@ def wav2vec2_forward(model, data, output_all_hiddens):
 def wav2vec2_pretraining_forward(model, data, mask_prob, mask_length):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
+    Used in `HuggingFaceWav2Vec2Pretrain(HuggingFaceModel)` init when calling `super().__init__` as:
+        forward_partial_fn=partial(
+                wav2vec2_pretraining_forward,
+                mask_prob=mask_prob,  # here (default) values are assigned to this partial
+                mask_length=mask_length,  # here (default) values are assigned to this partial
+            )
+    Then, `forward_partial_fn` is handled in the HuggingFaceModel init by:
+        self.forward_partial_fn = forward_partial_fn
+        self.forward_partial_fn.keywords["model"] = self.model
+
+    If you have another forward function:
+     * create your function in your recipe (copy this one and modify as you see fit)
+     * pass it to HuggingFaceModel init as a partial callable
+    This function serves as a reference example to your implementation, only.
+
+    See above `default_forward` documentation.
+
     Parameters
     ----------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
     data : torch.Tensor (signal)
         A batch of audio signals to transform to features.
-    mask_prob : float (default: 0.65)
+    mask_prob : float
         Probability of masking a given frame. Default is taken from the paper.
-    mask_length : float (default: 10)
+    mask_length : float
         Length (i.e. number of consecutive masked frames). Default is taken from
         the paper.
 
@@ -208,7 +339,6 @@ def wav2vec2_pretraining_forward(model, data, mask_prob, mask_length):
         Batch of depending model outputs
     norm_shape : List[int]
         Shape to be used in layer norm.
-
     """
     batch_size, raw_sequence_length = data.shape
     sequence_length = model._get_feat_extract_output_lengths(
