@@ -16,7 +16,7 @@ body:
     id: solution
     attributes:
       label: Solution outline
-      description: "How would you like to use it, and see it being useed by others?"
+      description: "How would you like to use it, and see it being used by others?"
     validations:
       required: True
 
