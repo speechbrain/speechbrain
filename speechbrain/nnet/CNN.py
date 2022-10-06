@@ -369,6 +369,7 @@ class Conv1d(nn.Module):
         padding_mode="reflect",
         skip_transpose=False,
         weight_norm=False,
+        conv_init=None,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -398,6 +399,9 @@ class Conv1d(nn.Module):
             bias=bias,
         )
 
+        if conv_init == "kaiming":
+            nn.init.kaiming_normal_(self.conv.weight)
+
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
 
@@ -409,7 +413,6 @@ class Conv1d(nn.Module):
         x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
         """
-
         if not self.skip_transpose:
             x = x.transpose(1, -1)
 
@@ -490,11 +493,12 @@ class Conv1d(nn.Module):
             )
 
         # Kernel size must be odd
-        if self.kernel_size % 2 == 0:
+        if not self.padding == "valid" and self.kernel_size % 2 == 0:
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)
             )
+
         return in_channels
 
     def remove_weight_norm(self):
@@ -566,6 +570,7 @@ class Conv2d(nn.Module):
         padding_mode="reflect",
         skip_transpose=False,
         weight_norm=False,
+        conv_init=None,
     ):
         super().__init__()
 
@@ -604,6 +609,8 @@ class Conv2d(nn.Module):
             groups=groups,
             bias=bias,
         )
+        if conv_init == "kaiming":
+            nn.init.kaiming_normal_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
@@ -696,7 +703,9 @@ class Conv2d(nn.Module):
             raise ValueError("Expected 3d or 4d inputs. Got " + len(shape))
 
         # Kernel size must be odd
-        if self.kernel_size[0] % 2 == 0 or self.kernel_size[1] % 2 == 0:
+        if not self.padding == "valid" and (
+            self.kernel_size[0] % 2 == 0 or self.kernel_size[1] % 2 == 0
+        ):
             raise ValueError(
                 "The field kernel size must be an odd number. Got %s."
                 % (self.kernel_size)

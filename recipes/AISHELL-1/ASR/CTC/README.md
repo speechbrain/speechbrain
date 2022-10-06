@@ -24,15 +24,14 @@ Results are reported in terms of Character Error Rate (CER).
 |:--------------------------:|:-----:| :-----:| :-----:| :-----: |
 | train_with_wav2vec.yaml | No | 5.06 | 4.52 | 1xRTX 8000 Ti 48GB |
 
-You can checkout our results (models, training logs, etc,) here:
-To be added
+You can checkout our results (models, training logs, etc,) [here](https://drive.google.com/drive/folders/1GTB5IzQPl57j-0I1IpmvKg722Ti4ahLz?usp=sharing)
 
 # Training Time
 It takes about 2h on 1 RTX 8000 (48GB)
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace
-- To be added
+- https://huggingface.co/speechbrain/asr-wav2vec2-ctc-aishell
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
