@@ -30,7 +30,7 @@ class MOABBBrain(sb.Brain):
         """Function to initialize neural network modules"""
         for mod in model.modules():
             if hasattr(mod, "weight"):
-                if not ("BatchNorm" in mod.__class__.__name__):
+                if not ("Norm" in mod.__class__.__name__):
                     init.xavier_uniform_(mod.weight, gain=1)
                 else:
                     init.constant_(mod.weight, 1)
