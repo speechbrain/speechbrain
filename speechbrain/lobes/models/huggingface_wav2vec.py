@@ -218,9 +218,11 @@ def default_forward(model, data):
          * `norm_shape` is expected to be the last return value;
          * `*more` captures whatever else you might want to come up with.
 
+        Note: `out = F.layer_norm(out, norm_shape)`, if desired, is invoked after the aforementioned call.
+
         Note: the `*more` might appear surprising there. It is used again at the end of HuggingFaceModel._forward as:
             if self.forward_returns_tuple:  # parameter of HuggingFaceModel objects
-                return (out, *more, norm_shape)  # re-established the exact same tuple as returned by this function
+                return out, *more, norm_shape  # re-established the exact same tuple as returned by this function
             else:
                 return out  # usually, one is interested in the (normalized) output of the inner forward function
 
@@ -329,7 +331,7 @@ def wav2vec2_pretraining_forward(model, data, mask_prob, mask_length):
         A batch of audio signals to transform to features.
     mask_prob : float
         Probability of masking a given frame. Default is taken from the paper.
-    mask_length : float
+    mask_length : int
         Length (i.e. number of consecutive masked frames). Default is taken from
         the paper.
 
@@ -458,9 +460,7 @@ class HuggingFaceModel(nn.Module):
         norm_output: Union[str, bool, None] = None,
         freeze=True,
         freeze_nested_models_their_calls: Union[List[str], str, None] = None,
-        cache_dir: Union[
-            str, pathlib.Path, None
-        ] = "pretrained_models",  # TODO check if nothing breaks
+        cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",
     ):
         super().__init__()
 
@@ -651,6 +651,7 @@ class HuggingFaceModel(nn.Module):
 
         # If all forward outputs need to be passed on, do so
         if self.forward_returns_tuple:
+            # parentheses are added to avoid black throwing an error; these are redundant though
             return (out, *more, norm_shape)
         else:
             return out
@@ -713,9 +714,7 @@ class HuggingFaceWav2Vec2(HuggingFaceModel):
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=False,
-        cache_dir: Union[
-            str, pathlib.Path, None
-        ] = None,  # TODO "pretrained_models_hf_cache"
+        cache_dir=None,
     ):
         super().__init__(
             source,
@@ -761,7 +760,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceModel):
         Path (dir) of the downloaded model.
     mask_prob : float (default: 0.65)
         Probability of masking a given frame. Default is taken from the paper.
-    mask_length : float (default: 10)
+    mask_length : int (default: 10)
         Length (i.e. number of consecutive masked frames). Default is taken from
         the paper.
     cache_dir: str or Path (default: None)
@@ -783,7 +782,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceModel):
         mask_prob=0.65,
         mask_length=10,
         normalize_wav=True,
-        # TODO cache_dir="pretrained_models",
+        cache_dir=None,
     ):
         super().__init__(
             source,
@@ -798,4 +797,5 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceModel):
             ),
             forward_returns_tuple=True,
             freeze=False,
+            cache_dir=cache_dir,
         )
