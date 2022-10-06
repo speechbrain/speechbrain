@@ -1,4 +1,4 @@
-blank_issues_enabled: false
+blank_issues_enabled: False
 contact_links:
   - name: ☕️ SpeechBrain GitHub Discussions
     url: https://github.com/speechbrain/speechbrain/discussions
