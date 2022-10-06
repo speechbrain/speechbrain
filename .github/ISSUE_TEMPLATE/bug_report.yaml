@@ -35,11 +35,11 @@ body:
     validations:
       required: False
 
-  - type: textarea
+- type: textarea
     id: versions
     attributes:
       label: Versions
-      description: "Please tell us more about your current system (e.g OS system, Cuda version, speechbrain version...). You can also copy-paste the output of pip list."
+      description: "Please tell us more about your current SpeechBrain version and/or git hash (if installed via cloning+editable install). You can also add other setup information that might be relevant."
     validations:
       required: False
 
