@@ -94,6 +94,7 @@ class CTCScorer(BaseScorerInterface):
 
     Example
     -------
+    >>> import torch
     >>> from speechbrain.nnet.linear import Linear
     >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
     >>> from speechbrain.decoders import S2STransformerBeamSearcher, CTCScorer, ScorerBuilder
