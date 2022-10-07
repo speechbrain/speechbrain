@@ -18,7 +18,7 @@ class S2SBaseSearcher(torch.nn.Module):
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
-        The index of end-of-sequence token.
+        The index of end-of-sequence (eos) token.
     min_decode_radio : float
         The ratio of minimum decoding steps to the length of encoder states.
     max_decode_radio : float
