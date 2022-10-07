@@ -295,7 +295,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     using_eos_threshold : bool
         Whether to use eos threshold. Default: True.
     eos_threshold : float
-        The threshold coefficient for eos token. Default: 1.5. 
+        The threshold coefficient for eos token. Default: 1.5.
         See 3.1.2 in reference: https://arxiv.org/abs/1904.02619
     length_normalization : bool
         Whether to divide the scores by the length. Default: True.
@@ -380,7 +380,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         hyps_len = [len(lst) for lst in hyps]
         beam_size = [self.beam_size for _ in range(len(hyps_len))]
-        
+
         return hyps_len == beam_size
 
     def _check_attn_shift(self, attn, prev_attn_peak):
