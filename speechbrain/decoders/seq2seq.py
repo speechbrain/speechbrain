@@ -289,26 +289,25 @@ class S2SBeamSearcher(S2SBaseSearcher):
     beam_size : int
         The width of beam.
     scorer: speechbrain.decoders.scorers.ScorerBuilder
-        Scorer instance.
+        Scorer instance. Default: None.
     topk : int
-        The number of hypothesis to return. (default: 1)
+        The number of hypothesis to return. Default: 1.
     using_eos_threshold : bool
-        Whether to use eos threshold. (default: true)
+        Whether to use eos threshold. Default: True.
     eos_threshold : float
-        The threshold coefficient for eos token (default: 1.5). See 3.1.2 in
-        reference: https://arxiv.org/abs/1904.02619
+        The threshold coefficient for eos token. Default: 1.5. 
+        See 3.1.2 in reference: https://arxiv.org/abs/1904.02619
     length_normalization : bool
-        Whether to divide the scores by the length. (default: True)
+        Whether to divide the scores by the length. Default: True.
     using_max_attn_shift: bool
-        Whether using the max_attn_shift constraint. (default: False)
+        Whether using the max_attn_shift constraint. Default: False.
     max_attn_shift: int
         Beam search will block the beams that attention shift more
-        than max_attn_shift.
+        than max_attn_shift. Default: 60.
         Reference: https://arxiv.org/abs/1904.02619
     minus_inf : float
-        Default: -1e20
         The value of minus infinity to block some path
-        of the search.
+        of the search. Default: -1e20.
     """
 
     def __init__(
