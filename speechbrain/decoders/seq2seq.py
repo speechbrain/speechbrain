@@ -253,7 +253,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
-        """When doing greedy search, keep hidden state (hs) adn context vector (c)
+        """When doing greedy search, keep hidden state (hs) and context vector (c)
         as memory.
         """
         hs = None
