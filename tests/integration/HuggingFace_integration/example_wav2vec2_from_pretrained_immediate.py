@@ -2,7 +2,6 @@
 """This minimal example trains a GAN speech enhancement system on a tiny dataset.
 The generator and the discriminator are based on convolutional networks.
 """
-
 import torch
 import pathlib
 import speechbrain as sb
@@ -230,7 +229,7 @@ def data_prep(data_folder, hparams):
 
 def main(device="cpu"):
     experiment_dir = pathlib.Path(__file__).resolve().parent
-    hparams_file = experiment_dir / "wav2vec2_from_pretrained.yaml"
+    hparams_file = experiment_dir / "wav2vec2_from_pretrained_immediate.yaml"
     data_folder = "../../samples/ASR"
     data_folder = (experiment_dir / data_folder).resolve()
 

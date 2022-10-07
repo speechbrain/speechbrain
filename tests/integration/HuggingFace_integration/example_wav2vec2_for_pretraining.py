@@ -214,11 +214,14 @@ if __name__ == "__main__":
 
 
 def test_loss(device):
+    skip = False
     try:
         import transformers
 
         _ = transformers.__version__
     except ImportError:
+        skip = True
         print("\tSkipped")
 
-    main(device)
+    if not skip:
+        main(device)

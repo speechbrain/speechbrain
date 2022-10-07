@@ -530,7 +530,7 @@ class HuggingFaceModel(nn.Module):
         if norm_output is not None:
             if type(norm_output) is str:
                 self.norm_output = eval(f"self.model.{norm_output}")
-            elif type(norm_input) is bool:
+            elif type(norm_output) is bool:
                 self.norm_output = norm_output
             else:
                 raise ValueError(f"norm_output should be bool or str")
@@ -552,7 +552,7 @@ class HuggingFaceModel(nn.Module):
             self.model.gradient_checkpointing_disable()  # Required by DDP
             self.model.train()
             if freeze_nested_models_their_calls is not None:
-                if type(freeze_nested_models_their_calls) is list:
+                if type(freeze_nested_models_their_calls) is not list:
                     freeze_nested_models_their_calls = [
                         freeze_nested_models_their_calls
                     ]
