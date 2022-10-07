@@ -3,8 +3,9 @@ This folder contains the scripts to train a tokenizer using SentencePiece (https
 The tokenizer is trained on the top of the AISHELL training transcriptions.
 
 # How to run
-`python train.py tokenizer_bpe5000.yaml`
-`python train.py train_transformer_tokenizer_bpe5000.yaml`
+`python train.py hparams/tokenizer_bpe5000.yaml`
+
+`python train.py hparams/train_transformer_tokenizer_bpe5000.yaml`
 
 The output folder with the tokenizers and logs is available [here](https://drive.google.com/drive/folders/15wOIkFMHB-wwR1OW6NupcLcHbiJZJ_CU?usp=sharing).
 
