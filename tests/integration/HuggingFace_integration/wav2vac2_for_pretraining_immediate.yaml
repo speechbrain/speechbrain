@@ -49,7 +49,7 @@ dataloader_options:
 # Instead of the default setting. While the recipe will work directly by setting
 # it to True, you will first need to read the tutorial on dynamic batching to
 # properly adapt the hyperparameters to your GPU memory! Using Dynamic Batching
-# will drastically optimise your GPU utilization and decrease your training time.
+# will drastically optimise your GPU utilization and decrease your training time.
 # Be careful to also adjust the gradient accumulation when using dynamic batching.
 # This setup will work with 32GB GPUs.
 # Dynamic Batching parameters, if used are:
@@ -69,11 +69,20 @@ dynamic_batch_sampler:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2Pretrain
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceModel
     source: !ref <wav2vec2_hub>
     save_path: !ref <save_folder>/wav2vec2_checkpoint
-    mask_prob: !ref <mask_prob>
-    mask_length: !ref <mask_length>
+    norm_input: True
+    for_pretraining_cls: !name:transformers.Wav2Vec2ForPreTraining
+    override_hf_config_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.huggingface_wav2vec.config_return_hidden_states
+    forward_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.huggingface_wav2vec.wav2vec2_pretraining_forward
+          mask_prob: !ref <mask_prob>
+          mask_length: !ref <mask_length>
+    forward_returns_tuple: True
+    freeze: False
+    cache_dir: !ref <output_folder>/cache
 
 modules:
     wav2vec2: !ref <wav2vec2>

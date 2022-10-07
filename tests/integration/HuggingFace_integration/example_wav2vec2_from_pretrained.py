@@ -277,4 +277,11 @@ if __name__ == "__main__":
 
 
 def test_loss(device):
+    try:
+        import transformers
+
+        _ = transformers.__version__
+    except ImportError:
+        print("\tSkipped")
+
     main(device)
