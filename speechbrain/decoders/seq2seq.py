@@ -142,6 +142,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             inp_tokens = log_probs.argmax(dim=-1)
 
         log_probs = torch.stack(log_probs_lst, dim=1)
+
         scores, predictions = log_probs.max(dim=-1)
 
         (
@@ -153,40 +154,42 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         return top_hyps, top_lengths, top_scores, top_log_probs
 
-    def _get_top_prediction(self, hyps, scores, log_probs):
-        """This method sorts the scores and return corresponding hypothesis and log probs.
+    def _get_top_prediction(self, predictions, scores, log_probs):
+        """This method return the best prediction of the greedy search algorithm.
 
         Arguments
         ---------
-        hyps_and_scores : list
-            To store generated hypotheses and scores.
-        topk : int
-            Number of hypothesis to return.
+        predictions : torch.Tensor (batch, max length of token_id sequences)
+            Index of the max probability.
+        scores : torch.Tensor (batch, max length of token_id sequences)
+            Max probability of the index.
+        log_probs : torch.Tensor (batch, seq_length, max length of token_id sequences)
+            Original CTC table.
 
         Returns
         -------
-        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
-            This tensor stores the topk predicted hypothesis.
-        topk_scores : torch.Tensor (batch, topk)
-            The length of each topk sequence in the batch.
-        topk_lengths : torch.Tensor (batch, topk)
-            This tensor contains the final scores of topk hypotheses.
-        topk_log_probs : torch.Tensor (batch, topk, max length of token_id sequences)
+        top_hyp : torch.Tensor (batch, 1, max length of token_id sequences)
+            This tensor stores the top predicted hypothesis.
+        top_lengths : torch.Tensor (batch, 1)
+            The length of each top sequence in the batch.
+        top_scores : torch.Tensor (batch, 1)
+            This tensor contains the final score of the best hypothesis.
+        top_log_probs : torch.Tensor (batch, 1, seq_length, max length of token_id sequences)
             The log probabilities of each hypotheses.
         """
-        batch_size = hyps.size(0)
-        max_length = hyps.size(1)
+        batch_size = predictions.size(0)
+        max_length = predictions.size(1)
         top_lengths = [max_length] * batch_size
 
         # Collect lengths of top hyps
         for pred_index in range(batch_size):
-            pred = hyps[pred_index]
+            pred = predictions[pred_index]
             pred_length = (pred == self.eos_index).nonzero(as_tuple=False)
             if len(pred_length) > 0:
                 top_lengths[pred_index] = pred_length[0].item()
         # Convert lists to tensors
         top_lengths = torch.tensor(
-            top_lengths, dtype=torch.float, device=hyps.device
+            top_lengths, dtype=torch.float, device=predictions.device
         )
 
         # Pick top log probabilities
@@ -194,9 +197,8 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         # Use SpeechBrain style lengths
         top_lengths = (top_lengths - 1) / max_length
-
         return (
-            hyps.unsqueeze(1),
+            predictions.unsqueeze(1),
             top_lengths.unsqueeze(1),
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
@@ -223,6 +225,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     Example
     -------
     >>> import speechbrain as sb
+    >>> from speechbrain.decoders import S2SRNNGreedySearcher
     >>> emb = torch.nn.Embedding(5, 3)
     >>> dec = sb.nnet.RNN.AttentionalRNNDecoder(
     ...     "gru", "content", 3, 3, 1, enc_dim=7, input_size=3
@@ -232,8 +235,8 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ...     embedding=emb,
     ...     decoder=dec,
     ...     linear=lin,
-    ...     bos_index=4,
-    ...     eos_index=4,
+    ...     bos_index=0,
+    ...     eos_index=1,
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ... )
