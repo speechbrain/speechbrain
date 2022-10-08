@@ -39,8 +39,16 @@ adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
 downsample_factor: 16
+enable_train_metrics: True
+train_log_interval: 10
+overfit_test: False
+overfit_test_sample_count: 1
+overfit_test_epoch_data_count: 1000
+train_data_count: null
 dataloader_options:
     batch_size: !ref <batch_size>
+use_tensorboard: True
+tensorboard_logs: !ref <output_folder>/logs/
 
 
 # Spectrogram Parameters
