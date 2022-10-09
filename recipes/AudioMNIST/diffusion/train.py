@@ -201,7 +201,6 @@ class DiffusionBrain(sb.Brain):
 
     def generate_spectrograms(self):
         """Generates sample spectrograms"""
-        return torch.randn(self.hparams.eval_num_samples, 1, 80, 80)
         sample = self.modules.diffusion.sample(
             (
                 self.hparams.eval_num_samples,
