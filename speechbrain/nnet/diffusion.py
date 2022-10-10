@@ -122,8 +122,15 @@ class DenoisingDiffusion(Diffuser):
     """
 
     def __init__(
-        self, model, timesteps=None, noise=None, beta_start=None, beta_end=None,
-        show_progress=False
+        self,
+        model,
+        timesteps=None,
+        noise=None,
+        beta_start=None,
+        beta_end=None,
+        sample_min=None,
+        sample_max=None,
+        show_progress=False,
     ):
         if timesteps is None:
             timesteps = DDPM_REF_TIMESTEPS
@@ -164,15 +171,17 @@ class DenoisingDiffusion(Diffuser):
         self.register_buffer(
             "posterior_mean_weight_step", posterior_mean_weight_step
         )
-        sample_pred_model_coefficient = (1. / alphas_cumprod).sqrt()
+        sample_pred_model_coefficient = (1.0 / alphas_cumprod).sqrt()
 
         self.register_buffer(
             "sample_pred_model_coefficient", sample_pred_model_coefficient
         )
-        sample_pred_noise_coefficient = (1. / alphas_cumprod - 1).sqrt()
+        sample_pred_noise_coefficient = (1.0 / alphas_cumprod - 1).sqrt()
         self.register_buffer(
             "sample_pred_noise_coefficient", sample_pred_noise_coefficient
         )
+        self.sample_min = sample_min
+        self.sample_max = sample_max
         self.show_progress = show_progress
 
     def compute_coefficients(self):
@@ -236,7 +245,9 @@ class DenoisingDiffusion(Diffuser):
             steps = tqdm(steps, desc=DESC_SAMPLING, total=self.timesteps)
         for timestep_number in steps:
             timestep = (
-                torch.ones(shape[0], dtype=torch.long, device=self.alphas.device) 
+                torch.ones(
+                    shape[0], dtype=torch.long, device=self.alphas.device
+                )
                 * timestep_number
             )
             sample = self.sample_step(sample, timestep)
@@ -262,13 +273,12 @@ class DenoisingDiffusion(Diffuser):
         model_out = self.model(sample, timestep)
         noise = self.noise(sample)
         sample_start = (
-            unsqueeze_as(
-                self.sample_pred_model_coefficient[timestep], sample
-            ) * sample
-            -
-            unsqueeze_as(
+            unsqueeze_as(self.sample_pred_model_coefficient[timestep], sample)
+            * sample
+            - unsqueeze_as(
                 self.sample_pred_noise_coefficient[timestep], model_out
-            ) * model_out
+            )
+            * model_out
         )
         weight_start = unsqueeze_as(
             self.posterior_mean_weight_start[timestep], sample_start
@@ -281,6 +291,8 @@ class DenoisingDiffusion(Diffuser):
             self.posterior_log_variance[timestep], noise
         )
         predicted_sample = mean + (0.5 * log_variance).exp() * noise
+        if self.sample_min is not None or self.sample_max is not None:
+            predicted_sample.clip_(min=self.sample_min, max=self.sample_max)
         return predicted_sample
 
 
@@ -337,4 +349,3 @@ class LengthMaskedGaussianNoise(nn.Module):
 _NOISE_FUNCTIONS = {
     "gaussian": GaussianNoise(),
 }
-

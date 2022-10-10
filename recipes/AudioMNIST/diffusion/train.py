@@ -57,10 +57,12 @@ class DiffusionBrain(sb.Brain):
         # Compute features, embeddings, and predictions
         feats, lens = self.prepare_features(batch, stage)
 
-        pred, noise, noisy_sample = self.modules.diffusion.train_sample(feats, lens=lens)
+        pred, noise, noisy_sample = self.modules.diffusion.train_sample(
+            feats, lens=lens
+        )
 
-        #NOTE: lens can change because of the additional padding needed to account
-        #NOTE: for downsampling
+        # NOTE: lens can change because of the additional padding needed to account
+        # NOTE: for downsampling
         return pred, noise, noisy_sample, lens
 
     def fit_batch(self, batch):
@@ -74,8 +76,7 @@ class DiffusionBrain(sb.Brain):
             and self.hparams.use_tensorboard
             and (
                 self.step == 1
-                or
-                self.step % self.hparams.train_log_interval == 0
+                or self.step % self.hparams.train_log_interval == 0
             )
         ):
             self.log_batch()
@@ -99,8 +100,7 @@ class DiffusionBrain(sb.Brain):
             "data_max": data_max_stats["max_score"],
         }
         self.hparams.tensorboard_train_logger.log_stats(
-            stats_meta={"step": self.step},
-            train_stats=stats
+            stats_meta={"step": self.step}, train_stats=stats
         )
 
     def prepare_features(self, batch, stage):
@@ -120,7 +120,6 @@ class DiffusionBrain(sb.Brain):
         feats = feats.transpose(-1, -2)
         feats = feats.unsqueeze(1)
 
-
         # UNet downsamples features in multiples of 2. Reshape to ensure
         # there are no mismatched tensors due to ambiguity
         batch_dim, channel_dim, time_dim, feats_dim = feats.shape
@@ -131,7 +130,7 @@ class DiffusionBrain(sb.Brain):
         desired_feats_dim = (
             math.ceil(feats_dim / self.hparams.downsample_factor)
             * self.hparams.downsample_factor
-        )        
+        )
         feats, _ = data_utils.pad_right_to(
             feats,
             (batch_dim, channel_dim, desired_time_dim, desired_feats_dim),
@@ -140,28 +139,28 @@ class DiffusionBrain(sb.Brain):
         tail = time_dim % self.hparams.downsample_factor
         if tail > 0:
             feats[:, :, -tail:, :] = self.hparams.pad_level_db
-        
+
         # Adjust lengths to the new dimenson, post-padding
         lens = lens * (time_dim / desired_time_dim)
-
 
         # Min Level Norm
         feats_raw = self.modules.min_level_norm(feats)
 
         # Global Norm
         mask_value = self.modules.min_level_norm(
-            torch.tensor(self.hparams.pad_level_db, device=feats_raw.device))
-        
-        feats = self.modules.global_norm(
-            feats_raw, lens,
-            mask_value=mask_value)
+            torch.tensor(self.hparams.pad_level_db, device=feats_raw.device)
+        )
+
+        feats = self.modules.global_norm(feats_raw, lens, mask_value=mask_value)
 
         # Compute metrics
         if self.hparams.enable_train_metrics:
             max_len = feats.size(2)
-            mask = length_to_mask(lens * max_len, max_len)[:, None, :, None].bool()
+            mask = length_to_mask(lens * max_len, max_len)[
+                :, None, :, None
+            ].bool()
             for metric in self.data_metrics:
-                metric.append(batch.file_name, feats_raw, mask=mask)                
+                metric.append(batch.file_name, feats_raw, mask=mask)
 
         return feats, lens
 
@@ -205,7 +204,7 @@ class DiffusionBrain(sb.Brain):
         wav = None
         if self.hparams.eval_generate_audio:
             wav = self.generate_audio(samples)
-        
+
         return samples, wav
 
     def generate_spectrograms(self):
@@ -339,7 +338,7 @@ class DiffusionBrain(sb.Brain):
                 self.data_mean_metric,
                 self.data_std_metric,
                 self.data_min_metric,
-                self.data_max_metric
+                self.data_max_metric,
             ]
 
         self.sample_mean_metric = sb.utils.metric_stats.MetricStats(
@@ -358,17 +357,16 @@ class DiffusionBrain(sb.Brain):
             self.sample_mean_metric,
             self.sample_std_metric,
             self.sample_min_metric,
-            self.sample_max_metric
+            self.sample_max_metric,
         ]
         if stage == sb.Stage.TRAIN:
             self.modules.global_norm.unfreeze()
         else:
             self.modules.global_norm.freeze()
-        
+
         if (
-            (self.hparams.enable_reference_samples or stage != sb.Stage.TRAIN)
-            and not hasattr(self, "vocoder")
-        ):
+            self.hparams.enable_reference_samples or stage != sb.Stage.TRAIN
+        ) and not hasattr(self, "vocoder"):
             self.vocoder = self.hparams.vocoder()
         self.reference_batch = None
         self.reference_samples_neeed = False
@@ -423,7 +421,6 @@ class DiffusionBrain(sb.Brain):
             samples, wav = self.generate_samples()
             self.log_epoch(samples, wav, epoch, stage)
 
-
     def generate_reference_samples(self, batch):
         """Generate an audio sample from one of the spectrograms 
         using the same normalization techniques
@@ -440,7 +437,7 @@ class DiffusionBrain(sb.Brain):
             spectrogram_samples=feats,
             wav_samples=wav,
             lens=lens,
-            key_prefix="reference_"
+            key_prefix="reference_",
         )
         ref_sample_path = os.path.join(self.hparams.sample_folder, "ref")
         self.save_spectrograms(feats, ref_sample_path)
@@ -457,11 +454,11 @@ class DiffusionBrain(sb.Brain):
             Generated audio waveforms
         epoch: int
             the epoch number
+        stage: speechbrain.Stage
+            the training stage
         
         """
-        epoch_sample_path = os.path.join(
-            self.hparams.sample_folder, str(epoch)
-        )
+        epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
         self.save_spectrograms(samples, epoch_sample_path)
         sample_ids = torch.arange(1, len(samples) + 1)
         for metric in self.sample_metrics:
@@ -481,22 +478,20 @@ class DiffusionBrain(sb.Brain):
                 "sample_std_min": sample_std_stats["min_score"],
                 "sample_std_max": sample_std_stats["max_score"],
                 "sample_min": sample_min_stats["min_score"],
-                "sample_max": sample_max_stats["max_score"]
+                "sample_max": sample_max_stats["max_score"],
             }
-            stats_args = {f"{stage.name.lower()}_stats": stats}                
+            stats_args = {f"{stage.name.lower()}_stats": stats}
             self.hparams.tensorboard_train_logger.log_stats(
-                stats_meta={"step": self.step},
-                **stats_args
+                stats_meta={"step": self.step}, **stats_args
             )
-            self.log_samples(
-                spectrogram_samples=samples, wav_samples=wav)
+            self.log_samples(spectrogram_samples=samples, wav_samples=wav)
 
     def log_samples(
         self,
         spectrogram_samples=None,
         wav_samples=None,
         key_prefix=None,
-        lens=None
+        lens=None,
     ):
         """Logs a set of audio and spectrogram samples
         
@@ -507,30 +502,37 @@ class DiffusionBrain(sb.Brain):
 
         wav_samples: torch.Tensor
             a tensor of audio samples
+        
+        key_prefix: str
+            the prefix to use for keys in Tensorboard logging (if applicable)
+        
+        lens: torch.Tensor
+            relative sample lengths
 
         """
         if key_prefix is None:
-            key_prefix = ''
+            key_prefix = ""
         if lens is None:
             lens = torch.ones(
-                len(spectrogram_samples),
-                device=spectrogram_samples.device)
+                len(spectrogram_samples), device=spectrogram_samples.device
+            )
         if self.hparams.use_tensorboard:
             for sample in spectrogram_samples:
                 self.hparams.tensorboard_train_logger.log_figure(
-                    f"{key_prefix}spectrogram", sample)
+                    f"{key_prefix}spectrogram", sample
+                )
             if wav_samples is not None:
                 max_len = wav_samples.size(-1)
                 lens_full = (lens * max_len).int()
                 for wav_sample, sample_len in zip(wav_samples, lens_full):
                     self.tb_writer.add_audio(
-                        f"{key_prefix}audio", wav_sample[:, :sample_len])
+                        f"{key_prefix}audio", wav_sample[:, :sample_len]
+                    )
+
     @property
     def tb_writer(self):
         """Returns the raw TensorBoard logger writer"""
         return self.hparams.tensorboard_train_logger.writer
-
-
 
 
 DATASET_SPLITS = ["train", "valid", "test"]
@@ -558,7 +560,7 @@ def dataio_prep(hparams):
 
     resample = transforms.Resample(
         orig_freq=hparams["sample_rate_src"],
-        new_freq=hparams["sample_rate_tgt"]
+        new_freq=hparams["sample_rate_tgt"],
     )
 
     # Define audio pipeline
@@ -664,7 +666,9 @@ def masked_std(sample, mask=None):
     dims = non_batch_dims(sample)
     mean = unsqueeze_as(masked_mean(sample, mask), sample)
     diff_sq = ((sample - mean) * mask) ** 2
-    return (diff_sq.sum(dim=dims) / (mask.expand_as(diff_sq).sum(dim=dims) - 1)).sqrt()
+    return (
+        diff_sq.sum(dim=dims) / (mask.expand_as(diff_sq).sum(dim=dims) - 1)
+    ).sqrt()
 
 
 def masked_min(sample, mask=None):
@@ -684,7 +688,7 @@ def masked_min(sample, mask=None):
         a tensor fo means
     """
     if mask is None:
-        mask = torch.ones_like(sample).bool()  
+        mask = torch.ones_like(sample).bool()
     dims = non_batch_dims(sample)
     return sample.masked_fill(~mask, torch.inf).amin(dim=dims)
 
@@ -706,7 +710,7 @@ def masked_max(sample, mask=None):
         a tensor fo means
     """
     if mask is None:
-        mask = torch.ones_like(sample).bool()  
+        mask = torch.ones_like(sample).bool()
     dims = non_batch_dims(sample)
     return sample.masked_fill(~mask, -torch.inf).amax(dim=dims)
 
@@ -747,7 +751,7 @@ if __name__ == "__main__":
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Check whether Tensorboard is available and enabled
-    check_tensorboard(hparams)    
+    check_tensorboard(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -786,4 +790,3 @@ if __name__ == "__main__":
         min_key="error",
         test_loader_kwargs=hparams["dataloader_options"],
     )
-

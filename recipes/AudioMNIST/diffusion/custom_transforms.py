@@ -96,6 +96,7 @@ class GlobalNorm(nn.Module):
         mask_value=0.0,
     ):
         super().__init__()
+        # TODO: Change to a buffer
         self.running_mean = nn.Parameter(torch.tensor(0.0), requires_grad=False)
         self.running_std = nn.Parameter(torch.tensor(0.0), requires_grad=False)
         self.norm_mean = norm_mean
@@ -105,8 +106,9 @@ class GlobalNorm(nn.Module):
         self.step_count = 0
         self.update_steps = update_steps
         self.length_dim = length_dim
+        self.frozen = False
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, lengths=None, mask_value=None):
         """Normalizes the tensor provided
 
         Arguments
@@ -116,6 +118,8 @@ class GlobalNorm(nn.Module):
         lengths: torch.Tensor
             a tensor of relative lengths (padding will not 
             count towards normalization)
+        mask_value: float
+            the value to use for masked positions
 
         Returns
         -------
@@ -124,10 +128,14 @@ class GlobalNorm(nn.Module):
         """
         if lengths is None:
             lengths = torch.ones(len(x))
+        if mask_value is None:
+            mask_value = self.mask_value
 
         mask = self.get_mask(x, lengths)
 
-        if self.update_steps is None or self.step_count < self.update_steps:
+        if not self.frozen and (
+            self.update_steps is None or self.step_count < self.update_steps
+        ):
             x_masked = x.masked_select(mask)
             mean = x_masked.mean()
             std = x_masked.std()
@@ -142,10 +150,17 @@ class GlobalNorm(nn.Module):
                 self.weight * self.running_std + weight * std
             ) / new_weight
             self.weight.data = new_weight
+        x = self.normalize(x)
+        if not torch.is_tensor(mask_value):
+            mask_value = torch.tensor(mask_value, device=x.device)
+        mask_value_norm = self.normalize(mask_value)
+        x = x.masked_fill(~mask, mask_value_norm)
+        self.step_count += 1
+        return x
+
+    def normalize(self, x):
         x = (x - self.running_mean) / self.running_std
         x = (x * self.norm_std) + self.norm_mean
-        x = x.masked_fill(~mask, self.mask_value)
-        self.step_count += 1
         return x
 
     def get_mask(self, x, lengths):
@@ -173,6 +188,14 @@ class GlobalNorm(nn.Module):
         x = (x - self.norm_mean) / self.norm_std
         x = x * self.running_std + self.running_mean
         return x
+
+    def freeze(self):
+        """Stops updates to the running mean/std"""
+        self.frozen = True
+
+    def unfreeze(self):
+        """Resumes updates to the running mean/std"""
+        self.frozen = False
 
 
 class DynamicRangeCompression(nn.Module):
