@@ -32,6 +32,7 @@ sample_rate_tgt: 22050
 number_of_epochs: 35
 batch_size: 16
 lr_start: 0.001
+max_grad_norm: 1.
 lr_warmup_steps: 500
 train_timesteps: 1000
 adam_beta1: 0.95
@@ -40,6 +41,7 @@ adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
 downsample_factor: 16
 enable_train_metrics: True
+enable_reference_samples: True
 train_log_interval: 10
 overfit_test: False
 overfit_test_sample_count: 1
@@ -62,10 +64,11 @@ spec_hop_length: 256
 spec_win_length: 1024
 spec_norm: "slaney"
 spec_mel_scale: "slaney"
-spec_norm_mean: 0.5
-spec_norm_std: 0.5
+spec_norm_mean: 0.
+spec_norm_std: 1.
 spec_sample_size: 80
-min_level_db: -100.0
+min_level_db: -80.0
+pad_level_db: -50.
 
 # Vocoder Settings
 vocoder_model: speechbrain/tts-hifigan-ljspeech
@@ -118,6 +121,8 @@ diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
     timesteps: !ref <train_timesteps>
     noise: !ref <noise>
     show_progress: !ref <eval_show_progress>
+    sample_min: -4.7
+    sample_max: 3.
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
