@@ -276,6 +276,89 @@ class CNN_Block(sb.nnet.containers.Sequential):
         )
 
 
+class reCNN_Block(sb.nnet.containers.Sequential):
+    """Parameter efficient CNN Block.
+
+    Arguments
+    ---------
+    input_shape : tuple
+        Expected shape of the input.
+    channels : int
+        Number of convolutional channels for the block.
+    kernel_size : tuple
+        Size of the 2d convolutional kernel
+    activation : torch.nn.Module class
+        A class to be used for instantiating an activation layer.
+    using_2d_pool : bool
+        Whether to use 2d pooling or only 1d pooling.
+    pooling_size : int
+        Size of pooling kernel, duplicated for 2d pooling.
+    dropout : float
+        Rate to use for dropping channels.
+
+    Example
+    -------
+    >>> inputs = torch.rand(10, 15, 60)
+    >>> block = CNN_Block(input_shape=inputs.shape, channels=32)
+    >>> outputs = block(inputs)
+    >>> outputs.shape
+    torch.Size([10, 15, 30, 32])
+    """
+
+    def __init__(
+        self,
+        input_shape,
+        channels,
+        kernel_size=[3, 3],
+        activation=torch.nn.LeakyReLU,
+        using_2d_pool=False,
+        pooling_size=2,
+        dropout=0.15,
+    ):
+        super().__init__(input_shape=input_shape)
+        self.append(
+            sb.nnet.CNN.Conv2d,
+            out_channels=channels,
+            kernel_size=(1, 1),
+            layer_name="conv_1",
+        )
+        self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_1")
+        self.append(activation(), layer_name="act_1")
+        self.append(
+            sb.nnet.CNN.Conv2d,
+            out_channels=channels,
+            kernel_size=kernel_size,
+            layer_name="conv_2",
+            groups=channels,
+        )
+        self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
+        self.append(activation(), layer_name="act_2")
+
+        if using_2d_pool:
+            self.append(
+                sb.nnet.pooling.Pooling2d(
+                    pool_type="max",
+                    kernel_size=(pooling_size, pooling_size),
+                    pool_axis=(1, 2),
+                ),
+                layer_name="pooling",
+            )
+        else:
+            self.append(
+                sb.nnet.pooling.Pooling1d(
+                    pool_type="max",
+                    input_dims=4,
+                    kernel_size=pooling_size,
+                    pool_axis=2,
+                ),
+                layer_name="pooling",
+            )
+
+        self.append(
+            sb.nnet.dropout.Dropout2d(drop_rate=dropout), layer_name="drop"
+        )
+
+
 class DNN_Block(sb.nnet.containers.Sequential):
     """Block for linear layers.
 
@@ -304,7 +387,9 @@ class DNN_Block(sb.nnet.containers.Sequential):
     ):
         super().__init__(input_shape=input_shape)
         self.append(
-            sb.nnet.linear.Linear, n_neurons=neurons, layer_name="linear",
+            sb.nnet.linear.Linear,
+            n_neurons=neurons,
+            layer_name="linear",
         )
         self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")
         self.append(activation(), layer_name="act")
