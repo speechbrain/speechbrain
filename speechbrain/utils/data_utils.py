@@ -583,15 +583,15 @@ def scalarize(value):
 
 def unsqueeze_as(x, target):
     """Reshape the tensor to be of a shape compatible with the target
-    tensor, only valid if x.dim() <= y.dim() 
-    
+    tensor, only valid if x.dim() <= y.dim()
+
     Arguments
     ---------
     x: torch.Tensor
         the original tensor
     target: torch.Tensor
-        the tensor whose shape 
-        
+        the tensor whose shape
+
     Returns
     -------
     result: torch.Tensor

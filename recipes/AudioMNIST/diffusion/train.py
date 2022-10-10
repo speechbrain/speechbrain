@@ -222,7 +222,7 @@ class DiffusionBrain(sb.Brain):
 
     def save_spectrograms(self, samples, path):
         """Saves sample spectrograms to filesystem files
-        
+
         Arguments
         ---------
         samples: torch.Tensor
@@ -294,7 +294,7 @@ class DiffusionBrain(sb.Brain):
 
     def compute_sample_metrics(self, samples):
         """Computes metrics (mean/std) on samples
-        
+
         Arguments
         ---------
         """
@@ -422,9 +422,9 @@ class DiffusionBrain(sb.Brain):
             self.log_epoch(samples, wav, epoch, stage)
 
     def generate_reference_samples(self, batch):
-        """Generate an audio sample from one of the spectrograms 
+        """Generate an audio sample from one of the spectrograms
         using the same normalization techniques
-        
+
         Arguments
         ---------
         batch: speechbrain.dataio.batch.PaddedBatch
@@ -445,7 +445,7 @@ class DiffusionBrain(sb.Brain):
 
     def log_epoch(self, samples, wav, epoch, stage):
         """Saves end-of-epoch logs
-        
+
         Arguments
         ---------
         samples: torch.Tensor
@@ -456,7 +456,7 @@ class DiffusionBrain(sb.Brain):
             the epoch number
         stage: speechbrain.Stage
             the training stage
-        
+
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
         self.save_spectrograms(samples, epoch_sample_path)
@@ -494,7 +494,7 @@ class DiffusionBrain(sb.Brain):
         lens=None,
     ):
         """Logs a set of audio and spectrogram samples
-        
+
         Arguments
         ---------
         spectrogram_samples: torch.Tensor
@@ -502,10 +502,10 @@ class DiffusionBrain(sb.Brain):
 
         wav_samples: torch.Tensor
             a tensor of audio samples
-        
+
         key_prefix: str
             the prefix to use for keys in Tensorboard logging (if applicable)
-        
+
         lens: torch.Tensor
             relative sample lengths
 
@@ -607,7 +607,7 @@ def dataio_prep(hparams):
 def non_batch_dims(sample):
     """Returns all dimensons of the specified tensor
     except the batch dimension
-    
+
     Arguments
     ---------
     sample: torch.Tensor
@@ -624,15 +624,15 @@ def non_batch_dims(sample):
 def masked_mean(sample, mask=None):
     """A metric function that computes the mean of each sample, excluding
     padding
-    
+
     Arguments
     ---------
     samples: torch.Tensor
         a tensor of spectrograms
-        
+
     mask: torch.Tensor
         a length mask
-        
+
     Returns
     -------
     result: torch.Tensor
@@ -647,15 +647,15 @@ def masked_mean(sample, mask=None):
 def masked_std(sample, mask=None):
     """A metric function that computes the standard deviation of each
     sample, excluding padding
-    
+
     Arguments
     ---------
     samples: torch.Tensor
         a tensor of spectrograms
-        
+
     mask: torch.Tensor
         a length mask
-        
+
     Returns
     -------
     result: torch.Tensor
@@ -673,15 +673,15 @@ def masked_std(sample, mask=None):
 
 def masked_min(sample, mask=None):
     """A metric function that computes the minimum of each sample
-    
+
     Arguments
     ---------
     samples: torch.Tensor
         a tensor of spectrograms
-        
+
     mask: torch.Tensor
         a length mask
-        
+
     Returns
     -------
     result: torch.Tensor
@@ -695,15 +695,15 @@ def masked_min(sample, mask=None):
 
 def masked_max(sample, mask=None):
     """A metric function that computes the minimum of each sample
-    
+
     Arguments
     ---------
     samples: torch.Tensor
         a tensor of spectrograms
-        
+
     mask: torch.Tensor
         a length mask
-        
+
     Returns
     -------
     result: torch.Tensor
@@ -761,7 +761,7 @@ if __name__ == "__main__":
     )
 
     # Create dataset objects "train", "valid", and "test".
-    datasets = dataio_prep(hparams)
+    diffusion_datasets = dataio_prep(hparams)
 
     # Initialize the Brain object to prepare for mask training.
     diffusion_brain = DiffusionBrain(
@@ -778,15 +778,15 @@ if __name__ == "__main__":
     # stopped at any point, and will be resumed on next call.
     diffusion_brain.fit(
         epoch_counter=diffusion_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
+        train_set=diffusion_datasets["train"],
+        valid_set=diffusion_datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
 
     # Load the best checkpoint for evaluation
     test_stats = diffusion_brain.evaluate(
-        test_set=datasets["test"],
+        test_set=diffusion_datasets["test"],
         min_key="error",
         test_loader_kwargs=hparams["dataloader_options"],
     )

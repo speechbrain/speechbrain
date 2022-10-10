@@ -108,11 +108,11 @@ compute_cost: !name:speechbrain.nnet.losses.mse_loss
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
 unet: !new:speechbrain.nnet.unet.UNetModel
-  in_channels: 1
-  model_channels: 64
-  out_channels: 1
-  num_res_blocks: 4
-  attention_resolutions: [32, 16, 8]
+    in_channels: 1
+    model_channels: 64
+    out_channels: 1
+    num_res_blocks: 4
+    attention_resolutions: [32, 16, 8]
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 

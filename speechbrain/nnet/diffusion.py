@@ -16,7 +16,7 @@ from speechbrain.dataio.dataio import length_to_mask
 
 class Diffuser(nn.Module):
     """A base diffusion implementation
-    
+
     Arguments
     ---------
     model: nn.Module
@@ -41,7 +41,7 @@ class Diffuser(nn.Module):
     def train_sample(self, x, timesteps=None, **kwargs):
         """Creates a sample for the training loop with a
         corresponding target
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -50,7 +50,7 @@ class Diffuser(nn.Module):
             a 1-D integer tensor of a length equal to the number of
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
-            sampled 
+            sampled
 
         Returns
         -------
@@ -70,7 +70,7 @@ class Diffuser(nn.Module):
     def sample(self, shape):
         """Generates the number of samples indicated by the
         count parameter
-        
+
         Arguments
         ---------
         shape: enumerable
@@ -96,7 +96,7 @@ DESC_SAMPLING = "Diffusion Sampling"
 
 class DenoisingDiffusion(Diffuser):
     """An implementation of a classic Denoising Diffusion Probabilistic Model (DDPM)
-    
+
     Arguments
     ---------
     model: nn.Module
@@ -113,7 +113,7 @@ class DenoisingDiffusion(Diffuser):
     beta_start: float
         the value of the "beta" parameter at the beginning at the end of the process
         (see the paper)
-    
+
     beta_end: float
         the value of the "beta" parameter at the end of the process
 
@@ -227,7 +227,7 @@ class DenoisingDiffusion(Diffuser):
     def sample(self, shape):
         """Generates the number of samples indicated by the
         count parameter
-        
+
         Arguments
         ---------
         shape: enumerable
@@ -305,7 +305,7 @@ class GaussianNoise(nn.Module):
 
     def forward(self, sample, **kwargs):
         """Forward pass
-        
+
         Arguments
         ---------
         sample: the original sample
@@ -320,7 +320,7 @@ class LengthMaskedGaussianNoise(nn.Module):
     Arguments
     ---------
     length_dim: int
-        the 
+        the
     """
 
     def __init__(self, length_dim=2):

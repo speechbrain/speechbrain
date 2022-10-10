@@ -15,7 +15,7 @@ class MinLevelNorm(nn.Module):
     The scheme is as follows
 
     x_norm = (x - min_level_db)/-min_level_db * 2 - 1
-    
+
     Arguments
     ---------
     min_level_db: float
@@ -52,7 +52,7 @@ class MinLevelNorm(nn.Module):
         ---------
         x: torch.Tensor
             the normalized tensor
-        
+
         Returns
         -------
         result: torch.Tensor
@@ -82,7 +82,7 @@ class GlobalNorm(nn.Module):
     length_dim: int
         the dimension used to represent the length
     mask_value: float
-        the value with which to fill masked positions 
+        the value with which to fill masked positions
         without a mask_value, the masked positions would be normalized,
         which might not be desired
     """
@@ -116,7 +116,7 @@ class GlobalNorm(nn.Module):
         x: torch.Tensor
             the tensor to normalize
         lengths: torch.Tensor
-            a tensor of relative lengths (padding will not 
+            a tensor of relative lengths (padding will not
             count towards normalization)
         mask_value: float
             the value to use for masked positions
