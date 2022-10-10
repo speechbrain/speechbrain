@@ -2,6 +2,9 @@
 
 https://arxiv.org/pdf/2006.11239.pdf
 
+Certain parts adopted from / inspired by denoising-diffusion-pytorch
+https://github.com/lucidrains/denoising-diffusion-pytorch
+
 Authors
  * Artem Ploujnikov 2022
 """
