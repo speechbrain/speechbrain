@@ -205,6 +205,7 @@ model: !new:speechbrain.lobes.models.EEGNet.EEGNet
     cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
     cnn_septemporal_kernelsize: !ref (<cnn_septemporal_kernelsize>, 1)
     cnn_septemporal_pool: !ref (<cnn_septemporal_pool>, 1)
+    cnn_pool_type: !ref <cnn_pool_type>
     activation_type: !ref <activation_type>
     dense_max_norm: !ref <dense_max_norm>
     dropout: !ref <dropout>
