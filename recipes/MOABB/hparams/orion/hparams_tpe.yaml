@@ -1,0 +1,6 @@
+experiment:
+    algorithms:
+        tpe:
+            seed: 1986
+            n_initial_points: 20
+            n_ei_candidates: 24
