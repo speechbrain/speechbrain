@@ -129,10 +129,10 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 cnn: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <n_mels>]
     norm1: !name:speechbrain.nnet.normalization.LayerNorm
-    cnn1: !name:speechbrain.lobes.models.reCRDNN.CNN_Block
+    cnn1: !name:speechbrain.lobes.models.CRDNN.reCNN_Block
         channels: 16
         kernel_size: (3, 3)
-    cnn2: !name:speechbrain.lobes.models.reCRDNN.CNN_Block
+    cnn2: !name:speechbrain.lobes.models.CRDNN.reCNN_Block
         channels: 32
         kernel_size: (3, 3)
 
@@ -144,13 +144,10 @@ rnn: !new:speechbrain.nnet.RNN.GRU
 
 dnn: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <rnn_neurons> * 2]
-    dnn1: !name:speechbrain.nnet.CNN.Conv1d
-        in_channels: !ref <rnn_neurons> * 2
-        out_channels: !ref <rnn_neurons> * 2 
-        padding: "same"
-        kernel_size: 3
-    # dnn2: !name:speechbrain.lobes.models.CRDNN.DNN_Block
-    #     neurons: !ref <dnn_neurons>
+    dnn1: !name:speechbrain.lobes.models.CRDNN.DNN_Block
+        neurons: !ref <dnn_neurons>
+    dnn2: !name:speechbrain.lobes.models.CRDNN.DNN_Block
+        neurons: !ref <dnn_neurons>
     lin: !name:speechbrain.nnet.linear.Linear
         n_neurons: !ref <output_neurons>
         bias: False
