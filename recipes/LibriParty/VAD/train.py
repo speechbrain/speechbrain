@@ -30,7 +30,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from data_augment import augment_data
-import neptune.new as neptune
+import wandb
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class VADBrain(sb.Brain):
             self.valid_metrics.append(
                 batch.id, torch.sigmoid(predictions), targets
             )
-        self.run_opts.neptune_logger["run/%s/batch" % stage].log(loss)
+        wandb.log({"run/%s/batch" % stage: loss})
         return loss
 
     def on_stage_start(self, stage, epoch=None):
@@ -203,20 +203,16 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
+    wandb.init(project="reVAD", entity="ffpais")
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
-    run = neptune.init(
-        project="fpaissan/reVAD",
-        api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJkMDhiZjJmMC1iM2Q2LTRjNmItYTAzMS0xNzI0M2FkYTYzMmEifQ==",
-    )  # your credentials
 
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    run["hparams"] = hparams
+    wandb.config = hparams
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -278,6 +274,8 @@ if __name__ == "__main__":
         run_opts=run_opts.update({"neptune_logger": run}),
         checkpointer=hparams["checkpointer"],
     )
+
+    wandb.watch(vad_brain)
 
     # Training/validation loop
     vad_brain.fit(
