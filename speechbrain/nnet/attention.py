@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ContentBasedAttention(nn.Module):
-    """This class implements content-based attention module for seq2seq
+    """ This class implements content-based attention module for seq2seq
     learning.
 
     Reference: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
@@ -63,7 +63,8 @@ class ContentBasedAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in the attention module."""
+        """Reset the memory in the attention module.
+        """
         self.enc_len = None
         self.precomputed_enc_h = None
         self.mask = None
@@ -178,7 +179,8 @@ class LocationAwareAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in attention module."""
+        """Reset the memory in attention module.
+        """
         self.enc_len = None
         self.precomputed_enc_h = None
         self.mask = None
@@ -233,7 +235,7 @@ class LocationAwareAttention(nn.Module):
 
 
 class KeyValueAttention(nn.Module):
-    """This class implements a single-headed key-value attention module for seq2seq
+    """ This class implements a single-headed key-value attention module for seq2seq
     learning.
 
     Reference: "Attention Is All You Need" by Vaswani et al., sec. 3.2.1
@@ -272,7 +274,8 @@ class KeyValueAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in the attention module."""
+        """Reset the memory in the attention module.
+        """
         self.values = None
         self.keys = None
         self.mask = None
@@ -307,7 +310,9 @@ class KeyValueAttention(nn.Module):
 
 
 class RelPosEncXL(nn.Module):
-    """ """
+    """
+
+    """
 
     def __init__(self, emb_dim):
         super().__init__()
@@ -355,7 +360,7 @@ class RelPosEncXL(nn.Module):
 
 
 class RelPosMHAXL(nn.Module):
-    """This class implements the relative multihead implementation similar to that in Transformer XL
+    """ This class implements the relative multihead implementation similar to that in Transformer XL
     https://arxiv.org/pdf/1901.02860.pdf
 
     Arguments
@@ -635,7 +640,7 @@ class RelPosMHAXL(nn.Module):
 
 
 class MultiheadAttention(nn.Module):
-    """The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
+    """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
 
     Reference: https://pytorch.org/docs/stable/nn.html
 

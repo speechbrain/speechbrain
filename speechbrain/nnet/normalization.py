@@ -482,10 +482,10 @@ class ExponentialMovingAverage(nn.Module):
     def forward(self, x):
         """Returns the normalized input tensor.
 
-        Arguments
-         ---------
-         x : torch.Tensor (batch, time, channels)
-             input to normalize.
+       Arguments
+        ---------
+        x : torch.Tensor (batch, time, channels)
+            input to normalize.
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)

@@ -60,8 +60,8 @@ def pesq_eval(predict, target):
 
 
 def srmrpy_eval(predict, target):
-    """Note target is not used in the srmr function !!!
-    Normalize the score to 0~1 for training.
+    """ Note target is not used in the srmr function !!!
+        Normalize the score to 0~1 for training.
     """
     return float(
         sigmoid(
@@ -81,8 +81,8 @@ def srmrpy_eval(predict, target):
 
 
 def srmrpy_eval_valid(predict, target):
-    """Note target is not used in the srmr function !!!
-    Show the unnormalized score for valid and test set.
+    """ Note target is not used in the srmr function !!!
+        Show the unnormalized score for valid and test set.
     """
     return float(
         srmr(
@@ -99,8 +99,8 @@ def srmrpy_eval_valid(predict, target):
 
 
 def dnsmos_eval(predict, target):
-    """Note target is not used in the dnsmos function !!!
-    Normalize the score to 0~1 for training.
+    """ Note target is not used in the dnsmos function !!!
+        Normalize the score to 0~1 for training.
     """
     pred_wav = predict
 
@@ -129,8 +129,8 @@ def dnsmos_eval(predict, target):
 
 
 def dnsmos_eval_valid(predict, target):
-    """Note target is not used in the dnsmos function !!!
-    Show the unnormalized score for valid and test set.
+    """ Note target is not used in the dnsmos function !!!
+        Show the unnormalized score for valid and test set.
     """
     pred_wav = predict
 

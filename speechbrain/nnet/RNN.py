@@ -278,7 +278,7 @@ class LSTM(torch.nn.Module):
 
 
 class GRU(torch.nn.Module):
-    """This function implements a basic GRU.
+    """ This function implements a basic GRU.
 
     It accepts input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
@@ -389,7 +389,7 @@ class GRU(torch.nn.Module):
 
 
 class RNNCell(nn.Module):
-    """This class implements a basic RNN Cell for a timestep of input,
+    """ This class implements a basic RNN Cell for a timestep of input,
     while RNN() takes the whole sequence as input.
 
     It is designed for an autoregressive decoder (ex. attentional decoder),
@@ -496,7 +496,7 @@ class RNNCell(nn.Module):
 
 
 class GRUCell(nn.Module):
-    """This class implements a basic GRU Cell for a timestep of input,
+    """ This class implements a basic GRU Cell for a timestep of input,
     while GRU() takes the whole sequence as input.
 
     It is designed for an autoregressive decoder (ex. attentional decoder),
@@ -601,7 +601,7 @@ class GRUCell(nn.Module):
 
 
 class LSTMCell(nn.Module):
-    """This class implements a basic LSTM Cell for a timestep of input,
+    """ This class implements a basic LSTM Cell for a timestep of input,
     while LSTM() takes the whole sequence as input.
 
     It is designed for an autoregressive decoder (ex. attentional decoder),
@@ -959,7 +959,7 @@ class AttentionalRNNDecoder(nn.Module):
 
 
 class LiGRU(torch.nn.Module):
-    """This function implements a Light GRU (liGRU).
+    """ This function implements a Light GRU (liGRU).
 
     LiGRU is single-gate GRU model based on batch-norm + relu
     activations + recurrent dropout. For more info see:
@@ -1123,7 +1123,7 @@ class LiGRU(torch.nn.Module):
 
 
 class LiGRU_Layer(torch.nn.Module):
-    """This function implements Light-Gated Recurrent Units (ligru) layer.
+    """ This function implements Light-Gated Recurrent Units (ligru) layer.
 
     Arguments
     ---------

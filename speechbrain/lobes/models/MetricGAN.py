@@ -50,7 +50,7 @@ class Learnable_sigmoid(nn.Module):
         # self.scale.requiresGrad = True # set requiresGrad to true!
 
     def forward(self, x):
-        """Processes the input tensor x and returns an output tensor."""
+        """ Processes the input tensor x and returns an output tensor."""
         return 1.2 * torch.sigmoid(self.slope * x)
 
 
@@ -101,7 +101,7 @@ class EnhancementGenerator(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, lengths):
-        """Processes the input tensor x and returns an output tensor."""
+        """ Processes the input tensor x and returns an output tensor."""
         out, _ = self.blstm(x, lengths=lengths)
 
         out = self.linear1(out)
@@ -156,7 +156,7 @@ class MetricDiscriminator(nn.Module):
         self.Linear3 = xavier_init_layer(in_size=10, out_size=1)
 
     def forward(self, x):
-        """Processes the input tensor x and returns an output tensor."""
+        """ Processes the input tensor x and returns an output tensor."""
         out = self.BN(x)
 
         out = self.conv1(out)

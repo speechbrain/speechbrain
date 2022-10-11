@@ -304,7 +304,7 @@ def download_file(
         if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
-                """DownloadProgressBar class."""
+                """ DownloadProgressBar class."""
 
                 def update_to(self, b=1, bsize=1, tsize=None):
                     """Needed to support multigpu training."""

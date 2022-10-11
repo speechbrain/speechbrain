@@ -23,7 +23,8 @@ from torch.autograd.profiler_util import (  # pytorch v1.10.1
 
 
 def set_profiler_attr(func: object, set_attr: str, handler: Callable):
-    """Sets handler for profiler: scheduler or trace export."""
+    """Sets handler for profiler: scheduler or trace export.
+    """
     assert set_attr in [
         "on_trace_ready",
         "schedule",
@@ -66,7 +67,8 @@ def schedule(
     repeat: int = 1,
     skip_first: int = 0,
 ):
-    """Wrapper to create a ```torch.profiler.schedule``` (sets default parameters for warm-up)."""
+    """Wrapper to create a ```torch.profiler.schedule``` (sets default parameters for warm-up).
+    """
     torch_scheduler = profiler.schedule(
         wait=wait,
         warmup=warmup,
@@ -270,7 +272,8 @@ def hook_brain_methods(
     prof: profiler.profile,
     class_hooks: Optional[Iterable[str]] = None,
 ):
-    """For instances of ``speechbrain.core.Brain``, critical functions are hooked to profiler start/stop methods."""
+    """For instances of ``speechbrain.core.Brain``, critical functions are hooked to profiler start/stop methods.
+    """
     # Prepare additional hook decorators for methods of Brain:s.
     def hook_brain(f: Callable):
         """Implementation of hook_brain."""
@@ -468,7 +471,8 @@ def profile_analyst(
 def profile_optimiser(
     func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
 ):  # to diverge, define parameters from scratch: @schedule; @export & @profile
-    """Pre-configured profiling for a detailed benchmark (better suitable for speed-optimisation than @profile_analyst)."""
+    """Pre-configured profiling for a detailed benchmark (better suitable for speed-optimisation than @profile_analyst).
+    """
     profiler_kwargs = {
         "schedule": schedule(),
         "on_trace_ready": None,
@@ -496,7 +500,8 @@ def profile_optimiser(
 def profile_report(  # not part of unittests
     func: Optional[object] = None, class_hooks: Optional[Iterable[str]] = None,
 ):
-    """Pre-configured profiling for a reporting benchmark (changed scheduler to @profile_optimiser)."""
+    """Pre-configured profiling for a reporting benchmark (changed scheduler to @profile_optimiser).
+    """
     profiler_kwargs = {
         "schedule": schedule(
             wait=1, warmup=2, active=7, repeat=1, skip_first=0,
@@ -570,7 +575,8 @@ def events_diff(
 
 
 def report_time(events: object, verbose=False, upper_control_limit=False):
-    """Summary reporting of total time - see: torch.autograd.profiler_util"""
+    """Summary reporting of total time - see: torch.autograd.profiler_util
+    """
     # Aggregate CPU & CUDA time.
     """
     if isinstance(events, FunctionEvent):
@@ -612,7 +618,8 @@ def report_time(events: object, verbose=False, upper_control_limit=False):
 
 
 def report_memory(handler: object, verbose=False):
-    """Summary reporting of total time - see: torch.autograd.profiler_util"""
+    """Summary reporting of total time - see: torch.autograd.profiler_util
+    """
     # Aggregate CPU & CUDA time.
     """
     if isinstance(handler, FunctionEvent):

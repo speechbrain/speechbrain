@@ -446,7 +446,7 @@ class SBTransformerBlock_wnormandskip(nn.Module):
 
 
 class ResourceEfficientSeparationPipeline(nn.Module):
-    """Resource Efficient Separation Pipeline Used for RE-SepFormer and SkiM
+    """ Resource Efficient Separation Pipeline Used for RE-SepFormer and SkiM
 
     Note: This implementation is a generalization of the ESPNET implementation of SkiM
 

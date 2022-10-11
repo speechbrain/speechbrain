@@ -418,7 +418,7 @@ def get_transcription_files_by_dataset(
 
 
 def get_translations_from_path(translation_path: str) -> List[str]:
-    """ "return translations from the given path"""
+    """"return translations from the given path"""
     extracted_translations = []
     with open(translation_path, "rb") as translations_file:
         original_translations = translations_file.readlines()

@@ -102,9 +102,9 @@ def PESQ(ref_wav, deg_wav):
 
 
 def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
-    """Segmental Signal-to-Noise Ratio Objective Speech Quality Measure
-    This function implements the segmental signal-to-noise ratio
-    as defined in [1, p. 45] (see Equation 2.12).
+    """ Segmental Signal-to-Noise Ratio Objective Speech Quality Measure
+        This function implements the segmental signal-to-noise ratio
+        as defined in [1, p. 45] (see Equation 2.12).
     """
     clean_speech = ref_wav
     processed_speech = deg_wav

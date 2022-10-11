@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class CLSTM(torch.nn.Module):
-    """This function implements a complex-valued LSTM.
+    """ This function implements a complex-valued LSTM.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
     In the latter shape, the two last dimensions will be merged:
@@ -180,7 +180,7 @@ class CLSTM(torch.nn.Module):
 
 
 class CLSTM_Layer(torch.nn.Module):
-    """This function implements complex-valued LSTM layer.
+    """ This function implements complex-valued LSTM layer.
 
     Arguments
     ---------
@@ -349,7 +349,8 @@ class CLSTM_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks"""
+        """Selects one of the pre-defined dropout masks
+        """
 
         if self.training:
 
@@ -391,7 +392,7 @@ class CLSTM_Layer(torch.nn.Module):
 
 
 class CRNN(torch.nn.Module):
-    """This function implements a vanilla complex-valued RNN.
+    """ This function implements a vanilla complex-valued RNN.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
     In the latter shape, the two last dimensions will be merged:
@@ -559,7 +560,7 @@ class CRNN(torch.nn.Module):
 
 
 class CRNN_Layer(torch.nn.Module):
-    """This function implements complex-valued recurrent layer.
+    """ This function implements complex-valued recurrent layer.
 
     Arguments
     ---------
@@ -724,7 +725,8 @@ class CRNN_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks"""
+        """Selects one of the pre-defined dropout masks
+        """
 
         if self.training:
 
@@ -766,7 +768,7 @@ class CRNN_Layer(torch.nn.Module):
 
 
 class CLiGRU(torch.nn.Module):
-    """This function implements a complex-valued Light GRU (liGRU).
+    """ This function implements a complex-valued Light GRU (liGRU).
 
     Ligru is single-gate GRU model based on batch-norm + relu
     activations + recurrent dropout. For more info see:
@@ -1151,7 +1153,8 @@ class CLiGRU_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks"""
+        """Selects one of the pre-defined dropout masks
+        """
 
         if self.training:
 

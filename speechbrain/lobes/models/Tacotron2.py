@@ -806,7 +806,7 @@ class Decoder(nn.Module):
         return decoder_input
 
     def initialize_decoder_states(self, memory):
-        """Initializes attention rnn states, decoder rnn states, attention
+        """ Initializes attention rnn states, decoder rnn states, attention
         weights, attention cumulative weights, attention context, stores memory
         and stores processed memory
 
@@ -1041,7 +1041,7 @@ class Decoder(nn.Module):
 
     @torch.jit.ignore
     def forward(self, memory, decoder_inputs, memory_lengths):
-        """Decoder forward pass for training
+        """ Decoder forward pass for training
 
         Arguments
         ----------
@@ -1120,7 +1120,7 @@ class Decoder(nn.Module):
 
     @torch.jit.export
     def infer(self, memory, memory_lengths):
-        """Decoder inference
+        """ Decoder inference
 
         Arguments
         ---------
@@ -1734,7 +1734,7 @@ class Loss(nn.Module):
 
 
 class TextMelCollate:
-    """Zero-pads model inputs and targets based on number of frames per step
+    """ Zero-pads model inputs and targets based on number of frames per step
 
     Arguments
     ---------
@@ -1827,7 +1827,8 @@ class TextMelCollate:
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamic range compression for audio signals"""
+    """Dynamic range compression for audio signals
+    """
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 

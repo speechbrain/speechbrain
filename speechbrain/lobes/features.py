@@ -425,7 +425,8 @@ class Leaf(torch.nn.Module):
         return output
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels."""
+        """Checks the input shape and returns the number of input channels.
+        """
 
         if len(shape) == 2:
             in_channels = 1

@@ -242,7 +242,8 @@ class QConv1d(torch.nn.Module):
         return out
 
     def _get_kernel_and_weight_shape(self):
-        """Returns the kernel size and weight shape for convolutional layers."""
+        """ Returns the kernel size and weight shape for convolutional layers.
+        """
         ks = self.kernel_size
         w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
         return ks, w_shape
@@ -277,7 +278,8 @@ class QConv1d(torch.nn.Module):
         return x
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of input channels."""
+        """Checks the input and returns the number of input channels.
+        """
 
         if len(input_shape) == 3:
             in_channels = input_shape[2]
@@ -526,7 +528,8 @@ class QConv2d(torch.nn.Module):
         return out
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of input channels."""
+        """Checks the input and returns the number of input channels.
+        """
 
         if len(input_shape) == 4:
             in_channels = input_shape[-1]
@@ -552,7 +555,8 @@ class QConv2d(torch.nn.Module):
         return in_channels
 
     def _get_kernel_and_weight_shape(self):
-        """Returns the kernel size and weight shape for convolutional layers."""
+        """ Returns the kernel size and weight shape for convolutional layers.
+        """
 
         ks = (self.kernel_size[0], self.kernel_size[1])
         w_shape = (self.out_channels, self.in_channels) + (*ks,)
