@@ -30,7 +30,7 @@ class MOABBBrain(sb.Brain):
         """Function to initialize neural network modules"""
         for mod in model.modules():
             if hasattr(mod, "weight"):
-                if not ("BatchNorm" in mod.__class__.__name__):
+                if not ("Norm" in mod.__class__.__name__):
                     init.xavier_uniform_(mod.weight, gain=1)
                 else:
                     init.constant_(mod.weight, 1)
@@ -53,7 +53,6 @@ class MOABBBrain(sb.Brain):
         # Normalization
         if hasattr(self.hparams, "normalize"):
             inputs = self.hparams.normalize(inputs)
-
         return self.modules.model(inputs)
 
     def compute_objectives(self, predictions, batch, stage):
@@ -84,7 +83,7 @@ class MOABBBrain(sb.Brain):
         """Gets called at the beginning of ``fit()``"""
         self.init_model(self.hparams.model)
         self.init_optimizers()
-        in_shape = (1,)+tuple(self.hparams.input_shape[1:-1])+(1,)
+        in_shape = (1, ) + tuple(np.floor(self.hparams.input_shape[1:-1]).astype(int)) + (1,)
         model_summary = summary(self.hparams.model, input_size=in_shape)
         with open(os.path.join(self.hparams.exp_dir, 'model.txt'), "w") as text_file:
             text_file.write(str(model_summary))
@@ -245,6 +244,8 @@ def run_experiment(hparams, run_opts, datasets):
     )
     logger = logging.getLogger(__name__)
     logger.info("Experiment directory: {0}".format(hparams["exp_dir"]))
+    logger.info("Input shape: {0}".format(datasets["train"].dataset.tensors[0].shape[1:]))
+    logger.info("Training set avg value: {0}".format(datasets["train"].dataset.tensors[0].mean()))
     datasets_summary = "Number of examples: {0} (training), {1} (validation), {2} (test)".format(
         datasets["train"].dataset.tensors[0].shape[0],
         datasets["valid"].dataset.tensors[0].shape[0],
@@ -301,9 +302,10 @@ def perform_evaluation(brain, hparams, datasets, dataset_key="test"):
 def run_single_process(argv, tail_path, datasets):
     """This function wraps up a single process (e.g., the training of a single cross-validation fold
     with a specific hparams file and experiment directory)"""
-    # overriding number of channels (sampled from the entire set of channels)
-    n_sampled_channels = datasets['train'].dataset.tensors[0].shape[-2]
-    argv += ['--C', str(n_sampled_channels)]
+    # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
+    argv += ['--T', str(datasets["train"].dataset.tensors[0].shape[1]),
+             '--C', str(datasets['train'].dataset.tensors[0].shape[-2]),
+             ]
     # loading hparams for the each training and evaluation processes
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -320,29 +322,15 @@ def run_single_process(argv, tail_path, datasets):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    # loading hparams to prepare the dataset and the data iterators
+
+    #loading hparams to prepare the dataset and the data iterators
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    dataset = hparams["dataset"]
-    if hparams['to_prepare'] and not hparams['to_download']:
-        print('Using cached dataset, be sure that the dataset has been downloaded')
-
     if hparams['to_download']:
         print('Start downloading the dataset, it might take a while...')
-        download_data(hparams["data_folder"], dataset)
-    if hparams['to_prepare']:
-        print('Start preparing the dataset...')
-        prepare_data(hparams["data_folder"], dataset,
-                     events_to_load=hparams["events_to_load"],
-                     srate_in=hparams["original_sample_rate"],
-                     srate_out=hparams["sample_rate"],
-                     fmin=hparams['fmin'],
-                     fmax=hparams['fmax'],
-                     idx_subject_to_prepare=hparams["target_subject_idx"] \
-                         if hparams["data_iterator_name"] == 'leave-one-session-out' else -1
-                     )
+        download_data(hparams["data_folder"], hparams["dataset"])
 
     # defining data iterator to use
     print("Prepare dataset iterators...")
@@ -354,17 +342,6 @@ if __name__ == "__main__":
     elif hparams["data_iterator_name"] == 'leave-one-subject-out':
         data_iterator = LeaveOneSubjectOut(data_folder=hparams["data_folder"],
                                            seed=hparams["seed"])  # cross-subject and cross-session
-    cached_dataset_tag = '{0}_{1}-{2}'.format(str(int(hparams["sample_rate"])).zfill(4),
-                                              str(int(hparams['fmin'])).zfill(3),
-                                              str(int(hparams['fmax'])).zfill(3))
     if data_iterator is not None:
-        tail_path, datasets = data_iterator.prepare(dataset,
-                                                    hparams["batch_size"],
-                                                    cached_dataset_tag=cached_dataset_tag,
-                                                    interval=[hparams["tmin"], hparams['tmax']],
-                                                    n_steps_channel_selection=hparams["n_steps_channel_selection"],
-                                                    valid_ratio=hparams["valid_ratio"],
-                                                    target_subject_idx=hparams["target_subject_idx"],
-                                                    target_session_idx=hparams["target_session_idx"],
-                                                    apply_standardization=False, )
+        tail_path, datasets = data_iterator.prepare(hparams)
         run_single_process(argv, tail_path=tail_path, datasets=datasets)

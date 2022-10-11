@@ -126,8 +126,9 @@ def download_data(data_folder, dataset):
     dataset.download()
 
 
-def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin, fmax, overwrite_prepared=False,
-                 idx_subject_to_prepare=-1,  save_prepared_dataset=True, verbose=0):
+def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin, fmax,
+                 idx_subject_to_prepare=-1, to_prepare=True, save_prepared_dataset=True,
+                 verbose=0):
     """This function prepare all datasets and save them in a separate pickle for each subject."""
     # changing default download directory
     for a in get_config().keys():
@@ -152,18 +153,30 @@ def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin
         fname = 'sub-{0}.pkl'.format(str(subject).zfill(3))
         output_dict_fpath = os.path.join(tmp_output_dir, fname)
 
-        if os.path.isfile(output_dict_fpath) and not overwrite_prepared:
-            print('Skipping, the dataset has already been prepared...')
-            with open(output_dict_fpath, "rb") as handle:
-                output_dict = pickle.load(handle)
+        output_dict = {}
+        if not to_prepare:
+            print('Using cached dataset at: {0}'.format(output_dict_fpath))
+            if os.path.isfile(output_dict_fpath):
+                with open(output_dict_fpath, "rb") as handle:
+                    output_dict = pickle.load(handle)
+            else:
+                raise (
+                    ValueError(
+                        "Attempting to load a dataset that was not prepared yet"
+                    )
+                )
         else:
             output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
                                           fmin=fmin, fmax=fmax, verbose=verbose)
             if save_prepared_dataset:
+                if os.path.isfile(output_dict_fpath):
+                    print('A cached dataset was found at {0}, overwriting it...'.format(output_dict_fpath))
                 with open(output_dict_fpath, "wb") as handle:
                     pickle.dump(
                         output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
                     )
+        if idx_subject_to_prepare > -1:  # iterating over only 1 subject, return its dictionary
+            return output_dict
 
 
 if __name__ == '__main__':

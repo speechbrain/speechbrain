@@ -76,17 +76,12 @@ class EEGNet(torch.nn.Module):
             activation = torch.nn.PReLU()
         else:
             raise ValueError("Wrong hidden activation function")
-            
-        if cnn_temporal_kernelsize[0] % 2 == 0:
-            cnn_temporal_kernelsize = (cnn_temporal_kernelsize[0]-1,1)
-        if cnn_septemporal_kernelsize[0] % 2 == 0:
-            cnn_septemporal_kernelsize = (cnn_septemporal_kernelsize[0]-1,1)
-
 
         T = input_shape[1]
         C = input_shape[2]
-        self.conv_module = torch.nn.Sequential()
+
         # CONVOLUTIONAL MODULE
+        self.conv_module = torch.nn.Sequential()
         # Temporal convolution
         self.conv_module.add_module(
             "conv_0",
@@ -192,9 +187,12 @@ class EEGNet(torch.nn.Module):
         self.dense_module.add_module(
             "flatten", torch.nn.Flatten(),
         )
-        dense_input_size = cnn_septemporal_kernels * int(
-            T / (cnn_spatial_pool[0] * cnn_septemporal_pool[0])
-        )
+
+        out = self.conv_module(torch.ones((1, )+tuple(input_shape[1:-1])+(1,)))
+        dense_input_size = self._num_flat_features(out)
+        # dense_input_size = cnn_septemporal_kernels * int(
+        #     T / (cnn_spatial_pool[0] * cnn_septemporal_pool[0])
+        # )
         self.dense_module.add_module(
             "fc_out",
             sb.nnet.linear.Linear(
@@ -204,6 +202,20 @@ class EEGNet(torch.nn.Module):
             ),
         )
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
+
+    def _num_flat_features(self, x):
+        """Returns the number of flattened features from a tensor
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
+
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
 
     def forward(self, x):
         """Returns the output of the model.
