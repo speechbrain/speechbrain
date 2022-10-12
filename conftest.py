@@ -22,7 +22,23 @@ except ModuleNotFoundError:
 try:
     from transformers import Wav2Vec2Model  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/huggingface_wav2vec.py")
+    collect_ignore.append("speechbrain/lobes/models/huggingface/interfaces.py")
+    collect_ignore.append("speechbrain/lobes/models/huggingface/lib_forward.py")
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface/transformers.py"
+    )
+    collect_ignore.append(
+        "tests/integration/HuggingFace_integration/example_wav2vec2_for_pretraining.py"
+    )
+    collect_ignore.append(
+        "tests/integration/HuggingFace_integration/example_wav2vec2_for_pretraining_immediate.py"
+    )
+    collect_ignore.append(
+        "tests/integration/HuggingFace_integration/example_wav2vec2_from_pretrained.py"
+    )
+    collect_ignore.append(
+        "tests/integration/HuggingFace_integration/example_wav2vec2_from_pretrained_immediate.py"
+    )
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:

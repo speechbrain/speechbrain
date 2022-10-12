@@ -84,7 +84,7 @@ class HuggingFaceTransformer(nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "tmp"
-    >>> model = HuggingFaceTransformer(model_hub, save_path=save_path, modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2), forward_partial_fn=partial(wav2vec2_forward, output_all_hiddens=True))
+    >>> model = HuggingFaceTransformer(model_hub, save_path=save_path)
     >>> outputs = model(inputs)
     """
 
