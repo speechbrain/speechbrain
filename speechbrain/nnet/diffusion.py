@@ -302,9 +302,9 @@ class DenoisingDiffusion(Diffuser):
 
 
 def sample_timesteps(x, num_timesteps):
-    """Returns a random sample of timesteps as a 1-D tensor 
+    """Returns a random sample of timesteps as a 1-D tensor
     (one dimension only)
-    
+
     Arguments
     ---------
     x: torch.Tensor
@@ -344,7 +344,7 @@ class LengthMaskedGaussianNoise(nn.Module):
     def forward(self, sample, lens=None, **kwargs):
         """Creates Gaussian noise. If a tensor of lengths is
         provided, no noise is added to the padding positions.
-        
+
         sample: torch.Tensor
             a batch of data
         lens: torch.Tensor

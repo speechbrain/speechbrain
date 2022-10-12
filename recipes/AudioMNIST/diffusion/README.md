@@ -1,11 +1,11 @@
 # Denoising Diffusion Probabilistic Model Demo
-This folder contrains scripts for running a Denoising Diffusion Probabilistic Model 
-generative model with the [AudioMNIST](https://huggingface.co/datasets/flexthink/audiomnist) dataset. 
+This folder contrains scripts for running a Denoising Diffusion Probabilistic Model
+generative model with the [AudioMNIST](https://huggingface.co/datasets/flexthink/audiomnist) dataset.
 
 https://arxiv.org/pdf/2006.11239.pdf
 
 
-# Training 
+# Training
 `python train.py hparams/train.yaml`
 
 The scripts will output the results to <output_folder>/samples, for every training epoch
