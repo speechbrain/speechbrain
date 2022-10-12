@@ -69,18 +69,17 @@ dynamic_batch_sampler:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceModel
+wav2vec2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
     save_path: !ref <save_folder>/wav2vec2_checkpoint
-    norm_input: True
     for_pretraining_cls: !name:transformers.Wav2Vec2ForPreTraining
     override_hf_config_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.huggingface_wav2vec.config_return_hidden_states
+        - !name:speechbrain.lobes.models.huggingface.lib_modify_config.config_return_hidden_states
     forward_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.huggingface_wav2vec.wav2vec2_pretraining_forward
+        - !name:speechbrain.lobes.models.huggingface.lib_forward.wav2vec2_pretraining_forward
           mask_prob: !ref <mask_prob>
           mask_length: !ref <mask_length>
-    forward_returns_tuple: True
+          normalize_wav: True
     freeze: False
     cache_dir: !ref <output_folder>/cache
 

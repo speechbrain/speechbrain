@@ -98,14 +98,14 @@ wav2vec2_helper_norm_input: !apply:transformers.Wav2Vec2FeatureExtractor.from_pr
 freeze_nested_models_their_calls:
     - "feature_extractor._freeze_parameters" # line-by-line each submodule to freeze
 # freeze_nested_models_their_calls: "feature_extractor._freeze_parameters"  # for one submodule only
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceModel
+wav2vec2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_save_path>
-    norm_input: !apply:getattr [!ref <wav2vec2_helper_norm_input>, "do_normalize"]
     forward_partial_fn: !new:functools.partial
         - !name:speechbrain.lobes.models.huggingface_wav2vec.wav2vec2_forward
           output_all_hiddens: !ref <output_all_hiddens>
-    norm_output: !ref <norm_output>
+          normalize_wav: !apply:getattr [!ref <wav2vec2_helper_norm_input>, "do_normalize"]
+          output_norm: !ref <norm_output>
     modify_state_dict_partial_fn: !new:functools.partial
         - !name:speechbrain.lobes.models.huggingface_wav2vec.modify_state_dict_wav2vec2
     override_hf_model_partial_fn: !new:functools.partial
