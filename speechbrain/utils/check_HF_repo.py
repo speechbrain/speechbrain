@@ -9,7 +9,7 @@ from speechbrain.utils.data_utils import download_file
 
 
 def run_HF_check(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     field="HF_repo",
     output_folder="tests/tmp/HF",
 ):
@@ -18,8 +18,8 @@ def run_HF_check(
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     field: string
         Field of the csv recipe file containing the links to HF repos.
     output_folder: path
@@ -31,7 +31,7 @@ def run_HF_check(
         True if all the code runs, False otherwise.
     """
     # Detect list of HF repositories
-    HF_repos = repo_list(recipe_csvfile, field)
+    HF_repos = repo_list(recipe_folder, field)
 
     # Set up output folder
     os.makedirs(output_folder, exist_ok=True)
@@ -46,13 +46,13 @@ def run_HF_check(
     return check
 
 
-def repo_list(recipe_csvfile="tests/recipes.csv", field="HF_repo"):
+def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
     """Get the list of HF recipes in the csv recipe file.
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     field: string
         Field of the csv recipe file containing the links to HF repos.
 
@@ -62,13 +62,18 @@ def repo_list(recipe_csvfile="tests/recipes.csv", field="HF_repo"):
         List of the detected HF repos.
     """
     HF_repos = []
-    with open(recipe_csvfile, newline="") as csvf:
-        reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
-        for row in reader:
-            if len(row[field]) > 0:
-                repos = row[field].split(" ")
-                for repo in repos:
-                    HF_repos.append(repo)
+
+    # Loop over all recipe CSVs
+    for recipe_csvfile in os.listdir(recipe_folder):
+        with open(
+            os.path.join(recipe_folder, recipe_csvfile), newline=""
+        ) as csvf:
+            reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+            for row in reader:
+                if len(row[field]) > 0:
+                    repos = row[field].split(" ")
+                    for repo in repos:
+                        HF_repos.append(repo)
     HF_repos = set(HF_repos)
     return HF_repos
 

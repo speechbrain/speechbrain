@@ -46,10 +46,9 @@ def check_row_for_test(row, filter_fields, filters, test_field):
 
 
 def prepare_test(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
-    recipe_id_field="RecipeID",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     filters_fields=[],
@@ -59,21 +58,19 @@ def prepare_test(
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     script_field: str
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
-    recipe_id_field: str
-        Field of the csv recipe file containing the unique recipe ID.
     test_field: string
         Field of the csv recipe file containing the test flags.
     check_field: string
         Field of the csv recipe file containing the checks to perform.
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -96,19 +93,23 @@ def prepare_test(
     test_flag = {}
     test_check = {}
 
-    # Detect needed information for the recipe tests
-    with open(recipe_csvfile, newline="") as csvf:
-        reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
-        for row in reader:
-            if not (
-                check_row_for_test(row, filters_fields, filters, test_field)
-            ):
-                continue
-            recipe_id = row[recipe_id_field].strip()
-            test_script[recipe_id] = row[script_field].strip()
-            test_hparam[recipe_id] = row[hparam_field].strip()
-            test_flag[recipe_id] = row[test_field].strip()
-            test_check[recipe_id] = row[check_field].strip()
+    # Loop over all recipe CSVs
+    for recipe_csvfile in os.listdir(recipe_folder):
+        # Detect needed information for the recipe tests
+        with open(
+            os.path.join(recipe_folder, recipe_csvfile), newline=""
+        ) as csvf:
+            reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+            for row_id, row in enumerate(reader):
+                if not (
+                    check_row_for_test(row, filters_fields, filters, test_field)
+                ):
+                    continue
+                recipe_id = f"{recipe_csvfile}:{row_id}"
+                test_script[recipe_id] = row[script_field].strip()
+                test_hparam[recipe_id] = row[hparam_field].strip()
+                test_flag[recipe_id] = row[test_field].strip()
+                test_check[recipe_id] = row[check_field].strip()
 
     return test_script, test_hparam, test_flag, test_check
 
@@ -312,10 +313,9 @@ def run_test_cmd(cmd, stdout_file, stderr_file):
 
 
 def run_recipe_tests(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
-    recipe_id_field="RecipeID",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     run_opts="--device=cpu",
@@ -328,14 +328,12 @@ def run_recipe_tests(
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     script_field: str
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
-    recipe_id_field: str
-        Field of the csv recipe file containing the unique recipe ID.
     test_field: string
         Field of the csv recipe file containing the test flags.
     check_field: string
@@ -344,9 +342,9 @@ def run_recipe_tests(
         Additional flags to add for the tests (see run_opts of speechbrain/core.py).
     output_folder: string
         Folder where the output of the tests are saved.
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -364,7 +362,7 @@ def run_recipe_tests(
 
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
-        recipe_csvfile,
+        recipe_folder,
         script_field,
         hparam_field,
         filters_fields=filters_fields,
@@ -421,7 +419,7 @@ def run_recipe_tests(
 
 
 def load_yaml_test(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
     test_field="Hparam_file",
@@ -448,17 +446,17 @@ def load_yaml_test(
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     script_field: str
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
     test_field: string
         Field of the csv recipe file containing the test flags.
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -506,7 +504,7 @@ def load_yaml_test(
 
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
-        recipe_csvfile,
+        recipe_folder,
         script_field,
         hparam_field,
         test_field=test_field,
