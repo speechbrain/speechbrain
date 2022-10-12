@@ -30,7 +30,6 @@ tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
 freeze_wav2vec: False
 
-
 # Training parameters
 number_of_epochs: 80
 batch_size: 2
@@ -38,6 +37,18 @@ ctc_weight: 0.3
 gradient_accumulation: 16
 loss_reduction: 'batchmean'
 sorting: random
+
+dynamic_batching: False
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 15 # in terms of "duration" in annotations by default, second here
+    left_bucket_len: 200 # old implementation attributs
+    multiplier: 1.1 # old implementation attributs
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+    batch_ordering: ascending
+
+num_workers: 6
 
 # stages related parameters
 stage_one_epochs: 40

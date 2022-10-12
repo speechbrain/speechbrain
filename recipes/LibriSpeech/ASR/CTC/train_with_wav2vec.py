@@ -3,14 +3,14 @@
 The system employs wav2vec as its encoder. Decoding is performed with
 ctc greedy decoder.
 To run this recipe, do the following:
-> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
+> python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
+are used as basic recognition tokens.
 
 Authors
+ * Rudolf A Braun 2022
+ * Titouan Parcollet 2022
  * Sung-Lin Yeh 2021
- * Titouan Parcollet 2021
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
  * Abdel Heba 2020
@@ -36,7 +36,6 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
@@ -45,13 +44,21 @@ class ASR(sb.Brain):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
 
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+
+        # Handling SpeechBrain vs HuggingFance pretrained models
+        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
+            latents = self.modules.extractor(wavs)
+            feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[
+                "embeddings"
+            ]
+        else:  # HuggingFace pretrained model
+            feats = self.modules.wav2vec2(wavs)
+
         x = self.modules.enc(feats)
 
         # Compute outputs
@@ -70,14 +77,9 @@ class ASR(sb.Brain):
         p_ctc, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
             tokens = torch.cat([tokens, tokens], dim=0)
             tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
 
@@ -97,25 +99,37 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.wav2vec_optimizer.step()
-            self.model_optimizer.step()
+        should_step = self.step % self.grad_accumulation_factor == 0
 
-        self.wav2vec_optimizer.zero_grad()
-        self.model_optimizer.zero_grad()
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            self.wav2vec_optimizer.zero_grad()
+            self.model_optimizer.zero_grad()
+            with torch.cuda.amp.autocast():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                self.scaler.unscale_(self.wav2vec_optimizer)
+                self.scaler.unscale_(self.model_optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.wav2vec_optimizer)
+                    self.scaler.step(self.model_optimizer)
+                self.scaler.update()
+                self.optimizer_step += 1
+        else:
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.wav2vec_optimizer.step()
+                    self.model_optimizer.step()
+                self.wav2vec_optimizer.zero_grad()
+                self.model_optimizer.zero_grad()
+                self.optimizer_step += 1
 
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
+        return loss.detach().cpu()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -169,9 +183,17 @@ class ASR(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
-        self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-            self.modules.wav2vec2.parameters()
-        )
+        # Handling SpeechBrain vs HuggingFance pretrained models
+        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.encoder_wrapper.latent_encoder.parameters()
+            )
+
+        else:  # HuggingFace pretrained model
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.wav2vec2.parameters()
+            )
+
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
         )
@@ -239,12 +261,12 @@ def dataio_prepare(hparams):
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-    label_encoder = hparams["label_encoder"]
+    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "wrd", "char_list", "tokens_list", "tokens"
     )
     def text_pipeline(wrd):
         yield wrd
@@ -252,10 +274,6 @@ def dataio_prepare(hparams):
         yield char_list
         tokens_list = label_encoder.encode_sequence(char_list)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
@@ -263,8 +281,6 @@ def dataio_prepare(hparams):
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     special_labels = {
-        "bos_label": hparams["bos_index"],
-        "eos_label": hparams["eos_index"],
         "blank_label": hparams["blank_index"],
     }
     label_encoder.load_or_create(
@@ -277,9 +293,9 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "char_list", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
     )
+
     return train_data, valid_data, test_datasets, label_encoder
 
 
@@ -288,7 +304,7 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # If --distributed_launch then
+    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -332,6 +348,10 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    # We load the pretrained wav2vec2 model
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!

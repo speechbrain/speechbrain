@@ -1,0 +1,64 @@
+name: 🪲Bug Report
+description: Something went wrong? Let us know! 🐣
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting a bug, please make sure the issue hasn't been already addressed by searching through the existing and past issues.
+
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: Describe the bug
+      description: Short and clear description of what the bug is.
+    validations:
+      required: True
+
+
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected behaviour
+      description: A description of what you expected to happen.
+    validations:
+      required: True
+
+  - type: textarea
+    id: to-reproduce
+    attributes:
+      label: To Reproduce
+      description: |
+        If relevant, add a minimal example so that we can reproduce the error by running the code. It is very important for the snippet to be as minimal as possible. We will copy-paste your code, and we expect to get the same result as you did: avoid any external data, and include the relevant imports.
+      placeholder: "```python #your code ``` \n ```yaml #your yaml code ```"
+    validations:
+      required: False
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: "Please tell us more about your current SpeechBrain version and/or git hash (if installed via cloning+editable install). You can also add other setup information that might be relevant."
+    validations:
+      required: False
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output.
+      render: shell
+
+  - type: textarea
+    id: add-context
+    attributes:
+      label: Additional context
+      description: "Add any other context about the problem here."
+    validations:
+      required: False
+
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing to SpeechBrain!
