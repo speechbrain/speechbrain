@@ -149,7 +149,7 @@ class AttentionPool2d(nn.Module):
 
     def forward(self, x):
         """Computes the attention forward pass
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -196,7 +196,7 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 
     def forward(self, x, emb):
         """Computes a sequential pass with sequential embeddings where applicable
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -239,12 +239,12 @@ class Upsample(nn.Module):
 
     def forward(self, x):
         """Computes the upsampling pass
-        
+
         Arguments
         ---------
         x: torch.Tensor
             layer inputs
-            
+
         Results
         -------
         result: torch.Tensor
@@ -298,12 +298,12 @@ class Downsample(nn.Module):
 
     def forward(self, x):
         """Computes the downsampling pass
-        
+
         Arguments
         ---------
         x: torch.Tensor
             layer inputs
-        
+
         Returns
         -------
         result: torch.Tensor
@@ -470,7 +470,7 @@ class AttentionBlock(nn.Module):
 
     def forward(self, x):
         """Completes the forward pass
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -950,9 +950,7 @@ class EncoderUNetModel(nn.Module):
                 use_scale_shift_norm=use_scale_shift_norm,
             ),
             AttentionBlock(
-                ch,
-                num_heads=num_heads,
-                num_head_channels=num_head_channels,
+                ch, num_heads=num_heads, num_head_channels=num_head_channels,
             ),
             ResBlock(
                 ch,
