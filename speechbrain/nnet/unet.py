@@ -114,66 +114,8 @@ def timestep_embedding(timesteps, dim, max_period=10000):
     return embedding
 
 
-def checkpoint(func, inputs, params, flag):
-    """
-    Evaluate a function without caching intermediate activations, allowing for
-    reduced memory at the expense of extra compute in the backward pass.
-
-    Arguments
-    ---------
-    func: callable
-        the function to evaluate.
-    inputs: torch.Tensor
-        the argument sequence to pass to `func`.
-    params: list
-        a sequence of parameters `func` depends on but does not
-                   explicitly take as arguments.
-    flag: bool
-        if False, disable gradient checkpointing.
-    """
-    if flag:
-        args = tuple(inputs) + tuple(params)
-        return CheckpointFunction.apply(func, len(inputs), *args)
-    else:
-        return func(*inputs)
-
-
-class CheckpointFunction(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, run_function, length, *args):
-        ctx.run_function = run_function
-        ctx.input_tensors = list(args[:length])
-        ctx.input_params = list(args[length:])
-        with torch.no_grad():
-            output_tensors = ctx.run_function(*ctx.input_tensors)
-        return output_tensors
-
-    @staticmethod
-    def backward(ctx, *output_grads):
-        ctx.input_tensors = [
-            x.detach().requires_grad_(True) for x in ctx.input_tensors
-        ]
-        with torch.enable_grad():
-            # Fixes a bug where the first op in run_function modifies the
-            # Tensor storage in place, which is not allowed for detach()'d
-            # Tensors.
-            shallow_copies = [x.view_as(x) for x in ctx.input_tensors]
-            output_tensors = ctx.run_function(*shallow_copies)
-        input_grads = torch.autograd.grad(
-            output_tensors,
-            ctx.input_tensors + ctx.input_params,
-            output_grads,
-            allow_unused=True,
-        )
-        del ctx.input_tensors
-        del ctx.input_params
-        del output_tensors
-        return (None, None) + input_grads
-
-
 class AttentionPool2d(nn.Module):
-    """
-    Two-dimensional attentional pooling
+    """Two-dimensional attentional pooling
 
     Adapted from CLIP: https://github.com/openai/CLIP/blob/main/clip/model.py
 
@@ -206,6 +148,18 @@ class AttentionPool2d(nn.Module):
         self.attention = QKVAttention(self.num_heads)
 
     def forward(self, x):
+        """Computes the attention forward pass
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor to be attended to
+
+        Returns
+        -------
+        result: torch.Tensor
+            the attention output
+        """
         b, c, *_spatial = x.shape
         x = x.reshape(b, c, -1)  # NC(HW)
         x = torch.cat([x.mean(dim=-1, keepdim=True), x], dim=-1)  # NC(HW+1)
@@ -236,12 +190,19 @@ class TimestepBlock(nn.Module):
 
 
 class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
-    """
-    A sequential module that passes timestep embeddings to the children that
+    """A sequential module that passes timestep embeddings to the children that
     support it as an extra input.
     """
 
     def forward(self, x, emb):
+        """Computes a sequential pass with sequential embeddings where applicable
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the data tensor
+        emb: torch.Tensor
+            timestep embeddings"""
         for layer in self:
             if isinstance(layer, TimestepBlock):
                 x = layer(x, emb)
@@ -277,6 +238,17 @@ class Upsample(nn.Module):
             )
 
     def forward(self, x):
+        """Computes the upsampling pass
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            layer inputs
+            
+        Results
+        -------
+        result: torch.Tensor
+            upsampled outputs"""
         assert x.shape[1] == self.channels
         if self.dims == 3:
             x = F.interpolate(
@@ -325,6 +297,18 @@ class Downsample(nn.Module):
             self.op = avg_pool_nd(dims, kernel_size=stride, stride=stride)
 
     def forward(self, x):
+        """Computes the downsampling pass
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            layer inputs
+        
+        Returns
+        -------
+        result: torch.Tensor
+            downsampled outputs
+        """
         assert x.shape[1] == self.channels
         return self.op(x)
 
@@ -349,8 +333,6 @@ class ResBlock(TimestepBlock):
         channels in the skip connection.
     dims: int
         determines if the signal is 1D, 2D, or 3D.
-    use_checkpoint: bool
-        if True, use gradient checkpointing on this module.
     up: bool
         if True, use this block for upsampling.
     down: bool
@@ -366,7 +348,6 @@ class ResBlock(TimestepBlock):
         use_conv=False,
         use_scale_shift_norm=False,
         dims=2,
-        use_checkpoint=False,
         up=False,
         down=False,
     ):
@@ -376,7 +357,6 @@ class ResBlock(TimestepBlock):
         self.dropout = dropout
         self.out_channels = out_channels or channels
         self.use_conv = use_conv
-        self.use_checkpoint = use_checkpoint
         self.use_scale_shift_norm = use_scale_shift_norm
 
         self.in_layers = nn.Sequential(
@@ -441,11 +421,6 @@ class ResBlock(TimestepBlock):
         result: torch.Tensor
             an [N x C x ...] Tensor of outputs.
         """
-        return checkpoint(
-            self._forward, (x, emb), self.parameters(), self.use_checkpoint
-        )
-
-    def _forward(self, x, emb):
         if self.updown:
             in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
             h = in_rest(x)
@@ -494,9 +469,18 @@ class AttentionBlock(nn.Module):
         self.proj_out = zero_module(conv_nd(1, channels, channels, 1))
 
     def forward(self, x):
-        return checkpoint(self._forward, (x,), self.parameters(), True)
+        """Completes the forward pass
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the data to be attended to
 
-    def _forward(self, x):
+        Returns
+        -------
+        result: torch.Tensor
+            The data, with attention applied
+        """
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)
         qkv = self.qkv(self.norm(x))
@@ -553,8 +537,7 @@ class QKVAttention(nn.Module):
         self.n_heads = n_heads
 
     def forward(self, qkv):
-        """
-        Apply QKV attention.
+        """Apply QKV attention.
 
         Arguments
         ---------
@@ -642,7 +625,6 @@ class UNetModel(nn.Module):
         conv_resample=True,
         dims=2,
         num_classes=None,
-        use_checkpoint=False,
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
@@ -790,7 +772,6 @@ class UNetModel(nn.Module):
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
-                            use_checkpoint=use_checkpoint,
                             use_scale_shift_norm=use_scale_shift_norm,
                             up=True,
                         )
@@ -810,8 +791,7 @@ class UNetModel(nn.Module):
         )
 
     def forward(self, x, timesteps, y=None):
-        """
-        Apply the model to an input batch.
+        """Apply the model to an input batch.
 
         Arguments
         ---------
@@ -869,7 +849,6 @@ class EncoderUNetModel(nn.Module):
         channel_mult=(1, 2, 4, 8),
         conv_resample=True,
         dims=2,
-        use_checkpoint=False,
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
@@ -891,7 +870,6 @@ class EncoderUNetModel(nn.Module):
         self.dropout = dropout
         self.channel_mult = channel_mult
         self.conv_resample = conv_resample
-        self.use_checkpoint = use_checkpoint
         self.dtype = torch.float32
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
@@ -924,7 +902,6 @@ class EncoderUNetModel(nn.Module):
                         dropout,
                         out_channels=int(mult * model_channels),
                         dims=dims,
-                        use_checkpoint=use_checkpoint,
                         use_scale_shift_norm=use_scale_shift_norm,
                     )
                 ]
@@ -933,7 +910,6 @@ class EncoderUNetModel(nn.Module):
                     layers.append(
                         AttentionBlock(
                             ch,
-                            use_checkpoint=use_checkpoint,
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
                         )
@@ -951,7 +927,6 @@ class EncoderUNetModel(nn.Module):
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
-                            use_checkpoint=use_checkpoint,
                             use_scale_shift_norm=use_scale_shift_norm,
                             down=True,
                         )
@@ -972,12 +947,10 @@ class EncoderUNetModel(nn.Module):
                 time_embed_dim,
                 dropout,
                 dims=dims,
-                use_checkpoint=use_checkpoint,
                 use_scale_shift_norm=use_scale_shift_norm,
             ),
             AttentionBlock(
                 ch,
-                use_checkpoint=use_checkpoint,
                 num_heads=num_heads,
                 num_head_channels=num_head_channels,
             ),
@@ -986,7 +959,6 @@ class EncoderUNetModel(nn.Module):
                 time_embed_dim,
                 dropout,
                 dims=dims,
-                use_checkpoint=use_checkpoint,
                 use_scale_shift_norm=use_scale_shift_norm,
             ),
         )

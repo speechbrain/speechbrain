@@ -88,6 +88,8 @@ class Diffuser(nn.Module):
         raise NotImplementedError
 
     def forward(self, x, timesteps=None):
+        """Computes the forward pass, calls distort()
+        """
         return self.distort(x, timesteps)
 
 
@@ -300,6 +302,15 @@ class DenoisingDiffusion(Diffuser):
 
 
 def sample_timesteps(x, num_timesteps):
+    """Returns a random sample of timesteps as a 1-D tensor 
+    (one dimension only)
+    
+    Arguments
+    ---------
+    x: torch.Tensor
+        a tensor of samples of any dimension
+    num_timesteps: int
+        the total number of timesteps"""
     return torch.randint(num_timesteps, (x.size(0),), device=x.device)
 
 
@@ -331,6 +342,14 @@ class LengthMaskedGaussianNoise(nn.Module):
         self.length_dim = length_dim
 
     def forward(self, sample, lens=None, **kwargs):
+        """Creates Gaussian noise. If a tensor of lengths is
+        provided, no noise is added to the padding positions.
+        
+        sample: torch.Tensor
+            a batch of data
+        lens: torch.Tensor
+            relative lengths
+        """
         noise = torch.randn_like(sample)
         if lens is not None:
             max_len = sample.size(self.length_dim)
