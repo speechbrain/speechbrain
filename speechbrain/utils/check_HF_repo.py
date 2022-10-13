@@ -108,6 +108,7 @@ def check_repo(HF_repo, skip_download=False, skip_exec=False):
     dest_file = exp_name + ".md"
     if not skip_download:
         download_file(readme_file, dest_file)
+        flag_loading = False
 
     code_snippets = []
     code = []
@@ -126,14 +127,17 @@ def check_repo(HF_repo, skip_download=False, skip_exec=False):
                     if not skip_exec:
                         code.append(line)
                     elif not skip_download:
-                        if (
-                            ("from_hparams" in line)
-                            or ("foreign_class" in line)
-                            or ("import" in line)
+                        if "import" in line:
+                            code.append(line)
+                        if ("from_hparams" in line) or (
+                            "foreign_class" in line
                         ):
+                            flag_loading = True
+                        if flag_loading and (")" in line):
                             code.append(
                                 line.replace(")", ", download_only=True)")
                             )
+                            flag_loading = False
 
     for code in code_snippets:
         try:

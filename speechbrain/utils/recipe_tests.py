@@ -392,7 +392,7 @@ def run_recipe_tests(
             "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
             "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
         )
-        if open(test_hparam[recipe_id], 'r').read().find('pretrainer') > 0:
+        if open(test_hparam[recipe_id], "r").read().find("pretrainer") > 0:
             cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu")'
         cmd += (
             "' "
