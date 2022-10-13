@@ -7,6 +7,8 @@ Authors
 import os
 import re
 import csv
+import sys
+import pydoc
 import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
 
@@ -547,9 +549,18 @@ def load_yaml_test(
         # Load hyperparameters file with command-line overrides
         overrides = {"data_folder": data_folder, "output_folder": output_folder}
 
+        tag_custom_model = None
         # Append additional overrides when needed
         with open(hparam_file) as f:
             for line in f:
+                # os.chdir(run_folder) is not changing sys.module, and pydoc.locate (in load_hyperpyyaml) fails
+                if "new:custom_model" in line:
+                    tag_custom_model = "custom_model"
+                    custom_model_from_root = f"{script_folder.replace(os.sep, '.')}.{tag_custom_model}"
+                    pydoc.locate(custom_model_from_root)
+                    sys.modules[tag_custom_model] = sys.modules[
+                        custom_model_from_root
+                    ]
                 # check for !PLACEHOLDER overrides
                 flag_continue = False
                 for key, value in add_placeholder_overrides.items():
@@ -578,4 +589,6 @@ def load_yaml_test(
                 print("\t" + str(e))
                 check = False
                 print("\tERROR: cannot load %s" % (hparam_file))
+        if tag_custom_model is not None:
+            del sys.modules[tag_custom_model]
     return check
