@@ -104,7 +104,7 @@ def prepare_test(
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
-                recipe_id = f"{recipe_csvfile[:-4]}_{row_id+1}"
+                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
@@ -374,6 +374,39 @@ def run_recipe_tests(
         filters_fields=filters_fields,
         filters=filters,
     )
+
+    # Download all upfront
+    for i, recipe_id in enumerate(test_script.keys()):
+        print(
+            "(%i/%i) Collecting pretrained models for %s..."
+            % (i + 1, len(test_script.keys()), recipe_id)
+        )
+
+        output_fold = os.path.join(output_folder, recipe_id)
+        os.makedirs(output_fold, exist_ok=True)
+        stdout_file = os.path.join(output_fold, "stdout.txt")
+        stderr_file = os.path.join(output_fold, "stderr.txt")
+
+        cmd = (
+            "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
+            "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
+            "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+        )
+        if open(test_hparam[recipe_id], 'r').read().find('pretrainer') > 0:
+            cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu")'
+        cmd += (
+            "' "
+            + test_hparam[recipe_id]
+            + " --output_folder="
+            + output_fold
+            + " "
+            + test_flag[recipe_id]
+            + " "
+            + run_opts
+        )
+
+        # Prepare the test
+        run_test_cmd(cmd, stdout_file, stderr_file)
 
     # Run  script (check how to get std out, std err and save them in files)
     check = True
