@@ -7,6 +7,7 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
+ * Andreas Nautsch 2022
 """
 import logging
 import hashlib
@@ -41,6 +42,7 @@ def foreign_class(
     overrides={},
     savedir=None,
     use_auth_token=False,
+    download_only=False,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -80,6 +82,8 @@ def foreign_class(
     use_auth_token : bool (default: False)
         If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because majority of models are public.
+    download_only : bool (default: False)
+        If true, class and instance creation is skipped.
 
     Returns
     -------
@@ -102,13 +106,14 @@ def foreign_class(
     # For distributed setups, have this here:
     run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
     # Load on the CPU. Later the params can be moved elsewhere by specifying
-    # run_opts={"device": ...}
-    pretrainer.load_collected(device="cpu")
+    if not download_only:
+        # run_opts={"device": ...}
+        pretrainer.load_collected(device="cpu")
 
-    # Import class and create instance
-    module = import_from_path(pymodule_local_path)
-    cls = getattr(module, classname)
-    return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
+        # Import class and create instance
+        module = import_from_path(pymodule_local_path)
+        cls = getattr(module, classname)
+        return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
 
 
 class Pretrained(torch.nn.Module):
@@ -288,6 +293,7 @@ class Pretrained(torch.nn.Module):
         savedir=None,
         use_auth_token=False,
         revision=None,
+        download_only=False,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -335,6 +341,8 @@ class Pretrained(torch.nn.Module):
             The model revision corresponding to the HuggingFace Hub model revision.
             This is particularly useful if you wish to pin your code to a particular
             version of a model hosted at HuggingFace.
+        download_only : bool (default: False)
+            If true, class and instance creation is skipped.
         """
         if savedir is None:
             clsname = cls.__name__
@@ -367,11 +375,12 @@ class Pretrained(torch.nn.Module):
         # For distributed setups, have this here:
         run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
         # Load on the CPU. Later the params can be moved elsewhere by specifying
-        # run_opts={"device": ...}
-        pretrainer.load_collected(device="cpu")
+        if not download_only:
+            # run_opts={"device": ...}
+            pretrainer.load_collected(device="cpu")
 
         # Now return the system
-        return cls(hparams["modules"], hparams, **kwargs)
+            return cls(hparams["modules"], hparams, **kwargs)
 
 
 class EndToEndSLU(Pretrained):

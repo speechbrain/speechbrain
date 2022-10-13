@@ -2,6 +2,7 @@
 
 Authors
  * Mirco Ravanelli 2022
+ * Andreas Nautsch 2022
 """
 import os
 import csv
@@ -37,11 +38,15 @@ def run_HF_check(
     os.makedirs(output_folder, exist_ok=True)
     os.chdir(output_folder)
 
+    # Download all first
+    for i, repo in enumerate(HF_repos):
+        check_repo(repo, skip_exec=True)
+
     # Checking all detected repos
     check = True
     for i, repo in enumerate(HF_repos):
         print("(%i/%i) Checking %s..." % (i + 1, len(HF_repos), repo))
-        if not (check_repo(repo)):
+        if not (check_repo(repo, skip_download=True)):
             check = False
     return check
 
@@ -78,7 +83,7 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
     return HF_repos
 
 
-def check_repo(HF_repo):
+def check_repo(HF_repo, skip_download=False, skip_exec=False):
     """Runs the code reported in the README file of the given HF_repo. It checks
     if the code runs without errors.
 
@@ -86,6 +91,10 @@ def check_repo(HF_repo):
     ---------
     HF_repo: string
         URL of the HF repository to check.
+    skip_download: bool
+        Flag whether/not to skip download part of check.
+    skip_exec: bool
+        Flag whether/not to README execution part of check.
 
     Returns
     ---------
@@ -99,7 +108,8 @@ def check_repo(HF_repo):
         readme_file = HF_repo + "/raw/main/README.md"
 
     dest_file = exp_name + ".md"
-    download_file(readme_file, dest_file)
+    if not skip_download:
+        download_file(readme_file, dest_file)
 
     code_snippets = []
     code = []
@@ -115,7 +125,11 @@ def check_repo(HF_repo):
                 code_snippets.append(code)
             elif flag:
                 if len(line.strip()) > 0:
-                    code.append(line)
+                    if not skip_exec:
+                        code.append(line)
+                    elif not skip_download:
+                        if ('from_hparams' in line) or ('foreign_class' in line):
+                            code.append(line.replace(')', ", download_only=True)"))
 
     for code in code_snippets:
         try:

@@ -95,17 +95,19 @@ def prepare_test(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        print(f"Loading recipe: {recipe_csvfile}")
         # Detect needed information for the recipe tests
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
+                recipe_id = f"{recipe_csvfile}:{row_id}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
+                    print(f"\tSkipped {recipe_id} - lacking fields: filters_fields={filters_fields}; filters={filters}; test_field={test_field}")
                     continue
-                recipe_id = f"{recipe_csvfile}:{row_id}"
                 test_script[recipe_id] = row[script_field].strip()
                 test_hparam[recipe_id] = row[hparam_field].strip()
                 test_flag[recipe_id] = row[test_field].strip()
