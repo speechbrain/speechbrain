@@ -70,7 +70,7 @@ class DiffusionBrain(sb.Brain):
         if self.reference_batch is None:
             self.reference_batch = batch
         loss = super().fit_batch(batch)
-        self.hparams.lr_annealing(self.optimizer)
+        self.hparams.lr_annealing(self.optimizer, self.optimizer_step)
         if (
             self.hparams.enable_train_metrics
             and self.hparams.use_tensorboard
@@ -90,6 +90,7 @@ class DiffusionBrain(sb.Brain):
         data_max_stats = self.data_max_metric.summarize()
         stats = {
             "loss": loss_stats["average"],
+            "lr": self.optimizer.param_groups[0]["lr"],
             "data_mean": data_mean_stats["average"],
             "data_mean_min": data_mean_stats["min_score"],
             "data_mean_max": data_mean_stats["max_score"],
