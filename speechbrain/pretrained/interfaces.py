@@ -379,7 +379,7 @@ class Pretrained(torch.nn.Module):
             # run_opts={"device": ...}
             pretrainer.load_collected(device="cpu")
 
-        # Now return the system
+            # Now return the system
             return cls(hparams["modules"], hparams, **kwargs)
 
 

@@ -24,6 +24,7 @@ data_folder: ./data
 output_folder: !ref ./results/speaker_id/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+rir_folder: !ref <data_folder>
 
 # Path where data manifest files will be stored
 # The data manifest files are created by the data preparation script.
@@ -62,7 +63,7 @@ dataloader_options:
 # Added noise and reverb come from OpenRIR dataset, automatically
 # downloaded and prepared with this Environmental Corruption class.
 env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     babble_prob: 0.0
     reverb_prob: 0.0
     noise_prob: 1.0

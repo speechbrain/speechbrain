@@ -95,7 +95,7 @@ def prepare_test(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
-        print(f"Loading recipe: {recipe_csvfile}")
+        print(f"Loading recipes from: {recipe_csvfile}")
         # Detect needed information for the recipe tests
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
@@ -430,17 +430,14 @@ def load_yaml_test(
     filters_fields=[],
     filters=[],
     avoid_list=[
-        "templates/hyperparameter_optimization_speaker_id/train.yaml",
-        "templates/speaker_id/train.yaml",
-        # recipes creating errors if NVIDIA driver is not on one's system
-        "recipes/timers-and-such/multistage/hparams/train_LS_LM.yaml",
-        "recipes/timers-and-such/multistage/hparams/train_TAS_LM.yaml",
-        "recipes/timers-and-such/direct/hparams/train.yaml",
-        "recipes/timers-and-such/decoupled/hparams/train_LS_LM.yaml",
-        "recipes/timers-and-such/decoupled/hparams/train_TAS_LM.yaml",
-        "recipes/fluent-speech-commands/direct/hparams/train.yaml",
-        "recipes/CommonLanguage/lang_id/hparams/train_ecapa_tdnn.yaml",
-        "recipes/SLURP/direct/hparams/train.yaml",
+        "recipes/Voicebank/MTL/ASR_enhance/hparams/robust_asr.yaml",  # no libsndfile
+        "recipes/Voicebank/MTL/ASR_enhance/hparams/enhance_mimic.yaml",  # no libsndfile
+        "recipes/Voicebank/dereverb/MetricGAN-U/hparams/train_dereverb.yaml",  # segfault
+        "recipes/Voicebank/dereverb/spectral_mask/hparams/train.yaml",  # segfault
+        "recipes/Voicebank/enhance/MetricGAN-U/hparams/train_dnsmos.yaml",  # segfault
+        "recipes/Voicebank/enhance/MetricGAN/hparams/train.yaml",  # segfault
+        "recipes/Voicebank/enhance/spectral_mask/hparams/train.yaml",  # segfault
+        "recipes/Voicebank/enhance/waveform_map/hparams/train.yaml",  # segfault
     ],
     rir_folder="tests/tmp/rir",
     data_folder="tests/tmp/yaml",
@@ -506,6 +503,12 @@ def load_yaml_test(
         "data_folder_rirs": rir_folder,
     }
 
+    # Additional overrides when extra !PLACEHOLDER are encountered (not: data_folder - output_folder)
+    add_placeholder_overrides = {
+        "wav2vec2_hub": "facebook/wav2vec2-large-960h-lv60-self",  # this might not hold for all set-ups
+        "root_data_folder": data_folder,
+    }
+
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
         recipe_folder,
@@ -521,13 +524,16 @@ def load_yaml_test(
         hparam_file = test_hparam[recipe_id]
         script_file = test_script[recipe_id]
 
-        # Changing working folder to recipe folder
-        recipe_folder = os.path.dirname(script_file)
-        recipe_folder = os.path.join(cwd, recipe_folder)
-        os.chdir(recipe_folder)
+        # Changing working folder to recipe folder (as 'run_folder' to avoid name conflict with arg 'recipe_folder')
+        script_folder = os.path.dirname(script_file)
+        run_folder = os.path.join(cwd, script_folder)
+        os.chdir(run_folder)
 
         # Avoid files lister in avoid_list
         if hparam_file in avoid_list:
+            print(
+                f"\t({i + 1}/{len(test_script.keys())}) Skipped: {hparam_file}! (check avoid_list for details)"
+            )
             continue
 
         print(
@@ -544,6 +550,22 @@ def load_yaml_test(
         # Append additional overrides when needed
         with open(hparam_file) as f:
             for line in f:
+                # check for !PLACEHOLDER overrides
+                flag_continue = False
+                for key, value in add_placeholder_overrides.items():
+                    placeholder_pattern = key + ": !PLACEHOLDER"
+                    if (
+                        placeholder_pattern in line
+                        and line.find(placeholder_pattern) == 0
+                    ):
+                        overrides.update({key: value})
+                        flag_continue = True
+
+                # if !PLACEHOLDER was substituted already, skip further pattern overrides for this line
+                if flag_continue:
+                    continue
+
+                # check for additional overrides
                 for key, value in add_overrides.items():
                     pattern = key + ":"
                     if pattern in line and line.find(pattern) == 0:

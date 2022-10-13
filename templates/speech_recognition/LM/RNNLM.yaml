@@ -64,7 +64,7 @@ eos_index: 0
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined..
-model: !new:templates.speech_recognition.LM.custom_model.CustomModel
+model: !new:custom_model.CustomModel
     embedding_dim: !ref <emb_dim>
     rnn_size: !ref <rnn_size>
     layers: !ref <layers>
