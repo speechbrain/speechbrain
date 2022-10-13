@@ -22,9 +22,6 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Feature parameters
-n_mels: 80
-
 # Training Parameters
 dataset: flexthink/audiomnist
 sample_rate_src: 48000
