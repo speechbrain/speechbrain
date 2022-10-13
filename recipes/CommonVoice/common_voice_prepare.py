@@ -14,7 +14,9 @@ import re
 import logging
 import torchaudio
 import unicodedata
-from tqdm.contrib import tzip
+
+import multiprocessing
+from pqdm.processes import pqdm
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +158,97 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
     return skip
 
+def process_line(line, data_folder, language, accented_letters):
+
+    # Path is at indice 1 in Common Voice tsv files. And .mp3 files
+    # are located in datasets/lang/clips/
+    mp3_path = data_folder + "/clips/" + line.split("\t")[1]
+    file_name = mp3_path.split(".")[-2].split("/")[-1]
+    spk_id = line.split("\t")[0]
+    snt_id = file_name
+
+    # Setting torchaudio backend to sox-io (needed to read mp3 files)
+    if torchaudio.get_audio_backend() != "sox_io":
+        logger.warning("This recipe needs the sox-io backend of torchaudio")
+        logger.warning("The torchaudio backend is changed to sox_io")
+        torchaudio.set_audio_backend("sox_io")
+
+    # Reading the signal (to retrieve duration in seconds)
+    if os.path.isfile(mp3_path):
+        info = torchaudio.info(mp3_path)
+    else:
+        msg = "\tError loading: %s" % (str(len(file_name)))
+        logger.info(msg)
+        return None
+    
+    duration = info.num_frames / info.sample_rate
+
+    # Getting transcript
+    words = line.split("\t")[2]
+
+    # Unicode Normalization
+    words = unicode_normalisation(words)
+
+    # !! Language specific cleaning !!
+    # Important: feel free to specify the text normalization
+    # corresponding to your alphabet.
+
+    if language in ["en", "fr", "it", "rw"]:
+        words = re.sub(
+            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
+        ).upper()
+
+    if language == "fr":
+        # Replace J'y D'hui etc by J_ D_hui
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+
+    elif language == "ar":
+        HAMZA = "\u0621"
+        ALEF_MADDA = "\u0622"
+        ALEF_HAMZA_ABOVE = "\u0623"
+        letters = (
+            "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
+            + HAMZA
+            + ALEF_MADDA
+            + ALEF_HAMZA_ABOVE
+        )
+        words = re.sub("[^" + letters + " ]+", "", words).upper()
+    elif language == "ga-IE":
+        # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
+        def pfxuc(a):
+            return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
+
+        def galc(w):
+            return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
+
+        words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
+        words = " ".join(map(galc, words.split(" ")))
+
+    # Remove accents if specified
+    if not accented_letters:
+        words = strip_accents(words)
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+
+    # Remove multiple spaces
+    words = re.sub(" +", " ", words)
+
+    # Remove spaces at the beginning and the end of the sentence
+    words = words.lstrip().rstrip()
+
+    # Getting chars
+    chars = words.replace(" ", "_")
+    chars = " ".join([char for char in chars][:])
+
+    # Remove too short sentences (or empty):
+    if len(words.split(" ")) < 3:
+        return None
+
+    # Composition of the csv_line
+    csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
+
+    return csv_line
 
 def create_csv(
     orig_tsv_file, csv_file, data_folder, accented_letters=False, language="en"
@@ -199,101 +292,23 @@ def create_csv(
 
     # Start processing lines
     total_duration = 0.0
-    for line in tzip(loaded_csv):
 
-        line = line[0]
+    jobs = [[line, data_folder, language, accented_letters] for line in loaded_csv]
 
-        # Path is at indice 1 in Common Voice tsv files. And .mp3 files
-        # are located in datasets/lang/clips/
-        mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[-2].split("/")[-1]
-        spk_id = line.split("\t")[0]
-        snt_id = file_name
+    msg = "Splitting the jobs on %s threads ..." % (str(multiprocessing.cpu_count()))
+    logger.info(msg)
 
-        # Setting torchaudio backend to sox-io (needed to read mp3 files)
-        if torchaudio.get_audio_backend() != "sox_io":
-            logger.warning("This recipe needs the sox-io backend of torchaudio")
-            logger.warning("The torchaudio backend is changed to sox_io")
-            torchaudio.set_audio_backend("sox_io")
+    results = pqdm(jobs, process_line, n_jobs=multiprocessing.cpu_count(), argument_type='args')
 
-        # Reading the signal (to retrieve duration in seconds)
-        if os.path.isfile(mp3_path):
-            info = torchaudio.info(mp3_path)
-        else:
-            msg = "\tError loading: %s" % (str(len(file_name)))
-            logger.info(msg)
+    for res in results:
+        
+        if res == None:
             continue
 
-        duration = info.num_frames / info.sample_rate
-        total_duration += duration
-
-        # Getting transcript
-        words = line.split("\t")[2]
-
-        # Unicode Normalization
-        words = unicode_normalisation(words)
-
-        # !! Language specific cleaning !!
-        # Important: feel free to specify the text normalization
-        # corresponding to your alphabet.
-
-        if language in ["en", "fr", "it", "rw"]:
-            words = re.sub(
-                "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-            ).upper()
-
-        if language == "fr":
-            # Replace J'y D'hui etc by J_ D_hui
-            words = words.replace("'", " ")
-            words = words.replace("’", " ")
-
-        elif language == "ar":
-            HAMZA = "\u0621"
-            ALEF_MADDA = "\u0622"
-            ALEF_HAMZA_ABOVE = "\u0623"
-            letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
-                + HAMZA
-                + ALEF_MADDA
-                + ALEF_HAMZA_ABOVE
-            )
-            words = re.sub("[^" + letters + " ]+", "", words).upper()
-        elif language == "ga-IE":
-            # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
-            def pfxuc(a):
-                return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
-
-            def galc(w):
-                return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
-
-            words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
-            words = " ".join(map(galc, words.split(" ")))
-
-        # Remove accents if specified
-        if not accented_letters:
-            words = strip_accents(words)
-            words = words.replace("'", " ")
-            words = words.replace("’", " ")
-
-        # Remove multiple spaces
-        words = re.sub(" +", " ", words)
-
-        # Remove spaces at the beginning and the end of the sentence
-        words = words.lstrip().rstrip()
-
-        # Getting chars
-        chars = words.replace(" ", "_")
-        chars = " ".join([char for char in chars][:])
-
-        # Remove too short sentences (or empty):
-        if len(words.split(" ")) < 3:
-            continue
-
-        # Composition of the csv_line
-        csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
+        total_duration += float(res[1])
 
         # Adding this line to the csv_lines list
-        csv_lines.append(csv_line)
+        csv_lines.append(res)
 
     # Writing the csv lines
     with open(csv_file, mode="w", encoding="utf-8") as csv_f:
