@@ -557,10 +557,10 @@ def load_yaml_test(
                 if "new:custom_model" in line:
                     tag_custom_model = "custom_model"
                     custom_model_from_root = f"{script_folder.replace(os.sep, '.')}.{tag_custom_model}"
-                    pydoc.locate(custom_model_from_root)
-                    sys.modules[tag_custom_model] = sys.modules[
-                        custom_model_from_root
-                    ]
+                    if pydoc.locate(custom_model_from_root) is not None:
+                        sys.modules[tag_custom_model] = sys.modules[
+                            custom_model_from_root
+                        ]
                 # check for !PLACEHOLDER overrides
                 flag_continue = False
                 for key, value in add_placeholder_overrides.items():
