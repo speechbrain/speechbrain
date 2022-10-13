@@ -102,11 +102,13 @@ def prepare_test(
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
-                recipe_id = f"{recipe_csvfile}:{row_id}"
+                recipe_id = f"{recipe_csvfile[:-4]}_{row_id+1}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
-                    print(f"\tSkipped {recipe_id} - lacking fields: filters_fields={filters_fields}; filters={filters}; test_field={test_field}")
+                    print(
+                        f"\tSkipped {recipe_id} - lacking fields: filters_fields={filters_fields}; filters={filters}; test_field={test_field}"
+                    )
                     continue
                 test_script[recipe_id] = row[script_field].strip()
                 test_hparam[recipe_id] = row[hparam_field].strip()
@@ -321,7 +323,7 @@ def run_recipe_tests(
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     run_opts="--device=cpu",
-    output_folder="tests/tmp/recipes/",
+    output_folder="tests/tmp/",
     filters_fields=[],
     filters=[],
     do_checks=True,
@@ -442,7 +444,7 @@ def load_yaml_test(
     ],
     rir_folder="tests/tmp/rir",
     data_folder="tests/tmp/yaml",
-    output_folder="tests/tmp/yaml",
+    output_folder="tests/tmp/",
 ):
     """Tests if the yaml files can be loaded without errors.
 

@@ -10,9 +10,7 @@ from speechbrain.utils.data_utils import download_file
 
 
 def run_HF_check(
-    recipe_folder="tests/recipes",
-    field="HF_repo",
-    output_folder="tests/tmp/HF",
+    recipe_folder="tests/recipes", field="HF_repo", output_folder="tests/tmp",
 ):
     """Checks if the code reported in the readme files of the HF repository is
     runnable. Note: the tests run the code marked as python in the readme file.
@@ -128,8 +126,14 @@ def check_repo(HF_repo, skip_download=False, skip_exec=False):
                     if not skip_exec:
                         code.append(line)
                     elif not skip_download:
-                        if ('from_hparams' in line) or ('foreign_class' in line):
-                            code.append(line.replace(')', ", download_only=True)"))
+                        if (
+                            ("from_hparams" in line)
+                            or ("foreign_class" in line)
+                            or ("import" in line)
+                        ):
+                            code.append(
+                                line.replace(")", ", download_only=True)")
+                            )
 
     for code in code_snippets:
         try:
