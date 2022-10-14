@@ -161,7 +161,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         # 3. Download (if appropriate) and load with respect to 1. and 2.
         """
 
-        is_sb, ckpt_file = self._check_model_source(source)
+        is_sb, ckpt_file = self._check_model_source(source, save_path)
         if is_sb:
             config = config.from_pretrained(source, cache_dir=save_path)
             self.model = model(config)
@@ -211,27 +211,58 @@ class HuggingFaceWav2Vec2(nn.Module):
                 + "is useless for wav2vec 2.0 finetuning."
             )
 
-    def _check_model_source(self, path):
+    def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and
         is hosted locally or on a HuggingFace hub.
+        Called as static function in HuggingFaceTransformer._from_pretrained.
+        Arguments
+        ---------
+        path : str
+            Used as "source"; local path or HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+        save_path : str
+            norm_output (dir) of the downloaded model.
+        Returns
+        -------
+        is_sb : bool
+            Whether/not the model is deserializable w/ SpeechBrain or not (then, model conversion is needed).
+        checkpoint_filename : str
+            as of HuggingFace documentation: file name relative to the repo root (guaranteed to be here).
         """
         checkpoint_filename = ""
         source = pathlib.Path(path)
         is_local = True
-        is_sb = True
 
         # If path is a huggingface hub.
         if not source.exists():
             is_local = False
 
+        # Check if source is downloaded already
+        sink = pathlib.Path(
+            save_path + "/models--" + path.replace("/", "--") + "/snapshots"
+        )
+        if sink.exists():
+            sink = (
+                sink / os.listdir(str(sink))[0]
+            )  # there's a hash-id subfolder
+            if any(
+                File.endswith(".bin") or File.endswith(".ckpt")
+                for File in os.listdir(str(sink))
+            ):
+                is_local = True
+                local_path = str(sink)
+            else:
+                local_path = path
+        else:
+            local_path = path
+
         if is_local:
             # Test for HuggingFace model
-            if any(File.endswith(".bin") for File in os.listdir(path)):
+            if any(File.endswith(".bin") for File in os.listdir(local_path)):
                 is_sb = False
                 return is_sb, checkpoint_filename
 
             # Test for SpeechBrain model and get the filename.
-            for File in os.listdir(path):
+            for File in os.listdir(local_path):
                 if File.endswith(".ckpt"):
                     checkpoint_filename = os.path.join(path, File)
                     is_sb = True
