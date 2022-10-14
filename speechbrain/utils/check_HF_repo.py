@@ -109,7 +109,7 @@ def check_repo(HF_repo):
             if "```python" in line:
                 flag = True
                 code = []
-            elif "```\n" in line and flag:
+            elif "```" in line and flag:
                 flag = False
                 code_snippets.append(code)
             elif flag:
@@ -121,10 +121,10 @@ def check_repo(HF_repo):
 
     for code in code_snippets:
         try:
-            exec("\n".join(code))
+            exec("".join(code))
         except Exception as e:
             print("\t" + str(e))
             check = False
             print("\tERROR: cannot run code snippet in %s" % (HF_repo))
-            print("\n" + "\n".join(code) + "\n")
+            print("---\n" + "".join(code) + "---\n")
     return check
