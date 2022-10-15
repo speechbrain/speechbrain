@@ -49,7 +49,7 @@ from speechbrain.dataio.dataio import load_data_csv
 logger = logging.getLogger(__name__)
 
 ESC50_DOWNLOAD_URL = "https://github.com/karoldvl/ESC-50/archive/master.zip"
-MODIFIED_METADATA_FILE_NAME = "UrbanSound8k_speechbrain.csv"
+MODIFIED_METADATA_FILE_NAME = "esc50_speechbrain.csv"
 
 ACCEPTABLE_FOLD_NUMS = [1, 2, 3, 4, 5]
 
