@@ -42,6 +42,7 @@ adam_epsilon: 0.00000001
 downsample_factor: 16
 enable_train_metrics: True
 enable_reference_samples: True
+loss_l2_steps: 3000
 train_log_interval: 10
 overfit_test: False
 overfit_test_sample_count: 1
@@ -101,7 +102,11 @@ global_norm: !new:custom_transforms.GlobalNorm
 
 dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 
-compute_cost: !name:speechbrain.nnet.losses.mse_loss
+compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+          steps: !ref <loss_l2_steps>
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
 
 # To design a custom model, either just edit the simple CustomModel
