@@ -73,6 +73,7 @@ class ESC50Brain(sb.core.Brain):
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
+        # feats = torch.log(1 + feats.abs())
 
         if self.hparams.amp_to_db:
             Amp2db = torchaudio.transforms.AmplitudeToDB(
@@ -103,8 +104,9 @@ class ESC50Brain(sb.core.Brain):
 
         loss = self.hparams.compute_cost(predictions, classid, lens)
 
-        if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-            self.hparams.lr_annealing.on_batch_end(self.optimizer)
+        if stage != sb.Stage.TEST:
+            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+                self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
@@ -433,17 +435,34 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    if hparams["use_pretrain"]:
+        state_dict = torch.load(
+            "mx-h64-1024_0d3-1.17.pkl",
+            map_location=lambda storage, loc: storage,
+        )
+        from collections import OrderedDict
+
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            if "module." in k:
+                name = k[7:]
+            else:
+                name = k
+            new_state_dict[name] = v
+        ESC50_brain.modules.embedding_model.load_state_dict(new_state_dict)
+
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    ESC50_brain.fit(
-        epoch_counter=ESC50_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
-    )
+    if not hparams["test_only"]:
+        ESC50_brain.fit(
+            epoch_counter=ESC50_brain.hparams.epoch_counter,
+            train_set=datasets["train"],
+            valid_set=datasets["valid"],
+            train_loader_kwargs=hparams["dataloader_options"],
+            valid_loader_kwargs=hparams["dataloader_options"],
+        )
 
     # Load the best checkpoint for evaluation
     test_stats = ESC50_brain.evaluate(

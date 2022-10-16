@@ -17,11 +17,11 @@ data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
 open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
-# TODO the follwing folder will contain the resampled audio files
-# (mono channel and config SR) to train on
+# TODO the follwing folder will contain the resampled audio
+# files (mono channel and config SR) to train on
 #reasmpled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
 #
-experiment_name: ecapa-tdnn
+experiment_name: weak_mxh64
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -53,14 +53,14 @@ lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
-sample_rate: 16000
+sample_rate: 44100
 
 # Feature parameters
-n_mels: 80
+n_mels: 128
 left_frames: 0
 right_frames: 0
 deltas: False
-amp_to_db: False
+amp_to_db: True
 normalize: True
 
 # Number of classes
@@ -83,18 +83,17 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     left_frames: !ref <left_frames>
     right_frames: !ref <right_frames>
     deltas: !ref <deltas>
+    sample_rate: !ref <sample_rate>
+    n_fft: 1024
+    win_length: 20
+    hop_length: 10
 
-use_pretrain: False
-embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
-    input_size: !ref <n_mels>
-    channels: [1024, 1024, 1024, 1024, 3072]
-    kernel_sizes: [5, 3, 3, 3, 1]
-    dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
-    lin_neurons: 192
+use_pretrain: True
+embedding_model: !new:recipes.ESC50.classification.custom_models.weak_mxh64_1024
+    nout: 527
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 192
+    input_size: 527
     out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
