@@ -364,7 +364,7 @@ class InterleaveFormer(nn.Module):
     -------
     >>> import torch
     >>> x = torch.rand((8, 60, 512))
-    >>> net = TransformerEncoder(1, 8, 512, d_model=512)
+    >>> net = InterleaveFormer(1, 8, 512, d_model=512)
     >>> output, _ = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
