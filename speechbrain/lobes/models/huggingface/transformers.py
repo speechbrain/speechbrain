@@ -25,7 +25,7 @@ from speechbrain.lobes.models.huggingface.lib_deser import _check_model_source
 
 # We check if transformers is installed.
 try:
-    from transformers import AutoConfig, AutoModel
+    from transformers import AutoConfig, AutoTokenizer, AutoFeatureExtractor, AutoProcessor, AutoModel
 
 except ImportError:
     MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
@@ -33,6 +33,9 @@ except ImportError:
     raise ImportError(MSG)
 
 logger = logging.getLogger(__name__)
+
+# used to check against
+HUGGINGFACE_AUTO_CLASSES = [AutoTokenizer, AutoFeatureExtractor, AutoProcessor, AutoModel]
 
 
 class HuggingFaceTransformer(nn.Module):
@@ -48,6 +51,9 @@ class HuggingFaceTransformer(nn.Module):
         HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
     save_path : str
         norm_output (dir) of the downloaded model.
+    auto_class : Class (default: transformers.AutoModel)
+        AutoClass as provided by transformers, see HUGGINGFACE_AUTO_CLASSES
+        e.g., AutoTokenizer, AutoFeatureExtractor, AutoProcessor, AutoModel
     for_pretraining_cls : Class
         Specifies a HuggingFace transformers class that is created directly from a Config object
         (e.g. Wav2Vec2ForPreTraining).
@@ -92,6 +98,7 @@ class HuggingFaceTransformer(nn.Module):
         self,
         source,
         save_path,
+        auto_class=AutoModel,
         for_pretraining_cls=None,
         forward_partial_fn: Union[Callable, None] = None,
         modify_state_dict_partial_fn: Union[Callable, None] = None,
@@ -102,6 +109,9 @@ class HuggingFaceTransformer(nn.Module):
         cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",
     ):
         super().__init__()
+
+        # Is the auto_class valid?
+        assert auto_class in HUGGINGFACE_AUTO_CLASSES, "Error: please provide a HuggingFace Auto[Class]"
 
         # Fetch config
         config, _unused_kwargs = AutoConfig.from_pretrained(
@@ -122,11 +132,11 @@ class HuggingFaceTransformer(nn.Module):
             # Fetch model architecture
             if (
                 hasattr(config, "auto_map")
-                and AutoModel.__name__ in config.auto_map
+                and auto_class.__name__ in config.auto_map
             ):
-                model = AutoModel.from_config(config, cache_dir=cache_dir)
+                model = auto_class.from_config(config, cache_dir=cache_dir)
             else:  # AutoModel.from_config case: type(config) in AutoModel._model_mapping.keys() /or: raise ValueError
-                model = AutoModel.from_config(config)
+                model = auto_class.from_config(config)
 
             # Download model
             self._from_pretrained(
