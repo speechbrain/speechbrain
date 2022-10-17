@@ -25,7 +25,13 @@ from speechbrain.lobes.models.huggingface.lib_deser import _check_model_source
 
 # We check if transformers is installed.
 try:
-    from transformers import AutoConfig, AutoTokenizer, AutoFeatureExtractor, AutoProcessor, AutoModel
+    from transformers import (
+        AutoConfig,
+        AutoTokenizer,
+        AutoFeatureExtractor,
+        AutoProcessor,
+        AutoModel,
+    )
 
 except ImportError:
     MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
@@ -35,7 +41,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # used to check against
-HUGGINGFACE_AUTO_CLASSES = [AutoTokenizer, AutoFeatureExtractor, AutoProcessor, AutoModel]
+HUGGINGFACE_AUTO_CLASSES = [
+    AutoTokenizer,
+    AutoFeatureExtractor,
+    AutoProcessor,
+    AutoModel,
+]
 
 
 class HuggingFaceTransformer(nn.Module):
@@ -111,7 +122,9 @@ class HuggingFaceTransformer(nn.Module):
         super().__init__()
 
         # Is the auto_class valid?
-        assert auto_class in HUGGINGFACE_AUTO_CLASSES, "Error: please provide a HuggingFace Auto[Class]"
+        assert (
+            auto_class in HUGGINGFACE_AUTO_CLASSES
+        ), "Error: please provide a HuggingFace Auto[Class]"
 
         # Fetch config
         config, _unused_kwargs = AutoConfig.from_pretrained(
