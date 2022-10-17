@@ -34,11 +34,12 @@ if __name__ == "__main__":
     )
 
     # Data preparation, to be run on only one process.
-    prepare_fisher_callhome_spanish(
-        data_folder=hparams["original_data_folder"],
-        save_folder=hparams["data_folder"],
-        device=hparams["device"],
-    )
+    if not hparams["skip_prep"]:
+        prepare_fisher_callhome_spanish(
+            data_folder=hparams["original_data_folder"],
+            save_folder=hparams["data_folder"],
+            device=hparams["device"],
+        )
 
     # Train tokenizer
     hparams["tokenizer"]()

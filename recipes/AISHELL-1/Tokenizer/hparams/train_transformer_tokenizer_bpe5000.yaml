@@ -9,6 +9,7 @@ output_folder: !ref results/transformer_tokenizer_bpe5000/
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/aishell
+skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev.csv
 

@@ -47,6 +47,7 @@ if __name__ == "__main__":
             "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "type": "direct",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

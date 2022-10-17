@@ -12,6 +12,7 @@ data_folder: !PLACEHOLDER # e.g., /path/to/KsponSpeech
 train_splits: ["train"]
 dev_splits: ["dev"]
 test_splits: ["eval_clean", "eval_other"]
+skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev.csv
 

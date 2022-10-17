@@ -13,22 +13,21 @@ import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
 
 
-def check_row_for_test(row, filter_fields, filters, test_field):
+def check_row_for_test(row, filters_fields, filters, test_field):
     """Checks if the current row of the csv recipe file has a test to run.
 
     Arguments
     ---------
     row: dict
         Line of the csv file (in dict from).
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
     test_field: string
         Key of the input dictionary that contains the test flags.
-
 
     Returns
     ---------
@@ -36,10 +35,23 @@ def check_row_for_test(row, filter_fields, filters, test_field):
         True if the line must be tested, False otherwise.
     """
     test = True
-    for field in filter_fields:
-        for filt in filters:
-            if not (filt in row[field]):
+    for i, field in enumerate(filters_fields):
+        field_values = filters[i]
+        if type(field_values) == str:
+            # ... AND ... filter
+            if not (field_values in row[field]):
                 test = False
+        elif type(field_values) == list:  # type(field) == list
+            # ... AND (... OR ...) ... filter; at least one entry of the list matches
+            test_flag = False
+            for filt in field_values:
+                if filt in row[field]:
+                    test_flag = True
+            test = test and test_flag
+        else:
+            print("\tError in filters_fields and filters definition.")
+            test = False
+
     if test:
         test_flag = row[test_field].strip()
         if len(test_flag) == 0:
@@ -109,7 +121,8 @@ def prepare_test(
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
                     print(
-                        f"\tSkipped {recipe_id} - lacking fields: filters_fields={filters_fields}; filters={filters}; test_field={test_field}"
+                        f"\tSkipped {recipe_id} - filters_fields={filters_fields}; filters={filters}"
+                        " - lacking test_field={test_field}"
                     )
                     continue
                 test_script[recipe_id] = row[script_field].strip()
@@ -358,9 +371,13 @@ def run_recipe_tests(
         If True performs the checks on the output folder (when the check_field is not empty).
 
     Returns
-    ---------
+    -------
     check: True
         True if all the recipe tests pass, False otherwise.
+
+    Example
+    -------
+    python -c 'from speechbrain.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Dataset", "Task"], filters=[["AISHELL-1", "CommonVoice"], "SSL"])) else print("TEST PASSED")'
     """
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
@@ -449,6 +466,7 @@ def run_recipe_tests(
         # Checks
         check_str = test_check[recipe_id].strip()
         if do_checks and len(check_str) > 0:
+            print("\t...checking files & performance...")
 
             # Check if the expected files exist
             check &= check_files(check_str, output_fold, recipe_id)

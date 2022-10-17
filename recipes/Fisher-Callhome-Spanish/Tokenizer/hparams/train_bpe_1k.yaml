@@ -10,6 +10,8 @@ original_data_folder: !PLACEHOLDER # i.e., path to the original data contain LDC
 data_folder: !PLACEHOLDER # Path where to store the .json and prepared data
 output_folder: !PLACEHOLDER # Path where to store theTokenizer output (model, logs etc)
 device: "cuda:0" # for resample audio
+skip_prep: False
+train_annotation: !ref <data_folder>/train/data.json
 
 # Tokenizer parameters
 token_type: bpe  # ["unigram", "bpe", "char"]
@@ -23,10 +25,10 @@ annotation_read: "transcription_and_translation" # field to read
 tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
    model_dir: !ref <output_folder>
    vocab_size: !ref <token_output>
-   annotation_train: !ref <data_folder>/train/data.json
+   annotation_train: !ref <train_annotation>
    annotation_read: !ref <annotation_read>
    model_type: !ref <token_type> # ["unigram", "bpe", "char"]
-   annotation_list_to_check: [!ref <data_folder>/train/data.json]
+   annotation_list_to_check: [!ref <train_annotation>]
    annotation_format: json
    bos_id: 1
    eos_id: 2

@@ -36,12 +36,13 @@ if __name__ == "__main__":
     )
 
     # Data preparation, to be run on only one process.
-    prepare_mini_librispeech(
-        data_folder=hparams["data_folder"],
-        save_json_train=hparams["train_annotation"],
-        save_json_valid=hparams["valid_annotation"],
-        save_json_test=hparams["test_annotation"],
-    )
+    if not hparams["skip_prep"]:
+        prepare_mini_librispeech(
+            data_folder=hparams["data_folder"],
+            save_json_train=hparams["train_annotation"],
+            save_json_valid=hparams["valid_annotation"],
+            save_json_test=hparams["test_annotation"],
+        )
 
     # Train tokenizer
     hparams["tokenizer"]()
