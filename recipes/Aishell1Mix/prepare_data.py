@@ -40,6 +40,8 @@ def prepare_aishell1mix(
         skip_prep (bool): If True, skip data preparation
         aishell1mix_addnoise: If True, add whamnoise to aishell1mix datasets
     """
+    if skip_prep:
+        return
 
     # create the datapath folder if it does not exist
     if not os.path.exists(datapath):
@@ -157,9 +159,6 @@ def prepare_aishell1mix(
         datamodes,
         datatypes,
     )
-
-    if skip_prep:
-        return
 
     if "Aishell1" in aishell1mix_outdir:
         # Aishell1 Mix2/3 datasets
