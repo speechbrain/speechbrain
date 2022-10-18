@@ -74,7 +74,7 @@ if __name__ == "__main__":
     hparams["data_folder"] += f'/aishell1mix/Aishell1Mix{hparams["num_spks"]}'
 
     # Create dataset objects
-    from recipes.LibriMix.separation.train import dataio_prep
+    from LibriMixTrain import dataio_prep
 
     if hparams["dynamic_mixing"]:
         from dynamic_mixing import (
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrained_separator"].collect_files)
         hparams["pretrained_separator"].load_collected()
 
-    from recipes.LibriMix.separation.train import Separation
+    from LibriMixTrain import Separation
 
     # Brain class initialization
     # Inheriting the Separation class from librimix. It uses these variables:
