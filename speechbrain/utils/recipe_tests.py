@@ -342,6 +342,7 @@ def run_recipe_tests(
     filters_fields=[],
     filters=[],
     do_checks=True,
+    download_only=False,
 ):
     """Runs the recipes tests.
 
@@ -369,6 +370,8 @@ def run_recipe_tests(
         See above.
     do_checks:
         If True performs the checks on the output folder (when the check_field is not empty).
+    download_only:
+        If True skips running/checking tests after downloading relevant pre-trained data (prepare for offline testing).
 
     Returns
     -------
@@ -424,6 +427,9 @@ def run_recipe_tests(
 
         # Prepare the test
         run_test_cmd(cmd, stdout_file, stderr_file)
+
+    if download_only:
+        return False
 
     # Run  script (check how to get std out, std err and save them in files)
     check = True

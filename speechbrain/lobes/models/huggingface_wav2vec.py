@@ -161,7 +161,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         # 3. Download (if appropriate) and load with respect to 1. and 2.
         """
 
-        is_sb, ckpt_file = self._check_model_source(source, save_path)
+        is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
         if is_sb:
             config = config.from_pretrained(source, cache_dir=save_path)
             self.model = model(config)
@@ -173,7 +173,7 @@ class HuggingFaceWav2Vec2(nn.Module):
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_w2v2_parameters(ckpt_full_path)
         else:
-            self.model = model.from_pretrained(source, cache_dir=save_path)
+            self.model = model.from_pretrained(source, cache_dir=save_path, local_files_only=is_local)
 
     def _load_sb_pretrained_w2v2_parameters(self, path):
         """Loads the parameter of a w2v2 model pretrained with SpeechBrain and the
@@ -259,14 +259,14 @@ class HuggingFaceWav2Vec2(nn.Module):
             # Test for HuggingFace model
             if any(File.endswith(".bin") for File in os.listdir(local_path)):
                 is_sb = False
-                return is_sb, checkpoint_filename
+                return is_sb, checkpoint_filename, is_local
 
             # Test for SpeechBrain model and get the filename.
             for File in os.listdir(local_path):
                 if File.endswith(".ckpt"):
                     checkpoint_filename = os.path.join(path, File)
                     is_sb = True
-                    return is_sb, checkpoint_filename
+                    return is_sb, checkpoint_filename, is_local
         else:
             files = model_info(
                 path
@@ -277,13 +277,13 @@ class HuggingFaceWav2Vec2(nn.Module):
                 if File.rfilename.endswith(".ckpt"):
                     checkpoint_filename = File.rfilename
                     is_sb = True
-                    return is_sb, checkpoint_filename
+                    return is_sb, checkpoint_filename, is_local
 
             for File in files:
                 if File.rfilename.endswith(".bin"):
                     checkpoint_filename = File.rfilename
                     is_sb = False
-                    return is_sb, checkpoint_filename
+                    return is_sb, checkpoint_filename, is_local
 
         err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
