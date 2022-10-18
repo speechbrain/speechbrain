@@ -28,6 +28,7 @@ tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 
 # Self-supervised pre-training
 wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 freeze_wav2vec: False
 
 # Training parameters
@@ -104,7 +105,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
 
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
