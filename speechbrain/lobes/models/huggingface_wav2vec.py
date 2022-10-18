@@ -173,7 +173,9 @@ class HuggingFaceWav2Vec2(nn.Module):
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_w2v2_parameters(ckpt_full_path)
         else:
-            self.model = model.from_pretrained(source, cache_dir=save_path, local_files_only=is_local)
+            self.model = model.from_pretrained(
+                source, cache_dir=save_path, local_files_only=is_local
+            )
 
     def _load_sb_pretrained_w2v2_parameters(self, path):
         """Loads the parameter of a w2v2 model pretrained with SpeechBrain and the
