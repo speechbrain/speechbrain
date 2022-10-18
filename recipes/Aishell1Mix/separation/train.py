@@ -51,7 +51,7 @@ if __name__ == "__main__":
     )
 
     # Check if storage folder for dataset exists
-    if not hparams["data_folder"]:
+    if not hparams["dataset_folder"]:
         print("Please, specify a valid data_folder for dataset storage")
         sys.exit(1)
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     run_on_main(
         prepare_aishell1mix,
         kwargs={
-            "datapath": hparams["data_folder"],
+            "datapath": hparams["dataset_folder"],
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
@@ -71,7 +71,6 @@ if __name__ == "__main__":
             "datamodes": hparams["data_modes"],
         },
     )
-    hparams["data_folder"] += f'/aishell1mix/Aishell1Mix{hparams["num_spks"]}'
 
     # Create dataset objects
     from LibriMixTrain import dataio_prep
