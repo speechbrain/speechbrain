@@ -56,7 +56,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.Aishell1Mix.prepare_data import prepare_aishell1mix
+    from prepare_data import prepare_aishell1mix
 
     run_on_main(
         prepare_aishell1mix,
