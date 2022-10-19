@@ -696,7 +696,7 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    if not os.path.exists(hparams["datasets_generation"]):
+    if not os.path.exists(hparams["datasets_generation"]) and not hparams["skip_prep"]:
         print("Download Datasets Generation scripts")
         fetch(
             filename="main.zip",
@@ -731,7 +731,7 @@ if __name__ == "__main__":
             hparams["data_folder"], "3speakers"
         )
 
-    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
+    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")) and not hparams["skip_prep"]:
         print("Generate Binaural WSJ0Mix dataset automatically")
         run_on_main(
             create_binaural_wsj0mix,

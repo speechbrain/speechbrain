@@ -577,7 +577,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.LibriMix.prepare_data import prepare_librimix
+    from prepare_data import prepare_librimix
 
     run_on_main(
         prepare_librimix,
