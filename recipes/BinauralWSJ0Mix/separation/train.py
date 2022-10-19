@@ -706,7 +706,9 @@ if __name__ == "__main__":
                 save_filename="Binaural-WSJ0Mix-main.zip",
             )
             file = zipfile.ZipFile(
-                os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
+                os.path.join(
+                    hparams["data_folder"], "Binaural-WSJ0Mix-main.zip"
+                )
             )
             file.extractall(path=hparams["data_folder"])
 
@@ -714,11 +716,15 @@ if __name__ == "__main__":
         if "noise" in hparams["experiment_name"]:
             from create_wav_2speakers_noise import create_binaural_wsj0mix
 
-            hparams["data_folder"] = os.path.join(hparams["data_folder"], "noise")
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "noise"
+            )
         elif "reverb" in hparams["experiment_name"]:
             from create_wav_2speakers_reverb import create_binaural_wsj0mix
 
-            hparams["data_folder"] = os.path.join(hparams["data_folder"], "reverb")
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "reverb"
+            )
         elif hparams["num_spks"] == 2:
             from create_wav_2speakers import create_binaural_wsj0mix
 
