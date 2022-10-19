@@ -343,6 +343,7 @@ def run_recipe_tests(
     filters=[],
     do_checks=True,
     download_only=False,
+    run_tests_with_checks_only=False,
 ):
     """Runs the recipes tests.
 
@@ -368,10 +369,12 @@ def run_recipe_tests(
         will only run tests for ASR recipes.
     filters: list
         See above.
-    do_checks:
+    do_checks: bool (default: True)
         If True performs the checks on the output folder (when the check_field is not empty).
-    download_only:
+    download_only: bool (default: False)
         If True skips running/checking tests after downloading relevant pre-trained data (prepare for offline testing).
+    run_tests_with_checks_only: bool (default: False)
+        If True skips all tests that do not have performance check criteria defined.
 
     Returns
     -------
@@ -397,6 +400,12 @@ def run_recipe_tests(
 
     # Download all upfront
     for i, recipe_id in enumerate(test_script.keys()):
+        # If we are interested in performance checks only, skip
+        check_str = test_check[recipe_id].strip()
+        if run_tests_with_checks_only:
+            if len(check_str) == 0:
+                continue
+
         print(
             "(%i/%i) Collecting pretrained models for %s..."
             % (i + 1, len(test_script.keys()), recipe_id)
@@ -439,6 +448,12 @@ def run_recipe_tests(
     # Run  script (check how to get std out, std err and save them in files)
     check = True
     for i, recipe_id in enumerate(test_script.keys()):
+        # If we are interested in performance checks only, skip
+        check_str = test_check[recipe_id].strip()
+        if run_tests_with_checks_only:
+            if len(check_str) == 0:
+                continue
+
         print(
             "(%i/%i) Running test for %s..."
             % (i + 1, len(test_script.keys()), recipe_id)
@@ -475,7 +490,6 @@ def run_recipe_tests(
             check = False
 
         # Checks
-        check_str = test_check[recipe_id].strip()
         if do_checks and len(check_str) > 0:
             print("\t...checking files & performance...")
 
