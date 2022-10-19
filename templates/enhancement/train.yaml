@@ -32,6 +32,7 @@ rir_folder: !ref <data_folder>
 train_annotation: train.json
 valid_annotation: valid.json
 test_annotation: test.json
+skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

@@ -151,7 +151,7 @@ dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
     rnn_type: gru
     attn_type: location
     hidden_size: !ref <dec_hidden_size>
-    attn_dim: !ref <dev_attn_dim>
+    attn_dim: !ref <dec_attn_dim>
     num_layers: 1
     scaling: 1.0
     channels: 10

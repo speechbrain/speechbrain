@@ -585,6 +585,7 @@ def load_yaml_test(
     add_placeholder_overrides = {
         "wav2vec2_hub": "facebook/wav2vec2-large-960h-lv60-self",  # this might not hold for all set-ups
         "root_data_folder": data_folder,
+        "wav2vec2_folder": f"{output_folder}/wav2vec2_checkpoint",
     }
 
     # Read the csv recipe file and detect which tests we have to run
