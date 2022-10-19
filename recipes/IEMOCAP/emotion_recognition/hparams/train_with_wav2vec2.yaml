@@ -18,6 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Important: we use wav2vec2 base and not the fine-tuned one with ASR task
 # This allow you to have ~4% improvment
 wav2vec2_hub: "facebook/wav2vec2-base"
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # different speakers for train, valid and test sets
 different_speakers: False
@@ -65,7 +66,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     output_norm: True
     freeze: !ref <freeze_wav2vec2>
     freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
 
 avg_pool: !new:speechbrain.nnet.pooling.StatisticsPooling
     return_std: False

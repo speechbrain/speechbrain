@@ -146,12 +146,12 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dnn_neurons>
+    enc_dim: !ref <dec_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
+    hidden_size: !ref <dec_hidden_size>
+    attn_dim: !ref <dev_attn_dim>
     num_layers: 1
     scaling: 1.0
     channels: 10

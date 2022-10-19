@@ -41,6 +41,8 @@ from torch.nn import Conv1d
 from speechbrain.pretrained.fetching import fetch
 import zipfile
 
+logger = logging.getLogger(__name__)
+
 
 # Define training procedure
 class Separation(sb.Brain):
@@ -677,9 +679,6 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # Logger info
-    logger = logging.getLogger(__name__)
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -751,9 +750,7 @@ if __name__ == "__main__":
             )
 
     # Data preparation
-    from recipes.BinauralWSJ0Mix.prepare_data import (
-        prepare_binaural_wsj0mix,
-    )  # noqa
+    from prepare_data import prepare_binaural_wsj0mix  # noqa
 
     run_on_main(
         prepare_binaural_wsj0mix,
