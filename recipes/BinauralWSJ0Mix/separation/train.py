@@ -696,7 +696,7 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    if not not hparams["skip_prep"]:
+    if not hparams["skip_prep"]:
         if not os.path.exists(hparams["datasets_generation"]):
             print("Download Datasets Generation scripts")
             fetch(
