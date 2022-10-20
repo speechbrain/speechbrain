@@ -238,7 +238,7 @@ def dataio_prepare(hparams):
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["vocab_size"],
-        annotation_train=data_folder + "/train.json",
+        annotation_train=hparams["annotation_train"],
         annotation_read="trans",
         annotation_format="json",
         model_type="unigram",
@@ -270,7 +270,7 @@ def dataio_prepare(hparams):
         )
 
     for dataset in ["valid", "test"]:
-        json_path = f"{data_folder}/{dataset}.json"
+        json_path = hparams[f"{dataset}_annotation"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
@@ -393,13 +393,15 @@ if __name__ == "__main__":
     # Data preparation
     import prepare_iwslt22
 
-    run_on_main(
-        prepare_iwslt22.data_proc,
-        kwargs={
-            "dataset_folder": hparams["root_data_folder"],
-            "output_folder": hparams["data_folder"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_iwslt22.data_proc,
+            kwargs={
+                "dataset_folder": hparams["root_data_folder"],
+                "output_folder": hparams["data_folder"],
+            },
+        )
+
     # Load datasets for training, valid, and test, trains and applies tokenizer
     datasets, tokenizer = dataio_prepare(hparams)
 

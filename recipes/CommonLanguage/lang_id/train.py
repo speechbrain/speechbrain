@@ -229,7 +229,7 @@ def dataio_prep(hparams):
     datasets = {}
     for dataset in ["train", "dev", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=os.path.join(hparams["save_folder"], dataset + ".csv"),
+            csv_path=hparams[f"{dataset}_csv"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "language_encoded"],
