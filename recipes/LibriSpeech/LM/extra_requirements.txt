@@ -1,2 +1,2 @@
 # huggingface dataset
-datasets==1.6.2
+datasets

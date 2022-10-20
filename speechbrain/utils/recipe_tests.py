@@ -39,13 +39,13 @@ def check_row_for_test(row, filters_fields, filters, test_field):
         field_values = filters[i]
         if type(field_values) == str:
             # ... AND ... filter
-            if not (field_values in row[field]):
+            if not (field_values == row[field]):
                 test = False
         elif type(field_values) == list:  # type(field) == list
             # ... AND (... OR ...) ... filter; at least one entry of the list matches
             test_flag = False
             for filt in field_values:
-                if filt in row[field]:
+                if filt == row[field]:
                     test_flag = True
             test = test and test_flag
         else:

@@ -10,7 +10,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER
 output_folder: results/voxceleb1_2/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
-device: 'cuda:0'
 
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
@@ -30,6 +29,7 @@ pretrain_path: speechbrain/spkrec-xvect-voxceleb
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+skip_prep: False
 
 batch_size: 128
 n_train_snts: 300000 # used for normalization stats

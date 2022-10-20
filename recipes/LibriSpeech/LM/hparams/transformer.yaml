@@ -22,6 +22,9 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 # if set to null, it will automatically download from the internet
 # in the case when there is no internet access, set this to your local file
 lm_corpus_path: null
+train_transcripts_pattern: "train*/**/*.trans.txt"
+dev_transcripts_pattern: "dev*/**/*.trans.txt"
+test_transcripts_pattern: "test*/**/*.trans.txt"
 
 # Tokenizer model
 tokenizer_file: speechbrain/asr-transformer-transformerlm-librispeech/tokenizer.ckpt

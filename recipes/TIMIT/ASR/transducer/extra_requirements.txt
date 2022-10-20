@@ -1,6 +1,6 @@
 # For transducer loss
 numba
 # For wav2vect recipe (HuggingFace)
-transformers==4.4.0
+transformers
 # For wav2vect recipe (Fairsec)
 #fairseq

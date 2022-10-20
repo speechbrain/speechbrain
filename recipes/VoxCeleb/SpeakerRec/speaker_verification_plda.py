@@ -42,8 +42,8 @@ def compute_embeddings(wavs, wav_lens):
         Tensor containing the relative length for each sentence
         in the length (e.g., [0.8 0.6 1.0])
     """
-    wavs = wavs.to(params["device"])
-    wav_lens = wav_lens.to(params["device"])
+    wavs = wavs.to(run_opts["device"])
+    wav_lens = wav_lens.to(run_opts["device"])
     with torch.no_grad():
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
@@ -244,6 +244,7 @@ if __name__ == "__main__":
         splits=["train", "test"],
         split_ratio=[90, 10],
         seg_dur=3,
+        skip_prep=params["skip_prep"],
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -264,7 +265,7 @@ if __name__ == "__main__":
     params["pretrainer"].load_collected()
 
     params["embedding_model"].eval()
-    params["embedding_model"].to(params["device"])
+    params["embedding_model"].to(run_opts["device"])
 
     # Computing training embeddings (skip it of if already extracted)
     if not os.path.exists(xv_file):
