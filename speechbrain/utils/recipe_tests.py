@@ -420,11 +420,13 @@ def run_recipe_tests(
             "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
             "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
             "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+            # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
+            # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
         )
         with open(test_hparam[recipe_id]) as hparam_file:
             for line in hparam_file:
                 if "pretrainer" in line:
-                    cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu")'
+                    cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
                 elif "from_pretrained" in line:
                     field = line.split(":")[0].strip()
                     cmd += f'hparams["{field}"]'
