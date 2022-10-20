@@ -12,6 +12,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the HuggingFace model we want to pretrain (BASE here)
 wav2vec2_hub: facebook/wav2vec2-base
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Training parameters
 # Parameters are corresponding the the ones reported in the official wav2vec2
@@ -69,7 +70,7 @@ dynamic_batch_sampler:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface.interfaces.HuggingFaceWav2Vec2Pretrain
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2Pretrain
     source: !ref <wav2vec2_hub>
     save_path: !ref <save_folder>/wav2vec2_checkpoint
     mask_prob: !ref <mask_prob>

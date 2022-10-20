@@ -14,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest LeBenchmark wav2vec french.
 wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-large
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Training parameters
 number_of_epochs: 5  # 30
@@ -91,7 +92,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
 output_all_hiddens: False
 apply_spec_augment: False
 norm_output: True
-wav2vec2_save_path: !ref <save_folder>/wav2vec2_checkpoint
+wav2vec2_save_path: !ref <wav2vec2_folder>
 wav2vec2_helper_norm_input: !apply:transformers.Wav2Vec2FeatureExtractor.from_pretrained  # possible w/o helper? ;-)
     pretrained_model_name_or_path: !ref <wav2vec2_hub>
     cache_dir: !ref <wav2vec2_save_path>
