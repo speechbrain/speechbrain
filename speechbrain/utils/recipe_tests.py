@@ -394,57 +394,59 @@ def run_recipe_tests(
         recipe_folder,
         script_field,
         hparam_field,
+        test_field=test_field,
+        check_field=check_field,
         filters_fields=filters_fields,
         filters=filters,
     )
 
     # Download all upfront
-    for i, recipe_id in enumerate(test_script.keys()):
-        # If we are interested in performance checks only, skip
-        check_str = test_check[recipe_id].strip()
-        if run_tests_with_checks_only:
-            if len(check_str) == 0:
-                continue
-
-        print(
-            "(%i/%i) Collecting pretrained models for %s..."
-            % (i + 1, len(test_script.keys()), recipe_id)
-        )
-
-        output_fold = os.path.join(output_folder, recipe_id)
-        os.makedirs(output_fold, exist_ok=True)
-        stdout_file = os.path.join(output_fold, "stdout.txt")
-        stderr_file = os.path.join(output_fold, "stderr.txt")
-
-        cmd = (
-            "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
-            "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
-            "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
-            # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
-            # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
-        )
-        with open(test_hparam[recipe_id]) as hparam_file:
-            for line in hparam_file:
-                if "pretrainer" in line:
-                    cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
-                elif "from_pretrained" in line:
-                    field = line.split(":")[0].strip()
-                    cmd += f'hparams["{field}"]'
-        cmd += (
-            "' "
-            + test_hparam[recipe_id]
-            + " --output_folder="
-            + output_fold
-            + " "
-            + test_flag[recipe_id]
-            + " "
-            + run_opts
-        )
-
-        # Prepare the test
-        run_test_cmd(cmd, stdout_file, stderr_file)
-
     if download_only:
+        for i, recipe_id in enumerate(test_script.keys()):
+            # If we are interested in performance checks only, skip
+            check_str = test_check[recipe_id].strip()
+            if run_tests_with_checks_only:
+                if len(check_str) == 0:
+                    continue
+
+            print(
+                "(%i/%i) Collecting pretrained models for %s..."
+                % (i + 1, len(test_script.keys()), recipe_id)
+            )
+
+            output_fold = os.path.join(output_folder, recipe_id)
+            os.makedirs(output_fold, exist_ok=True)
+            stdout_file = os.path.join(output_fold, "stdout.txt")
+            stderr_file = os.path.join(output_fold, "stderr.txt")
+
+            cmd = (
+                "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
+                "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
+                "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+                # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
+                # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
+            )
+            with open(test_hparam[recipe_id]) as hparam_file:
+                for line in hparam_file:
+                    if "pretrainer" in line:
+                        cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
+                    elif "from_pretrained" in line:
+                        field = line.split(":")[0].strip()
+                        cmd += f'hparams["{field}"]'
+            cmd += (
+                "' "
+                + test_hparam[recipe_id]
+                + " --output_folder="
+                + output_fold
+                + " "
+                + test_flag[recipe_id]
+                + " "
+                + run_opts
+            )
+
+            # Prepare the test
+            run_test_cmd(cmd, stdout_file, stderr_file)
+
         return False
 
     # Run  script (check how to get std out, std err and save them in files)
