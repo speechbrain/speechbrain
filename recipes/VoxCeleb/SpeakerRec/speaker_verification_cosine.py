@@ -62,7 +62,10 @@ def compute_embedding_loop(data_loader):
                     found = True
             if not found:
                 continue
-            wavs, lens = wavs.to(run_opts["device"]), lens.to(run_opts["device"])
+            wavs, lens = (
+                wavs.to(run_opts["device"]),
+                lens.to(run_opts["device"]),
+            )
             emb = compute_embedding(wavs, lens).unsqueeze(1)
             for i, seg_id in enumerate(seg_ids):
                 embedding_dict[seg_id] = emb[i].detach().clone()
