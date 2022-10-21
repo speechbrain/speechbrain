@@ -191,6 +191,7 @@ dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
 dropout: 0.5  # dropout rate
 activation_type: 'elu'
 
+
 model: !new:speechbrain.lobes.models.EEGNet.EEGNet
     input_shape: !ref <input_shape>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
