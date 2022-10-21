@@ -69,7 +69,7 @@ WAV2_VEC2_HF_REPOS = {
         "cls": "EncoderDecoderASR",
         "fnx": "transcribe_batch",
     },
-    "speechbrain/asr-wav2vec2-commonvoice-it    ": {
+    "speechbrain/asr-wav2vec2-commonvoice-it": {
         "sample": "example-it.wav",
         "cls": "EncoderDecoderASR",
         "fnx": "transcribe_batch",
