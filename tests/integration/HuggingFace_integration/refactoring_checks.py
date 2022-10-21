@@ -20,6 +20,15 @@ import speechbrain  # noqa
 from speechbrain.pretrained.interfaces import foreign_class  # noqa
 
 
+# TODO fix
+"""
+"speechbrain/ssl-wav2vec2-base-librispeech": {
+    "sample": "example.wav",
+    "cls": "WaveformEncoder",
+    "fnx": "encode_file",
+},
+"""
+
 WAV2_VEC2_HF_REPOS = {
     "speechbrain/asr-wav2vec2-transformer-aishell": {
         "sample": "example_mandarin.wav",
@@ -33,14 +42,6 @@ WAV2_VEC2_HF_REPOS = {
         "foreign": 'foreign_class(source="speechbrain/asr-wav2vec2-ctc-aishell",  pymodule_file="custom_interface.py", classname="CustomEncoderDecoderASR")',
         "prediction": 'model.transcribe_file("speechbrain/asr-wav2vec2-ctc-aishell/example.wav")',
     },
-    # TODO fix
-    """
-    "speechbrain/ssl-wav2vec2-base-librispeech": {
-        "sample": "example.wav",
-        "cls": "WaveformEncoder",
-        "fnx": "encode_file",
-    },
-    """
     "speechbrain/asr-wav2vec2-librispeech": {
         "sample": "example.wav",
         "cls": "EncoderASR",
@@ -118,7 +119,7 @@ def get_prediction(repo, values):
         model = eval(values["foreign"])  # noqa
         prediction = eval(values["prediction"])
 
-    return prediction
+    return [x[0] for x in prediction]
 
 
 def gather_expected_results(
@@ -150,7 +151,7 @@ def gather_expected_results(
                 prediction = get_prediction(repo, values)
 
                 # extend the results
-                results[repo] = {"before": [x[0] for x in prediction]}
+                results[repo] = {"before": prediction}
                 with open(yaml_path, "w") as yaml_out:
                     yaml.dump(results, yaml_out, default_flow_style=None)
 
@@ -176,10 +177,9 @@ def gather_refactoring_results(
                         print(
                             f"Collecting refactoring results for: {repo} w/ values={values}"
                         )
-                        prediction = get_prediction(repo, values)
 
                         # extend the results
-                        results[repo]["after"] = [x[0] for x in prediction]
+                        results[repo]["after"] = get_prediction(repo, values)
                         results[repo]["same"] = (
                             results[repo]["before"] == results[repo]["after"]
                         )
