@@ -33,11 +33,14 @@ WAV2_VEC2_HF_REPOS = {
         "foreign": 'foreign_class(source="speechbrain/asr-wav2vec2-ctc-aishell",  pymodule_file="custom_interface.py", classname="CustomEncoderDecoderASR")',
         "prediction": 'model.transcribe_file("speechbrain/asr-wav2vec2-ctc-aishell/example.wav")',
     },
+    # TODO fix
+    """
     "speechbrain/ssl-wav2vec2-base-librispeech": {
         "sample": "example.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
+        "cls": "WaveformEncoder",
+        "fnx": "encode_file",
     },
+    """
     "speechbrain/asr-wav2vec2-librispeech": {
         "sample": "example.wav",
         "cls": "EncoderASR",
@@ -137,7 +140,6 @@ def gather_expected_results(
         results = {}
 
     # go through each repo
-    any_changes = False
     for repo, values in WAV2_VEC2_HF_REPOS.items():
         # skip if results are there
         if repo not in results.keys():
@@ -148,14 +150,9 @@ def gather_expected_results(
                 prediction = get_prediction(repo, values)
 
                 # extend the results
-                any_changes = True
                 results[repo] = {"before": [x[0] for x in prediction]}
-
-    # save updated results
-    if any_changes:
-        os.makedirs(yaml_path)
-        with open(yaml_path, "w") as yaml_out:
-            yaml.dump(results, yaml_out, default_flow_style=None)
+                with open(yaml_path, "w") as yaml_out:
+                    yaml.dump(results, yaml_out, default_flow_style=None)
 
 
 def gather_refactoring_results(
@@ -167,7 +164,6 @@ def gather_refactoring_results(
             results = yaml.safe_load(yaml_in)
 
         # go through each repo
-        any_changes = False
         for repo, values in WAV2_VEC2_HF_REPOS.items():
             # skip if results are there
             if repo in results.keys():
@@ -183,14 +179,15 @@ def gather_refactoring_results(
                         prediction = get_prediction(repo, values)
 
                         # extend the results
-                        any_changes = True
                         results[repo]["after"] = [x[0] for x in prediction]
                         results[repo]["same"] = (
                             results[repo]["before"] == results[repo]["after"]
                         )
-                        print(f"\tsame: {results[repo]['same'] }")
 
-        # save updated results
-        if any_changes:
-            with open(yaml_path, "w") as yaml_out:
-                yaml.dump(results, yaml_out, default_flow_style=None)
+                        # update
+                        with open(yaml_path, "w") as yaml_out:
+                            yaml.dump(
+                                results, yaml_out, default_flow_style=None
+                            )
+
+                        print(f"\tsame: {results[repo]['same'] }")
