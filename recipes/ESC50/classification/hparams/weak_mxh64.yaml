@@ -49,14 +49,14 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 32
-lr: 0.001
+lr: 0.0002
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
 
 # Feature parameters
-n_mels: 128
+n_mels: 120
 left_frames: 0
 right_frames: 0
 deltas: False
@@ -95,6 +95,7 @@ embedding_model: !new:recipes.ESC50.classification.custom_models.weak_mxh64_1024
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 527
     out_neurons: !ref <out_n_neurons>
+    lin_blocks: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>

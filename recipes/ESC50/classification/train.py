@@ -30,6 +30,10 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
 
+import librosa
+from librosa.core import stft
+import scipy.io.wavfile as wavf
+
 
 class ESC50Brain(sb.core.Brain):
     """Class for sound class embedding training"
@@ -72,18 +76,29 @@ class ESC50Brain(sb.core.Brain):
             lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
+        # sb_feats = self.modules.compute_features(wavs)
+
+        Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
+        Xmel = librosa.feature.melspectrogram(
+            sr=44100, S=np.abs(Xs), n_fft=1024, hop_length=512, n_mels=120
+        )
+        # Xls = np.log(1.0 + np.abs(Xs))
+        Xlgmel = librosa.power_to_db(Xmel)
+
         # feats = torch.log(1 + feats.abs())
 
-        if self.hparams.amp_to_db:
-            Amp2db = torchaudio.transforms.AmplitudeToDB(
-                stype="power", top_db=80
-            )  # try "magnitude" Vs "power"? db= 80, 50...
-            feats = Amp2db(feats)
+        # if self.hparams.amp_to_db:
+        #     Amp2db = torchaudio.transforms.AmplitudeToDB(
+        #         stype="power", top_db=80
+        #     )  # try "magnitude" Vs "power"? db= 80, 50...
+        #     feats = Amp2db(feats)
 
         # Normalization
-        if self.hparams.normalize:
-            feats = self.modules.mean_var_norm(feats, lens)
+        # if self.hparams.normalize:
+        #    feats = self.modules.mean_var_norm(feats, lens)
+
+        # test librosa stuff
+        feats = torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
 
         # Embeddings + sound classifier
         embeddings = self.modules.embedding_model(feats)
@@ -336,7 +351,19 @@ def dataio_prep(hparams):
             # Resample audio
             sig = hparams["resampler"].forward(sig)
 
-        return sig
+        # the librosa version
+        fs, inp_audio = wavf.read(wave_file)
+        inp_audio = inp_audio.astype(np.float32)
+        inp_audio = inp_audio / inp_audio.max()
+        # if self.noise:
+        #     energy_signal = (inp_audio ** 2).mean()
+        #     noise = np.random.normal(0, 0.05, inp_audio.shape[0])
+        #     energy_noise = (noise ** 2).mean()
+        #     const = np.sqrt(energy_signal / energy_noise)
+        #     noise = const * noise
+        #     inp_audio = inp_audio + noise
+
+        return torch.from_numpy(inp_audio)
 
     # 3. Define label pipeline:
     @sb.utils.data_pipeline.takes("class_string")
@@ -435,6 +462,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
     if hparams["use_pretrain"]:
         state_dict = torch.load(
             "mx-h64-1024_0d3-1.17.pkl",
@@ -450,6 +478,7 @@ if __name__ == "__main__":
                 name = k
             new_state_dict[name] = v
         ESC50_brain.modules.embedding_model.load_state_dict(new_state_dict)
+    print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
 
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
