@@ -22,11 +22,28 @@ from speechbrain.pretrained.interfaces import foreign_class  # noqa
 
 # TODO fix
 """
-"speechbrain/ssl-wav2vec2-base-librispeech": {
-    "sample": "example.wav",
-    "cls": "WaveformEncoder",
-    "fnx": "encode_file",
-},
+    "speechbrain/ssl-wav2vec2-base-librispeech": {
+        "sample": "example.wav",
+        "cls": "WaveformEncoder",
+        "fnx": "encode_file",
+    },
+    "speechbrain/asr-wav2vec2-commonvoice-fr": {
+        "sample": "example-fr.wav",
+        "cls": "EncoderASR",
+        "fnx": "transcribe_batch",
+    },
+    "speechbrain/asr-wav2vec2-commonvoice-rw": {
+        "sample": "example.mp3",
+        "cls": "EncoderASR",
+        "fnx": "transcribe_batch",
+    },
+    "speechbrain/emotion-recognition-wav2vec2-IEMOCAP": {
+        "sample": "anger.wav",
+        "cls": None,
+        "fnx": "classify_file",
+        "foreign": 'foreign_class(source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP", pymodule_file="custom_interface.py", classname="CustomEncoderWav2vec2Classifier")',
+        "prediction": 'model.classify_file("speechbrain/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")',
+    },
 """
 
 WAV2_VEC2_HF_REPOS = {
@@ -52,19 +69,9 @@ WAV2_VEC2_HF_REPOS = {
         "cls": "EncoderDecoderASR",
         "fnx": "transcribe_batch",
     },
-    "speechbrain/asr-wav2vec2-commonvoice-fr": {
-        "sample": "example-fr.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-commonvoice-it": {
+    "speechbrain/asr-wav2vec2-commonvoice-it    ": {
         "sample": "example-it.wav",
         "cls": "EncoderDecoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-commonvoice-rw": {
-        "sample": "example.mp3",
-        "cls": "EncoderASR",
         "fnx": "transcribe_batch",
     },
     "speechbrain/asr-wav2vec2-dvoice-amharic": {
@@ -91,13 +98,6 @@ WAV2_VEC2_HF_REPOS = {
         "sample": "example_wolof.wav",
         "cls": "EncoderASR",
         "fnx": "transcribe_batch",
-    },
-    "speechbrain/emotion-recognition-wav2vec2-IEMOCAP": {
-        "sample": "anger.wav",
-        "cls": None,
-        "fnx": "classify_file",
-        "foreign": 'foreign_class(source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP", pymodule_file="custom_interface.py", classname="CustomEncoderWav2vec2Classifier")',
-        "prediction": 'model.classify_file("speechbrain/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")',
     },
 }
 
