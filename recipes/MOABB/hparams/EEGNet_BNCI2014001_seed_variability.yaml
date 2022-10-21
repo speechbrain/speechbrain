@@ -125,28 +125,24 @@ muscular_noise_funct: !name:speechbrain.processing.speech_augmentation.muscolar_
     bb_offset_high: 5.686
     sample_rate: !ref <sample_rate>
 
-snr_pink_low: 0
-snr_pink_high: 10
-snr_white_low: 5
-snr_white_high: 25
-snr_muscular_low: 25
-snr_muscular_high: 30
+snr_low: 0
+snr_high: 10
 
 n_augmentations: 4 # if 0, no augmentation
 repeat_augment: 1
 
 add_noise_pink: !new:speechbrain.processing.speech_augmentation.AddNoise
-    snr_low: !ref <snr_pink_low>
-    snr_high: !ref <snr_pink_high>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
     noise_funct: !ref <pink_noise_funct>
 
 add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
-    snr_low: !ref <snr_white_low>
-    snr_high: !ref <snr_white_high>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
 
 add_muscular_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
-    snr_low: !ref <snr_muscular_low>
-    snr_high: !ref <snr_muscular_high>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
     noise_funct: !ref <muscular_noise_funct>
 
 augment_noise: !new:speechbrain.processing.augmentation.Augmenter
