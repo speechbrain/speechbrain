@@ -31,7 +31,7 @@ WAV2_VEC2_HF_REPOS = {
         "cls": None,
         "fnx": "classify_file",
         "foreign": 'foreign_class(source="speechbrain/asr-wav2vec2-ctc-aishell",  pymodule_file="custom_interface.py", classname="CustomEncoderDecoderASR")',
-        "prediction": 'transcribe_file("speechbrain/asr-wav2vec2-ctc-aishell/example.wav")',
+        "prediction": 'model.transcribe_file("speechbrain/asr-wav2vec2-ctc-aishell/example.wav")',
     },
     "speechbrain/ssl-wav2vec2-base-librispeech": {
         "sample": "example.wav",
@@ -98,6 +98,26 @@ WAV2_VEC2_HF_REPOS = {
 }
 
 
+def get_prediction(repo, values):
+    # get the pretrained class; model & predictions
+    if values["cls"] is not None:
+        obj = eval(
+            f'importlib.import_module("speechbrain.pretrained").{values["cls"]}'
+        )
+        model = obj.from_hparams(  # noqa
+            source=repo,
+            savedir=repo.replace("speechbrain", "pretrained_models"),
+        )
+        prediction = eval(
+            f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}").unsqueeze(0), torch.tensor([1.0]))'
+        )
+    else:
+        model = eval(values["foreign"])  # noqa
+        prediction = eval(values["prediction"])
+
+    return prediction
+
+
 def gather_expected_results(
     yaml_path="tests/tmp/refactoring_wav2vec2_results.yaml",
 ):
@@ -125,24 +145,7 @@ def gather_expected_results(
             assert type(values) == dict
             if all([k in values.keys() for k in ["sample", "cls", "fnx"]]):
                 print(f"Collecting results for: {repo} w/ values={values}")
-
-                # get the pretrained class; model & predictions
-                if values["cls"] is not None:
-                    obj = eval(
-                        f'importlib.import_module("speechbrain.pretrained").{values["cls"]}'
-                    )
-                    model = obj.from_hparams(
-                        source=repo,
-                        savedir=repo.replace(
-                            "speechbrain", "pretrained_models"
-                        ),
-                    )  # noqa
-                    prediction = eval(
-                        f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}").unsqueeze(0), torch.tensor([1.0]))'
-                    )
-                else:
-                    model = eval(values["foreign"])  # noqa
-                    prediction = eval(values["prediction"])
+                prediction = get_prediction(repo, values)
 
                 # extend the results
                 any_changes = True
@@ -177,24 +180,7 @@ def gather_refactoring_results(
                         print(
                             f"Collecting refactoring results for: {repo} w/ values={values}"
                         )
-
-                        # get the pretrained class; model & predictions
-                        if values["cls"] is not None:
-                            obj = eval(
-                                f'importlib.import_module("speechbrain.pretrained").{values["cls"]}'
-                            )
-                            model = obj.from_hparams(
-                                source=repo,
-                                savedir=repo.replace(
-                                    "speechbrain", "pretrained_models"
-                                ),
-                            )  # noqa
-                            prediction = eval(
-                                f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}").unsqueeze(0), torch.tensor([1.0]))'
-                            )
-                        else:
-                            model = eval(values["foreign"])  # noqa
-                            prediction = eval(values["prediction"])
+                        prediction = get_prediction(repo, values)
 
                         # extend the results
                         any_changes = True
