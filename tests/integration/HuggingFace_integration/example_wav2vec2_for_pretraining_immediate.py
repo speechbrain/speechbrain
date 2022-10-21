@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a GAN speech enhancement system on a tiny dataset.
-The generator and the discriminator are based on convolutional networks.
+"""This minimal example.
+Define training procedure - from: recipes/CommonVoice/self-supervised-learning/wav2vec2/hparams/wav2vec2_base.yaml
 """
 
 import torch
@@ -9,10 +9,6 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 
 
-# Use a server for testing, since this one runs out-of-memory easily.
-
-
-# Define training procedure - from: recipes/CommonVoice/self-supervised-learning/wav2vec2/hparams/wav2vec2_base.yaml
 class W2VBrain(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the w2v2 loss."""

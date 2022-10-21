@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
-"""This minimal example trains a GAN speech enhancement system on a tiny dataset.
-The generator and the discriminator are based on convolutional networks.
+"""This minimal example.
+Define training procedure - from: recipes/CommonVoice/ASR/CTC/train_with_wav2vec.py
 """
 
 import torch
@@ -10,7 +10,6 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import undo_padding
 
 
-# Define training procedure - from: recipes/CommonVoice/ASR/CTC/train_with_wav2vec.py
 class HFBrain(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""

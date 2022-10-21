@@ -29,6 +29,9 @@ except ModuleNotFoundError:
         "speechbrain/lobes/models/huggingface/transformers.py"
     )
     collect_ignore.append(
+        "tests/integration/HuggingFace_integration/refactoring_checks.py"
+    )
+    collect_ignore.append(
         "tests/integration/HuggingFace_integration/example_wav2vec2_for_pretraining.py"
     )
     collect_ignore.append(
