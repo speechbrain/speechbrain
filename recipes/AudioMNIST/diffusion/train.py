@@ -19,6 +19,7 @@ import sys
 import torch
 import speechbrain as sb
 import os
+from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from torchaudio import functional as AF
 from torchaudio import transforms
@@ -26,13 +27,42 @@ from speechbrain.dataio.dataio import length_to_mask, write_audio
 from speechbrain.utils import data_utils
 from speechbrain.utils.train_logger import plot_spectrogram
 from speechbrain.utils.data_utils import unsqueeze_as
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+class DiffusionMode(Enum):
+    SIMPLE = "simple"
+    LATENT = "latent"
+
+
+DiffusionPredictions = namedtuple("DiffusionPredictions", ["pred", "noise", "noisy_sample", "feats", "lens", "autoencoder_output"])
 
 
 # Brain class for speech enhancement training
 class DiffusionBrain(sb.Brain):
     """Class that manages the training loop. See speechbrain.core.Brain."""
+
+    def __init__(self, modules=None, opt_class=None, hparams=None, run_opts=None, checkpointer=None, profiler=None):
+        super().__init__(modules, opt_class, hparams, run_opts, checkpointer, profiler)
+        self.diffusion_mode = DiffusionMode(self.hparams.diffusion_mode)
+
+
+    def init_optimizers(self):
+        """Initializes the diffusion model optimizer - and the 
+        autoencoder optimizer, if applicable"""
+        if self.opt_class is not None:
+            self.optimizer = self.opt_class(self.modules.unet.parameters())
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(self.modules.autoencoder.parameters())
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable(
+                    "autoencoder_optimizer", self.autoencoder_optimizer
+                )
+
 
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
@@ -57,20 +87,46 @@ class DiffusionBrain(sb.Brain):
         # Compute features, embeddings, and predictions
         feats, lens = self.prepare_features(batch, stage)
 
-        pred, noise, noisy_sample = self.modules.diffusion.train_sample(
-            feats, lens=lens
-        )
+        autoencoder_out = None
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            train_sample_diffusion, autoencoder_out = self.modules.diffusion_latent.train_sample_latent(
+                feats, lens=lens
+            )
+            pred, noise, noisy_sample = train_sample_diffusion
+        else:
+            pred, noise, noisy_sample = self.modules.diffusion.train_sample(
+                feats, lens=lens
+            )
 
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
-        return pred, noise, noisy_sample, lens
+        return DiffusionPredictions(pred, noise, noisy_sample, feats, lens, autoencoder_out)
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
         if self.reference_batch is None:
             self.reference_batch = batch
-        loss = super().fit_batch(batch)
+
+        should_step = self.step % self.grad_accumulation_factor == 0
+        outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        with self.no_sync(not should_step):
+            (loss / self.grad_accumulation_factor).backward()
+        if should_step:
+            gradient_ok = self.check_gradients(loss)
+            if gradient_ok:
+                self.optimizer.step()
+            self.optimizer.zero_grad()
+            if self.diffusion_mode == DiffusionMode.LATENT:
+                if gradient_ok:
+                    self.autoencoder_optimizer.step()
+                self.autoencoder_optimizer.zero_grad()
+
+            self.optimizer_step += 1
+
+
         self.hparams.lr_annealing(self.optimizer, self.optimizer_step)
+
         if (
             self.hparams.enable_train_metrics
             and self.hparams.use_tensorboard
@@ -123,27 +179,19 @@ class DiffusionBrain(sb.Brain):
 
         # UNet downsamples features in multiples of 2. Reshape to ensure
         # there are no mismatched tensors due to ambiguity
-        batch_dim, channel_dim, time_dim, feats_dim = feats.shape
-        desired_time_dim = (
-            math.ceil(time_dim / self.hparams.downsample_factor)
-            * self.hparams.downsample_factor
-        )
-        desired_feats_dim = (
-            math.ceil(feats_dim / self.hparams.downsample_factor)
-            * self.hparams.downsample_factor
-        )
-        feats, _ = data_utils.pad_right_to(
+        feats, lens = data_utils.pad_divisible(
             feats,
-            (batch_dim, channel_dim, desired_time_dim, desired_feats_dim),
-            value=self.hparams.pad_level_db,
+            lens,
+            factor=self.hparams.downsample_factor,
+            len_dim=2            
         )
-        tail = time_dim % self.hparams.downsample_factor
-        if tail > 0:
-            feats[:, :, -tail:, :] = self.hparams.pad_level_db
 
-        # Adjust lengths to the new dimenson, post-padding
-        lens = lens * (time_dim / desired_time_dim)
-
+        feats, _ = data_utils.pad_divisible(
+            feats,
+            factor=self.hparams.downsample_factor,
+            len_dim=3
+        )
+        
         # Min Level Norm
         feats_raw = self.modules.min_level_norm(feats)
 
@@ -183,7 +231,7 @@ class DiffusionBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        preds, noise, noisy_sample, lens = predictions
+        preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions
 
         loss = self.hparams.compute_cost(
             preds.squeeze(1), noise.squeeze(1), length=lens
@@ -194,7 +242,13 @@ class DiffusionBrain(sb.Brain):
             batch.file_name, preds, noise, lens, reduction="batch"
         )
 
-        return loss
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            loss_autoencoder = self.hparams.compute_cost_autoencoder(
+                autoencoder_out, feats, length=lens
+            )            
+            loss += loss_autoencoder
+
+        return loss        
 
     def generate_samples(self):
         """Generates spectrogram and (optionally) audio samples using the

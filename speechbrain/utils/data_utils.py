@@ -597,3 +597,110 @@ def unsqueeze_as(x, target):
     result: torch.Tensor
         a view of tensor x reshaped to a shape compatible with y"""
     return x.view(x.shape + (1,) * (target.dim() - x.dim()))
+
+
+def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
+    """Adds extra padding to the specified dimension of a tensor to make 
+    it divisible  by the specified factor. This is useful when passing
+    variable-length sequences to downsampling UNets or other similar 
+    architectures in which inputs are expected to be divisible by the 
+    downsampling factor
+    
+    Arguments
+    ---------
+    tensor: torch.Tensor
+        the tensor to be padded, of arbitrary dimension
+
+    length: torch.Tensor
+        a 1-D tensor of relative lengths
+    
+    factor: int
+        the divisibility factor
+    
+    len_dim: int
+        the index of the dimension used as the length
+
+    pad_value: int
+        the value with which outputs will be padded
+
+    Returns
+    -------
+    tensor_padded: torch.Tensor
+        the tensor, with additional padding if required
+    
+    length: torch.Tensor
+        the adjsted length tensor, if provided
+
+    Example
+    -------
+    >>> x = torch.tensor([[1, 2, 3, 4],
+    ...                   [5, 6, 0, 0]])
+    >>> lens = torch.tensor([1., .5])
+    >>> x_pad, lens_pad = pad_divisible(x, length=lens, factor=5)
+    >>> x_pad
+    tensor([[1, 2, 3, 4, 0],
+            [5, 6, 0, 0, 0]])
+    >>> lens_pad
+    tensor([0.8000, 0.4000])
+    """
+
+    time_dim = tensor.size(len_dim)
+
+    desired_time_dim = time_dim
+    gap = time_dim % factor
+    if gap > 0:
+        desired_time_dim += factor - gap
+
+    new_shape = list(tensor.shape)
+    new_shape[len_dim] = desired_time_dim
+
+    tensor_padded, _ = pad_right_to(
+        tensor,
+        new_shape,
+        value=pad_value,
+    )
+
+    # Adjust lengths to the new dimenson, post-padding
+    if length is not None:
+        length = length * (time_dim / desired_time_dim)
+
+    return tensor_padded, length
+
+
+def trim_to_shape(tensor, shape):
+    """Trims the specified tensor to match the specified shape
+    
+    Arguments
+    ---------
+    tensor: torch.Tensor
+        a tensor
+    shape: enumerable
+        the desired shape
+    
+    Returns
+    -------
+    tensor: torch.Tensor
+        the trimmed tensor
+    """
+    for dim, size in enumerate(shape):
+        tensor = tensor.narrow(dim, 0, size)
+    return tensor
+
+
+def trim_as(tensor, other):
+    """Trims the specified tensor to match the shape of another
+    tensor (at most)
+    
+    Arguments
+    ---------
+    tensor: torch.Tensor:
+        a tensor
+    other: torch.Tensor
+        the tensor whose shape to match
+        
+    Returns
+    -------
+    tensor: torch.Tensor
+        the trimmed tensor
+    """
+    return trim_to_shape(tensor, other.shape)

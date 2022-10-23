@@ -1,6 +1,7 @@
 """A UNet model implementation for use with diffusion models
 
 Adapted from OpenAI guided diffusion, with slight modifications
+and additional features
 https://github.com/openai/guided-diffusion
 
 MIT License
@@ -31,6 +32,9 @@ Authors
 
 
 from abc import abstractmethod
+
+from speechbrain.utils.data_utils import pad_divisible
+from .autoencoder import VariationalAutoencoder
 
 import math
 
@@ -89,9 +93,9 @@ def timestep_embedding(timesteps, dim, max_period=10000):
     ---------
     timesteps: torch.Tensor
         a 1-D Tensor of N indices, one per batch element. These may be fractional.
-    dim:
+    dim: int
         the dimension of the output.
-    max_period:
+    max_period: int
         controls the minimum frequency of the embeddings.
 
     Returns
@@ -176,7 +180,7 @@ class TimestepBlock(nn.Module):
     """
 
     @abstractmethod
-    def forward(self, x, emb):
+    def forward(self, x, emb=None):
         """
         Apply the module to `x` given `emb` timestep embeddings.
 
@@ -194,7 +198,7 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     support it as an extra input.
     """
 
-    def forward(self, x, emb):
+    def forward(self, x, emb=None):
         """Computes a sequential pass with sequential embeddings where applicable
 
         Arguments
@@ -350,6 +354,7 @@ class ResBlock(TimestepBlock):
         dims=2,
         up=False,
         down=False,
+        norm_num_groups=32,
     ):
         super().__init__()
         self.channels = channels
@@ -360,7 +365,7 @@ class ResBlock(TimestepBlock):
         self.use_scale_shift_norm = use_scale_shift_norm
 
         self.in_layers = nn.Sequential(
-            nn.GroupNorm(32, channels),
+            nn.GroupNorm(norm_num_groups, channels),
             nn.SiLU(),
             conv_nd(dims, channels, self.out_channels, 3, padding=1),
         )
@@ -376,15 +381,18 @@ class ResBlock(TimestepBlock):
         else:
             self.h_upd = self.x_upd = nn.Identity()
 
-        self.emb_layers = nn.Sequential(
-            nn.SiLU(),
-            nn.Linear(
-                emb_channels,
-                2 * self.out_channels
-                if use_scale_shift_norm
-                else self.out_channels,
-            ),
-        )
+        if emb_channels is not None:
+            self.emb_layers = nn.Sequential(
+                nn.SiLU(),
+                nn.Linear(
+                    emb_channels,
+                    2 * self.out_channels
+                    if use_scale_shift_norm
+                    else self.out_channels,
+                ),
+            )
+        else:
+            self.emb_layers = None
         self.out_layers = nn.Sequential(
             nn.GroupNorm(32, self.out_channels),
             nn.SiLU(),
@@ -405,7 +413,7 @@ class ResBlock(TimestepBlock):
         else:
             self.skip_connection = conv_nd(dims, channels, self.out_channels, 1)
 
-    def forward(self, x, emb):
+    def forward(self, x, emb=None):
         """
         Apply the block to a Tensor, conditioned on a timestep embedding.
 
@@ -429,9 +437,12 @@ class ResBlock(TimestepBlock):
             h = in_conv(h)
         else:
             h = self.in_layers(x)
-        emb_out = self.emb_layers(emb).type(h.dtype)
-        while len(emb_out.shape) < len(h.shape):
-            emb_out = emb_out[..., None]
+        if emb is not None:
+            emb_out = self.emb_layers(emb).type(h.dtype)
+            while len(emb_out.shape) < len(h.shape):
+                emb_out = emb_out[..., None]
+        else:
+            emb_out = torch.zeros_like(h)
         if self.use_scale_shift_norm:
             out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
             scale, shift = torch.chunk(emb_out, 2, dim=1)
@@ -854,8 +865,9 @@ class EncoderUNetModel(nn.Module):
         num_heads_upsample=-1,
         use_scale_shift_norm=False,
         resblock_updown=False,
-        pool="adaptive",
+        pool=None,
         attention_pool_dim=None,
+        out_kernel_size=3
     ):
         super().__init__()
 
@@ -874,6 +886,7 @@ class EncoderUNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
+        self.out_kernel_size = out_kernel_size
 
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
@@ -962,7 +975,16 @@ class EncoderUNetModel(nn.Module):
         )
         self._feature_size += ch
         self.pool = pool
-        if pool == "adaptive":
+        self.spatial_pooling = False
+        if pool is None:
+            self.out = conv_nd(
+                dims,
+                ch,
+                out_channels,
+                kernel_size=out_kernel_size,
+                padding="same"
+            )
+        elif pool == "adaptive":
             self.out = nn.Sequential(
                 nn.GroupNorm(32, ch),
                 nn.SiLU(),
@@ -988,6 +1010,7 @@ class EncoderUNetModel(nn.Module):
                 nn.ReLU(),
                 nn.Linear(2048, self.out_channels),
             )
+            self.spatial_pooling = True
         elif pool == "spatial_v2":
             self.out = nn.Sequential(
                 nn.Linear(self._feature_size, 2048),
@@ -995,10 +1018,11 @@ class EncoderUNetModel(nn.Module):
                 nn.SiLU(),
                 nn.Linear(2048, self.out_channels),
             )
+            self.spatial_pooling = True
         else:
             raise NotImplementedError(f"Unexpected {pool} pooling")
 
-    def forward(self, x, timesteps):
+    def forward(self, x, timesteps=None):
         """
         Apply the model to an input batch.
 
@@ -1013,21 +1037,351 @@ class EncoderUNetModel(nn.Module):
         result: torch.Tensor
             an [N x K] Tensor of outputs.
         """
-        emb = self.time_embed(
-            timestep_embedding(timesteps, self.model_channels)
-        )
+        emb = None
+        if timesteps is not None:
+            emb = self.time_embed(
+                timestep_embedding(timesteps, self.model_channels)
+            )
 
         results = []
         h = x.type(self.dtype)
         for module in self.input_blocks:
             h = module(h, emb)
-            if self.pool.startswith("spatial"):
+            if self.spatial_pooling:
                 results.append(h.type(x.dtype).mean(dim=(2, 3)))
         h = self.middle_block(h, emb)
-        if self.pool.startswith("spatial"):
+        if self.spatial_pooling:
             results.append(h.type(x.dtype).mean(dim=(2, 3)))
             h = torch.cat(results, axis=-1)
             return self.out(h)
         else:
             h = h.type(x.dtype)
             return self.out(h)
+
+class DecoderUNetModel(nn.Module):
+    """
+    The half UNet model with attention and timestep embedding.
+    For usage, see UNet.
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        model_channels,
+        out_channels,
+        num_res_blocks,
+        attention_resolutions,
+        dropout=0,
+        channel_mult=(1, 2, 4, 8),
+        conv_resample=True,
+        dims=2,
+        num_heads=1,
+        num_head_channels=-1,
+        num_heads_upsample=-1,
+        use_scale_shift_norm=False,
+        resblock_updown=False,
+        out_kernel_size=3
+    ):
+        super().__init__()
+
+        if num_heads_upsample == -1:
+            num_heads_upsample = num_heads
+
+        self.in_channels = in_channels
+        self.model_channels = model_channels
+        self.out_channels = out_channels
+        self.num_res_blocks = num_res_blocks
+        self.attention_resolutions = attention_resolutions
+        self.dropout = dropout
+        self.channel_mult = channel_mult
+        self.conv_resample = conv_resample
+        self.dtype = torch.float32
+        self.num_heads = num_heads
+        self.num_head_channels = num_head_channels
+        self.num_heads_upsample = num_heads_upsample
+
+        time_embed_dim = model_channels * 4
+        self.time_embed = nn.Sequential(
+            nn.Linear(model_channels, time_embed_dim),
+            nn.SiLU(),
+            nn.Linear(time_embed_dim, time_embed_dim),
+        )
+
+        ch = int(channel_mult[0] * model_channels)
+
+        self.input_block =  TimestepEmbedSequential(
+            conv_nd(dims, in_channels, ch, 3, padding=1)
+        )
+
+        self.middle_block = TimestepEmbedSequential(
+            ResBlock(
+                ch,
+                time_embed_dim,
+                dropout,
+                dims=dims,
+                use_scale_shift_norm=use_scale_shift_norm,
+            ),
+            AttentionBlock(
+                ch, num_heads=num_heads, num_head_channels=num_head_channels,
+            ),
+            ResBlock(
+                ch,
+                time_embed_dim,
+                dropout,
+                dims=dims,
+                use_scale_shift_norm=use_scale_shift_norm,
+            ),
+        )
+
+        self.upsample_blocks = nn.ModuleList()
+        self._feature_size = ch
+        ds = 1
+
+        for level, mult in enumerate(channel_mult):
+            for _ in range(num_res_blocks):
+                layers = [
+                    ResBlock(
+                        ch,
+                        time_embed_dim,
+                        dropout,
+                        out_channels=int(mult * model_channels),
+                        dims=dims,
+                        use_scale_shift_norm=use_scale_shift_norm,
+                    )
+                ]
+                ch = int(mult * model_channels)
+                if ds in attention_resolutions:
+                    layers.append(
+                        AttentionBlock(
+                            ch,
+                            num_heads=num_heads,
+                            num_head_channels=num_head_channels,
+                        )
+                    )
+                self.upsample_blocks.append(TimestepEmbedSequential(*layers))
+                self._feature_size += ch
+            if level != len(channel_mult) - 1:
+                out_ch = ch
+                self.upsample_blocks.append(
+                    TimestepEmbedSequential(
+                        ResBlock(
+                            ch,
+                            time_embed_dim,
+                            dropout,
+                            out_channels=out_ch,
+                            dims=dims,
+                            use_scale_shift_norm=use_scale_shift_norm,
+                            down=True,
+                        )
+                        if resblock_updown
+                        else Upsample(
+                            ch, conv_resample, dims=dims, out_channels=out_ch
+                        )
+                    )
+                )
+                ch = out_ch
+                ds *= 2
+                self._feature_size += ch
+
+        self.out = conv_nd(
+                dims,
+                ch,
+                out_channels,
+                kernel_size=out_kernel_size,
+                padding="same"
+            )
+
+        self._feature_size += ch
+
+    def forward(self, x, timesteps=None):
+        """
+        Apply the model to an input batch.
+
+        Arguments
+        ---------
+        x:  torch.Tensor
+            an [N x C x ...] Tensor of inputs.
+        timesteps: torch.Tensor
+            a 1-D batch of timesteps.
+        Returns
+        --------
+        result: torch.Tensor
+            an [N x K] Tensor of outputs.
+        """
+        emb = None
+        if timesteps is not None:
+            emb = self.time_embed(
+                timestep_embedding(timesteps, self.model_channels)
+            )
+
+        h = x.type(self.dtype)
+        h = self.input_block(h, emb)
+        h = self.middle_block(h, emb)
+        for module in self.upsample_blocks:
+            h = module(h, emb)
+        h = self.out(h)
+        return h
+
+
+DEFAULT_PADDING_DIMS = [2, 3]
+class DownsamplingPadding(nn.Module):
+    """A wrapper module that applies the necessary padding for
+    the downsampling factor
+    
+    Arguments
+    ---------
+    factor: int
+        the downsampling / divisibility factor
+    len_dim: int
+        the index of the dimensions in which the length will vary
+    dims: list
+        the list of dimensions to be included in padding
+    """
+
+    def __init__(self, factor, len_dim=2, dims=None):
+        super().__init__()
+        self.factor = factor
+        self.len_dim = len_dim
+        if dims is None:
+            dims = DEFAULT_PADDING_DIMS
+        self.dims = dims
+    
+    def forward(self, x, lens=None):
+        """Applies the padding
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the sample
+        lens: torch.Tensor
+            the length tensor
+
+        Returns
+        -------
+        x_pad: torch.Tensor
+            the padded tensor
+        lens: torch.Tensor
+            the new, adjusted lengths, if applicable
+        """
+        for dim in self.dims:
+            #TODO: Consider expanding pad_divisible to support multiple dimensions
+            x, lens_pad = pad_divisible(x, lens, self.factor, len_dim=self.len_dim)
+            if dim == self.len_dim:
+                lens = lens_pad
+        return x, lens_pad
+
+
+class UNetVariationalAutencoder(VariationalAutoencoder):
+    """A convenience class for a UNet-based Variational Autoencoder (VAE) -
+    useful in constructing Latent Diffusion models
+    
+    Arguments
+    ---------
+    in_channels: int
+        the number of input channels
+    model_channels: int
+        the number of channels in the convolutional layers of the
+        UNet encoder and decoder
+    latent_channels: int
+        the number of channels in the latent space
+    encoder_num_res_blocks: int
+        the number of residual blocks in the encoder
+    encoder_attention_resolutions: list
+        the resolutions at which to apply attention layers in the encoder
+    decoder_num_res_blocks: int
+        the number of residual blocks in the decoder
+    decoder_attention_resolutions: list
+        the resolutions at which to apply attention layers in the encoder
+    dropout: float
+        the dropout probability
+    channel_mult: tuple
+        channel multipliers for each layer
+    dims: int
+        the convolution dimension to use (1, 2 or 3)
+    num_heads: int
+        the number of attention heads
+    num_head_channels: int
+        the number of channels in attention heads
+    num_heads_upsample: int
+        the number of upsampling heads
+    use_scale_shift_norm: bool
+        whether to use scale shift normalization
+    resblock_updown: bool
+        whether to use residual blocks for upsampling and downsampling
+    out_kernel_size: int
+        the kernel size for output convolution layers (if applicable)
+    """
+    def __init__(
+        self,
+        in_channels,
+        model_channels,
+        latent_channels,
+        encoder_num_res_blocks,
+        encoder_attention_resolutions,
+        decoder_num_res_blocks,
+        decoder_attention_resolutions,
+        dropout=0,
+        channel_mult=(1, 2, 4, 8),
+        dims=2,
+        num_heads=1,
+        num_head_channels=-1,
+        num_heads_upsample=-1,
+        use_scale_shift_norm=False,
+        resblock_updown=False,
+        out_kernel_size=3
+    ):
+        encoder_unet = EncoderUNetModel(
+            in_channels=in_channels,
+            model_channels=model_channels,
+            out_channels=latent_channels,
+            num_res_blocks=encoder_num_res_blocks,
+            attention_resolutions=encoder_attention_resolutions,
+            dropout=dropout,
+            channel_mult=channel_mult,
+            dims=dims,
+            num_heads=num_heads,
+            num_head_channels=num_head_channels,
+            num_heads_upsample=num_heads_upsample,
+            use_scale_shift_norm=use_scale_shift_norm,
+            resblock_updown=resblock_updown,
+            out_kernel_size=out_kernel_size
+        )
+
+        encoder_pad = DownsamplingPadding(
+            2 ** len(channel_mult)
+        )
+
+        encoder = nn.Sequential(
+            encoder_unet,
+            encoder_pad
+        )
+
+        decoder = DecoderUNetModel(
+            in_channels=latent_channels,
+            out_channels=in_channels,
+            model_channels=model_channels,
+            num_res_blocks=decoder_num_res_blocks,
+            attention_resolutions=decoder_attention_resolutions,
+            dropout=dropout,
+            channel_mult=channel_mult,
+            dims=dims,
+            num_heads=num_heads,
+            num_head_channels=num_head_channels,
+            num_heads_upsample=num_heads_upsample,
+            use_scale_shift_norm=use_scale_shift_norm,
+            resblock_updown=resblock_updown,
+            out_kernel_size=out_kernel_size
+        )
+        mean, log_var = [
+            conv_nd(
+                dims=dims, in_channels=latent_channels, out_channels=latent_channels,
+                kernel_size=1
+            )
+            for _ in range(2)
+        ]
+        super().__init__(
+            encoder=encoder,
+            decoder=decoder,
+            mean=mean,
+            log_var=log_var
+        )

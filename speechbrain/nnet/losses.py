@@ -9,6 +9,7 @@ Authors
  * Titouan Parcollet 2020
 """
 
+from collections import namedtuple
 import math
 import torch
 import logging
@@ -665,6 +666,38 @@ def compute_masked_loss(
 
     # Compute, then reduce loss
     loss = loss_fn(predictions, targets) * mask
+    return reduce_loss(loss, mask, reduction, label_smoothing, predictions, targets)
+
+
+def reduce_loss(loss, mask, reduction="mean", label_smoothing=0.0, predictions=None, targets=None):
+    """Performs the specified reduction of the raw loss value
+
+    Arguments
+    ---------
+    loss_fn : function
+        A function for computing the loss taking just predictions and targets.
+        Should return all the losses, not a reduction (e.g. reduction="none").
+    predictions : torch.Tensor
+        First argument to loss function.
+    targets : torch.Tensor
+        Second argument to loss function.
+    length : torch.Tensor
+        Length of each utterance to compute mask. If None, global average is
+        computed and returned.
+    label_smoothing: float
+        The proportion of label smoothing. Should only be used for NLL loss.
+        Ref: Regularizing Neural Networks by Penalizing Confident Output
+        Distributions. https://arxiv.org/abs/1701.06548
+    reduction : str
+        One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
+        single value and 'batch' returns one per item in the batch and
+        'batchmean' is sum / batch_size and 'none' returns all.
+    predictions : torch.Tensor
+        First argument to loss function. Required only if label smoothing is used.
+    targets : torch.Tensor
+        Second argument to loss function. Required only if label smoothing is used.
+
+    """
     N = loss.size(0)
     if reduction == "mean":
         loss = loss.sum() / torch.sum(mask)
@@ -685,6 +718,7 @@ def compute_masked_loss(
             loss_reg = loss_reg.sum(1) / mask.sum(1)
 
         return -label_smoothing * loss_reg + (1 - label_smoothing) * loss
+
 
 
 def get_si_snr_with_pitwrapper(source, estimate_source):
@@ -1249,3 +1283,103 @@ class ContrastiveLoss(nn.Module):
             logits.numel() / logits.size(-1)
         )
         return loss, accuracy
+
+
+class VariationalAutoencoderLoss(nn.Module):
+    """The Variational Autoencoder loss, with support for length masking
+
+    From Autoencoding Variational Bayes: https://arxiv.org/pdf/1312.6114.pdf
+    
+    Arguments
+    ---------
+    rec_loss: callable
+        a function or module to compute the reconstruction loss
+    
+    dist_loss_weight: float
+        the relative weight of the distribution loss (K-L divergence)
+    """
+
+    def __init__(self, rec_loss=None, len_dim=1, dist_loss_weight=1.0):
+        super().__init__()
+        if rec_loss is None:
+            rec_loss = mse_loss
+        self.rec_loss = rec_loss
+        self.dist_loss_weight = dist_loss_weight
+
+    def forward(self, predictions, targets, length=None):
+        """Computes the forward pass
+        
+        Arguments
+        ---------
+        predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
+            the variational autoencoder output (or a tuple of rec, mean, log_var)
+        targets: torch.Tensor
+            the reconstruction targets
+        length : torch.Tensor
+            Length of each sample for computing true error with a mask.
+
+        
+        Results
+        -------
+        loss: torch.Tensor
+            the VAE loss (reconstruction + K-L divergence)
+        """
+        details = self.details(predictions, targets, length, reduce=False)
+        mask = length_to_mask(length, targets.size(1))
+        loss = reduce_loss(details.loss, mask)
+        return loss
+
+    def details(self, predictions, targets, length=None, reduce=True):
+        """Gets detailed information about the loss (useful for plotting, logs,
+        etc.)
+
+        Arguments
+        ---------
+        predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
+            the variational autoencoder output (or a tuple of rec, mean, log_var)
+
+        targets: torch.Tensor
+            targets for the reconstruction loss
+
+        length : torch.Tensor
+            Length of each sample for computing true error with a mask.
+        
+        reduce: bool
+            Whether or not to apply reduction
+
+        
+        Results
+        -------
+        details: VAELossDetails
+            a namedtuple with the following parameters
+            loss: torch.Tensor
+                the combined loss
+            rec_loss: torch.Tensor
+                the reconstruction loss
+            dist_loss: torch.Tensor
+                the distribution loss (K-L divergence), raw value
+            weighted_dist_loss: torch.Tensor
+                the weighted value of the distribution loss, as used
+                in the combined loss
+
+        """
+        if length is None:
+            length = torch.ones(targets.size(0))
+        rec, _, mean, log_var = predictions
+        rec_loss = self.rec_loss(targets, rec)
+        dist_loss = -0.5 * torch.sum(1 + log_var - mean ** 2 - log_var.exp(), dim = 1)
+        dist_loss = torch.mean(dist_loss, dim=0)
+        weighted_dist_loss = self.dist_loss_weight * dist_loss
+        loss = rec_loss + weighted_dist_loss
+
+        if reduce:
+            mask = length_to_mask(length, targets.size(1))
+            loss = reduce_loss(loss, mask)
+            dist_loss = reduce_loss(dist_loss, mask)
+            weighted_dist_loss = self.dist_loss_weight * dist_loss
+
+        return VAELossDetails(loss, rec_loss, dist_loss, weighted_dist_loss)
+
+
+VAELossDetails = namedtuple(
+    "VAELossDetails", ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"])

@@ -9,6 +9,7 @@ Authors
  * Artem Ploujnikov 2022
 """
 
+from collections import namedtuple
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -38,7 +39,23 @@ class Diffuser(nn.Module):
             self.noise = noise
 
     def distort(self, x, timesteps=None):
-        """Adds noise to a batch of data"""
+        """Adds noise to a batch of data
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the original data sample
+        timesteps: torch.Tensor
+            a 1-D integer tensor of a length equal to the number of
+            batches in x, where each entry corresponds to the timestep
+            number for the batch. If omitted, timesteps will be randomly
+            sampled
+
+        Returns
+        -------
+        result: torch.Tensor
+            a tensor of the same dimension as x        
+        """
         raise NotImplementedError
 
     def train_sample(self, x, timesteps=None, **kwargs):
@@ -301,6 +318,94 @@ class DenoisingDiffusion(Diffuser):
         return predicted_sample
 
 
+class LatentDiffusion(nn.Module):
+    """A latent diffusion wrapper. Latent diffusion is denoising diffusion
+    applied to a latent space instead of the original data space
+    
+    Arguments
+    ---------
+    autoencoder: speechbrain.nnet.autoencoder.Autoencoder
+        An autoencoder converting the original space to a latent space
+    
+    diffusion: speechbrian.nnet.diffusion.Diffuser
+        A diffusion wrapper
+    """
+    def __init__(self, autoencoder, diffusion):
+        super().__init__()
+        self.autencoder = autoencoder
+        self.diffusion = diffusion
+
+    def train_sample(self, x, **kwargs):
+        """Creates a sample for the training loop with a
+        corresponding target
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the original data sample
+        timesteps: torch.Tensor
+            a 1-D integer tensor of a length equal to the number of
+            batches in x, where each entry corresponds to the timestep
+            number for the batch. If omitted, timesteps will be randomly
+            sampled
+
+        Returns
+        -------
+        pred: torch.Tensor
+            the model output 0 prdicted noise
+        noise: torch.Tensor
+            the noise being applied
+        noisy_sample
+            the sample with the noise applied
+        """
+        
+        latent = self.autoencoder.encode(x)
+        return self.diffusion.train_sample(latent, **kwargs)
+
+    def train_sample_latent(self, x, **kwargs):
+        """Returns a train sample with autoencoder output - can be used to jointly
+        training the diffusion model and the autoencoder
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the original data sample
+        """
+        autoencoder_out = self.autencoder.train_sample(x)
+        diffusion_train_sample = self.diffusion.train_sample(autoencoder_out.latent, **kwargs)
+        return LatentDiffusionTrainSample(diffusion=diffusion_train_sample, autoencoder=autoencoder_out)
+
+    def distort(self, x):
+        """Adds noise to the sample, in a forward diffusion process,
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            a data sample of 2 or more dimensions, with the
+            first dimension representing the batch
+        noise: torch.Tensor
+            the noise to add
+        timesteps: torch.Tensor
+            a 1-D integer tensor of a length equal to the number of
+            batches in x, where each entry corresponds to the timestep
+            number for the batch. If omitted, timesteps will be randomly
+            sampled
+
+        Returns
+        -------
+        result: torch.Tensor
+            a tensor of the same dimension as x
+        """
+
+        latent = self.autencoder.encode(x)
+        return self.diffusion.distort(latent)
+    
+    def sample(self, shape):        
+        # TODO: Auto-compute the latent shape
+        latent = self.diffusion.sample(shape)
+        return self.autencoder.decode(latent)
+
+
 def sample_timesteps(x, num_timesteps):
     """Returns a random sample of timesteps as a 1-D tensor
     (one dimension only)
@@ -371,3 +476,6 @@ class LengthMaskedGaussianNoise(nn.Module):
 _NOISE_FUNCTIONS = {
     "gaussian": GaussianNoise(),
 }
+
+DiffusionTrainSample = namedtuple("DiffusionTrainSample", ["pred", "noise", "noisy_sample"])
+LatentDiffusionTrainSample = namedtuple("LatentDiffusionTrainSample", ["diffusion", "autoencoder"])
