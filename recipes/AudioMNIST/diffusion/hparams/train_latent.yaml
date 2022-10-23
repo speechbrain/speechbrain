@@ -11,7 +11,7 @@ seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
-output_folder: !ref ./results/diffusion/<seed>
+output_folder: !ref ./results/diffusion-latent/<seed>
 save_folder: !ref <output_folder>/save
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
