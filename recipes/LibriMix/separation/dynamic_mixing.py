@@ -130,10 +130,11 @@ def dynamic_mix_data_prep_librimix(hparams):
             for spk in speakers
         ]
 
-        minlen = min(
-            *[torchaudio.info(x).num_frames for x in spk_files],
-            hparams["training_signal_len"],
-        )
+        n_overlap = hparams.get("n_overlap", 100)
+        signal_lens = [torchaudio.info(x).num_frames for x in spk_files]
+        minlen_arg = np.argmin(signal_lens)
+        minlen = min(*signal_lens, hparams["training_signal_len"],)
+        maxlen = max(signal_lens)
 
         meter = pyloudnorm.Meter(hparams["sample_rate"])
 
@@ -165,20 +166,38 @@ def dynamic_mix_data_prep_librimix(hparams):
             return torch.from_numpy(signal)
 
         for i, spk_file in enumerate(spk_files):
-            # select random offset
-            length = torchaudio.info(spk_file).num_frames
-            start = 0
-            stop = length
-            if length > minlen:  # take a random window
-                start = np.random.randint(0, length - minlen)
-                stop = start + minlen
 
-            tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
-            )
-            tmp = tmp[0].numpy()
-            tmp = normalize(tmp)
-            sources.append(tmp)
+            if n_overlap == 100:
+                # select random offset
+                length = torchaudio.info(spk_file).num_frames
+                start = 0
+                stop = length
+                if length > minlen:  # take a random window
+                    start = np.random.randint(0, length - minlen)
+                    stop = start + minlen
+
+                tmp, fs_read = torchaudio.load(
+                    spk_file, frame_offset=start, num_frames=stop - start,
+                )
+                tmp = tmp[0].numpy()
+                tmp = normalize(tmp)
+                sources.append(tmp)
+            else:
+                # the case where overlap is not 100 percent
+                tmp, fs_read = torchaudio.load(
+                    spk_file, frame_offset=start, num_frames=stop - start,
+                )
+                tmp = tmp[0].numpy()
+                tmp = normalize(tmp)
+                beginning_pad = (n_overlap / 100) * minlen
+                ending_pad = beginning_pad + maxlen
+                if i != minlen_arg:
+                    tmp = np.concatenate([np.zeros((beginning_pad)), tmp])
+                else:
+                    tmp = np.concatenate(
+                        [np.zeros(tmp, np.zeros((ending_pad)))]
+                    )
+                sources.append(tmp)
 
         sources = torch.stack(sources)
         mixture = torch.sum(sources, 0)
