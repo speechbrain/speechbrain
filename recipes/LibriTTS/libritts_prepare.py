@@ -2,7 +2,8 @@ from speechbrain.utils.data_utils import get_all_files, download_file
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.processing.speech_augmentation import Resample
 import json
-import os, shutil
+import os
+import shutil
 import random
 import logging
 import torchaudio
@@ -14,12 +15,13 @@ LIBRITTS_SUBSETS = ["dev-clean"]
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
 SAMPLERATE = 16000
 
+
 def prepare_libritts(
-        data_folder,
-        save_json_train,
-        save_json_valid,
-        save_json_test,
-        split_ratio=[80, 10, 10],
+    data_folder,
+    save_json_train,
+    save_json_valid,
+    save_json_test,
+    split_ratio=[80, 10, 10],
 ):
     """
     Prepares the json files for the LibriTTS dataset.
@@ -50,9 +52,9 @@ def prepare_libritts(
         logger.info("Preparation completed in previous run, skipping.")
         return
 
-    extension = [".wav"]        # The expected extension for audio files
-    wav_list = list()           # Stores all audio file paths for the dataset
-    resample_audio = dict()     # Stores information ab
+    extension = [".wav"]  # The expected extension for audio files
+    wav_list = list()  # Stores all audio file paths for the dataset
+    resample_audio = dict()  # Stores information ab
 
     # For every subset of the dataset, if it doesn't exist, downloads it and sets flag to resample the subset
     for subset_name in LIBRITTS_SUBSETS:
@@ -64,14 +66,20 @@ def prepare_libritts(
 
         subset_data = os.path.join(subset_folder, "LibriTTS")
         if not check_folders(subset_data):
-            logger.info(f"No data found for {subset_name}. Checking for an archive file.")
+            logger.info(
+                f"No data found for {subset_name}. Checking for an archive file."
+            )
             if not os.path.isfile(subset_archive):
-                logger.info(f"No archive file found for {subset_name}. Downloading and unpacking.")
+                logger.info(
+                    f"No archive file found for {subset_name}. Downloading and unpacking."
+                )
                 subset_url = LIBRITTS_URL_PREFIX + subset_name + ".tar.gz"
                 download_file(subset_url, subset_archive)
                 logger.info(f"Downloaded data for subset {subset_name}.")
             else:
-                logger.info(f"Found an archive file for {subset_name}. Unpacking.")
+                logger.info(
+                    f"Found an archive file for {subset_name}. Unpacking."
+                )
 
             shutil.unpack_archive(subset_archive, subset_folder)
             resample_audio[subset_name] = True
@@ -122,7 +130,9 @@ def create_json(wav_list, json_file, resample_audio):
         relative_path = os.path.join("{data_root}", *path_parts[-6:])
 
         # Gets the path for the  text files and extracts the input text
-        original_text_path = os.path.join("/", *path_parts[:-1], uttid + ".original.txt")
+        original_text_path = os.path.join(
+            "/", *path_parts[:-1], uttid + ".original.txt"
+        )
         with open(original_text_path) as f:
             original_text = f.read()
             if original_text.__contains__("{"):
@@ -145,7 +155,7 @@ def create_json(wav_list, json_file, resample_audio):
             "wav": relative_path,
             "spk_id": spk_id,
             "label": original_text,
-            "segment": True if "train" in json_file else False
+            "segment": True if "train" in json_file else False,
         }
 
     # Writes the dictionary to the json file
@@ -212,5 +222,4 @@ def check_folders(*folders):
 
 
 if __name__ == "__main__":
-    prepare_libritts("libritts_data",
-                     "train.json", "valid.json", "test.json")
+    prepare_libritts("libritts_data", "train.json", "valid.json", "test.json")
