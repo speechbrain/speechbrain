@@ -1142,7 +1142,7 @@ class InputNormalization(torch.nn.Module):
                     size = 1
                 else:
                     size = x.shape[dim]
-            current_mean = torch.zeros(size=size, device=x.device)
+            current_mean = torch.zeros(size, device=x.device)
 
         # Compute current std
         if self.std_norm:
@@ -1157,7 +1157,7 @@ class InputNormalization(torch.nn.Module):
                     size = 1
                 else:
                     size = x.shape[dim]
-            current_std = torch.ones(size=size, device=x.device)
+            current_std = torch.ones(size, device=x.device)
 
         # Improving numerical stability of std
         current_std = torch.max(
