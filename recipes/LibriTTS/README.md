@@ -1,9 +1,7 @@
 # Text-to-Speech with LibriTTS
-<hr>
 This folder contains the recipes for training TTS systems (including vocoders) with the LibriTTS dataset.
 
 # Dataset
-<hr>
 The LibriTTS dataset is available here: https://www.openslr.org/60/, https://www.openslr.org/resources/60/
 
 The `libritts_prepare.py` file automatically downloads the dataset if not present and has facilities to provide the names of the subsets to be downloaded.
