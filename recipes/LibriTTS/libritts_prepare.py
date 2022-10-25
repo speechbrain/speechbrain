@@ -122,13 +122,13 @@ def create_json(wav_list, json_file, resample_audio):
         relative_path = os.path.join("{data_root}", *path_parts[-6:])
 
         # Gets the path for the  text files and extracts the input text
-        normalized_text_path = os.path.join("/", *path_parts[:-1], uttid + ".normalized.txt")
-        with open(normalized_text_path) as f:
-            normalized_text = f.read()
-            if normalized_text.__contains__("{"):
-                normalized_text = normalized_text.replace("{", "")
-            if normalized_text.__contains__("}"):
-                normalized_text = normalized_text.replace("}", "")
+        original_text_path = os.path.join("/", *path_parts[:-1], uttid + ".original.txt")
+        with open(original_text_path) as f:
+            original_text = f.read()
+            if original_text.__contains__("{"):
+                original_text = original_text.replace("{", "")
+            if original_text.__contains__("}"):
+                original_text = original_text.replace("}", "")
 
         # Resamples the audio file if required
         if resample_audio[path_parts[-6]]:
@@ -144,7 +144,7 @@ def create_json(wav_list, json_file, resample_audio):
         json_dict[uttid] = {
             "wav": relative_path,
             "spk_id": spk_id,
-            "label": normalized_text,
+            "label": original_text,
             "segment": True if "train" in json_file else False
         }
 
