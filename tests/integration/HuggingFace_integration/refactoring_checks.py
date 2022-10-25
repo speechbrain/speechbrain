@@ -20,13 +20,7 @@ import speechbrain  # noqa
 from speechbrain.pretrained.interfaces import foreign_class  # noqa
 
 
-# TODO fix
 """
-    "speechbrain/ssl-wav2vec2-base-librispeech": {
-        "sample": "example.wav",
-        "cls": "WaveformEncoder",
-        "fnx": "encode_file",
-    },
     "speechbrain/asr-wav2vec2-commonvoice-fr": {
         "sample": "example-fr.wav",
         "cls": "EncoderASR",
@@ -37,13 +31,6 @@ from speechbrain.pretrained.interfaces import foreign_class  # noqa
         "cls": "EncoderASR",
         "fnx": "transcribe_batch",
     },
-    "speechbrain/emotion-recognition-wav2vec2-IEMOCAP": {
-        "sample": "anger.wav",
-        "cls": None,
-        "fnx": "classify_file",
-        "foreign": 'foreign_class(source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP", pymodule_file="custom_interface.py", classname="CustomEncoderWav2vec2Classifier")',
-        "prediction": 'model.classify_file("speechbrain/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")',
-    },
 """
 
 WAV2_VEC2_HF_REPOS = {
@@ -53,11 +40,11 @@ WAV2_VEC2_HF_REPOS = {
         "fnx": "transcribe_batch",
     },
     "speechbrain/asr-wav2vec2-ctc-aishell": {
-        "sample": "anger.wav",
+        "sample": "example.wav",
         "cls": None,
         "fnx": "classify_file",
         "foreign": 'foreign_class(source="speechbrain/asr-wav2vec2-ctc-aishell",  pymodule_file="custom_interface.py", classname="CustomEncoderDecoderASR")',
-        "prediction": 'model.transcribe_file("speechbrain/asr-wav2vec2-ctc-aishell/example.wav")',
+        "prediction": 'model.transcribe_file("pretrained_models/asr-wav2vec2-ctc-aishell/example.wav")',
     },
     "speechbrain/asr-wav2vec2-librispeech": {
         "sample": "example.wav",
@@ -99,6 +86,18 @@ WAV2_VEC2_HF_REPOS = {
         "cls": "EncoderASR",
         "fnx": "transcribe_batch",
     },
+    "speechbrain/ssl-wav2vec2-base-librispeech": {
+        "sample": "example.wav",
+        "cls": "WaveformEncoder",
+        "fnx": "encode_batch",
+    },
+    "speechbrain/emotion-recognition-wav2vec2-IEMOCAP": {
+        "sample": "anger.wav",
+        "cls": None,
+        "fnx": "classify_file",
+        "foreign": 'foreign_class(source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP", pymodule_file="custom_interface.py", classname="CustomEncoderWav2vec2Classifier")',
+        "prediction": 'model.classify_file("pretrained_models/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")',
+    },
 }
 
 
@@ -112,12 +111,23 @@ def get_prediction(repo, values):
             source=repo,
             savedir=repo.replace("speechbrain", "pretrained_models"),
         )
-        prediction = eval(
-            f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}").unsqueeze(0), torch.tensor([1.0]))'
-        )
+        try:
+            prediction = eval(
+                f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}", savedir="{repo.replace("speechbrain", "pretrained_models")}").unsqueeze(0), torch.tensor([1.0]))'
+            )
+        except RuntimeError:
+            prediction = eval(
+                f'model.{values["fnx"]}(model.load_audio("tests/samples/single-mic/example1.wav", savedir="{repo.replace("speechbrain", "pretrained_models")}").unsqueeze(0), torch.tensor([1.0]))'
+            )
+        finally:
+            del model
     else:
         model = eval(values["foreign"])  # noqa
+        eval(
+            f'model.load_audio("{repo}/{values["sample"]}", savedir="{repo.replace("speechbrain", "pretrained_models")}")'
+        )
         prediction = eval(values["prediction"])
+        del model
 
     return [x[0] for x in prediction]
 

@@ -34,6 +34,8 @@ Authors
  * Mirco Ravanelli 2020
 """
 import math
+from collections.abc import Iterable
+
 import torch
 import logging
 from packaging import version
@@ -951,6 +953,8 @@ class InputNormalization(torch.nn.Module):
          level, while global computes a single normalization vector for all
          the sentences in the dataset). Speaker and global statistics are
          computed with a moving average approach.
+    dim : int or List[int] (default : 0)
+        Dimension to compute mean/std statistics from; outlines `size` for torch.zeros & torch.ones stats defaulting.
     avg_factor : float
          It can be used to manually set the weighting factor between
          current statistics and accumulated ones.
@@ -977,6 +981,7 @@ class InputNormalization(torch.nn.Module):
         norm_type="global",
         avg_factor=None,
         requires_grad=False,
+        dim=0,
         update_until_epoch=3,
     ):
         super().__init__()
@@ -985,6 +990,7 @@ class InputNormalization(torch.nn.Module):
         self.norm_type = norm_type
         self.avg_factor = avg_factor
         self.requires_grad = requires_grad
+        self.dim = dim
         self.glob_mean = torch.tensor([0])
         self.glob_std = torch.tensor([0])
         self.spk_dict_mean = {}
@@ -1125,15 +1131,33 @@ class InputNormalization(torch.nn.Module):
         """
         # Compute current mean
         if self.mean_norm:
-            current_mean = torch.mean(x, dim=0).detach().data
+            current_mean = torch.mean(x, dim=self.dim).detach().data
         else:
-            current_mean = torch.tensor([0.0], device=x.device)
+            dim = self.dim
+            if type(dim) is Iterable:
+                size = [x.shape[d] for d in dim]
+            else:
+                assert type(dim) is int
+                if dim == 0:
+                    size = 1
+                else:
+                    size = x.shape[dim]
+            current_mean = torch.zeros(size=size, device=x.device)
 
         # Compute current std
         if self.std_norm:
-            current_std = torch.std(x, dim=0).detach().data
+            current_std = torch.std(x, dim=self.dim).detach().data
         else:
-            current_std = torch.tensor([1.0], device=x.device)
+            dim = self.dim
+            if type(dim) is Iterable:
+                size = [x.shape[d] for d in dim]
+            else:
+                assert type(dim) is int
+                if dim == 0:
+                    size = 1
+                else:
+                    size = x.shape[dim]
+            current_std = torch.ones(size=size, device=x.device)
 
         # Improving numerical stability of std
         current_std = torch.max(
