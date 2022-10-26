@@ -23,7 +23,7 @@ class HFBrain(sb.core.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
@@ -166,7 +166,7 @@ class HFBrain(sb.core.Brain):
         "Initializes the wav2vec2 optimizer and model optimizer"
 
         # If the wav2vec encoder is unfrozen, we create the optimizer
-        if not self.hparams.wav2vec2.freeze:
+        if not self.hparams.w2v2.freeze:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )

@@ -29,19 +29,19 @@ except ModuleNotFoundError:
         "speechbrain/lobes/models/huggingface/transformers.py"
     )
     collect_ignore.append(
-        "tests/integration/HuggingFace_integration/refactoring_checks.py"
+        "tests/integration/HuggingFace_transformers/refactoring_checks.py"
     )
     collect_ignore.append(
-        "tests/integration/HuggingFace_integration/example_wav2vec2_for_pretraining.py"
+        "tests/integration/HuggingFace_transformers/example_wav2vec2_for_pretraining.py"
     )
     collect_ignore.append(
-        "tests/integration/HuggingFace_integration/example_wav2vec2_for_pretraining_immediate.py"
+        "tests/integration/HuggingFace_transformers/example_wav2vec2_for_pretraining_immediate.py"
     )
     collect_ignore.append(
-        "tests/integration/HuggingFace_integration/example_wav2vec2_from_pretrained.py"
+        "tests/integration/HuggingFace_transformers/example_wav2vec2_from_pretrained.py"
     )
     collect_ignore.append(
-        "tests/integration/HuggingFace_integration/example_wav2vec2_from_pretrained_immediate.py"
+        "tests/integration/HuggingFace_transformers/example_wav2vec2_from_pretrained_immediate.py"
     )
 try:
     import sacrebleu  # noqa: F401
