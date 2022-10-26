@@ -115,7 +115,7 @@ def get_prediction(repo, values):
             prediction = eval(
                 f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}", savedir="{repo.replace("speechbrain", "pretrained_models")}").unsqueeze(0), torch.tensor([1.0]))'
             )
-        except:
+        except Exception:
             prediction = eval(
                 f'model.{values["fnx"]}(model.load_audio("tests/samples/single-mic/example1.wav", savedir="{repo.replace("speechbrain", "pretrained_models")}").unsqueeze(0), torch.tensor([1.0]))'
             )
