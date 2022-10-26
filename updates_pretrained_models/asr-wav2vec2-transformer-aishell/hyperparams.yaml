@@ -79,7 +79,6 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     activation: !ref <activation>
     normalize_before: True
 
-
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
     n_neurons: !ref <output_neurons>
