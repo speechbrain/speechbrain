@@ -1,0 +1,5 @@
+sample: anger.wav
+cls: None
+fnx: classify_file
+foreign: 'foreign_class(source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP", pymodule_file="custom_interface.py", classname="CustomEncoderWav2vec2Classifier", savedir="pretrained_models/emotion-recognition-wav2vec2-IEMOCAP")'
+prediction: 'model.classify_file("pretrained_models/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")'

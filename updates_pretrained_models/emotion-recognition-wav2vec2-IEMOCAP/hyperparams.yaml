@@ -1,0 +1,59 @@
+# ############################################################################
+# Model: WAV2VEC base for Emotion Recognition
+# ############################################################################
+
+
+# Hparams NEEDED
+HPARAMS_NEEDED: ["encoder_dim", "out_n_neurons", "label_encoder", "softmax"]
+# Modules Needed
+MODULES_NEEDED: ["wav2vec2", "avg_pool", "output_mlp"]
+
+# Feature parameters
+wav2vec2_hub: facebook/wav2vec2-base
+
+# Pretrain folder (HuggingFace)
+pretrained_path: speechbrain/emotion-recognition-wav2vec2-IEMOCAP
+
+# parameters
+encoder_dim: 768
+out_n_neurons: 4
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: True
+    save_path: wav2vec2_checkpoints
+
+avg_pool: !new:speechbrain.nnet.pooling.StatisticsPooling
+    return_std: False
+
+output_mlp: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <encoder_dim>
+    n_neurons: !ref <out_n_neurons>
+    bias: False
+
+model: !new:torch.nn.ModuleList
+    - [!ref <output_mlp>]
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    output_mlp: !ref <output_mlp>
+    avg_pool: !ref <avg_pool>
+
+softmax: !new:speechbrain.nnet.activations.Softmax
+
+        
+label_encoder: !new:speechbrain.dataio.encoder.CategoricalEncoder
+
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        wav2vec2: !ref <wav2vec2>
+        model: !ref <model>
+        label_encoder: !ref <label_encoder>
+    paths:
+        wav2vec2: !ref <pretrained_path>/wav2vec2.ckpt
+        model: !ref <pretrained_path>/model.ckpt
+        label_encoder: !ref <pretrained_path>/label_encoder.txt
+
+

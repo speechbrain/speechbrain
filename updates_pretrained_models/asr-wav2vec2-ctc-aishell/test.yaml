@@ -1,0 +1,5 @@
+sample: example.wav
+cls: None
+fnx: classify_file
+foreign: 'foreign_class(source="speechbrain/asr-wav2vec2-ctc-aishell",  pymodule_file="custom_interface.py", classname="CustomEncoderDecoderASR", savedir="pretrained_models/asr-wav2vec2-ctc-aishell")'
+prediction: 'model.transcribe_file("pretrained_models/asr-wav2vec2-ctc-aishell/example.wav")'
