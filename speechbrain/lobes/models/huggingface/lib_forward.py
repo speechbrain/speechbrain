@@ -64,7 +64,11 @@ def default_forward(model, data):
 
 # TODO drop normalize_wav & output_norm arguments
 def wav2vec2_forward(
-    model, data, output_all_hiddens, normalize_wav=False, output_norm=False
+    model,
+    data,
+    output_all_hiddens=False,
+    normalize_wav=False,
+    output_norm=False,
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -90,12 +94,11 @@ def wav2vec2_forward(
         A valid HuggingFace transformers model.
     data : torch.Tensor (signal)
         A batch of audio signals to transform to features.
-    output_all_hiddens : bool
+    output_all_hiddens : bool (default: False)
         If True, the forward function outputs the hidden states from all transformer layers.
         For example wav2vec2-base has 12 transformer layers and the output is of shape (13, B, T, C),
         where a projection of the CNN output is added to the beginning.
         If False, the forward function outputs the hidden states only from the last transformer layer.
-
 
     Returns
     -------

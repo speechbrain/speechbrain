@@ -91,11 +91,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
 
 output_all_hiddens: False
 apply_spec_augment: False
-norm_output: True
 wav2vec2_save_path: !ref <wav2vec2_folder>
-wav2vec2_helper_norm_input: !apply:transformers.Wav2Vec2FeatureExtractor.from_pretrained  # possible w/o helper? ;-)
-    pretrained_model_name_or_path: !ref <wav2vec2_hub>
-    cache_dir: !ref <wav2vec2_save_path>
 freeze_nested_models_their_calls:
     - "feature_extractor._freeze_parameters" # line-by-line each submodule to freeze
 # freeze_nested_models_their_calls: "feature_extractor._freeze_parameters"  # for one submodule only
@@ -104,14 +100,12 @@ w2v2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTransfor
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_save_path>
     forward_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.huggingface_wav2vec.wav2vec2_forward
+        - !name:speechbrain.lobes.models.huggingface.wav2vec2_forward
           output_all_hiddens: !ref <output_all_hiddens>
-          normalize_wav: !apply:getattr [!ref <wav2vec2_helper_norm_input>, "do_normalize"]
-          output_norm: !ref <norm_output>
     modify_state_dict_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.huggingface_wav2vec.modify_state_dict_wav2vec2
+        - !name:speechbrain.lobes.models.huggingface.lib_deser.modify_state_dict_wav2vec2
     override_hf_model_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.huggingface_wav2vec.model_set_spectral_augmentation
+        - !name:speechbrain.lobes.models.huggingface.lib_modify_model.model_set_spectral_augmentation
           apply_spec_augment: !ref <apply_spec_augment>
     freeze: !ref <freeze_wav2vec>
     # freeze_nested_models_their_calls: !ref <freeze_nested_models_their_calls>  # freeze the feature extractor

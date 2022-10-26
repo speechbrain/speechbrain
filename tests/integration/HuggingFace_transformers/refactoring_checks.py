@@ -16,124 +16,88 @@ import os
 import yaml
 import torch  # noqa
 import importlib  # noqa
+import subprocess
 import speechbrain  # noqa
+from glob import glob
 from speechbrain.pretrained.interfaces import foreign_class  # noqa
 
 
-"""
-    "speechbrain/asr-wav2vec2-commonvoice-fr": {
-        "sample": "example-fr.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-commonvoice-rw": {
-        "sample": "example.mp3",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-"""
+def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
+    # set up git etc
+    if not os.path.exists(new_interfaces_local_dir):
+        # note: not checking for anything
+        cmd_out_clone = subprocess.run(
+            ["git", "clone", new_interfaces_git, new_interfaces_local_dir],
+            capture_output=True,
+        )
+        print(f"\tgit clone log: {cmd_out_clone}")
+        cwd = os.getcwd()
+        os.chdir(new_interfaces_local_dir)
+        cmd_out_co = subprocess.run(
+            ["git", "checkout", new_interfaces_branch], capture_output=True
+        )
+        print(f"\tgit checkout log: {cmd_out_co}")
+        os.chdir(cwd)
 
-WAV2_VEC2_HF_REPOS = {
-    "speechbrain/asr-wav2vec2-transformer-aishell": {
-        "sample": "example_mandarin.wav",
-        "cls": "EncoderDecoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-ctc-aishell": {
-        "sample": "example.wav",
-        "cls": None,
-        "fnx": "classify_file",
-        "foreign": 'foreign_class(source="speechbrain/asr-wav2vec2-ctc-aishell",  pymodule_file="custom_interface.py", classname="CustomEncoderDecoderASR")',
-        "prediction": 'model.transcribe_file("pretrained_models/asr-wav2vec2-ctc-aishell/example.wav")',
-    },
-    "speechbrain/asr-wav2vec2-librispeech": {
-        "sample": "example.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-commonvoice-en": {
-        "sample": "example.wav",
-        "cls": "EncoderDecoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-commonvoice-it": {
-        "sample": "example-it.wav",
-        "cls": "EncoderDecoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-dvoice-amharic": {
-        "sample": "example_amharic.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-dvoice-darija": {
-        "sample": "example_darija.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-dvoice-fongbe": {
-        "sample": "example_fongbe.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-dvoice-swahili": {
-        "sample": "example_swahili.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/asr-wav2vec2-dvoice-wolof": {
-        "sample": "example_wolof.wav",
-        "cls": "EncoderASR",
-        "fnx": "transcribe_batch",
-    },
-    "speechbrain/ssl-wav2vec2-base-librispeech": {
-        "sample": "example.wav",
-        "cls": "WaveformEncoder",
-        "fnx": "encode_batch",
-    },
-    "speechbrain/emotion-recognition-wav2vec2-IEMOCAP": {
-        "sample": "anger.wav",
-        "cls": None,
-        "fnx": "classify_file",
-        "foreign": 'foreign_class(source="speechbrain/emotion-recognition-wav2vec2-IEMOCAP", pymodule_file="custom_interface.py", classname="CustomEncoderWav2vec2Classifier")',
-        "prediction": 'model.classify_file("pretrained_models/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")',
-    },
-}
+    updates_dir = f"{new_interfaces_local_dir}/updates_pretrained_models"
+    return updates_dir
 
 
-def get_prediction(repo, values):
+def get_prediction(repo, values, updates_dir=None):
+    # updates_dir controls whether/not we are in the refactored results (None: expected results; before refactoring)
+
+    def sanitize(data):
+        # yaml outputs in clean
+        if isinstance(data, torch.Tensor):
+            data = data.detach().cpu().numpy()
+        return data
+
     # get the pretrained class; model & predictions
-    if values["cls"] is not None:
-        obj = eval(
-            f'importlib.import_module("speechbrain.pretrained").{values["cls"]}'
-        )
-        model = obj.from_hparams(  # noqa
-            source=repo,
-            savedir=repo.replace("speechbrain", "pretrained_models"),
-        )
-        try:
-            prediction = eval(
-                f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}", savedir="{repo.replace("speechbrain", "pretrained_models")}").unsqueeze(0), torch.tensor([1.0]))'
-            )
-        except Exception:
-            prediction = eval(
-                f'model.{values["fnx"]}(model.load_audio("tests/samples/single-mic/example1.wav", savedir="{repo.replace("speechbrain", "pretrained_models")}").unsqueeze(0), torch.tensor([1.0]))'
-            )
-        finally:
-            del model
+    kwargs = {
+        "source": f"speechbrain/{repo}",
+        "savedir": f"pretrained_models/{repo}",
+    }
+
+    if updates_dir is not None:
+        kwargs["hparams_file"] = f"{updates_dir}/{repo}/hyperparams.yaml"
+
+    if values["foreign"] is None:
+        obj = eval(f'"speechbrain.pretrained".{values["cls"]}')
+        model = obj.from_hparams(**kwargs)  # noqa
     else:
-        model = eval(values["foreign"])  # noqa
-        eval(
-            f'model.load_audio("{repo}/{values["sample"]}", savedir="{repo.replace("speechbrain", "pretrained_models")}")'
+        kwargs["pymodule_file"] = values["foreign"]
+        kwargs["classname"] = values["cls"]
+        model = foreign_class(**kwargs)  # noqa
+
+    try:
+        if values["foreign"] is None:
+            prediction = eval(
+                f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}", savedir="pretrained_models/{repo}").unsqueeze(0), torch.tensor([1.0]))'
+            )
+        else:
+            eval(
+                f'model.load_audio("{repo}/{values["sample"]}", savedir="pretrained_models/{repo}")'
+            )
+            prediction = eval(values["prediction"])
+
+    except Exception:
+        # use an example audio if no audio can be loaded
+        print(f'\tWARNING - no audio found on HF: {repo}/{values["sample"]}')
+        prediction = eval(
+            f'model.{values["fnx"]}(model.load_audio("tests/samples/single-mic/example1.wav", savedir="pretrained_models/{repo}").unsqueeze(0), torch.tensor([1.0]))'
         )
-        prediction = eval(values["prediction"])
+
+    finally:
         del model
 
-    return [x[0] for x in prediction]
+    return [sanitize(x[0]) for x in prediction]
 
 
 def gather_expected_results(
-    yaml_path="tests/tmp/refactoring_wav2vec2_results.yaml",
+    new_interfaces_git="https://github.com/speechbrain/speechbrain",
+    new_interfaces_branch="testing-refactoring",
+    new_interfaces_local_dir="tests/tmp/hf_interfaces",
+    yaml_path="tests/tmp/refactoring_results.yaml",
 ):
     """Before refactoring HF YAMLs and/or code (regarding wav2vec2), gather prediction results.
 
@@ -151,53 +115,61 @@ def gather_expected_results(
         results = {}
 
     # go through each repo
-    for repo, values in WAV2_VEC2_HF_REPOS.items():
+    updates_dir = init(
+        new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
+    )
+    repos = map(os.path.basename, glob(f"{updates_dir}/*"))
+    for repo in repos:
         # skip if results are there
         if repo not in results.keys():
-            # continue when values are there
-            assert type(values) == dict
-            if all([k in values.keys() for k in ["sample", "cls", "fnx"]]):
-                print(f"Collecting results for: {repo} w/ values={values}")
-                prediction = get_prediction(repo, values)
+            # get values
+            with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
+                values = yaml.safe_load(yaml_test)
 
-                # extend the results
-                results[repo] = {"before": prediction}
-                with open(yaml_path, "w") as yaml_out:
-                    yaml.dump(results, yaml_out, default_flow_style=None)
+            print(f"Collecting results for: {repo} w/ values={values}")
+            prediction = get_prediction(repo, values)
+
+            # extend the results
+            results[repo] = {"before": prediction}
+            with open(yaml_path, "w") as yaml_out:
+                yaml.dump(results, yaml_out, default_flow_style=None)
 
 
 def gather_refactoring_results(
-    yaml_path="tests/tmp/refactoring_wav2vec2_results.yaml",
+    new_interfaces_git="https://github.com/speechbrain/speechbrain",
+    new_interfaces_branch="testing-refactoring",
+    new_interfaces_local_dir="tests/tmp/hf_interfaces",
+    yaml_path="tests/tmp/refactoring_results.yaml",
 ):
     # expected results need to exist
     if os.path.exists(yaml_path):
         with open(yaml_path) as yaml_in:
             results = yaml.safe_load(yaml_in)
 
-        # go through each repo
-        for repo, values in WAV2_VEC2_HF_REPOS.items():
-            # skip if results are there
-            if repo in results.keys():
-                if "after" not in results[repo]:
-                    # continue when values are there
-                    assert type(values) == dict
-                    if all(
-                        [k in values.keys() for k in ["sample", "cls", "fnx"]]
-                    ):
-                        print(
-                            f"Collecting refactoring results for: {repo} w/ values={values}"
-                        )
+    # go through each repo
+    updates_dir = init(
+        new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
+    )
+    repos = map(os.path.basename, glob(f"{updates_dir}/*"))
+    for repo in repos:
+        # skip if results are there
+        if repo not in results.keys():
+            # get values
+            with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
+                values = yaml.safe_load(yaml_test)
 
-                        # extend the results
-                        results[repo]["after"] = get_prediction(repo, values)
-                        results[repo]["same"] = (
-                            results[repo]["before"] == results[repo]["after"]
-                        )
+            print(
+                f"Collecting refactoring results for: {repo} w/ values={values}"
+            )
 
-                        # update
-                        with open(yaml_path, "w") as yaml_out:
-                            yaml.dump(
-                                results, yaml_out, default_flow_style=None
-                            )
+            # extend the results
+            results[repo]["after"] = get_prediction(repo, values, updates_dir)
+            results[repo]["same"] = (
+                results[repo]["before"] == results[repo]["after"]
+            )
 
-                        print(f"\tsame: {results[repo]['same'] }")
+            # update
+            with open(yaml_path, "w") as yaml_out:
+                yaml.dump(results, yaml_out, default_flow_style=None)
+
+            print(f"\tsame: {results[repo]['same'] }")
