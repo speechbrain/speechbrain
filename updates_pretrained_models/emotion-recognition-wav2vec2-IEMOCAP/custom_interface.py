@@ -38,7 +38,7 @@ class CustomEncoderWav2vec2Classifier(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def encode_batch(self, wavs, wav_lens=None, normalize=False):
+    def encode_batch(self, wavs, wav_lens=None):
         """Encodes the input audio into a single vector embedding.
 
         The waveforms should already be in the model's desired format.
@@ -56,9 +56,6 @@ class CustomEncoderWav2vec2Classifier(Pretrained):
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
             Used for ignoring padding.
-        normalize : bool
-            If True, it normalizes the embeddings with the statistics
-            contained in mean_var_norm_emb.
 
         Returns
         -------
@@ -78,7 +75,7 @@ class CustomEncoderWav2vec2Classifier(Pretrained):
         wavs = wavs.float()
 
         # Computing features and embeddings
-        outputs = self.mods.wav2vec2(wavs)
+        outputs = self.mods.wav2vec2(wavs, wav_lens)
 
         # last dim will be used for AdaptativeAVG pool
         outputs = self.mods.avg_pool(outputs, wav_lens)
