@@ -105,8 +105,8 @@ def create_json(wav_list, json_file, sample_rate):
         The list of wav files.
     json_file : str
         The path of the output json file
-    resample_audio : dict
-        The dictionary with subset names as the keys and True/False values indicating whether the audio files from the subset should be resampled
+    sample_rate : int
+        The sample rate to be used for the dataset
     """
 
     json_dict = {}
