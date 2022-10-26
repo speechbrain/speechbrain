@@ -47,9 +47,7 @@ class CustomEncoderDecoderASR(Pretrained):
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
-        predicted_words = self.transcribe_batch(
-            batch, rel_length
-        )
+        predicted_words = self.transcribe_batch(batch, rel_length)
         return predicted_words[0]
 
     def encode_batch(self, wavs):

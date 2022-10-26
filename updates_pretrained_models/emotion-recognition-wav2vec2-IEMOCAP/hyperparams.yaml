@@ -42,9 +42,7 @@ modules:
 
 softmax: !new:speechbrain.nnet.activations.Softmax
 
-        
 label_encoder: !new:speechbrain.dataio.encoder.CategoricalEncoder
-
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
@@ -55,5 +53,3 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         wav2vec2: !ref <pretrained_path>/wav2vec2.ckpt
         model: !ref <pretrained_path>/model.ckpt
         label_encoder: !ref <pretrained_path>/label_encoder.txt
-
-

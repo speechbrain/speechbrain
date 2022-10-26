@@ -75,4 +75,3 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    loadables:
       wav2vec2: !ref <wav2vec2>
       model: !ref <model>
-
