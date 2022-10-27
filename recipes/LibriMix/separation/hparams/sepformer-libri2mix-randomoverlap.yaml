@@ -37,7 +37,7 @@ num_spks: 2
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
-n_overlap: 20
+n_overlap: [0, 20] # random overlap values to choose from
 
 # Training parameters
 N_epochs: 200

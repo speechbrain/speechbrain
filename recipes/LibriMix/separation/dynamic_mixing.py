@@ -130,7 +130,7 @@ def dynamic_mix_data_prep_librimix(hparams):
             for spk in speakers
         ]
 
-        n_overlap = hparams.get("n_overlap", 100)
+        n_overlap = random.choice(hparams.get("n_overlap", 100))
         signal_lens = [torchaudio.info(x).num_frames for x in spk_files]
         minlen_arg = np.argmin(signal_lens)
         minlen = min(*signal_lens, hparams["training_signal_len"],)

@@ -645,7 +645,18 @@ if __name__ == "__main__":
         }
 
         train_data = dynamic_mix_data_prep(dm_hparams)
-        _, valid_data, test_data = dataio_prep(hparams)
+        n_overlap = hparams.get("n_overlap", 100)
+
+        # if amount of overlap is 100, use the standard valid/test set
+        # otherwise, use the dynamically created valid/test set
+        if n_overlap == 100:
+            _, valid_data, test_data = dataio_prep(hparams)
+        else:
+            dm_hparams["train_data"] = hparams["valid_data"]
+            valid_data = dynamic_mix_data_prep(dm_hparams)
+
+            dm_hparams["train_data"] = hparams["test_data"]
+            test_data = dynamic_mix_data_prep(dm_hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
 
