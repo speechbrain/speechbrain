@@ -19,7 +19,7 @@ data_folder: !PLACEHOLDER
 # this is the base folder for dynamic mixing
 base_folder_dm: /yourpath/LibriSpeech/train-clean-360/
 
-experiment_name: sepformer-libri2mix
+experiment_name: sepformer-libri2mix-randomoverlap
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
@@ -37,7 +37,7 @@ num_spks: 2
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
-n_overlap: [0, 20] # random overlap values to choose from
+n_overlap: [0, 10, 20, 30, 40] # random overlap values to choose from
 
 # Training parameters
 N_epochs: 200
