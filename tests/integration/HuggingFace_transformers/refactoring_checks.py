@@ -210,7 +210,7 @@ def test_performance(repo, values, updates_dir=None, recipe_overrides={}):
     model = get_model(repo, values, updates_dir)  # noqa
 
     # Dataio preparation; we need the test sets only
-    with open(hparams_file) as fin:
+    with open(values["recipe_yaml"]) as fin:
         recipe_hparams = load_hyperpyyaml(
             fin, values["overrides"] | recipe_overrides
         )
@@ -290,7 +290,10 @@ if __name__ == "__main__":
         dataset_overrides["new_interfaces_branch"],
         dataset_overrides["new_interfaces_local_dir"],
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/*"))
+    repos = map(
+        os.path.basename,
+        glob(f'{updates_dir}/{dataset_overrides["glob_filter"]}'),
+    )
     for repo in repos:
         # get values
         with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
