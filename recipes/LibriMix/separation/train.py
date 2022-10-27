@@ -640,6 +640,8 @@ if __name__ == "__main__":
             "num_spks": hparams["num_spks"],
             "training_signal_len": hparams["training_signal_len"],
             "dataloader_opts": hparams["dataloader_opts"],
+            "use_wham_noise": hparams["use_wham_noise"],
+            "n_overlap": hparams["n_overlap"],
         }
 
         train_data = dynamic_mix_data_prep(dm_hparams)

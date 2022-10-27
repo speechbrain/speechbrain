@@ -134,7 +134,7 @@ def dynamic_mix_data_prep_librimix(hparams):
         signal_lens = [torchaudio.info(x).num_frames for x in spk_files]
         minlen_arg = np.argmin(signal_lens)
         minlen = min(*signal_lens, hparams["training_signal_len"],)
-        maxlen = max(signal_lens)
+        maxlen = min([max(signal_lens), hparams["training_signal_len"]])
 
         meter = pyloudnorm.Meter(hparams["sample_rate"])
 
@@ -184,19 +184,20 @@ def dynamic_mix_data_prep_librimix(hparams):
                 sources.append(tmp)
             else:
                 # the case where overlap is not 100 percent
+                length = torchaudio.info(spk_file).num_frames
                 tmp, fs_read = torchaudio.load(
-                    spk_file, frame_offset=start, num_frames=stop - start,
+                    spk_file,
+                    frame_offset=0,
+                    num_frames=min(length, hparams["training_signal_len"]),
                 )
                 tmp = tmp[0].numpy()
                 tmp = normalize(tmp)
-                beginning_pad = (n_overlap / 100) * minlen
-                ending_pad = beginning_pad + maxlen
+                beginning_pad = int(((100 - n_overlap) / 100) * minlen)
+                ending_pad = beginning_pad + maxlen - minlen
                 if i != minlen_arg:
-                    tmp = np.concatenate([np.zeros((beginning_pad)), tmp])
+                    tmp = torch.concat([torch.zeros(beginning_pad), tmp])
                 else:
-                    tmp = np.concatenate(
-                        [np.zeros(tmp, np.zeros((ending_pad)))]
-                    )
+                    tmp = torch.concat([tmp, torch.zeros(ending_pad)])
                 sources.append(tmp)
 
         sources = torch.stack(sources)
@@ -217,6 +218,11 @@ def dynamic_mix_data_prep_librimix(hparams):
 
         sources = weight * sources
         mixture = weight * mixture
+
+        torchaudio.save("libritrain.wav", mixture.unsqueeze(0), 8000)
+        import pdb
+
+        pdb.set_trace()
 
         yield mixture
         for i in range(hparams["num_spks"]):
