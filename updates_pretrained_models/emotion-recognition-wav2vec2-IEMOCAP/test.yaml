@@ -1,5 +1,15 @@
 sample: anger.wav
 cls: CustomEncoderWav2vec2Classifier
-fnx: classify_file
+fnx: classify_batch
 foreign: custom_interface.py
-prediction: 'model.classify_file("pretrained_models/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")'
+dataset: IEMOCAP
+overrides:
+  output_folder: !ref tests/tmp/<dataset>
+dataio: from recipes.IEMOCAP.emotion_recognition.train_with_wav2vec2 import dataio_prep
+test_datasets: dataio_prepare(recipe_hparams)["test"]
+test_loader: dataloader_options
+performance:
+  ClassError:
+    handler: error_stats
+    field: average
+predicted: predictions[0]

@@ -1,3 +1,17 @@
 sample: example.wav
 cls: EncoderASR
 fnx: transcribe_batch
+dataset: LibriSpeech
+overrides:
+  output_folder: !ref tests/tmp/<dataset>
+dataio: from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare
+test_datasets: dataio_prepare(recipe_hparams)[2]
+test_loader: test_dataloader_opts
+performance:
+  CER:
+    handler: cer_computer
+    field: error_rate
+  WER:
+    handler: error_rate_computer
+    field: error_rate
+predicted: predictions[0]
