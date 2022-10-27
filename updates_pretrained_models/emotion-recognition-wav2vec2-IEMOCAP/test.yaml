@@ -1,5 +1,4 @@
 sample: anger.wav
 cls: CustomEncoderWav2vec2Classifier
-fnx: classify_file
+fnx: classify_batch
 foreign: custom_interface.py
-prediction: 'model.classify_file("pretrained_models/emotion-recognition-wav2vec2-IEMOCAP/anger.wav")'

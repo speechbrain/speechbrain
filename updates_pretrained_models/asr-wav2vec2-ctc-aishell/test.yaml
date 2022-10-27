@@ -1,5 +1,4 @@
 sample: example.wav
 cls: CustomEncoderDecoderASR
-fnx: classify_file
+fnx: transcribe_batch
 foreign: custom_interface.py
-prediction: 'model.transcribe_file("pretrained_models/asr-wav2vec2-ctc-aishell/example.wav")'
