@@ -219,10 +219,10 @@ def dynamic_mix_data_prep_librimix(hparams):
         sources = weight * sources
         mixture = weight * mixture
 
-        torchaudio.save("libritrain.wav", mixture.unsqueeze(0), 8000)
-        import pdb
-
-        pdb.set_trace()
+        # uncomment to listen
+        # torchaudio.save("libritrain.wav", mixture.unsqueeze(0), 8000)
+        # import pdb
+        # pdb.set_trace()
 
         yield mixture
         for i in range(hparams["num_spks"]):
