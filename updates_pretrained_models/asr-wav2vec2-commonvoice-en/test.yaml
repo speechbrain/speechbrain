@@ -2,6 +2,7 @@ sample: example.wav
 cls: EncoderDecoderASR
 fnx: transcribe_batch
 dataset: CommonVoice_EN
+recipe_yaml: recipes/CommonVoice/ASR/seq2seq/hparams/train_en_with_wav2vec.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
 dataio: from recipes.CommonVoice.ASR.seq2seq.train_with_wav2vec import dataio_prepare
