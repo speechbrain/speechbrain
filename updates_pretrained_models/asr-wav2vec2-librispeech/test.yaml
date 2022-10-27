@@ -2,6 +2,7 @@ sample: example.wav
 cls: EncoderASR
 fnx: transcribe_batch
 dataset: LibriSpeech
+recipe_yaml: recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
 dataio: from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare

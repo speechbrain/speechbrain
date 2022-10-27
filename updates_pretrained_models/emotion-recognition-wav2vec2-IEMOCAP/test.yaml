@@ -3,6 +3,7 @@ cls: CustomEncoderWav2vec2Classifier
 fnx: classify_batch
 foreign: custom_interface.py
 dataset: IEMOCAP
+recipe_yaml: recipes/IEMOCAP/emotion_recognition/hparams/train_with_wav2vec2.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
 dataio: from recipes.IEMOCAP.emotion_recognition.train_with_wav2vec2 import dataio_prep
