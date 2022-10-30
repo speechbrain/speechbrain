@@ -15,7 +15,7 @@ save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
-epochs: 100
+epochs: 500
 progress_samples: True
 progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
