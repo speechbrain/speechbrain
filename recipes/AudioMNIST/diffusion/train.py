@@ -26,7 +26,7 @@ from torchaudio import transforms
 from speechbrain.dataio.dataio import length_to_mask, write_audio
 from speechbrain.utils import data_utils
 from speechbrain.utils.train_logger import plot_spectrogram
-from speechbrain.utils.data_utils import unsqueeze_as
+from speechbrain.utils.data_utils import match_shape, unsqueeze_as
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ class DiffusionBrain(sb.Brain):
 
         self.hparams.lr_annealing(self.optimizer, self.optimizer_step)
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.hparams.lr_annealing(self.autoencoder_optimizer, self.optimizer_step)
+            self.hparams.lr_annealing_autoencoder(self.autoencoder_optimizer, self.optimizer_step)
         if (
             self.hparams.enable_train_metrics
             and self.hparams.use_tensorboard
@@ -170,25 +170,26 @@ class DiffusionBrain(sb.Brain):
 
     def log_batch(self, predictions):
         loss_stats = self.loss_metric.summarize()
-        data_mean_stats = self.data_mean_metric.summarize()
-        data_std_stats = self.data_std_metric.summarize()
-        data_min_stats = self.data_min_metric.summarize()
-        data_max_stats = self.data_max_metric.summarize()
         stats = {
             "loss": loss_stats["average"],
             "lr": self.optimizer.param_groups[0]["lr"],
-            "data_mean": data_mean_stats["average"],
-            "data_mean_min": data_mean_stats["min_score"],
-            "data_mean_max": data_mean_stats["max_score"],
-            "data_std": data_std_stats["average"],
-            "data_std_min": data_std_stats["min_score"],
-            "data_std_max": data_std_stats["max_score"],
-            "data_min": data_min_stats["min_score"],
-            "data_max": data_max_stats["max_score"],
         }
+        stats.update(
+            self.extract_dist_stats(
+                self.data_dist_stats_metric,
+                prefix="data"
+            )
+        )
         if self.diffusion_mode == DiffusionMode.LATENT:
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
+            )
+            stats["lr_autoencoder"] = self.autoencoder_optimizer.param_groups[0]["lr"]
+            stats.update(
+                self.extract_dist_stats(
+                    self.autoencoder_rec_dist_stats_metric,
+                    prefix="autoencoder_rec"
+                )
             )
         self.hparams.tensorboard_train_logger.log_stats(
             stats_meta={"step": self.step}, train_stats=stats
@@ -211,8 +212,29 @@ class DiffusionBrain(sb.Brain):
                 f"train_rec_latent",
                 latent
             )
-            
+        
+    def extract_dist_stats(self, dist_stats_metric, prefix):
+        """Extracts stats from a MultiMetricStats instance with a dist_stats metric
+        into a flattened dictionary
 
+        Arguments
+        ---------
+
+        """
+        dist_stats = dist_stats_metric.summarize()
+        return {
+            self.get_stat_key(prefix, stat, metric_key): value
+            for stat, stat_details in dist_stats.items()
+            for metric_key, value in stat_details.items()
+            if metric_key in {"average", "min_score", "max_score"}
+        }
+
+    def get_stat_key(self, prefix, stat, metric_key):
+        suffix = ""
+        if metric_key != "average":
+            suffix = "_" + metric_key.replace("_score", "")
+        return f"{prefix}_{stat}{suffix}"
+        
     def prepare_features(self, batch, stage):
         """Prepare the features for computation, including augmentation.
 
@@ -261,8 +283,7 @@ class DiffusionBrain(sb.Brain):
             mask = length_to_mask(lens * max_len, max_len)[
                 :, None, :, None
             ].bool()
-            for metric in self.data_metrics:
-                metric.append(batch.file_name, feats_raw, mask=mask)
+            self.data_dist_stats_metric.append(batch.file_name, feats_raw, mask=mask)
 
         return feats, lens
 
@@ -301,6 +322,11 @@ class DiffusionBrain(sb.Brain):
             )
             self.autoencoder_loss_metric.append(
                 batch.file_name, autoencoder_out, feats, length=lens, reduction="batch"
+            )
+            rec_mask = length_to_mask(lens, autoencoder_out.rec.size(2)).unsqueeze(1)
+            rec_mask = match_shape(rec_mask, autoencoder_out.rec)
+            self.autoencoder_rec_dist_stats_metric.append(
+                batch.file_name, autoencoder_out.rec, mask=rec_mask
             )
 
         
@@ -433,28 +459,18 @@ class DiffusionBrain(sb.Brain):
             metric=sb.nnet.losses.mse_loss
         )
         if self.hparams.enable_train_metrics:
-            self.data_mean_metric = sb.utils.metric_stats.MetricStats(
-                metric=masked_mean
+            self.data_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
+                metric=dist_stats,
+                batch_eval=True
             )
-            self.data_std_metric = sb.utils.metric_stats.MetricStats(
-                metric=masked_std
-            )
-            self.data_min_metric = sb.utils.metric_stats.MetricStats(
-                metric=masked_min
-            )
-            self.data_max_metric = sb.utils.metric_stats.MetricStats(
-                metric=masked_max
-            )
-            self.data_metrics = [
-                self.data_mean_metric,
-                self.data_std_metric,
-                self.data_min_metric,
-                self.data_max_metric,
-            ]
         
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.autoencoder_loss_metric = sb.utils.metric_stats.MultiMetricStats(
                 metric=self.hparams.compute_cost_autoencoder.details,
+                batch_eval=True
+            )
+            self.autoencoder_rec_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
+                metric=dist_stats,
                 batch_eval=True
             )
 
@@ -809,7 +825,7 @@ def masked_min(sample, mask=None):
     if mask is None:
         mask = torch.ones_like(sample).bool()
     dims = non_batch_dims(sample)
-    return sample.masked_fill(~mask, torch.inf).amin(dim=dims)
+    return sample.masked_fill(~mask.bool(), torch.inf).amin(dim=dims)
 
 
 def masked_max(sample, mask=None):
@@ -831,7 +847,32 @@ def masked_max(sample, mask=None):
     if mask is None:
         mask = torch.ones_like(sample).bool()
     dims = non_batch_dims(sample)
-    return sample.masked_fill(~mask, -torch.inf).amax(dim=dims)
+    return sample.masked_fill(~mask.bool(), -torch.inf).amax(dim=dims)
+
+
+def dist_stats(sample, mask=None):
+    """Returns standard distribution statistics (mean, std, min, max)
+    
+
+    Arguments
+    ---------
+    samples: torch.Tensor
+        a tensor of spectrograms
+
+    mask: torch.Tensor
+        a length mask
+
+    Returns
+    -------
+    result: torch.Tensor
+        a tensor fo means
+    """
+    return {
+        "mean": masked_mean(sample, mask),
+        "std": masked_std(sample, mask),
+        "min": masked_min(sample, mask),
+        "max": masked_max(sample, mask)
+    }
 
 
 def check_tensorboard(hparams):

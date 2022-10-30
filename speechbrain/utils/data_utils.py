@@ -704,3 +704,25 @@ def trim_as(tensor, other):
         the trimmed tensor
     """
     return trim_to_shape(tensor, other.shape)
+
+
+def match_shape(tensor, other):
+    """A swiss-army-knife helper function to match the shape of a tensor to
+    match that of another tensor - useful for masks, etc.
+
+    Arguments
+    ---------
+    tensor: torch.Tensor:
+        a tensor
+    other: torch.Tensor
+        the tensor whose shape to match
+        
+    Returns
+    -------
+    tensor: torch.Tensor
+        the tensor with matching shape
+    """
+    result = unsqueeze_as(tensor, other)
+    result = result.expand_as(other)
+    result = trim_as(result, other)
+    return result
