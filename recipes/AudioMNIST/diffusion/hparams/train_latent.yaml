@@ -31,10 +31,14 @@ sample_rate_tgt: 22050
 number_of_epochs: 10
 batch_size: 16
 lr: 0.001
-max_grad_norm: 1.
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
 lr_total_steps: !ref <train_len> * <number_of_epochs>
+lr_autoencoder: 0.00001
+lr_autoencoder_warmup_steps: 500
+lr_autoencoder_cooldown_steps: 500
+lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
+max_grad_norm: 1.
 train_timesteps: 1000
 adam_beta1: 0.95
 adam_beta2: 0.999
@@ -43,6 +47,7 @@ adam_epsilon: 0.00000001
 downsample_factor: 16
 enable_train_metrics: True
 enable_reference_samples: True
+enable_reconstruction_sample: True
 loss_l2_steps: 3000
 train_log_interval: 10
 overfit_test: False
@@ -68,7 +73,7 @@ spec_norm: "slaney"
 spec_mel_scale: "slaney"
 spec_norm_mean: 0.
 spec_norm_std: 0.5
-spec_sample_size: 80
+spec_sample_size: 10
 spec_sample_min: -4.7
 spec_sample_max: 3.0
 min_level_db: -80.0
@@ -76,9 +81,17 @@ pad_level_db: -50.
 
 # Model Parameters
 model_channels: 64
+model_norm_num_groups: 32
 model_num_res_blocks: 1
-autoencoder_channels: 64
+autoencoder_channels: 32
+autoencoder_norm_num_groups: 32
 autoencoder_num_res_blocks: 1
+autoencoder_dist_loss_weight: 0.
+autoencoder_encoder_out_channels: 32
+autoencoder_nom_num_groups: 32
+autoencoder_latent_channels: 2
+diffusion_channels: !ref <autoencoder_latent_channels>
+
 
 # Vocoder Settings
 vocoder_model: speechbrain/tts-hifigan-ljspeech
@@ -112,6 +125,8 @@ global_norm: !new:custom_transforms.GlobalNorm
 dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 
 compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLoss
+    len_dim: 2
+    dist_loss_weight: !ref <autoencoder_dist_loss_weight>
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
@@ -124,9 +139,10 @@ compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
 unet: !new:speechbrain.nnet.unet.UNetModel
-    in_channels: 1
+    in_channels: 2
     model_channels: !ref <model_channels>
-    out_channels: 1
+    norm_num_groups: !ref <model_norm_num_groups>    
+    out_channels: 2
     num_res_blocks: !ref <model_num_res_blocks>
     attention_resolutions: [2]
     channel_mult: [1, 2]
@@ -134,11 +150,14 @@ unet: !new:speechbrain.nnet.unet.UNetModel
 autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     in_channels: 1
     model_channels: !ref <autoencoder_channels>
+    norm_num_groups: !ref <autoencoder_norm_num_groups>
     encoder_num_res_blocks: !ref <autoencoder_num_res_blocks>
     encoder_attention_resolutions: [8]
     decoder_num_res_blocks: !ref <autoencoder_num_res_blocks>
-    decoder_attention_resolutions: [8]
-    latent_channels: 1
+    decoder_attention_resolutions: [1]
+    encoder_out_channels: !ref <autoencoder_encoder_out_channels>
+    latent_channels: !ref <autoencoder_latent_channels>
+    resblock_updown: True
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
@@ -184,12 +203,14 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
+    capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
-    lr: !ref <lr>
+    lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
+    capturable: True
 
 
 # This function manages learning rate annealing over the epochs.
@@ -200,6 +221,13 @@ lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     warmup: !ref <lr_warmup_steps>
     cooldown: !ref <lr_cooldown_steps>
     total_steps: !ref <lr_total_steps>
+
+lr_annealing_autoencoder: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
+    lr: !ref <lr_autoencoder>
+    warmup: !ref <lr_autoencoder_warmup_steps>
+    cooldown: !ref <lr_autoencoder_cooldown_steps>
+    total_steps: !ref <lr_autoencoder_total_steps>
+
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint

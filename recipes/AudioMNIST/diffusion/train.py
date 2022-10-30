@@ -109,16 +109,18 @@ class DiffusionBrain(sb.Brain):
 
         should_step = self.step % self.grad_accumulation_factor == 0
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss, loss_autoencoder = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
         with self.no_sync(not should_step):
-            (loss / self.grad_accumulation_factor).backward()
-        if should_step:
-            gradient_ok = self.check_gradients(loss)
-            if gradient_ok:
+            (loss / self.grad_accumulation_factor).backward(retain_graph=True)
+        if should_step:            
+            if self.check_gradients(loss):
                 self.optimizer.step()
             self.optimizer.zero_grad()
+            # Latent diffusion: Step through the autoencoder
             if self.diffusion_mode == DiffusionMode.LATENT:
-                if gradient_ok:
+                with self.no_sync(not should_step):
+                    (loss_autoencoder / self.grad_accumulation_factor).backward()                
+                if self.check_gradients(loss_autoencoder):
                     self.autoencoder_optimizer.step()
                 self.autoencoder_optimizer.zero_grad()
 
@@ -126,7 +128,8 @@ class DiffusionBrain(sb.Brain):
 
 
         self.hparams.lr_annealing(self.optimizer, self.optimizer_step)
-
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            self.hparams.lr_annealing(self.autoencoder_optimizer, self.optimizer_step)
         if (
             self.hparams.enable_train_metrics
             and self.hparams.use_tensorboard
@@ -135,10 +138,37 @@ class DiffusionBrain(sb.Brain):
                 or self.step % self.hparams.train_log_interval == 0
             )
         ):
-            self.log_batch()
+            self.log_batch(outputs)
         return loss
 
-    def log_batch(self):
+    def evaluate_batch(self, batch, stage):
+        """Evaluate one batch, override for different procedure than train.
+
+        The default implementation depends on two methods being defined
+        with a particular behavior:
+
+        * ``compute_forward()``
+        * ``compute_objectives()``
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for evaluation. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        stage : Stage
+            The stage of the experiment: Stage.VALID, Stage.TEST
+
+        Returns
+        -------
+        detached loss
+        """
+
+        out = self.compute_forward(batch, stage=stage)
+        loss, autoencoder_loss = self.compute_objectives(out, batch, stage=stage)
+        return loss.detach().cpu()        
+    
+
+    def log_batch(self, predictions):
         loss_stats = self.loss_metric.summarize()
         data_mean_stats = self.data_mean_metric.summarize()
         data_std_stats = self.data_std_metric.summarize()
@@ -156,9 +186,32 @@ class DiffusionBrain(sb.Brain):
             "data_min": data_min_stats["min_score"],
             "data_max": data_max_stats["max_score"],
         }
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            stats.update(
+                self.autoencoder_loss_metric.summarize(field="average")
+            )
         self.hparams.tensorboard_train_logger.log_stats(
             stats_meta={"step": self.step}, train_stats=stats
         )
+        if (
+            self.diffusion_mode == DiffusionMode.LATENT 
+            and self.hparams.enable_reconstruction_sample
+        ):
+            self.hparams.tensorboard_train_logger.log_figure(
+                f"train_ref_spectrogram",
+                predictions.feats[0]
+            )            
+            self.hparams.tensorboard_train_logger.log_figure(
+                f"train_rec_spectrogram",
+                predictions.autoencoder_output.rec[0]
+            )
+            latent = predictions.autoencoder_output.latent[0]
+            latent = latent.view(latent.size(0) * latent.size(1), latent.size(2))
+            self.hparams.tensorboard_train_logger.log_figure(
+                f"train_rec_latent",
+                latent
+            )
+            
 
     def prepare_features(self, batch, stage):
         """Prepare the features for computation, including augmentation.
@@ -232,7 +285,6 @@ class DiffusionBrain(sb.Brain):
         """
 
         preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions
-
         loss = self.hparams.compute_cost(
             preds.squeeze(1), noise.squeeze(1), length=lens
         )
@@ -241,14 +293,18 @@ class DiffusionBrain(sb.Brain):
         self.loss_metric.append(
             batch.file_name, preds, noise, lens, reduction="batch"
         )
-
+        
+        loss_autoencoder = None
         if self.diffusion_mode == DiffusionMode.LATENT:
             loss_autoencoder = self.hparams.compute_cost_autoencoder(
                 autoencoder_out, feats, length=lens
-            )            
-            loss += loss_autoencoder
+            )
+            self.autoencoder_loss_metric.append(
+                batch.file_name, autoencoder_out, feats, length=lens, reduction="batch"
+            )
 
-        return loss        
+        
+        return loss, loss_autoencoder
 
     def generate_samples(self):
         """Generates spectrogram and (optionally) audio samples using the
@@ -264,10 +320,10 @@ class DiffusionBrain(sb.Brain):
 
     def generate_spectrograms(self):
         """Generates sample spectrograms"""
-        sample = self.modules.diffusion.sample(
+        sample = self.modules.diffusion_latent.sample(
             (
                 self.hparams.eval_num_samples,
-                1,
+                self.hparams.diffusion_channels, 
                 self.hparams.spec_sample_size,
                 self.hparams.spec_sample_size,
             )
@@ -395,6 +451,12 @@ class DiffusionBrain(sb.Brain):
                 self.data_min_metric,
                 self.data_max_metric,
             ]
+        
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            self.autoencoder_loss_metric = sb.utils.metric_stats.MultiMetricStats(
+                metric=self.hparams.compute_cost_autoencoder.details,
+                batch_eval=True
+            )
 
         self.sample_mean_metric = sb.utils.metric_stats.MetricStats(
             metric=masked_mean
@@ -425,6 +487,7 @@ class DiffusionBrain(sb.Brain):
             self.vocoder = self.hparams.vocoder()
         self.reference_batch = None
         self.reference_samples_neeed = False
+
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -632,7 +695,8 @@ def dataio_prep(hparams):
     dataset = datasets.load_dataset(hparams["dataset"])
 
     datasets_splits = {}
-    hparams["dataloader_options"]["shuffle"] = True
+    if not hparams["overfit_test"]:
+        hparams["dataloader_options"]["shuffle"] = True
     for split_id in DATASET_SPLITS:
         datasets_splits[
             split_id

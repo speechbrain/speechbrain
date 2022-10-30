@@ -20,6 +20,7 @@ import torch.nn.functional as F
 from itertools import permutations
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.decoders.ctc import filter_ctc_output
+from speechbrain.utils.data_utils import unsqueeze_as
 
 
 logger = logging.getLogger(__name__)
@@ -1299,14 +1300,15 @@ class VariationalAutoencoderLoss(nn.Module):
         the relative weight of the distribution loss (K-L divergence)
     """
 
-    def __init__(self, rec_loss=None, len_dim=1, dist_loss_weight=1.0):
+    def __init__(self, rec_loss=None, len_dim=1, dist_loss_weight=0.001):
         super().__init__()
         if rec_loss is None:
             rec_loss = mse_loss
         self.rec_loss = rec_loss
         self.dist_loss_weight = dist_loss_weight
+        self.len_dim = len_dim
 
-    def forward(self, predictions, targets, length=None):
+    def forward(self, predictions, targets, length=None, reduction="batchmean"):
         """Computes the forward pass
         
         Arguments
@@ -1324,12 +1326,9 @@ class VariationalAutoencoderLoss(nn.Module):
         loss: torch.Tensor
             the VAE loss (reconstruction + K-L divergence)
         """
-        details = self.details(predictions, targets, length, reduce=False)
-        mask = length_to_mask(length, targets.size(1))
-        loss = reduce_loss(details.loss, mask)
-        return loss
+        return self.details(predictions, targets, length, reduction).loss
 
-    def details(self, predictions, targets, length=None, reduce=True):
+    def details(self, predictions, targets, length=None, reduction="batchmean"):
         """Gets detailed information about the loss (useful for plotting, logs,
         etc.)
 
@@ -1365,21 +1364,31 @@ class VariationalAutoencoderLoss(nn.Module):
         """
         if length is None:
             length = torch.ones(targets.size(0))
-        rec, _, mean, log_var = predictions
-        rec_loss = self.rec_loss(targets, rec)
-        dist_loss = -0.5 * torch.sum(1 + log_var - mean ** 2 - log_var.exp(), dim = 1)
-        dist_loss = torch.mean(dist_loss, dim=0)
+        rec_loss, dist_loss = self._compute_components(predictions, targets)
+        rec_loss = self._reduce_loss(rec_loss, length, reduction)
+        dist_loss = self._reduce_loss(dist_loss, length, reduction)
         weighted_dist_loss = self.dist_loss_weight * dist_loss
         loss = rec_loss + weighted_dist_loss
+            
+        return VariationalAutoencoderLossDetails(loss, rec_loss, dist_loss, weighted_dist_loss)
+    
+    def _compute_components(self, predictions, targets):
+        rec, _, mean, log_var = predictions
+        rec_loss = self._align_length_axis(self.rec_loss(targets, rec, reduction=None))
+        dist_loss = self._align_length_axis(-0.5 * (1 + log_var - mean ** 2 - log_var.exp()))
+        return rec_loss, dist_loss
+    
+    def _reduce_loss(self, loss, length, reduction):
+        max_len = loss.size(1)
+        mask = length_to_mask(length * max_len, max_len)
+        mask = unsqueeze_as(mask, loss).expand_as(loss)        
+        reduced_loss = reduce_loss(loss * mask, mask, reduction=reduction)
+        return reduced_loss
+        
+    
+    def _align_length_axis(self, tensor):
+        return tensor.moveaxis(self.len_dim, 1)
 
-        if reduce:
-            mask = length_to_mask(length, targets.size(1))
-            loss = reduce_loss(loss, mask)
-            dist_loss = reduce_loss(dist_loss, mask)
-            weighted_dist_loss = self.dist_loss_weight * dist_loss
 
-        return VAELossDetails(loss, rec_loss, dist_loss, weighted_dist_loss)
-
-
-VAELossDetails = namedtuple(
+VariationalAutoencoderLossDetails = namedtuple(
     "VAELossDetails", ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"])

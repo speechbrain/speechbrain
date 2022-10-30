@@ -30,7 +30,6 @@ Authors
  * Artem Ploujnikov 2022
 """
 
-
 from abc import abstractmethod
 
 from speechbrain.utils.data_utils import pad_divisible
@@ -394,7 +393,7 @@ class ResBlock(TimestepBlock):
         else:
             self.emb_layers = None
         self.out_layers = nn.Sequential(
-            nn.GroupNorm(32, self.out_channels),
+            nn.GroupNorm(norm_num_groups, self.out_channels),
             nn.SiLU(),
             nn.Dropout(p=dropout),
             zero_module(
@@ -463,6 +462,7 @@ class AttentionBlock(nn.Module):
 
     def __init__(
         self, channels, num_heads=1, num_head_channels=-1,
+        norm_num_groups=32
     ):
         super().__init__()
         self.channels = channels
@@ -473,7 +473,7 @@ class AttentionBlock(nn.Module):
                 channels % num_head_channels == 0
             ), f"q,k,v channels {channels} is not divisible by num_head_channels {num_head_channels}"
             self.num_heads = channels // num_head_channels
-        self.norm = nn.GroupNorm(32, channels)
+        self.norm = nn.GroupNorm(norm_num_groups, channels)
         self.qkv = conv_nd(1, channels, channels * 3, 1)
         self.attention = QKVAttention(self.num_heads)
 
@@ -498,44 +498,6 @@ class AttentionBlock(nn.Module):
         h = self.attention(qkv)
         h = self.proj_out(h)
         return (x + h).reshape(b, c, *spatial)
-
-
-class QKVAttentionLegacy(nn.Module):
-    """
-    A module which performs QKV attention. Matches legacy QKVAttention + input/ouput heads shaping
-    """
-
-    def __init__(self, n_heads):
-        super().__init__()
-        self.n_heads = n_heads
-
-    def forward(self, qkv):
-        """
-        Apply QKV attention.
-
-        Arguments
-        ---------
-        qkv: torch.Tensor
-            an [N x (H * 3 * C) x T] tensor of Qs, Ks, and Vs.
-
-        Returns
-        -------
-        result: torch.Tensor
-            an [N x (H * C) x T] tensor after attention.
-        """
-        bs, width, length = qkv.shape
-        assert width % (3 * self.n_heads) == 0
-        ch = width // (3 * self.n_heads)
-        q, k, v = qkv.reshape(bs * self.n_heads, ch * 3, length).split(
-            ch, dim=1
-        )
-        scale = 1 / math.sqrt(math.sqrt(ch))
-        weight = torch.einsum(
-            "bct,bcs->bts", q * scale, k * scale
-        )  # More stable with f16 than dividing afterwards
-        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
-        a = torch.einsum("bts,bcs->bct", weight, v)
-        return a.reshape(bs, -1, length)
 
 
 class QKVAttention(nn.Module):
@@ -639,6 +601,7 @@ class UNetModel(nn.Module):
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
+        norm_num_groups=32,
         use_scale_shift_norm=False,
         resblock_updown=False,
     ):
@@ -692,6 +655,7 @@ class UNetModel(nn.Module):
                         out_channels=int(mult * model_channels),
                         dims=dims,
                         use_scale_shift_norm=use_scale_shift_norm,
+                        norm_num_groups=norm_num_groups
                     )
                 ]
                 ch = int(mult * model_channels)
@@ -701,6 +665,7 @@ class UNetModel(nn.Module):
                             ch,
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
+                            norm_num_groups=norm_num_groups
                         )
                     )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -718,6 +683,7 @@ class UNetModel(nn.Module):
                             dims=dims,
                             use_scale_shift_norm=use_scale_shift_norm,
                             down=True,
+                            norm_num_groups=norm_num_groups
                         )
                         if resblock_updown
                         else Downsample(
@@ -737,9 +703,11 @@ class UNetModel(nn.Module):
                 dropout,
                 dims=dims,
                 use_scale_shift_norm=use_scale_shift_norm,
+                norm_num_groups=norm_num_groups
             ),
             AttentionBlock(
                 ch, num_heads=num_heads, num_head_channels=num_head_channels,
+                norm_num_groups=norm_num_groups
             ),
             ResBlock(
                 ch,
@@ -747,6 +715,7 @@ class UNetModel(nn.Module):
                 dropout,
                 dims=dims,
                 use_scale_shift_norm=use_scale_shift_norm,
+                norm_num_groups=norm_num_groups
             ),
         )
         self._feature_size += ch
@@ -763,6 +732,7 @@ class UNetModel(nn.Module):
                         out_channels=int(model_channels * mult),
                         dims=dims,
                         use_scale_shift_norm=use_scale_shift_norm,
+                        norm_num_groups=norm_num_groups
                     )
                 ]
                 ch = int(model_channels * mult)
@@ -772,6 +742,7 @@ class UNetModel(nn.Module):
                             ch,
                             num_heads=num_heads_upsample,
                             num_head_channels=num_head_channels,
+                            norm_num_groups=norm_num_groups
                         )
                     )
                 if level and i == num_res_blocks:
@@ -785,6 +756,7 @@ class UNetModel(nn.Module):
                             dims=dims,
                             use_scale_shift_norm=use_scale_shift_norm,
                             up=True,
+                            norm_num_groups=norm_num_groups                            
                         )
                         if resblock_updown
                         else Upsample(
@@ -796,7 +768,7 @@ class UNetModel(nn.Module):
                 self._feature_size += ch
 
         self.out = nn.Sequential(
-            nn.GroupNorm(32, ch),
+            nn.GroupNorm(norm_num_groups, ch),
             nn.SiLU(),
             zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
         )
@@ -863,11 +835,12 @@ class EncoderUNetModel(nn.Module):
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
+        norm_num_groups=32,
         use_scale_shift_norm=False,
         resblock_updown=False,
         pool=None,
         attention_pool_dim=None,
-        out_kernel_size=3
+        out_kernel_size=3,
     ):
         super().__init__()
 
@@ -916,6 +889,7 @@ class EncoderUNetModel(nn.Module):
                         out_channels=int(mult * model_channels),
                         dims=dims,
                         use_scale_shift_norm=use_scale_shift_norm,
+                        norm_num_groups=norm_num_groups
                     )
                 ]
                 ch = int(mult * model_channels)
@@ -925,6 +899,7 @@ class EncoderUNetModel(nn.Module):
                             ch,
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
+                            norm_num_groups=norm_num_groups
                         )
                     )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -942,6 +917,7 @@ class EncoderUNetModel(nn.Module):
                             dims=dims,
                             use_scale_shift_norm=use_scale_shift_norm,
                             down=True,
+                            norm_num_groups=norm_num_groups
                         )
                         if resblock_updown
                         else Downsample(
@@ -977,16 +953,20 @@ class EncoderUNetModel(nn.Module):
         self.pool = pool
         self.spatial_pooling = False
         if pool is None:
-            self.out = conv_nd(
-                dims,
-                ch,
-                out_channels,
-                kernel_size=out_kernel_size,
-                padding="same"
+            self.out = nn.Sequential(
+                nn.GroupNorm(num_channels=ch, num_groups=norm_num_groups, eps=1e-6),
+                nn.SiLU(),
+                conv_nd(
+                    dims,
+                    ch,
+                    out_channels,
+                    kernel_size=out_kernel_size,
+                    padding="same"
+                )
             )
         elif pool == "adaptive":
             self.out = nn.Sequential(
-                nn.GroupNorm(32, ch),
+                nn.GroupNorm(norm_num_groups, ch),
                 nn.SiLU(),
                 nn.AdaptiveAvgPool2d((1, 1)),
                 zero_module(conv_nd(dims, ch, out_channels, 1)),
@@ -995,7 +975,7 @@ class EncoderUNetModel(nn.Module):
         elif pool == "attention":
             assert num_head_channels != -1
             self.out = nn.Sequential(
-                nn.GroupNorm(32, ch),
+                nn.GroupNorm(norm_num_groups, ch),
                 nn.SiLU(),
                 AttentionPool2d(
                     attention_pool_dim // ds,
@@ -1014,7 +994,7 @@ class EncoderUNetModel(nn.Module):
         elif pool == "spatial_v2":
             self.out = nn.Sequential(
                 nn.Linear(self._feature_size, 2048),
-                nn.GroupNorm(32, 2048),
+                nn.GroupNorm(norm_num_groups, 2048),
                 nn.SiLU(),
                 nn.Linear(2048, self.out_channels),
             )
@@ -1080,6 +1060,7 @@ class DecoderUNetModel(nn.Module):
         num_heads_upsample=-1,
         use_scale_shift_norm=False,
         resblock_updown=False,
+        norm_num_groups=32,
         out_kernel_size=3
     ):
         super().__init__()
@@ -1120,6 +1101,7 @@ class DecoderUNetModel(nn.Module):
                 dropout,
                 dims=dims,
                 use_scale_shift_norm=use_scale_shift_norm,
+                norm_num_groups=norm_num_groups
             ),
             AttentionBlock(
                 ch, num_heads=num_heads, num_head_channels=num_head_channels,
@@ -1130,6 +1112,7 @@ class DecoderUNetModel(nn.Module):
                 dropout,
                 dims=dims,
                 use_scale_shift_norm=use_scale_shift_norm,
+                norm_num_groups=norm_num_groups
             ),
         )
 
@@ -1137,7 +1120,7 @@ class DecoderUNetModel(nn.Module):
         self._feature_size = ch
         ds = 1
 
-        for level, mult in enumerate(channel_mult):
+        for level, mult in enumerate(reversed(channel_mult)):
             for _ in range(num_res_blocks):
                 layers = [
                     ResBlock(
@@ -1147,6 +1130,7 @@ class DecoderUNetModel(nn.Module):
                         out_channels=int(mult * model_channels),
                         dims=dims,
                         use_scale_shift_norm=use_scale_shift_norm,
+                        norm_num_groups=norm_num_groups
                     )
                 ]
                 ch = int(mult * model_channels)
@@ -1156,6 +1140,7 @@ class DecoderUNetModel(nn.Module):
                             ch,
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
+                            norm_num_groups=norm_num_groups
                         )
                     )
                 self.upsample_blocks.append(TimestepEmbedSequential(*layers))
@@ -1171,7 +1156,8 @@ class DecoderUNetModel(nn.Module):
                             out_channels=out_ch,
                             dims=dims,
                             use_scale_shift_norm=use_scale_shift_norm,
-                            down=True,
+                            up=True,
+                            norm_num_groups=norm_num_groups
                         )
                         if resblock_updown
                         else Upsample(
@@ -1183,14 +1169,17 @@ class DecoderUNetModel(nn.Module):
                 ds *= 2
                 self._feature_size += ch
 
-        self.out = conv_nd(
+        self.out = nn.Sequential(
+            nn.GroupNorm(num_channels=ch, num_groups=norm_num_groups, eps=1e-6),
+            nn.SiLU(),
+            conv_nd(
                 dims,
                 ch,
                 out_channels,
                 kernel_size=out_kernel_size,
                 padding="same"
             )
-
+        )
         self._feature_size += ch
 
     def forward(self, x, timesteps=None):
@@ -1271,6 +1260,7 @@ class DownsamplingPadding(nn.Module):
         return x, lens_pad
 
 
+#TODO: Get rid of all hard-coded constants
 class UNetVariationalAutencoder(VariationalAutoencoder):
     """A convenience class for a UNet-based Variational Autoencoder (VAE) -
     useful in constructing Latent Diffusion models
@@ -1282,6 +1272,8 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
     model_channels: int
         the number of channels in the convolutional layers of the
         UNet encoder and decoder
+    encoder_out_channels: int
+        the number of channels the encoder will output
     latent_channels: int
         the number of channels in the latent space
     encoder_num_res_blocks: int
@@ -1315,6 +1307,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         self,
         in_channels,
         model_channels,
+        encoder_out_channels,
         latent_channels,
         encoder_num_res_blocks,
         encoder_attention_resolutions,
@@ -1326,6 +1319,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
+        norm_num_groups=32,
         use_scale_shift_norm=False,
         resblock_updown=False,
         out_kernel_size=3
@@ -1333,7 +1327,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         encoder_unet = EncoderUNetModel(
             in_channels=in_channels,
             model_channels=model_channels,
-            out_channels=latent_channels,
+            out_channels=encoder_out_channels,
             num_res_blocks=encoder_num_res_blocks,
             attention_resolutions=encoder_attention_resolutions,
             dropout=dropout,
@@ -1342,6 +1336,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             num_heads=num_heads,
             num_head_channels=num_head_channels,
             num_heads_upsample=num_heads_upsample,
+            norm_num_groups=norm_num_groups,
             use_scale_shift_norm=use_scale_shift_norm,
             resblock_updown=resblock_updown,
             out_kernel_size=out_kernel_size
@@ -1363,18 +1358,19 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             num_res_blocks=decoder_num_res_blocks,
             attention_resolutions=decoder_attention_resolutions,
             dropout=dropout,
-            channel_mult=channel_mult,
+            channel_mult=list(channel_mult),
             dims=dims,
             num_heads=num_heads,
             num_head_channels=num_head_channels,
             num_heads_upsample=num_heads_upsample,
+            norm_num_groups=norm_num_groups,
             use_scale_shift_norm=use_scale_shift_norm,
             resblock_updown=resblock_updown,
             out_kernel_size=out_kernel_size
         )
         mean, log_var = [
             conv_nd(
-                dims=dims, in_channels=latent_channels, out_channels=latent_channels,
+                dims=dims, in_channels=encoder_out_channels, out_channels=latent_channels,
                 kernel_size=1
             )
             for _ in range(2)

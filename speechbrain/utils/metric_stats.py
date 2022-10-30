@@ -884,3 +884,114 @@ class ClassificationStats(MetricStats):
         else:
             label = key
         return label
+
+class MultiMetricStats:
+    """A wrapper that evaluates multiple metrics simultaneously
+
+    Arguments
+    ---------
+    metric : function
+        The function to use to compute the relevant metric. Should take
+        at least two arguments (predictions and targets) and can
+        optionally take the relative lengths of either or both arguments.
+        Not usually used in sub-classes.
+    batch_eval: bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
+    n_jobs : int
+        The number of jobs to use for computing the metric. If this is
+        more than one, every sample is processed individually, otherwise
+        the whole batch is passed at once.
+    """
+    def __init__(self, metric, n_jobs=1, batch_eval=False):
+        self.metric = _dictify(metric)
+        self.n_jobs = n_jobs
+        self.batch_eval = batch_eval
+        self.ids = []
+        self.metrics = {}
+
+    def append(self, ids, *args, **kwargs):
+        """Store a particular set of metric scores.
+
+        Arguments
+        ---------
+        ids : list
+            List of ids corresponding to utterances.
+        *args, **kwargs
+            Arguments to pass to the metric function.
+        """
+        self.ids.extend(ids)
+
+        # Batch evaluation
+        if self.batch_eval:
+            scores = self.eval_simple(*args, **kwargs)
+            
+
+        else:
+            if "predict" not in kwargs or "target" not in kwargs:
+                raise ValueError(
+                    "Must pass 'predict' and 'target' as kwargs if batch_eval=False"
+                )
+            if self.n_jobs == 1:
+                # Sequence evaluation (loop over inputs)
+                scores_raw = sequence_evaluation(self.metric, **kwargs)
+            else:
+                # Multiprocess evaluation
+                scores_raw = multiprocess_evaluation(
+                    metric=self.metric, n_jobs=self.n_jobs, **kwargs
+                )
+        
+            keys = scores_raw[0].keys()
+            scores = {
+                key: torch.tensor([score[key] for score in scores_raw])
+                for key in keys
+            }
+                
+        for key, metric_scores in scores.items():
+            if key not in self.metrics:
+                self.metrics[key] = MetricStats(lambda x: x, batch_eval=True)
+            self.metrics[key].append(ids, metric_scores)
+
+    def eval_simple(self, *args, **kwargs):
+        scores = self.metric(*args, **kwargs)
+        return {key: score.detach() for key, score in scores.items()}
+
+
+    def summarize(self, field=None, flat=False):
+        """Summarize the metric scores, returning relevant stats.
+
+        Arguments
+        ---------
+        field : str
+            If provided, only returns selected statistic. If not,
+            returns all computed statistics.
+        flat: bool
+            whether to flatten the dictionary
+
+        Returns
+        -------
+         dict
+            Returns a dictionary of all computed stats
+        """
+
+        result = {key: metric.summarize(field) for key, metric in self.metrics.items()}
+        if flat:
+            result = {f"{key}_{field}": value for key, fields in result.items() for field, value in fields.items()}
+        return result
+
+
+def _dictify(f):
+    """A wrapper that converts functions returning 
+    namedtuples to functions returning dicts while leaving
+    functions returning dicts intact"""
+    has_asdict = None
+    def wrapper(*args, **kwargs):
+        nonlocal has_asdict
+        result = f(*args, **kwargs)
+        if has_asdict is None:
+            has_asdict = hasattr(result, "_asdict")
+        return result._asdict() if has_asdict else result
+    return wrapper
+        
