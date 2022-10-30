@@ -537,24 +537,42 @@ def mel_spectogram(
         input audio signal
     """
     from torchaudio import transforms
-    audio_to_mel = transforms.MelSpectrogram(
-        sample_rate=sample_rate,
+    # audio_to_mel = transforms.MelSpectrogram(
+    #     sample_rate=sample_rate,
+    #     hop_length=hop_length,
+    #     win_length=win_length,
+    #     n_fft=n_fft,
+    #     n_mels=n_mels,
+    #     f_min=f_min,
+    #     f_max=f_max,
+    #     power=power,
+    #     normalized=normalized,
+    #     norm=norm,
+    #     mel_scale=mel_scale,
+    # ).to(audio.device)
+    audio_to_mel = transforms.Spectrogram(
         hop_length=hop_length,
         win_length=win_length,
         n_fft=n_fft,
-        n_mels=n_mels,
-        f_min=f_min,
-        f_max=f_max,
         power=power,
         normalized=normalized,
-        norm=norm,
-        mel_scale=mel_scale,
     ).to(audio.device)
 
-    mel = audio_to_mel(audio)
+    mel_scale = transforms.MelScale(
+            sample_rate=sample_rate,
+            n_stft=n_fft // 2 + 1,
+            n_mels=n_mels,
+            f_min=f_min,
+            f_max=f_max,
+            norm=norm,
+            mel_scale=mel_scale,
+    ).to(audio.device)
+    spec = audio_to_mel(audio)
+    mel = mel_scale(spec)
+    assert mel.dim() == 2
+    assert mel.shape[0] == n_mels
+    rmse = torch.norm(mel, dim=0)
 
-    rmse = librosa.feature.rms(y=audio, frame_length=n_fft, hop_length=hop_length)[0]
-    rmse = torch.from_numpy(rmse)
     if min_max_energy_norm:
         rmse = (rmse - torch.min(rmse))/(torch.max(rmse) - torch.min(rmse))
     
