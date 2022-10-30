@@ -940,6 +940,7 @@ class EncoderUNetModel(nn.Module):
             ),
             AttentionBlock(
                 ch, num_heads=num_heads, num_head_channels=num_head_channels,
+                norm_num_groups=norm_num_groups
             ),
             ResBlock(
                 ch,
@@ -1105,6 +1106,7 @@ class DecoderUNetModel(nn.Module):
             ),
             AttentionBlock(
                 ch, num_heads=num_heads, num_head_channels=num_head_channels,
+                norm_num_groups=norm_num_groups
             ),
             ResBlock(
                 ch,
