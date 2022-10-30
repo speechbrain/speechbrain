@@ -7,6 +7,7 @@ Authors
 import torch
 from torch import nn
 from collections import namedtuple
+from speechbrain.dataio.dataio import clean_padding_
 from speechbrain.utils.data_utils import trim_as
 
 
@@ -66,13 +67,29 @@ class VariationalAutoencoder(Autoencoder):
     
     log_var: torch.Module
         the module that computes the log variance
+
+    mask_value: float
+        The value with which outputs and latents will be masked
+
+    len_dim: None
+        the length dimension
+    
+    mask_latents: bool
+        where to apply the length mask to the latent representation
+
+    mask_output: bool
+        whether to apply the length mask to the output
     """
-    def __init__(self, encoder, decoder, mean, log_var):
+    def __init__(self, encoder, decoder, mean, log_var, mask_value=0., len_dim=1, mask_latents=True, mask_output=True):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder        
         self.mean = mean
         self.log_var = log_var
+        self.mask_value = mask_value
+        self.len_dim = len_dim
+        self.mask_latents = mask_latents
+        self.mask_output = mask_output
 
     def encode(self, x):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
@@ -124,13 +141,17 @@ class VariationalAutoencoder(Autoencoder):
         epsilon = torch.randn_like(log_var)
         return mean + epsilon * torch.exp(0.5 * log_var)
 
-    def train_sample(self, x):
+    def train_sample(self, x, length=None):
         """Provides a data sample for training the autoencoder
 
         Arguments
         ---------
         x: torch.Tensor
             the source data (in the sample space)
+        length: None
+            the length (optional). If provided, latents and
+            outputs will be masked
+
         
         Returns
         -------
@@ -150,8 +171,13 @@ class VariationalAutoencoder(Autoencoder):
         mean = self.mean(encoder_out)
         log_var = self.log_var(encoder_out)
         latent_sample = self.reparameterize(mean, log_var)
+        if self.mask_latents and length is not None:
+            clean_padding_(latent_sample, length, self.len_dim, self.mask_value)
         x_rec = self.decode(latent_sample)
         x_rec = trim_as(x_rec, x)
+        if self.mask_output and length is not None:
+            clean_padding_(latent_sample, length, self.len_dim, self.mask_value)
+        
         return VariationalAutoencoderOutput(x_rec, latent_sample, mean, log_var)
 
 

@@ -371,7 +371,9 @@ class LatentDiffusion(nn.Module):
         x: torch.Tensor
             the original data sample
         """
-        autoencoder_out = self.autencoder.train_sample(x)
+        # TODO: Make this generic
+        length = kwargs.get("length")
+        autoencoder_out = self.autencoder.train_sample(x, length=length)
         diffusion_train_sample = self.diffusion.train_sample(autoencoder_out.latent, **kwargs)
         return LatentDiffusionTrainSample(diffusion=diffusion_train_sample, autoencoder=autoencoder_out)
 

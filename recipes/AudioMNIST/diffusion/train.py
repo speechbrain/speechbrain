@@ -325,8 +325,9 @@ class DiffusionBrain(sb.Brain):
             )
             rec_mask = length_to_mask(lens, autoencoder_out.rec.size(2)).unsqueeze(1)
             rec_mask = match_shape(rec_mask, autoencoder_out.rec)
+            rec_denorm = self.modules.global_norm.denormalize(autoencoder_out.rec)
             self.autoencoder_rec_dist_stats_metric.append(
-                batch.file_name, autoencoder_out.rec, mask=rec_mask
+                batch.file_name, rec_denorm, mask=rec_mask
             )
 
         
