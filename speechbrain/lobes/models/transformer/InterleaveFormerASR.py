@@ -187,22 +187,22 @@ class InterleaveFormerASR(InterleaveFormerInterface):
             pos_embs_encoder = None
 
         # assert False, f"src shape: {src.shape} {src_key_padding_mask.shape} tgt {tgt.shape} {tgt_mask.shape}"
-        
+
         final_src = torch.cat([src, tgt], dim = 1)
-        final_padding = torch.cat([src_key_padding_mask, tgt_key_padding_mask], dim = 1)
-        assert False, f"final src: {final_src.shape} padding: {final_padding.shape} causal hop: {tgt_mask.shape}"
+        final_padding_mask = torch.cat([src_key_padding_mask, tgt_key_padding_mask], dim = 1)
+
+        # encoded_output is bi-modality learned representation.
         encoded_output, _ = self.encoder(
-            src=src,
+            src=final_src,
             seg_stats = seg_stats, # used by modality expert
             src_mask=tgt_mask, # this must be a causal mask, hopping style
-            src_key_padding_mask=src_key_padding_mask,
+            src_key_padding_mask=final_padding_mask,
             pos_embs=pos_embs_encoder,
         )
 
-
-        # encoded_output is bi-modality learned representation.
-        # None since we don't have a "decoder"
-        return encoded_output, None
+        audio_representation = encoded_output[:,:seg_stats[0]]
+        text_representation = encoded_output[:,seg_stats[0]:]
+        return audio_representation, text_representation
 
     def make_masks(self, src, tgt, wave_len = None, seg_stats = None, pad_idx=0):
         """This method generates the masks for training the transformer model.
@@ -241,4 +241,3 @@ class InterleaveFormerASR(InterleaveFormerInterface):
         for p in self.parameters():
             if p.dim() > 1:
                 torch.nn.init.xavier_normal_(p)
-
