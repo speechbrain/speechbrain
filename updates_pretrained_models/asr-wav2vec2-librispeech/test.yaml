@@ -5,7 +5,22 @@ dataset: LibriSpeech
 recipe_yaml: recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
-dataio: from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare
+dataio: |
+    from recipes.LibriSpeech.librispeech_prepare import prepare_librispeech
+    run_on_main(
+        prepare_librispeech,
+        kwargs={
+            "data_folder": recipe_hparams["data_folder"],
+            "tr_splits": recipe_hparams["train_splits"],
+            "dev_splits": recipe_hparams["dev_splits"],
+            "te_splits": recipe_hparams["test_splits"],
+            "save_folder": recipe_hparams["output_folder"],
+            "merge_lst": recipe_hparams["train_splits"],
+            "merge_name": "train.csv",
+            "skip_prep": recipe_hparams["skip_prep"],
+        },
+    )
+    from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare
 test_datasets: dataio_prepare(recipe_hparams)[2]
 test_loader: test_dataloader_opts
 performance:
