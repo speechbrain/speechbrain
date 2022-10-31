@@ -66,6 +66,7 @@ class ASR(sb.core.Brain):
         _, text_max_len = tokens_bos.shape
         seg_stats = np.array([audio_max_len, text_max_len ])
 
+        # enc_out is the audio representation, pred is the text representation
         enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, seg_stats = seg_stats, pad_idx=self.hparams.pad_index,
         )
