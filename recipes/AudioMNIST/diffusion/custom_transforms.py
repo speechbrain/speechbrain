@@ -108,7 +108,7 @@ class GlobalNorm(nn.Module):
         self.length_dim = length_dim
         self.frozen = False
 
-    def forward(self, x, lengths=None, mask_value=None):
+    def forward(self, x, lengths=None, mask_value=None, skip_update=False):
         """Normalizes the tensor provided
 
         Arguments
@@ -120,6 +120,8 @@ class GlobalNorm(nn.Module):
             count towards normalization)
         mask_value: float
             the value to use for masked positions
+        skip_update: false
+            whether to skip updates to the norm
 
         Returns
         -------
@@ -133,8 +135,12 @@ class GlobalNorm(nn.Module):
 
         mask = self.get_mask(x, lengths)
 
-        if not self.frozen and (
-            self.update_steps is None or self.step_count < self.update_steps
+        if (
+            not skip_update
+            and not self.frozen
+            and (
+                self.update_steps is None or self.step_count < self.update_steps
+            )
         ):
             x_masked = x.masked_select(mask)
             mean = x_masked.mean()

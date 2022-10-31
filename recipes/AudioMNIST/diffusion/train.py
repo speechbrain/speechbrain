@@ -89,8 +89,12 @@ class DiffusionBrain(sb.Brain):
 
         autoencoder_out = None
         if self.diffusion_mode == DiffusionMode.LATENT:
+            mask_value = self.modules.global_norm(
+                unsqueeze_as(self.mask_value_norm, feats),
+                skip_update=True
+            ).squeeze()
             train_sample_diffusion, autoencoder_out = self.modules.diffusion_latent.train_sample_latent(
-                feats, lens=lens
+                feats, length=lens, out_mask_value=mask_value,
             )
             pred, noise, noisy_sample = train_sample_diffusion
         else:
@@ -271,11 +275,9 @@ class DiffusionBrain(sb.Brain):
         feats_raw = self.modules.min_level_norm(feats)
 
         # Global Norm
-        mask_value = self.modules.min_level_norm(
-            torch.tensor(self.hparams.pad_level_db, device=feats_raw.device)
-        )
 
-        feats = self.modules.global_norm(feats_raw, lens, mask_value=mask_value)
+        feats = self.modules.global_norm(
+            feats_raw, lens, mask_value=self.mask_value_norm)
 
         # Compute metrics
         if self.hparams.enable_train_metrics:
@@ -323,7 +325,9 @@ class DiffusionBrain(sb.Brain):
             self.autoencoder_loss_metric.append(
                 batch.file_name, autoencoder_out, feats, length=lens, reduction="batch"
             )
-            rec_mask = length_to_mask(lens, autoencoder_out.rec.size(2)).unsqueeze(1)
+            
+            max_len = autoencoder_out.rec.size(2)
+            rec_mask = length_to_mask(lens * max_len, max_len).unsqueeze(1)
             rec_mask = match_shape(rec_mask, autoencoder_out.rec)
             rec_denorm = self.modules.global_norm.denormalize(autoencoder_out.rec)
             self.autoencoder_rec_dist_stats_metric.append(
@@ -457,8 +461,13 @@ class DiffusionBrain(sb.Brain):
 
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
-            metric=sb.nnet.losses.mse_loss
+            metric=sb.nnet.losses.mse_loss        
         )
+    
+        self.mask_value_norm = self.modules.min_level_norm(
+            torch.tensor(self.hparams.pad_level_db, device=self.device)
+        )
+
         if self.hparams.enable_train_metrics:
             self.data_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
                 metric=dist_stats,

@@ -7,7 +7,7 @@ Authors
 import torch
 from torch import nn
 from collections import namedtuple
-from speechbrain.dataio.dataio import clean_padding_
+from speechbrain.dataio.dataio import clean_padding
 from speechbrain.utils.data_utils import trim_as
 
 
@@ -74,22 +74,41 @@ class VariationalAutoencoder(Autoencoder):
     len_dim: None
         the length dimension
     
-    mask_latents: bool
+    mask_latent: bool
         where to apply the length mask to the latent representation
 
-    mask_output: bool
+    mask_out: bool
         whether to apply the length mask to the output
+    
+    out_mask_value: float
+        the mask value used for the output
+    
+    latent_mask_value: float
+        the mask value used for the latent representation
+
     """
-    def __init__(self, encoder, decoder, mean, log_var, mask_value=0., len_dim=1, mask_latents=True, mask_output=True):
+    def __init__(
+        self,
+        encoder,
+        decoder,
+        mean,
+        log_var,
+        len_dim=1,
+        mask_latent=True,
+        mask_out=True,
+        output_mask_value=0.,
+        latent_mask_value=0.
+    ):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder        
         self.mean = mean
         self.log_var = log_var
-        self.mask_value = mask_value
         self.len_dim = len_dim
-        self.mask_latents = mask_latents
-        self.mask_output = mask_output
+        self.mask_latent = mask_latent
+        self.mask_out = mask_out
+        self.output_mask_value = output_mask_value
+        self.latent_mask_value = latent_mask_value
 
     def encode(self, x):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
@@ -141,7 +160,7 @@ class VariationalAutoencoder(Autoencoder):
         epsilon = torch.randn_like(log_var)
         return mean + epsilon * torch.exp(0.5 * log_var)
 
-    def train_sample(self, x, length=None):
+    def train_sample(self, x, length=None, out_mask_value=None, latent_mask_value=None):
         """Provides a data sample for training the autoencoder
 
         Arguments
@@ -167,16 +186,20 @@ class VariationalAutoencoder(Autoencoder):
                 the logarithm of the variance of the latent representation
 
         """
-        encoder_out, length = self.encoder(x)
+        if out_mask_value is None:
+            out_mask_value = self.output_mask_value
+        if latent_mask_value is None:
+            latent_mask_value = self.latent_mask_value
+        encoder_out, _ = self.encoder(x)
         mean = self.mean(encoder_out)
         log_var = self.log_var(encoder_out)
         latent_sample = self.reparameterize(mean, log_var)
-        if self.mask_latents and length is not None:
-            clean_padding_(latent_sample, length, self.len_dim, self.mask_value)
+        if self.mask_latent and length is not None:
+            latent_sample = clean_padding(latent_sample, length, self.len_dim, latent_mask_value)
         x_rec = self.decode(latent_sample)
         x_rec = trim_as(x_rec, x)
-        if self.mask_output and length is not None:
-            clean_padding_(latent_sample, length, self.len_dim, self.mask_value)
+        if self.mask_out and length is not None:
+            x_rec = clean_padding(x_rec, length, self.len_dim, out_mask_value)
         
         return VariationalAutoencoderOutput(x_rec, latent_sample, mean, log_var)
 

@@ -373,7 +373,14 @@ class LatentDiffusion(nn.Module):
         """
         # TODO: Make this generic
         length = kwargs.get("length")
-        autoencoder_out = self.autencoder.train_sample(x, length=length)
+        out_mask_value = kwargs.get("out_mask_value")
+        latent_mask_value = kwargs.get("out_mask_value")
+        autoencoder_out = self.autencoder.train_sample(
+            x,
+            length=length,
+            out_mask_value=out_mask_value,
+            latent_mask_value=latent_mask_value
+        )
         diffusion_train_sample = self.diffusion.train_sample(autoencoder_out.latent, **kwargs)
         return LatentDiffusionTrainSample(diffusion=diffusion_train_sample, autoencoder=autoencoder_out)
 

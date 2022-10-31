@@ -1066,7 +1066,7 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.):
     new_shape = [1,] * tensor.dim()
     new_shape[0] = tensor.size(0)
     new_shape[len_dim] = mask.size(1)
-    mask = mask.view(new_shape)
+    mask = mask.view(new_shape).expand_as(tensor)
     tensor[~mask] = mask_value
 
 
@@ -1092,7 +1092,7 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.):
 
 
     result = tensor.clone()
-    clean_padding_(result)
+    clean_padding_(result, length, len_dim, mask_value)
     return result
 
 

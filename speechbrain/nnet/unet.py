@@ -1324,7 +1324,8 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         norm_num_groups=32,
         use_scale_shift_norm=False,
         resblock_updown=False,
-        out_kernel_size=3
+        out_kernel_size=3,
+        len_dim=2
     ):
         encoder_unet = EncoderUNetModel(
             in_channels=in_channels,
@@ -1381,5 +1382,6 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             encoder=encoder,
             decoder=decoder,
             mean=mean,
-            log_var=log_var
+            log_var=log_var,
+            len_dim=len_dim
         )

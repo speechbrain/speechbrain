@@ -139,10 +139,10 @@ compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
 unet: !new:speechbrain.nnet.unet.UNetModel
-    in_channels: 2
+    in_channels: !ref <autoencoder_latent_channels>
     model_channels: !ref <model_channels>
     norm_num_groups: !ref <model_norm_num_groups>    
-    out_channels: 2
+    out_channels: !ref <autoencoder_latent_channels>
     num_res_blocks: !ref <model_num_res_blocks>
     attention_resolutions: [2]
     channel_mult: [1, 2]
@@ -158,6 +158,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     encoder_out_channels: !ref <autoencoder_encoder_out_channels>
     latent_channels: !ref <autoencoder_latent_channels>
     resblock_updown: True
+    len_dim: 2
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
@@ -203,14 +204,14 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 
 # This function manages learning rate annealing over the epochs.
