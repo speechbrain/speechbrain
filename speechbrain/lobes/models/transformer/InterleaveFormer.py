@@ -1,4 +1,4 @@
-"""InterleaveFormer implementaion in the SpeechBrain style.
+"""InterleaveFormer implementaion in a SpeechBrain style.
 Authors
 * Yiqi Wang, 2022
 * Aditya Rathod, 2022
@@ -18,8 +18,9 @@ from speechbrain.nnet.attention import RelPosEncXL
 
 class InterleaveFormerInterface(nn.Module):
     """This is an interface for Interleaveformer model.
-    the forward function is modifed such that there's only autoregressive prediction
+    The forward function is modifed such that there's only autoregressive prediction
     rather than tranditional encoder-decoder workflow since InterleaveFormer is a big "decoder"
+    (i.e. causal transformer)
     arxiv PLACE HOLDER
     Arguments
     ----------
@@ -265,9 +266,15 @@ class InterleaveFormerLayer(nn.Module):
                 d_model, nhead, dropout, mask_pos_future=causal
             )
 
-        # instantiated our 2 modality experts here????????
-        # rename the pos_ffn with something COOLER???
-        self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
+        # instantiated  2 modality experts here
+        self.audio_expert = sb.nnet.attention.PositionalwiseFeedForward(
+            d_ffn=d_ffn,
+            input_size=d_model,
+            dropout=dropout,
+            activation=activation,
+        )
+
+        self.text_expert = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
             input_size=d_model,
             dropout=dropout,
@@ -294,17 +301,19 @@ class InterleaveFormerLayer(nn.Module):
         ----------
         src : torch.Tensor
             The sequence to the encoder layer.
-        seg_stats:  dictionary
-            Bi-modality indicator { key_i: array for i in batch} used by modality expert.
-            Key_i: key to index sample.
-            Value_of_key_i: Even element is audio segment true length. Odd element is text tokens true length.
+        seg_stats:
+            an array of len 2 contains max len of src and max len of tgt
+            # dictionary in milestone 2
+            # Bi-modality indicator { key_i: array for i in batch} used by modality expert.
+            # Key_i: key to index sample.
+            # Value_of_key_i: Even element is audio segment true length. Odd element is text tokens true length.
         src_mask : torch.Tensor
             The mask for the src query for each example in the batch.
             now it actually a TGT_MASK that is passed in, which is a causal mask!
         src_key_padding_mask : torch.Tensor, optional
             The mask for the src keys for each example in the batch.
         """
-        assert type(seg_stats) == type(dict()), f"Need seg_stats to be a valid dictionary for modality expert!"
+        # assert type(seg_stats) == type(dict()), f"Need seg_stats to be a valid dictionary for modality expert!"
 
         if self.normalize_before:
             src1 = self.norm1(src)
@@ -316,7 +325,7 @@ class InterleaveFormerLayer(nn.Module):
             src1,
             src1,
             attn_mask=src_mask, # remember it has to be a causal mask now!
-            key_padding_mask=src_key_padding_mask,
+            key_padding_mask=src_key_padding_mask, # a key padding that deal with audio/text modality!
             pos_embs=pos_embs,
         )
 
@@ -329,9 +338,13 @@ class InterleaveFormerLayer(nn.Module):
             src1 = self.norm2(src)
         else:
             src1 = src
-        # apply 2 modality expert on their own modality using seg_stats
-        output = self.pos_ffn(src1)
 
+        # apply 2 modality expert on their own modality using seg_stats
+        audio_features = src1[:,:seg_stats[0], :]
+        text_features = src1[:, seg_stats[0]:, :]
+        o1 = self.audio_expert(audio_features)
+        o2 = self.text_expert(text_features)
+        output = torch.cat([o1, o2], dim = 1)
         # add & norm
         output = src + self.dropout2(output)
         if not self.normalize_before:
@@ -422,7 +435,9 @@ class InterleaveFormer(nn.Module):
         ----------
         src : tensor
             The sequence to the encoder layer (required).
-        seg_stats:  dictionary
+        seg_stats:
+            an array of len 2 contains max len of src and max len of tgt
+            # dictionary in milestone 2
             Bi-modality indicator { key_i: array for i in batch} used by modality expert.
             Key_i: key to index sample.
             Value_of_key_i: Even element is audio segment true length. Odd element is text tokens true length.
