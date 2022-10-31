@@ -136,7 +136,7 @@ class InterleaveFormerASR(InterleaveFormerInterface):
         # reset parameters using xavier_normal_
         self._init_params()
 
-    def forward(self, src, tgt, seg_stats, pad_idx=0):
+    def forward(self, src, tgt, wave_len, seg_stats = None, pad_idx=0):
         """
         Arguments
         ----------
@@ -144,15 +144,19 @@ class InterleaveFormerASR(InterleaveFormerInterface):
             The sequence to the encoder.
         tgt : torch.Tensor
             The sequence to the decoder.
-        seg_stats:  dictionary
-            The sum of each key's array is the total true length of a sequence where each element in the array indicates segment len
-            Format: { key_i: array for i in range(batch)} used by modality expert.
-            Key_i: key to index a sample's modality stats.
-            Value_of_key_i: an array. Even element is audio segment true length. Odd element is text tokens true length.
+        wave_len: torch.Tensor, optional
+            Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
+        seg_stats:
+            an array contains max len of src and max len of tgt
+            # dictionary for milestones
+            # The sum of each key's array is the total true length of a sequence where each element in the array indicates segment len
+            # Format: { key_i: array for i in range(batch)} used by modality expert.
+            # Key_i: key to index a sample's modality stats.
+            # Value_of_key_i: an array. Even element is audio segment true length. Odd element is text tokens true length.
         pad_idx : int, optional
             The index for <pad> token (default=0).
         """
-        assert type(seg_stats) == type(dict()), f"Need seg_stats to be a valid dictionary for modality expert!"
+        # assert type(seg_stats) == type(dict()), f"Need seg_stats to be a valid dictionary for modality expert!"
         # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
         if src.ndim == 4:
             bz, t, ch1, ch2 = src.shape
@@ -163,7 +167,7 @@ class InterleaveFormerASR(InterleaveFormerInterface):
             tgt_key_padding_mask,
             src_mask,
             tgt_mask, # this one could be the hopping causal mask! Postponed right now.
-        ) = self.make_masks(src, tgt, seg_stats, pad_idx=pad_idx)
+        ) = self.make_masks(src, tgt, wave_len, seg_stats, pad_idx=pad_idx)
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
@@ -174,25 +178,33 @@ class InterleaveFormerASR(InterleaveFormerInterface):
             pos_embs_encoder = None
 
 
-        # TODO TODO TODO TODO TODO
-        # select text modality from src using seg_stats to normalized them
-        # src = self.custom_tgt_module(src[????])
+        tgt = self.custom_tgt_module(tgt)
+        if self.attention_type == "RelPosMHAXL":
+            assert False, f"Don't support RelPosMHAXL yet"
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)
+            pos_embs_target = None
+            pos_embs_encoder = None
 
+        # assert False, f"src shape: {src.shape} {src_key_padding_mask.shape} tgt {tgt.shape} {tgt_mask.shape}"
+        
+        final_src = torch.cat([src, tgt], dim = 1)
+        final_padding = torch.cat([src_key_padding_mask, tgt_key_padding_mask], dim = 1)
+        assert False, f"final src: {final_src.shape} padding: {final_padding.shape} causal hop: {tgt_mask.shape}"
         encoded_output, _ = self.encoder(
             src=src,
-            seg_stats, # used by modality expert
-            src_mask=tgt_mask, # this must be a causal mask
+            seg_stats = seg_stats, # used by modality expert
+            src_mask=tgt_mask, # this must be a causal mask, hopping style
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_encoder,
         )
-
 
 
         # encoded_output is bi-modality learned representation.
         # None since we don't have a "decoder"
         return encoded_output, None
 
-    def make_masks(self, src, tgt, seg_stats, pad_idx=0):
+    def make_masks(self, src, tgt, wave_len = None, seg_stats = None, pad_idx=0):
         """This method generates the masks for training the transformer model.
         Arguments
         ---------
@@ -200,29 +212,33 @@ class InterleaveFormerASR(InterleaveFormerInterface):
             The sequence to the encoder (required).
         tgt : tensor
             The sequence to the decoder (required).
-        seg_stats:  dictionary
-            The sum of each key's array is the total true length of a sequence where each element in the array indicates segment len
-            Format: { key_i: array for i in range(batch)} used by modality expert.
-            Key_i: key to index a sample's modality stats.
-            Value_of_key_i: an array. Even element is audio segment true length. Odd element is text tokens true length.
+        wave_len: torch.Tensor, optional
+            Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
+        seg_stats:
+            an array contains max len of src and max len of tgt
+            # dictionary for milestones 2
+            # The sum of each key's array is the total true length of a sequence where each element in the array indicates segment len
+            # Format: { key_i: array for i in range(batch)} used by modality expert.
+            # Key_i: key to index a sample's modality stats.
+            # Value_of_key_i: an array. Even element is audio segment true length. Odd element is text tokens true length.
         pad_idx : int
             The index for <pad> token (default=0).
         """
         src_key_padding_mask = None
-        if seg_stats is not None:
+        if  wave_len is not None:
             # ??? HELP ME double check if below implementation make sense or not!
             # abs_len = [ sum(seg_stats[i]) for i in range(len(seg_stats))]
-            abs_len = None
+            abs_len = torch.round(wave_len * src.shape[1])
             src_key_padding_mask = ~length_to_mask(abs_len).bool()
-
         tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
 
         src_mask = None
-        # tgt_mask = get_lookahead_hopping_mask(tgt) # more efficient hopping causal mask implemented in InterleaveFormer.py
-        tgt_mask = get_lookahead_mask(tgt)
+        tgt_mask = get_lookahead_hopping_mask(tgt, seg_stats) # hopping causal mask implemented in InterleaveFormer.py
+        # tgt_mask = get_lookahead_mask(tgt)
         return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
     def _init_params(self):
         for p in self.parameters():
             if p.dim() > 1:
                 torch.nn.init.xavier_normal_(p)
+

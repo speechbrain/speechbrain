@@ -149,7 +149,7 @@ class InterleaveFormerInterface(nn.Module):
                     vdim=self.encoder_vdim,
                 )
             else:
-                assert False,f"Unsupported model type. Needs a InterleaveFormer"
+                assert False,f"Unsupported model type. Needs a InterleaveFormer, but have {encoder_module}"
 
     def forward(self, **kwags):
         """Check InterleaveFormerASR.py InterleaveFormerASR's forward()"""
@@ -552,23 +552,32 @@ def get_lookahead_hopping_mask(padded_input, seg_stats):
     ---------
     padded_input: torch.Tensor
         Padded input tensor.
-    seg_stats:  dictionary
-        Bi-modality indicator { key_i: array for i in batch} used by modality expert.
-        Key_i: key to index sample.
-        Value_of_key_i: Even element is audio segment true length. Odd element is text tokens true length.
+    seg_stats:
+        array of [max_audio_len, max_text_len]
+        # dictionary
+        # Bi-modality indicator { key_i: array for i in batch} used by modality expert.
+        # Key_i: key to index sample.
+        # Value_of_key_i: Even element is audio segment true length. Odd element is text tokens true length.
     Example
     -------
     >>> a = torch.rand(1,10) # a random Tensor represent a sample
-    >>> seg_stats = {1:[4,3,2,1]} # sample 1  0,1,2,3 element belongs to audio, 4,5,6 is text, 7,8 is audio , ...
+    >>> seg_stats = [3,2] # first 3 features belongs to audio where next 2 features are text
     >>> get_lookahead_mask(a) # notice that althought seq len is 10 but the shape of mask is 6x10 instead of 10x10
-    tensor([[0., 0., 0., 0., -inf, -inf, -inf, -inf, -inf, -inf,],
-            [0., 0., 0., 0., 0.,   -inf, -inf, -inf, -inf, -inf,],
-            [0., 0., 0., 0., 0.,   0.,   -inf, -inf, -inf, -inf,],
-            [0., 0., 0., 0., 0.,   0.,   0.,   -inf, -inf, -inf,],
-            [0., 0., 0., 0., 0.,   0.,   0.,   0.,   0.,   -inf,],
-            [0., 0., 0., 0., 0.,   0.,   0.,   0.,   0.,   0.,  ],]
+    tensor([[0., 0., 0., -inf, -inf],
+            [0., 0., 0., -inf, -inf],
+            [0., 0., 0., -inf, -inf],
+            [0., 0., 0., 0.,   -inf],
+            [0., 0., 0., 0.,   0.  ],]
             )
     """
     # NOT implemented YET!
     # pleaes follow get_lookahead_mask(padded_input) style
-    return None
+    assert padded_input.shape[1] == seg_stats[1]
+    max_audio, max_text = seg_stats
+    inf = float( 'inf')
+    total_len = sum(seg_stats)
+    tgt_mask = torch.tensor( - inf).repeat(total_len,total_len)
+    tgt_mask = torch.triu(tgt_mask,1)
+    tgt_mask[:max_audio,:max_audio] = 0
+
+    return tgt_mask.detach().to(padded_input.device)
