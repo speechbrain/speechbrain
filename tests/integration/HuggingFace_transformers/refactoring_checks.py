@@ -17,9 +17,10 @@ Authors
 
 import os
 import sys
-import tqdm
+from tqdm import tqdm
 import yaml
 import torch  # noqa
+import shutil
 import importlib  # noqa
 import subprocess
 import speechbrain  # noqa
@@ -27,8 +28,7 @@ from glob import glob
 from copy import deepcopy
 from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
-
-# from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main  # noqa
 from speechbrain.utils.train_logger import FileTrainLogger
 from speechbrain.pretrained.interfaces import foreign_class  # noqa
 from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
@@ -55,25 +55,38 @@ def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
     return updates_dir
 
 
-def get_model(repo, values, updates_dir=None):
+def get_model(repo, values, updates_dir=None, run_opts=None):
     # get the pretrained class; model & predictions
     kwargs = {
         "source": f"speechbrain/{repo}",
         "savedir": f"pretrained_models/{repo}",
     }
 
+    hparams = f"pretrained_models/{repo}/hyperparams.yaml"
+    hparams_orig = f"{hparams}_orig"
     if updates_dir is not None:
-        kwargs["hparams_file"] = f"{updates_dir}/{repo}/hyperparams.yaml"
+        assert os.path.exists(
+            hparams_orig
+        ), "backup of the original hparams file missing"
+        os.remove(hparams)
+        os.symlink(f"{updates_dir}/{repo}/hyperparams.yaml", hparams)
+    else:
+        if not os.path.exists(hparams_orig):  # make a backup
+            shutil.copyfile(hparams, hparams_orig)
+        else:  # in case, we revisit this one and there is a hparams symlink -> restore from backup
+            os.remove(hparams)
+            shutil.copyfile(hparams_orig, hparams)
 
-    if values["foreign"] is None:
-        obj = eval(f'"speechbrain.pretrained".{values["cls"]}')
+    if run_opts is not None:
+        kwargs["run_opts"] = run_opts
+
+    if "foreign" not in values.keys():
+        obj = eval(f'speechbrain.pretrained.{values["cls"]}')
         model = obj.from_hparams(**kwargs)
     else:
         kwargs["pymodule_file"] = values["foreign"]
         kwargs["classname"] = values["cls"]
         model = foreign_class(**kwargs)
-
-    model.modules.eval()
 
     return model
 
@@ -198,16 +211,18 @@ def gather_refactoring_results(
             print(f"\tsame: {results[repo]['same'] }")
 
 
-def test_performance(repo, values, updates_dir=None, recipe_overrides={}):
+def test_performance(
+    repo, values, run_opts, updates_dir=None, recipe_overrides={}
+):
     # Dataset depending file structure
     tmp_dir = f'tests/tmp/{values["dataset"]}'
     speechbrain.create_experiment_directory(experiment_directory=tmp_dir)
     stats_meta = {
-        f'[{values["dataset"]}]\t{"BEFORE" if updates_dir is None else "AFTER"}': repo
+        f'[{values["dataset"]}] - {"BEFORE" if updates_dir is None else "AFTER"}': repo
     }
 
     # Load pretrained
-    model = get_model(repo, values, updates_dir)  # noqa
+    model = get_model(repo, values, updates_dir, run_opts)  # noqa
 
     # Dataio preparation; we need the test sets only
     with open(values["recipe_yaml"]) as fin:
@@ -216,7 +231,7 @@ def test_performance(repo, values, updates_dir=None, recipe_overrides={}):
         )
 
     # Dataset preparation is assumed to be done through recipes; before running this.
-    eval(values["dataio"])
+    exec(values["dataio"])
     test_datasets = deepcopy(eval(values["test_datasets"]))
 
     # harmonise
@@ -231,25 +246,26 @@ def test_performance(repo, values, updates_dir=None, recipe_overrides={}):
 
     # prepare testing
     logger = FileTrainLogger(save_file=f"{tmp_dir}/{repo}.log")
-    reporting = values["performance"]
-    for metric, specs in values["performance"].items():
-        reporting[metric]["handler"] = deepcopy(
-            recipe_hparams[specs["handler"]]
-        )()
+    reporting = deepcopy(values["performance"])
+    for metric, specs in reporting.items():
+        reporting[metric]["tracker"] = deepcopy(
+            recipe_hparams[specs["handler"]]()
+        )
+
     test_loader_kwargs = deepcopy(recipe_hparams[values["test_loader"]])
     del recipe_hparams
 
+    stats = {}
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         test_set = test_datasets[k]
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
         ):
-            test_loader_kwargs["ckpt_prefix"] = None
             test_set = make_dataloader(test_set, **test_loader_kwargs)
 
         with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True):
+            for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
                 batch = batch.to(model.device)
                 wavs, wav_lens = batch.sig
                 wavs, wav_lens = (  # noqa
@@ -259,22 +275,27 @@ def test_performance(repo, values, updates_dir=None, recipe_overrides={}):
                 predictions = eval(  # noqa
                     f'model.{values["fnx"]}(wavs, wav_lens)'
                 )
-                predicted = eval(values["predicted"])
+                predicted = [
+                    wrd.split(" ") for wrd in eval(values["predicted"])
+                ]
                 ids = batch.id
                 targeted = [wrd.split(" ") for wrd in batch.wrd]
-                for tracker in reporting.values():
-                    tracker["handler"].append(ids, predicted, targeted)
+                for metric in reporting.keys():
+                    reporting[metric]["tracker"].append(
+                        ids, predicted, targeted
+                    )
 
-        stats = {}
-        for metric, tracker in reporting.items():
-            stats[metric] = tracker["handler"].summarize(tracker["field"])
+        stats[k] = {}
+        for metric, specs in reporting.items():
+            stats[k][metric] = specs["tracker"].summarize(specs["field"])
         logger.log_stats(
-            stats_meta=stats_meta | {"Testing": k}, test_stats=stats,
+            stats_meta=stats_meta | {"set": k}, test_stats=stats[k],
         )
-        return stats
+
+    return stats
 
 
-# python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data=""
+# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data=""
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = speechbrain.parse_arguments(
         sys.argv[1:]
@@ -290,6 +311,15 @@ if __name__ == "__main__":
         dataset_overrides["new_interfaces_branch"],
         dataset_overrides["new_interfaces_local_dir"],
     )
+
+    # load results, if existing -or- new from scratch
+    yaml_path = f'{dataset_overrides["new_interfaces_local_dir"]}.yaml'
+    if os.path.exists(yaml_path):
+        with open(yaml_path) as yaml_in:
+            results = yaml.safe_load(yaml_in)
+    else:
+        results = {}
+
     repos = map(
         os.path.basename,
         glob(f'{updates_dir}/{dataset_overrides["glob_filter"]}'),
@@ -320,20 +350,37 @@ if __name__ == "__main__":
         if not dataset_overrides[f'{values["dataset"]}_data']:
             continue
 
-        print(f"Run tests on: {repo} w/ values={values}")
+        print(f"Run tests on: {repo}")
+        if repo not in results.keys():
+            results[repo] = {}
 
         # Before refactoring
-        stats_before = test_performance(
-            repo,
-            values,
-            updates_dir=None,
-            recipe_overrides=dataset_overrides[values["dataset"]],
-        )
+        if "before" not in results[repo].keys():
+            results[repo]["before"] = test_performance(
+                repo,
+                values,
+                updates_dir=None,
+                run_opts=run_opts,
+                recipe_overrides=dataset_overrides[values["dataset"]],
+            )
 
         # After refactoring
-        stats_after = test_performance(
-            repo,
-            values,
-            updates_dir=updates_dir,
-            recipe_overrides=dataset_overrides[values["dataset"]],
+        if "after" not in results[repo].keys():
+            results[repo]["after"] = test_performance(
+                repo,
+                values,
+                run_opts=run_opts,
+                updates_dir=updates_dir,
+                recipe_overrides=dataset_overrides[values["dataset"]],
+            )
+
+        results[repo]["same"] = (
+            results[repo]["before"] == results[repo]["after"]
         )
+        print(f'\tbefore: {results[repo]["before"]}')
+        print(f'\t after: {results[repo]["after"]}')
+        print(f'\t  same: {results[repo]["same"]}')
+
+    # update
+    with open(yaml_path, "w") as yaml_out:
+        yaml.dump(results, yaml_out, default_flow_style=None)
