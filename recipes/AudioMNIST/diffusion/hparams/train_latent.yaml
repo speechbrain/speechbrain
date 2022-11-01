@@ -91,6 +91,7 @@ autoencoder_dist_loss_weight: 0.
 autoencoder_encoder_out_channels: 32
 autoencoder_nom_num_groups: 32
 autoencoder_latent_channels: 2
+latent_mask_value: -3.
 diffusion_channels: !ref <autoencoder_latent_channels>
 
 
@@ -165,6 +166,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     latent_channels: !ref <autoencoder_latent_channels>
     resblock_updown: True
     len_dim: 2
+    latent_mask_value: !ref <latent_mask_value>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 

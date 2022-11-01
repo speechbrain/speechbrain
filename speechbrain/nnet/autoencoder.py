@@ -96,7 +96,7 @@ class VariationalAutoencoder(Autoencoder):
         len_dim=1,
         mask_latent=True,
         mask_out=True,
-        output_mask_value=0.,
+        out_mask_value=0.,
         latent_mask_value=0.
     ):
         super().__init__()
@@ -107,7 +107,7 @@ class VariationalAutoencoder(Autoencoder):
         self.len_dim = len_dim
         self.mask_latent = mask_latent
         self.mask_out = mask_out
-        self.output_mask_value = output_mask_value
+        self.out_mask_value = out_mask_value
         self.latent_mask_value = latent_mask_value
 
     def encode(self, x):
@@ -187,7 +187,7 @@ class VariationalAutoencoder(Autoencoder):
 
         """
         if out_mask_value is None:
-            out_mask_value = self.output_mask_value
+            out_mask_value = self.out_mask_value
         if latent_mask_value is None:
             latent_mask_value = self.latent_mask_value
         encoder_out, _ = self.encoder(x)

@@ -195,6 +195,13 @@ class DiffusionBrain(sb.Brain):
                     prefix="autoencoder_rec"
                 )
             )
+            stats.update(
+                self.extract_dist_stats(
+                    self.autoencoder_latent_dist_stats_metric,
+                    prefix="autoencoder_latent"
+                )
+            )
+
         self.hparams.tensorboard_train_logger.log_stats(
             stats_meta={"step": self.step}, train_stats=stats
         )
@@ -333,6 +340,13 @@ class DiffusionBrain(sb.Brain):
             self.autoencoder_rec_dist_stats_metric.append(
                 batch.file_name, rec_denorm, mask=rec_mask
             )
+            max_len = autoencoder_out.latent.size(2)
+            latent_mask = length_to_mask(lens * max_len, max_len).unsqueeze(1)
+            latent_mask = match_shape(latent_mask, autoencoder_out.latent)
+            self.autoencoder_latent_dist_stats_metric.append(
+                batch.file_name, autoencoder_out.latent, mask=latent_mask
+            )
+
 
         
         return loss, loss_autoencoder
@@ -483,6 +497,11 @@ class DiffusionBrain(sb.Brain):
                 metric=dist_stats,
                 batch_eval=True
             )
+            self.autoencoder_latent_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
+                metric=dist_stats,
+                batch_eval=True
+            )
+
 
         self.sample_mean_metric = sb.utils.metric_stats.MetricStats(
             metric=masked_mean
