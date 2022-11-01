@@ -84,6 +84,7 @@ pad_level_db: -50.
 model_channels: 64
 model_norm_num_groups: 32
 model_num_res_blocks: 1
+model_dropout: 0.1
 autoencoder_channels: 32
 autoencoder_norm_num_groups: 32
 autoencoder_num_res_blocks: 1
@@ -91,6 +92,7 @@ autoencoder_dist_loss_weight: 0.
 autoencoder_encoder_out_channels: 32
 autoencoder_nom_num_groups: 32
 autoencoder_latent_channels: 2
+autoencoder_dropout: 0.1
 latent_mask_value: -3.
 diffusion_channels: !ref <autoencoder_latent_channels>
 
@@ -155,6 +157,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     num_res_blocks: !ref <model_num_res_blocks>
     attention_resolutions: [2]
     channel_mult: [1, 2]
+    dropout: !ref <model_dropout>
 
 autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     in_channels: 1
@@ -169,6 +172,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     resblock_updown: True
     len_dim: 2
     latent_mask_value: !ref <latent_mask_value>
+    dropout: !ref <autoencoder_dropout>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
