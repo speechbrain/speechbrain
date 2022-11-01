@@ -921,7 +921,7 @@ class Decoder(nn.Module):
         alignments = alignments.transpose(0, 1).contiguous()
         # (T_out, B) -> (B, T_out)
         if gate_outputs.dim() == 1:
-            gate_outputs.unsqueeze(0)
+            gate_outputs = gate_outputs.unsqueeze(0)
         else:
             gate_outputs = gate_outputs.transpose(0, 1).contiguous()
         # (T_out, B, n_mel_channels) -> (B, T_out, n_mel_channels)

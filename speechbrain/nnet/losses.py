@@ -1193,3 +1193,59 @@ def nll_loss_kd(
     # Loss averaging
     loss = torch.sum(loss.reshape(N_snt, max_len) * mask) / torch.sum(mask)
     return loss
+
+
+class ContrastiveLoss(nn.Module):
+    """Contrastive loss as used in wav2vec2.
+
+    Reference
+    ---------
+    wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations
+    https://arxiv.org/abs/2006.11477
+
+    Arguments
+    ---------
+    logit_temp : torch.Float
+        A temperature to devide the logits.
+
+    """
+
+    def __init__(self, logit_temp):
+        super().__init__()
+        self.logit_temp = logit_temp
+
+    def forward(self, x, y, negs):
+        """
+        Arguments
+        ----------
+        x : torch.Tensor
+            Encoded embeddings with shape (B, T, C).
+        y : torch.Tensor
+            Feature extractor target embeddings with shape (B, T, C).
+        negs : torch.Tensor
+            Negative embeddings from feature extractor with shape (N, B, T, C)
+        where N is number of negatives. Can be obtained with our sample_negatives
+        function (check in lobes/wav2vec2).
+        """
+        neg_is_pos = (y == negs).all(-1)
+        y = y.unsqueeze(0)
+        target_and_negatives = torch.cat([y, negs], dim=0)
+        logits = torch.cosine_similarity(
+            x.float(), target_and_negatives.float(), dim=-1
+        ).type_as(x)
+
+        if neg_is_pos.any():
+            logits[1:][neg_is_pos] = float("-inf")
+        # N, B, T -> T, B, N -> T*B, N
+        logits = logits.transpose(0, 2).reshape(-1, logits.size(0))
+
+        targets = torch.zeros(
+            (logits.size(0)), dtype=torch.long, device=logits.device
+        )
+        loss = F.cross_entropy(
+            logits / self.logit_temp, targets, reduction="sum"
+        )
+        accuracy = torch.sum(logits.argmax(-1) == 0) / (
+            logits.numel() / logits.size(-1)
+        )
+        return loss, accuracy

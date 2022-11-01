@@ -22,6 +22,7 @@ train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/dev.json
 test_annotation: !ref <data_folder>/test.json
 skip_prep: False # Skip data preparation
+uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
 # Training parameters
 number_of_epochs: 50

@@ -4,15 +4,7 @@ import logging
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file
 import glob
-
-try:
-    import pandas as pd
-except ImportError:
-    err_msg = (
-        "The optional dependency pandas must be installed to run this recipe.\n"
-    )
-    err_msg += "Install using `pip install pandas`.\n"
-    raise ImportError(err_msg)
+import csv
 
 logger = logging.getLogger(__name__)
 
@@ -71,20 +63,8 @@ def prepare_aishell(data_folder, save_folder, skip_prep=False):
             continue
         logger.info("Preparing %s..." % new_filename)
 
-        ID = []
-        duration = []
-
-        wav = []
-        wav_format = []
-        wav_opts = []
-
-        # spk_id = []
-        # spk_id_format = []
-        # spk_id_opts = []
-
-        transcript = []
-        transcript_format = []
-        transcript_opts = []
+        csv_output = [["ID", "duration", "wav", "transcript"]]
+        entry = []
 
         all_wavs = glob.glob(
             os.path.join(data_folder, "data_aishell/wav")
@@ -96,31 +76,27 @@ def prepare_aishell(data_folder, save_folder, skip_prep=False):
             filename = all_wavs[i].split("/")[-1].split(".wav")[0]
             if filename not in filename2transcript:
                 continue
-            transcript_ = filename2transcript[filename]
-            transcript.append(transcript_)
-            transcript_format.append("string")
-            transcript_opts.append(None)
-
-            ID.append(ID_start + i)
-
             signal = read_audio(all_wavs[i])
-            duration.append(signal.shape[0] / 16000)
+            duration = signal.shape[0] / 16000
+            transcript_ = filename2transcript[filename]
+            csv_line = [
+                ID_start + i,
+                str(duration),
+                all_wavs[i],
+                transcript_,
+            ]
+            entry.append(csv_line)
 
-            wav.append(all_wavs[i])
-            wav_format.append("wav")
-            wav_opts.append(None)
+        csv_output = csv_output + entry
 
-            # spk_id.append(df.speakerId[i])
-            # spk_id_format.append("string")
-            # spk_id_opts.append(None)
+        with open(new_filename, mode="w") as csv_f:
+            csv_writer = csv.writer(
+                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+            )
+            for line in csv_output:
+                csv_writer.writerow(line)
 
-        new_df = pd.DataFrame(
-            {
-                "ID": ID,
-                "duration": duration,
-                "wav": wav,
-                "transcript": transcript,
-            }
-        )
-        new_df.to_csv(new_filename, index=False)
+        msg = "\t%s successfully created!" % (new_filename)
+        logger.info(msg)
+
         ID_start += len(all_wavs)
