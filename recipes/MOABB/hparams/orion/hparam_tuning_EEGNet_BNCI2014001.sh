@@ -11,10 +11,6 @@ export ORION_DB_TYPE=PickledDB
 # Running orion
 cd ../..
 
-#--avg_models~"uniform(2, 15,discrete=True)"
-#--cnn_temporal_kernels~"uniform(6, 60,discrete=True)"
-#--cnn_septemporal_pool~"uniform(3, 8,discrete=True)"
-#--n_augmentations~"uniform(0, 8,discrete=True)"
 orion hunt -n $HPOPT_EXPERIMENT_NAME -c $HPOPT_CONFIG_FILE --exp-max-trials=250  \
         ./run_experiments_seed_variability.sh hparams/EEGNet_BNCI2014001_seed_variability.yaml \
         /localscratch/eeg_data $OUTPUT_FOLDER 1 1 'random_seed' 1 acc valid_metrics.pkl false true \
@@ -24,15 +20,14 @@ orion hunt -n $HPOPT_EXPERIMENT_NAME -c $HPOPT_CONFIG_FILE --exp-max-trials=250 
         --batch_size~"choices([32,64,128])" \
         --lr~"choices([0.01,0.005, 0.001,0.0005])" \
         --n_steps_channel_selection~"uniform(1, 3,discrete=True)" \
-        --tmax~"uniform(1.0, 4.0)" \
-        --fmin~"uniform(0.1, 5)" \
-        --fmax~"uniform(30, 50)" \
+        --tmax_~"uniform(10, 40, discrete=True)" \
+        --fmax~"choices([30,35,40,45,50])" \
         --cnn_temporal_kernels~"uniform(4, 64,discrete=True)" \
-        --cnn_temporal_kernelsize~"uniform(18, 60,discrete=True)" \
+        --cnn_temporal_kernelsize~"uniform(12, 62,discrete=True)" \
         --cnn_spatial_depth_multiplier~"uniform(1, 4,discrete=True)" \
         --cnn_spatial_pool~"uniform(1, 4,discrete=True)" \
         --cnn_septemporal_depth_multiplier~"uniform(1, 4,discrete=True)" \
-        --cnn_septemporal_kernelsize~"uniform(7, 24,discrete=True)" \
+        --cnn_septemporal_kernelsize_~"uniform(12, 94,discrete=True)" \
         --cnn_septemporal_pool~"uniform(1, 8,discrete=True)" \
         --dropout~"uniform(0.0, 0.5)" \
         --snr_pink_low~"uniform(0.0, 10.0)" \

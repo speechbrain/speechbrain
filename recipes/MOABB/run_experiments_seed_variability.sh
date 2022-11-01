@@ -15,7 +15,7 @@ metric_file=$9 # test_metrics.pkl or valid_metrics.pkl (use valid_metrics for hy
 do_leave_one_subject_out=${10}
 do_leave_one_session_out=${11}
 
-to_download=true
+to_download=false
 
 if [ $6 = "random_seed" ]; then
     seed_init=$RANDOM
@@ -49,7 +49,7 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
           echo "Subject $target_subject_idx"
           python train.py $hparams --seed=$seed --data_folder=$data_folder --output_folder=$output_folder\_seed\_$seed_init/$seed\
           --target_subject_idx=$target_subject_idx --target_session_idx=0 \
-          --data_iterator_name='leave-one-subject-out' --to_download=$to_download --to_prepare=true "${@:12}"
+          --data_iterator_name='leave-one-subject-out' --to_download=$to_download --to_prepare=false "${@:12}"
 
          # Data already downloaded
          to_download=False 
@@ -66,7 +66,7 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
               echo "Subject $target_subject_idx"
               python train.py $hparams --seed=$seed --data_folder=$data_folder --output_folder=$output_folder\_seed\_$seed_init/$seed\
               --target_subject_idx=$target_subject_idx --target_session_idx=$j \
-              --data_iterator_name='leave-one-session-out' --to_download=$to_download --to_prepare=true "${@:12}"
+              --data_iterator_name='leave-one-session-out' --to_download=$to_download --to_prepare=false "${@:12}"
       
               # Data already downloaded
               to_download=False

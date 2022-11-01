@@ -155,22 +155,22 @@ def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin
 
         output_dict = {}
         if not to_prepare:
-            print('Using cached dataset at: {0}'.format(output_dict_fpath))
             if os.path.isfile(output_dict_fpath):
+                print('Using cached dataset at: {0}'.format(output_dict_fpath))
                 with open(output_dict_fpath, "rb") as handle:
                     output_dict = pickle.load(handle)
             else:
-                raise (
-                    ValueError(
-                        "Attempting to load a dataset that was not prepared yet"
-                    )
-                )
+                output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
+                                              fmin=fmin, fmax=fmax, verbose=verbose)
         else:
             output_dict = get_output_dict(dataset, subject, events_to_load, srate_in, srate_out,
                                           fmin=fmin, fmax=fmax, verbose=verbose)
-            if save_prepared_dataset:
-                if os.path.isfile(output_dict_fpath):
-                    print('A cached dataset was found at {0}, overwriting it...'.format(output_dict_fpath))
+
+        if save_prepared_dataset:
+            if os.path.isfile(output_dict_fpath):
+                print('Skipping data saving, a cached dataset was found at {0}'.format(output_dict_fpath))
+            else:
+                print('Saving the dataset at {0}'.format(output_dict_fpath))
                 with open(output_dict_fpath, "wb") as handle:
                     pickle.dump(
                         output_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
