@@ -62,21 +62,24 @@ class ASR(sb.core.Brain):
         # feat is downsampled
         src = self.modules.CNN(feats)
 
-        _, audio_max_len, _, _= src.shape
+        _, audio_max_len, _, _ = src.shape
         _, text_max_len = tokens_bos.shape
         seg_stats = np.array([audio_max_len, text_max_len ])
 
-        # enc_out is the audio representation, pred is the text representation
-        enc_out, pred = self.modules.Transformer(
+        # enc_out is the audio representation + text representation
+        encoded_output = self.modules.Transformer(
             src, tokens_bos, wav_lens, seg_stats = seg_stats, pad_idx=self.hparams.pad_index,
         )
 
+        audio_representation = encoded_output[:,:seg_stats[0]]
+        text_representation = encoded_output[:,seg_stats[0]:]
+
         # output layer for ctc log-probabilities
-        logits = self.modules.ctc_lin(enc_out)
+        logits = self.modules.ctc_lin(audio_representation)
         p_ctc = self.hparams.log_softmax(logits)
 
         # output layer for seq2seq log-probabilities
-        pred = self.modules.seq_lin(pred)
+        pred = self.modules.seq_lin(text_representation)
         p_seq = self.hparams.log_softmax(pred)
 
         # Compute outputs
@@ -89,9 +92,12 @@ class ASR(sb.core.Brain):
             if current_epoch % self.hparams.valid_search_interval == 0:
                 # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
+                
+                # be aware, it is src that is put into the search. 
+                # since InterleaveFormer now inefficiently recompute everything 
+                hyps, _ = self.hparams.valid_search(audio_representation.detach(), src.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            hyps, _ = self.hparams.test_search( audio_representation.detach(), src.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
