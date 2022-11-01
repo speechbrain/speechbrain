@@ -314,25 +314,42 @@ class reCNN_Block(sb.nnet.containers.Sequential):
         using_2d_pool=False,
         pooling_size=2,
         dropout=0.15,
+        first=False
     ):
         super().__init__(input_shape=input_shape)
-        self.append(
-            sb.nnet.CNN.Conv2d,
-            out_channels=channels,
-            kernel_size=(1, 1),
-            layer_name="conv_1",
-        )
-        self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_1")
-        self.append(activation(), layer_name="act_1")
-        self.append(
-            sb.nnet.CNN.Conv2d,
-            out_channels=channels,
-            kernel_size=kernel_size,
-            layer_name="conv_2",
-            groups=channels,
-        )
-        self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
-        self.append(activation(), layer_name="act_2")
+        if not first:
+            self.append(
+                sb.nnet.CNN.Conv2d,
+                out_channels=channels,
+                kernel_size=(1, 1),
+                bias=False,
+                layer_name="conv_1",
+            )
+            self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
+            self.append(activation(), layer_name="act_2")
+
+            self.append(
+                sb.nnet.CNN.Conv2d,
+                out_channels=channels,
+                kernel_size=kernel_size,
+                bias=False,
+                layer_name="conv_2",
+                groups=channels,
+                padding="causal"
+            )
+            self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
+            self.append(activation(), layer_name="act_2")
+        
+        else:
+            self.append(
+                sb.nnet.CNN.Conv2d,
+                out_channels=channels,
+                kernel_size=(5, 5),
+                bias=False,
+                layer_name="conv_1",
+            )
+            self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
+            self.append(activation(), layer_name="act_2")
 
         if using_2d_pool:
             self.append(
@@ -389,6 +406,7 @@ class DNN_Block(sb.nnet.containers.Sequential):
         self.append(
             sb.nnet.linear.Linear,
             n_neurons=neurons,
+            bias=False,
             layer_name="linear",
         )
         self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")
