@@ -179,7 +179,7 @@ Adam: !name:torch.optim.Adam
     eps: 0.000000001
 
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+valid_search: !new:speechbrain.decoders.InterleaveFormerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
@@ -192,7 +192,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     length_normalization: False
 
 
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+test_search: !new:speechbrain.decoders.InterleaveFormerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
