@@ -89,10 +89,9 @@ class DiffusionBrain(sb.Brain):
 
         autoencoder_out = None
         if self.diffusion_mode == DiffusionMode.LATENT:
-            mask_value = self.modules.global_norm(
-                unsqueeze_as(self.mask_value_norm, feats),
-                skip_update=True
-            ).squeeze()
+            mask_value = self.modules.global_norm.normalize(
+                self.mask_value_norm
+            )
             train_sample_diffusion, autoencoder_out = self.modules.diffusion_latent.train_sample_latent(
                 feats, length=lens, out_mask_value=mask_value,
             )
