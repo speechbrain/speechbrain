@@ -49,6 +49,7 @@ enable_train_metrics: True
 enable_reference_samples: True
 enable_reconstruction_sample: True
 loss_l2_steps: 3000
+autoencoder_rec_loss_l2_steps: 1000
 train_log_interval: 10
 overfit_test: False
 overfit_test_sample_count: 1
@@ -127,6 +128,11 @@ dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLoss
     len_dim: 2
     dist_loss_weight: !ref <autoencoder_dist_loss_weight>
+    rec_loss: !new:speechbrain.nnet.schedulers.ScheduledLoss
+        schedule:
+            - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+              steps: !ref <autoencoder_rec_loss_l2_steps>
+            - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
