@@ -375,7 +375,14 @@ class DiffusionBrain(sb.Brain):
         sample = self.modules.global_norm.denormalize(sample)
         return sample
 
-    def save_spectrograms(self, samples, path):
+    def generate_rec_samples(self):
+        predictions = self.compute_forward(self.reference_batch, sb.Stage.VALID)
+        feats = predictions.autoencoder_output.rec
+        if self.hparams.eval_generate_audio:
+            wav = self.generate_audio(feats)
+        return feats, wav
+
+    def save_spectrograms(self, samples, path, folder="spec"):
         """Saves sample spectrograms to filesystem files
 
         Arguments
@@ -384,8 +391,11 @@ class DiffusionBrain(sb.Brain):
             a tensor of sample spectrograms
         path: str
             ths path to samples for a given epoch
+        folder: str
+            the name of the folder where the spectrograms
+            will be saved
         """
-        spec_sample_path = os.path.join(path, "spec")
+        spec_sample_path = os.path.join(path, folder)
         if not os.path.exists(spec_sample_path):
             os.makedirs(spec_sample_path)
         for idx, sample in enumerate(samples):
@@ -431,7 +441,7 @@ class DiffusionBrain(sb.Brain):
         vocoder_in = vocoder_in.squeeze(1)
         return self.vocoder(vocoder_in)
 
-    def save_audio(self, wav, path):
+    def save_audio(self, wav, path, folder="wav"):
         """Saves a batch of audio samples
 
         wav: torch.Tensor
@@ -440,7 +450,7 @@ class DiffusionBrain(sb.Brain):
         path: str
             the destination directory
         """
-        wav_sample_path = os.path.join(path, "wav")
+        wav_sample_path = os.path.join(path, folder)
         if not os.path.exists(wav_sample_path):
             os.makedirs(wav_sample_path)
         for idx, sample in enumerate(wav):
@@ -529,8 +539,10 @@ class DiffusionBrain(sb.Brain):
             self.hparams.enable_reference_samples or stage != sb.Stage.TRAIN
         ) and not hasattr(self, "vocoder"):
             self.vocoder = self.hparams.vocoder()
-        self.reference_batch = None
+        if not hasattr(self, "reference_batch"):
+            self.reference_batch = None
         self.reference_samples_neeed = False
+        
 
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -581,7 +593,16 @@ class DiffusionBrain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             samples, wav = self.generate_samples()
-            self.log_epoch(samples, wav, epoch, stage)
+            samples_rec, wav_rec = None, None
+            data = {
+                "samples": samples,
+                "wav": wav
+            }
+            if self.diffusion_mode == DiffusionMode.LATENT:
+                samples_rec, wav_rec = self.generate_rec_samples()
+                data["samples_rec"] = samples_rec
+                data["wav_rec"] = wav_rec
+            self.log_epoch(data, epoch, stage)
 
     def generate_reference_samples(self, batch):
         """Generate an audio sample from one of the spectrograms
@@ -605,15 +626,17 @@ class DiffusionBrain(sb.Brain):
         self.save_spectrograms(feats, ref_sample_path)
         self.save_audio(wav, path=ref_sample_path)
 
-    def log_epoch(self, samples, wav, epoch, stage):
+    def log_epoch(self, data, epoch, stage):
         """Saves end-of-epoch logs
 
         Arguments
         ---------
-        samples: torch.Tensor
-            Generated spectrograms
-        wav: torch.Tensor
-            Generated audio waveforms
+        data: dict
+            the data to be loged, with the following keys
+            samples: generated samples
+            wav: generated waveform
+            samples_rec: reconstruction samples (to assess autoencoder quality)
+            samples_wav: reconstruction audio (to assess autoencoder quality)
         epoch: int
             the epoch number
         stage: speechbrain.Stage
@@ -621,12 +644,18 @@ class DiffusionBrain(sb.Brain):
 
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
+        samples, wav = [data[key] for key in ["samples", "wav"]]
+        samples_rec, wav_rec = [data.get(key) for key in ["samples_rec", "wav_rec"]]
         self.save_spectrograms(samples, epoch_sample_path)
         sample_ids = torch.arange(1, len(samples) + 1)
         for metric in self.sample_metrics:
             metric.append(sample_ids, samples)
         if wav is not None:
             self.save_audio(wav, epoch_sample_path)
+        if self.diffusion_mode == DiffusionMode.LATENT:
+            self.save_spectrograms(samples_rec, epoch_sample_path, folder="spec_rec")
+            if wav_rec is not None:
+                self.save_audio(wav_rec, epoch_sample_path, folder="wav_rec")
         if self.hparams.use_tensorboard:
             sample_mean_stats = self.sample_mean_metric.summarize()
             sample_std_stats = self.sample_std_metric.summarize()
@@ -647,6 +676,9 @@ class DiffusionBrain(sb.Brain):
                 stats_meta={"step": self.step}, **stats_args
             )
             self.log_samples(spectrogram_samples=samples, wav_samples=wav)
+            if self.diffusion_mode == DiffusionMode.LATENT:
+                self.log_samples(spectrogram_samples=samples_rec, wav_samples=wav_rec, key_prefix="rec_")
+
 
     def log_samples(
         self,

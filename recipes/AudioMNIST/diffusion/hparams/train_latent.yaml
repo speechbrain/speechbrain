@@ -126,14 +126,16 @@ global_norm: !new:custom_transforms.GlobalNorm
 
 dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 
-compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLoss
-    len_dim: 2
-    dist_loss_weight: !ref <autoencoder_dist_loss_weight>
-    rec_loss: !new:speechbrain.nnet.schedulers.ScheduledLoss
+compute_cost_autoencoder_rec: !new:speechbrain.nnet.schedulers.ScheduledLoss
         schedule:
             - loss_fn: !name:speechbrain.nnet.losses.mse_loss
               steps: !ref <autoencoder_rec_loss_l2_steps>
             - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+
+compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLoss
+    len_dim: 2
+    dist_loss_weight: !ref <autoencoder_dist_loss_weight>
+    rec_loss: !ref <compute_cost_autoencoder_rec>
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
@@ -212,14 +214,14 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
 
 
 # This function manages learning rate annealing over the epochs.
@@ -245,4 +247,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         unet: !ref <unet>
+        autoencoder: !ref <autoencoder>
         counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
+        lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
+        compute_cost_autoencoder_rec: !ref <compute_cost_autoencoder_rec>
+        glob_norm: !ref <glob_norm>
+        

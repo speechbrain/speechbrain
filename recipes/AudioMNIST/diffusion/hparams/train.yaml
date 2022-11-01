@@ -125,7 +125,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     in_channels: 1
     model_channels: !ref <model_channels>
     out_channels: 1
-    num_res_blocks: !ref <model_num_res_boocks>
+    num_res_blocks: !ref <model_num_res_blocks>
     norm_num_groups: 32
     attention_resolutions: [8]
 
