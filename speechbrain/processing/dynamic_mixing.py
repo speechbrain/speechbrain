@@ -12,6 +12,7 @@ from speechbrain.utils import data_pipeline
 import torch
 import torchaudio
 import numpy as np
+import numbers
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -30,12 +31,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     ...     }
     ... ]
     >>> dm_dataset = DynamicMixixingDataset.from_didataset(data, "wav_file", "spkr")
+    >>> mixture, spkrs, ratios, sources = dm_dataset.generate()
 
     Arguments
     ---------
     spkr_files : dict
     num_spkrs : Union[list, range, int], optional
     overlap_ratio : Union[list, range, int], optional
+    normalize_audio: bool, optional
     """
 
     def __init__(
@@ -44,7 +47,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         if isinstance(num_spkrs, int):
             num_spkrs = [num_spkrs]
 
-        if len(spkr_files.keys) < max(num_spkrs):
+        if isinstance(overlap_ratio, numbers.Real):
+            overlap_ratio = [overlap_ratio]
+
+        if len(spkr_files.keys()) < max(num_spkrs):
             raise ValueError(
                 f"Expected at least {num_spkrs} spkrs in spkr_files"
             )
@@ -52,6 +58,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         self.num_spkrs = num_spkrs
         self.overlap_ratio = overlap_ratio
         self.normalize_audio = normalize_audio
+        self.spkr_files = spkr_files
 
     @classmethod
     def from_didataset(cls, dataset, wav_key=None, spkr_key=None, **kwargs):
@@ -76,14 +83,18 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         spkr = 0
         # we assume that each wav is coming from different spkr
         for wavfile in wav_file_list:
-            spkr_files[f"spkr{spkr}"] = wavfile
+            spkr_files[f"spkr{spkr}"] = [wavfile]
             spkr += 1
 
         return cls(spkr_files, **kwargs)
 
     def generate(self, wavfile=None):
         n_spkrs = np.random.choice(self.num_spkrs)
-        mix_spkrs = np.random.choice(self.spkr_files.keys(), n_spkrs)
+        if n_spkrs <= 0:
+            # TODO: how long mixture?
+            raise NotImplementedError("Expect at least 1 source")
+
+        mix_spkrs = np.random.choice(list(self.spkr_files.keys()), n_spkrs)
 
         sources = []
         fs = None
@@ -91,37 +102,51 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             src_file = np.random.choice(self.spkr_files[spkr])
             src_audio, fs = torchaudio.load(src_file)
             if self.normalize_audio:
-                src_audio = self.normalize(src_audio)
+                src_audio = normalize(src_audio)
 
             sources.append(src_audio)
 
-        if len(sources) == 0:
-            raise NotImplementedError("Expect at least 1 source")
-
-        sources = sorted(sources, key=len, reverse=True)
+        sources = sorted(sources, key=lambda x: x.size(1), reverse=True)
         mixture = sources[0]  # longest audio
+        overlap_ratios = []
+        padded_sources = []
         for i in range(1, len(sources)):
             src = sources[i]
-            ratio = np.random.choice(self.overlap_ratios)
-            overlap_samples = int(len(src) * ratio)
-            mixture = mix(mixture, src, overlap_samples)
+            ratio = np.random.choice(self.overlap_ratio)
+            overlap_samples = int(src.size(1) * ratio)
+            mixture, padded_tmp = mix(src, mixture, overlap_samples)
+            overlap_ratios.append((ratio, overlap_samples))
+            if len(padded_sources) == 0:
+                padded_sources.append(padded_tmp[1].unsqueeze(0))
+            padded_sources.append(
+                padded_tmp[0].unsqueeze(0)
+            )  # padded sources are returned in same order
 
         # TODO: do some post-porcessing of the mixture, e.g. replace zeros with small noise
         if wavfile:
             torchaudio.save(mixture, wavfile)
-        return mixture
+        return mixture, mix_spkrs, overlap_ratios, padded_sources
 
 
 def normalize(audio):
     raise NotImplementedError("Normalization is not supported yet")
 
 
-def mix(longer_src, shorter_src, overlap_samples):
-    mixture = None
+def mix(src1, src2, overlap_samples, channel_first=True):
+    """Mix two audio samples"""
+    src1, src2 = src1.squeeze(), src2.squeeze()
+    n_diff = len(src1) - len(src2)
+    swapped = False
+    if n_diff >= 0:
+        longer_src = src1
+        shorter_src = src2
+        swapped = True
+    else:
+        longer_src = src2
+        shorter_src = src1
+        n_diff = abs(n_diff)
     n_long = len(longer_src)
     n_short = len(shorter_src)
-    n_diff = n_long - n_short
-    assert n_diff >= 0
 
     if overlap_samples >= n_short:
         # full overlap
@@ -131,38 +156,52 @@ def mix(longer_src, shorter_src, overlap_samples):
         # sum   |--------------++++++++++++--------------|
         #        <--offset---->            <---padding-->
         #
-        offset = np.random.choice(range(n_diff))
+        offset = np.random.choice(range(n_diff)) if n_diff > 0 else 0
         padding_len = n_diff - offset
-        tmp = torch.cat(
-            torch.zeros((1, offset)),
-            shorter_src,
-            torch.zeros((1, padding_len)),
+        src1 = torch.cat(
+            (torch.zeros(offset), shorter_src, torch.zeros(padding_len))
         )
-        return torch.sum(tmp, longer_src)
+        src2 = longer_src
     elif overlap_samples > 0:
         # partial overlap
+        #
+        # short | +++++++             |
+        # long  |    -----------------|
+        # sum   | +++++++-------------|
+        #
         start_short = np.random.choice([True, False])  # start with short
         n_total = n_long + n_short - overlap_samples
         if start_short:
-            src1 = torch.cat(
-                shorter_src,
-                torch.zeros((1, n_total - n_short)),
-            )
-            src2 = torch.cat(torch.zeros((1, n_total - n_long)), longer_src)
-            return torch.sum(src1, src2)
+            src1 = torch.cat((shorter_src, torch.zeros(n_total - n_short)))
+            src2 = torch.cat((torch.zeros(n_total - n_long), longer_src))
         else:
-            src1 = torch.cat(longer_src, torch.zeros((1, n_total - n_long)))
-            src2 = torch.cat(
-                torch.zeros((1, n_total - n_short)),
-                shorter_src,
-            )
-            return torch.sum(src1, src2)
+            src1 = torch.cat((torch.zeros(n_total - n_short), shorter_src))
+            src2 = torch.cat((longer_src, torch.zeros(n_total - n_long)))
     else:
         # no-overlap
-        sil_between = torch.zeros((1, torch.abs(overlap_samples)))
+        #
+        # short | +++++            |
+        # long  |         ---------|
+        # sum   | +++++   ---------|
+        #
+        sil_between = abs(overlap_samples)
         start_short = np.random.choice([True, False])  # start with short
         if start_short:
-            return torch.cat(shorter_src, sil_between, longer_src)
+            src1 = torch.cat((shorter_src, torch.zeros(sil_between + n_long)))
+            src2 = torch.cat((torch.zeros(sil_between + n_short), longer_src))
         else:
-            return torch.cat(longer_src, sil_between, shorter_src)
-    return mixture
+            src1 = torch.cat((torch.zeros(sil_between + n_long), shorter_src))
+            src2 = torch.cat((longer_src, torch.zeros(sil_between + n_short)))
+    try:
+        sources = (
+            torch.stack((src2, src1)) if swapped else torch.stack((src1, src2))
+        )
+        mixture = torch.sum(sources, dim=0)
+    except Exception as e:
+        print(e)
+        import pdb
+        pdb.set_trace()
+
+    if channel_first:
+        mixture = mixture.unsqueeze(0)
+    return mixture, sources
