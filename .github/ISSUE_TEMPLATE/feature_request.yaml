@@ -1,0 +1,35 @@
+name: 🚀Feature Request
+description: New missing features? Inform us! 🎉
+title: "[Feature Request]:"
+labels: ["enhancement, feature_request"]
+body:
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 🚀The feature
+      description: "What are you missing in SpeechBrain and what would you like to do with it?"
+    validations:
+      required: True
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution outline
+      description: "How would you like to use it, and see it being used by others?"
+    validations:
+      required: True
+
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: "Add any other context or screenshots about the feature request."
+    validations:
+      required: False
+
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing to SpeechBrain!

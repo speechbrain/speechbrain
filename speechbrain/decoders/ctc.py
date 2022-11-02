@@ -322,14 +322,7 @@ def filter_ctc_output(string_pred, blank_id=-1):
 
     if isinstance(string_pred, list):
         # Filter the repetitions
-        string_out = [
-            v
-            for i, v in enumerate(string_pred)
-            if i == 0 or v != string_pred[i - 1]
-        ]
-
-        # Remove duplicates
-        string_out = [i[0] for i in groupby(string_out)]
+        string_out = [i[0] for i in groupby(string_pred)]
 
         # Filter the blank symbol
         string_out = list(filter(lambda elem: elem != blank_id, string_out))
