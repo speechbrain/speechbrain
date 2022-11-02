@@ -29,7 +29,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     ...         'spkr': 'Frodo',
     ...     }
     ... ]
-    >>> dm_dataset = DynamicMixixingDataset.from_didataset(data)
+    >>> dm_dataset = DynamicMixixingDataset.from_didataset(data, "wav_file", "spkr")
 
     Arguments
     ---------
@@ -51,10 +51,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         self.num_spkrs = num_spkrs
         self.overlap_ratio = overlap_ratio
-        self.normalize = normalize_audio
+        self.normalize_audio = normalize_audio
 
     @classmethod
-    def from_didataset(cls, dataset, spkr_key=None, wav_key=None, **kwargs):
+    def from_didataset(cls, dataset, wav_key=None, spkr_key=None, **kwargs):
         if wav_key is None:
             raise ValueError("Provide valid wav_key for dataset item")
 
@@ -90,6 +90,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         for spkr in mix_spkrs:
             src_file = np.random.choice(self.spkr_files[spkr])
             src_audio, fs = torchaudio.load(src_file)
+            if self.normalize_audio:
+                src_audio = self.normalize(src_audio)
+
             sources.append(src_audio)
 
         if len(sources) == 0:
@@ -103,13 +106,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             overlap_samples = int(len(src) * ratio)
             mixture = mix(mixture, src, overlap_samples)
 
+        # TODO: do some post-porcessing of the mixture, e.g. replace zeros with small noise
         if wavfile:
             torchaudio.save(mixture, wavfile)
         return mixture
 
-    @classmethod
-    def normalize(cls, audio):
-        pass
+
+def normalize(audio):
+    raise NotImplementedError("Normalization is not supported yet")
 
 
 def mix(longer_src, shorter_src, overlap_samples):
@@ -117,6 +121,7 @@ def mix(longer_src, shorter_src, overlap_samples):
     n_long = len(longer_src)
     n_short = len(shorter_src)
     n_diff = n_long - n_short
+    assert n_diff >= 0
 
     if overlap_samples >= n_short:
         # full overlap
