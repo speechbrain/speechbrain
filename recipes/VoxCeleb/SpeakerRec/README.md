@@ -17,8 +17,8 @@ After training the speaker embeddings, it is possible to perform speaker verific
 `python speaker_verification_plda.py hparams/verification_plda_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
-This system achieves an EER = 3.19% on voxceleb1 + voxceleb2.
-These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
+This system achieves an EER = 3.23% on voxceleb1 + voxceleb2.
+These results are all obtained with the official verification split of voxceleb1 (veri\_test2_.txt)
 
 
 # Speaker verification using ECAPA-TDNN embeddings
@@ -36,7 +36,7 @@ This system achieves:
 - EER = 0.80% (voxceleb1 + voxceleb2) with s-norm
 - EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
 
-These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
+These results are all obtained with the official verification split of voxceleb1 (veri\_test2.txt)
 
 Below you can find the results from model trained on VoxCeleb 2 dev set and tested on VoxSRC derivatives. Note that however, the models are trained under a very limited condition (single GPU so batch_size=2) and no score normalization at test time.
 
@@ -60,7 +60,7 @@ You can do the conversion using ffmpeg(https://gist.github.com/seungwonpark/4f27
 
 Go to the voxceleb2 folder and run `unzip vox1_test_wav.zip`.
 
-5. Copy the verification split(`voxceleb1/ meta/veri_test.txt`) into voxceleb2(`voxceleb2/meta/ veri_test.txt`)
+5. Copy the verification split(`voxceleb1/meta/veri_test2.txt`) into voxceleb2(`voxceleb2/meta/veri_test2.txt`)
 
 6. Now everything is ready and you can run voxceleb2 experiments:
 - training embeddings:
