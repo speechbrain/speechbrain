@@ -164,7 +164,7 @@ SpeechBrain can be installed via PyPI. Moreover,  a local installation can be us
 
 ## Install via PyPI
 
-Once you have created your Python environment (Python 3.8+) you can simply type:
+Once you have created your Python environment (Python 3.7+) you can simply type:
 
 ```
 pip install speechbrain
@@ -178,7 +178,7 @@ import speechbrain as sb
 
 ## Install with GitHub
 
-Once you have created your Python environment (Python 3.8+) you can simply type:
+Once you have created your Python environment (Python 3.7+) you can simply type:
 
 ```
 git clone https://github.com/speechbrain/speechbrain.git

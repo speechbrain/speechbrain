@@ -1,8 +1,17 @@
 #!/usr/bin/env/python3
-"""
+"""AISHELL-1 CTC recipe.
+The system employs a wav2vec2 encoder and a CTC decoder.
+Decoding is performed with greedy decoding.
 
-AISHELL-1 seq2seq model recipe. (Adapted from the LibriSpeech recipe.)
+To run this recipe, do the following:
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 
+With the default hyperparameters, the system employs a pretrained wav2vec2 encoder.
+The wav2vec2 model is pretrained on 10k hours Chinese data
+The network is trained with CTC on characters extracted from a pretrained tokenizer.
+
+Authors
+ * Yingzhi WANG 2022
 """
 
 import sys
@@ -21,99 +30,71 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "SpeedPerturb"):
+                wavs = self.hparams.SpeedPerturb(wavs, wav_lens)
+
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
                 wavs = torch.cat([wavs, wavs_noise], dim=0)
                 wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
-        x = self.modules.enc(feats.detach())
-        e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
-        h, _ = self.modules.dec(e_in, x, wav_lens)
+        feats = self.modules.wav2vec2(wavs)
 
-        # Output layer for seq2seq log-probabilities
-        logits = self.modules.seq_lin(h)
-        p_seq = self.hparams.log_softmax(logits)
-
-        # Compute outputs
         if stage == sb.Stage.TRAIN:
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                # Output layer for ctc log-probabilities
-                logits = self.modules.ctc_lin(x)
-                p_ctc = self.hparams.log_softmax(logits)
-                return p_ctc, p_seq, wav_lens
-            else:
-                return p_seq, wav_lens
-        else:
-            p_tokens, scores = self.hparams.beam_search(x, wav_lens)
-            return p_seq, wav_lens, p_tokens
+            if hasattr(self.hparams, "SpecAugment"):
+                feats = self.hparams.SpecAugment(feats)
+
+        x = self.modules.enc(feats)
+        logits = self.modules.ctc_lin(x)
+        p_ctc = self.hparams.log_softmax(logits)
+
+        return p_ctc, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
-
-        current_epoch = self.hparams.epoch_counter.current
-        if stage == sb.Stage.TRAIN:
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                p_ctc, p_seq, wav_lens = predictions
-            else:
-                p_seq, wav_lens = predictions
-        else:
-            p_seq, wav_lens, predicted_tokens = predictions
-
+        """Computes the CTC loss given predictions and targets."""
+        p_ctc, wav_lens = predictions
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
             tokens = torch.cat([tokens, tokens], dim=0)
             tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        )
-
-        # Add ctc loss if necessary
-        if (
-            stage == sb.Stage.TRAIN
-            and current_epoch <= self.hparams.number_of_ctc_epochs
-        ):
-            loss_ctc = self.hparams.ctc_cost(
-                p_ctc, tokens, wav_lens, tokens_lens
-            )
-            loss = self.hparams.ctc_weight * loss_ctc
-            loss += (1 - self.hparams.ctc_weight) * loss_seq
-        else:
-            loss = loss_seq
+        loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_words = [
-                tokenizer.decode_ids(utt_seq).split(" ")
-                for utt_seq in predicted_tokens
-            ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
-            if self.hparams.remove_spaces:
-                predicted_words = ["".join(p) for p in predicted_words]
-                target_words = ["".join(t) for t in target_words]
+            sequences = sb.decoders.ctc_greedy_decode(
+                p_ctc, wav_lens, blank_id=self.hparams.blank_index
+            )
+            predicted_words_list = []
+            target_words_list = [list(wrd) for wrd in batch.wrd]
 
-        if stage != sb.Stage.TRAIN:
-            self.cer_metric.append(ids, predicted_words, target_words)
+            for sequence in sequences:
+                # Decode token terms to words
+                predicted_tokens = self.tokenizer.convert_ids_to_tokens(
+                    sequence
+                )
+
+                predicted_words = []
+                for c in predicted_tokens:
+                    if c == "[CLS]":
+                        continue
+                    elif c == "[SEP]" or c == "[PAD]":
+                        break
+                    else:
+                        predicted_words.append(c)
+
+                predicted_words_list.append(predicted_words)
+
+            self.cer_metric.append(
+                ids=ids, predict=predicted_words_list, target=target_words_list,
+            )
 
         return loss
 
@@ -122,10 +103,16 @@ class ASR(sb.Brain):
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
+
         if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        self.batch_idx += 1
+            if not self.hparams.wav2vec2.freeze:
+                self.wav2vec_optimizer.step()
+            self.model_optimizer.step()
+
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer.zero_grad()
+        self.model_optimizer.zero_grad()
+
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
@@ -152,10 +139,25 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["CER"])
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
+                stage_stats["loss"]
+            )
+            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+                stage_stats["loss"]
+            )
+            sb.nnet.schedulers.update_learning_rate(
+                self.model_optimizer, new_lr_model
+            )
+            if not self.hparams.wav2vec2.freeze:
+                sb.nnet.schedulers.update_learning_rate(
+                    self.wav2vec_optimizer, new_lr_wav2vec
+                )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
+                stats_meta={
+                    "epoch": epoch,
+                    "lr_model": old_lr_model,
+                    "lr_wav2vec": old_lr_wav2vec,
+                },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -169,6 +171,26 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.cer_file, "w") as w:
                 self.cer_metric.write_stats(w)
+
+    def init_optimizers(self):
+        "Initializes the wav2vec2 optimizer and model optimizer"
+
+        # If the wav2vec encoder is unfrozen, we create the optimizer
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.wav2vec2.parameters()
+            )
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable(
+                    "wav2vec_opt", self.wav2vec_optimizer
+                )
+
+        self.model_optimizer = self.hparams.model_opt_class(
+            self.hparams.model.parameters()
+        )
+
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
 def dataio_prepare(hparams):
@@ -227,17 +249,12 @@ def dataio_prepare(hparams):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("transcript")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("wrd", "tokens_list", "tokens")
     def text_pipeline(wrd):
+        wrd = "".join(wrd.split(" "))
         yield wrd
-        tokens_list = tokenizer.encode_as_ids(wrd)
+        tokens_list = tokenizer(wrd)["input_ids"]
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
@@ -245,7 +262,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "wrd", "tokens"],
     )
 
     # 5. If Dynamic Batching is used, we instantiate the needed samplers.
@@ -326,14 +343,9 @@ if __name__ == "__main__":
         valid_bsampler,
     ) = dataio_prepare(hparams)
 
-    # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
-
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
-        opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
@@ -365,5 +377,7 @@ if __name__ == "__main__":
 
     # Testing
     asr_brain.evaluate(
-        test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
+        test_data,
+        min_key="CER",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
     )
