@@ -188,3 +188,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     generator: !ref <generator>
     discriminator: !ref <discriminator>
     counter: !ref <epoch_counter>
+
