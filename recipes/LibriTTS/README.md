@@ -20,6 +20,8 @@ python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
 
 The recipe will automatically download the librispeech dataset and resamples it as specified.
 
+The training logs and checkpoints are available [here](https://drive.google.com/drive/folders/1cImFzEonNYhetS9tmH9R_d0EFXXN0zpn?usp=sharing).
+
 To change the sample rate for model training go to the `"vocoder/hifigan/hparams/train.yaml"` file and change the value for `sample_rate` as required.
 
 On HuggingFace, you can find the following pretrained models (with easy-inference interface):
