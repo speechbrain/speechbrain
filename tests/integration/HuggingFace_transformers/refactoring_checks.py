@@ -69,15 +69,15 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         assert os.path.exists(
             hparams_orig
         ), "backup of the original hparams file missing"
-        os.remove(hparams)
+        os.unlink(hparams)
         os.symlink(f"{updates_dir}/{repo}/hyperparams.yaml", hparams)
     else:
         # testing develop branch
         if os.path.exists(
             hparams_orig
         ):  # in case, we revisit this one and there is a hparams symlink -> restore from backup
-            os.remove(hparams)
-            shutil.copyfile(hparams_orig, hparams)
+            os.unlink(hparams)
+            os.symlink(hparams_orig, hparams)
 
     if run_opts is not None:
         kwargs["run_opts"] = run_opts
@@ -90,7 +90,9 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         kwargs["classname"] = values["cls"]
         model = foreign_class(**kwargs)
 
-    if updates_dir is None:  # make a backup
+    if updates_dir is None and not os.path.exists(
+        hparams_orig
+    ):  # make a backup
         shutil.copyfile(hparams, hparams_orig)
 
     return model
@@ -286,7 +288,7 @@ def test_performance(
                 targeted = eval(values["targeted"])  # noqa
                 ids = batch.id  # noqa
                 for metric in reporting.keys():
-                    reporting[metric]["tracker"].append(eval(values["append"]))
+                    reporting[metric]["tracker"].append(*eval(values["append"]))
 
         stats[k] = {}
         for metric, specs in reporting.items():
@@ -372,7 +374,10 @@ if __name__ == "__main__":
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
         # After refactoring
-        if "after" not in results[repo].keys() and "after" in run_opts:
+        if (
+            "after" not in results[repo].keys()
+            and dataset_overrides["after"] is True
+        ):
             results[repo]["after"] = test_performance(
                 repo,
                 values,
@@ -381,16 +386,16 @@ if __name__ == "__main__":
                 recipe_overrides=dataset_overrides[values["dataset"]],
             )
 
+            results[repo]["same"] = (
+                results[repo]["before"] == results[repo]["after"]
+            )
+            print(f'\tbefore: {results[repo]["before"]}')
+            print(f'\t after: {results[repo]["after"]}')
+            print(f'\t  same: {results[repo]["same"]}')
+
             # update
             with open(yaml_path, "w") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
-
-        results[repo]["same"] = (
-            results[repo]["before"] == results[repo]["after"]
-        )
-        print(f'\tbefore: {results[repo]["before"]}')
-        print(f'\t after: {results[repo]["after"]}')
-        print(f'\t  same: {results[repo]["same"]}')
 
     # update
     with open(yaml_path, "w") as yaml_out:
