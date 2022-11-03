@@ -20,7 +20,6 @@ import sys
 from tqdm import tqdm
 import yaml
 import torch  # noqa
-import shutil
 import importlib  # noqa
 import subprocess
 import speechbrain  # noqa
@@ -62,22 +61,26 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         "savedir": f"pretrained_models/{repo}",
     }
 
+    # adjust symlinks
     hparams = f"pretrained_models/{repo}/hyperparams.yaml"
-    hparams_orig = f"{hparams}_orig"
+    if "foreign" in values.keys():
+        custom = f'pretrained_models/{repo}/{values["foreign"]}'
     if updates_dir is not None:
-        # testing the refactoring
-        assert os.path.exists(
-            hparams_orig
-        ), "backup of the original hparams file missing"
+        # testing the refactoring; assuming all model data has been loaded already
+        kwargs["source"] = f"{updates_dir}/{repo}"
         os.unlink(hparams)
         os.symlink(f"{updates_dir}/{repo}/hyperparams.yaml", hparams)
+        if "foreign" in values.keys():
+            os.unlink(custom)
+            os.symlink(
+                f'{updates_dir}/{repo}/{values["foreign"]}', custom,
+            )
     else:
-        # testing develop branch
-        if os.path.exists(
-            hparams_orig
-        ):  # in case, we revisit this one and there is a hparams symlink -> restore from backup
+        # re:testing on develop? => simply unlink anything before and re:link from cached HF hub
+        if os.path.exists(hparams):
             os.unlink(hparams)
-            os.symlink(hparams_orig, hparams)
+        if "foreign" in values.keys():
+            os.unlink(custom)
 
     if run_opts is not None:
         kwargs["run_opts"] = run_opts
@@ -89,11 +92,6 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         kwargs["pymodule_file"] = values["foreign"]
         kwargs["classname"] = values["cls"]
         model = foreign_class(**kwargs)
-
-    if updates_dir is None and not os.path.exists(
-        hparams_orig
-    ):  # make a backup
-        shutil.copyfile(hparams, hparams_orig)
 
     return model
 
@@ -300,7 +298,8 @@ def test_performance(
     return stats
 
 
-# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --after
+# run first w/ "--after=False" on latest develop, then checkout the refactoring branch and run w/ "--after=True"
+# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --after=False
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = speechbrain.parse_arguments(
         sys.argv[1:]
