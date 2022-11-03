@@ -22,13 +22,12 @@ dataio: |
         },
     )
     from recipes.IEMOCAP.emotion_recognition.train_with_wav2vec2 import dataio_prep
-test_datasets: dataio_prepare(recipe_hparams)["test"]
+test_datasets: dataio_prep(recipe_hparams)["test"]
 test_loader: dataloader_options
 performance:
   ClassError:
     handler: error_stats
     field: average
-predicted: |
-  predicted = predictions[0]
-  emoid, _ = batch.emo_encoded
-metrics_append: ids, predicted, emoid, wav_lens
+predicted: predictions[0]
+targeted: batch.emo_encoded[0]
+append: ids, predicted, targeted, wav_lens
