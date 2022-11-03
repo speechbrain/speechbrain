@@ -15,6 +15,7 @@ import numpy as np
 import numbers
 import random
 import warnings
+import uuid
 import pyloudnorm # WARNING: External dependency
 
 
@@ -143,6 +144,21 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         if wavfile:
             torchaudio.save(mixture, wavfile)
         return mixture, mix_spkrs, overlap_ratios, padded_sources
+
+    def __len__(self):
+        return sum(map(len, self.spkr_files.values())) # dict of lists
+
+    def __getitem__(self, idx):
+        # TODO: Refactor completly
+        mix, spkrs, ratios, srcs = self.generate()
+        if len(srcs) != 2:
+            raise NotImplementedError("getitem supports exactly 2 sources")
+
+        if idx is None:
+            idx = uuid.uuid4()
+        mix_id = str(idx) + '_' + '-'.join(spkrs) + '_overlap' + '-'.join(map(lambda x: f"{x[0]:.2f}", ratios))
+        # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
+        return mix_id, mix.squeeze(), srcs[0].squeeze(), srcs[1].squeeze(), torch.zeros(mix.size(1)), torch.zeros(mix.size(1))
 
 
 def normalize(audio, meter, MIN_LOUDNESS=-33, MAX_LOUDNESS=-25, MAX_AMP=0.9):
