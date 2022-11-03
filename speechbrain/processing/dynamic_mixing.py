@@ -13,6 +13,9 @@ import torch
 import torchaudio
 import numpy as np
 import numbers
+import random
+import warnings
+import pyloudnorm # WARNING: External dependency
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -60,6 +63,13 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         self.normalize_audio = normalize_audio
         self.spkr_files = spkr_files
 
+        tmp_file = next(iter(spkr_files.values()))[0]
+        self.sampling_rate = torchaudio.info(tmp_file).sample_rate
+
+        self.meter = None
+        if self.normalize_audio:
+            self.meter = pyloudnorm.Meter(self.sampling_rate)
+
     @classmethod
     def from_didataset(cls, dataset, wav_key=None, spkr_key=None, **kwargs):
         if wav_key is None:
@@ -101,8 +111,15 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         for spkr in mix_spkrs:
             src_file = np.random.choice(self.spkr_files[spkr])
             src_audio, fs = torchaudio.load(src_file)
+
+            if fs != self.sampling_rate:
+                raise RuntimeError(
+                    f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
+                )
+
             if self.normalize_audio:
-                src_audio = normalize(src_audio)
+                src_audio = normalize(src_audio.squeeze().numpy(), self.meter)
+                src_audio = src_audio.unsqueeze(0)
 
             sources.append(src_audio)
 
@@ -128,8 +145,27 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return mixture, mix_spkrs, overlap_ratios, padded_sources
 
 
-def normalize(audio):
-    raise NotImplementedError("Normalization is not supported yet")
+def normalize(audio, meter, MIN_LOUDNESS=-33, MAX_LOUDNESS=-25, MAX_AMP=0.9):
+    """This function normalizes the audio signals for loudness"""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        c_loudness = meter.integrated_loudness(audio)
+        # if is_noise:
+        #    target_loudness = random.uniform(
+        #        MIN_LOUDNESS - 5, MAX_LOUDNESS - 5
+        #    )
+        # else:
+        #    target_loudness = random.uniform(MIN_LOUDNESS, MAX_LOUDNESS)
+        target_loudness = random.uniform(MIN_LOUDNESS, MAX_LOUDNESS)
+        signal = pyloudnorm.normalize.loudness(
+            audio, c_loudness, target_loudness
+        )
+
+        # check for clipping
+        if np.max(np.abs(signal)) >= 1:
+            signal = signal * MAX_AMP / np.max(np.abs(signal))
+
+    return torch.from_numpy(signal)
 
 
 def mix(src1, src2, overlap_samples, channel_first=True):
@@ -200,6 +236,7 @@ def mix(src1, src2, overlap_samples, channel_first=True):
     except Exception as e:
         print(e)
         import pdb
+
         pdb.set_trace()
 
     if channel_first:
