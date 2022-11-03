@@ -282,23 +282,11 @@ def test_performance(
                 predictions = eval(  # noqa
                     f'model.{values["fnx"]}(wavs, wav_lens)'
                 )
-                if "metrics_append" in values.keys():
-                    exec(values["predicted"])
-                else:
-                    predicted = [
-                        wrd.split(" ") for wrd in eval(values["predicted"])
-                    ]
-                    targeted = [wrd.split(" ") for wrd in batch.wrd]
-                ids = batch.id
+                predicted = eval(values["predicted"])  # noqa
+                targeted = eval(values["targeted"])  # noqa
+                ids = batch.id  # noqa
                 for metric in reporting.keys():
-                    if "metrics_append" in values.keys():
-                        reporting[metric]["tracker"].append(
-                            eval(values["metrics_append"])
-                        )
-                    else:
-                        reporting[metric]["tracker"].append(
-                            ids, predicted, targeted
-                        )
+                    reporting[metric]["tracker"].append(eval(values["append"]))
 
         stats[k] = {}
         for metric, specs in reporting.items():
