@@ -3,8 +3,8 @@ ctc-segmentation>=1.7.0
 fairseq
 numba>=0.54.1
 recommonmark>=0.7.1
+scikit-learn
 six
-sklearn
 sphinx-rtd-theme>=0.4.3
 Sphinx>=3.4.3
 transformers==4.13
