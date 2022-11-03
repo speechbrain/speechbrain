@@ -6,11 +6,29 @@ dataset: IEMOCAP
 recipe_yaml: recipes/IEMOCAP/emotion_recognition/hparams/train_with_wav2vec2.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
-dataio: from recipes.IEMOCAP.emotion_recognition.train_with_wav2vec2 import dataio_prep
+dataio: |
+    from iemocap_prepare import prepare_data
+    run_on_main(
+        prepare_data,
+        kwargs={
+            "data_original": hparams["data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
+            "split_ratio": [80, 10, 10],
+            "different_speakers": hparams["different_speakers"],
+            "test_spk_id": hparams["test_spk_id"],
+            "seed": hparams["seed"],
+        },
+    )
+    from recipes.IEMOCAP.emotion_recognition.train_with_wav2vec2 import dataio_prep
 test_datasets: dataio_prepare(recipe_hparams)["test"]
 test_loader: dataloader_options
 performance:
   ClassError:
     handler: error_stats
     field: average
-predicted: predictions[0]
+predicted: |
+  predicted = predictions[0]
+  emoid, _ = batch.emo_encoded
+metrics_append: ids, predicted, emoid, wav_lens

@@ -5,7 +5,7 @@ dataset: CommonVoice_FR
 recipe_yaml: recipes/CommonVoice/ASR/CTC/hparams/train_fr_with_wav2vec.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
-prepare: |
+dataio: |
     from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
     run_on_main(
         prepare_common_voice,
@@ -20,7 +20,7 @@ prepare: |
                 "skip_prep": recipe_hparams["skip_prep"],
             },
         )
-dataio: from recipes.CommonVoice.ASR.CTC.train_with_wav2vec import dataio_prepare
+    from recipes.CommonVoice.ASR.CTC.train_with_wav2vec import dataio_prepare
 test_datasets: dataio_prepare(recipe_hparams, model.tokenizer)[2]
 test_loader: test_dataloader_options
 performance:
