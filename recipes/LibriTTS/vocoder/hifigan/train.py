@@ -3,11 +3,12 @@
 For more details about hifi-gan: https://arxiv.org/pdf/2010.05646.pdf
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/LJspeech
+> python train.py hparams/train.yaml --data_folder /path/to/LibriTTS
 
 Authors
  * Duret Jarod 2021
  * Yingzhi WANG 2022
+ * Pradnya Kandarkar 2022
 """
 
 import sys
@@ -374,6 +375,7 @@ if __name__ == "__main__":
             "save_json_test": hparams["test_json"],
             "sample_rate": hparams["sample_rate"],
             "split_ratio": hparams["split_ratio"],
+            "libritts_subsets": hparams["libritts_subsets"]
         },
     )
 

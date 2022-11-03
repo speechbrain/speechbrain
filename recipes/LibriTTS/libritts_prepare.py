@@ -8,9 +8,6 @@ import logging
 import torchaudio
 
 logger = logging.getLogger(__name__)
-# Change the entries in the following "LIBRITTS_SUBSETS" to modify the downloaded subsets for LibriTTS
-# Used subsets ["dev-clean", "train-clean-100", "train-clean-360"]
-LIBRITTS_SUBSETS = ["dev-clean"]
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
 
 
@@ -21,6 +18,7 @@ def prepare_libritts(
     save_json_test,
     sample_rate,
     split_ratio=[80, 10, 10],
+    libritts_subsets = ['train-clean-100']
 ):
     """
     Prepares the json files for the LibriTTS dataset.
@@ -42,10 +40,12 @@ def prepare_libritts(
         for test.
     sample_rate : int
         The sample rate to be used for the dataset
+    libritts_subsets: list
+        List of librispeech subsets to use (e.g., dev-clean, train-clean-100, ...).
     Example
     -------
-    >>> data_folder = '/path/to/mini_librispeech'
-    >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
+    >>> data_folder = '/path/to/LibriTTS'
+    >>> prepare_libritts(data_folder, 'train.json', 'valid.json', 'test.json', 2050)
     """
 
     # Checks if this phase is already done (if so, skips it)
@@ -57,7 +57,7 @@ def prepare_libritts(
     wav_list = list()  # Stores all audio file paths for the dataset
 
     # For every subset of the dataset, if it doesn't exist, downloads it and sets flag to resample the subset
-    for subset_name in LIBRITTS_SUBSETS:
+    for subset_name in libritts_subsets:
 
         subset_folder = os.path.join(data_folder, subset_name)
         subset_archive = os.path.join(subset_folder, subset_name + ".tar.gz")
