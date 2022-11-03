@@ -601,7 +601,9 @@ if __name__ == "__main__":
         if "processed" not in hparams["base_folder_dm"]:
             # if the processed folder already exists we just use it otherwise we do the preprocessing
             if not os.path.exists(
-                os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                os.path.normpath(hparams["base_folder_dm"])
+                + "_processed_"
+                + str(hparams["sample_rate"])
             ):
                 from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
                     resample_folder,
@@ -615,21 +617,26 @@ if __name__ == "__main__":
                         "output_folder": os.path.normpath(
                             hparams["base_folder_dm"]
                         )
-                        + "_processed",
+                        + "_processed_"
+                        + str(hparams["sample_rate"]),
                         "fs": hparams["sample_rate"],
                         "regex": "**/*.flac",
                     },
                 )
                 # adjust the base_folder_dm path
                 hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                    os.path.normpath(hparams["base_folder_dm"])
+                    + "_processed_"
+                    + str(hparams["sample_rate"])
                 )
             else:
                 print(
                     "Using the existing processed folder on the same directory as base_folder_dm"
                 )
                 hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
+                    os.path.normpath(hparams["base_folder_dm"])
+                    + "_processed_"
+                    + str(hparams["sample_rate"])
                 )
 
         dm_hparams = {
