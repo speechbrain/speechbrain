@@ -48,22 +48,19 @@ sys.path.append(os.path.dirname(current_dir))
 try:
     import sklearn  # noqa F401
 except ImportError:
-    err_msg = (
-        "Cannot import optional dependency `sklearn` used in this module.\n"
-    )
+    err_msg = "Cannot import optional dependency `scikit-learn` (sklearn) used in this module.\n"
     err_msg += "Please follow the below instructions\n"
     err_msg += "=============================\n"
     err_msg += "Using pip:\n"
-    err_msg += "pip install sklearn\n"
+    err_msg += "pip install scikit-learn\n"
     err_msg += "================================ \n"
     err_msg += "Using conda:\n"
-    err_msg += "conda install sklearn"
+    err_msg += "conda install scikit-learn"
     raise ImportError(err_msg)
 
 
 def compute_embeddings(wavs, lens):
-    """Definition of the steps for computation of embeddings from the waveforms.
-    """
+    """Definition of the steps for computation of embeddings from the waveforms."""
     with torch.no_grad():
         wavs = wavs.to(params["device"])
         feats = params["compute_features"](wavs)
@@ -77,8 +74,7 @@ def compute_embeddings(wavs, lens):
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
-    """Extracts embeddings for a given dataset loader.
-    """
+    """Extracts embeddings for a given dataset loader."""
 
     # Note: We use speechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
     # Extract embeddings (skip if already done).
@@ -360,8 +356,7 @@ def dev_pval_tuner(full_meta, split_type):
 
 
 def dev_ahc_threshold_tuner(full_meta, split_type):
-    """Tuning threshold for affinity matrix. This function is called when AHC is used as backend.
-    """
+    """Tuning threshold for affinity matrix. This function is called when AHC is used as backend."""
 
     DER_list = []
     prange = np.arange(0.0, 1.0, 0.1)
