@@ -269,6 +269,13 @@ def parse_arguments(arg_list=None):
         type=int,
         help="Number of optimizer steps to run. If not passed, all epochs are run.",
     )
+    parser.add_argument(
+        "--white_tqdm",
+        default=False,
+        action="store_true",
+        help="Enable default (white) color for tqdm progress-bar. If this is "
+        "not passed a multi-colored progress-bar is used.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -455,6 +462,12 @@ class Brain:
             "ckpt_interval_minutes": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
+            "white_tqdm": False,
+            "tqdm_progressbar": {
+                "train": "GREEN",
+                "valid": "MAGENTA",
+                "test": "CYAN",
+            },
         }
 
         for arg, default in run_opt_defaults.items():
@@ -585,6 +598,10 @@ class Brain:
         # Add this class to the checkpointer for intra-epoch checkpoints
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
+
+        # Force default color for tqdm progrressbar
+        if self.white_tqdm:
+            self.tqdm_progressbar = dict.fromkeys(self.tqdm_progressbar, "")
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -996,13 +1013,13 @@ class Brain:
 
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
-
+        # import pdb; pdb.set_trace()
         with tqdm(
             train_set,
             initial=self.step,
             dynamic_ncols=True,
             disable=not enable,
-            colour="GREEN",
+            colour=self.tqdm_progressbar["train"],
         ) as t:
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
@@ -1056,7 +1073,7 @@ class Brain:
                     valid_set,
                     dynamic_ncols=True,
                     disable=not enable,
-                    colour="MAGENTA",
+                    colour=self.tqdm_progressbar["valid"],
                 ):
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
@@ -1271,7 +1288,7 @@ class Brain:
                 test_set,
                 dynamic_ncols=True,
                 disable=not progressbar,
-                colour="CYAN",
+                colour=self.tqdm_progressbar["test"],
             ):
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
