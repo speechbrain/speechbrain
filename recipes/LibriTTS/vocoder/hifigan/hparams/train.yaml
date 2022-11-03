@@ -17,7 +17,7 @@ use_tensorboard: True
 data_folder: !PLACEHOLDER # e.g, /datasets/LibriTTS
 # Data will be automatically downloaded in the data folder
 # (and resampled to the specified sampling rate)
-libritts_subsets: ["train-clean-100"]
+libritts_subsets: ["train-clean-100", "train-clean-360"]
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
