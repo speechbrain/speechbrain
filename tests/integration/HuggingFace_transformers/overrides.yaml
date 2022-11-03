@@ -12,6 +12,9 @@ new_interfaces_local_dir: tests/tmp/hf_interfaces
 # glob_filter: "*libri*"
 glob_filter: "*"
 
+# This is a dummy value; can be changed for easier cmd line calls; it's mainly here to be available as override arg
+pr_branch: None
+
 LibriSpeech:
   data_folder: !ref <LibriSpeech_data>
   skip_prep: True

@@ -55,7 +55,7 @@ def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
     return updates_dir
 
 
-def get_model(repo, values, updates_dir=None, run_opts=None):
+def get_model(repo, values, updates_dir=None, run_opts=None, pr_branch=None):
     # get the pretrained class; model & predictions
     kwargs = {
         "source": f"speechbrain/{repo}",
@@ -65,12 +65,16 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     hparams = f"pretrained_models/{repo}/hyperparams.yaml"
     hparams_orig = f"{hparams}_orig"
     if updates_dir is not None:
+        # testing the refactoring
+        subprocess.run(f"git checkout", pr_branch)
         assert os.path.exists(
             hparams_orig
         ), "backup of the original hparams file missing"
         os.remove(hparams)
         os.symlink(f"{updates_dir}/{repo}/hyperparams.yaml", hparams)
     else:
+        # testing develop branch
+        subprocess.run("git checkout develop")
         if not os.path.exists(hparams_orig):  # make a backup
             shutil.copyfile(hparams, hparams_orig)
         else:  # in case, we revisit this one and there is a hparams symlink -> restore from backup
@@ -91,7 +95,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     return model
 
 
-def get_prediction(repo, values, updates_dir=None):
+def get_prediction(repo, values, updates_dir=None, pr_branch=None):
     # updates_dir controls whether/not we are in the refactored results (None: expected results; before refactoring)
 
     def sanitize(data):
@@ -100,7 +104,7 @@ def get_prediction(repo, values, updates_dir=None):
             data = data.detach().cpu().numpy()
         return data
 
-    model = get_model(repo, values, updates_dir)  # noqa
+    model = get_model(repo=repo, values=values, updates_dir=updates_dir)  # noqa
 
     try:
         if values["prediction"] is None:
@@ -222,7 +226,9 @@ def test_performance(
     }
 
     # Load pretrained
-    model = get_model(repo, values, updates_dir, run_opts)  # noqa
+    model = get_model(
+        repo=repo, values=values, updates_dir=updates_dir, run_opts=run_opts
+    )  # noqa
 
     # Dataio preparation; we need the test sets only
     with open(values["recipe_yaml"]) as fin:
@@ -275,15 +281,23 @@ def test_performance(
                 predictions = eval(  # noqa
                     f'model.{values["fnx"]}(wavs, wav_lens)'
                 )
-                predicted = [
-                    wrd.split(" ") for wrd in eval(values["predicted"])
-                ]
+                if "metrics_append" in values.keys():
+                    exec(values["predicted"])
+                else:
+                    predicted = [
+                        wrd.split(" ") for wrd in eval(values["predicted"])
+                    ]
+                    targeted = [wrd.split(" ") for wrd in batch.wrd]
                 ids = batch.id
-                targeted = [wrd.split(" ") for wrd in batch.wrd]
                 for metric in reporting.keys():
-                    reporting[metric]["tracker"].append(
-                        ids, predicted, targeted
-                    )
+                    if "metrics_append" in values.keys():
+                        reporting[metric]["tracker"].append(
+                            eval(values["metrics_append"])
+                        )
+                    else:
+                        reporting[metric]["tracker"].append(
+                            ids, predicted, targeted
+                        )
 
         stats[k] = {}
         for metric, specs in reporting.items():
@@ -295,7 +309,7 @@ def test_performance(
     return stats
 
 
-# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data=""
+# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --pr_branch="hf-integration"
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = speechbrain.parse_arguments(
         sys.argv[1:]
