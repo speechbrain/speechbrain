@@ -15,10 +15,16 @@ We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the 
 To run this recipe, go into the `"vocoder/hifigan/"` folder and run:
 
 ```
-python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS_data_destination
+python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
 ```
 
+The recipe will automatically download the librispeech dataset and resamples it as specified.
+
 To change the sample rate for model training go to the `"vocoder/hifigan/hparams/train.yaml"` file and change the value for `sample_rate` as required.
+
+On HuggingFace, you can find the following pretrained models (with easy-inference interface):
+- https://huggingface.co/speechbrain/tts-hifigan-libritts-22050Hz
+- https://huggingface.co/speechbrain/tts-hifigan-libritts-16kHz
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
