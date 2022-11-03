@@ -1013,7 +1013,6 @@ class Brain:
 
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
-        # import pdb; pdb.set_trace()
         with tqdm(
             train_set,
             initial=self.step,
