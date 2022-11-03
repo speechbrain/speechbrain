@@ -73,9 +73,9 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         os.symlink(f"{updates_dir}/{repo}/hyperparams.yaml", hparams)
     else:
         # testing develop branch
-        if not os.path.exists(hparams_orig):  # make a backup
-            shutil.copyfile(hparams, hparams_orig)
-        else:  # in case, we revisit this one and there is a hparams symlink -> restore from backup
+        if os.path.exists(
+            hparams_orig
+        ):  # in case, we revisit this one and there is a hparams symlink -> restore from backup
             os.remove(hparams)
             shutil.copyfile(hparams_orig, hparams)
 
@@ -89,6 +89,9 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         kwargs["pymodule_file"] = values["foreign"]
         kwargs["classname"] = values["cls"]
         model = foreign_class(**kwargs)
+
+    if updates_dir is None:  # make a backup
+        shutil.copyfile(hparams, hparams_orig)
 
     return model
 
