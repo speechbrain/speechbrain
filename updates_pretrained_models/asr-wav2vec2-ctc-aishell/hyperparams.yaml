@@ -52,7 +52,7 @@ w2v2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTransfor
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_folder>
     forward_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.huggingface.wav2vec2_forward
+        - !name:speechbrain.lobes.models.huggingface.lib_forward.wav2vec2_forward
     modify_state_dict_partial_fn: !new:functools.partial
         - !name:speechbrain.lobes.models.huggingface.lib_deser.modify_state_dict_wav2vec2
     override_hf_model_partial_fn: !new:functools.partial
