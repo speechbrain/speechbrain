@@ -18,7 +18,7 @@ def prepare_libritts(
     save_json_test,
     sample_rate,
     split_ratio=[80, 10, 10],
-    libritts_subsets = ['train-clean-100']
+    libritts_subsets=["train-clean-100"],
 ):
     """
     Prepares the json files for the LibriTTS dataset.
