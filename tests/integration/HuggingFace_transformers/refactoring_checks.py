@@ -55,7 +55,7 @@ def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
     return updates_dir
 
 
-def get_model(repo, values, updates_dir=None, run_opts=None, pr_branch=None):
+def get_model(repo, values, updates_dir=None, run_opts=None):
     # get the pretrained class; model & predictions
     kwargs = {
         "source": f"speechbrain/{repo}",
@@ -66,7 +66,6 @@ def get_model(repo, values, updates_dir=None, run_opts=None, pr_branch=None):
     hparams_orig = f"{hparams}_orig"
     if updates_dir is not None:
         # testing the refactoring
-        subprocess.run(f"git checkout", pr_branch)
         assert os.path.exists(
             hparams_orig
         ), "backup of the original hparams file missing"
@@ -74,7 +73,6 @@ def get_model(repo, values, updates_dir=None, run_opts=None, pr_branch=None):
         os.symlink(f"{updates_dir}/{repo}/hyperparams.yaml", hparams)
     else:
         # testing develop branch
-        subprocess.run("git checkout develop")
         if not os.path.exists(hparams_orig):  # make a backup
             shutil.copyfile(hparams, hparams_orig)
         else:  # in case, we revisit this one and there is a hparams symlink -> restore from backup
@@ -95,7 +93,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None, pr_branch=None):
     return model
 
 
-def get_prediction(repo, values, updates_dir=None, pr_branch=None):
+def get_prediction(repo, values, updates_dir=None):
     # updates_dir controls whether/not we are in the refactored results (None: expected results; before refactoring)
 
     def sanitize(data):
@@ -309,7 +307,7 @@ def test_performance(
     return stats
 
 
-# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --pr_branch="hf-integration"
+# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --after
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = speechbrain.parse_arguments(
         sys.argv[1:]
@@ -378,8 +376,12 @@ if __name__ == "__main__":
                 recipe_overrides=dataset_overrides[values["dataset"]],
             )
 
+            # update
+            with open(yaml_path, "w") as yaml_out:
+                yaml.dump(results, yaml_out, default_flow_style=None)
+
         # After refactoring
-        if "after" not in results[repo].keys():
+        if "after" not in results[repo].keys() and "after" in run_opts:
             results[repo]["after"] = test_performance(
                 repo,
                 values,
@@ -387,6 +389,10 @@ if __name__ == "__main__":
                 updates_dir=updates_dir,
                 recipe_overrides=dataset_overrides[values["dataset"]],
             )
+
+            # update
+            with open(yaml_path, "w") as yaml_out:
+                yaml.dump(results, yaml_out, default_flow_style=None)
 
         results[repo]["same"] = (
             results[repo]["before"] == results[repo]["after"]
