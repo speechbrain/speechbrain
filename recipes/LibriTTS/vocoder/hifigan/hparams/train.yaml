@@ -28,8 +28,6 @@ split_ratio: [90, 10]
 ################################
 # Audio Parameters             #
 ################################
-skip_prep: False
-
 segment_size: 8192
 sample_rate: 16000
 hop_length: 256
