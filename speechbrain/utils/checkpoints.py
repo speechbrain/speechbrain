@@ -58,6 +58,7 @@ import inspect
 import shutil
 import logging
 import warnings
+import speechbrain.utils._workarounds as __wa
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +188,10 @@ try:
 except ImportError:
     # SentencePiece not loaded, fine!
     pass
+
+# Add workarounds:
+DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.CyclicLR] = __wa._cycliclrsaver
+DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.CyclicLR] = __wa._cycliclrloader
 
 
 def mark_as_saver(method):
