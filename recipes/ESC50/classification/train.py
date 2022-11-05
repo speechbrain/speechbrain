@@ -80,7 +80,7 @@ class ESC50Brain(sb.core.Brain):
 
         Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
         Xmel = librosa.feature.melspectrogram(
-            sr=44100, S=np.abs(Xs), n_fft=1024, hop_length=512, n_mels=120
+            sr=44100, S=np.abs(Xs), n_fft=1024, hop_length=512, n_mels=80
         )
         # Xls = np.log(1.0 + np.abs(Xs))
         Xlgmel = librosa.power_to_db(Xmel)
@@ -462,7 +462,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
+    # print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
     if hparams["use_pretrain"]:
         state_dict = torch.load(
             "mx-h64-1024_0d3-1.17.pkl",
@@ -478,12 +478,18 @@ if __name__ == "__main__":
                 name = k
             new_state_dict[name] = v
         ESC50_brain.modules.embedding_model.load_state_dict(new_state_dict)
-    print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
+    # print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
 
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
+
+    # Load pretrained model if pretrained_separator is present in the yaml
+    if "pretrained_encoder" in hparams:
+        run_on_main(hparams["pretrained_encoder"].collect_files)
+        hparams["pretrained_encoder"].load_collected()
+
     if not hparams["test_only"]:
         ESC50_brain.fit(
             epoch_counter=ESC50_brain.hparams.epoch_counter,
