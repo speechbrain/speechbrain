@@ -29,11 +29,11 @@ sample_rate_src: 48000
 sample_rate_tgt: 22050
 number_of_epochs: 10
 batch_size: 16
-lr: 0.001
+lr: 0.0005
 max_grad_norm: 1.
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
-lr_total_steps: !ref <train_len> * <number_of_epochs>
+lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
 train_timesteps: 1000
 adam_beta1: 0.95
 adam_beta2: 0.999
@@ -175,3 +175,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         unet: !ref <unet>
         counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
+        global_norm: !ref <global_norm>        
