@@ -448,7 +448,7 @@ class AttentionBlock(nn.Module):
     An attention block that allows spatial positions to attend to each other.
     Originally ported from here, but adapted to the N-d case.
     https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
-    
+
 
 
     Arguments
@@ -460,7 +460,7 @@ class AttentionBlock(nn.Module):
     num_head_channels: int
         the number of channels in each attention head
     norm_num_groups
-        the number of groups used for group normalization    
+        the number of groups used for group normalization
     """
 
     def __init__(

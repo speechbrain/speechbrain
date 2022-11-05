@@ -156,7 +156,7 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: true
+    capturable: True
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
@@ -176,4 +176,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         unet: !ref <unet>
         counter: !ref <epoch_counter>
         lr_annealing: !ref <lr_annealing>
-        global_norm: !ref <global_norm>        
+        global_norm: !ref <global_norm>
