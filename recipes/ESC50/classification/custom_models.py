@@ -115,7 +115,7 @@ class weak_mxh64_1024(nn.Module):
 
 
 def init_layer(layer):
-    """Initialize a Linear or Convolutional layer. """
+    """Initialize a Linear or Convolutional layer."""
     nn.init.xavier_uniform_(layer.weight)
 
     if hasattr(layer, "bias"):
@@ -124,7 +124,7 @@ def init_layer(layer):
 
 
 def init_bn(bn):
-    """Initialize a Batchnorm layer. """
+    """Initialize a Batchnorm layer."""
     bn.bias.data.fill_(0.0)
     bn.weight.data.fill_(1.0)
 
@@ -202,11 +202,10 @@ class ConvBlock(nn.Module):
 class Cnn14(nn.Module):
     #  def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin,
     #      fmax, classes_num):
-    def __init__(
-        self, mel_bins, emb_dim, norm_type="bn",
-    ):
+    def __init__(self, mel_bins, emb_dim, norm_type="bn", interpret=False):
 
         super(Cnn14, self).__init__()
+        self.interpret = interpret
 
         #  window = 'hann'
         #  center = True
@@ -296,18 +295,23 @@ class Cnn14(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x, p=0.2, training=self.training)
-        x = self.conv_block4(x, pool_size=(2, 2), pool_type="avg")
-        x = F.dropout(x, p=0.2, training=self.training)
-        x = self.conv_block5(x, pool_size=(2, 2), pool_type="avg")
-        x = F.dropout(x, p=0.2, training=self.training)
-        x = self.conv_block6(x, pool_size=(1, 1), pool_type="avg")
-        x = F.dropout(x, p=0.2, training=self.training)
+        x3_out = self.conv_block4(x, pool_size=(2, 2), pool_type="avg")
+        x = F.dropout(x3_out, p=0.2, training=self.training)
+        x2_out = self.conv_block5(x, pool_size=(2, 2), pool_type="avg")
+        x = F.dropout(x2_out, p=0.2, training=self.training)
+        x1_out = self.conv_block6(x, pool_size=(1, 1), pool_type="avg")
+        x = F.dropout(x1_out, p=0.2, training=self.training)
         x = torch.mean(x, dim=3)
 
         (x1, _) = torch.max(x, dim=2)
         x2 = torch.mean(x, dim=2)
         x = x1 + x2
-        return x.unsqueeze(1)  # [B, 1, D]
+
+        if not self.interpret:
+            return x.unsqueeze(1)  # [B, 1, D]
+
+        return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+
         #  x = F.dropout(x, p=0.5, training=self.training)
         #  x = F.relu_(self.fc1(x))
         #  embedding = F.dropout(x, p=0.5, training=self.training)
@@ -316,3 +320,60 @@ class Cnn14(nn.Module):
         #  output_dict = {'clipwise_output': clipwise_output, 'embedding': embedding}
         #
         #  return output_dict
+
+
+class Psi(nn.Module):
+    def __init__(self, N_COMP=100, T=413, in_maps=[2048, 1024, 512]):
+        """
+        Computes NMF dictionary activations given classifier hidden layers
+        """
+        super(Psi, self).__init__()
+
+        self.upsamp = nn.UpsamplingBilinear2d(scale_factor=(2, 2))
+        self.upsamp_time = nn.UpsamplingBilinear2d(size=(T, 1))
+        out_c = min(in_maps)
+
+        self.c1 = nn.Conv2d(in_maps[0], out_c, kernel_size=3, padding="same")
+        self.c2 = nn.Conv2d(in_maps[1], out_c, kernel_size=3, padding="same")
+
+        self.out_conv = nn.Conv2d(out_c*3, N_COMP, kernel_size=3, padding="same")
+
+        self.act = nn.ReLU()
+
+    def forward(self, inp):
+        """
+        `inp` contains the hidden representations from the network.
+        inp[0] and inp[1] need a factor 2 upsampling on the time axis, while inp[0] just needs features to match K
+        """
+        
+
+        x1, x2, x3 = inp
+
+        # upsample inp[0] and inp[1] time and frequency axis once
+        x1 = self.upsamp(x1)
+        x2 = self.upsamp(x2)
+
+        # compress feature number to the min among given hidden repr
+        x1 = self.act(
+            self.c1(x1)
+        )
+        x2 = self.act(
+            self.c2(x2)
+        )
+
+        # for cnn14 fix frequency dimension
+        x1 = F.pad(x1, (0, 1, 0, 0))
+        x2 = F.pad(x2, (0, 1, 0, 0))
+
+        x = torch.cat((x1, x2, x3), axis=1)
+
+        # upsample time axis and collapse freq
+        x = self.upsamp_time(x)
+
+        # mix contribution for the three hidden layers -- work on this when fixing training
+        x = self.act(
+            self.out_conv(x)
+        ).squeeze(3)
+
+        
+        return x
