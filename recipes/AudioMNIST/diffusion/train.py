@@ -539,6 +539,29 @@ class DiffusionBrain(sb.Brain):
 DATASET_SPLITS = ["train", "valid", "test"]
 
 
+def load_dataset(hparams):
+    dataset_splits = {}
+    if os.path.exists(hparams["dataset"]):
+        # Use a folder:
+        for split_id in DATASET_SPLITS:
+            split_path = os.path.join(hparams["dataset"], f"{split_id}.json")
+            dataset_splits[split_id] = sb.dataio.dataset.DynamicItemDataset.from_json(
+                split_path
+            )
+    else:
+        dataset = datasets.load_dataset(hparams["dataset"])
+        for split_id in DATASET_SPLITS:
+            dataset_splits[
+                split_id
+            ] = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
+                dataset[split_id],
+                replacements={"data_root": hparams["data_folder"]},
+            )
+    return dataset_splits
+
+
+
+
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
@@ -569,27 +592,28 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         """Load the signal, and output it"""
+        if not os.path.isabs(wav):
+            wav = os.path.join(hparams["dataset"], wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = resample(sig)
         return sig
 
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
-    dataset = datasets.load_dataset(hparams["dataset"])
+    
+    dataset_splits = load_dataset(hparams)
+    dataset_splits_values = dataset_splits.values()
 
-    datasets_splits = {}
-    hparams["dataloader_options"]["shuffle"] = True
-    for split_id in DATASET_SPLITS:
-        datasets_splits[
-            split_id
-        ] = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
-            dataset[split_id],
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline],
-            output_keys=["file_name", "sig", "digit", "speaker_id"],
-        )
+    sb.dataio.dataset.set_output_keys(
+        dataset_splits_values,
+        ["file_name", "sig", "digit", "speaker_id"]
+    )
+    sb.dataio.dataset.add_dynamic_item(
+        dataset_splits_values,
+        audio_pipeline
+    )
 
-    train_split = datasets_splits["train"]
+    train_split = dataset_splits["train"]
     data_count = None
     if hparams["overfit_test"]:
         sample_count = hparams["overfit_test_sample_count"]
@@ -602,7 +626,7 @@ def dataio_prep(hparams):
         data_count = hparams["train_data_count"]
         train_split.data_ids = train_split.data_ids[:data_count]
 
-    return datasets_splits
+    return dataset_splits
 
 
 def non_batch_dims(sample):
