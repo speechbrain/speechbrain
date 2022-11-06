@@ -545,9 +545,9 @@ def load_dataset(hparams):
         # Use a folder:
         for split_id in DATASET_SPLITS:
             split_path = os.path.join(hparams["dataset"], f"{split_id}.json")
-            dataset_splits[split_id] = sb.dataio.dataset.DynamicItemDataset.from_json(
-                split_path
-            )
+            dataset_splits[
+                split_id
+            ] = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
     else:
         dataset = datasets.load_dataset(hparams["dataset"])
         for split_id in DATASET_SPLITS:
@@ -558,8 +558,6 @@ def load_dataset(hparams):
                 replacements={"data_root": hparams["data_folder"]},
             )
     return dataset_splits
-
-
 
 
 def dataio_prep(hparams):
@@ -600,18 +598,14 @@ def dataio_prep(hparams):
 
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
-    
+
     dataset_splits = load_dataset(hparams)
     dataset_splits_values = dataset_splits.values()
 
     sb.dataio.dataset.set_output_keys(
-        dataset_splits_values,
-        ["file_name", "sig", "digit", "speaker_id"]
+        dataset_splits_values, ["file_name", "sig", "digit", "speaker_id"]
     )
-    sb.dataio.dataset.add_dynamic_item(
-        dataset_splits_values,
-        audio_pipeline
-    )
+    sb.dataio.dataset.add_dynamic_item(dataset_splits_values, audio_pipeline)
 
     train_split = dataset_splits["train"]
     data_count = None

@@ -75,7 +75,7 @@ pad_level_db: -50.
 vocoder_model: speechbrain/tts-hifigan-libritts-22050Hz
 
 # Evaluation Parameters
-eval_num_samples: 10
+eval_num_samples: 32
 eval_generate_audio: True
 eval_show_progress: True
 
