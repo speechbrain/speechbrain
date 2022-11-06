@@ -72,7 +72,7 @@ min_level_db: -80.0
 pad_level_db: -50.
 
 # Vocoder Settings
-vocoder_model: speechbrain/tts-hifigan-ljspeech
+vocoder_model: speechbrain/tts-hifigan-libritts-22050Hz
 
 # Evaluation Parameters
 eval_num_samples: 10
