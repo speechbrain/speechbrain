@@ -39,7 +39,7 @@ test_annotation: !ref <data_folder>/manifest/test.json
 
 # To standardize results, UrbanSound8k has pre-separated samples into
 # 10 folds for multi-fold validation
-train_fold_nums: [1, 2, 3]
+train_fold_nums: [1]
 valid_fold_nums: [4]
 test_fold_nums: [5]
 skip_manifest_creation: False
@@ -49,7 +49,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 2
-lr: 0.0002
+lr: 0.0001
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
@@ -202,8 +202,9 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         classifier: !ref <classifier_model_path>
 
 # Interpretation hyperparams
-T: 431
+T: 413
 K: 100
+FREQ: 513
 
 psi_model: !new:custom_models.Psi
 
@@ -222,8 +223,5 @@ modules:
     add_rev: !ref <add_rev>
     add_noise: !ref <add_noise>
     add_rev_noise: !ref <add_rev_noise>
-    embedding_model: !ref <embedding_model>
-    classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
     psi: !ref <psi_model>
-    nmf: !ref <nmf>

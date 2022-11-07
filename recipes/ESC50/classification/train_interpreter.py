@@ -46,7 +46,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
+        # no data augmentation here
+        if stage == sb.Stage.TRAIN and False:
 
             # Applying the augmentation pipeline
             wavs_aug_tot = []
@@ -88,68 +89,79 @@ class InterpreterESC50Brain(sb.core.Brain):
         feats = torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
 
         # Embeddings + sound classifier
-        embeddings, f_I = self.modules.embedding_model(feats)
+        embeddings, f_I = self.hparams.embedding_model(feats)
 
-        psi_out = self.modules.psi(f_I)
+        psi_out = self.modules.psi(f_I) # generate nmf activations
+        reconstructed = self.hparams.nmf(psi_out)   #  generate log-mag spectrogram
 
-        print(self.hparams.nmf(psi_out).shape)
-        input()
+        return reconstructed, None
 
-        # outputs = self.modules.classifier(embeddings)
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss using class-id as label.
+        """
+        predictions, lens = predictions
+        uttid = batch.id
+        classid, _ = batch.class_string_encoded
 
-        # return outputs, lens
+        predictions = predictions
 
-        # def compute_objectives(self, predictions, batch, stage):
-        #     """Computes the loss using class-id as label.
-        #     """
-        #     predictions, lens = predictions
-        #     uttid = batch.id
-        #     classid, _ = batch.class_string_encoded
+        batch = batch.to(self.device)
+        wavs, _ = batch.sig
 
-        #     # Concatenate labels (due to data augmentation)
-        #     if stage == sb.Stage.TRAIN:
-        #         classid = torch.cat([classid] * self.n_augment, dim=0)
+        Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
+        Xs = np.log(1 + np.abs(Xs))
+        Xs = torch.Tensor(Xs).float().to(self.device)
 
-        #     loss = self.hparams.compute_cost(predictions, classid, lens)
+        # Concatenate labels (due to data augmentation)
+        if stage == sb.Stage.TRAIN and False:
+            classid = torch.cat([classid] * self.n_augment, dim=0)
 
-        #     if stage != sb.Stage.TEST:
-        #         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-        #             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        #     # Append this batch of losses to the loss metric for easy
-        #     self.loss_metric.append(
-        #         uttid, predictions, classid, lens, reduction="batch"
+        diff = predictions - Xs
+        loss_nmf = torch.linalg.vector_norm(predictions - Xs, ord=2) ** 2
+        loss_nmf = loss_nmf / predictions.shape[0]  # avg on batches
+        # loss_nmf = torch.log(loss_nmf)
+
+        if stage != sb.Stage.TEST:
+            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+                self.hparams.lr_annealing.on_batch_end(self.optimizer)
+        
+        return loss_nmf
+
+        # # Append this batch of losses to the loss metric for easy
+        # self.loss_metric.append(
+        #     uttid, predictions, classid, lens, reduction="batch"
+        # )
+
+        # # Confusion matrices
+        # if stage != sb.Stage.TRAIN:
+        #     y_true = classid.cpu().detach().numpy().squeeze(-1)
+        #     y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
+
+        # if stage == sb.Stage.VALID:
+        #     confusion_matix = confusion_matrix(
+        #         y_true,
+        #         y_pred,
+        #         labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
         #     )
-
-        #     # Confusion matrices
-        #     if stage != sb.Stage.TRAIN:
-        #         y_true = classid.cpu().detach().numpy().squeeze(-1)
-        #         y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
-
-        #     if stage == sb.Stage.VALID:
-        #         confusion_matix = confusion_matrix(
-        #             y_true,
-        #             y_pred,
-        #             labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
-        #         )
-        #         self.valid_confusion_matrix += confusion_matix
-        #     if stage == sb.Stage.TEST:
-        #         confusion_matix = confusion_matrix(
-        #             y_true,
-        #             y_pred,
-        #             labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
-        #         )
-        #         self.test_confusion_matrix += confusion_matix
-
-        #     # Compute Accuracy using MetricStats
-        #     self.acc_metric.append(
-        #         uttid, predict=predictions, target=classid, lengths=lens
+        #     self.valid_confusion_matrix += confusion_matix
+        # if stage == sb.Stage.TEST:
+        #     confusion_matix = confusion_matrix(
+        #         y_true,
+        #         y_pred,
+        #         labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
         #     )
+        #     self.test_confusion_matrix += confusion_matix
 
-        #     if stage != sb.Stage.TRAIN:
-        #         self.error_metrics.append(uttid, predictions, classid, lens)
+        # # Compute Accuracy using MetricStats
+        # self.acc_metric.append(
+        #     uttid, predict=predictions, target=classid, lengths=lens
+        # )
 
-        #     return loss
+        # if stage != sb.Stage.TRAIN:
+        #     self.error_metrics.append(uttid, predictions, classid, lens)
+
+        # return loss
 
         # def on_stage_start(self, stage, epoch=None):
         #     """Gets called at the beginning of each epoch.
@@ -412,8 +424,8 @@ if __name__ == "__main__":
         hparams = load_hyperpyyaml(fin, overrides)
     
     # classifier is fixed here
-    hparams["modules"]["embedding_model"].eval()
-    hparams["modules"]["classifier"].eval()
+    hparams["embedding_model"].eval()
+    hparams["classifier"].eval()
 
     # Create experiment directory
     sb.create_experiment_directory(

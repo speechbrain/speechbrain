@@ -324,7 +324,7 @@ class Cnn14(nn.Module):
 
 
 class Psi(nn.Module):
-    def __init__(self, N_COMP=100, T=413, in_maps=[2048, 1024, 512]):
+    def __init__(self, N_COMP=100, T=431, in_maps=[2048, 1024, 512]):
         """
         Computes NMF dictionary activations given classifier hidden layers
         """
@@ -338,7 +338,15 @@ class Psi(nn.Module):
         self.c2 = nn.Conv2d(in_maps[1], out_c, kernel_size=3, padding="same")
 
         self.out_conv = nn.Conv2d(
-            out_c * 3, N_COMP, kernel_size=3, padding="same"
+            out_c, N_COMP, kernel_size=3, padding="same"
+        )
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(
+                out_c * 3, out_c, kernel_size=3, padding="same"
+            ),
+            nn.BatchNorm2d(out_c),
+            nn.ReLU()
         )
 
         self.act = nn.ReLU()
@@ -381,8 +389,9 @@ class Psi(nn.Module):
 
         # upsample time axis and collapse freq
         x = self.upsamp_time(x)
-
+        
         # mix contribution for the three hidden layers -- work on this when fixing training
+        x = self.conv(x)
         x = self.act(self.out_conv(x)).squeeze(3)
 
         return x
@@ -396,9 +405,7 @@ class NMFDecoder(nn.Module):
         self.activ = nn.ReLU()
 
         if init_file is not None:
-            temp = np.load(init_file)[
-                :FREQ, :
-            ]  # truncating due to different time axis size
+            temp = np.load(init_file)
             self.W.data = torch.as_tensor(temp).float()
 
     def forward(self, inp):
@@ -407,10 +414,10 @@ class NMFDecoder(nn.Module):
         W = nn.functional.normalize(W, dim=0, p=2)
 
         W = torch.stack(
-            inp.shape[0] * [W]
+            inp.shape[0] * [W], dim=0
         )  # use same NMF dictionary for every element in the batch
-        print(W.shape, inp.shape)
-        output = self.activ(torch.bmm(W, inp))
+
+        output = self.activ(torch.bmm(W, inp)) #.transpose(1, -1)
 
         return output
 
