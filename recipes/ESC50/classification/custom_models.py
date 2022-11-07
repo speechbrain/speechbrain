@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import numpy as np
 
 
 class weak_mxh64_1024(nn.Module):
@@ -336,7 +337,9 @@ class Psi(nn.Module):
         self.c1 = nn.Conv2d(in_maps[0], out_c, kernel_size=3, padding="same")
         self.c2 = nn.Conv2d(in_maps[1], out_c, kernel_size=3, padding="same")
 
-        self.out_conv = nn.Conv2d(out_c*3, N_COMP, kernel_size=3, padding="same")
+        self.out_conv = nn.Conv2d(
+            out_c * 3, N_COMP, kernel_size=3, padding="same"
+        )
 
         self.act = nn.ReLU()
 
@@ -348,11 +351,17 @@ class Psi(nn.Module):
         error = "in PSI doesn't match. Did you change the classifier model?"
         for i in range(len(self.in_maps)):
             # sanity check on shapes
-            assert inp[0].shape[1] == self.in_maps[0], "Nr. of channels " + error
-        
+            assert inp[0].shape[1] == self.in_maps[0], (
+                "Nr. of channels " + error
+            )
+
         assert inp[0].shape[2] == inp[1].shape[2], "Spatial dimension " + error
         assert inp[0].shape[3] == inp[1].shape[3], "Spatial dimension " + error
-        assert 2*inp[0].shape[3] == inp[1].shape[3], "Spatial dimension " + error
+        assert 2 * inp[0].shape[3] == (inp[2].shape[3] - 1), (
+            "Spatial dimension "
+            + error
+            + f" 1st (idx 0) element has shape {inp[0].shape[3]} second element (idx 1) has shape {inp[2].shape[3]}"
+        )
 
         x1, x2, x3 = inp
 
@@ -361,12 +370,8 @@ class Psi(nn.Module):
         x2 = self.upsamp(x2)
 
         # compress feature number to the min among given hidden repr
-        x1 = self.act(
-            self.c1(x1)
-        )
-        x2 = self.act(
-            self.c2(x2)
-        )
+        x1 = self.act(self.c1(x1))
+        x2 = self.act(self.c2(x2))
 
         # for cnn14 fix frequency dimension
         x1 = F.pad(x1, (0, 1, 0, 0))
@@ -378,38 +383,41 @@ class Psi(nn.Module):
         x = self.upsamp_time(x)
 
         # mix contribution for the three hidden layers -- work on this when fixing training
-        x = self.act(
-            self.out_conv(x)
-        ).squeeze(3)
+        x = self.act(self.out_conv(x)).squeeze(3)
 
-        
         return x
+
 
 class NMFDecoder(nn.Module):
     def __init__(self, N_COMP=100, FREQ=513, init_file=None):
-        super(NMF_D, self).__init__()
-        import numpy as np
-        self.W = nn.Parameter( torch.rand(FREQ, N_COMP), requires_grad=True )
-        self.activ = nn.ReLU()
-        if init_file is not None:
-            init_W = torch.as_tensor(np.load(init_file)).float()
-            self.W = nn.Parameter( init_W, requires_grad=True )
+        super(NMFDecoder, self).__init__()
 
-        print(self.W.shape)
-        input()
+        self.W = nn.Parameter(torch.rand(FREQ, N_COMP), requires_grad=True)
+        self.activ = nn.ReLU()
+
+        if init_file is not None:
+            temp = np.load(init_file)[
+                :FREQ, :
+            ]  # truncating due to different time axis size
+            self.W.data = torch.as_tensor(temp).float()
 
     def forward(self, inp):
         # Assume input of shape n_batch x n_comp x T
         W = self.activ(self.W)
         W = nn.functional.normalize(W, dim=0, p=2)
-        W = torch.stack(int(inp.shape[0]) * [W])
-        output = self.activ( torch.bmm(W, inp) ) 
+
+        W = torch.stack(
+            inp.shape[0] * [W]
+        )  # use same NMF dictionary for every element in the batch
+        print(W.shape, inp.shape)
+        output = self.activ(torch.bmm(W, inp))
+
         return output
 
-    def return_W(self, dtype='numpy'):
+    def return_W(self, dtype="numpy"):
         W = self.W
         W = nn.functional.normalize(self.activ(W), dim=0, p=2)
-        if dtype == 'numpy':
+        if dtype == "numpy":
             return W.cpu().data.numpy()
         else:
             return W

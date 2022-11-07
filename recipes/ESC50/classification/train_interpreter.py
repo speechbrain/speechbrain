@@ -36,8 +36,7 @@ import scipy.io.wavfile as wavf
 
 
 class InterpreterESC50Brain(sb.core.Brain):
-    """Class for sound class embedding training"
-    """
+    """Class for sound class embedding training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -77,7 +76,11 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
         Xmel = librosa.feature.melspectrogram(
-            sr=self.hparams.sample_rate, S=np.abs(Xs), n_fft=1024, hop_length=512, n_mels=80
+            sr=self.hparams.sample_rate,
+            S=np.abs(Xs),
+            n_fft=1024,
+            hop_length=512,
+            n_mels=80,
         )
         Xlgmel = librosa.power_to_db(Xmel)
 
@@ -87,114 +90,114 @@ class InterpreterESC50Brain(sb.core.Brain):
         # Embeddings + sound classifier
         embeddings, f_I = self.modules.embedding_model(feats)
 
-        print(self.modules.psi(f_I).shape)
+        psi_out = self.modules.psi(f_I)
 
+        print(self.hparams.nmf(psi_out).shape)
         input()
-
 
         # outputs = self.modules.classifier(embeddings)
 
         # return outputs, lens
 
-    # def compute_objectives(self, predictions, batch, stage):
-    #     """Computes the loss using class-id as label.
-    #     """
-    #     predictions, lens = predictions
-    #     uttid = batch.id
-    #     classid, _ = batch.class_string_encoded
+        # def compute_objectives(self, predictions, batch, stage):
+        #     """Computes the loss using class-id as label.
+        #     """
+        #     predictions, lens = predictions
+        #     uttid = batch.id
+        #     classid, _ = batch.class_string_encoded
 
-    #     # Concatenate labels (due to data augmentation)
-    #     if stage == sb.Stage.TRAIN:
-    #         classid = torch.cat([classid] * self.n_augment, dim=0)
+        #     # Concatenate labels (due to data augmentation)
+        #     if stage == sb.Stage.TRAIN:
+        #         classid = torch.cat([classid] * self.n_augment, dim=0)
 
-    #     loss = self.hparams.compute_cost(predictions, classid, lens)
+        #     loss = self.hparams.compute_cost(predictions, classid, lens)
 
-    #     if stage != sb.Stage.TEST:
-    #         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-    #             self.hparams.lr_annealing.on_batch_end(self.optimizer)
+        #     if stage != sb.Stage.TEST:
+        #         if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+        #             self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-    #     # Append this batch of losses to the loss metric for easy
-    #     self.loss_metric.append(
-    #         uttid, predictions, classid, lens, reduction="batch"
-    #     )
+        #     # Append this batch of losses to the loss metric for easy
+        #     self.loss_metric.append(
+        #         uttid, predictions, classid, lens, reduction="batch"
+        #     )
 
-    #     # Confusion matrices
-    #     if stage != sb.Stage.TRAIN:
-    #         y_true = classid.cpu().detach().numpy().squeeze(-1)
-    #         y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
+        #     # Confusion matrices
+        #     if stage != sb.Stage.TRAIN:
+        #         y_true = classid.cpu().detach().numpy().squeeze(-1)
+        #         y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
 
-    #     if stage == sb.Stage.VALID:
-    #         confusion_matix = confusion_matrix(
-    #             y_true,
-    #             y_pred,
-    #             labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
-    #         )
-    #         self.valid_confusion_matrix += confusion_matix
-    #     if stage == sb.Stage.TEST:
-    #         confusion_matix = confusion_matrix(
-    #             y_true,
-    #             y_pred,
-    #             labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
-    #         )
-    #         self.test_confusion_matrix += confusion_matix
+        #     if stage == sb.Stage.VALID:
+        #         confusion_matix = confusion_matrix(
+        #             y_true,
+        #             y_pred,
+        #             labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
+        #         )
+        #         self.valid_confusion_matrix += confusion_matix
+        #     if stage == sb.Stage.TEST:
+        #         confusion_matix = confusion_matrix(
+        #             y_true,
+        #             y_pred,
+        #             labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
+        #         )
+        #         self.test_confusion_matrix += confusion_matix
 
-    #     # Compute Accuracy using MetricStats
-    #     self.acc_metric.append(
-    #         uttid, predict=predictions, target=classid, lengths=lens
-    #     )
+        #     # Compute Accuracy using MetricStats
+        #     self.acc_metric.append(
+        #         uttid, predict=predictions, target=classid, lengths=lens
+        #     )
 
-    #     if stage != sb.Stage.TRAIN:
-    #         self.error_metrics.append(uttid, predictions, classid, lens)
+        #     if stage != sb.Stage.TRAIN:
+        #         self.error_metrics.append(uttid, predictions, classid, lens)
 
-    #     return loss
+        #     return loss
 
-    # def on_stage_start(self, stage, epoch=None):
-    #     """Gets called at the beginning of each epoch.
+        # def on_stage_start(self, stage, epoch=None):
+        #     """Gets called at the beginning of each epoch.
 
-    #     Arguments
-    #     ---------
-    #     stage : sb.Stage
-    #         One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
-    #     epoch : int
-    #         The currently-starting epoch. This is passed
-    #         `None` during the test stage.
-    #     """
-    #     # Set up statistics trackers for this stage
-    #     self.loss_metric = sb.utils.metric_stats.MetricStats(
-    #         metric=sb.nnet.losses.nll_loss
-    #     )
+        #     Arguments
+        #     ---------
+        #     stage : sb.Stage
+        #         One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        #     epoch : int
+        #         The currently-starting epoch. This is passed
+        #         `None` during the test stage.
+        #     """
+        #     # Set up statistics trackers for this stage
+        #     self.loss_metric = sb.utils.metric_stats.MetricStats(
+        #         metric=sb.nnet.losses.nll_loss
+        #     )
 
-    #     # Compute Accuracy using MetricStats
-    #     # Define function taking (prediction, target, length) for eval
-    #     def accuracy_value(predict, target, lengths):
-    #         """Computes Accuracy"""
-    #         nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
-    #             predict, target, lengths
-    #         )
-    #         acc = torch.tensor([nbr_correct / nbr_total])
-    #         return acc
+        #     # Compute Accuracy using MetricStats
+        #     # Define function taking (prediction, target, length) for eval
+        #     def accuracy_value(predict, target, lengths):
+        #         """Computes Accuracy"""
+        #         nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
+        #             predict, target, lengths
+        #         )
+        #         acc = torch.tensor([nbr_correct / nbr_total])
+        #         return acc
 
-    #     self.acc_metric = sb.utils.metric_stats.MetricStats(
-    #         metric=accuracy_value, n_jobs=1
-    #     )
+        #     self.acc_metric = sb.utils.metric_stats.MetricStats(
+        #         metric=accuracy_value, n_jobs=1
+        #     )
 
-    #     # Confusion matrices
-    #     if stage == sb.Stage.VALID:
-    #         self.valid_confusion_matrix = np.zeros(
-    #             shape=(self.hparams.out_n_neurons, self.hparams.out_n_neurons),
-    #             dtype=int,
-    #         )
-    #     if stage == sb.Stage.TEST:
-    #         self.test_confusion_matrix = np.zeros(
-    #             shape=(self.hparams.out_n_neurons, self.hparams.out_n_neurons),
-    #             dtype=int,
-    #         )
+        #     # Confusion matrices
+        #     if stage == sb.Stage.VALID:
+        #         self.valid_confusion_matrix = np.zeros(
+        #             shape=(self.hparams.out_n_neurons, self.hparams.out_n_neurons),
+        #             dtype=int,
+        #         )
+        #     if stage == sb.Stage.TEST:
+        #         self.test_confusion_matrix = np.zeros(
+        #             shape=(self.hparams.out_n_neurons, self.hparams.out_n_neurons),
+        #             dtype=int,
+        #         )
 
-    #     # Set up evaluation-only statistics trackers
-    #     if stage != sb.Stage.TRAIN:
-    #         self.error_metrics = self.hparams.error_stats()
+        #     # Set up evaluation-only statistics trackers
+        #     if stage != sb.Stage.TRAIN:
+        #         self.error_metrics = self.hparams.error_stats()
 
-    # def on_stage_end(self, stage, stage_loss, epoch=None):
+        # def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
 
         Arguments
@@ -315,6 +318,7 @@ def dataio_prep(hparams):
         new_freq=config_sample_rate
     )
 
+
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -406,9 +410,11 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-
-    print(hparams["pretrained_esc50"])
     
+    # classifier is fixed here
+    hparams["modules"]["embedding_model"].eval()
+    hparams["modules"]["classifier"].eval()
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],

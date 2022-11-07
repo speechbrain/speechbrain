@@ -201,7 +201,19 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         embedding_model: !ref <embedding_model_path>
         classifier: !ref <classifier_model_path>
 
+# Interpretation hyperparams
+T: 431
+K: 100
+
 psi_model: !new:custom_models.Psi
+
+
+# NMF Decoder
+nmf_d_path: "initW_LMS_K100_sp0.8_Fold1_n1.npy"
+nmf: !new:custom_models.NMFDecoder
+    init_file: !ref <nmf_d_path>
+    N_COMP: !ref <K>
+    FREQ: !ref <n_mels>
 
 modules:
     compute_features: !ref <compute_features>
@@ -214,9 +226,4 @@ modules:
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
     psi: !ref <psi_model>
-
-# L2I_dataloader: !new:custom_loader.ESC50
-
-# Interpretation hyperparams
-T: 431
-K: 100
+    nmf: !ref <nmf>

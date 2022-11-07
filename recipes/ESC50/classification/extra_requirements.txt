@@ -1,0 +1,4 @@
+scikit-learn
+matplotlib
+librosa
+pandas
