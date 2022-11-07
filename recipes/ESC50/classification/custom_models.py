@@ -373,6 +373,9 @@ class Psi(nn.Module):
 
         x1, x2, x3 = inp
 
+        print(x1.shape, x2.shape, x3.shape)
+        input()
+
         # upsample inp[0] and inp[1] time and frequency axis once
         x1 = self.upsamp(x1)
         x2 = self.upsamp(x2)
@@ -385,11 +388,14 @@ class Psi(nn.Module):
         x1 = F.pad(x1, (0, 1, 0, 0))
         x2 = F.pad(x2, (0, 1, 0, 0))
 
+        print(x1.shape, x2.shape, x3.shape)
+        input()
+
         x = torch.cat((x1, x2, x3), axis=1)
 
         # upsample time axis and collapse freq
         x = self.upsamp_time(x)
-        
+
         # mix contribution for the three hidden layers -- work on this when fixing training
         x = self.conv(x)
         x = self.act(self.out_conv(x)).squeeze(3)

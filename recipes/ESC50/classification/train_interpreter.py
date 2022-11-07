@@ -91,6 +91,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         # Embeddings + sound classifier
         embeddings, f_I = self.hparams.embedding_model(feats)
 
+        print(f_I[0].shape)
+        input()
+
         psi_out = self.modules.psi(f_I) # generate nmf activations
         reconstructed = self.hparams.nmf(psi_out)   #  generate log-mag spectrogram
 
@@ -116,8 +119,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         if stage == sb.Stage.TRAIN and False:
             classid = torch.cat([classid] * self.n_augment, dim=0)
 
-
-        diff = predictions - Xs
         loss_nmf = torch.linalg.vector_norm(predictions - Xs, ord=2) ** 2
         loss_nmf = loss_nmf / predictions.shape[0]  # avg on batches
         # loss_nmf = torch.log(loss_nmf)
@@ -127,196 +128,6 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
         
         return loss_nmf
-
-        # # Append this batch of losses to the loss metric for easy
-        # self.loss_metric.append(
-        #     uttid, predictions, classid, lens, reduction="batch"
-        # )
-
-        # # Confusion matrices
-        # if stage != sb.Stage.TRAIN:
-        #     y_true = classid.cpu().detach().numpy().squeeze(-1)
-        #     y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
-
-        # if stage == sb.Stage.VALID:
-        #     confusion_matix = confusion_matrix(
-        #         y_true,
-        #         y_pred,
-        #         labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
-        #     )
-        #     self.valid_confusion_matrix += confusion_matix
-        # if stage == sb.Stage.TEST:
-        #     confusion_matix = confusion_matrix(
-        #         y_true,
-        #         y_pred,
-        #         labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
-        #     )
-        #     self.test_confusion_matrix += confusion_matix
-
-        # # Compute Accuracy using MetricStats
-        # self.acc_metric.append(
-        #     uttid, predict=predictions, target=classid, lengths=lens
-        # )
-
-        # if stage != sb.Stage.TRAIN:
-        #     self.error_metrics.append(uttid, predictions, classid, lens)
-
-        # return loss
-
-        # def on_stage_start(self, stage, epoch=None):
-        #     """Gets called at the beginning of each epoch.
-
-        #     Arguments
-        #     ---------
-        #     stage : sb.Stage
-        #         One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
-        #     epoch : int
-        #         The currently-starting epoch. This is passed
-        #         `None` during the test stage.
-        #     """
-        #     # Set up statistics trackers for this stage
-        #     self.loss_metric = sb.utils.metric_stats.MetricStats(
-        #         metric=sb.nnet.losses.nll_loss
-        #     )
-
-        #     # Compute Accuracy using MetricStats
-        #     # Define function taking (prediction, target, length) for eval
-        #     def accuracy_value(predict, target, lengths):
-        #         """Computes Accuracy"""
-        #         nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
-        #             predict, target, lengths
-        #         )
-        #         acc = torch.tensor([nbr_correct / nbr_total])
-        #         return acc
-
-        #     self.acc_metric = sb.utils.metric_stats.MetricStats(
-        #         metric=accuracy_value, n_jobs=1
-        #     )
-
-        #     # Confusion matrices
-        #     if stage == sb.Stage.VALID:
-        #         self.valid_confusion_matrix = np.zeros(
-        #             shape=(self.hparams.out_n_neurons, self.hparams.out_n_neurons),
-        #             dtype=int,
-        #         )
-        #     if stage == sb.Stage.TEST:
-        #         self.test_confusion_matrix = np.zeros(
-        #             shape=(self.hparams.out_n_neurons, self.hparams.out_n_neurons),
-        #             dtype=int,
-        #         )
-
-        #     # Set up evaluation-only statistics trackers
-        #     if stage != sb.Stage.TRAIN:
-        #         self.error_metrics = self.hparams.error_stats()
-
-        # def on_stage_end(self, stage, stage_loss, epoch=None):
-        """Gets called at the end of an epoch.
-
-        Arguments
-        ---------
-        stage : sb.Stage
-            One of sb.Stage.TRAIN, sb.Stage.VALID, sb.Stage.TEST
-        stage_loss : float
-            The average loss for all of the data processed in this stage.
-        epoch : int
-            The currently-starting epoch. This is passed
-            `None` during the test stage.
-        """
-        # Compute/store important stats
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-            self.train_stats = {
-                "loss": self.train_loss,
-                "acc": self.acc_metric.summarize(
-                    "average"
-                ),  # "acc": self.train_acc_metric.summarize(),
-            }
-        # Summarize Valid statistics from the stage for record-keeping.
-        elif stage == sb.Stage.VALID:
-            valid_stats = {
-                "loss": stage_loss,
-                "acc": self.acc_metric.summarize(
-                    "average"
-                ),  # "acc": self.valid_acc_metric.summarize(),
-                "error": self.error_metrics.summarize("average"),
-            }
-        # Summarize Test statistics from the stage for record-keeping.
-        else:
-            test_stats = {
-                "loss": stage_loss,
-                "acc": self.acc_metric.summarize(
-                    "average"
-                ),  # "acc": self.test_acc_metric.summarize(),
-                "error": self.error_metrics.summarize("average"),
-            }
-
-        # Perform end-of-iteration things, like annealing, logging, etc.
-        if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(epoch)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-
-            # Tensorboard logging
-            if self.hparams.use_tensorboard:
-                self.hparams.tensorboard_train_logger.log_stats(
-                    stats_meta={"Epoch": epoch},
-                    train_stats=self.train_stats,
-                    valid_stats=valid_stats,
-                )
-                # Log confusion matrix fig to tensorboard
-                cm_fig = create_cm_fig(
-                    self.valid_confusion_matrix,
-                    display_labels=list(
-                        self.hparams.label_encoder.ind2lab.values()
-                    ),
-                )
-                self.hparams.tensorboard_train_logger.writer.add_figure(
-                    "Validation Confusion Matrix", cm_fig, epoch
-                )  # TODO use global_step from writer
-
-            # Per class accuracy from Validation confusion matrix
-            per_class_acc_arr = np.diag(self.valid_confusion_matrix) / np.sum(
-                self.valid_confusion_matrix, axis=1
-            )
-            per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(
-                    self.hparams.label_encoder.decode_ndim(class_id), class_acc
-                )
-                for class_id, class_acc in enumerate(per_class_acc_arr)
-            )
-
-            # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=valid_stats,
-            )
-            # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, min_keys=["error"]
-            )
-
-        # We also write statistics about test data to stdout and to the logfile.
-        if stage == sb.Stage.TEST:
-            # Per class accuracy from Test confusion matrix
-            per_class_acc_arr = np.diag(self.test_confusion_matrix) / np.sum(
-                self.test_confusion_matrix, axis=1
-            )
-            per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(class_id, class_acc)
-                for class_id, class_acc in enumerate(per_class_acc_arr)
-            )
-
-            self.hparams.train_logger.log_stats(
-                {
-                    "Epoch loaded": self.hparams.epoch_counter.current,
-                    "\n Per Class Accuracy": per_class_acc_arr_str,
-                    "\n Confusion Matrix": "\n{:}\n".format(
-                        self.test_confusion_matrix
-                    ),
-                },
-                test_stats=test_stats,
-            )
-
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
@@ -472,23 +283,9 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
-    # if hparams["use_pretrain"]:
-    #     state_dict = torch.load(
-    #         "mx-h64-1024_0d3-1.17.pkl",
-    #         map_location=lambda storage, loc: storage,
-    #     )
-    #     from collections import OrderedDict
-
-    #     new_state_dict = OrderedDict()
-    #     for k, v in state_dict.items():
-    #         if "module." in k:
-    #             name = k[7:]
-    #         else:
-    #             name = k
-    #         new_state_dict[name] = v
-    #     ESC50_brain.modules.embedding_model.load_state_dict(new_state_dict)
-    # # print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
+    if "pretrained_esc50" in hparams:
+        run_on_main(hparams["pretrained_esc50"].collect_files)
+        hparams["pretrained_esc50"].load_collected()
 
     if not hparams["test_only"]:
         Interpreter_brain.fit(
