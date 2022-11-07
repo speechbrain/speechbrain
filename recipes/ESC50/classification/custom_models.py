@@ -328,7 +328,7 @@ class Psi(nn.Module):
         Computes NMF dictionary activations given classifier hidden layers
         """
         super(Psi, self).__init__()
-
+        self.in_maps = in_maps
         self.upsamp = nn.UpsamplingBilinear2d(scale_factor=(2, 2))
         self.upsamp_time = nn.UpsamplingBilinear2d(size=(T, 1))
         out_c = min(in_maps)
@@ -345,7 +345,14 @@ class Psi(nn.Module):
         `inp` contains the hidden representations from the network.
         inp[0] and inp[1] need a factor 2 upsampling on the time axis, while inp[0] just needs features to match K
         """
+        error = "in PSI doesn't match. Did you change the classifier model?"
+        for i in range(len(self.in_maps)):
+            # sanity check on shapes
+            assert inp[0].shape[1] == self.in_maps[0], "Nr. of channels " + error
         
+        assert inp[0].shape[2] == inp[1].shape[2], "Spatial dimension " + error
+        assert inp[0].shape[3] == inp[1].shape[3], "Spatial dimension " + error
+        assert 2*inp[0].shape[3] == inp[1].shape[3], "Spatial dimension " + error
 
         x1, x2, x3 = inp
 
@@ -377,3 +384,32 @@ class Psi(nn.Module):
 
         
         return x
+
+class NMFDecoder(nn.Module):
+    def __init__(self, N_COMP=100, FREQ=513, init_file=None):
+        super(NMF_D, self).__init__()
+        import numpy as np
+        self.W = nn.Parameter( torch.rand(FREQ, N_COMP), requires_grad=True )
+        self.activ = nn.ReLU()
+        if init_file is not None:
+            init_W = torch.as_tensor(np.load(init_file)).float()
+            self.W = nn.Parameter( init_W, requires_grad=True )
+
+        print(self.W.shape)
+        input()
+
+    def forward(self, inp):
+        # Assume input of shape n_batch x n_comp x T
+        W = self.activ(self.W)
+        W = nn.functional.normalize(W, dim=0, p=2)
+        W = torch.stack(int(inp.shape[0]) * [W])
+        output = self.activ( torch.bmm(W, inp) ) 
+        return output
+
+    def return_W(self, dtype='numpy'):
+        W = self.W
+        W = nn.functional.normalize(self.activ(W), dim=0, p=2)
+        if dtype == 'numpy':
+            return W.cpu().data.numpy()
+        else:
+            return W
