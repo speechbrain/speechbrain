@@ -313,6 +313,10 @@ if __name__ == "__main__":
     if "pretrained_esc50" in hparams:
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
+    
+    hparams["embedding_model"].to(hparams["device"])
+    hparams["embedding_model"].eval()
+    hparams["nmf"].to(hparams["device"])
 
     if not hparams["test_only"]:
         Interpreter_brain.fit(
