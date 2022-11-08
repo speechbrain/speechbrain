@@ -327,6 +327,7 @@ if __name__ == "__main__":
         hparams["pretrained_esc50"].load_collected()
     
     hparams["embedding_model"].to(hparams["device"])
+    hparams["classifier"].to(hparams["device"])
     hparams["embedding_model"].eval()
     hparams["nmf"].to(hparams["device"])
 
