@@ -49,8 +49,8 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 2
-lr: 0.0001
-base_lr: 0.00000001
+lr: 0.0002
+base_lr: 0.0002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
@@ -190,7 +190,7 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: results/cnn14/1234/save/CKPT+2022-11-06+15-01-17+00/embedding_model.ckpt  # e.g. /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
+embedding_model_path: embedding_model.ckpt  # e.g. /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
 classifier_model_path: results/cnn14/1234/save/CKPT+2022-11-06+15-01-17+00/classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
@@ -215,6 +215,9 @@ nmf: !new:custom_models.NMFDecoder
     init_file: !ref <nmf_d_path>
     N_COMP: !ref <K>
     FREQ: !ref <n_mels>
+
+alpha: 10 # applied to NMF loss
+beta: 0.8 # L1 regularization to time activations 
 
 modules:
     compute_features: !ref <compute_features>

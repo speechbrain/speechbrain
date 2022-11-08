@@ -29,6 +29,8 @@ from esc50_prepare import prepare_esc50
 from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
+import matplotlib.pyplot as plt
+from os import makedirs
 
 import librosa
 from librosa.core import stft
@@ -87,22 +89,19 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # test librosa stuff
         feats = torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
-
+        # self.hparams.embedding_model.to(self.hparams.device)
         # Embeddings + sound classifier
         embeddings, f_I = self.hparams.embedding_model(feats)
-
-        print(f_I[0].shape)
-        input()
 
         psi_out = self.modules.psi(f_I) # generate nmf activations
         reconstructed = self.hparams.nmf(psi_out)   #  generate log-mag spectrogram
 
-        return reconstructed, None
+        return (reconstructed, psi_out), None
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using class-id as label.
         """
-        predictions, lens = predictions
+        (predictions, time_activations), lens = predictions
         uttid = batch.id
         classid, _ = batch.class_string_encoded
 
@@ -119,15 +118,43 @@ class InterpreterESC50Brain(sb.core.Brain):
         if stage == sb.Stage.TRAIN and False:
             classid = torch.cat([classid] * self.n_augment, dim=0)
 
-        loss_nmf = torch.linalg.vector_norm(predictions - Xs, ord=2) ** 2
+        loss_nmf = torch.linalg.norm(predictions - Xs) ** 2
         loss_nmf = loss_nmf / predictions.shape[0]  # avg on batches
-        # loss_nmf = torch.log(loss_nmf)
+        loss_nmf = self.hparams.alpha * loss_nmf
+        loss_nmf += self.hparams.beta * torch.linalg.norm(time_activations)
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
+
+        self.batch_to_plot = (predictions, Xs)
         
         return loss_nmf
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of an epoch.
+        Plots in subplots the values of `self.batch_to_plot` and saves the
+        plot to the experiment folder. `self.hparams.output_folder`"""
+
+        pred, target = self.batch_to_plot
+        pred = pred.detach().cpu().numpy()[:2, ...]
+        target = target.detach().cpu().numpy()[:2, ...]
+
+        fig, ax = plt.subplots(2, 2, figsize=(10, 10))
+        ax[0, 0].set_ylabel("Predicted")
+        ax[0, 0].imshow(pred[0, ...])
+        ax[0, 1].imshow(pred[1, ...])
+        ax[1, 0].set_ylabel("Target")
+        ax[1, 0].imshow(target[0, ...])
+        ax[1, 1].imshow(target[1, ...])
+        makedirs(os.path.join(self.hparams.output_folder, 
+            f"reconstructions"), exist_ok=True)
+        plt.savefig(
+            os.path.join(self.hparams.output_folder, 
+            f"reconstructions", f"{str(stage)}_{epoch}.png")
+        )
+
+        return super().on_stage_end(stage, stage_loss, epoch)
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
