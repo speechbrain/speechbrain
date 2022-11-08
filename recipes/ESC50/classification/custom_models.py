@@ -434,3 +434,24 @@ class NMFDecoder(nn.Module):
             return W.cpu().data.numpy()
         else:
             return W
+
+class Theta(nn.Module):
+    def __init__(self, N_COMP=100, T=431, num_classes=50) -> None:
+        super().__init__()
+        self.hard_att = nn.Linear(T, 1) # collapse time axis using "attention" based pooling
+        self.classifier = nn.Sequential(
+            nn.Linear(N_COMP, num_classes),
+            nn.Softmax(dim=1)
+        )
+    
+    def forward(self, psi_out):
+        """psi_out is of shape n_batch x n_comp x T
+        collapse time axis using "attention" based pooling"""
+        theta_out = self.hard_att(psi_out).squeeze(2)
+        # print(theta_out.shape)
+        # input()
+        theta_out = self.classifier(theta_out)
+        # print(theta_out.shape)
+        # input()
+        return theta_out
+

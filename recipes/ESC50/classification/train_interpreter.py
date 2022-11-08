@@ -32,6 +32,8 @@ from confusion_matrix_fig import create_cm_fig
 import matplotlib.pyplot as plt
 from os import makedirs
 
+import torch.nn.functional as F
+
 import librosa
 from librosa.core import stft
 import scipy.io.wavfile as wavf
@@ -96,12 +98,17 @@ class InterpreterESC50Brain(sb.core.Brain):
         psi_out = self.modules.psi(f_I) # generate nmf activations
         reconstructed = self.hparams.nmf(psi_out)   #  generate log-mag spectrogram
 
-        return (reconstructed, psi_out), None
+        predictions = self.hparams.classifier(embeddings).squeeze(1)
+
+        theta_out = self.modules.theta(psi_out) # generate classifications from time activations
+
+        return (reconstructed, psi_out), (predictions, theta_out)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss using class-id as label.
         """
-        (predictions, time_activations), lens = predictions
+        (predictions, time_activations), (classification_out, theta_out) = predictions
+
         uttid = batch.id
         classid, _ = batch.class_string_encoded
 
@@ -128,8 +135,13 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         self.batch_to_plot = (predictions, Xs)
+
+        theta_out = -torch.log(theta_out)
+        loss_fdi = (
+            F.softmax(classification_out.T, dim=0) @ theta_out
+            ).mean()
         
-        return loss_nmf
+        return loss_nmf + loss_fdi
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.

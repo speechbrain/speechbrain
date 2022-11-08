@@ -55,7 +55,7 @@ max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
 
-device: "cuda"
+device: "cpu"
 
 # Feature parameters
 n_mels: 80
@@ -193,15 +193,15 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     lin_blocks: 1
 
 embedding_model_path: embedding_model.ckpt  # e.g. /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
-# classifier_model_path: results/cnn14/1234/save/CKPT+2022-11-06+15-01-17+00/classifier.ckpt
+classifier_model_path: classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         embedding_model: !ref <embedding_model>
-        # classifier: !ref <classifier>
+        classifier: !ref <classifier>
     paths:
         embedding_model: !ref <embedding_model_path>
-        # classifier: !ref <classifier_model_path>
+        classifier: !ref <classifier_model_path>
 
 # Interpretation hyperparams
 T: 413
@@ -209,6 +209,7 @@ K: 100
 FREQ: 513
 
 psi_model: !new:custom_models.Psi
+theta: !new:custom_models.Theta
 
 
 # NMF Decoder
@@ -230,3 +231,4 @@ modules:
     add_rev_noise: !ref <add_rev_noise>
     mean_var_norm: !ref <mean_var_norm>
     psi: !ref <psi_model>
+    theta: !ref <theta>
