@@ -26,8 +26,8 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 dataset: flexthink/audiomnist
 train_len: 28520
 sample_rate_src: 48000
-sample_rate_tgt: 22050
-number_of_epochs: 10
+sample_rate_tgt: 16000
+number_of_epochs: 20
 batch_size: 16
 lr: 0.0005
 max_grad_norm: 1.
@@ -72,7 +72,7 @@ min_level_db: -80.0
 pad_level_db: -50.
 
 # Vocoder Settings
-vocoder_model: speechbrain/tts-hifigan-libritts-22050Hz
+vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
 eval_num_samples: 32
