@@ -4,7 +4,7 @@
 
 [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/SpeechBrain1/)
 
-SpeechBrain is an **open-source** and **all-in-one** conversational AI toolkit based on PyTorch.
+the Algmon version of SpeechBrain is an advanced conversational AI toolkit based on PyTorch.
 
 The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **language identification**, **multi-microphone signal processing**, and many others.
 
