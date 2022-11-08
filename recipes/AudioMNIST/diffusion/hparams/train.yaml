@@ -42,7 +42,7 @@ adam_epsilon: 0.00000001
 downsample_factor: 16
 enable_train_metrics: True
 enable_reference_samples: True
-loss_l2_steps: 3000
+loss_l2_steps: 100000
 train_log_interval: 10
 overfit_test: False
 overfit_test_sample_count: 1
