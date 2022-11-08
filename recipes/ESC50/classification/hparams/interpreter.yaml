@@ -55,6 +55,8 @@ max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
 
+device: "cuda"
+
 # Feature parameters
 n_mels: 80
 left_frames: 0
@@ -191,15 +193,15 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     lin_blocks: 1
 
 embedding_model_path: embedding_model.ckpt  # e.g. /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
-classifier_model_path: results/cnn14/1234/save/CKPT+2022-11-06+15-01-17+00/classifier.ckpt
+# classifier_model_path: results/cnn14/1234/save/CKPT+2022-11-06+15-01-17+00/classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         embedding_model: !ref <embedding_model>
-        classifier: !ref <classifier>
+        # classifier: !ref <classifier>
     paths:
         embedding_model: !ref <embedding_model_path>
-        classifier: !ref <classifier_model_path>
+        # classifier: !ref <classifier_model_path>
 
 # Interpretation hyperparams
 T: 413
