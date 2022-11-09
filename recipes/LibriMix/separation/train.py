@@ -35,6 +35,7 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import logging
+from speechbrain.dataio.batch import PaddedBatch
 
 
 # Define training procedure
@@ -110,6 +111,13 @@ class Separation(sb.Brain):
     def fit_batch(self, batch):
         """Trains one batch"""
         # Unpacking batch list
+
+        if not isinstance(batch, PaddedBatch):
+            for key in batch:
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].squeeze(0)
+            batch = PaddedBatch([batch])
+
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
         if self.hparams.use_wham_noise:
@@ -567,15 +575,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Check if wsj0_tr is set with dynamic mixing
-    if hparams["dynamic_mixing"] and not os.path.exists(
-        hparams["base_folder_dm"]
-    ):
-        print(
-            "Please, specify a valid base_folder_dm folder when using dynamic mixing"
-        )
-        sys.exit(1)
-
     # Data preparation
     from recipes.LibriMix.prepare_data import prepare_librimix
 
@@ -593,70 +592,113 @@ if __name__ == "__main__":
 
     # Create dataset objects
     if hparams["dynamic_mixing"]:
-        from dynamic_mixing import (
-            dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
+        # presence of 'dm_config' indicates that
+        # we would like to use the novel DM method
+        from speechbrain.processing.dynamic_mixing import (
+            DynamicMixingDataset,
+            DynamicMixingConfig,
         )
+        import glob
 
-        # if the base_folder for dm is not processed, preprocess them
-        if "processed" not in hparams["base_folder_dm"]:
-            # if the processed folder already exists we just use it otherwise we do the preprocessing
-            if not os.path.exists(
-                os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-            ):
-                from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+        if "dm_config" in hparams:
+            dm_config = hparams["dm_config"]
 
-                print("Resampling the base folder")
-                run_on_main(
-                    resample_folder,
-                    kwargs={
-                        "input_folder": hparams["base_folder_dm"],
-                        "output_folder": os.path.normpath(
-                            hparams["base_folder_dm"]
-                        )
-                        + "_processed",
-                        "fs": hparams["sample_rate"],
-                        "regex": "**/*.flac",
-                    },
-                )
-                # adjust the base_folder_dm path
-                hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-                )
-            else:
-                print(
-                    "Using the existing processed folder on the same directory as base_folder_dm"
-                )
-                hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-                )
+            # train_data, valid_data, test_data = dataio_prep(hparams)
+            # dm_dataset = DynamicMixingDataset.from_didataset(train_data, dm_config, "wav_file", "spkr")
+            data_path = os.path.join(
+                hparams["data_folder"], "../LibriSpeech/dev-clean/**/**/*.flac"
+            )
 
-        dm_hparams = {
-            "train_data": hparams["train_data"],
-            "data_folder": hparams["data_folder"],
-            "base_folder_dm": hparams["base_folder_dm"],
-            "sample_rate": hparams["sample_rate"],
-            "num_spks": hparams["num_spks"],
-            "training_signal_len": hparams["training_signal_len"],
-            "dataloader_opts": hparams["dataloader_opts"],
-            "use_wham_noise": hparams["use_wham_noise"],
-            "n_overlap": hparams["n_overlap"],
-        }
-
-        train_data = dynamic_mix_data_prep(dm_hparams)
-        n_overlap = hparams.get("n_overlap", 100)
-
-        # if amount of overlap is 100, use the standard valid/test set
-        # otherwise, use the dynamically created valid/test set
-        if n_overlap == 100:
-            _, valid_data, test_data = dataio_prep(hparams)
+            train_data = DynamicMixingDataset.from_wavs(
+                glob.glob(data_path), dm_config
+            )
+            valid_data = DynamicMixingDataset.from_wavs(
+                glob.glob(data_path), dm_config
+            )
+            test_data = DynamicMixingDataset.from_wavs(
+                glob.glob(data_path), dm_config
+            )
         else:
-            dm_hparams["train_data"] = hparams["valid_data"]
-            valid_data = dynamic_mix_data_prep(dm_hparams)
+            # Check if base_folder_dm is set with dynamic mixing
+            if hparams["dynamic_mixing"] and not os.path.exists(
+                hparams["base_folder_dm"]
+            ):
+                print(
+                    "Please, specify a valid base_folder_dm folder when using dynamic mixing"
+                )
+                sys.exit(1)
 
-            dm_hparams["train_data"] = hparams["test_data"]
-            test_data = dynamic_mix_data_prep(dm_hparams)
+            from dynamic_mixing import (
+                dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
+            )
+
+            # if the base_folder for dm is not processed, preprocess them
+            if "processed" not in hparams["base_folder_dm"]:
+                # if the processed folder already exists we just use it otherwise we do the preprocessing
+                if not os.path.exists(
+                    os.path.normpath(hparams["base_folder_dm"])
+                    + "_processed_"
+                    + str(hparams["sample_rate"])
+                ):
+                    from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
+                        resample_folder,
+                    )
+
+                    print("Resampling the base folder")
+                    run_on_main(
+                        resample_folder,
+                        kwargs={
+                            "input_folder": hparams["base_folder_dm"],
+                            "output_folder": os.path.normpath(
+                                hparams["base_folder_dm"]
+                            )
+                            + "_processed_"
+                            + str(hparams["sample_rate"]),
+                            "fs": hparams["sample_rate"],
+                            "regex": "**/*.flac",
+                        },
+                    )
+                    # adjust the base_folder_dm path
+                    hparams["base_folder_dm"] = (
+                        os.path.normpath(hparams["base_folder_dm"])
+                        + "_processed_"
+                        + str(hparams["sample_rate"])
+                    )
+                else:
+                    print(
+                        "Using the existing processed folder on the same directory as base_folder_dm"
+                    )
+                    hparams["base_folder_dm"] = (
+                        os.path.normpath(hparams["base_folder_dm"])
+                        + "_processed_"
+                        + str(hparams["sample_rate"])
+                    )
+
+            dm_hparams = {
+                "train_data": hparams["train_data"],
+                "data_folder": hparams["data_folder"],
+                "base_folder_dm": hparams["base_folder_dm"],
+                "sample_rate": hparams["sample_rate"],
+                "num_spks": hparams["num_spks"],
+                "training_signal_len": hparams["training_signal_len"],
+                "dataloader_opts": hparams["dataloader_opts"],
+                "use_wham_noise": hparams["use_wham_noise"],
+                "n_overlap": hparams["n_overlap"],
+            }
+
+            train_data = dynamic_mix_data_prep(dm_hparams)
+            n_overlap = hparams.get("n_overlap", 100)
+
+            # if amount of overlap is 100, use the standard valid/test set
+            # otherwise, use the dynamically created valid/test set
+            if n_overlap == 100:
+                _, valid_data, test_data = dataio_prep(hparams)
+            else:
+                dm_hparams["train_data"] = hparams["valid_data"]
+                valid_data = dynamic_mix_data_prep(dm_hparams)
+
+                dm_hparams["train_data"] = hparams["test_data"]
+                test_data = dynamic_mix_data_prep(dm_hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
 

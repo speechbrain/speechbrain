@@ -39,6 +39,8 @@ class DynamicMixingConfig:
     white_noise_var: float = 1e-7
     rir_add: bool = False
     rir_files: Optional[list] = None  # RIR waveforms
+    min_source_len: int = 32000
+    max_source_len: int = 64000
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -187,6 +189,13 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return mixture, mix_spkrs, overlap_ratios, padded_sources, noise
 
     def __prepare_source__(self, source, rir, is_noise=False):
+
+        # cut the source to a random length
+        length = random.randint(
+            self.config.min_source_len, self.config.max_source_len
+        )
+        source = source[:length]
+
         if self.normalize_audio:
             # normalize loudness and apply random gain
             source = normalize(
@@ -262,14 +271,16 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             + "-".join(map(lambda x: f"{x[0]:.2f}", ratios))
         )
         # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
-        return (
-            mix_id,
-            mix,
-            srcs[0],
-            srcs[1],
-            torch.zeros(mix.size(0)),
-            noise if noise else torch.zeros(mix.size(0)),
-        )
+        dct = {
+            "mix_id": mix_id,
+            "mix_sig": mix,
+            "s1_sig": srcs[0],
+            "s2_sig": srcs[1],
+            "s3_sig": torch.zeros(mix.size(0)),
+            "noise_sig": noise if noise else torch.zeros(mix.size(0)),
+        }
+
+        return dct
 
 
 def normalize(audio, meter, min_loudness=-33, max_loudness=-25, max_amp=0.9):
