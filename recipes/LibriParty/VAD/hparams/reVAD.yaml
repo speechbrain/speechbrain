@@ -128,7 +128,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     hop_length: !ref <time_resolution> * 1000 # in ms
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
+    norm_type: sentence
 
 cnn: !new:speechbrain.nnet.containers.Sequential
   input_shape: [null, null, 40]
