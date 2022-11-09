@@ -22,7 +22,7 @@ from dataclasses import dataclass, field, fields
 from typing import Optional, Union
 
 
-@dataclass(kw_only=True)
+@dataclass
 class DynamicMixingConfig:
     num_spkrs: Union[int, list] = 2
     overlap_ratio: Union[int, list] = 1.0
@@ -31,7 +31,7 @@ class DynamicMixingConfig:
     audio_max_loudness: float = -25.0  # dB
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
-    noise_files: list = field(default_factory=list)
+    noise_files: list = None
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
     noise_max_loudness: float = -25.0 - 5
@@ -39,7 +39,7 @@ class DynamicMixingConfig:
     white_noise_mu: float = 0.0
     white_noise_var: float = 1e-7
     rir_add: bool = False
-    rir_files: list = field(default_factory=list)  # RIR waveforms
+    rir_files: list = None  # RIR waveforms
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -157,6 +157,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 fs == self.sampling_rate
             ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
             src_audio = src_audio[0]  # Support only single channel
+            # use same RIR for all sources
             src_audio = self.__prepare_source__(src_audio, rir)
             sources.append(src_audio)
 
@@ -313,7 +314,7 @@ def mix(src1, src2, overlap_samples):
     if overlap_samples >= n_short:
         # full overlap
         lpad = np.random.choice(range(n_diff)) if n_diff > 0 else 0
-        rpad = n_diff - offset
+        rpad = n_diff - lpad
         paddings = [(lpad, rpad), (0, 0)]
     elif overlap_samples > 0:
         # partial overlap
