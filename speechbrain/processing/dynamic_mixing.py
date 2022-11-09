@@ -18,7 +18,7 @@ import warnings
 import uuid
 import pyloudnorm  # WARNING: External dependency
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from typing import Optional, Union
 
 
@@ -31,7 +31,7 @@ class DynamicMixingConfig:
     audio_max_loudness: float = -25.0  # dB
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
-    noise_files: list = []
+    noise_files: list = field(default_factory=list)
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
     noise_max_loudness: float = -25.0 - 5
@@ -39,7 +39,7 @@ class DynamicMixingConfig:
     white_noise_mu: float = 0.0
     white_noise_var: float = 1e-4
     rir_add: bool = False
-    rir_files: list = []  # RIR waveforms
+    rir_files: list = field(default_factory=list)  # RIR waveforms
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -54,9 +54,6 @@ class DynamicMixingConfig:
 
         if isinstance(self.overlap_ratio, numbers.Real):
             self.overlap_ratio = [self.overlap_ratio]
-
-        if isinstance(self.rir_num, numbers.Real):
-            self.rir_num = [self.rir_num]
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -205,7 +202,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 if not is_noise
                 else self.config.noise_max_loudness,
                 self.config.audio_max_amp,
-                is_noise,
             )
 
         # add reverb
@@ -216,6 +212,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
     def __postprocess__(self, mixture, sources):
         # add noise
+        noise = None
         if self.config.noise_add and len(self.config.noise_files) > 0:
             noise_f = np.random.choice(self.config.noise_files)
             noise, fs = torchaudio.load(noise_f)
@@ -285,6 +282,7 @@ def normalize(audio, meter, min_loudness=-33, max_loudness=-25, max_amp=0.9):
         warnings.simplefilter("ignore")
         c_loudness = meter.integrated_loudness(audio)
         target_loudness = random.uniform(min_loudness, max_loudness)
+        # TODO: pyloudnorm.normalize.loudness could be replaced by rescale from SB
         signal = pyloudnorm.normalize.loudness(
             audio, c_loudness, target_loudness
         )
@@ -314,22 +312,11 @@ def mix(src1, src2, overlap_samples):
     paddings = []
     if overlap_samples >= n_short:
         # full overlap
-        #
-        # short |        ++++++        |
-        # long  |----------------------|
-        # sum   |--------++++++--------|
-        #        <-lpad->      <-rpad->
-        #
         lpad = np.random.choice(range(n_diff)) if n_diff > 0 else 0
         rpad = n_diff - offset
         paddings = [(lpad, rpad), (0, 0)]
     elif overlap_samples > 0:
         # partial overlap
-        #
-        # short | +++++++       |
-        # long  |    -----------|
-        # sum   | +++++++-------|
-        #
         start_short = np.random.choice([True, False])  # start with short
         n_total = n_long + n_short - overlap_samples
         if start_short:
@@ -338,11 +325,6 @@ def mix(src1, src2, overlap_samples):
             paddings = [(n_total - n_short, 0), (0, n_total - n_long)]
     else:
         # no-overlap
-        #
-        # short | +++++         |
-        # long  |         ------|
-        # sum   | +++++   ------|
-        #
         sil_between = abs(overlap_samples)
         start_short = np.random.choice([True, False])  # start with short
         if start_short:
