@@ -37,7 +37,7 @@ class DynamicMixingConfig:
     noise_max_loudness: float = -25.0 - 5
     white_noise_add: bool = True
     white_noise_mu: float = 0.0
-    white_noise_var: float = 1e-4
+    white_noise_var: float = 1e-7
     rir_add: bool = False
     rir_files: list = field(default_factory=list)  # RIR waveforms
 
