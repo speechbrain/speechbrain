@@ -344,8 +344,9 @@ class reCNN_Block(sb.nnet.containers.Sequential):
             self.append(
                 sb.nnet.CNN.Conv2d,
                 out_channels=channels,
-                kernel_size=(5, 5),
+                kernel_size=kernel_size,
                 bias=False,
+                padding="causal",
                 layer_name="conv_1",
             )
             self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
