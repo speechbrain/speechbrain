@@ -113,10 +113,8 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         else:
             spkr_files = {}
             for d in dataset:
-                spkr_files[d[spkr_key]] = spkr_files.get(
-                    d[spkr_key], []
-                ).append(d[wav_key])
-
+                spkr_files[d[spkr_key]] = spkr_files.get(d[spkr_key], [])
+                spkr_files[d[spkr_key]].append(d[wav_key])
             return cls(spkr_files, config)
 
     @classmethod
@@ -131,6 +129,15 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return cls(spkr_files, config)
 
     def generate(self, wavfile=None):
+        """Generate new audio mixture
+
+        Returns:
+          - mixture
+          - mixed spkrs
+          - used overlap ratios
+          - padded sources
+          - noise
+        """
         n_spkrs = np.random.choice(self.config.num_spkrs)
         if n_spkrs <= 0:
             # TODO: how long mixture?
@@ -161,8 +168,8 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         sources = sorted(sources, key=lambda x: x.size(0), reverse=True)
         mixture = sources[0]  # longest audio
+        padded_sources = [sources[0]]
         overlap_ratios = []
-        padded_sources = []
         for i in range(1, len(sources)):
             src = sources[i]
             ratio = np.random.choice(self.config.overlap_ratio)
@@ -172,14 +179,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             # padded sources are returned in same order
             overlap_ratios.append((ratio, overlap_samples))
 
-            # for sources>2 previous padded_sources are shorter
+            # previous padded_sources are shorter
             padded_sources = __pad_sources__(
                 padded_sources,
                 [paddings[1] for _ in range(len(padded_sources))],
             )
-            if len(padded_sources) == 0:
-                padded_sources.append(padded_tmp[1])
-
             padded_sources.append(padded_tmp[0])
         mixture, padded_source, noise = self.__postprocess__(
             mixture, padded_sources
