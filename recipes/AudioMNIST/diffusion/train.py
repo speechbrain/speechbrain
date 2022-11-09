@@ -549,7 +549,9 @@ def load_dataset(hparams):
                 split_id
             ] = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
     else:
-        dataset = datasets.load_dataset(hparams["dataset"])
+        dataset = datasets.load_dataset(
+            hparams["dataset"], cache_dir=hparams["data_folder"]
+        )
         for split_id in DATASET_SPLITS:
             dataset_splits[
                 split_id
