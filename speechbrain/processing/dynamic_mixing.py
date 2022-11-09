@@ -20,9 +20,10 @@ import pyloudnorm  # WARNING: External dependency
 
 from dataclasses import dataclass, field, fields
 from typing import Optional, Union
+from speechbrain.dataio.batch import PaddedBatch
 
 
-@dataclass(kw_only=True)
+@dataclass
 class DynamicMixingConfig:
     num_spkrs: Union[int, list] = 2
     overlap_ratio: Union[int, list] = 1.0
@@ -265,14 +266,16 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             + "-".join(map(lambda x: f"{x[0]:.2f}", ratios))
         )
         # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
-        return (
-            mix_id,
-            mix,
-            srcs[0],
-            srcs[1],
-            torch.zeros(mix.size(0)),
-            noise if noise else torch.zeros(mix.size(0)),
-        )
+        dct = {
+            "mix_id": mix_id,
+            "mix_sig": mix,
+            "s1_sig": srcs[0],
+            "s2_sig": srcs[1],
+            "s3_sig": torch.zeros(mix.size(0)),
+            "noise_sig": noise if noise else torch.zeros(mix.size(0)),
+        }
+
+        return PaddedBatch(dct)
 
 
 def normalize(audio, meter, min_loudness=-33, max_loudness=-25, max_amp=0.9):
