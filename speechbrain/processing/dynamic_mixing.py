@@ -324,10 +324,7 @@ def mix(src1, src2, overlap_samples):
     if overlap_samples >= n_short:
         # full overlap
         lpad = np.random.choice(range(n_diff)) if n_diff > 0 else 0
-        import pdb
-
-        pdb.set_trace()
-        rpad = n_diff - offset
+        rpad = n_diff - lpad
         paddings = [(lpad, rpad), (0, 0)]
     elif overlap_samples > 0:
         # partial overlap
