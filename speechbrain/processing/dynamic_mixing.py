@@ -6,7 +6,6 @@ Authors
     * Martin Kocour 2022
 """
 
-from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.processing.signal_processing import reverberate
 
 import torch
@@ -18,7 +17,7 @@ import warnings
 import uuid
 import pyloudnorm  # WARNING: External dependency
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from typing import Optional, Union
 
 
@@ -31,7 +30,7 @@ class DynamicMixingConfig:
     audio_max_loudness: float = -25.0  # dB
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
-    noise_files: list = None
+    noise_files: Optional[list] = None
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
     noise_max_loudness: float = -25.0 - 5
@@ -39,7 +38,7 @@ class DynamicMixingConfig:
     white_noise_mu: float = 0.0
     white_noise_var: float = 1e-7
     rir_add: bool = False
-    rir_files: list = None  # RIR waveforms
+    rir_files: Optional[list] = None  # RIR waveforms
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -84,7 +83,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     def __init__(self, spkr_files, config):
         if len(spkr_files.keys()) < max(config.num_spkrs):
             raise ValueError(
-                f"Expected at least {num_spkrs} spkrs in spkr_files"
+                f"Expected at least {config.num_spkrs} spkrs in spkr_files"
             )
 
         self.num_spkrs = config.num_spkrs
@@ -98,9 +97,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         self.meter = None
         if self.normalize_audio:
             self.meter = pyloudnorm.Meter(self.sampling_rate)
-
-        if min(config.num_spkrs) <= 0:
-            lengths = map(torchaudio.info, iter(self._all_files()))
 
         self.config = config
 
@@ -220,7 +216,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             assert (
                 fs == self.sampling_rate
             ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
-            noise = __prepare_source__(noise[0], is_noise=True)
+            noise = self.__prepare_source__(noise[0], is_noise=True)
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
             )  # extend the noise
