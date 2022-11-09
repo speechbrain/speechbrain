@@ -251,7 +251,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         # TODO: Refactor completly
-        mix, spkrs, ratios, srcs = self.generate()
+        mix, spkrs, ratios, srcs, noise = self.generate()
         if len(srcs) != 2:
             raise NotImplementedError("getitem supports exactly 2 sources")
 
@@ -271,7 +271,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             srcs[0],
             srcs[1],
             torch.zeros(mix.size(0)),
-            torch.zeros(mix.size(0)),
+            noise if noise else torch.zeros(mix.size(0)),
         )
 
 
