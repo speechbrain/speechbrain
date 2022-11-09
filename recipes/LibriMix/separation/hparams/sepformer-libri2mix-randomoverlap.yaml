@@ -50,6 +50,7 @@ limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
 training_signal_len: 32000000
+n_audio_to_save: 20
 
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False

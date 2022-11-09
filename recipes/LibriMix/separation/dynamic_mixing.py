@@ -33,7 +33,7 @@ def build_spk_hashtable_librimix(hparams):
     assert (
         torchaudio.info(libri_utterances[0]).sample_rate
         == hparams["sample_rate"]
-    )
+    ), "inconsistent sampling rate"
     for utt in tqdm(libri_utterances):
 
         path = os.path.normpath(utt)

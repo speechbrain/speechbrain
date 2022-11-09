@@ -33,18 +33,29 @@ def prepare_librimix(
     if skip_prep:
         return
 
+    if fs == 16000:
+        version = "wav16k/min"
+    elif fs == 8000:
+        version = "wav8k/min"
+    else:
+        raise ValueError("Unsupported sampling frequency")
+
     if "Libri" in datapath:
         # Libri 2/3Mix datasets
         if n_spks == 2:
             assert (
                 "Libri2Mix" in datapath
             ), "Inconsistent number of speakers and datapath"
-            create_libri2mix_csv(datapath, savepath, addnoise=librimix_addnoise)
+            create_libri2mix_csv(
+                datapath, savepath, addnoise=librimix_addnoise, version=version
+            )
         elif n_spks == 3:
             assert (
                 "Libri3Mix" in datapath
             ), "Inconsistent number of speakers and datapath"
-            create_libri3mix_csv(datapath, savepath, addnoise=librimix_addnoise)
+            create_libri3mix_csv(
+                datapath, savepath, addnoise=librimix_addnoise, version=version
+            )
         else:
             raise ValueError("Unsupported Number of Speakers")
     else:
