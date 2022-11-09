@@ -35,8 +35,8 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import logging
+from speechbrain.dataio.batch import PaddedBatch
 
-from speechbrain.processing.dynamic_mixing import Dict2Class
 
 # Define training procedure
 class Separation(sb.Brain):
@@ -111,6 +111,13 @@ class Separation(sb.Brain):
     def fit_batch(self, batch):
         """Trains one batch"""
         # Unpacking batch list
+
+        if not isinstance(batch, PaddedBatch):
+            for key in batch:
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].squeeze(0)
+            batch = PaddedBatch([batch])
+
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
         if self.hparams.use_wham_noise:
@@ -611,9 +618,6 @@ if __name__ == "__main__":
             test_data = DynamicMixingDataset.from_wavs(
                 glob.glob(data_path), dm_config
             )
-            import pdb
-
-            pdb.set_trace()
         else:
             # Check if base_folder_dm is set with dynamic mixing
             if hparams["dynamic_mixing"] and not os.path.exists(

@@ -20,7 +20,6 @@ import pyloudnorm  # WARNING: External dependency
 
 from dataclasses import dataclass, field, fields
 from typing import Optional, Union
-from speechbrain.dataio.batch import PaddedBatch
 
 
 @dataclass
@@ -41,6 +40,8 @@ class DynamicMixingConfig:
     white_noise_var: float = 1e-7
     rir_add: bool = False
     rir_files: list = field(default_factory=list)  # RIR waveforms
+    min_source_len: int = 32000
+    max_source_len: int = 64000
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -191,6 +192,13 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return mixture, mix_spkrs, overlap_ratios, padded_sources, noise
 
     def __prepare_source__(self, source, rir, is_noise=False):
+
+        # cut the source to a random length
+        length = random.randint(
+            self.config.min_source_len, self.config.max_source_len
+        )
+        source = source[:length]
+
         if self.normalize_audio:
             # normalize loudness and apply random gain
             source = normalize(
@@ -275,7 +283,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             "noise_sig": noise if noise else torch.zeros(mix.size(0)),
         }
 
-        return PaddedBatch(dct)
+        return dct
 
 
 def normalize(audio, meter, min_loudness=-33, max_loudness=-25, max_amp=0.9):
@@ -316,6 +324,9 @@ def mix(src1, src2, overlap_samples):
     if overlap_samples >= n_short:
         # full overlap
         lpad = np.random.choice(range(n_diff)) if n_diff > 0 else 0
+        import pdb
+
+        pdb.set_trace()
         rpad = n_diff - offset
         paddings = [(lpad, rpad), (0, 0)]
     elif overlap_samples > 0:
