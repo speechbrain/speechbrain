@@ -7,7 +7,7 @@ Authors
 """
 
 from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.utils import data_pipeline
+from speechbrain.processing.signal_processing import reverberate
 
 import torch
 import torchaudio
@@ -26,10 +26,20 @@ from typing import Optional, Union
 class DynamicMixingConfig:
     num_spkrs: Union[int, list] = 2
     overlap_ratio: Union[int, list] = 1.0
-    audio_norm: bool = True
-    audio_min_loudness: float = -33.0
-    audio_max_loudness: float = -25.0
-    audio_max_amp: float = 0.9
+    audio_norm: bool = True  # normalize loudness of sources
+    audio_min_loudness: float = -33.0  # dB
+    audio_max_loudness: float = -25.0  # dB
+    audio_max_amp: float = 0.9  # max amplitude in mixture and sources
+    noise_add: bool = False
+    noise_files: list = []
+    # noise_snr: float = 20.0 # dB TODO
+    noise_min_loudness: float = -33.0 - 5
+    noise_max_loudness: float = -25.0 - 5
+    white_noise_add: bool = True
+    white_noise_mu: float = 0.0
+    white_noise_var: float = 1e-4
+    rir_add: bool = False
+    rir_files: list = []  # RIR waveforms
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -44,6 +54,9 @@ class DynamicMixingConfig:
 
         if isinstance(self.overlap_ratio, numbers.Real):
             self.overlap_ratio = [self.overlap_ratio]
+
+        if isinstance(self.rir_num, numbers.Real):
+            self.rir_num = [self.rir_num]
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -129,20 +142,25 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             raise NotImplementedError("Expect at least 1 source")
 
         mix_spkrs = np.random.choice(list(self.spkr_files.keys()), n_spkrs)
+        rir = None
+        if self.config.rir_add:
+            rir_file = np.random.choice(self.config.rir_files)
+            rir, fs = torchaudio.load(rir_file)
+            assert (
+                fs == self.sampling_rate
+            ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
+            rir = rir[0]
 
         sources = []
         fs = None
         for spkr in mix_spkrs:
             src_file = np.random.choice(self.spkr_files[spkr])
             src_audio, fs = torchaudio.load(src_file)
+            assert (
+                fs == self.sampling_rate
+            ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
             src_audio = src_audio[0]  # Support only single channel
-
-            if fs != self.sampling_rate:
-                raise RuntimeError(
-                    f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
-                )
-
-            src_audio = self.__prepare_source__(src_audio)
+            src_audio = self.__prepare_source__(src_audio, rir)
             sources.append(src_audio)
 
         sources = sorted(sources, key=lambda x: x.size(0), reverse=True)
@@ -167,27 +185,61 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 padded_sources.append(padded_tmp[1])
 
             padded_sources.append(padded_tmp[0])
-        mixture, padded_source = self.__postprocess__(mixture, padded_sources)
+        mixture, padded_source, noise = self.__postprocess__(
+            mixture, padded_sources
+        )
         if wavfile:
             torchaudio.save(mixture, wavfile)
-        return mixture, mix_spkrs, overlap_ratios, padded_sources
+        return mixture, mix_spkrs, overlap_ratios, padded_sources, noise
 
-    def __prepare_source__(self, source):
+    def __prepare_source__(self, source, rir, is_noise=False):
         if self.normalize_audio:
+            # normalize loudness and apply random gain
             source = normalize(
                 source,
                 self.meter,
-                self.config.audio_min_loudness,
-                self.config.audio_max_loudness,
+                self.config.audio_min_loudness
+                if not is_noise
+                else self.config.noise_min_loudness,
+                self.config.audio_max_loudness
+                if not is_noise
+                else self.config.noise_max_loudness,
                 self.config.audio_max_amp,
+                is_noise,
             )
-        # TODO: Random gain
-        # TODO: add reverb
-        # TODO: add noise
+
+        # add reverb
+        if not is_noise and self.config.rir_add:
+            # noise is not reverberated
+            reverberate(source, rir)
         return source
 
     def __postprocess__(self, mixture, sources):
-        # modify gain
+        # add noise
+        if self.config.noise_add and len(self.config.noise_files) > 0:
+            noise_f = np.random.choice(self.config.noise_files)
+            noise, fs = torchaudio.load(noise_f)
+            assert (
+                fs == self.sampling_rate
+            ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
+            noise = __prepare_source__(noise[0], is_noise=True)
+            noise = noise.repeat(
+                mixture.size(0) // noise.size(0) + 1
+            )  # extend the noise
+            mixture += noise[: mixture.size(0)]
+
+        # replace zeros with small gaussian noise
+        if self.config.white_noise_add:
+            white_noise = np.random.normal(
+                self.config.white_noise_mu,
+                self.config.white_noise_var,
+                size=mixture.size(0),
+            )
+            white_noise = torch.from_numpy(white_noise)
+            mixture += white_noise
+
+        # normalize gain
+        # this should be the final step
         mix_max_amp = mixture.abs().max().item()
         gain = 1.0
         if mix_max_amp > self.config.audio_max_amp:
@@ -195,8 +247,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         mixture = gain * mixture
         sources = map(lambda src: gain * src, sources)
-        # TODO: replace zeros with small noise
-        return mixture, sources
+        return mixture, sources, noise
 
     def __len__(self):
         return sum(map(len, self.spkr_files.values()))  # dict of lists
@@ -233,12 +284,6 @@ def normalize(audio, meter, min_loudness=-33, max_loudness=-25, max_amp=0.9):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         c_loudness = meter.integrated_loudness(audio)
-        # if is_noise:
-        #    target_loudness = random.uniform(
-        #        MIN_LOUDNESS - 5, MAX_LOUDNESS - 5
-        #    )
-        # else:
-        #    target_loudness = random.uniform(MIN_LOUDNESS, MAX_LOUDNESS)
         target_loudness = random.uniform(min_loudness, max_loudness)
         signal = pyloudnorm.normalize.loudness(
             audio, c_loudness, target_loudness
