@@ -643,10 +643,16 @@ class Conv2d(nn.Module):
         if self.unsqueeze:
             x = x.unsqueeze(1)
 
-        if self.padding == "same" or self.padding == "causal":
+        if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
             )
+        
+        elif self.padding == "causal":
+            num_pad = (self.kernel_size[1] - 1) * self.dilation[1]
+            x = F.pad(x, (0, 0, num_pad, 0))
+
+            print("padded tensor is ", x)
 
         elif self.padding == "valid":
             pass
@@ -656,8 +662,6 @@ class Conv2d(nn.Module):
                 "Padding must be 'same' or 'valid'. Got " + self.padding
             )
 
-        if self.padding == "causal":
-            self.conv.weight.data = self.conv.weight.data * self.k_mask
         wx = self.conv(x)
 
         if self.unsqueeze:
