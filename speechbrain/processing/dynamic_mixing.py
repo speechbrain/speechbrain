@@ -275,7 +275,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         )
         # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
         dct = {
-            "mix_id": mix_id,
+            "id": mix_id,
             "mix_sig": mix,
             "s1_sig": srcs[0],
             "s2_sig": srcs[1],
