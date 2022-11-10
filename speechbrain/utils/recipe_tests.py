@@ -468,6 +468,16 @@ def run_recipe_tests(
         stdout_file = os.path.join(output_fold, "stdout.txt")
         stderr_file = os.path.join(output_fold, "stderr.txt")
 
+        # Check for setup scripts
+        setup_script = os.path.join(
+            "tests/recipes/setup",
+            test_script[recipe_id][:-3].replace("/", "_"),
+            os.path.dirname(test_script[recipe_id])
+            + test_hparam[recipe_id][:-5].replace("/", "_"),
+        )
+        if os.path.exists(setup_script):
+            os.system(setup_script)
+
         # Composing command to run
         cmd = (
             "python "

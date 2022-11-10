@@ -610,10 +610,7 @@ if __name__ == "__main__":  # noqa: C901
 
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
-    eval_meta_file = os.path.join(
-        params["meta_data_dir"],
-        "ami_eval." + params["mic_type"] + ".subsegs.json",
-    )
+    eval_meta_file = params["eval_meta_file"]
     with open(eval_meta_file, "r") as f:
         full_meta_eval = json.load(f)
 

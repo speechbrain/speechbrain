@@ -54,6 +54,7 @@ skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
 mic_type: 'Mix-Headset'
 dev_meta_file: !ref <meta_data_dir>/ami_dev.<mic_type>.subsegs.json
+eval_meta_file: !ref <meta_data_dir>/ami_eval.<mic_type>.subsegs.json
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
