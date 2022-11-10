@@ -6,7 +6,6 @@ Authors
     * Martin Kocour 2022
 """
 
-from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.processing.signal_processing import reverberate
 
 import torch
@@ -18,7 +17,7 @@ import warnings
 import uuid
 import pyloudnorm  # WARNING: External dependency
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from typing import Optional, Union
 
 
@@ -31,7 +30,7 @@ class DynamicMixingConfig:
     audio_max_loudness: float = -25.0  # dB
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
-    noise_files: list = field(default_factory=list)
+    noise_files: Optional[list] = None
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
     noise_max_loudness: float = -25.0 - 5
@@ -39,7 +38,7 @@ class DynamicMixingConfig:
     white_noise_mu: float = 0.0
     white_noise_var: float = 1e-7
     rir_add: bool = False
-    rir_files: list = field(default_factory=list)  # RIR waveforms
+    rir_files: Optional[list] = None  # RIR waveforms
     min_source_len: int = 32000
     max_source_len: int = 64000
 
@@ -86,7 +85,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     def __init__(self, spkr_files, config):
         if len(spkr_files.keys()) < max(config.num_spkrs):
             raise ValueError(
-                f"Expected at least {num_spkrs} spkrs in spkr_files"
+                f"Expected at least {config.num_spkrs} spkrs in spkr_files"
             )
 
         self.num_spkrs = config.num_spkrs
@@ -101,9 +100,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         if self.normalize_audio:
             self.meter = pyloudnorm.Meter(self.sampling_rate)
 
-        if min(config.num_spkrs) <= 0:
-            lengths = map(torchaudio.info, iter(self._all_files()))
-
         self.config = config
 
     @classmethod
@@ -117,10 +113,8 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         else:
             spkr_files = {}
             for d in dataset:
-                spkr_files[d[spkr_key]] = spkr_files.get(
-                    d[spkr_key], []
-                ).append(d[wav_key])
-
+                spkr_files[d[spkr_key]] = spkr_files.get(d[spkr_key], [])
+                spkr_files[d[spkr_key]].append(d[wav_key])
             return cls(spkr_files, config)
 
     @classmethod
@@ -135,6 +129,15 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return cls(spkr_files, config)
 
     def generate(self, wavfile=None):
+        """Generate new audio mixture
+
+        Returns:
+          - mixture
+          - mixed spkrs
+          - used overlap ratios
+          - padded sources
+          - noise
+        """
         n_spkrs = np.random.choice(self.config.num_spkrs)
         if n_spkrs <= 0:
             # TODO: how long mixture?
@@ -159,13 +162,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 fs == self.sampling_rate
             ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
             src_audio = src_audio[0]  # Support only single channel
+            # use same RIR for all sources
             src_audio = self.__prepare_source__(src_audio, rir)
             sources.append(src_audio)
 
         sources = sorted(sources, key=lambda x: x.size(0), reverse=True)
         mixture = sources[0]  # longest audio
+        padded_sources = [sources[0]]
         overlap_ratios = []
-        padded_sources = []
         for i in range(1, len(sources)):
             src = sources[i]
             ratio = np.random.choice(self.config.overlap_ratio)
@@ -175,14 +179,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             # padded sources are returned in same order
             overlap_ratios.append((ratio, overlap_samples))
 
-            # for sources>2 previous padded_sources are shorter
+            # previous padded_sources are shorter
             padded_sources = __pad_sources__(
                 padded_sources,
                 [paddings[1] for _ in range(len(padded_sources))],
             )
-            if len(padded_sources) == 0:
-                padded_sources.append(padded_tmp[1])
-
             padded_sources.append(padded_tmp[0])
         mixture, padded_source, noise = self.__postprocess__(
             mixture, padded_sources
@@ -228,7 +229,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             assert (
                 fs == self.sampling_rate
             ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
-            noise = __prepare_source__(noise[0], is_noise=True)
+            noise = self.__prepare_source__(noise[0], is_noise=True)
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
             )  # extend the noise
