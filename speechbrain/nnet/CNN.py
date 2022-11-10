@@ -614,14 +614,6 @@ class Conv2d(nn.Module):
             bias=bias,
         )
 
-        if self.padding == "causal":
-            self.k_mask = (
-                torch.ones_like(self.conv.weight)
-                .to(device=self.conv.weight.device)
-                .float()
-            )
-            self.k_mask[:, :, -(self.k_mask.shape[2] // 2) :, :] = 0.0
-
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
 
