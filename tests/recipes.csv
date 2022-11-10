@@ -125,3 +125,4 @@ ASR,minilibrispeech,templates/speech_recognition/ASR/train.py,templates/speech_r
 Enhancement,minilibrispeech,templates/enhancement/train.py,templates/enhancement/train.yaml,templates/enhancement/mini_librispeech_prepare.py,templates/enhancement/README.md,,,,
 Speaker_recognition,minilibrispeech,templates/hyperparameter_optimization_speaker_id/train.py,templates/hyperparameter_optimization_speaker_id/train.yaml,templates/hyperparameter_optimization_speaker_id/mini_librispeech_prepare.py,,,,,
 Speaker_recognition,minilibrispeech,templates/speaker_id/train.py,templates/speaker_id/train.yaml,templates/speaker_id/mini_librispeech_prepare.py,templates/speaker_id/README.md,,,,
+TTS,LJSPEECH,recipes/LJSpeech/TTS/fastspeech2/train.py,recipes/LJSpeech/TTS/fastspeech2/hparams/train.yaml,,,,,,

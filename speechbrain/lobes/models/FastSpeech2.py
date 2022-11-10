@@ -11,9 +11,26 @@ from torch import nn
 import sys
 sys.path.append('../../../')
 import torch.nn as nn
+from speechbrain.nnet import CNN, linear
 from torch.nn import functional as F
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, get_key_padding_mask
+from speechbrain.nnet.normalization import LayerNorm
+
+class PositionalEmbedding(nn.Module):
+    def __init__(self, embed_dim):
+        super(PositionalEmbedding, self).__init__()
+        self.demb = embed_dim
+        inv_freq = 1 / (10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim))
+        self.register_buffer('inv_freq', inv_freq)
+
+    def forward(self, seq_len, mask, device, dtype):
+        pos_seq = torch.arange(seq_len, device=device).to(dtype)
+
+        sinusoid_inp = torch.matmul(torch.unsqueeze(pos_seq, -1),
+                                    torch.unsqueeze(self.inv_freq, 0))
+        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=1)
+        return pos_emb[None, :, :] * mask[:, :, None]
 
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
@@ -75,11 +92,11 @@ class DurationPredictor(nn.Module):
     """
     def __init__(self, in_channels, out_channels, kernel_size, n_units=1):
         super().__init__()
-        self.conv1 = nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=(kernel_size // 2))
-        self.conv2 = nn.Conv1d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size, padding=(kernel_size // 2))
-        self.linear = nn.Linear(out_channels, n_units)
-        self.ln1 = nn.LayerNorm(out_channels)
-        self.ln2 = nn.LayerNorm(out_channels)
+        self.conv1 = CNN.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding='same')
+        self.conv2 = CNN.Conv1d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size, padding='same')
+        self.linear = linear.Linear(n_neurons=n_units, input_size=out_channels)
+        self.ln1 = LayerNorm(out_channels)
+        self.ln2 = LayerNorm(out_channels)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -93,18 +110,15 @@ class DurationPredictor(nn.Module):
         output: torch.Tensor
             the duration predictor outputs
         """
-        x = self.conv1(x.transpose(1, 2))
-        x = self.relu(x)
-        x = self.ln1(x.transpose(1, 2)).to(x.dtype)
+        x = self.relu(self.conv1(x))
+        x = self.ln1(x).to(x.dtype)
 
-        x = self.conv2(x.transpose(1, 2))
-        x = self.relu(x)
-        x = self.ln2(x.transpose(1, 2)).to(x.dtype)
-
+        x = self.relu(self.conv2(x))
+        x = self.ln2(x).to(x.dtype)
         return self.linear(x)
 
 class FastSpeech2(nn.Module):
-    """The FasFastSpeech2tPitch text-to-speech model.
+    """The FastSpeech2 text-to-speech model.
     This class is the main entry point for the model, which is responsible
     for instantiating all submodules, which, in turn, manage the individual
     neural network layers
@@ -221,14 +235,16 @@ class FastSpeech2(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
+        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(enc_d_model)
+        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(dec_d_model)
 
         self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
         self.durPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
         self.pitchPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
         self.energyPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
-        self.pitchEmbed = nn.Conv1d(1, enc_d_model, pitch_pred_kernel_size, padding=pitch_pred_kernel_size//2)
+        self.pitchEmbed = nn.Conv1d(in_channels=1, out_channels=enc_d_model, kernel_size=pitch_pred_kernel_size, padding=(pitch_pred_kernel_size // 2))
 
-        self.energyEmbed = nn.Conv1d(1, enc_d_model, energy_pred_kernel_size, padding=energy_pred_kernel_size//2)
+        self.energyEmbed = nn.Conv1d(in_channels=1, out_channels=enc_d_model, kernel_size=energy_pred_kernel_size, padding=(energy_pred_kernel_size // 2))
         self.encoder = TransformerEncoder(num_layers=enc_num_layers,
                                         nhead=enc_num_head,
                                         d_ffn=enc_ffn_dim,
@@ -251,7 +267,7 @@ class FastSpeech2(nn.Module):
                                         normalize_before=normalize_before,
                                         ffn_type=ffn_type)
 
-        self.linear = nn.Linear(dec_d_model, n_mels)
+        self.linear = linear.Linear(n_neurons=n_mels, input_size=dec_d_model)
 
 
     def forward(self, tokens, durations=None, pitch=None, energy=None, pace=1.0):
@@ -271,35 +287,42 @@ class FastSpeech2(nn.Module):
         """
         token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
-        # print(srcmask)
-        # exit()
-        attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1])
-        token_feats, memory = self.encoder(token_feats, src_mask=None, src_key_padding_mask=srcmask)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
+        pos = self.sinusoidal_positional_embed_encoder(token_feats.shape[1], srcmask, token_feats.device, token_feats.dtype)
+        token_feats = torch.add(token_feats, pos) * srcmask_inverted
+        attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1]).permute(0, 2, 1).bool()
+        token_feats, _ = self.encoder(token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
+        token_feats = token_feats * srcmask_inverted
         predict_durations = self.durPred(token_feats).squeeze()
-        
-        
         
         if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
         if durations is None: dur_pred_reverse_log = torch.clamp(torch.exp(predict_durations) - 1, 0)
-        spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log, pace=pace)
-        predict_pitch = self.pitchPred(spec_feats).transpose(2, 1)
-        if pitch is not None:
-            pitch = self.pitchEmbed(pitch.unsqueeze(1)).transpose(2, 1)
-        else:
-            pitch = self.pitchEmbed(predict_pitch).transpose(2, 1)
-        spec_feats = spec_feats.add(pitch)
-        predict_energy = self.energyPred(spec_feats).transpose(2, 1)
-        if energy is not None:
-            energy = self.energyEmbed(energy.unsqueeze(1)).transpose(2, 1)
-        else:
-            energy = self.energyEmbed(predict_energy).transpose(2, 1)
-        spec_feats = spec_feats.add(energy)
-        
-        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
-        attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1])
-        output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=None, src_key_padding_mask=srcmask)
 
-        mel_post = self.linear(output_mel_feats)
+        spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log, pace=pace)
+        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
+        attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1]).permute(0, 2, 1).bool()
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats.shape[1], srcmask, spec_feats.device, spec_feats.dtype)
+
+        predict_pitch = self.pitchPred(spec_feats)
+        if pitch is not None:
+            pitch = self.pitchEmbed(pitch.unsqueeze(1))
+        else:
+            pitch = self.pitchEmbed(predict_pitch)
+        pitch = pitch.permute(0, 2, 1)
+        spec_feats = spec_feats.add(pitch)
+
+        predict_energy = self.energyPred(spec_feats)
+        if energy is not None:
+            energy = self.energyEmbed(energy.unsqueeze(1))
+        else:
+            energy = self.energyEmbed(predict_energy)
+        energy = energy.permute(0, 2, 1)
+        spec_feats = spec_feats.add(energy)
+        spec_feats = torch.add(spec_feats, pos)* srcmask_inverted
+
+        output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
+        mel_post = self.linear(output_mel_feats)* srcmask_inverted
         return mel_post, predict_durations, predict_pitch, predict_energy
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
