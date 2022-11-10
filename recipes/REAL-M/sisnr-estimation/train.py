@@ -606,14 +606,15 @@ if __name__ == "__main__":
     from prepare_data_wham import create_wham_whamr_csv
     from train_wham import dataio_prep as dataio_prep_whamr
 
-    create_wham_whamr_csv(
-        datapath=hparams["whamr_data_folder"],
-        savepath=hparams["save_folder"],
-        fs=hparams["sample_rate"],
-        add_reverb=True,
-        savename="whamr_",
-        set_types=["tr", "cv", "tt"],
-    )
+    if !hparams["skip_prep"]:  # add another skip_prep to distinguish between LibriSpeech & WHAM/R prep
+        create_wham_whamr_csv(
+            datapath=hparams["whamr_data_folder"],
+            savepath=hparams["save_folder"],
+            fs=hparams["sample_rate"],
+            add_reverb=True,
+            savename="whamr_",
+            set_types=["tr", "cv", "tt"],
+        )
 
     train_data_whamr, valid_data, test_data = dataio_prep_whamr(hparams)
 

@@ -22,6 +22,8 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        if recipe_csvfile == "setup":
+            continue
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvfile:

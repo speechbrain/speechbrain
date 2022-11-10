@@ -45,6 +45,8 @@ def test_recipe_list(
     """
     all_diffs_zero = True
     for recipe_csvfile in os.listdir(recipe_folder):
+        if recipe_csvfile == "setup":
+            continue
         dataset = os.path.splitext(recipe_csvfile)[0]
         hparam_lst = get_all_files(
             os.path.join(search_folder, dataset),
@@ -88,6 +90,8 @@ def test_recipe_files(
     check = True
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        if recipe_csvfile == "setup":
+            continue
         for field in fields:
             lst = get_list_from_csv(
                 os.path.join(recipe_folder, recipe_csvfile), field=field
@@ -129,6 +133,8 @@ def test_mandatory_files(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        if recipe_csvfile == "setup":
+            continue
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:
@@ -169,6 +175,8 @@ def test_README_links(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        if recipe_csvfile == "setup":
+            continue
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:

@@ -1,0 +1,2 @@
+mkdir -p tests/tmp/TIMIT_row_15/
+find tests/tmp/TIMIT_row* | grep model.ckpt | grep -v "row_2\|row_3\|row_4\|row_15\|row_16\|row_17\|row_18\|row_19" | sort -V > tests/tmp/TIMIT_row_15/tea_models.txt
