@@ -485,7 +485,7 @@ def run_recipe_tests(
 
         # Composing command to run
         cmd = (
-            "python "
+            f"PYTHONPATH={os.getcwd() + '/' + os.path.dirname(test_script[recipe_id])} python "
             + test_script[recipe_id]
             + " "
             + test_hparam[recipe_id]
@@ -499,6 +499,11 @@ def run_recipe_tests(
 
         # Running the test
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
+
+        # Tear down
+        td_script = os.path.join(os.path.dirname(setup_script), "tear_down")
+        if os.path.exists(td_script):
+            os.system(td_script)
 
         # Check return code
         if return_code != 0:

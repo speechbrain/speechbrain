@@ -26,6 +26,7 @@
     "spk1_snt3": {
         "wav": "{data_root}/spk1_snt3.wav",
         "duration": "2.72",
+		"length": "2.72",
         "spk_id": "spk1",
         "ali": "{data_root}/spk1_snt3.pkl",
         "phn": "ae sil t dh ae sil t hh ay l eh v ah l dh iy eh r ih z sil p y uh",

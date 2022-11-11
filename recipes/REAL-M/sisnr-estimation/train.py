@@ -606,7 +606,9 @@ if __name__ == "__main__":
     from prepare_data_wham import create_wham_whamr_csv
     from train_wham import dataio_prep as dataio_prep_whamr
 
-    if !hparams["skip_prep"]:  # add another skip_prep to distinguish between LibriSpeech & WHAM/R prep
+    # add another skip_prep to distinguish between LibriSpeech & WHAM/R prep
+    skip_prep = hparams["skip_prep"]
+    if not skip_prep:
         create_wham_whamr_csv(
             datapath=hparams["whamr_data_folder"],
             savepath=hparams["save_folder"],
