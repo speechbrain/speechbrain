@@ -308,7 +308,7 @@ class FastSpeech2(nn.Module):
         if pitch is not None:
             pitch = self.pitchEmbed(pitch.unsqueeze(1))
         else:
-            pitch = self.pitchEmbed(predict_pitch)
+            pitch = self.pitchEmbed(predict_pitch.permute(0, 2, 1))
         pitch = pitch.permute(0, 2, 1)
         spec_feats = spec_feats.add(pitch)
 
@@ -316,7 +316,7 @@ class FastSpeech2(nn.Module):
         if energy is not None:
             energy = self.energyEmbed(energy.unsqueeze(1))
         else:
-            energy = self.energyEmbed(predict_energy)
+            energy = self.energyEmbed(predict_energy.permute(0, 2, 1))
         energy = energy.permute(0, 2, 1)
         spec_feats = spec_feats.add(energy)
         spec_feats = torch.add(spec_feats, pos)* srcmask_inverted
