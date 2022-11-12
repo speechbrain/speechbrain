@@ -12,12 +12,9 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/fastspeech2/<seed>
 save_folder: !ref <output_folder>/save
-pretrained_path: !ref <save_folder>
-save_for_pretrained: True
 train_log: !ref <output_folder>/train_log.txt
 epochs: 500
 progress_samples: True
-progress_samples_incremental: False
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_min_run: 50
 progress_samples_interval: 25
@@ -38,8 +35,6 @@ split_ratio: [90, 10]
 
 skip_prep: False
 
-text_cleaners: ['english_cleaners']
-
 ################################
 # Audio Parameters             #
 ################################
@@ -48,7 +43,6 @@ hop_length: 256
 win_length: null
 n_mel_channels: 80
 n_fft: 1024
-n_stft: !ref <n_fft> // 2 + 1
 mel_fmin: 0.0
 mel_fmax: 8000.0
 power: 1
@@ -65,7 +59,7 @@ max_f0: 2093 #(torchaudio pyin values)
 ################################
 learning_rate: 0.0001
 weight_decay: 0.000000001
-grad_clip_thresh: 1.0
+max_grad_norm: 1.0
 batch_size: 32 #minimum 2
 betas: [0.98, 0.99]
 ################################
@@ -177,6 +171,7 @@ test_dataloader_opts:
 opt_class: !name:torch.optim.Adam
     lr: !ref <learning_rate>
     weight_decay: !ref <weight_decay>
+    betas: !ref <betas>
 
 #epoch object
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -194,10 +189,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 
-model_output_keys:
-    - mel
-    - mel_lengths
-    - alignments
 
 progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
     output_path: !ref <progress_sample_path>

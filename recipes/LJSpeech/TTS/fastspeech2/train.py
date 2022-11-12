@@ -383,6 +383,7 @@ def main():
         datasets["valid"],
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        test_loader_kwargs=hparams["test_dataloader_opts"],
     )
 
 
