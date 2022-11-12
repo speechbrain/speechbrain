@@ -319,11 +319,11 @@ class TransformerEncoderLayer(nn.Module):
             )
         elif ffn_type == "1dcnn":
             self.pos_ffn = nn.Sequential(
-                        nn.Conv1d(d_model, d_ffn, 3, 1, (3 // 2)),
-                        nn.ReLU(),
-                        nn.Conv1d(d_ffn, d_model, 3, 1, (3 // 2)),
-                        nn.Dropout(dropout),
-        )
+                nn.Conv1d(d_model, d_ffn, 3, 1, (3 // 2)),
+                nn.ReLU(),
+                nn.Conv1d(d_ffn, d_model, 3, 1, (3 // 2)),
+                nn.Dropout(dropout),
+            )
 
         self.norm1 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.norm2 = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
@@ -374,9 +374,11 @@ class TransformerEncoderLayer(nn.Module):
             src1 = self.norm2(src)
         else:
             src1 = src
-        if self.pos_ffn_type == '1dcnn': src1 = src1.transpose(1, 2)
+        if self.pos_ffn_type == "1dcnn":
+            src1 = src1.transpose(1, 2)
         output = self.pos_ffn(src1)
-        if self.pos_ffn_type == '1dcnn': output = output.transpose(1, 2)
+        if self.pos_ffn_type == "1dcnn":
+            output = output.transpose(1, 2)
         # add & norm
         output = src + self.dropout2(output)
         if not self.normalize_before:
@@ -449,7 +451,7 @@ class TransformerEncoder(nn.Module):
                     normalize_before=normalize_before,
                     causal=causal,
                     attention_type=attention_type,
-                    ffn_type=ffn_type
+                    ffn_type=ffn_type,
                 )
                 for i in range(num_layers)
             ]
