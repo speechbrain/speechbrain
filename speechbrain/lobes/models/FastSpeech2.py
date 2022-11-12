@@ -24,6 +24,7 @@ class PositionalEmbedding(nn.Module):
     embed_dim: int
         dimensionality of the embeddings.
     """
+
     def __init__(self, embed_dim):
         super(PositionalEmbedding, self).__init__()
         self.demb = embed_dim
@@ -571,6 +572,7 @@ class Loss(nn.Module):
     mel_loss_weight: int
        weight for the mel loss
     """
+
     def __init__(
         self,
         log_scale_durations,
@@ -592,7 +594,7 @@ class Loss(nn.Module):
         self.energy_loss_weight = energy_loss_weight
 
     def forward(self, predictions, targets):
-        
+
         """Computes the value of the loss function and updates stats
         
         Arguments
