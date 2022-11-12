@@ -10,7 +10,7 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/fastspeech2_exp_sblayers/<seed>
+output_folder: !ref results/fastspeech2/<seed>
 save_folder: !ref <output_folder>/save
 pretrained_path: !ref <save_folder>
 save_for_pretrained: True
@@ -26,7 +26,7 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: /data/Database/LJSpeech-1.1 #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
+data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
 duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip
 
 train_json: !ref <save_folder>/train.json
@@ -57,8 +57,8 @@ mel_scale: "slaney"
 dynamic_range_compression: True
 mel_normalized: False
 min_max_energy_norm: True
-min_f0: 65  #(librosa pyin values)
-max_f0: 2093 #(librosa pyin values)
+min_f0: 65  #(torchaudio pyin values)
+max_f0: 2093 #(torchaudio pyin values)
 
 ################################
 # Optimization Hyperparameters #
@@ -73,7 +73,6 @@ betas: [0.98, 0.99]
 ################################
 n_symbols: 62 #fixed deppending on symbols in textToSequence
 padding_idx: 0
-symbols_embedding_dim: 384
 
 # Encoder parameters
 enc_num_layers: 4
@@ -93,13 +92,13 @@ dec_k_dim: 384
 dec_v_dim: 384
 dec_dropout: 0.1
 
-
 # common
 normalize_before: True
 ffn_type: 1dcnn #1dcnn or ffn
 dur_pred_kernel_size: 3
 pitch_pred_kernel_size: 3
 energy_pred_kernel_size: 3
+
 #model
 model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2
     enc_num_layers: !ref <enc_num_layers>

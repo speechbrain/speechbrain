@@ -18,16 +18,16 @@ The training logs are available [here](https://drive.google.com/drive/folders/1C
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-tacotron2-ljspeech).
 
-# FastSpeech
-The subfolder "fastspeech" contains the recipe for training the non-autoregressive transformer based TTS model [FastSpeech](https://arxiv.org/abs/1905.09263).
-To run this recipe, go into the "fastspeech" folder and run:
+# FastSpeech2
+The subfolder "fastspeech2" contains the recipe for training the non-autoregressive transformer based TTS model [FastSpeech2](https://arxiv.org/abs/2006.04558).
+To run this recipe, go into the "fastspeech2" folder and run:
 
 ```
 python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
 Training takes about 12 hours on an nvidia RTX3090.
 
-Fastspeech needs token level durations. It can be obatined from an autoreresssive (eg: tacotron2, transformerTTS etc), TTS with aligner (eg: glowtts) or ASR based forced alignment (eg: [Montreal forced aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/), [Deep forced aligner](https://github.com/as-ideas/DeepForcedAligner) etc). This recipe uses durations from DFA. For durations from other sources, make sure the token encoding is same as the aligner.
+Fastspeech2 needs token level durations. It can be obatined from an autoreresssive (eg: tacotron2, transformerTTS etc), TTS with aligner (eg: glowtts) or ASR based forced alignment (eg: [Montreal forced aligner](https://montreal-forced-aligner.readthedocs.io/en/latest/), [Deep forced aligner](https://github.com/as-ideas/DeepForcedAligner) etc). This recipe uses durations from DFA. For durations from other sources, make sure the token encoding is same as the aligner.
 
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).

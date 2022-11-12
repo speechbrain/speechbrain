@@ -6,34 +6,45 @@ Authors
 """
 
 import torch
-import librosa
 from torch import nn
-import sys
-sys.path.append('../../../')
-import torch.nn as nn
 from speechbrain.nnet import CNN, linear
-from torch.nn import functional as F
 from speechbrain.nnet.embedding import Embedding
-from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder, get_key_padding_mask
+from speechbrain.lobes.models.transformer.Transformer import (
+    TransformerEncoder,
+    get_key_padding_mask,
+)
 from speechbrain.nnet.normalization import LayerNorm
 
+
 class PositionalEmbedding(nn.Module):
+    """Computation of the positional embeddings.
+    
+    Arguments
+    ---------
+    embed_dim: int
+        dimensionality of the embeddings.
+    """
     def __init__(self, embed_dim):
         super(PositionalEmbedding, self).__init__()
         self.demb = embed_dim
-        inv_freq = 1 / (10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim))
-        self.register_buffer('inv_freq', inv_freq)
+        inv_freq = 1 / (
+            10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim)
+        )
+        self.register_buffer("inv_freq", inv_freq)
 
     def forward(self, seq_len, mask, device, dtype):
         pos_seq = torch.arange(seq_len, device=device).to(dtype)
 
-        sinusoid_inp = torch.matmul(torch.unsqueeze(pos_seq, -1),
-                                    torch.unsqueeze(self.inv_freq, 0))
+        sinusoid_inp = torch.matmul(
+            torch.unsqueeze(pos_seq, -1), torch.unsqueeze(self.inv_freq, 0)
+        )
         pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=1)
         return pos_emb[None, :, :] * mask[:, :, None]
 
+
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
+    
     Arguments
     ---------
     n_vocab: int
@@ -44,6 +55,7 @@ class EncoderPreNet(nn.Module):
         the size of each embedding vector
     device: str
         specify device for embedding
+    
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
@@ -53,16 +65,23 @@ class EncoderPreNet(nn.Module):
     >>> y.shape
     torch.Size([3, 5, 384])
     """
-    def __init__(self, n_vocab, blank_id, out_channels=512,  device='cuda:0'):
+
+    def __init__(self, n_vocab, blank_id, out_channels=512, device="cuda:0"):
         super().__init__()
-        self.token_embedding = Embedding(num_embeddings=n_vocab, embedding_dim=out_channels, blank_id=blank_id).to(device)
+        self.token_embedding = Embedding(
+            num_embeddings=n_vocab,
+            embedding_dim=out_channels,
+            blank_id=blank_id,
+        ).to(device)
 
     def forward(self, x):
         """Computes the forward pass
+    
         Arguments
         ---------
         x: torch.Tensor
             a (batch, tokens) input tensor
+        
         Returns
         -------
         output: torch.Tensor
@@ -71,8 +90,10 @@ class EncoderPreNet(nn.Module):
         x = self.token_embedding(x)
         return x
 
+
 class DurationPredictor(nn.Module):
     """Duration predictor layer
+    
     Arguments
     ---------
     in_channels: int
@@ -81,6 +102,7 @@ class DurationPredictor(nn.Module):
        output feature dimension for convolution layers
     kernel_size: int
        duration predictor convolution kernal size
+    
     Example
     -------
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
@@ -90,10 +112,21 @@ class DurationPredictor(nn.Module):
     >>> y.shape
     torch.Size([3, 400, 1])
     """
+
     def __init__(self, in_channels, out_channels, kernel_size, n_units=1):
         super().__init__()
-        self.conv1 = CNN.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding='same')
-        self.conv2 = CNN.Conv1d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size, padding='same')
+        self.conv1 = CNN.Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            padding="same",
+        )
+        self.conv2 = CNN.Conv1d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            padding="same",
+        )
         self.linear = linear.Linear(n_neurons=n_units, input_size=out_channels)
         self.ln1 = LayerNorm(out_channels)
         self.ln2 = LayerNorm(out_channels)
@@ -101,10 +134,12 @@ class DurationPredictor(nn.Module):
 
     def forward(self, x):
         """Computes the forward pass
+    
         Arguments
         ---------
         x: torch.Tensor
             a (batch, time_steps, features) input tensor
+        
         Returns
         -------
         output: torch.Tensor
@@ -117,6 +152,7 @@ class DurationPredictor(nn.Module):
         x = self.ln2(x).to(x.dtype)
         return self.linear(x)
 
+
 class FastSpeech2(nn.Module):
     """The FastSpeech2 text-to-speech model.
     This class is the main entry point for the model, which is responsible
@@ -125,6 +161,7 @@ class FastSpeech2(nn.Module):
     Simplified STRUCTURE: input->token embedding ->encoder ->duration predictor ->duration
     upsampler -> decoder -> output
     During training, teacher forcing is used (ground truth durations are used for upsampling)
+    
     Arguments
     ---------
     #encoder parameters
@@ -174,6 +211,7 @@ class FastSpeech2(nn.Module):
         the index for padding
     dur_pred_kernel_size: int
         the convolution kernel size in duration predictor
+    
     Example
     -------
     >>> import torch
@@ -209,75 +247,114 @@ class FastSpeech2(nn.Module):
     >>> mel_post.shape, predict_durations.shape
     (torch.Size([2, 96, 80]), torch.Size([2, 5]))
     """
-    def __init__(self, enc_num_layers,
-                    enc_num_head,
-                    enc_d_model,
-                    enc_ffn_dim,
-                    enc_k_dim,
-                    enc_v_dim,
-                    enc_dropout,
-                    dec_num_layers,
-                    dec_num_head,
-                    dec_d_model,
-                    dec_ffn_dim,
-                    dec_k_dim,
-                    dec_v_dim,
-                    dec_dropout,
-                    normalize_before,
-                    ffn_type,
-                    n_char,
-                    n_mels,
-                    padding_idx,
-                    dur_pred_kernel_size,
-                    pitch_pred_kernel_size,
-                    energy_pred_kernel_size):
+
+    def __init__(
+        self,
+        enc_num_layers,
+        enc_num_head,
+        enc_d_model,
+        enc_ffn_dim,
+        enc_k_dim,
+        enc_v_dim,
+        enc_dropout,
+        dec_num_layers,
+        dec_num_head,
+        dec_d_model,
+        dec_ffn_dim,
+        dec_k_dim,
+        dec_v_dim,
+        dec_dropout,
+        normalize_before,
+        ffn_type,
+        n_char,
+        n_mels,
+        padding_idx,
+        dur_pred_kernel_size,
+        pitch_pred_kernel_size,
+        energy_pred_kernel_size,
+    ):
         super().__init__()
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(enc_d_model)
-        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(dec_d_model)
+        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+            enc_d_model
+        )
+        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(
+            dec_d_model
+        )
 
-        self.encPreNet = EncoderPreNet(n_char, padding_idx, out_channels=enc_d_model)
-        self.durPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
-        self.pitchPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
-        self.energyPred = DurationPredictor(in_channels=enc_d_model, out_channels=enc_d_model, kernel_size=dur_pred_kernel_size)
-        self.pitchEmbed = nn.Conv1d(in_channels=1, out_channels=enc_d_model, kernel_size=pitch_pred_kernel_size, padding=(pitch_pred_kernel_size // 2))
+        self.encPreNet = EncoderPreNet(
+            n_char, padding_idx, out_channels=enc_d_model
+        )
+        self.durPred = DurationPredictor(
+            in_channels=enc_d_model,
+            out_channels=enc_d_model,
+            kernel_size=dur_pred_kernel_size,
+        )
+        self.pitchPred = DurationPredictor(
+            in_channels=enc_d_model,
+            out_channels=enc_d_model,
+            kernel_size=dur_pred_kernel_size,
+        )
+        self.energyPred = DurationPredictor(
+            in_channels=enc_d_model,
+            out_channels=enc_d_model,
+            kernel_size=dur_pred_kernel_size,
+        )
+        self.pitchEmbed = nn.Conv1d(
+            in_channels=1,
+            out_channels=enc_d_model,
+            kernel_size=pitch_pred_kernel_size,
+            padding=(pitch_pred_kernel_size // 2),
+        )
 
-        self.energyEmbed = nn.Conv1d(in_channels=1, out_channels=enc_d_model, kernel_size=energy_pred_kernel_size, padding=(energy_pred_kernel_size // 2))
-        self.encoder = TransformerEncoder(num_layers=enc_num_layers,
-                                        nhead=enc_num_head,
-                                        d_ffn=enc_ffn_dim,
-                                        d_model=enc_d_model,
-                                        kdim=enc_k_dim,
-                                        vdim=enc_v_dim,
-                                        dropout=enc_dropout,
-                                        activation=nn.ReLU,
-                                        normalize_before=normalize_before,
-                                        ffn_type=ffn_type)
+        self.energyEmbed = nn.Conv1d(
+            in_channels=1,
+            out_channels=enc_d_model,
+            kernel_size=energy_pred_kernel_size,
+            padding=(energy_pred_kernel_size // 2),
+        )
+        self.encoder = TransformerEncoder(
+            num_layers=enc_num_layers,
+            nhead=enc_num_head,
+            d_ffn=enc_ffn_dim,
+            d_model=enc_d_model,
+            kdim=enc_k_dim,
+            vdim=enc_v_dim,
+            dropout=enc_dropout,
+            activation=nn.ReLU,
+            normalize_before=normalize_before,
+            ffn_type=ffn_type,
+        )
 
-        self.decoder = TransformerEncoder(num_layers=dec_num_layers,
-                                        nhead=dec_num_head,
-                                        d_ffn=dec_ffn_dim,
-                                        d_model=dec_d_model,
-                                        kdim=dec_k_dim,
-                                        vdim=dec_v_dim,
-                                        dropout=dec_dropout,
-                                        activation=nn.ReLU,
-                                        normalize_before=normalize_before,
-                                        ffn_type=ffn_type)
+        self.decoder = TransformerEncoder(
+            num_layers=dec_num_layers,
+            nhead=dec_num_head,
+            d_ffn=dec_ffn_dim,
+            d_model=dec_d_model,
+            kdim=dec_k_dim,
+            vdim=dec_v_dim,
+            dropout=dec_dropout,
+            activation=nn.ReLU,
+            normalize_before=normalize_before,
+            ffn_type=ffn_type,
+        )
 
         self.linear = linear.Linear(n_neurons=n_mels, input_size=dec_d_model)
 
-
-    def forward(self, tokens, durations=None, pitch=None, energy=None, pace=1.0):
+    def forward(
+        self, tokens, durations=None, pitch=None, energy=None, pace=1.0
+    ):
         """forward pass for training and inference
+        
         Arguments
         ---------
         tokens: torch.tensor
             batch of input tokens
         durations: torch.tensor
             batch of durations for each token. If it is None, the model will infer on predicted durations
+        
         Returns
         ---------
         mel_post: torch.Tensor
@@ -288,21 +365,45 @@ class FastSpeech2(nn.Module):
         token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
-        pos = self.sinusoidal_positional_embed_encoder(token_feats.shape[1], srcmask, token_feats.device, token_feats.dtype)
+        pos = self.sinusoidal_positional_embed_encoder(
+            token_feats.shape[1], srcmask, token_feats.device, token_feats.dtype
+        )
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
-        attn_mask = srcmask.unsqueeze(-1).repeat(self.enc_num_head, 1, token_feats.shape[1]).permute(0, 2, 1).bool()
-        token_feats, _ = self.encoder(token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
+        attn_mask = (
+            srcmask.unsqueeze(-1)
+            .repeat(self.enc_num_head, 1, token_feats.shape[1])
+            .permute(0, 2, 1)
+            .bool()
+        )
+        token_feats, _ = self.encoder(
+            token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
+        )
         token_feats = token_feats * srcmask_inverted
         predict_durations = self.durPred(token_feats).squeeze()
-        
-        if predict_durations.dim() == 1: predict_durations = predict_durations.unsqueeze(0)
-        if durations is None: dur_pred_reverse_log = torch.clamp(torch.exp(predict_durations) - 1, 0)
 
-        spec_feats = upsample(token_feats, durations if durations is not None else dur_pred_reverse_log, pace=pace)
+        if predict_durations.dim() == 1:
+            predict_durations = predict_durations.unsqueeze(0)
+        if durations is None:
+            dur_pred_reverse_log = torch.clamp(
+                torch.exp(predict_durations) - 1, 0
+            )
+
+        spec_feats = upsample(
+            token_feats,
+            durations if durations is not None else dur_pred_reverse_log,
+            pace=pace,
+        )
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
-        attn_mask = srcmask.unsqueeze(-1).repeat(self.dec_num_head, 1, spec_feats.shape[1]).permute(0, 2, 1).bool()
-        pos = self.sinusoidal_positional_embed_decoder(spec_feats.shape[1], srcmask, spec_feats.device, spec_feats.dtype)
+        attn_mask = (
+            srcmask.unsqueeze(-1)
+            .repeat(self.dec_num_head, 1, spec_feats.shape[1])
+            .permute(0, 2, 1)
+            .bool()
+        )
+        pos = self.sinusoidal_positional_embed_decoder(
+            spec_feats.shape[1], srcmask, spec_feats.device, spec_feats.dtype
+        )
 
         predict_pitch = self.pitchPred(spec_feats)
         if pitch is not None:
@@ -319,14 +420,18 @@ class FastSpeech2(nn.Module):
             energy = self.energyEmbed(predict_energy.permute(0, 2, 1))
         energy = energy.permute(0, 2, 1)
         spec_feats = spec_feats.add(energy)
-        spec_feats = torch.add(spec_feats, pos)* srcmask_inverted
+        spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
-        output_mel_feats, memory, *_ = self.decoder(spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask)
-        mel_post = self.linear(output_mel_feats)* srcmask_inverted
+        output_mel_feats, memory, *_ = self.decoder(
+            spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
+        )
+        mel_post = self.linear(output_mel_feats) * srcmask_inverted
         return mel_post, predict_durations, predict_pitch, predict_energy
+
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
     """upsample encoder ouput according to durations
+    
     Arguments
     ---------
     feats: torch.tensor
@@ -337,6 +442,7 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
         scaling factor for durations
     padding_value: int
         padding index
+    
     Returns
     ---------
     mel_post: torch.Tensor
@@ -344,9 +450,14 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     predict_durations: torch.Tensor
         predicted durations for each token
     """
-    return torch.nn.utils.rnn.pad_sequence([torch.repeat_interleave(feats[i], (pace*durs[i]).long(), dim=0)
-                                            for i in range(len(durs))],
-                                            batch_first=True, padding_value=padding_value)
+    return torch.nn.utils.rnn.pad_sequence(
+        [
+            torch.repeat_interleave(feats[i], (pace * durs[i]).long(), dim=0)
+            for i in range(len(durs))
+        ],
+        batch_first=True,
+        padding_value=padding_value,
+    )
 
 
 class TextMelCollate:
@@ -365,21 +476,21 @@ class TextMelCollate:
         )
     """
 
-
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
+        
         Arguments
         ---------
         batch: list
             [text_normalized, mel_normalized]
         """
-        # TODO: Remove for loops and this dirty hack
+        # TODO: Remove for loops
         raw_batch = list(batch)
         for i in range(
             len(batch)
         ):  # the pipline return a dictionary wiht one elemnent
-            batch[i] = batch[i]['mel_text_pair']
+            batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
         input_lengths, ids_sorted_decreasing = torch.sort(
@@ -400,7 +511,7 @@ class TextMelCollate:
             dur_padded[i, : dur.size(0)] = dur
             text_padded[i, : text.size(0)] = text
             # print(dur_padded, text_padded)
-        # exit()
+
         # Right zero-pad mel-spec
         num_mels = batch[0][2].size(0)
         max_target_len = max([x[2].size(1) for x in batch])
@@ -415,17 +526,17 @@ class TextMelCollate:
         output_lengths = torch.LongTensor(len(batch))
         labels, wavs = [], []
         for i in range(len(ids_sorted_decreasing)):
-            
+
             idx = ids_sorted_decreasing[i]
             mel = batch[idx][2]
             pitch = batch[idx][3]
             energy = batch[idx][4]
             mel_padded[i, :, : mel.size(1)] = mel
-            pitch_padded[i, :pitch.size(0)] = pitch
-            energy_padded[i, :energy.size(0)] = energy
+            pitch_padded[i, : pitch.size(0)] = pitch
+            energy_padded[i, : energy.size(0)] = energy
             output_lengths[i] = mel.size(1)
-            labels.append(raw_batch[idx]['label'])
-            wavs.append(raw_batch[idx]['wav'])
+            labels.append(raw_batch[idx]["label"])
+            wavs.append(raw_batch[idx]["wav"])
         # count number of items - characters in text
         len_x = [x[5] for x in batch]
         len_x = torch.Tensor(len_x)
@@ -440,12 +551,26 @@ class TextMelCollate:
             output_lengths,
             len_x,
             labels,
-            wavs
+            wavs,
         )
 
 
 class Loss(nn.Module):
-   
+    """Loss Computation
+    
+    Arguments
+    ---------
+    log_scale_durations: bool
+       applies logarithm to target durations
+    duration_loss_weight: int
+       weight for the duration loss
+    pitch_loss_weight: int
+       weight for the pitch loss
+    energy_loss_weight: int
+       weight for the energy loss
+    mel_loss_weight: int
+       weight for the mel loss
+    """
     def __init__(
         self,
         log_scale_durations,
@@ -453,7 +578,6 @@ class Loss(nn.Module):
         pitch_loss_weight,
         energy_loss_weight,
         mel_loss_weight,
-
     ):
         super().__init__()
 
@@ -467,21 +591,30 @@ class Loss(nn.Module):
         self.pitch_loss_weight = pitch_loss_weight
         self.energy_loss_weight = energy_loss_weight
 
-    def forward(
-        self, predictions, targets):
+    def forward(self, predictions, targets):
+        
         """Computes the value of the loss function and updates stats
+        
         Arguments
         ---------
         predictions: tuple
             model predictions
         targets: tuple
             ground truth data
+        
         Returns
         -------
         loss: torch.Tensor
             the loss value
         """
-        mel_target, target_durations, target_pitch, target_energy, mel_length, phon_len  = targets
+        (
+            mel_target,
+            target_durations,
+            target_pitch,
+            target_energy,
+            mel_length,
+            phon_len,
+        ) = targets
         assert len(mel_target.shape) == 3
         mel_out, log_durations, predicted_pitch, predicted_energy = predictions
         predicted_pitch = predicted_pitch.squeeze()
@@ -491,25 +624,53 @@ class Loss(nn.Module):
         log_durations = log_durations.squeeze()
         if self.log_scale_durations:
             log_target_durations = torch.log(target_durations.float() + 1)
-            durations = torch.clamp(torch.exp(log_durations) - 1, 0, 20)
-        #change this to perform batch level using padding mask
-       
+        # change this to perform batch level using padding mask
+
         for i in range(mel_target.shape[0]):
             if i == 0:
-                mel_loss = self.mel_loss(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-                dur_loss = self.dur_loss(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
-                pitch_loss = self.pitch_loss(predicted_pitch[i, :mel_length[i]], target_pitch[i, :mel_length[i]].to(torch.float32))
-                energy_loss = self.energy_loss(predicted_energy[i, :mel_length[i]], target_energy[i, :mel_length[i]].to(torch.float32))
+                mel_loss = self.mel_loss(
+                    mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
+                )
+                dur_loss = self.dur_loss(
+                    log_durations[i, : phon_len[i]],
+                    log_target_durations[i, : phon_len[i]].to(torch.float32),
+                )
+                pitch_loss = self.pitch_loss(
+                    predicted_pitch[i, : mel_length[i]],
+                    target_pitch[i, : mel_length[i]].to(torch.float32),
+                )
+                energy_loss = self.energy_loss(
+                    predicted_energy[i, : mel_length[i]],
+                    target_energy[i, : mel_length[i]].to(torch.float32),
+                )
             else:
-                mel_loss = mel_loss + self.mel_loss(mel_out[i, :mel_length[i], :], mel_target[i, :mel_length[i], :])
-                dur_loss = dur_loss + self.dur_loss(log_durations[i, :phon_len[i]], log_target_durations[i, :phon_len[i]].to(torch.float32))
-                pitch_loss = pitch_loss + self.pitch_loss(predicted_pitch[i, :mel_length[i]], target_pitch[i, :mel_length[i]].to(torch.float32))
-                energy_loss = energy_loss + self.energy_loss(predicted_energy[i, :mel_length[i]], target_energy[i, :mel_length[i]].to(torch.float32))
+                mel_loss = mel_loss + self.mel_loss(
+                    mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
+                )
+                dur_loss = dur_loss + self.dur_loss(
+                    log_durations[i, : phon_len[i]],
+                    log_target_durations[i, : phon_len[i]].to(torch.float32),
+                )
+                pitch_loss = pitch_loss + self.pitch_loss(
+                    predicted_pitch[i, : mel_length[i]],
+                    target_pitch[i, : mel_length[i]].to(torch.float32),
+                )
+                energy_loss = energy_loss + self.energy_loss(
+                    predicted_energy[i, : mel_length[i]],
+                    target_energy[i, : mel_length[i]].to(torch.float32),
+                )
         mel_loss = torch.div(mel_loss, len(mel_target))
         dur_loss = torch.div(dur_loss, len(mel_target))
         pitch_loss = torch.div(pitch_loss, len(mel_target))
         energy_loss = torch.div(energy_loss, len(mel_target))
-        return mel_loss*self.mel_loss_weight + dur_loss*self.duration_loss_weight + pitch_loss*self.pitch_loss_weight + energy_loss*self.energy_loss_weight
+        return (
+            mel_loss * self.mel_loss_weight
+            + dur_loss * self.duration_loss_weight
+            + pitch_loss * self.pitch_loss_weight
+            + energy_loss * self.energy_loss_weight
+        )
 
 
 def mel_spectogram(
@@ -560,19 +721,7 @@ def mel_spectogram(
         input audio signal
     """
     from torchaudio import transforms
-    # audio_to_mel = transforms.MelSpectrogram(
-    #     sample_rate=sample_rate,
-    #     hop_length=hop_length,
-    #     win_length=win_length,
-    #     n_fft=n_fft,
-    #     n_mels=n_mels,
-    #     f_min=f_min,
-    #     f_max=f_max,
-    #     power=power,
-    #     normalized=normalized,
-    #     norm=norm,
-    #     mel_scale=mel_scale,
-    # ).to(audio.device)
+
     audio_to_mel = transforms.Spectrogram(
         hop_length=hop_length,
         win_length=win_length,
@@ -582,13 +731,13 @@ def mel_spectogram(
     ).to(audio.device)
 
     mel_scale = transforms.MelScale(
-            sample_rate=sample_rate,
-            n_stft=n_fft // 2 + 1,
-            n_mels=n_mels,
-            f_min=f_min,
-            f_max=f_max,
-            norm=norm,
-            mel_scale=mel_scale,
+        sample_rate=sample_rate,
+        n_stft=n_fft // 2 + 1,
+        n_mels=n_mels,
+        f_min=f_min,
+        f_max=f_max,
+        norm=norm,
+        mel_scale=mel_scale,
     ).to(audio.device)
     spec = audio_to_mel(audio)
     mel = mel_scale(spec)
@@ -597,12 +746,13 @@ def mel_spectogram(
     rmse = torch.norm(mel, dim=0)
 
     if min_max_energy_norm:
-        rmse = (rmse - torch.min(rmse))/(torch.max(rmse) - torch.min(rmse))
-    
+        rmse = (rmse - torch.min(rmse)) / (torch.max(rmse) - torch.min(rmse))
+
     if compression:
         mel = dynamic_range_compression(mel)
 
     return mel, rmse
+
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
     """Dynamic range compression for audio signals
