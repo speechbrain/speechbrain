@@ -86,3 +86,18 @@ def test_Conv2d(device):
     assert torch.all(torch.eq(input, output))
 
     assert torch.jit.trace(convolve, input)
+
+
+def test_Leaf(device):
+    from speechbrain.lobes.features import Leaf
+
+    input = torch.rand([4, 16000], device=device)
+    convolve = Leaf(
+        input_shape=input.shape,
+        window_len=25.0,
+        window_stride=10.0,
+        out_channels=8,
+    ).to(device)
+    output = convolve(input)
+    assert output.shape[-1] == 8
+    assert torch.jit.trace(convolve, input)

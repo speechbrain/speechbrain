@@ -13,22 +13,25 @@ from speechbrain.dataio.batch import PaddedBatch
 
 @dataclass(order=True)
 class LengthItem:
+    """ Data class for lenghts"""
+
     length: int
     data: Any = field(compare=False)
 
 
 def total_length_with_padding(lengths):
-    # How long would batch be (with padding)
+    """ Determines how long would batch be (with padding)"""
     return len(lengths) * max(lengths)
 
 
 def padding_ratio(lengths):
-    # How much of batch is padding:
+    """ Determines how much of batch is padding."""
     return 1.0 - sum(lengths) / total_length_with_padding(lengths)
 
 
 @dataclass(order=True)
 class RatioIndex:
+    "Data class for Ratio."
     ratio: float
     index: int
 
@@ -79,8 +82,8 @@ def indices_around_random_pivot(
 
     # Define index filtering function:
     def possibly_consider(index, to_consider):
-        # Adds an index to the to_consider list,
-        # if the index passes all requirements.
+        """Adds an index to the to_consider list, f the index passes all
+        requirements."""
         if index < 0 or index >= len(databuffer):
             return
         consideree = databuffer[index]

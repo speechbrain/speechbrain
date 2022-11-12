@@ -43,14 +43,12 @@ Authors
  * Samuele Cornell 2020
 """
 
-import os
 import sys
 import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
@@ -58,6 +56,8 @@ logger = logging.getLogger(__name__)
 
 # Brain class for speech recognition training
 class ASR(sb.Brain):
+    """Class that manages the training loop. See speechbrain.core.Brain."""
+
     def compute_forward(self, batch, stage):
         """Runs all the computation of the CTC + seq2seq ASR. It returns the
         posterior probabilities of the CTC and seq2seq networks.
@@ -346,9 +346,15 @@ def dataio_prepare(hparams):
     # Define datasets sorted by ascending lengths for efficiency
     datasets = {}
     data_folder = hparams["data_folder"]
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": data_folder},
             dynamic_items=[audio_pipeline, text_pipeline],
             output_keys=[
@@ -384,25 +390,6 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
     return datasets
-
-
-def load_pretrained(hparams):
-    """This function loads a pre-trained ASR model's parameters to the model
-    defined by the user. It can either be a web-url or a simple path.
-
-
-    Arguments
-    ---------
-    hparams : dict
-        This dictionary is loaded from the `train.yaml` file, and it includes
-        all the hyperparameters needed for dataset construction and loading.
-        Expects the dict to have "save_folder" and "model" and "pretrain_model"
-    """
-    save_model_path = os.path.join(
-        hparams["save_folder"], "pretrained_model.ckpt"
-    )
-    download_file(hparams["pretrain_model"], save_model_path)
-    hparams["model"].load_state_dict(torch.load(save_model_path), strict=True)
 
 
 if __name__ == "__main__":

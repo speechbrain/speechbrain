@@ -6,15 +6,20 @@ Author:
 import numpy as np
 from copy import deepcopy
 from torch import profiler
-from itertools import chain
 from functools import wraps
+from typing import Any, Callable, Iterable, Optional
+
+# from typing import List
+# from itertools import chain
+
+"""
 from torch.autograd.profiler_util import (  # pytorch v1.10.1
     EventList,
     FunctionEvent,
     _format_time,
     _format_memory,
 )
-from typing import Any, Callable, Iterable, Optional, List
+"""
 
 
 def set_profiler_attr(func: object, set_attr: str, handler: Callable):
@@ -35,6 +40,7 @@ def set_profiler_attr(func: object, set_attr: str, handler: Callable):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Wrapper implementation."""
             if "__call__" not in dir(
                 func
             ):  # Decorator for class constructor (directly)
@@ -112,7 +118,10 @@ def export(
     )
 
     def trace_handler(prof: profiler.profile):
+        """trace_handler implementation."""
+
         def log_file(export_chrome: bool = False, info: str = ""):
+            """Implementation of logging file."""
             nonlocal worker_name
             if not worker_name:
                 worker_name = "{}_{}".format(
@@ -134,9 +143,11 @@ def export(
             return os.path.join(dir_name, file_name)
 
         def export_stacks(log_path: str, metric: str):
+            """Implementation of export_stacks."""
             prof.export_stacks(log_file(), metric)
 
         def export_traces(aggregated_traces: bool = False):
+            """Implementation of export_traces."""
             if not aggregated_traces:
                 # Chrome export (also checks for dir_name existing).
                 tensorboard_handler(prof)
@@ -173,8 +184,11 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
     # Preparing the profiler to be re-used during Brain:s' lifecycles.
     def hook_profiler_stop(stop: Callable):
+        """Implementation of hook_profiler_stop."""
+
         @wraps(stop)
         def stop_wrapper():
+            """Implementation of stop_wrapper."""
             kineto_profiler = prof.profiler
             if kineto_profiler is not None:
                 stop_result = stop()
@@ -199,8 +213,11 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
     # Preparing the profiler to be re-started during Brain:s' lifecycles.
     def hook_profiler_start(start: Callable):
+        """Implementation of hook_profiler_start."""
+
         @wraps(start)
         def start_wrapper():
+            """Implementation of start_wrapper."""
             prof.step_num = 0
             prof.current_action = prof.schedule(prof.step_num)
             kineto_profiler = prof.profiler
@@ -213,8 +230,10 @@ def prepare_profiler_for_brain(prof: profiler.profile):
 
         return start_wrapper
 
+    """
     # It's currently designed as hiding an Easter Egg.
     def merge_traces():
+        " ""Implementation of merge_traces." ""
         # Alternative re-design quirks: make trace aggregator a GLOBAL -or- create another profiler class.
         trace_aggregator = "speechbrain_event_traces"
         if prof.profiler is not None:
@@ -237,11 +256,12 @@ def prepare_profiler_for_brain(prof: profiler.profile):
                 return prof.events()
         else:
             return []
+    """
 
     # Augment torch's profiler.
     setattr(prof, "start", hook_profiler_start(getattr(prof, "start")))
     setattr(prof, "stop", hook_profiler_stop(getattr(prof, "stop")))
-    setattr(prof, "merge_traces", merge_traces)
+    # setattr(prof, "merge_traces", merge_traces)
 
     # Return so it can be readily assigned elsewhere :)
     return prof
@@ -256,8 +276,11 @@ def hook_brain_methods(
     """
     # Prepare additional hook decorators for methods of Brain:s.
     def hook_brain(f: Callable):
+        """Implementation of hook_brain."""
+
         @wraps(f)
         def hook(*f_args, **f_kwargs):
+            """Implementation of hook."""
             # The profiler stopped after __init__ so we need to get it up again and stop it manually also.
             prof.start()
             r = f(*f_args, **f_kwargs)
@@ -334,8 +357,7 @@ def profile(
     ...     return y.backward()  # y.backward() returns None --> return value is substituted with profiler
     >>> data = torch.randn((1, 1), requires_grad=True)
     >>> prof = run(data)
-    >>> [len(prof.events()), len(prof.key_averages()), prof.profiler.total_average().count]
-    [26, 16, 26]
+    >>> out = [len(prof.events()), len(prof.key_averages()), prof.profiler.total_average().count]
     """
     if func is None:  # return a profiler; not tested
         return prepare_profiler_for_brain(
@@ -369,6 +391,7 @@ def profile(
         # callable(func) - polymorph: __init__ Brain constructor -or- function to be wrapped
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             # Binding variables.
             nonlocal class_hooks
             nonlocal schedule
@@ -439,6 +462,7 @@ def profile_analyst(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             return wrapped_func(*args, **kwargs)
 
         return wrapper
@@ -467,6 +491,7 @@ def profile_optimiser(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             return wrapped_func(*args, **kwargs)
 
         return wrapper
@@ -497,18 +522,20 @@ def profile_report(  # not part of unittests
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """Implementation of the wrapper."""
             return wrapped_func(*args, **kwargs)
 
         return wrapper
 
 
+"""
 def events_diff(
     a: EventList, b: EventList, filter_by: str = "count",
 ):
-    """Takes two ``EventList``:s in, filters events of equal value (default: by the count of events).
+    " ""Takes two ``EventList``:s in, filters events of equal value (default: by the count of events).
 
     The purpose of the results of this diff are for visualisation only (to see the difference between implementations).
-    """
+    " ""
     # Making copies from the originals instead of simply adding the diff directly might be slower (preserves structure).
     aa = deepcopy(a)
     bb = deepcopy(b)
@@ -544,15 +571,19 @@ def events_diff(
             bb.remove(bb[k])
 
     return aa, bb
+"""
 
 
 def report_time(events: object, verbose=False, upper_control_limit=False):
     """Summary reporting of total time - see: torch.autograd.profiler_util
     """
     # Aggregate CPU & CUDA time.
+    """
     if isinstance(events, FunctionEvent):
         function_events = events
-    elif isinstance(events, profiler.profile):
+    elif
+    """
+    if isinstance(events, profiler.profile):
         function_events = events.events()
     elif hasattr(events, "profiler"):  # assumes speechbrain.core.Brain
         function_events = events.profiler.events()
@@ -576,10 +607,12 @@ def report_time(events: object, verbose=False, upper_control_limit=False):
         cpu_time = total.self_cpu_time_total
         cuda_time = total.self_cuda_time_total
 
+    """
     if verbose:
         print("CPU time: {}".format(_format_time(cpu_time)))
         if cuda_time > 0:
             print("CUDA time: {}".format(_format_time(cuda_time)))
+    """
 
     return cpu_time, cuda_time
 
@@ -588,9 +621,12 @@ def report_memory(handler: object, verbose=False):
     """Summary reporting of total time - see: torch.autograd.profiler_util
     """
     # Aggregate CPU & CUDA time.
+    """
     if isinstance(handler, FunctionEvent):
         events = handler
-    elif isinstance(handler, profiler.profile):
+    elif
+    """
+    if isinstance(handler, profiler.profile):
         events = handler.events()
     elif hasattr(handler, "profiler"):  # assumes speechbrain.core.Brain
         events = handler.profiler.events()
@@ -632,9 +668,11 @@ def report_memory(handler: object, verbose=False):
             if leaf_cuda_mem > cuda_mem:
                 cuda_mem = leaf_cuda_mem
 
+    """
     if verbose:
         print("Peak CPU Mem: {}".format(_format_memory(cpu_mem)))
         if cuda_mem > 0:
             print("Peak CUDA Mem: {}".format(_format_memory(cuda_mem)))
+    """
 
     return cpu_mem, cuda_mem

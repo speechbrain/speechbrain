@@ -31,6 +31,9 @@ jobs:
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
+            - name: Consistency tests with pytest
+              run: |
+                  pytest tests/consistency
             - name: Unittests with pytest
               run: |
                   pytest tests/unittests

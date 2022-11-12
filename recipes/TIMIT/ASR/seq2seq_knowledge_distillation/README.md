@@ -12,6 +12,8 @@ For details please refer to: https://arxiv.org/abs/2005.09310
 | Weighted | 11.87 | 13.11 | [model](https://drive.google.com/drive/folders/1MHR2AZvCYZr88yUQZTmORCvKJqTsYZAQ?usp=sharing) | 1xV100 16GB |
 | Best | 11.93 | 13.15 | [model](https://drive.google.com/drive/folders/1D-3GNh-XzjoU-_6egT3Ns6maCvF-fAJH?usp=sharing) | 1xV100 16GB |
 
+The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://drive.google.com/drive/folders/1ZcME-Wf4stlzW3j_iJ3zGDCkSy1V_Wjs?usp=sharing).
+
 ### Extra-Dependencies
 Before running this recipe, make sure h5py is installed. Otherwise, run:
 pip install h5py

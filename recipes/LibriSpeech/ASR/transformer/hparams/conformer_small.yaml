@@ -11,7 +11,7 @@
 
 seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/conformer_small/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -62,6 +62,16 @@ lr_adam: 0.001
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
+
+dynamic_batching: False
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 100000 # in terms of frames
+    num_buckets: 200
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: descending
+    max_batch_ex: -1
 
 # Dataloader options
 train_dataloader_opts:

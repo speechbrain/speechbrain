@@ -1,0 +1,5 @@
+lexicon_epochs: 5
+sentence_epochs: 3
+homograph_epochs: 0
+ckpt_enable: False
+use_tensorboard: False

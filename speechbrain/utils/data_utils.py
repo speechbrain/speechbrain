@@ -7,6 +7,8 @@ Authors
 """
 
 import os
+import re
+import csv
 import shutil
 import urllib.request
 import collections.abc
@@ -14,7 +16,6 @@ import torch
 import tqdm
 import pathlib
 import speechbrain as sb
-import re
 
 
 def undo_padding(batch, lengths):
@@ -152,6 +153,30 @@ def get_all_files(
     return allFiles
 
 
+def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
+    """Gets a list from the selected field of the input csv file.
+
+    Arguments
+    ---------
+    csv_file: path
+        Path to the csv file.
+    field: str
+        Field of the csv file used to create the list.
+    delimiter: str
+        Delimiter of the csv file.
+    skipinitialspace: bool
+        Set it to true to skip initial spaces in the entries.
+    """
+    lst = []
+    with open(csvfile, newline="") as csvf:
+        reader = csv.DictReader(
+            csvf, delimiter=delimiter, skipinitialspace=skipinitialspace
+        )
+        for row in reader:
+            lst.append(row[field])
+    return lst
+
+
 def split_list(seq, num):
     """Returns a list of splits in the sequence.
 
@@ -274,10 +299,15 @@ def download_file(
         If True, replaces the existing files.
     """
     try:
+        # make sure all processing reached here before main preocess create dest_dir
+        sb.utils.distributed.ddp_barrier()
         if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
+                """ DownloadProgressBar class."""
+
                 def update_to(self, b=1, bsize=1, tsize=None):
+                    """Needed to support multigpu training."""
                     if tsize is not None:
                         self.total = tsize
                     self.update(b * bsize - self.n)
@@ -458,7 +488,7 @@ np_str_obj_array_pattern = re.compile(r"[SaUO]")
 
 
 def mod_default_collate(batch):
-    r"""Makes a tensor from list of batch values.
+    """Makes a tensor from list of batch values.
 
     Note that this doesn't need to zip(*) values together
     as PaddedBatch connects them already (by key).

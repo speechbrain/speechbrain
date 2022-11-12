@@ -14,7 +14,6 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
-pretrained_path: !ref <save_folder>
 train_log: !ref <output_folder>/train_log.txt
 epochs: 750
 keep_checkpoint_interval: 50
@@ -28,10 +27,7 @@ keep_checkpoint_interval: 50
 
 # Whether to enable progress samples
 progress_samples: True
-# Whether to include incremental predictions in the samples
-# Enabling them will cause a slowdown of the validation
-# step
-progress_samples_incremental: False
+
 # The path where the samples will be stored
 progress_sample_path: !ref <output_folder>/samples
 # The interval, in epochs. For instance, if it is set to 5,
@@ -67,7 +63,6 @@ hop_length: 256
 win_length: 1024
 n_mel_channels: 80
 n_fft: 1024
-n_stft: !ref <n_fft> // 2 + 1
 mel_fmin: 0.0
 mel_fmax: 8000.0
 mel_normalized: null
@@ -81,7 +76,6 @@ dynamic_range_compression: True
 ################################
 learning_rate: 0.001
 weight_decay: 0.000006
-grad_clip_thresh: 1.0
 batch_size: 64 #minimum 2
 mask_padding: True
 guided_attention_sigma: 0.2
@@ -140,9 +134,6 @@ attention_location_kernel_size: 31
 postnet_embedding_dim: 512
 postnet_kernel_size: 5
 postnet_n_convolutions: 5
-
-# Inverse spectrogram parameters
-inverse_spectrogram_n_iter: 1024
 
 mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
   sample_rate: !ref <sample_rate>
@@ -233,12 +224,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     counter: !ref <epoch_counter>
     scheduler: !ref <lr_annealing>
 
-model_output_keys:
-  - mel
-  - mel_lengths
-  - alignments
-
-infer: !name:speechbrain.lobes.models.Tacotron2.infer
+#infer: !name:speechbrain.lobes.models.Tacotron2.infer
 
 progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
   output_path: !ref <progress_sample_path>

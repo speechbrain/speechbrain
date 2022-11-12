@@ -68,6 +68,7 @@ class TqdmCompatibleStreamHandler(logging.StreamHandler):
     """
 
     def emit(self, record):
+        """TQDM compatible StreamHandler."""
         try:
             msg = self.format(record)
             stream = self.stream

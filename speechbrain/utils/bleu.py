@@ -1,3 +1,9 @@
+"""Library for computing the BLEU score
+
+Authors
+ * Mirco Ravanelli 2021
+"""
+
 from speechbrain.utils.metric_stats import MetricStats
 
 

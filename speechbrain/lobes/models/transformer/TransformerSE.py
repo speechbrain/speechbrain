@@ -79,6 +79,7 @@ class CNNTransformerSE(TransformerInterface):
         self.output_activation = output_activation()
 
     def forward(self, x, src_key_padding_mask=None):
+        """ Processes the input tensor x and returns an output tensor."""
         if self.causal:
             self.attn_mask = get_lookahead_mask(x)
         else:

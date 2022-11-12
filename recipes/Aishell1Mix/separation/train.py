@@ -116,7 +116,26 @@ if __name__ == "__main__":
                     os.path.normpath(hparams["base_folder_dm"]) + "_processed"
                 )
 
-        train_data = dynamic_mix_data_prep(hparams)
+        # Colleting the hparams for dynamic batching
+        dm_hparams = {
+            "train_data": hparams["train_data"],
+            "data_folder": hparams["data_folder"],
+            "base_folder_dm": hparams["base_folder_dm"],
+            "sample_rate": hparams["sample_rate"],
+            "num_spks": hparams["num_spks"],
+            "training_signal_len": hparams["training_signal_len"],
+            "dataloader_opts": hparams["dataloader_opts"],
+        }
+
+        train_data = dynamic_mix_data_prep(dm_hparams)
+
+        # Inheriting data preparation from librimix. It uses these variables:
+        # hparams["data_folder"]
+        # hparams["train_data"]
+        # hparams["valid_data"]
+        # hparams["test_data"]
+        # hparams["num_spks"]
+        # hparams["use_wham_noise"]
         _, valid_data, test_data = dataio_prep(hparams)
     else:
         train_data, valid_data, test_data = dataio_prep(hparams)
@@ -129,6 +148,36 @@ if __name__ == "__main__":
     from recipes.LibriMix.separation.train import Separation
 
     # Brain class initialization
+    # Inheriting the Separation class from librimix. It uses these variables:
+    # hparams["num_spks"]
+    # hparams["use_speedperturb"]
+    # hparams["use_rand_shift"]
+    # hparams["use_wham_noise"]
+    # hparams["use_wavedrop"]
+    # hparams["wavedrop"]
+    # hparams["limit_training_signal_len"]
+    # hparams["Encoder"]
+    # hparams["MaskNet"]
+    # hparams["Decoder"]
+    # hparams["loss"]
+    # hparams["threshold_byloss"]
+    # hparams["threshold"]
+    # hparams["loss_upper_lim"]
+    # hparams["clip_grad_norm"]
+    # hparams["save_audio"]
+    # hparams["n_audio_to_save"]
+    # hparams["lr_scheduler"]
+    # hparams["optimizer"]
+    # hparams["train_logger"]
+    # hparams["epoch_counter"]
+    # hparams["speedperturb"]
+    # hparams["min_shift"]
+    # hparams["max_shift"]
+    # hparams["output_folder"]
+    # hparams["dataloader_opts"]
+    # hparams["save_folder"]
+    # hparams["sample_rate"]
+
     separator = Separation(
         modules=hparams["modules"],
         opt_class=hparams["optimizer"],

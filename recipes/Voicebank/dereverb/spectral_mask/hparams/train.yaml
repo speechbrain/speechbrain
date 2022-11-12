@@ -30,9 +30,9 @@ N_fft: 512
 window_fn: !name:torch.hamming_window
 
 # Data files
-train_annotation: !ref <data_folder>/train_revb.json
-valid_annotation: !ref <data_folder>/valid_revb.json
-test_annotation: !ref <data_folder>/test_revb.json
+train_annotation: !ref <output_folder>/train_revb.json
+valid_annotation: !ref <output_folder>/valid_revb.json
+test_annotation: !ref <output_folder>/test_revb.json
 skip_prep: False
 
 # Training Parameters

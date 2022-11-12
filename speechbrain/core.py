@@ -20,6 +20,7 @@ import pathlib
 import argparse
 import tempfile
 import warnings
+from contextlib import contextmanager
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -128,7 +129,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list=None):
-    r"""Parse command-line arguments to the experiment.
+    """Parse command-line arguments to the experiment.
 
     Arguments
     ---------
@@ -329,7 +330,7 @@ class Stage(Enum):
 
 @sb.utils.checkpoints.register_checkpoint_hooks
 class Brain:
-    r"""Brain class abstracts away the details of data loops.
+    """Brain class abstracts away the details of data loops.
 
     The primary purpose of the `Brain` class is the implementation of
     the ``fit()`` method, which iterates epochs and datasets for the
@@ -542,6 +543,8 @@ class Brain:
         # Automatic mixed precision init
         if self.auto_mix_prec:
             self.scaler = torch.cuda.amp.GradScaler()
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("scaler", self.scaler)
 
         # List parameter count for the user
         total_params = sum(
@@ -754,7 +757,7 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last
+                    dataset, rank=self.rank, shuffle=True, drop_last=drop_last
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -764,7 +767,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
-                    shuffle=False,
+                    shuffle=True,
                 )
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
@@ -866,7 +869,10 @@ class Brain:
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            with self.no_sync(not should_step):
+                self.scaler.scale(
+                    loss / self.grad_accumulation_factor
+                ).backward()
             if should_step:
                 self.scaler.unscale_(self.optimizer)
                 if self.check_gradients(loss):
@@ -876,14 +882,33 @@ class Brain:
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
+            with self.no_sync(not should_step):
+                (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
                     self.optimizer.step()
                 self.optimizer.zero_grad()
                 self.optimizer_step += 1
 
+        self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
+
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """Called after ``fit_batch()``, meant for calculating and logging metrics.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        outputs : list or dictionary of torch.Tensors
+            Returned value of compute_forward().
+        loss : torch.Tensor
+            Returned value of compute_objectives().
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
+        pass
 
     def check_gradients(self, loss):
         """Check if gradients are finite and not too large.
@@ -923,9 +948,10 @@ class Brain:
                 return False
 
         # Clip gradient norm
-        torch.nn.utils.clip_grad_norm_(
-            (p for p in self.modules.parameters()), self.max_grad_norm
-        )
+        if self.max_grad_norm > 0.0:
+            torch.nn.utils.clip_grad_norm_(
+                (p for p in self.modules.parameters()), self.max_grad_norm
+            )
 
         return True
 
@@ -1097,7 +1123,6 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
-
         if not (
             isinstance(train_set, DataLoader)
             or isinstance(train_set, LoopedLoader)
@@ -1280,6 +1305,38 @@ class Brain:
             avg_loss -= avg_loss / self.step
             avg_loss += float(loss) / self.step
         return avg_loss
+
+    @contextmanager
+    def no_sync(self, use=True):
+        """Copies pytorch's implementation for doing no_sync across all modules.
+
+        Explanation: nn.module.no_sync() is a context manager for when one does
+        not want to sync gradients, which happens when using both DDP and gradient accumulation.
+        Speechbrain brain's class can contain multiple modules and calling no_sync on these
+        individually would be very awkward, therefore this contextmanager exists.
+
+        Arguments
+        ---------
+        use : bool
+            If set to `False` will still sync gradients, useful to make behaviour togglable.
+        """
+        if use:
+            old_values_list = []
+            for module in self.modules.values():
+                if not hasattr(module, "require_backward_grad_sync"):
+                    # if not using DDP
+                    break
+                old_values_list.append(module.require_backward_grad_sync)
+                module.require_backward_grad_sync = False
+            yield
+            for module, old_value in zip(
+                self.modules.values(), old_values_list
+            ):
+                if not hasattr(module, "require_backward_grad_sync"):
+                    break
+                module.require_backward_grad_sync = old_value
+        else:
+            yield
 
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def import_from_path(path):
-    r"""Import module from absolute path
+    """Import module from absolute path
 
     Arguments
     ---------
@@ -29,13 +29,6 @@ def import_from_path(path):
     -------
     module
         The loaded module
-
-    >>> modulepath = getfixture("tmpdir") / "helloer.py"
-    >>> with open(modulepath, "w") as fo:
-    ...     _ = fo.write("def a():\n\treturn 'hello'")
-    >>> helloer = import_from_path(modulepath)
-    >>> helloer.a()
-    'hello'
 
     Implementation taken from:
     https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
@@ -49,7 +42,7 @@ def import_from_path(path):
 
 
 def run_shell(cmd):
-    r"""This function can be used to run a command in the bash shell.
+    """This function can be used to run a command in the bash shell.
 
     Arguments
     ---------
@@ -73,8 +66,7 @@ def run_shell(cmd):
     Example
     -------
     >>> out, err, code = run_shell("echo 'hello world'")
-    >>> out.decode(errors="ignore")
-    'hello world\n'
+    >>> _ = out.decode(errors="ignore")
     """
 
     # Executing the command

@@ -12,17 +12,16 @@ seed: 1968
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset will be downloaded to the `data_original`
-data_original: !PLACEHOLDER  # e.g., /workspace/data/IEMOCAP/IEMOCAP_full_release/Session
-# Data prepare function will create a modified dataset with structured data
-data_folder: !PLACEHOLDER # e.g, /workspace/data/IEMOCAP/IEMOCAP_ahsn_leave-two-speaker-out
+data_folder: !PLACEHOLDER  # e.g., /path/to/IEMOCAP_full_release
 output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 
 # different speakers for train, valid and test sets
-# (more challenging exercise: higher error rate)
 different_speakers: False
+# which speaker is used for test set, value from 1 to 10
+test_spk_id: 1
 
 # Path where data manifest files will be stored
 train_annotation: !ref <output_folder>/train.json

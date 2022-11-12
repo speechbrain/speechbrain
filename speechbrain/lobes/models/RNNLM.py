@@ -99,7 +99,7 @@ class RNNLM(nn.Module):
         )
 
     def forward(self, x, hx=None):
-
+        """ Processes the input tensor x and returns an output tensor."""
         x = self.embedding(x)
         x = self.dropout(x)
 

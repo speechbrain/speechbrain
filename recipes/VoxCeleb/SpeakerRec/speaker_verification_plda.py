@@ -48,9 +48,6 @@ def compute_embeddings(wavs, wav_lens):
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
         embeddings = params["embedding_model"](feats, wav_lens)
-        embeddings = params["mean_var_norm_emb"](
-            embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
-        )
     return embeddings.squeeze(1)
 
 

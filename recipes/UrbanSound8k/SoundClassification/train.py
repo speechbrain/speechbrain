@@ -154,7 +154,7 @@ class UrbanSound8kBrain(sb.core.Brain):
         """
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
-            metric=sb.nnet.losses.nll_loss  # TODO put in yaml hparams?
+            metric=sb.nnet.losses.nll_loss
         )
 
         # Compute Accuracy using MetricStats
@@ -347,9 +347,14 @@ def dataio_prep(hparams):
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "class_string_encoded"],

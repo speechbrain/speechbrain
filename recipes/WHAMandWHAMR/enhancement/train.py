@@ -97,14 +97,6 @@ class Separation(sb.Brain):
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
 
-        # torchaudio.save(
-        #     'mix.wav', mix.data.cpu(), self.hparams.sample_rate
-        # )
-
-        # torchaudio.save(
-        #     'targets.wav', targets.squeeze(-1).data.cpu(), self.hparams.sample_rate
-        # )
-
         # Separation
         if self.use_freq_domain:
             mix_w = self.compute_feats(mix)

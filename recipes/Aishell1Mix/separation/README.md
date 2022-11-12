@@ -50,6 +50,7 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 | NoDynamicMixing | 8.1 |
 | DynamicMixing | 11.2 |
 
+The output folders with model checkpoints and logs is available [here](https://drive.google.com/drive/folders/1GvJiUxhdN5bfbuBdxclPzdAPd2op1PCZ?usp=sharing).
 
 # Example calls for running the training scripts
 
