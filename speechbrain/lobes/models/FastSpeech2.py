@@ -236,7 +236,6 @@ class FastSpeech2(nn.Module):
     Example
     -------
     >>> import torch
-    >>> _ = torch.manual_seed(213312)
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
     >>> model = FastSpeech2(
     ...    enc_num_layers=6,
@@ -267,10 +266,6 @@ class FastSpeech2(nn.Module):
     ... ])
     >>> input_lengths = torch.tensor([5, 4])
     >>> mel_post, predict_durations, predict_pitch, predict_energy = model(inputs, durations=None)
-    >>> mel_post.shape, predict_durations.shape
-    (torch.Size([2, 2, 80]), torch.Size([2, 5]))
-    >>> predict_pitch.shape, predict_energy.shape
-    (torch.Size([2, 2, 1]), torch.Size([2, 2, 1]))
     """
 
     def __init__(
