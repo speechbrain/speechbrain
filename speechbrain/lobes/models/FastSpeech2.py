@@ -33,8 +33,24 @@ class PositionalEmbedding(nn.Module):
         )
         self.register_buffer("inv_freq", inv_freq)
 
-    def forward(self, seq_len, mask, device, dtype):
-        pos_seq = torch.arange(seq_len, device=device).to(dtype)
+    def forward(self, seq_len, mask, dtype):
+        """Computes the forward pass
+
+        Arguments
+        ---------
+        seq_len: int
+            length of the sequence
+        mask: torch.tensor
+            mask applied to the positional embeddings
+        dtype: str
+            dtype of the embeddings
+
+        Returns
+        -------
+        pos_emb: torch.Tensor
+            the tensor with positional embeddings
+        """
+        pos_seq = torch.arange(seq_len).to(dtype)
 
         sinusoid_inp = torch.matmul(
             torch.unsqueeze(pos_seq, -1), torch.unsqueeze(self.inv_freq, 0)
@@ -60,20 +76,21 @@ class EncoderPreNet(nn.Module):
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
+    >>> from speechbrain.lobes.models.FastSpeech2 import EncoderPreNet
     >>> encoder_prenet_layer = EncoderPreNet(n_vocab=40, blank_id=0, out_channels=384)
-    >>> x = torch.randn(3, 5)
+    >>> x = torch.rand(3, 5)
     >>> y = encoder_prenet_layer(x)
     >>> y.shape
     torch.Size([3, 5, 384])
     """
 
-    def __init__(self, n_vocab, blank_id, out_channels=512, device="cuda:0"):
+    def __init__(self, n_vocab, blank_id, out_channels=512):
         super().__init__()
         self.token_embedding = Embedding(
             num_embeddings=n_vocab,
             embedding_dim=out_channels,
             blank_id=blank_id,
-        ).to(device)
+        )
 
     def forward(self, x):
         """Computes the forward pass
@@ -202,8 +219,7 @@ class FastSpeech2(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer
-    #data io
+        whether to use convolutional layers instead of feed forward network inside tranformer layer,
     n_char: int
         the number of symbols for the token embedding
     n_mels: int
@@ -212,6 +228,10 @@ class FastSpeech2(nn.Module):
         the index for padding
     dur_pred_kernel_size: int
         the convolution kernel size in duration predictor
+    pitch_pred_kernel_size: int
+        kernel size for pitch prediction.
+    energy_pred_kernel_size: int
+        kernel size for energy prediction.
 
     Example
     -------
@@ -234,19 +254,23 @@ class FastSpeech2(nn.Module):
     ...    dec_v_dim=384,
     ...    dec_dropout=0.1,
     ...    normalize_before=False,
-    ...    ffn_type=1dcnn,
+    ...    ffn_type='1dcnn',
     ...    n_char=40,
     ...    n_mels=80,
     ...    padding_idx=0,
-    ...    dur_pred_kernel_size=3)
+    ...    dur_pred_kernel_size=3,
+    ...    pitch_pred_kernel_size=3,
+    ...    energy_pred_kernel_size=3)
     >>> inputs = torch.tensor([
     ...     [13, 12, 31, 14, 19],
     ...     [31, 16, 30, 31, 0],
     ... ])
     >>> input_lengths = torch.tensor([5, 4])
-    >>> mel_post, predict_durations = model(inputs, durations=None)
+    >>> mel_post, predict_durations, predict_pitch, predict_energy = model(inputs, durations=None)
     >>> mel_post.shape, predict_durations.shape
-    (torch.Size([2, 96, 80]), torch.Size([2, 5]))
+    (torch.Size([2, 2, 80]), torch.Size([2, 5]))
+    >>> predict_pitch.shape, predict_energy.shape
+    (torch.Size([2, 2, 1]), torch.Size([2, 2, 1]))
     """
 
     def __init__(
@@ -367,7 +391,7 @@ class FastSpeech2(nn.Module):
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.device, token_feats.dtype
+            token_feats.shape[1], srcmask, token_feats.dtype
         )
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
@@ -403,7 +427,7 @@ class FastSpeech2(nn.Module):
             .bool()
         )
         pos = self.sinusoidal_positional_embed_decoder(
-            spec_feats.shape[1], srcmask, spec_feats.device, spec_feats.dtype
+            spec_feats.shape[1], srcmask, spec_feats.dtype
         )
 
         predict_pitch = self.pitchPred(spec_feats)
