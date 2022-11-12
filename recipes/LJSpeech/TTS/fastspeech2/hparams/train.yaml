@@ -161,11 +161,6 @@ valid_dataloader_opts:
     shuffle: False
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
-test_dataloader_opts:
-    batch_size: !ref <batch_size>
-    num_workers: 8
-    shuffle: False
-    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
 #optimizer
 opt_class: !name:torch.optim.Adam
