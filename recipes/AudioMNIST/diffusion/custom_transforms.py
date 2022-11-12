@@ -96,12 +96,15 @@ class GlobalNorm(nn.Module):
         mask_value=0.0,
     ):
         super().__init__()
-        # TODO: Change to a buffer
-        self.running_mean = nn.Parameter(torch.tensor(0.0), requires_grad=False)
-        self.running_std = nn.Parameter(torch.tensor(0.0), requires_grad=False)
+
+        running_mean = torch.tensor(0.0)
+        running_std = torch.tensor(0.0)
+        weight = torch.tensor(0.0)
+        self.register_buffer("running_mean", running_mean)
+        self.register_buffer("running_std", running_std)
+        self.register_buffer("weight", weight)
         self.norm_mean = norm_mean
         self.norm_std = norm_std
-        self.weight = nn.Parameter(torch.tensor(0.0), requires_grad=False)
         self.mask_value = mask_value
         self.step_count = 0
         self.update_steps = update_steps

@@ -27,14 +27,14 @@ diffusion_mode: simple
 dataset: flexthink/audiomnist
 train_len: 28520
 sample_rate_src: 48000
-sample_rate_tgt: 22050
-number_of_epochs: 10
+sample_rate_tgt: 16000
+number_of_epochs: 20
 batch_size: 16
-lr: 0.001
+lr: 0.0005
 max_grad_norm: 1.
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
-lr_total_steps: !ref <train_len> * <number_of_epochs>
+lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
 train_timesteps: 1000
 adam_beta1: 0.95
 adam_beta2: 0.999
@@ -43,7 +43,7 @@ adam_epsilon: 0.00000001
 downsample_factor: 16
 enable_train_metrics: True
 enable_reference_samples: True
-loss_l2_steps: 3000
+loss_l2_steps: 100000
 train_log_interval: 10
 overfit_test: False
 overfit_test_sample_count: 1
@@ -81,10 +81,10 @@ model_num_res_blocks: 4
 diffusion_channels: 1
 
 # Vocoder Settings
-vocoder_model: speechbrain/tts-hifigan-ljspeech
+vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
-eval_num_samples: 10
+eval_num_samples: 32
 eval_generate_audio: True
 eval_show_progress: True
 
@@ -166,7 +166,7 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: true
+    capturable: True
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
@@ -185,3 +185,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         unet: !ref <unet>
         counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
+        global_norm: !ref <global_norm>
