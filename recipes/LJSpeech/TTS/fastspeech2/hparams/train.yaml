@@ -125,30 +125,29 @@ model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2
     energy_pred_kernel_size: !ref <energy_pred_kernel_size>
 
 mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
-  sample_rate: !ref <sample_rate>
-  hop_length: !ref <hop_length>
-  win_length: !ref <win_length>
-  n_fft: !ref <n_fft>
-  n_mels: !ref <n_mel_channels>
-  f_min: !ref <mel_fmin>
-  f_max: !ref <mel_fmax>
-  power: !ref <power>
-  normalized: !ref <mel_normalized>
-  min_max_energy_norm: !ref <min_max_energy_norm>
-  norm: !ref <norm>
-  mel_scale: !ref <mel_scale>
-  compression: !ref <dynamic_range_compression>
-  
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mel_channels>
+    f_min: !ref <mel_fmin>
+    f_max: !ref <mel_fmax>
+    power: !ref <power>
+    normalized: !ref <mel_normalized>
+    min_max_energy_norm: !ref <min_max_energy_norm>
+    norm: !ref <norm>
+    mel_scale: !ref <mel_scale>
+    compression: !ref <dynamic_range_compression>
 
 criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
-  log_scale_durations: true
-  duration_loss_weight: 1.0
-  pitch_loss_weight: 1.0
-  energy_loss_weight: 1.0
-  mel_loss_weight: 1.0
+    log_scale_durations: True
+    duration_loss_weight: 1.0
+    pitch_loss_weight: 1.0
+    energy_loss_weight: 1.0
+    mel_loss_weight: 1.0
 
 vocoder: "hifi-gan"
-pretrained_vocoder: true
+pretrained_vocoder: True
 vocoder_source: speechbrain/tts-hifigan-ljspeech
 vocoder_download_path: tmpdir_vocoder
 
@@ -156,23 +155,23 @@ modules:
     model: !ref <model>
 
 train_dataloader_opts:
-  batch_size: !ref <batch_size>
-  drop_last: False  #True #False
-  num_workers: 24
-  shuffle: True
-  collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+    batch_size: !ref <batch_size>
+    drop_last: False  #True #False
+    num_workers: 24
+    shuffle: True
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
 valid_dataloader_opts:
-  batch_size: !ref <batch_size>
-  num_workers: 8
-  shuffle: False
-  collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+    batch_size: !ref <batch_size>
+    num_workers: 8
+    shuffle: False
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
 test_dataloader_opts:
-  batch_size: !ref <batch_size>
-  num_workers: 8
-  shuffle: False
-  collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+    batch_size: !ref <batch_size>
+    num_workers: 8
+    shuffle: False
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
 #optimizer
 opt_class: !name:torch.optim.Adam
@@ -185,8 +184,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-
-
 
 #checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
@@ -203,7 +200,7 @@ model_output_keys:
     - alignments
 
 progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
-  output_path: !ref <progress_sample_path>
-  batch_sample_size: !ref <progress_batch_sample_size>
-  formats:
-    raw_batch: raw
+    output_path: !ref <progress_sample_path>
+    batch_sample_size: !ref <progress_batch_sample_size>
+    formats:
+        raw_batch: raw

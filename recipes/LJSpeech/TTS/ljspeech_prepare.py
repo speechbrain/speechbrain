@@ -10,7 +10,6 @@ Authors
 import os
 import csv
 import json
-import shutil
 import random
 import logging
 import subprocess

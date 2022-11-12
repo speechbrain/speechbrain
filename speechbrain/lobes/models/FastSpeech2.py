@@ -18,7 +18,7 @@ from speechbrain.nnet.normalization import LayerNorm
 
 class PositionalEmbedding(nn.Module):
     """Computation of the positional embeddings.
-    
+
     Arguments
     ---------
     embed_dim: int
@@ -45,7 +45,7 @@ class PositionalEmbedding(nn.Module):
 
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
-    
+
     Arguments
     ---------
     n_vocab: int
@@ -56,7 +56,7 @@ class EncoderPreNet(nn.Module):
         the size of each embedding vector
     device: str
         specify device for embedding
-    
+
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
@@ -77,12 +77,12 @@ class EncoderPreNet(nn.Module):
 
     def forward(self, x):
         """Computes the forward pass
-    
+
         Arguments
         ---------
         x: torch.Tensor
             a (batch, tokens) input tensor
-        
+
         Returns
         -------
         output: torch.Tensor
@@ -94,7 +94,7 @@ class EncoderPreNet(nn.Module):
 
 class DurationPredictor(nn.Module):
     """Duration predictor layer
-    
+
     Arguments
     ---------
     in_channels: int
@@ -103,7 +103,7 @@ class DurationPredictor(nn.Module):
        output feature dimension for convolution layers
     kernel_size: int
        duration predictor convolution kernal size
-    
+
     Example
     -------
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
@@ -135,12 +135,12 @@ class DurationPredictor(nn.Module):
 
     def forward(self, x):
         """Computes the forward pass
-    
+
         Arguments
         ---------
         x: torch.Tensor
             a (batch, time_steps, features) input tensor
-        
+
         Returns
         -------
         output: torch.Tensor
@@ -162,7 +162,7 @@ class FastSpeech2(nn.Module):
     Simplified STRUCTURE: input->token embedding ->encoder ->duration predictor ->duration
     upsampler -> decoder -> output
     During training, teacher forcing is used (ground truth durations are used for upsampling)
-    
+
     Arguments
     ---------
     #encoder parameters
@@ -212,7 +212,7 @@ class FastSpeech2(nn.Module):
         the index for padding
     dur_pred_kernel_size: int
         the convolution kernel size in duration predictor
-    
+
     Example
     -------
     >>> import torch
@@ -348,14 +348,14 @@ class FastSpeech2(nn.Module):
         self, tokens, durations=None, pitch=None, energy=None, pace=1.0
     ):
         """forward pass for training and inference
-        
+
         Arguments
         ---------
         tokens: torch.tensor
             batch of input tokens
         durations: torch.tensor
             batch of durations for each token. If it is None, the model will infer on predicted durations
-        
+
         Returns
         ---------
         mel_post: torch.Tensor
@@ -432,7 +432,7 @@ class FastSpeech2(nn.Module):
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
     """upsample encoder ouput according to durations
-    
+
     Arguments
     ---------
     feats: torch.tensor
@@ -443,7 +443,7 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
         scaling factor for durations
     padding_value: int
         padding index
-    
+
     Returns
     ---------
     mel_post: torch.Tensor
@@ -480,7 +480,7 @@ class TextMelCollate:
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
-        
+
         Arguments
         ---------
         batch: list
@@ -558,7 +558,7 @@ class TextMelCollate:
 
 class Loss(nn.Module):
     """Loss Computation
-    
+
     Arguments
     ---------
     log_scale_durations: bool
@@ -594,16 +594,15 @@ class Loss(nn.Module):
         self.energy_loss_weight = energy_loss_weight
 
     def forward(self, predictions, targets):
-
         """Computes the value of the loss function and updates stats
-        
+
         Arguments
         ---------
         predictions: tuple
             model predictions
         targets: tuple
             ground truth data
-        
+
         Returns
         -------
         loss: torch.Tensor
