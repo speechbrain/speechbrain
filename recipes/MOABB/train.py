@@ -305,7 +305,7 @@ def run_single_process(argv, tail_path, datasets):
     # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
     argv += ['--T', str(datasets["train"].dataset.tensors[0].shape[1]),
              '--C', str(datasets['train'].dataset.tensors[0].shape[-2]),
-             ]
+             '--n_train_examples', str(datasets['train'].dataset.tensors[0].shape[0])]
     # loading hparams for the each training and evaluation processes
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -322,7 +322,6 @@ def run_single_process(argv, tail_path, datasets):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-
     #loading hparams to prepare the dataset and the data iterators
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:

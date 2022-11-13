@@ -53,6 +53,7 @@ class EEGNet(torch.nn.Module):
         cnn_spatial_max_norm=1.0,
         cnn_spatial_pool=(4, 1),
         cnn_septemporal_depth_multiplier=1,
+        cnn_septemporal_point_kernels=None,
         cnn_septemporal_kernelsize=(17, 1),
         cnn_septemporal_pool=(8, 1),
         cnn_pool_type="avg",
@@ -135,12 +136,16 @@ class EEGNet(torch.nn.Module):
             ),
         )
         self.conv_module.add_module("dropout_1", torch.nn.Dropout(p=dropout))
+
         # Temporal separable convolution
+        cnn_septemporal_kernels = (
+            cnn_spatial_kernels * cnn_septemporal_depth_multiplier
+        )
         self.conv_module.add_module(
             "conv_2",
             sb.nnet.CNN.Conv2d(
                 in_channels=cnn_spatial_kernels,
-                out_channels=cnn_spatial_kernels,
+                out_channels=cnn_septemporal_kernels,
                 kernel_size=cnn_septemporal_kernelsize,
                 groups=cnn_spatial_kernels,
                 padding="same",
@@ -150,14 +155,14 @@ class EEGNet(torch.nn.Module):
             ),
         )
 
-        cnn_septemporal_kernels = (
-            cnn_spatial_kernels * cnn_septemporal_depth_multiplier
-        )
+        if cnn_septemporal_point_kernels is None:
+            cnn_septemporal_point_kernels = cnn_septemporal_kernels
+
         self.conv_module.add_module(
             "conv_3",
             sb.nnet.CNN.Conv2d(
-                in_channels=cnn_spatial_kernels,
-                out_channels=cnn_septemporal_kernels,
+                in_channels=cnn_septemporal_kernels,
+                out_channels=cnn_septemporal_point_kernels,
                 kernel_size=(1, 1),
                 padding="valid",
                 bias=False,
@@ -167,7 +172,7 @@ class EEGNet(torch.nn.Module):
         self.conv_module.add_module(
             "bnorm_3",
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_septemporal_kernels, momentum=0.01, affine=True,
+                input_size=cnn_septemporal_point_kernels, momentum=0.01, affine=True,
             ),
         )
         self.conv_module.add_module("act_3", activation)

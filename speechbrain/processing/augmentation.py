@@ -7,6 +7,7 @@ Authors
 import torch
 import random
 from speechbrain.utils.callchains import lengths_arg_exists
+import itertools
 
 
 class Augmenter(torch.nn.Module):
@@ -31,7 +32,7 @@ class Augmenter(torch.nn.Module):
         The number of augmentations applied to the input signal is randomly
         sampled between min_augmentations and max_augmentations. For instance,
         if the augmentation dict contains N=6 augmentations and we set
-        select min_augmentations=1 and in_augmentations=4 we apply up to
+        select min_augmentations=1 and max_augmentations=4 we apply up to
         M=4 augmentations. The selected augmentations are applied in the order
         specified in the augmentations dict. If shuffle_augmentations = True,
         a random set of M augmentations is selected.
@@ -45,6 +46,8 @@ class Augmenter(torch.nn.Module):
     repeat_augment: int
         Applies the augmentation algorithm N times. This can be used to
         perform more data augmentation.
+    idx_combination_augmentations: int
+        Applies a combination of augmenters. All possible combinations are indexed.
 
 
     Example
@@ -65,6 +68,7 @@ class Augmenter(torch.nn.Module):
         max_augmentations=None,
         shuffle_augmentations=False,
         repeat_augment=1,
+        idx_combination_augmentations=None,
         **augmentations,
     ):
         super().__init__()
@@ -75,7 +79,7 @@ class Augmenter(torch.nn.Module):
         self.max_augmentations = max_augmentations
         self.shuffle_augmentations = shuffle_augmentations
         self.repeat_augment = repeat_augment
-
+        self.idx_combination_augmentations = idx_combination_augmentations
         # Check min and max augmentations
         self.check_min_max_augmentations()
 
@@ -156,13 +160,24 @@ class Augmenter(torch.nn.Module):
         lengths : torch.Tensor
             The length of each sequence in the batch.
         """
-
         # Select the number of augmentations to apply
         N_augment = torch.randint(
             low=self.min_augmentations,
             high=self.max_augmentations + 1,
             size=(1,),
         )
+
+        # Get augmentations list
+        augmentations_lst = list(self.augmentations.keys())
+
+        if self.idx_combination_augmentations is not None:
+            # imposing a combination of augmenters
+            augmentations_combinations = []
+            for k in range(0, len(augmentations_lst) + 1):
+                # [] (no augmentation), [key0], ..., [key0, key3],..., [key0, key1, ..., keyN-1]
+                augmentations_combinations.extend(list(itertools.combinations(augmentations_lst, k)))
+            augmentations_lst = augmentations_combinations[self.idx_combination_augmentations]
+            N_augment = len(augmentations_lst)
 
         # No augmentation
         if (
@@ -172,12 +187,19 @@ class Augmenter(torch.nn.Module):
         ):
             return x, lengths
 
-        # Select the augmentations to apply
-        selected_augmentations = list(self.augmentations.keys())[0:N_augment]
 
         # Shuffle augmentation
         if self.shuffle_augmentations:
-            random.shuffle(selected_augmentations)
+            random.shuffle(augmentations_lst)
+        # Select the augmentations to apply
+        selected_augmentations = augmentations_lst[0:N_augment]
+
+        # # Select the augmentations to apply
+        # selected_augmentations = list(self.augmentations.keys())[0:N_augment]
+        #
+        # # Shuffle augmentation
+        # if self.shuffle_augmentations:
+        #     random.shuffle(selected_augmentations)
 
         # Lists to collect the outputs
         output_lst = []
