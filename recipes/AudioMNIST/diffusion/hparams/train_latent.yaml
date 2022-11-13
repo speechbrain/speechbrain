@@ -36,10 +36,12 @@ lr: 0.001
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
 lr_total_steps: !ref <train_len> * <number_of_epochs>
-lr_autoencoder: 0.00001
+lr_decay_every: 1000
+lr_autoencoder: 0.001
 lr_autoencoder_warmup_steps: 500
 lr_autoencoder_cooldown_steps: 500
 lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
+lr_autoencoder_decay_every: 1000
 max_grad_norm: 0.1
 train_timesteps: 1000
 adam_beta1: 0.95
@@ -245,12 +247,14 @@ lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     warmup: !ref <lr_warmup_steps>
     cooldown: !ref <lr_cooldown_steps>
     total_steps: !ref <lr_total_steps>
+    deacy_every: !ref <lr_decay_every>
 
 lr_annealing_autoencoder: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     lr: !ref <lr_autoencoder>
     warmup: !ref <lr_autoencoder_warmup_steps>
     cooldown: !ref <lr_autoencoder_cooldown_steps>
     total_steps: !ref <lr_autoencoder_total_steps>
+    deacy_every: !ref <lr_autoencoder_decay_every>
 
 
 # This object is used for saving the state of training both so that it
