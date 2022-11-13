@@ -29,7 +29,7 @@ train_len: 28520
 sort: len 
 batch_shuffle: true
 sample_rate_src: 48000
-sample_rate_tgt: 22050
+sample_rate_tgt: 16000
 number_of_epochs: 10
 batch_size: 32
 lr: 0.001
@@ -104,7 +104,7 @@ diffusion_channels: !ref <autoencoder_latent_channels>
 
 
 # Vocoder Settings
-vocoder_model: speechbrain/tts-hifigan-ljspeech
+vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
 eval_num_samples: 10
