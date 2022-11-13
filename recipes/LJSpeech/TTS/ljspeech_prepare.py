@@ -12,7 +12,7 @@ import csv
 import json
 import random
 import logging
-import subprocess
+from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import load_pkl, save_pkl, load_data_json
 
 logger = logging.getLogger(__name__)
@@ -91,13 +91,15 @@ def prepare_ljspeech(
     save_json_test = os.path.join(save_folder, TEST_JSON)
 
     if "duration_link" in kwargs:
-        durations_folder = os.path.join(data_folder, "durations")
-        if not os.path.exists(durations_folder):
+        if "duration_folder" not in kwargs:
+            durations_folder = os.path.join(data_folder)
+        if not os.path.exists(durations_folder + "durations/LJ001-0001.npy"):
             logger.info("Downloading durations for fastspeech training")
-            subprocess.call(["wget", "-q", kwargs["duration_link"]])
-            subprocess.call(["unzip", "-qq", "ljspeech_DFA_durations.zip"])
-            subprocess.call(["mv", "durations", durations_folder])
-            subprocess.call(["rm", "-r", "ljspeech_DFA_durations.zip"])
+            download_file(
+                kwargs["duration_link"],
+                durations_folder + "/durations.zip",
+                unpack=True,
+            )
     else:
         durations_folder = None
 

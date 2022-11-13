@@ -359,6 +359,7 @@ def main():
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "duration_link": hparams["duration_link"],
+            # "duration_folder": hparams["duration_folder"],
             "splits": hparams["splits"],
             "split_ratio": hparams["split_ratio"],
             "seed": hparams["seed"],

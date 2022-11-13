@@ -24,7 +24,8 @@ progress_batch_sample_size: 4
 # Data files and pre-processing #
 #################################
 data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
-duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip
+duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip?dl=1
+duration_folder: !ref <data_folder>
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
