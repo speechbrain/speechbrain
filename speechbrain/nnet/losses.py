@@ -1479,4 +1479,4 @@ class LaplacianVarianceLoss(nn.Module):
             ])
         else:
             loss = laplacian.masked_select(mask).var()
-        return loss
+        return -loss
