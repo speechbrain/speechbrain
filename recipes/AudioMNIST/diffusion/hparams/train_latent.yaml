@@ -52,10 +52,11 @@ downsample_factor: 8
 enable_train_metrics: True
 enable_reference_samples: True
 enable_reconstruction_sample: True
-loss_l2_steps: 3000
+loss_l2_steps: 100000
 loss_laplacian_weight: 0.1
 autoencoder_rec_loss_l2_steps: 1000
-train_log_interval: 10
+train_log_interval: 50
+train_diffusion_start_epoch: 2
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000

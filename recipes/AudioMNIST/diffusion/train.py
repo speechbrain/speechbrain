@@ -110,14 +110,15 @@ class DiffusionBrain(sb.Brain):
         """Train the parameters given a single batch in input"""
         if self.reference_batch is None:
             self.reference_batch = batch
-
+        
         should_step = self.step % self.grad_accumulation_factor == 0
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
         loss, loss_autoencoder = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-        with self.no_sync(not should_step):
-            (loss / self.grad_accumulation_factor).backward(retain_graph=True)
+        if self.train_diffusion:
+            with self.no_sync(not should_step):
+                (loss / self.grad_accumulation_factor).backward(retain_graph=True)
         if should_step:            
-            if self.check_gradients(loss):
+            if self.train_diffusion and self.check_gradients(loss):
                 self.optimizer.step()
             self.optimizer.zero_grad()
             # Latent diffusion: Step through the autoencoder
@@ -317,9 +318,12 @@ class DiffusionBrain(sb.Brain):
         """
 
         preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions
-        loss = self.hparams.compute_cost(
-            preds.squeeze(1), noise.squeeze(1), length=lens
-        )
+        if self.train_diffusion:
+            loss = self.hparams.compute_cost(
+                preds.squeeze(1), noise.squeeze(1), length=lens
+            )
+        else:
+            loss = torch.tensor(0., device=self.device)
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
@@ -491,6 +495,8 @@ class DiffusionBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
+
+        self.train_diffusion = epoch >= self.hparams.train_diffusion_start_epoch
 
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(

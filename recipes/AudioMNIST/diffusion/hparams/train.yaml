@@ -47,6 +47,7 @@ enable_train_metrics: True
 enable_reference_samples: True
 loss_l2_steps: 100000
 train_log_interval: 10
+train_diffusion_start_epoch: 1
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000
