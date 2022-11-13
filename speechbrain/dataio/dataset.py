@@ -11,6 +11,7 @@ from types import MethodType
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.dataio.dataio import load_data_json, load_data_csv
+from speechbrain.utils.data_utils import batch_shuffle
 import logging
 import math
 
@@ -372,6 +373,24 @@ class DynamicItemDataset(Dataset):
         overfit_samples = overfit_samples[:total_count]
         return FilteredSortedDynamicItemDataset(self, overfit_samples)
 
+    def batch_shuffle(self, batch_size):
+        """Shuffles batches within a dataset. This is particularly
+        useful in combination with length sorting - to ensure
+        that the length variation within a batch is not very high,
+        but the batches themselves remain randomized
+
+        Arguments
+        ---------
+        batch_size: int
+            the batch size
+
+        Returns
+        -------
+        dataset: FilteredSortedDynamicItemDataset
+            a shuffled dataset
+        """
+        data_ids = batch_shuffle(self.data_ids, batch_size)
+        return FilteredSortedDynamicItemDataset(self, data_ids)
 
     @classmethod
     def from_json(
@@ -446,3 +465,4 @@ def apply_overfit_test(hparams, dataset):
         epoch_data_count = hparams["overfit_test_epoch_data_count"]
         dataset = dataset.overfit_test(sample_count, epoch_data_count)
     return dataset
+

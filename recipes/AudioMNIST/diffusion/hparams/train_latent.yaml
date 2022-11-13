@@ -27,6 +27,7 @@ diffusion_mode: latent
 dataset: flexthink/audiomnist
 train_len: 28520
 sort: len 
+batch_shuffle: true
 sample_rate_src: 48000
 sample_rate_tgt: 22050
 number_of_epochs: 10
@@ -45,7 +46,7 @@ adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
-downsample_factor: 16
+downsample_factor: 8
 enable_train_metrics: True
 enable_reference_samples: True
 enable_reconstruction_sample: True

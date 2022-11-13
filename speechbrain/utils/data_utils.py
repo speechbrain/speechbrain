@@ -6,6 +6,7 @@ Authors
  * Samuele Cornell 2020
 """
 
+import math
 import os
 import re
 import csv
@@ -725,4 +726,40 @@ def match_shape(tensor, other):
     result = unsqueeze_as(tensor, other)
     result = result.expand_as(other)
     result = trim_as(result, other)
+    return result
+
+
+def batch_shuffle(items, batch_size):
+    """Shuffles batches of fixed size within a sequence
+    
+    Arguments
+    ---------
+    items: sequence
+        a tensor or an indexable sequence, such as a list
+
+    batch_size: int
+        the batch size
+    
+    Returns
+    -------
+    items: sequence
+        the original items. If a tensor was passed, a tensor 
+        will be returned. Otherwise, it will return a list
+    """
+    batch_count = math.floor(len(items) / batch_size)
+    batches = torch.randperm(batch_count)
+    batch_idx = (
+        batches.unsqueeze(-1).expand(batch_count, batch_size)
+        * batch_size
+    )
+    batch_offset = torch.arange(batch_size).unsqueeze(0)
+    batch_idx += batch_offset
+    tail = torch.arange(batch_count * batch_size, len(items))
+    batch_idx = torch.concat(
+        (batch_idx.flatten(), tail)
+    )
+    if torch.is_tensor(items):
+        result = items[batch_idx]
+    else:
+        result = [items[idx] for idx in batch_idx]
     return result

@@ -749,6 +749,10 @@ def apply_sort(hparams, dataset):
     if hparams["sort"]:
         dataset =  dataset.filtered_sorted(
             sort_key=hparams["sort"])
+    if hparams["batch_shuffle"]:
+        dataset = dataset.batch_shuffle(
+            hparams["batch_size"]
+        )
     return dataset
 
 
