@@ -35,12 +35,40 @@ from os import makedirs
 import torch.nn.functional as F
 
 import librosa
-from librosa.core import stft
+from librosa.core import stft, istft
 import scipy.io.wavfile as wavf
+import soundfile as sf
 
 
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
+
+    def topk_fidelity(self):
+        batch_size = int(sample_data.shape[0])
+        conf_matx_fy = np.zeros([50, 50])  # n_classes x n_classes
+        conf_matx_hf = np.zeros([50, 50])
+        conf_matx_hy = np.zeros([50, 50])
+        top5_fid, top3_fid = 0, 0
+        for batch_info in test_loader:
+            data, target = batch_info[0].to(device), batch_info[1].to(device)
+            output, inter = f(data)
+            embed = H(inter)
+            rec_data, expl = W(embed), h(embed)
+            pred_f = output.argmax(dim=1).cpu().data.numpy()
+            pred_h = expl.argmax(dim=1).cpu().data.numpy()
+            hp_full = expl.cpu().data.numpy()
+            y = target.cpu().data.numpy()
+            for j in range(y.shape[0]):
+                conf_matx_fy[pred_f[j], y[j]] += 1
+                conf_matx_hf[pred_h[j], pred_f[j]] += 1
+                conf_matx_hy[pred_h[j], y[j]] += 1
+                if pred_f[j] in (-1 * hp_full[j]).argsort()[:5]:
+                    top5_fid += 1
+                if pred_f[j] in (-1 * hp_full[j]).argsort()[:3]:
+                    top3_fid += 1
+        print("Top-3 fidelity total:", top3_fid)
+        print("Top-5 fidelity total:", top5_fid)
+        return conf_matx_fy, conf_matx_hf, conf_matx_hy
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -95,19 +123,25 @@ class InterpreterESC50Brain(sb.core.Brain):
         # Embeddings + sound classifier
         embeddings, f_I = self.hparams.embedding_model(feats)
 
-        psi_out = self.modules.psi(f_I) # generate nmf activations
-        reconstructed = self.hparams.nmf(psi_out)   #  generate log-mag spectrogram
+        psi_out = self.modules.psi(f_I)  # generate nmf activations
+        reconstructed = self.hparams.nmf(
+            psi_out
+        )  #  generate log-mag spectrogram
 
         predictions = self.hparams.classifier(embeddings).squeeze(1)
 
-        theta_out = self.modules.theta(psi_out) # generate classifications from time activations
+        theta_out = self.modules.theta(
+            psi_out
+        )  # generate classifications from time activations
 
         return (reconstructed, psi_out), (predictions, theta_out)
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using class-id as label.
-        """
-        (predictions, time_activations), (classification_out, theta_out) = predictions
+        """Computes the loss using class-id as label."""
+        (
+            (predictions, time_activations),
+            (classification_out, theta_out,),
+        ) = predictions
 
         uttid = batch.id
         classid, _ = batch.class_string_encoded
@@ -134,14 +168,27 @@ class InterpreterESC50Brain(sb.core.Brain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
+        self.last_batch = batch
         self.batch_to_plot = (predictions, Xs)
 
         theta_out = -torch.log(theta_out)
-        loss_fdi = (
-            F.softmax(classification_out.T, dim=0) @ theta_out
-            ).mean()
-        
+        loss_fdi = (F.softmax(classification_out.T, dim=0) @ theta_out).sum()
+
         return loss_nmf + loss_fdi
+
+    @staticmethod
+    def select_component(idx, inp_lg_spec, H, W):
+        # Selects the contribution of component j (j=idx) from the given input log magnitude spectrogram
+        # Assume integer/numpy arrays for all input arguments, W of shape N_FREQ x N_COMP and H of N_COMP x N_TIME
+        # Do W.abs() to force positive values
+        W_mat = np.abs(W)
+        ratio = np.outer(W_mat[:, idx], H[idx]) / (0.000001 + np.dot(W_mat, H))
+        # comp = np.exp(inp_lg_spec * ratio) - 1
+        comp = inp_lg_spec * ratio
+        comp = torch.Tensor(comp)
+        ratio = torch.Tensor(ratio)
+
+        return comp, ratio
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -159,14 +206,129 @@ class InterpreterESC50Brain(sb.core.Brain):
         ax[1, 0].set_ylabel("Target")
         ax[1, 0].imshow(target[0, ...])
         ax[1, 1].imshow(target[1, ...])
-        makedirs(os.path.join(self.hparams.output_folder, 
-            f"reconstructions"), exist_ok=True)
+        makedirs(
+            os.path.join(self.hparams.output_folder, f"reconstructions"),
+            exist_ok=True,
+        )
         plt.savefig(
-            os.path.join(self.hparams.output_folder, 
-            f"reconstructions", f"{str(stage)}_{epoch}.png")
+            os.path.join(
+                self.hparams.output_folder,
+                f"reconstructions",
+                f"{str(stage)}_{epoch}.png",
+            )
         )
 
+        if epoch % 10:
+            with torch.no_grad():
+                wavs, lens = self.last_batch.sig
+
+                # run inference on selected samples
+                Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
+                Xs = np.log(1 + np.abs(Xs))
+                Xmel = librosa.feature.melspectrogram(
+                    sr=self.hparams.sample_rate,
+                    S=np.abs(Xs),
+                    n_fft=1024,
+                    hop_length=512,
+                    n_mels=80,
+                )
+                Xlgmel = librosa.power_to_db(Xmel)
+
+                # test librosa stuff
+                feats = (
+                    torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
+                )
+                Xs = torch.Tensor(Xs).float().to(self.device)
+
+                # Embeddings + sound classifier
+                embeddings, f_I = self.hparams.embedding_model(feats)
+
+                psi_out = self.modules.psi(f_I)  # generate nmf activations
+                reconstructed = self.hparams.nmf(
+                    psi_out
+                )  #  generate log-mag spectrogram
+
+                predictions = self.hparams.classifier(embeddings).squeeze(1)
+                pred_cl = torch.argmax(predictions, dim=1)[0].item()
+
+                mag_spec = torch.exp(Xs) - 1
+                spec_shape = reconstructed.shape
+
+                comp = torch.ones(100, spec_shape[1], spec_shape[2]).to(
+                    self.device
+                )
+                ratio = torch.ones_like(comp)
+
+                nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
+
+                comp_weights = self.modules.theta.classifier[0].weight
+
+                # computes time activations per component
+                pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
+                print(pooled_act.shape)
+
+                pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
+                pooled_act[0] = pooled_act[0] / pooled_act[0].max()
+
+                softmask_weights = torch.exp(pooled_act[0]) / (
+                    torch.exp(pooled_act[0]).sum()
+                )
+                main_components = (-1 * pooled_act[0]).argsort()[:5]
+                enhanced_spec = torch.zeros_like(Xs)[0]
+                residual_spec = Xs[0].clone()
+
+                for i in range(100):
+                    if pooled_act[0, i] > 0.1:
+                        comp[i], ratio[i] = self.select_component(
+                            i, Xs[0], psi_out[0], nmf_dictionary
+                        )
+                        residual_spec = residual_spec - comp[i]
+                        enhanced_spec = (
+                            enhanced_spec + softmask_weights[i] * comp[i]
+                        )
+
+                res_exp = ((torch.exp(residual_spec) - 1) * Xs[0]).numpy()
+                new_time = istft(res_exp, 512)
+                original_audio = istft(Xs[0].numpy(), 512)
+
+                # save reconstructed and original spectrograms
+                makedirs(
+                    os.path.join(
+                        self.hparams.output_folder,
+                        f"audios_from_interpretation",
+                    ),
+                    exist_ok=True,
+                )
+
+                sf.write(
+                    os.path.join(
+                        self.hparams.output_folder,
+                        f"audios_from_interpretation",
+                        f"orig_{epoch}.wav",
+                    ),
+                    original_audio,
+                    self.hparams.sample_rate,
+                )
+
+                sf.write(
+                    os.path.join(
+                        self.hparams.output_folder,
+                        f"audios_from_interpretation",
+                        f"recon_{epoch}.wav",
+                    ),
+                    new_time,
+                    self.hparams.sample_rate,
+                )
+
+                print(new_time.shape, original_audio.shape)
+                input()
+
+                # theta_out = self.modules.theta(
+                #     psi_out
+                # )  # generate classifications from time activations
+
         return super().on_stage_end(stage, stage_loss, epoch)
+
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
@@ -179,7 +341,6 @@ def dataio_prep(hparams):
     hparams["resampler"] = torchaudio.transforms.Resample(
         new_freq=config_sample_rate
     )
-
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -272,7 +433,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    
+
     # classifier is fixed here
     hparams["embedding_model"].eval()
     hparams["classifier"].eval()
@@ -325,7 +486,7 @@ if __name__ == "__main__":
     if "pretrained_esc50" in hparams:
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
-    
+
     hparams["embedding_model"].to(hparams["device"])
     hparams["classifier"].to(hparams["device"])
     hparams["embedding_model"].eval()
