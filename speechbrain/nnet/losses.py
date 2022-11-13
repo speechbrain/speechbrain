@@ -653,10 +653,18 @@ def compute_masked_loss(
         single value and 'batch' returns one per item in the batch and
         'batchmean' is sum / batch_size and 'none' returns all.
     """
-    mask = torch.ones_like(targets)
+    mask = compute_length_mask(targets, length)
+
+    # Compute, then reduce loss
+    loss = loss_fn(predictions, targets) * mask
+    return reduce_loss(loss, mask, reduction, label_smoothing, predictions, targets)
+
+
+def compute_length_mask(data, length=None):
+    mask = torch.ones_like(data)
     if length is not None:
         length_mask = length_to_mask(
-            length * targets.shape[1], max_len=targets.shape[1],
+            length * data.shape[1], max_len=data.shape[1],
         )
 
         # Handle any dimensionality of input
@@ -664,10 +672,7 @@ def compute_masked_loss(
             length_mask = length_mask.unsqueeze(-1)
         length_mask = length_mask.type(mask.dtype)
         mask *= length_mask
-
-    # Compute, then reduce loss
-    loss = loss_fn(predictions, targets) * mask
-    return reduce_loss(loss, mask, reduction, label_smoothing, predictions, targets)
+    return mask
 
 
 def reduce_loss(loss, mask, reduction="mean", label_smoothing=0.0, predictions=None, targets=None):
@@ -1392,3 +1397,86 @@ class VariationalAutoencoderLoss(nn.Module):
 
 VariationalAutoencoderLossDetails = namedtuple(
     "VAELossDetails", ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"])
+
+
+class Laplacian(nn.Module):
+    """Computes the Laplacian for image-like data
+    
+    Arguments
+    ---------
+    kernel_size: int
+        the size of the Laplacian kernel
+    dtype: torch.dtype
+        the data type (optional)
+    """
+
+    def __init__(self, kernel_size, dtype=torch.float32):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.dtype = dtype
+        kernel = self.get_kernel()
+        self.register_buffer("kernel", kernel)
+
+    def get_kernel(self):
+        """Computes the Laplacian kernel"""
+        kernel = -torch.ones(self.kernel_size, self.kernel_size, dtype=self.dtype)
+        mid_position = self.kernel_size // 2
+        mid_value = self.kernel_size ** 2 - 1.
+        kernel[mid_position, mid_position] = mid_value
+        kernel = kernel.unsqueeze(0).unsqueeze(0)
+        return kernel
+
+    def forward(self, data):
+        """Computes the Laplacian of image-like data
+        
+        Arguments
+        ---------
+        data: torch.Tensor
+            a (B x C x W x H) or (B x C x H x W) tensor with image-like data
+        """
+        return F.conv2d(data, self.kernel)
+
+
+class LaplacianVarianceLoss(nn.Module):
+    """The Laplacian variance loss - used to penalize blurriness in image-like
+    data, such as spectrograms
+    
+    Arguments
+    ---------
+    kernel_size: int
+        the Laplacian kernel size
+
+    len_dim: int
+        the dimension to be used as the length
+    """
+
+    def __init__(self, kernel_size=3, len_dim=1):
+        super().__init__()
+        self.len_dim = len_dim
+        self.laplacian = Laplacian(kernel_size=kernel_size)
+
+    def forward(self, predictions, length=None, reduction=None):
+        """Computes the Laplacian loss
+        
+        Arguments
+        ---------
+        predictions: torch.Tensor
+            a (B x C x W x H) or (B x C x H x W) tensor
+
+        Returns
+        -------
+        loss: torch.Tensor
+            the loss value
+        """
+        laplacian = self.laplacian(predictions)
+        laplacian = laplacian.moveaxis(self.len_dim, 1)
+        mask = compute_length_mask(laplacian, length).bool()
+        if reduction == "batch":
+            # TODO: Vectorize
+            loss = torch.stack([
+                item.masked_select(item_mask).var()
+                for item, item_mask in zip(laplacian, mask)
+            ])
+        else:
+            loss = laplacian.masked_select(mask).var()
+        return loss

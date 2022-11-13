@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.dataio.dataio import load_data_json, load_data_csv
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +350,29 @@ class DynamicItemDataset(Dataset):
             filtered_sorted_ids = filtered_ids
         return filtered_sorted_ids
 
+    def overfit_test(self, sample_count, total_count):
+        """Creates a subset of this dataset for an overfitting
+        test - repeating sample_count samples to create a repeating
+        dataset with a total of epoch_data_count samples
+        
+        Argument
+        --------
+        sample_count: int
+            the number of samples to select
+        total_count: int
+            the total data count
+
+        Returns
+        -------
+        dataset: FilteredSortedDynamicItemDataset
+            a dataset with a repeated subset
+        """
+        num_repetitions = math.ceil(total_count / sample_count)
+        overfit_samples = self.data_ids[:sample_count] * num_repetitions
+        overfit_samples = overfit_samples[:total_count]
+        return FilteredSortedDynamicItemDataset(self, overfit_samples)
+
+
     @classmethod
     def from_json(
         cls, json_path, replacements={}, dynamic_items=[], output_keys=[]
@@ -415,3 +439,10 @@ def set_output_keys(datasets, output_keys):
     """Helper for setting the same item to multiple datasets."""
     for dataset in datasets:
         dataset.set_output_keys(output_keys)
+
+def apply_overfit_test(hparams, dataset):
+    if hparams["overfit_test"]:
+        sample_count = hparams["overfit_test_sample_count"]
+        epoch_data_count = hparams["overfit_test_epoch_data_count"]
+        dataset = dataset.overfit_test(sample_count, epoch_data_count)
+    return dataset

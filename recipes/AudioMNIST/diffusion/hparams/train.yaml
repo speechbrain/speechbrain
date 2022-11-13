@@ -26,6 +26,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 diffusion_mode: simple
 dataset: flexthink/audiomnist
 train_len: 28520
+sort: len
 sample_rate_src: 48000
 sample_rate_tgt: 16000
 number_of_epochs: 20

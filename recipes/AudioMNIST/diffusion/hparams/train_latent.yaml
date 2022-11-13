@@ -26,10 +26,11 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 diffusion_mode: latent
 dataset: flexthink/audiomnist
 train_len: 28520
+sort: len 
 sample_rate_src: 48000
 sample_rate_tgt: 22050
 number_of_epochs: 10
-batch_size: 16
+batch_size: 32
 lr: 0.001
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
@@ -38,7 +39,7 @@ lr_autoencoder: 0.00001
 lr_autoencoder_warmup_steps: 500
 lr_autoencoder_cooldown_steps: 500
 lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
-max_grad_norm: 1.
+max_grad_norm: 0.1
 train_timesteps: 1000
 adam_beta1: 0.95
 adam_beta2: 0.999
@@ -49,6 +50,7 @@ enable_train_metrics: True
 enable_reference_samples: True
 enable_reconstruction_sample: True
 loss_l2_steps: 3000
+loss_laplacian_weight: 0.1
 autoencoder_rec_loss_l2_steps: 1000
 train_log_interval: 10
 overfit_test: False
@@ -94,6 +96,7 @@ autoencoder_nom_num_groups: 32
 autoencoder_latent_channels: 2
 autoencoder_dropout: 0.1
 latent_mask_value: -3.
+autoencoder_use_fixup_norm: false
 diffusion_channels: !ref <autoencoder_latent_channels>
 
 
@@ -139,6 +142,9 @@ compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLos
     dist_loss_weight: !ref <autoencoder_dist_loss_weight>
     rec_loss: !ref <compute_cost_autoencoder_rec>
 
+compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
+    len_dim: 2
+
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
         - loss_fn: !name:speechbrain.nnet.losses.mse_loss
@@ -173,6 +179,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     len_dim: 2
     latent_mask_value: !ref <latent_mask_value>
     dropout: !ref <autoencoder_dropout>
+    use_fixup_norm: !ref <autoencoder_use_fixup_norm>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
@@ -207,6 +214,7 @@ modules:
     diffusion: !ref <diffusion>
     diffusion_latent: !ref <diffusion_latent>
     compute_features: !ref <compute_features>
+    compute_cost_laplacian: !ref <compute_cost_laplacian>
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>
     global_norm: !ref <global_norm>

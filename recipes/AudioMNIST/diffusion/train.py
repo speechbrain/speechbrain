@@ -24,6 +24,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torchaudio import functional as AF
 from torchaudio import transforms
 from speechbrain.dataio.dataio import length_to_mask, write_audio
+from speechbrain.dataio.dataset import apply_overfit_test
 from speechbrain.utils import data_utils
 from speechbrain.utils.train_logger import plot_spectrogram
 from speechbrain.utils.data_utils import match_shape, unsqueeze_as
@@ -187,6 +188,8 @@ class DiffusionBrain(sb.Brain):
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
             )
+            stats["laplacian_loss"] = self.autoencoder_laplacian_loss_stats_metric.summarize(field="average")
+            stats["weighted_laplacian_loss"] = self.hparams.loss_laplacian_weight * stats["laplacian_loss"]
             stats["lr_autoencoder"] = self.autoencoder_optimizer.param_groups[0]["lr"]
             stats.update(
                 self.extract_dist_stats(
@@ -331,7 +334,16 @@ class DiffusionBrain(sb.Brain):
             self.autoencoder_loss_metric.append(
                 batch.file_name, autoencoder_out, feats, length=lens, reduction="batch"
             )
-            
+            loss_laplacian = self.modules.compute_cost_laplacian(
+                autoencoder_out.rec, length=lens
+            )
+
+            self.autoencoder_laplacian_loss_stats_metric.append(
+                batch.file_name, autoencoder_out.rec, length=lens, reduction="batch"
+            )
+
+            loss_autoencoder += self.hparams.loss_laplacian_weight * loss_laplacian
+
             max_len = autoencoder_out.rec.size(2)
             rec_mask = length_to_mask(lens * max_len, max_len).unsqueeze(1)
             rec_mask = match_shape(rec_mask, autoencoder_out.rec)
@@ -345,8 +357,6 @@ class DiffusionBrain(sb.Brain):
             self.autoencoder_latent_dist_stats_metric.append(
                 batch.file_name, autoencoder_out.latent, mask=latent_mask
             )
-
-
         
         return loss, loss_autoencoder
 
@@ -508,6 +518,10 @@ class DiffusionBrain(sb.Brain):
             )
             self.autoencoder_latent_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
                 metric=dist_stats,
+                batch_eval=True
+            )
+            self.autoencoder_laplacian_loss_stats_metric = sb.utils.metric_stats.MetricStats(
+                metric=self.hparams.compute_cost_laplacian,
                 batch_eval=True
             )
 
@@ -731,6 +745,11 @@ class DiffusionBrain(sb.Brain):
 
 DATASET_SPLITS = ["train", "valid", "test"]
 
+def apply_sort(hparams, dataset):
+    if hparams["sort"]:
+        dataset =  dataset.filtered_sorted(
+            sort_key=hparams["sort"])
+
 
 def load_dataset(hparams):
     dataset_splits = {}
@@ -738,20 +757,20 @@ def load_dataset(hparams):
         # Use a folder:
         for split_id in DATASET_SPLITS:
             split_path = os.path.join(hparams["dataset"], f"{split_id}.json")
-            dataset_splits[
-                split_id
-            ] = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
+            dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
+            apply_sort(hparams, dataset_split)
+            dataset_splits[split_id] = dataset_split
     else:
         dataset = datasets.load_dataset(
             hparams["dataset"], cache_dir=hparams["data_folder"]
         )
         for split_id in DATASET_SPLITS:
-            dataset_splits[
-                split_id
-            ] = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
+            dataset_split = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
                 dataset[split_id],
                 replacements={"data_root": hparams["data_folder"]},
             )
+            apply_sort(hparams, dataset_split)
+            
     return dataset_splits
 
 
@@ -804,14 +823,9 @@ def dataio_prep(hparams):
 
     train_split = dataset_splits["train"]
     data_count = None
-    if hparams["overfit_test"]:
-        sample_count = hparams["overfit_test_sample_count"]
-        epoch_data_count = hparams["overfit_test_epoch_data_count"]
-        num_repetitions = math.ceil(epoch_data_count / sample_count)
-        overfit_samples = train_split.data_ids[:sample_count] * num_repetitions
-        overfit_samples = overfit_samples[:epoch_data_count]
-        train_split.data_ids = overfit_samples
-    elif hparams["train_data_count"] is not None:
+    apply_overfit_test(hparams, train_split)
+
+    if hparams["train_data_count"] is not None:
         data_count = hparams["train_data_count"]
         train_split.data_ids = train_split.data_ids[:data_count]
 
