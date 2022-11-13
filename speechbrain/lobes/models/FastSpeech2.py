@@ -265,7 +265,16 @@ class FastSpeech2(nn.Module):
     ...     [31, 16, 30, 31, 0],
     ... ])
     >>> input_lengths = torch.tensor([5, 4])
-    >>> mel_post, predict_durations, predict_pitch, predict_energy = model(inputs, durations=None)
+    >>> durations = torch.tensor([
+    ...     [2, 4, 1, 5, 3],
+    ...     [1, 2, 4, 3, 0],
+    ... ])
+    >>> mel_post, predict_durations, predict_pitch, predict_energy = model(inputs, durations=durations)
+    >>> mel_post.shape, predict_durations.shape
+    (torch.Size([2, 15, 80]), torch.Size([2, 5]))
+    >>> predict_pitch.shape, predict_energy.shape
+    (torch.Size([2, 15, 1]), torch.Size([2, 15, 1]))
+
     """
 
     def __init__(
