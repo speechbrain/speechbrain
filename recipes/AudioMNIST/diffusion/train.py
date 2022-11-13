@@ -749,6 +749,7 @@ def apply_sort(hparams, dataset):
     if hparams["sort"]:
         dataset =  dataset.filtered_sorted(
             sort_key=hparams["sort"])
+    return dataset
 
 
 def load_dataset(hparams):
@@ -758,7 +759,7 @@ def load_dataset(hparams):
         for split_id in DATASET_SPLITS:
             split_path = os.path.join(hparams["dataset"], f"{split_id}.json")
             dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
-            apply_sort(hparams, dataset_split)
+            dataset_split = apply_sort(hparams, dataset_split)
             dataset_splits[split_id] = dataset_split
     else:
         dataset = datasets.load_dataset(
@@ -769,7 +770,8 @@ def load_dataset(hparams):
                 dataset[split_id],
                 replacements={"data_root": hparams["data_folder"]},
             )
-            apply_sort(hparams, dataset_split)
+            dataset_split = apply_sort(hparams, dataset_split)
+            dataset_splits[split_id] = dataset_split
             
     return dataset_splits
 
