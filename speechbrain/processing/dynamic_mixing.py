@@ -30,6 +30,7 @@ class DynamicMixingConfig:
     audio_max_loudness: float = -25.0  # dB
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
+    noise_prob: float = 1.0
     noise_files: Optional[list] = None
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
@@ -38,6 +39,7 @@ class DynamicMixingConfig:
     white_noise_mu: float = 0.0
     white_noise_var: float = 1e-7
     rir_add: bool = False
+    rir_prob: float = 1.0
     rir_files: Optional[list] = None  # RIR waveforms
     min_source_len: int = 32000
     max_source_len: int = 64000
@@ -93,7 +95,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         self.normalize_audio = config.audio_norm
         self.spkr_files = spkr_files
 
-        tmp_file = next(iter(spkr_files.values()))[0]
+        tmp_file, _ = next(iter(spkr_files.values()))[0]
         self.sampling_rate = torchaudio.info(tmp_file).sample_rate
 
         self.meter = None
@@ -101,6 +103,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             self.meter = pyloudnorm.Meter(self.sampling_rate)
 
         self.config = config
+        self.dataset = None  # used for inner database
 
     @classmethod
     def from_didataset(cls, dataset, config, wav_key=None, spkr_key=None):
@@ -108,14 +111,16 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             raise ValueError("Provide valid wav_key for dataset item")
 
         if spkr_key is None:
-            files = [d[wav_key] for d in dataset]
-            return cls.from_wavs(files, config)
+            files = [(d[wav_key], idx) for idx, d in enumerate(dataset)]
+            dmdataset = cls.from_wavs(files, config)
         else:
             spkr_files = {}
-            for d in dataset:
+            for idx, d in enumerate(dataset):
                 spkr_files[d[spkr_key]] = spkr_files.get(d[spkr_key], [])
-                spkr_files[d[spkr_key]].append(d[wav_key])
-            return cls(spkr_files, config)
+                spkr_files[d[spkr_key]].append((d[wav_key], idx))
+            dmdataset = cls(spkr_files, config)
+        dmdataset.set_dataset(dataset)
+        return dmdataset
 
     @classmethod
     def from_wavs(cls, wav_file_list, config):
@@ -123,12 +128,15 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         spkr = 0
         # we assume that each wav is coming from different spkr
         for wavfile in wav_file_list:
-            spkr_files[f"spkr{spkr}"] = [wavfile]
+            spkr_files[f"spkr{spkr}"] = [(wavfile, None)]
             spkr += 1
 
         return cls(spkr_files, config)
 
-    def generate(self, wavfile=None):
+    def set_dataset(self, dataset):
+        self.dataset = dataset
+
+    def generate(self):
         """Generate new audio mixture
 
         Returns:
@@ -137,11 +145,17 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
           - used overlap ratios
           - padded sources
           - noise
+          - data
         """
+        # TODO: Refactor completly, add Mixture class
         n_spkrs = np.random.choice(self.config.num_spkrs)
         if n_spkrs <= 0:
-            # TODO: how long mixture?
-            raise NotImplementedError("Expect at least 1 source")
+            length = random.randint(
+                self.config.min_source_len, self.config.max_source_len
+            )
+            sources = [torch.zeros(length)]
+            mixture, sources, noise = self.__postprocess__(sources[0], sources)
+            return mixture, [], [], sources, noise, []
 
         mix_spkrs = np.random.choice(list(self.spkr_files.keys()), n_spkrs)
         rir = None
@@ -154,9 +168,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             rir = rir[0]
 
         sources = []
+        source_idxs = []
         fs = None
         for spkr in mix_spkrs:
-            src_file = np.random.choice(self.spkr_files[spkr])
+            spkr_idx = random.randint(0, len(self.spkr_files[spkr]) - 1)
+            src_file, src_idx = self.spkr_files[spkr][spkr_idx]
             src_audio, fs = torchaudio.load(src_file)
             assert (
                 fs == self.sampling_rate
@@ -165,8 +181,15 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             # use same RIR for all sources
             src_audio = self.__prepare_source__(src_audio, rir)
             sources.append(src_audio)
+            source_idxs.append(src_idx)
 
-        sources = sorted(sources, key=lambda x: x.size(0), reverse=True)
+        sources, source_idxs = zip(
+            *sorted(
+                zip(sources, source_idxs),
+                key=lambda x: x[0].size(0),
+                reverse=True,
+            )
+        )
         mixture = sources[0]  # longest audio
         padded_sources = [sources[0]]
         overlap_ratios = []
@@ -177,7 +200,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
             mixture, padded_tmp, paddings = mix(src, mixture, overlap_samples)
             # padded sources are returned in same order
-            overlap_ratios.append((ratio, overlap_samples))
+            overlap_ratios.append((ratio, paddings))
 
             # previous padded_sources are shorter
             padded_sources = __pad_sources__(
@@ -188,9 +211,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         mixture, padded_source, noise = self.__postprocess__(
             mixture, padded_sources
         )
-        if wavfile:
-            torchaudio.save(mixture, wavfile)
-        return mixture, mix_spkrs, overlap_ratios, padded_sources, noise
+
+        data = None
+        if self.dataset is not None:
+            data = [self.dataset[idx] for idx in source_idxs]
+        return mixture, mix_spkrs, overlap_ratios, padded_sources, noise, data
 
     def __prepare_source__(self, source, rir, is_noise=False):
 
@@ -215,7 +240,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             )
 
         # add reverb
-        if not is_noise and self.config.rir_add:
+        if (
+            not is_noise
+            and self.config.rir_add
+            and random.uniform(0, 1) < self.config.rir_prob
+        ):
             # noise is not reverberated
             reverberate(source, rir)
         return source
@@ -223,7 +252,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     def __postprocess__(self, mixture, sources):
         # add noise
         noise = None
-        if self.config.noise_add and len(self.config.noise_files) > 0:
+        if (
+            self.config.noise_add
+            and random.uniform(0, 1) < self.config.noise_prob
+        ):
             noise_f = np.random.choice(self.config.noise_files)
             noise, fs = torchaudio.load(noise_f)
             assert (
@@ -261,7 +293,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         # TODO: Refactor completly
-        mix, spkrs, ratios, srcs, noise = self.generate()
+        mix, spkrs, ratios, srcs, noise, data = self.generate()
         if len(srcs) != 2:
             raise NotImplementedError("getitem supports exactly 2 sources")
 
@@ -282,6 +314,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             "s2_sig": srcs[1],
             "s3_sig": torch.zeros(mix.size(0)),
             "noise_sig": noise if noise else torch.zeros(mix.size(0)),
+            "data": data,
         }
 
         return dct
