@@ -200,6 +200,12 @@ class Separation(sb.Brain):
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
+        if not isinstance(batch, PaddedBatch):
+            for key in batch:
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].squeeze(0)
+            batch = PaddedBatch([batch])
+
         snt_id = batch.id
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
