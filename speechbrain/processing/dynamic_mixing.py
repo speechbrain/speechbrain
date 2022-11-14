@@ -41,8 +41,8 @@ class DynamicMixingConfig:
     rir_add: bool = False
     rir_prob: float = 1.0
     rir_files: Optional[list] = None  # RIR waveforms
-    min_source_len: int = 32000
-    max_source_len: int = 64000
+    min_source_len: int = 16000
+    max_source_len: int = 320000
 
     @classmethod
     def from_hparams(cls, hparams):
@@ -155,7 +155,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             )
             sources = [torch.zeros(length)]
             mixture, sources, noise = self.__postprocess__(sources[0], sources)
-            return mixture, [], [], sources, noise, []
+            return mixture, ["noise"], [(0.0, [(0, 0)])], sources, noise, []
 
         mix_spkrs = np.random.choice(list(self.spkr_files.keys()), n_spkrs)
         rir = None
@@ -215,6 +215,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         data = None
         if self.dataset is not None:
             data = [self.dataset[idx] for idx in source_idxs]
+
+        if len(overlap_ratios) == 0:
+            overlap_ratios.append((0.0, [(0, 0)]))
         return mixture, mix_spkrs, overlap_ratios, padded_sources, noise, data
 
     def __prepare_source__(self, source, rir, is_noise=False):
