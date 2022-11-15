@@ -1,6 +1,7 @@
 {
     "spk1_snt5": {
         "wav": "{data_root}/spk1_snt5.wav",
+        "path": "{data_root}/spk1_snt5.wav",
         "duration": "2.6",
         "length": "2.6",
         "spk_id": "spk1",
@@ -9,10 +10,12 @@
         "char": "s u n d a y i s t h e b e s t p a r t o f t h e w e e k",
         "wrd": "SUNDAY IS THE BEST PART OF THE WEEK",
         "words": "SUNDAY IS THE BEST PART OF THE WEEK",
+        "trans": "SUNDAY IS THE BEST PART OF THE WEEK",
         "emo": "anger"
     },
     "spk2_snt5": {
         "wav": "{data_root}/spk2_snt5.wav",
+        "path": "{data_root}/spk2_snt5.wav",
         "duration": "1.98",
         "length": "1.98",
         "spk_id": "spk2",
@@ -21,6 +24,7 @@
         "char": "k e n p a i r s l a c k f u l l f l a v o r",
         "wrd": "KEN PAIRS LACK FULL FLAVOR",
         "words": "KEN PAIRS LACK FULL FLAVOR",
+        "trans": "KEN PAIRS LACK FULL FLAVOR",
         "emo": "sadness"
     }
 }
