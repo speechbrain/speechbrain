@@ -16,6 +16,7 @@ import random
 import warnings
 import uuid
 import logging
+import os
 import pyloudnorm  # WARNING: External dependency
 
 from dataclasses import dataclass, fields
@@ -36,7 +37,7 @@ class DynamicMixingConfig:
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
     noise_prob: float = 1.0
-    noise_files: Optional[list] = None
+    noise_files: Optional[Union[str, list]] = None  # list or path to list of files separated by newline
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
     noise_max_loudness: float = -25.0 - 5
@@ -45,7 +46,7 @@ class DynamicMixingConfig:
     white_noise_var: float = 1e-7
     rir_add: bool = False
     rir_prob: float = 1.0
-    rir_files: Optional[list] = None  # RIR waveforms
+    rir_files: Optional[Union[str, list]] = None  # list or path to list of files separated by newline
     sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
@@ -72,8 +73,28 @@ class DynamicMixingConfig:
         if self.overlap_prob is None:
             self.overlap_prob = [
                 1 / len(self.overlap_ratio)
-                for _ in range(len(self.overlap_prob))
+                for _ in range(len(self.overlap_ratio))
             ]
+
+        if isinstance(self.noise_files, str):
+            paths = []
+            with open(self.noise_files) as f:
+                for line in f:
+                    assert len(line.split()) == 1
+                    if line.startswith('./'):
+                        line = os.path.join(self.noise_files, line)
+                    paths.append(line)
+            self.noise_files = paths
+
+        if isinstance(self.rir_files, str):
+            paths = []
+            with open(self.rir_files) as f:
+                for line in f:
+                    assert len(line.split()) == 1
+                    if line.startswith('./'):
+                        line = os.path.join(self.rir_files, line)
+                    paths.append(line)
+            self.rir_files = paths
 
         assert len(self.num_spkrs) == len(self.num_spkrs_prob)
         assert len(self.overlap_ratio) == len(self.overlap_prob)
@@ -110,10 +131,8 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 f"Expected at least {config.num_spkrs} spkrs in spkr_files"
             )
 
-        self.num_spkrs = config.num_spkrs
-        self.overlap_ratio = config.overlap_ratio
-        self.normalize_audio = config.audio_norm
         self.spkr_files = spkr_files
+        self.config = config
 
         total = sum(map(len, self.spkr_files.values()))
         self.spkr_names = [x for x in spkr_files.keys()]
@@ -123,7 +142,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         tmp_file, _ = next(iter(spkr_files.values()))[0]
         self.orig_sr = torchaudio.info(tmp_file).sample_rate
-        if self.orig_sr != self.config.sample_rate:
+        if self.orig_sr != config.sample_rate:
             self.resampler = torchaudio.transforms.Resample(
                 self.orig_sr, self.config.sample_rate
             )
@@ -136,10 +155,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             self.resampler = lambda x: x
 
         self.meter = None
-        if self.normalize_audio:
+        if self.config.audio_norm:
             self.meter = pyloudnorm.Meter(self.config.sample_rate)
 
-        self.config = config
         self.dataset = None  # used for inner database
 
     @classmethod
@@ -273,7 +291,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         )
         source = source[:length]
 
-        if self.normalize_audio:
+        if self.config.audio_norm:
             # normalize loudness and apply random gain
             source = normalize(
                 source,
