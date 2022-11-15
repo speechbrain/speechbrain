@@ -92,12 +92,14 @@ def prepare_ljspeech(
 
     if "duration_link" in kwargs:
         if "duration_folder" not in kwargs:
-            durations_folder = os.path.join(data_folder)
-        if not os.path.exists(durations_folder + "durations/LJ001-0001.npy"):
+            duration_folder = os.path.join(data_folder)
+        else:
+            duration_folder = kwargs["duration_folder"]
+        if not os.path.exists(duration_folder + "durations/LJ001-0001.npy"):
             logger.info("Downloading durations for fastspeech training")
             download_file(
                 kwargs["duration_link"],
-                durations_folder + "/durations.zip",
+                duration_folder + "/durations.zip",
                 unpack=True,
             )
     else:
@@ -118,6 +120,7 @@ def prepare_ljspeech(
     data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
 
     # Prepare csv
+    durations_folder = duration_folder + "/durations"
     if "train" in splits:
         prepare_json(
             data_split["train"],
