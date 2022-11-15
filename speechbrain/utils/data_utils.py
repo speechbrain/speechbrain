@@ -579,3 +579,19 @@ def scalarize(value):
     else:
         value_dict = value
     return {key: item_value.item() for key, item_value in value_dict.items()}
+
+
+def unsqueeze_as(x, target):
+    """Reshape the tensor to be of a shape compatible with the target
+    tensor, only valid if x.dim() <= y.dim()
+    Arguments
+    ---------
+    x: torch.Tensor
+        the original tensor
+    target: torch.Tensor
+        the tensor whose shape
+    Returns
+    -------
+    result: torch.Tensor
+        a view of tensor x reshaped to a shape compatible with y"""
+    return x.view(x.shape + (1,) * (target.dim() - x.dim()))
