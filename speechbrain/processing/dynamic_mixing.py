@@ -24,6 +24,7 @@ from typing import Optional, Union
 @dataclass
 class DynamicMixingConfig:
     num_spkrs: Union[int, list] = 2
+    num_spkrs_prob: list = [1.0]
     overlap_ratio: Union[int, list] = 1.0
     audio_norm: bool = True  # normalize loudness of sources
     audio_min_loudness: float = -33.0  # dB
@@ -57,6 +58,8 @@ class DynamicMixingConfig:
 
         if isinstance(self.overlap_ratio, numbers.Real):
             self.overlap_ratio = [self.overlap_ratio]
+
+        assert len(self.num_spkrs) == len(self.num_spkrs_prob)
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -94,6 +97,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         self.overlap_ratio = config.overlap_ratio
         self.normalize_audio = config.audio_norm
         self.spkr_files = spkr_files
+
+        total = sum(map(len, self.spkr_files.values()))
+        self.spkr_names = [x for x in spkr_files.keys()]
+        self.spkr_weights = [len(spkr_files[x]) / total for x in self.spkr_names]
 
         tmp_file, _ = next(iter(spkr_files.values()))[0]
         self.sampling_rate = torchaudio.info(tmp_file).sample_rate
@@ -148,7 +155,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
           - data
         """
         # TODO: Refactor completly, add Mixture class
-        n_spkrs = np.random.choice(self.config.num_spkrs)
+        n_spkrs = np.random.choice(self.config.num_spkrs, p=self.config.num_spkrs_prob)
         if n_spkrs <= 0:
             length = random.randint(
                 self.config.min_source_len, self.config.max_source_len
@@ -157,7 +164,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             mixture, sources, noise = self.__postprocess__(sources[0], sources)
             return mixture, ["noise"], [(0.0, [(0, 0)])], sources, noise, []
 
-        mix_spkrs = np.random.choice(list(self.spkr_files.keys()), n_spkrs)
+        mix_spkrs = np.random.choice(self.spkr_names, n_spkrs, replace=False, p=self.spkr_weights)
         rir = None
         if self.config.rir_add:
             rir_file = np.random.choice(self.config.rir_files)
