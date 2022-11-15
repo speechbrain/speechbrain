@@ -641,7 +641,8 @@ class Conv2d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same' or 'valid'. Got " + self.padding
+                "Padding must be 'same','valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)
