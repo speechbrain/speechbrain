@@ -37,7 +37,9 @@ class DynamicMixingConfig:
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
     noise_prob: float = 1.0
-    noise_files: Optional[Union[str, list]] = None  # list or path to list of files separated by newline
+    noise_files: Optional[
+        Union[str, list]
+    ] = None  # list or path to list of files separated by newline
     # noise_snr: float = 20.0 # dB TODO
     noise_min_loudness: float = -33.0 - 5
     noise_max_loudness: float = -25.0 - 5
@@ -46,7 +48,9 @@ class DynamicMixingConfig:
     white_noise_var: float = 1e-7
     rir_add: bool = False
     rir_prob: float = 1.0
-    rir_files: Optional[Union[str, list]] = None  # list or path to list of files separated by newline
+    rir_files: Optional[
+        Union[str, list]
+    ] = None  # list or path to list of files separated by newline
     sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
@@ -76,25 +80,29 @@ class DynamicMixingConfig:
                 for _ in range(len(self.overlap_ratio))
             ]
 
-        if isinstance(self.noise_files, str):
+        if isinstance(self.noise_files, list):
             paths = []
-            with open(self.noise_files) as f:
-                for line in f:
-                    assert len(line.split()) == 1
-                    if line.startswith('./'):
-                        line = os.path.join(self.noise_files, line)
-                    paths.append(line)
-            self.noise_files = paths
+            try:
+                for path_lst in self.noise_files:
+                    paths.extend(parse_paths(path_lst))
+                self.noise_files = paths
+            except AssertionError:
+                logger.info("Assuming that noise files are actual files")
+
+        if isinstance(self.noise_files, str):
+            self.noise_files = parse_paths(self.noise_files)
+
+        if isinstance(self.rir_files, list):
+            paths = []
+            try:
+                for path_lst in self.rir_files:
+                    paths.extend(parse_paths(path_lst))
+                self.rir_files = paths
+            except AssertionError:
+                logger.info("Assuming that RIR files are actual files")
 
         if isinstance(self.rir_files, str):
-            paths = []
-            with open(self.rir_files) as f:
-                for line in f:
-                    assert len(line.split()) == 1
-                    if line.startswith('./'):
-                        line = os.path.join(self.rir_files, line)
-                    paths.append(line)
-            self.rir_files = paths
+            self.rir_files = parse_paths(self.rir_files)
 
         assert len(self.num_spkrs) == len(self.num_spkrs_prob)
         assert len(self.overlap_ratio) == len(self.overlap_prob)
@@ -328,7 +336,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 fs == self.orig_sr
             ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
             noise = self.resampler(noise)
-            noise = self.__prepare_source__(noise[0], is_noise=True)
+            noise = self.__prepare_source__(noise[0], None, is_noise=True)
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
             )  # extend the noise
@@ -462,3 +470,16 @@ def __pad_sources__(sources, paddings):
         nsrc = torch.cat((torch.zeros(lpad), src, torch.zeros(rpad)))
         result.append(nsrc)
     return result
+
+
+def parse_paths(file):
+    paths = []
+    with open(file) as f:
+        for line in f:
+            line = line.strip()
+            assert len(line.split()) == 1
+            if not line.startswith("/"):
+                # relative paths
+                line = os.path.join(os.path.dirname(file), line)
+            paths.append(line)
+    return paths
