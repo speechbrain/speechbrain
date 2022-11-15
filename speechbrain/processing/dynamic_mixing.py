@@ -15,17 +15,21 @@ import numbers
 import random
 import warnings
 import uuid
+import logging
 import pyloudnorm  # WARNING: External dependency
 
 from dataclasses import dataclass, fields
 from typing import Optional, Union
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DynamicMixingConfig:
     num_spkrs: Union[int, list] = 2
-    num_spkrs_prob: list = [1.0]
+    num_spkrs_prob: Optional[list] = None  # default: uniform distribution
     overlap_ratio: Union[int, list] = 1.0
+    overlap_prob: Optional[list] = None  # default: uniform distribution
     audio_norm: bool = True  # normalize loudness of sources
     audio_min_loudness: float = -33.0  # dB
     audio_max_loudness: float = -25.0  # dB
@@ -42,6 +46,7 @@ class DynamicMixingConfig:
     rir_add: bool = False
     rir_prob: float = 1.0
     rir_files: Optional[list] = None  # RIR waveforms
+    sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
 
@@ -59,7 +64,19 @@ class DynamicMixingConfig:
         if isinstance(self.overlap_ratio, numbers.Real):
             self.overlap_ratio = [self.overlap_ratio]
 
+        if self.num_spkrs_prob is None:
+            self.num_spkrs_prob = [
+                1 / len(self.num_spkrs) for _ in range(len(self.num_spkrs))
+            ]
+
+        if self.overlap_prob is None:
+            self.overlap_prob = [
+                1 / len(self.overlap_ratio)
+                for _ in range(len(self.overlap_prob))
+            ]
+
         assert len(self.num_spkrs) == len(self.num_spkrs_prob)
+        assert len(self.overlap_ratio) == len(self.overlap_prob)
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -100,14 +117,27 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         total = sum(map(len, self.spkr_files.values()))
         self.spkr_names = [x for x in spkr_files.keys()]
-        self.spkr_weights = [len(spkr_files[x]) / total for x in self.spkr_names]
+        self.spkr_weights = [
+            len(spkr_files[x]) / total for x in self.spkr_names
+        ]
 
         tmp_file, _ = next(iter(spkr_files.values()))[0]
-        self.sampling_rate = torchaudio.info(tmp_file).sample_rate
+        self.orig_sr = torchaudio.info(tmp_file).sample_rate
+        if self.orig_sr != self.config.sample_rate:
+            self.resampler = torchaudio.transforms.Resample(
+                self.orig_sr, self.config.sample_rate
+            )
+            logger.warning(
+                "Audio files has different sampling rate (%d != %d)!",
+                self.orig_sr,
+                self.config.sample_rate,
+            )
+        else:
+            self.resampler = lambda x: x
 
         self.meter = None
         if self.normalize_audio:
-            self.meter = pyloudnorm.Meter(self.sampling_rate)
+            self.meter = pyloudnorm.Meter(self.config.sample_rate)
 
         self.config = config
         self.dataset = None  # used for inner database
@@ -155,7 +185,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
           - data
         """
         # TODO: Refactor completly, add Mixture class
-        n_spkrs = np.random.choice(self.config.num_spkrs, p=self.config.num_spkrs_prob)
+        n_spkrs = np.random.choice(
+            self.config.num_spkrs, p=self.config.num_spkrs_prob
+        )
         if n_spkrs <= 0:
             length = random.randint(
                 self.config.min_source_len, self.config.max_source_len
@@ -164,14 +196,17 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             mixture, sources, noise = self.__postprocess__(sources[0], sources)
             return mixture, ["noise"], [(0.0, [(0, 0)])], sources, noise, []
 
-        mix_spkrs = np.random.choice(self.spkr_names, n_spkrs, replace=False, p=self.spkr_weights)
+        mix_spkrs = np.random.choice(
+            self.spkr_names, n_spkrs, replace=False, p=self.spkr_weights
+        )
         rir = None
         if self.config.rir_add:
             rir_file = np.random.choice(self.config.rir_files)
             rir, fs = torchaudio.load(rir_file)
             assert (
-                fs == self.sampling_rate
-            ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
+                fs == self.orig_sr
+            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
+            rir = self.resampler(rir)
             rir = rir[0]
 
         sources = []
@@ -182,8 +217,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             src_file, src_idx = self.spkr_files[spkr][spkr_idx]
             src_audio, fs = torchaudio.load(src_file)
             assert (
-                fs == self.sampling_rate
-            ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
+                fs == self.orig_sr
+            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
+            src_audio = self.resampler(src_audio)
             src_audio = src_audio[0]  # Support only single channel
             # use same RIR for all sources
             src_audio = self.__prepare_source__(src_audio, rir)
@@ -202,7 +238,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         overlap_ratios = []
         for i in range(1, len(sources)):
             src = sources[i]
-            ratio = np.random.choice(self.config.overlap_ratio)
+            ratio = np.random.choice(
+                self.config.overlap_ratio, p=self.config.overlap_prob
+            )
             overlap_samples = int(src.size(0) * ratio)
 
             mixture, padded_tmp, paddings = mix(src, mixture, overlap_samples)
@@ -269,8 +307,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             noise_f = np.random.choice(self.config.noise_files)
             noise, fs = torchaudio.load(noise_f)
             assert (
-                fs == self.sampling_rate
-            ), f"{self.sampling_rate} Hz sampling rate expected, but found {fs}"
+                fs == self.orig_sr
+            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
+            noise = self.resampler(noise)
             noise = self.__prepare_source__(noise[0], is_noise=True)
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
