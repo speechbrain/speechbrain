@@ -277,19 +277,19 @@ class InterpreterESC50Brain(sb.core.Brain):
                 enhanced_spec = torch.zeros_like(Xs)[0]
                 residual_spec = Xs[0].clone()
 
-                for i in range(100):
-                    if pooled_act[0, i] > 0.1:
-                        comp[i], ratio[i] = self.select_component(
-                            i, Xs[0], psi_out[0], nmf_dictionary
-                        )
-                        residual_spec = residual_spec - comp[i]
-                        enhanced_spec = (
-                            enhanced_spec + softmask_weights[i] * comp[i]
-                        )
+                expl_comp = comp[0] * 0.0
+                ratio_comp = ratio[0] * 0.0
 
-                res_exp = ((torch.exp(residual_spec) - 1) * Xs[0]).numpy()
-                new_time = istft(res_exp, 512)
-                original_audio = istft(Xs[0].numpy(), 512)
+                for i in main_components:
+                    comp[i], ratio[i] = self.select_component(
+                        i, Xs[0], psi_out[0], nmf_dictionary
+                    )
+                    if pooled_act[0, i] > 0.2:
+                        expl_comp += comp[i]
+                
+                expl_comp = np.exp(expl_comp) - 1
+                interpretation = istft((expl_comp * Xs[0]).numpy(), hop_length=512)
+                original_audio = istft(Xs[0].numpy(), hop_length=512)
 
                 # save reconstructed and original spectrograms
                 makedirs(
@@ -316,12 +316,12 @@ class InterpreterESC50Brain(sb.core.Brain):
                         f"audios_from_interpretation",
                         f"recon_{epoch}.wav",
                     ),
-                    new_time,
+                    interpretation,
                     self.hparams.sample_rate,
                 )
 
-                print(new_time.shape, original_audio.shape)
-                input()
+                # print("Generated samples...")
+                # input()
 
                 # theta_out = self.modules.theta(
                 #     psi_out
