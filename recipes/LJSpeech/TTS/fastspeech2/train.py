@@ -48,7 +48,7 @@ class FastSpeech2Brain(sb.Brain):
         -------
         the model output
         """
-        inputs, _ = batch_to_gpu(batch)
+        inputs, _ = self.batch_to_device(batch)
         return self.hparams.model(*inputs)
 
     def fit_batch(self, batch):
@@ -80,7 +80,7 @@ class FastSpeech2Brain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        x, y, metadata = batch_to_gpu(batch, return_metadata=True)
+        x, y, metadata = self.batch_to_device(batch, return_metadata=True)
         self.last_batch = [x[0], y[-1], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
         return self.hparams.criterion(predictions, y)
@@ -244,6 +244,46 @@ class FastSpeech2Brain(sb.Brain):
             )
             torchaudio.save(path, wav, self.hparams.sample_rate)
 
+    def batch_to_device(self, batch, return_metadata=False):
+        """Transfers the batch to the target device
+
+            Arguments
+            ---------
+            batch: tuple
+                the batch to use
+            Returns
+            -------
+            batch: tuple
+                the batch on the correct device
+            """
+
+        (
+            text_padded,
+            durations,
+            input_lengths,
+            mel_padded,
+            pitch_padded,
+            energy_padded,
+            output_lengths,
+            len_x,
+            labels,
+            wavs,
+        ) = batch
+
+        durations = durations.to(self.device, non_blocking=True).long()
+        phonemes = text_padded.to(self.device, non_blocking=True).long()
+        input_lengths = input_lengths.to(self.device, non_blocking=True).long()
+        spectogram = mel_padded.to(self.device, non_blocking=True).float()
+        pitch = pitch_padded.to(self.device, non_blocking=True).float()
+        energy = energy_padded.to(self.device, non_blocking=True).float()
+        mel_lengths = output_lengths.to(self.device, non_blocking=True).long()
+        x = (phonemes, durations, pitch, energy)
+        y = (spectogram, durations, pitch, energy, mel_lengths, input_lengths)
+        metadata = (labels, wavs)
+        if return_metadata:
+            return x, y, metadata
+        return x, y
+
 
 def dataio_prepare(hparams):
     # read saved lexicon
@@ -287,55 +327,6 @@ def dataio_prepare(hparams):
             output_keys=["mel_text_pair", "wav", "label", "durations"],
         )
     return datasets
-
-
-def batch_to_gpu(batch, return_metadata=False):
-    """Transfers the batch to the target device
-
-        Arguments
-        ---------
-        batch: tuple
-            the batch to use
-        Returns
-        -------
-        batch: tuple
-            the batch on the correct device
-        """
-
-    (
-        text_padded,
-        durations,
-        input_lengths,
-        mel_padded,
-        pitch_padded,
-        energy_padded,
-        output_lengths,
-        len_x,
-        labels,
-        wavs,
-    ) = batch
-
-    durations = to_gpu(durations).long()
-    phonemes = to_gpu(text_padded).long()
-    input_lengths = to_gpu(input_lengths).long()
-    spectogram = to_gpu(mel_padded).float()
-    pitch = to_gpu(pitch_padded).float()
-    energy = to_gpu(energy_padded).float()
-    mel_lengths = to_gpu(output_lengths).long()
-    x = (phonemes, durations, pitch, energy)
-    y = (spectogram, durations, pitch, energy, mel_lengths, input_lengths)
-    metadata = (labels, wavs)
-    if return_metadata:
-        return x, y, metadata
-    return x, y
-
-
-def to_gpu(x):
-    x = x.contiguous()
-
-    if torch.cuda.is_available():
-        x = x.cuda(non_blocking=True)
-    return x
 
 
 def main():

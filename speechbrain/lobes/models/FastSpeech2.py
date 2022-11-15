@@ -50,7 +50,7 @@ class PositionalEmbedding(nn.Module):
         pos_emb: torch.Tensor
             the tensor with positional embeddings
         """
-        pos_seq = torch.arange(seq_len).to(dtype)
+        pos_seq = torch.arange(seq_len, device=mask.device).to(dtype)
 
         sinusoid_inp = torch.matmul(
             torch.unsqueeze(pos_seq, -1), torch.unsqueeze(self.inv_freq, 0)
@@ -70,8 +70,6 @@ class EncoderPreNet(nn.Module):
         padding index
     out_channels: int
         the size of each embedding vector
-    device: str
-        specify device for embedding
 
     Example
     -------
@@ -105,6 +103,7 @@ class EncoderPreNet(nn.Module):
         output: torch.Tensor
             the embedding layer output
         """
+        self.token_embedding = self.token_embedding.to(x.device)
         x = self.token_embedding(x)
         return x
 
