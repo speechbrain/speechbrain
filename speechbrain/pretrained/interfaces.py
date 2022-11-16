@@ -2731,9 +2731,9 @@ class HIFIGAN(Pretrained):
 
         # Mask the noise caused by padding during batch inference
         if mel_lens is not None and hop_len is not None:
-            wavform = self.mask_noise(waveform, mel_lens, hop_len)
+            waveform = self.mask_noise(waveform, mel_lens, hop_len)
 
-        return wavform
+        return waveform
 
     def mask_noise(self, waveform, mel_lens, hop_len):
         """Mask the noise caused by padding during batch inference
