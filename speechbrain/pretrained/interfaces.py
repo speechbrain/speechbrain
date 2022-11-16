@@ -29,6 +29,7 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
+from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
 
@@ -2755,19 +2756,16 @@ class Tacotron2(Pretrained):
 class HIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
-
     Arguments
     ---------
     hparams
         Hyperparameters (from HyperPyYAML)
-
     Example
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
     >>> mel_specs = torch.rand(2, 80,298)
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
-
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Intialize TTS (tacotron2)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
@@ -2785,19 +2783,22 @@ class HIFIGAN(Pretrained):
         self.infer = self.hparams.generator.inference
         self.first_call = True
 
-    def decode_batch(self, spectrogram):
+    def decode_batch(self, spectrogram, mel_lens=None, hop_len=None):
         """Computes waveforms from a batch of mel-spectrograms
-
         Arguments
         ---------
         spectrogram: torch.tensor
             Batch of mel-spectrograms [batch, mels, time]
-
+        mel_lens: torch.tensor
+            A list of lengths of mel-spectrograms for the batch
+            Can be obtained from the output of Tacotron/FastSpeech
+        hop_len: int
+            hop length used for mel-spectrogram extraction
+            should be the same value as in the .yaml file
         Returns
         -------
         waveforms: torch.tensor
             Batch of mel-waveforms [batch, 1, time]
-
         """
         # Prepare for inference by removing the weight norm
         if self.first_call:
@@ -2805,21 +2806,46 @@ class HIFIGAN(Pretrained):
             self.first_call = False
         with torch.no_grad():
             waveform = self.infer(spectrogram.to(self.device))
+
+        # Mask the noise caused by padding during batch inference
+        if mel_lens is not None and hop_len is not None:
+            waveform = self.mask_noise(waveform, mel_lens, hop_len)
+
         return waveform
+
+    def mask_noise(self, waveform, mel_lens, hop_len):
+        """Mask the noise caused by padding during batch inference
+        Arguments
+        ---------
+        wavform: torch.tensor
+            Batch of generated waveforms [batch, 1, time]
+        mel_lens: torch.tensor
+            A list of lengths of mel-spectrograms for the batch
+            Can be obtained from the output of Tacotron/FastSpeech
+        hop_len: int
+            hop length used for mel-spectrogram extraction
+            same value as in the .yaml file
+        Returns
+        -------
+        waveform: torch.tensor
+            Batch of waveforms without padded noise [batch, 1, time]
+        """
+        waveform = waveform.squeeze(1)
+        # the correct audio length should be hop_len * mel_len
+        mask = length_to_mask(mel_lens * hop_len, waveform.shape[1]).bool()
+        waveform.masked_fill_(~mask, 0.0)
+        return waveform.unsqueeze(1)
 
     def decode_spectrogram(self, spectrogram):
         """Computes waveforms from a single mel-spectrogram
-
         Arguments
         ---------
         spectrogram: torch.tensor
             mel-spectrogram [mels, time]
-
         Returns
         -------
         waveform: torch.tensor
             waveform [1, time]
-
         audio can be saved by:
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
