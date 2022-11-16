@@ -5,13 +5,16 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
+* Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
+* Artem Ploujnikov 2022 (alignments)
 """
 
+import json
 import os
 import csv
 import random
-from collections import Counter
+from collections import Counter, namedtuple
+from enum import Enum
 import logging
 import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
@@ -26,6 +29,11 @@ OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLERATE = 16000
 
 
+class LibriSpeechMode(Enum):
+    BASIC = "basic"
+    ALIGNMENT = "alignment"
+
+
 def prepare_librispeech(
     data_folder,
     save_folder,
@@ -37,6 +45,8 @@ def prepare_librispeech(
     merge_name=None,
     create_lexicon=False,
     skip_prep=False,
+    mode=LibriSpeechMode.BASIC,
+    alignments_folder=None,
 ):
     """
     This class prepares the csv files for the LibriSpeech dataset.
@@ -68,6 +78,8 @@ def prepare_librispeech(
         to phonemes. Use it for training a G2P system.
     skip_prep: bool
         If True, data preparation is skipped.
+    alignments_folder: str
+        The path to the LibriSpeech-Alignments dataset
 
 
     Example
@@ -79,6 +91,13 @@ def prepare_librispeech(
     >>> save_folder = 'librispeech_prepared'
     >>> prepare_librispeech(data_folder, save_folder, tr_splits, dev_splits, te_splits)
     """
+
+    if mode == LibriSpeechMode.ALIGNMENT and (
+        not alignments_folder or not os.path.exists(alignments_folder)
+    ):
+        raise ValueError(
+            "Alignment mode requires the LibriSpeech-Alignments dataset"
+        )
 
     if skip_prep:
         return
@@ -121,6 +140,15 @@ def prepare_librispeech(
             os.path.join(data_folder, split), match_and=["trans.txt"]
         )
 
+        alignments_dict = {
+            file_name: get_alignment_path(
+                data_folder=data_folder,
+                alignments_folder=alignments_folder,
+                file_name=file_name,
+            )
+            for file_name in wav_lst
+        }
+
         text_dict = text_to_dict(text_lst)
         all_texts.update(text_dict)
 
@@ -129,9 +157,19 @@ def prepare_librispeech(
         else:
             n_sentences = len(wav_lst)
 
-        create_csv(
-            save_folder, wav_lst, text_dict, split, n_sentences,
-        )
+        if mode == LibriSpeechMode.ALIGNMENT:
+            create_alignment_json(
+                save_folder,
+                wav_lst,
+                text_dict,
+                alignments_dict,
+                split,
+                n_sentences,
+            )
+        else:
+            create_csv(
+                save_folder, wav_lst, text_dict, split, n_sentences,
+            )
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
@@ -259,6 +297,9 @@ def split_lexicon(data_folder, split_ratio):
         f.writelines(test_lines)
 
 
+FileRecord = namedtuple("FileRecord", "snt_id duration wav_file spk_id wrd")
+
+
 def create_csv(
     save_folder, wav_lst, text_dict, split, select_n_sentences,
 ):
@@ -298,21 +339,7 @@ def create_csv(
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
 
-        snt_id = wav_file.split("/")[-1].replace(".flac", "")
-        spk_id = "-".join(snt_id.split("-")[0:2])
-        wrds = text_dict[snt_id]
-
-        signal, fs = torchaudio.load(wav_file)
-        signal = signal.squeeze(0)
-        duration = signal.shape[0] / SAMPLERATE
-
-        csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            spk_id,
-            str(" ".join(wrds.split("_"))),
-        ]
+        csv_line = get_file_record(wav_file, text_dict)
 
         #  Appending current file to the csv_lines list
         csv_lines.append(csv_line)
@@ -333,6 +360,18 @@ def create_csv(
     # Final print
     msg = "%s successfully created!" % (csv_file)
     logger.info(msg)
+
+
+def get_file_record(wav_file, text_dict):
+    snt_id = wav_file.split("/")[-1].replace(".flac", "")
+    spk_id = "-".join(snt_id.split("-")[0:2])
+    wrds = text_dict[snt_id]
+
+    signal, fs = torchaudio.load(wav_file)
+    signal = signal.squeeze(0)
+    duration = signal.shape[0] / SAMPLERATE
+    wrd = str(" ".join(wrds.split("_")))
+    return FileRecord(snt_id, duration, wav_file, spk_id, wrd)
 
 
 def skip(splits, save_folder, conf):
@@ -375,6 +414,72 @@ def skip(splits, save_folder, conf):
             skip = False
 
     return skip
+
+
+def create_alignment_json(
+    save_folder,
+    wav_lst,
+    text_dict,
+    alignments_dict,
+    split,
+    select_n_sentences,
+    json_indent=2,
+):
+    """Creates a JSON file with alignment information given a list
+    of wav files
+
+    Arguments
+    ---------
+    save_folder : str
+        Location of the folder for storing the csv.
+    wav_lst : list
+        The list of wav files of a given data split.
+    text_dict : dict
+        The dictionary containing the text of each sentence.
+    alignments_dict: dict
+        The dictionary containing the alignment file for
+        each sentence
+    split : str
+        The name of the current data split.
+    select_n_sentences : int, optional
+        The number of sentences to select.
+
+    Returns
+    -------
+    None
+
+    """
+    json_file = os.path.join(save_folder, split + ".json")
+    if os.path.exists(json_file):
+        logger.info("JSON file %s already exists, not recreating." % json_file)
+        return
+
+    # Preliminary prints
+    logger.info("Creating JSON lists in  %s...", json_file)
+
+    snt_cnt = 0
+    data = {}
+    # Processing all the wav files in wav_lst
+    for wav_file in wav_lst:
+        record = get_file_record(wav_file, text_dict)
+        record_dict = record._asdict()
+        record_dict["char"] = record.wrd
+        del record_dict["wav_file"]
+        alignment_file_name = alignments_dict.get(wav_file)
+        if alignment_file_name and os.path.isfile(alignment_file_name):
+            alignment_data = parse_alignments(alignment_file_name)
+        else:
+            alignment_data = {}
+            logger.warn("No alignments found for %s", wav_file)
+        record_dict.update(alignment_data)
+        data[record.snt_id] = record_dict
+        snt_cnt = snt_cnt + 1
+
+        if snt_cnt == select_n_sentences:
+            break
+
+    with open(json_file, "w") as out_file:
+        json.dump(data, out_file, indent=json_indent)
 
 
 def text_to_dict(text_lst):
@@ -428,3 +533,101 @@ def check_librispeech_folders(data_folder, splits):
                 "Librispeech dataset)" % split_folder
             )
             raise OSError(err_msg)
+
+
+def get_alignment_path(data_folder, alignments_folder, file_name):
+    """Returns the path in the LibriSpeech-Alignments dataset
+    corresponding to the specified file path in LibriSpeech
+
+    Arguments
+    ---------
+    data_folder: str
+        the path to LibriSpeech
+    alignments_folder: str
+        the path to LibriSpeech-Alignments
+    file_name: str
+        the file name within LibriSpeech
+
+    Returns
+    -------
+    file_name: str
+        the alignment file path
+    """
+    file_name_rel = os.path.relpath(file_name, data_folder)
+    file_dirname = os.path.dirname(file_name_rel)
+    file_basename = os.path.basename(file_name_rel)
+    file_basename_noext, _ = os.path.splitext(file_basename)
+
+    file_name_alignments = os.path.join(
+        alignments_folder, file_dirname, f"{file_basename_noext}.TextGrid"
+    )
+    return file_name_alignments
+
+
+def parse_alignments(file_name):
+    """Parses a given LibriSpeech-Alignments TextGrid file and
+    converts the results to the desired format (to be used in JSON
+    metadata)
+
+    Arguments
+    ---------
+    file_name: str
+        the file name of the TextGrid file
+
+    Returns
+    -------
+    details: dict
+        the metadata details
+    """
+    try:
+        import textgrids
+    except ImportError:
+        print(
+            "Parsing LibriSpeech-alignments requires the"
+            "praat-textgrids package"
+        )
+
+    text_grid = textgrids.TextGrid()
+    text_grid.read(file_name)
+    word_intervals = text_grid.interval_tier_to_array("words")
+    phn_intervals = text_grid.interval_tier_to_array("phones")
+    details = {}
+    details.update(intervals_to_dict(word_intervals, "wrd"))
+    details.update(intervals_to_dict(phn_intervals, "phn"))
+    return details
+
+
+INTERVAL_MAP = [("label", ""), ("begin", "_start"), ("end", "_end")]
+
+
+def intervals_to_dict(intervals, prefix):
+    """
+    Converts a parsed list of intervals from PRAAT TextGrid
+    to a learning-friendly array
+
+    Arguments
+    ---------
+    intervals: list
+        A list of raw TextGrid intervals, as returned by
+        TextGrid.interval_tier_to_array
+    prefix: str
+        the prefix to add
+
+    Returns
+    -------
+    result: dict
+        A dictionary of the form
+            {
+                "{prefix}": <list of labels>,
+                "{prefix}_start": <list of begin values>,
+                "{prefix}_end": <list of end values>,
+                "{prefix}_count: <number of intervals>
+            }
+
+    """
+    result = {
+        f"{prefix}{suffix}": [interval[key] for interval in intervals]
+        for key, suffix in INTERVAL_MAP
+    }
+    result[f"{prefix}_count"] = len(intervals)
+    return result
