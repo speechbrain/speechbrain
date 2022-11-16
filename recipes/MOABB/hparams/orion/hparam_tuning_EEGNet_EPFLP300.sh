@@ -12,7 +12,7 @@ export ORION_DB_TYPE=PickledDB
 cd ../..
 #'random_seed'
 orion hunt -n $HPOPT_EXPERIMENT_NAME -c $HPOPT_CONFIG_FILE --exp-max-trials=250  \
-	./run_experiments_seed_variability.sh hparams/EEGNet_EPFLP300_hparam_search.yaml \
+	./run_experiments_seed_variability.sh hparams/EEGNet_EPFLP300_seed_variability.yaml \
 	/localscratch/eeg_data $OUTPUT_FOLDER 1 1 'random_seed' 1 f1 valid_metrics.pkl false true \
   --number_of_epochs~"uniform(250, 1000, discrete=True)" \
   --avg_models~"uniform(1, 15,discrete=True)" \
