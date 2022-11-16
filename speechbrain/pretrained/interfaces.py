@@ -2832,7 +2832,9 @@ class HIFIGAN(Pretrained):
         """
         waveform = waveform.squeeze(1)
         # the correct audio length should be hop_len * mel_len
-        mask = length_to_mask(mel_lens * hop_len, waveform.shape[1]).bool()
+        mask = length_to_mask(
+            mel_lens * hop_len, waveform.shape[1], device=waveform.device
+        ).bool()
         waveform.masked_fill_(~mask, 0.0)
         return waveform.unsqueeze(1)
 

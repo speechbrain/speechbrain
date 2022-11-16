@@ -81,7 +81,7 @@ class FastSpeech2Brain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         x, y, metadata = self.batch_to_device(batch, return_metadata=True)
-        self.last_batch = [x[0], y[-1], predictions[0], *metadata]
+        self.last_batch = [x[0], y[-1], y[-2], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
         return self.hparams.criterion(predictions, y)
 
@@ -221,8 +221,9 @@ class FastSpeech2Brain(sb.Brain):
 
         if self.last_batch is None:
             return
-        _, _, mel, _, wavs = self.last_batch
+        _, _, mel_len, mel, _, wavs = self.last_batch
         mel = mel[: self.hparams.progress_batch_sample_size]
+        mel_len = mel_len[0:self.hparams.progress_batch_sample_size]
         assert (
             self.hparams.vocoder == "hifi-gan"
             and self.hparams.pretrained_vocoder is True
@@ -234,7 +235,7 @@ class FastSpeech2Brain(sb.Brain):
             source=self.hparams.vocoder_source,
             savedir=self.hparams.vocoder_download_path,
         )
-        waveforms = hifi_gan.decode_batch(mel.transpose(2, 1))
+        waveforms = hifi_gan.decode_batch(mel.transpose(2, 1), mel_len, self.hparams.hop_length)
         for idx, wav in enumerate(waveforms):
 
             path = os.path.join(

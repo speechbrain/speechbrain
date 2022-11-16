@@ -13,7 +13,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/fastspeech2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 500
+epochs: 500 # Note: 100 epochs are enough for good quality
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_min_run: 50
