@@ -26,6 +26,7 @@ progress_batch_sample_size: 4
 data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
 duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip?dl=1
 duration_folder: !ref <data_folder>
+pitch_folder: !ref <data_folder>/pitch
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
@@ -152,13 +153,13 @@ modules:
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     drop_last: False  #True #False
-    num_workers: 24
+    num_workers: 4
     shuffle: True
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
-    num_workers: 8
+    num_workers: 4
     shuffle: False
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 

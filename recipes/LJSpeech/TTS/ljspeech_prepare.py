@@ -12,6 +12,9 @@ import csv
 import json
 import random
 import logging
+import torchaudio
+import numpy as np
+from tqdm import tqdm
 from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import load_pkl, save_pkl, load_data_json
 
@@ -34,8 +37,16 @@ def prepare_ljspeech(
     splits=["train", "valid"],
     split_ratio=[90, 10],
     seed=1234,
+    duration_link=None,
+    duration_folder=None,
+    compute_pitch=False,
+    pitch_folder=".",
+    pitch_n_fft=1024,
+    pitch_hop_length=256,
+    pitch_min_f0=65,
+    pitch_max_f0=2093,
+    create_symbol_list=False,
     skip_prep=False,
-    **kwargs,
 ):
     """
     Prepares the csv files for the LJspeech datasets.
@@ -50,10 +61,26 @@ def prepare_ljspeech(
         List of splits to prepare.
     split_ratio : list
         Proportion for train and validation splits.
-    skip_prep: Bool
-        If True, skip preparation.
     seed : int
         Random seed
+    duration_link: link
+        URL where to download the duration links (needed by fastspeech2).
+    duration_folder: path
+        Folder where to store the durations downloaded from duration_link.
+    compute_pitch: bool
+        If True, it computes the pitch (needed by fastspeech2)
+    pitch_folder:
+        Folder where to store the pitch of each audio.
+    pitch_n_fft: int
+        Number of fft points for pitch computation.
+    pitch_hop_length: int
+        Hop length for pitch computation.
+    pitch_min_f0: int
+        Minimum f0 for pitch compuation.
+    pitch_max_f0:
+        Max f0 for pitch computation.
+    skip_prep: Bool
+            If True, skip preparation.
 
     Example
     -------
@@ -80,6 +107,9 @@ def prepare_ljspeech(
     }
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
+    if compute_pitch:
+        if not os.path.exists(pitch_folder):
+            os.makedirs(pitch_folder)
 
     # Setting ouput files
     meta_csv = os.path.join(data_folder, METADATA_CSV)
@@ -90,21 +120,14 @@ def prepare_ljspeech(
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)
 
-    if "duration_link" in kwargs:
-        if "duration_folder" not in kwargs:
-            duration_folder = os.path.join(data_folder)
-        else:
-            duration_folder = kwargs["duration_folder"]
+    # Download duration folder
+    if duration_link is not None:
         if not os.path.exists(duration_folder + "durations/LJ001-0001.npy"):
             logger.info("Downloading durations for fastspeech training")
             download_file(
-                kwargs["duration_link"],
-                duration_folder + "/durations.zip",
-                unpack=True,
+                duration_link, duration_folder + "/durations.zip", unpack=True,
             )
-    else:
-        durations_folder = None
-
+        duration_folder = duration_folder + "/durations"
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
         logger.info("Skipping preparation, completed in previous run.")
@@ -119,15 +142,19 @@ def prepare_ljspeech(
 
     data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
 
-    # Prepare csv
-    durations_folder = duration_folder + "/durations"
     if "train" in splits:
         prepare_json(
             data_split["train"],
             save_json_train,
             wavs_folder,
             meta_csv,
-            durations_folder,
+            duration_folder,
+            compute_pitch,
+            pitch_folder,
+            pitch_n_fft,
+            pitch_hop_length,
+            pitch_min_f0,
+            pitch_max_f0,
         )
     if "valid" in splits:
         prepare_json(
@@ -135,7 +162,13 @@ def prepare_ljspeech(
             save_json_valid,
             wavs_folder,
             meta_csv,
-            durations_folder,
+            duration_folder,
+            compute_pitch,
+            pitch_folder,
+            pitch_n_fft,
+            pitch_hop_length,
+            pitch_min_f0,
+            pitch_max_f0,
         )
     if "test" in splits:
         prepare_json(
@@ -143,9 +176,15 @@ def prepare_ljspeech(
             save_json_test,
             wavs_folder,
             meta_csv,
-            durations_folder,
+            duration_folder,
+            compute_pitch,
+            pitch_folder,
+            pitch_n_fft,
+            pitch_hop_length,
+            pitch_min_f0,
+            pitch_max_f0,
         )
-    if "create_symbol_list" in kwargs:
+    if create_symbol_list:
         create_symbol_file(save_folder, save_json_train)
     save_pkl(conf, save_opt)
 
@@ -255,7 +294,19 @@ def split_sets(data_folder, splits, split_ratio):
     return data_split, meta_csv
 
 
-def prepare_json(seg_lst, json_file, wavs_folder, csv_reader, durations_folder):
+def prepare_json(
+    seg_lst,
+    json_file,
+    wavs_folder,
+    csv_reader,
+    durations_folder,
+    compute_pitch,
+    pitch_folder,
+    pitch_n_fft,
+    pitch_hop_length,
+    pitch_min_f0,
+    pitch_max_f0,
+):
     """
     Creates json file given a list of indexes.
 
@@ -269,13 +320,31 @@ def prepare_json(seg_lst, json_file, wavs_folder, csv_reader, durations_folder):
         LJspeech wavs folder
     csv_reader : _csv.reader
         LJspeech metadata
+    duration_folder: path
+        Folder where to store the durations downloaded from duration_link.
+    compute_pitch: bool
+        If True, it computes the pitch (needed by fastspeech2)
+    pitch_folder:
+        Folder where to store the pitch of each audio.
+    pitch_n_fft: int
+        Number of fft points for pitch computation.
+    pitch_hop_length: int
+        Hop length for pitch computation.
+    pitch_min_f0: int
+        Minimum f0 for pitch compuation.
+    pitch_max_f0:
+        Max f0 for pitch computation.
 
     Returns
     -------
     None
     """
+
+    print("preparing %s..." % (json_file))
+    if compute_pitch:
+        print("Computing pitch as well. This takes several minutes...")
     json_dict = {}
-    for index in seg_lst:
+    for index in tqdm(seg_lst):
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
         label = list(csv_reader)[index][2]
@@ -287,6 +356,24 @@ def prepare_json(seg_lst, json_file, wavs_folder, csv_reader, durations_folder):
         if durations_folder is not None:
             duration_path = os.path.join(durations_folder, id + ".npy")
             json_dict[id].update({"durations": duration_path})
+
+        # Pitch Computation
+        if compute_pitch:
+            pitch_file = wav.replace(".wav", ".npy").replace(
+                wavs_folder, pitch_folder
+            )
+            if not os.path.isfile(pitch_file):
+                audio, fs = torchaudio.load(wav)
+                pitch = torchaudio.functional.compute_kaldi_pitch(
+                    waveform=audio,
+                    sample_rate=fs,
+                    frame_length=(pitch_n_fft / fs * 1000),
+                    frame_shift=(pitch_hop_length / fs * 1000),
+                    min_f0=pitch_min_f0,
+                    max_f0=pitch_max_f0,
+                )[0, :, 0]
+                np.save(pitch_file, pitch)
+            json_dict[id].update({"pitch": pitch_file})
 
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:

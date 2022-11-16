@@ -296,23 +296,17 @@ def dataio_prepare(hparams):
     input_encoder.update_from_iterable(lexicon, sequence_input=False)
     # load audio, text and durations on the fly; encode audio and text.
 
-    @sb.utils.data_pipeline.takes("wav", "label", "durations")
+    @sb.utils.data_pipeline.takes("wav", "label", "durations", "pitch")
     @sb.utils.data_pipeline.provides("mel_text_pair")
-    def audio_pipeline(wav, label, dur):
+    def audio_pipeline(wav, label, dur, pitch):
         durs = np.load(dur)
         durs_seq = torch.from_numpy(durs).int()
         text_seq = input_encoder.encode_sequence_torch(label.lower()).int()
         assert len(text_seq) == len(durs)  # ensure every token has a duration
         audio = sb.dataio.dataio.read_audio(wav)
         mel, energy = hparams["mel_spectogram"](audio=audio)
-        pitch = torchaudio.functional.compute_kaldi_pitch(
-            waveform=audio,
-            sample_rate=hparams["sample_rate"],
-            frame_length=(hparams["n_fft"] / hparams["sample_rate"] * 1000),
-            frame_shift=(hparams["hop_length"] / hparams["sample_rate"] * 1000),
-            min_f0=hparams["min_f0"],
-            max_f0=hparams["max_f0"],
-        )[:, 0]
+        pitch = np.load(pitch)
+        pitch = torch.from_numpy(pitch)
         pitch = pitch[: mel.shape[-1]]
         return text_seq, durs_seq, mel, pitch, energy, len(text_seq)
 
@@ -324,7 +318,7 @@ def dataio_prepare(hparams):
             json_path=hparams[f"{dataset}_json"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
-            output_keys=["mel_text_pair", "wav", "label", "durations"],
+            output_keys=["mel_text_pair", "wav", "label", "durations", "pitch"],
         )
     return datasets
 
@@ -349,11 +343,17 @@ def main():
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
-            "duration_link": hparams["duration_link"],
-            "duration_folder": hparams["duration_folder"],
             "splits": hparams["splits"],
             "split_ratio": hparams["split_ratio"],
             "seed": hparams["seed"],
+            "duration_link": hparams["duration_link"],
+            "duration_folder": hparams["duration_folder"],
+            "compute_pitch": True,
+            "pitch_folder": hparams["pitch_folder"],
+            "pitch_n_fft": hparams["n_fft"],
+            "pitch_hop_length": hparams["hop_length"],
+            "pitch_min_f0": hparams["min_f0"],
+            "pitch_max_f0": hparams["max_f0"],
             "skip_prep": hparams["skip_prep"],
             "create_symbol_list": True,
         },
