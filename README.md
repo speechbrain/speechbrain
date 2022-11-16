@@ -1,43 +1,38 @@
-<p align="center">
-  <img src="docs/images/speechbrain-logo.svg" alt="SpeechBrain Logo"/>
-</p>
-
-[![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/SpeechBrain1/)
+# IMPROVED SpeechBrain Module by Algmon
 
 the Algmon version of SpeechBrain is an advanced conversational AI toolkit based on PyTorch.
 
-The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **language identification**, **multi-microphone signal processing**, and many others.
+The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop speech tech, including **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **language identification**, **multi-microphone signal processing** etc.
 
-<img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> **Please, star our project on github (see top-right corner) if you appreciate our contribution to the community!**
-
-*SpeechBrain is currently in beta*.
+*the toolkit is currently in beta*.
 
 | **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
-# Key features
+## Key features
 
 SpeechBrain provides various useful tools to speed up and facilitate research on speech and language technologies:
-- Various pretrained models nicely integrated with <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> <sub>(HuggingFace)</sub> in our official [organization account](https://huggingface.co/speechbrain). These models are coupled with easy-inference interfaces that facilitate their use.  To help everyone replicate our results, we also provide all the experimental results and folders (including logs, training curves, etc.) in a shared Google Drive folder.
+
+- Various pre-trained models are nicely integrated with HuggingFace in [official organization account](https://huggingface.co/speechbrain). These models are coupled with easy-inference interfaces that facilitate their use.  To help everyone replicate our results, we also provide all the experimental results and folders (including logs, training curves, etc.) in a shared Google Drive folder.
 - The `Brain` class is a fully-customizable tool for managing training and evaluation loops over data. The annoying details of training loops are handled for you while retaining complete flexibility to override any part of the process when needed.
 - A YAML-based hyperparameter file that specifies all the hyperparameters, from individual numbers (e.g., learning rate) to complete objects (e.g., custom models). This elegant solution dramatically simplifies the training script.
 - Multi-GPU training and inference with PyTorch Data-Parallel or Distributed Data-Parallel.
-- Mixed-precision for faster training.
-- A transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loading style and enables users to customize the I/O pipelines (e.g., adding on-the-fly downsampling, BPE tokenization, sorting, threshold ...).
+- Mixed precision for faster training.
+- Transparent and entirely customizable data input and output pipeline. SpeechBrain follows the PyTorch data loading style and enables users to customize the I/O pipelines (e.g., adding on-the-fly downsampling, BPE tokenization, sorting and threshold ...).
 - On-the-fly dynamic batching
 - Efficient reading of large datasets from a shared  Network File System (NFS) via [WebDataset](https://github.com/webdataset/webdataset).
 - Interface with [HuggingFace](https://huggingface.co/speechbrain) for popular models such as wav2vec2  and Hubert.
 - Interface with [Orion](https://github.com/Epistimio/orion) for hyperparameter tuning.
 
+## Speech Recognition
 
-### Speech recognition
+SpeechBrain supports tech for end-to-end speech recognition:
 
-SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 - Support of wav2vec 2.0 pretrained model with finetuning.
-- State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
+- The state-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models, including RNNLM and TransformerLM. We also share several pre-trained models that you can easily use (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
-    - Many available encoders: CRDNN (VGG + {LSTM,GRU,LiGRU} + DNN), ResNet, SincNet, vanilla transformers, context net-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in a few hours of work. The decoder is fully customizable: LSTM, GRU, LiGRU, transformer, or your neural network!
-    - Optimised and fast beam search on both CPUs and GPUs.
+  - Many available encoders: CRDNN (VGG + {LSTM, GRU, LiGRU} + DNN), ResNet, SincNet, vanilla transformers, context net-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in a few hours of work. The decoder is fully customizable: LSTM, GRU, LiGRU, transformer, or your neural network!
+  - Optimized and fast beam search on both CPUs and GPUs.
 - Transducer end-to-end ASR with both a custom Numba loss and the torchaudio one. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Pre-trained ASR models for transcribing an audio file or extracting features for a downstream task.
 
