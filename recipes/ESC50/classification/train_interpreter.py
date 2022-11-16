@@ -40,6 +40,7 @@ import scipy.io.wavfile as wavf
 import soundfile as sf
 
 
+eps = 1e-10
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
@@ -107,6 +108,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
+        #import pdb; pdb.set_trace()
         Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
         Xmel = librosa.feature.melspectrogram(
             sr=self.hparams.sample_rate,
@@ -181,12 +183,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         # Selects the contribution of component j (j=idx) from the given input log magnitude spectrogram
         # Assume integer/numpy arrays for all input arguments, W of shape N_FREQ x N_COMP and H of N_COMP x N_TIME
         # Do W.abs() to force positive values
-        W_mat = np.abs(W)
-        ratio = np.outer(W_mat[:, idx], H[idx]) / (0.000001 + np.dot(W_mat, H))
+        W_mat = torch.abs(W)
+        # ratio = np.outer(W_mat[:, idx], H[idx]) / (0.000001 + np.dot(W_mat, H))
+        ratio = (W_mat[:, idx].unsqueeze(1) * H[idx].unsqueeze(0)) / (eps + torch.matmul(W_mat, H))
+
         # comp = np.exp(inp_lg_spec * ratio) - 1
         comp = inp_lg_spec * ratio
-        comp = torch.Tensor(comp)
-        ratio = torch.Tensor(ratio)
+        # comp = torch.Tensor(comp)
+        # ratio = torch.Tensor(ratio)
 
         return comp, ratio
 
@@ -206,6 +210,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         ax[1, 0].set_ylabel("Target")
         ax[1, 0].imshow(target[0, ...])
         ax[1, 1].imshow(target[1, ...])
+        ax.
         makedirs(
             os.path.join(self.hparams.output_folder, f"reconstructions"),
             exist_ok=True,
@@ -265,7 +270,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
                 # computes time activations per component
                 pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
-                print(pooled_act.shape)
+                # print(pooled_act.shape)
 
                 pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
                 pooled_act[0] = pooled_act[0] / pooled_act[0].max()
@@ -286,10 +291,10 @@ class InterpreterESC50Brain(sb.core.Brain):
                     )
                     if pooled_act[0, i] > 0.2:
                         expl_comp += comp[i]
-                
-                expl_comp = np.exp(expl_comp) - 1
-                interpretation = istft((expl_comp * Xs[0]).numpy(), hop_length=512)
-                original_audio = istft(Xs[0].numpy(), hop_length=512)
+
+                expl_comp = torch.exp(expl_comp) - 1
+                interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
+                original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
 
                 # save reconstructed and original spectrograms
                 makedirs(

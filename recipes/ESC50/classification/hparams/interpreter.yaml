@@ -55,7 +55,7 @@ max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
 
-device: "cpu"
+device: "cuda:0"
 
 # Feature parameters
 n_mels: 80
@@ -220,7 +220,7 @@ nmf: !new:custom_models.NMFDecoder
     FREQ: !ref <n_mels>
 
 alpha: 10 # applied to NMF loss
-beta: 0.8 # L1 regularization to time activations 
+beta: 0.8 # L1 regularization to time activations
 
 modules:
     compute_features: !ref <compute_features>
