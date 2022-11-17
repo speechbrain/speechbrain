@@ -106,6 +106,8 @@ class DynamicMixingConfig:
 
         assert len(self.num_spkrs) == len(self.num_spkrs_prob)
         assert len(self.overlap_ratio) == len(self.overlap_prob)
+        assert (self.noise_add and self.noise_files) or not self.noise_add
+        assert (self.rir_add and self.rir_files) or not self.rir_add
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -210,25 +212,47 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
           - noise
           - data
         """
-        # TODO: Refactor completly, add Mixture class
-        n_spkrs = np.random.choice(
+
+        mix_info = {
+            "num_spkrs": 0,
+            "speakers": [],
+            "sources": [],
+            "source_lengths": [],
+            "overlap_ratios_paddings": [],
+            "noise": None,
+            "rir": None,
+            "data": [],
+            "duration": 0.0,
+        }
+
+        mix_info["num_spkrs"] = np.random.choice(
             self.config.num_spkrs, p=self.config.num_spkrs_prob
-        )
-        if n_spkrs <= 0:
+        ).item()
+
+        if mix_info["num_spkrs"] <= 0:
             length = random.randint(
                 self.config.min_source_len, self.config.max_source_len
             )
             sources = [torch.zeros(length)]
-            mixture, sources, noise = self.__postprocess__(sources[0], sources)
-            return mixture, ["noise"], [(0.0, [(0, 0)])], sources, noise, []
+            mixture, sources, noise = self.__postprocess__(
+                sources[0], sources, mix_info=mix_info
+            )
+            mix_info["speakers"].append("no-spkr")
+            # return mixture, ["noise"], [(0.0, [(0, 0)])], sources, noise, []
+            return mixture, sources, noise, mix_info
 
-        mix_spkrs = np.random.choice(
-            self.spkr_names, n_spkrs, replace=False, p=self.spkr_weights
+        mix_info["speakers"] = np.random.choice(
+            self.spkr_names,
+            mix_info["num_spkrs"],
+            replace=False,
+            p=self.spkr_weights,
         )
+        mix_info["speakers"] = list(mix_info["speakers"])
+
         rir = None
-        if self.config.rir_add:
-            rir_file = np.random.choice(self.config.rir_files)
-            rir, fs = torchaudio.load(rir_file)
+        if self.config.rir_add and random.uniform(0, 1) < self.config.rir_prob:
+            mix_info["rir"] = np.random.choice(self.config.rir_files)
+            rir, fs = torchaudio.load(mix_info["rir"])
             assert (
                 fs == self.orig_sr
             ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
@@ -238,9 +262,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         sources = []
         source_idxs = []
         fs = None
-        for spkr in mix_spkrs:
+        for spkr in mix_info["speakers"]:
             spkr_idx = random.randint(0, len(self.spkr_files[spkr]) - 1)
             src_file, src_idx = self.spkr_files[spkr][spkr_idx]
+            mix_info["sources"].append(src_file)
             src_audio, fs = torchaudio.load(src_file)
             assert (
                 fs == self.orig_sr
@@ -248,30 +273,34 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             src_audio = self.resampler(src_audio)
             src_audio = src_audio[0]  # Support only single channel
             # use same RIR for all sources
-            src_audio = self.__prepare_source__(src_audio, rir)
+            src_audio = self.__prepare_source__(
+                src_audio, rir, mix_info=mix_info
+            )
             sources.append(src_audio)
             source_idxs.append(src_idx)
 
-        sources, source_idxs = zip(
+        sources, source_idxs, src_files, src_lens = zip(
             *sorted(
-                zip(sources, source_idxs),
+                zip(sources, source_idxs, mix_info['sources'], mix_info["source_lengths"]),
                 key=lambda x: x[0].size(0),
                 reverse=True,
             )
         )
-        mixture = sources[0]  # longest audio
+        mix_info['sources'] = list(src_files)
+        mix_info['source_lengths'] = list(src_lens)
+
+        mixture = sources[0].detach().clone()  # longest audio
         padded_sources = [sources[0]]
-        overlap_ratios = []
         for i in range(1, len(sources)):
             src = sources[i]
             ratio = np.random.choice(
                 self.config.overlap_ratio, p=self.config.overlap_prob
-            )
+            ).item()
             overlap_samples = int(src.size(0) * ratio)
 
             mixture, padded_tmp, paddings = mix(src, mixture, overlap_samples)
             # padded sources are returned in same order
-            overlap_ratios.append((ratio, paddings))
+            mix_info["overlap_ratios_paddings"].append((ratio, paddings))
 
             # previous padded_sources are shorter
             padded_sources = __pad_sources__(
@@ -280,24 +309,32 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             )
             padded_sources.append(padded_tmp[0])
         mixture, padded_source, noise = self.__postprocess__(
-            mixture, padded_sources
+            mixture, padded_sources, mix_info=mix_info
         )
 
-        data = None
         if self.dataset is not None:
-            data = [self.dataset[idx] for idx in source_idxs]
+            mix_info["data"] = [self.dataset[idx] for idx in source_idxs]
 
-        if len(overlap_ratios) == 0:
-            overlap_ratios.append((0.0, [(0, 0)]))
-        return mixture, mix_spkrs, overlap_ratios, padded_sources, noise, data
+        return mixture, padded_sources, noise, mix_info
 
-    def __prepare_source__(self, source, rir, is_noise=False):
+    def __prepare_source__(self, source, rir, is_noise=False, mix_info={}):
 
         # cut the source to a random length
         length = random.randint(
             self.config.min_source_len, self.config.max_source_len
         )
-        source = source[:length]
+        if length < source.size(0) and self.dataset:
+            logging.warn("Cutting source to shorter sequence!")
+            logging.warn("provided data do not correspondent to the mixture")
+            logging.warn(
+                "you can solve this issue by using larger 'config.min_source_len'"
+            )
+
+        if not is_noise:
+            # noise is automatically adjusted to the mixture size
+            source = source[:length]
+            mix_info["source_lengths"] = mix_info.get("source_lengths", [])
+            mix_info["source_lengths"].append(length)
 
         if self.config.audio_norm:
             # normalize loudness and apply random gain
@@ -314,33 +351,33 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             )
 
         # add reverb
-        if (
-            not is_noise
-            and self.config.rir_add
-            and random.uniform(0, 1) < self.config.rir_prob
-        ):
+        if not is_noise and rir is not None:
             # noise is not reverberated
             reverberate(source, rir)
         return source
 
-    def __postprocess__(self, mixture, sources):
+    def __postprocess__(self, mixture, sources, mix_info={}):
         # add noise
         noise = None
         if (
             self.config.noise_add
             and random.uniform(0, 1) < self.config.noise_prob
         ):
-            noise_f = np.random.choice(self.config.noise_files)
-            noise, fs = torchaudio.load(noise_f)
+            mix_info["noise"] = np.random.choice(self.config.noise_files)
+            noise, fs = torchaudio.load(mix_info["noise"])
             assert (
                 fs == self.orig_sr
             ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
             noise = self.resampler(noise)
-            noise = self.__prepare_source__(noise[0], None, is_noise=True)
+            noise = self.__prepare_source__(
+                noise[0], None, is_noise=True, mix_info=mix_info
+            )
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
             )  # extend the noise
-            mixture += noise[: mixture.size(0)]
+
+            noise = noise[: mixture.size(0)]
+            mixture += noise
 
         # replace zeros with small gaussian noise
         if self.config.white_noise_add:
@@ -361,6 +398,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         mixture = gain * mixture
         sources = map(lambda src: gain * src, sources)
+        if noise is not None:
+            noise = gain * noise
+
+        mix_info["duration"] = mixture.size(0) / self.config.sample_rate
         return mixture, sources, noise
 
     def __len__(self):
@@ -432,7 +473,7 @@ def mix(src1, src2, overlap_samples):
     paddings = []
     if overlap_samples >= n_short:
         # full overlap
-        lpad = np.random.choice(range(n_diff)) if n_diff > 0 else 0
+        lpad = np.random.choice(range(n_diff)).item() if n_diff > 0 else 0
         rpad = n_diff - lpad
         paddings = [(lpad, rpad), (0, 0)]
     elif overlap_samples > 0:
