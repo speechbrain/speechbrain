@@ -463,6 +463,7 @@ def create_alignment_json(
     for wav_file in wav_lst:
         record = get_file_record(wav_file, text_dict)
         record_dict = record._asdict()
+        record_dict["wav"] = wav_file
         record_dict["char"] = record.wrd
         del record_dict["wav_file"]
         alignment_file_name = alignments_dict.get(wav_file)
