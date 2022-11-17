@@ -169,8 +169,7 @@ class SincConv(nn.Module):
         return wx
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 2:
             in_channels = 1
@@ -190,8 +189,7 @@ class SincConv(nn.Module):
         return in_channels
 
     def _get_sinc_filters(self,):
-        """This functions creates the sinc-filters to used for sinc-conv.
-        """
+        """This functions creates the sinc-filters to used for sinc-conv."""
         # Computing the low frequencies of the filters
         low = self.min_low_hz + torch.abs(self.low_hz_)
 
@@ -271,13 +269,11 @@ class SincConv(nn.Module):
         )
 
     def _to_mel(self, hz):
-        """Converts frequency in Hz to the mel scale.
-        """
+        """Converts frequency in Hz to the mel scale."""
         return 2595 * np.log10(1 + hz / 700)
 
     def _to_hz(self, mel):
-        """Converts frequency in the mel scale to Hz.
-        """
+        """Converts frequency in the mel scale to Hz."""
         return 700 * (10 ** (mel / 2595) - 1)
 
     def _manage_padding(
@@ -477,8 +473,7 @@ class Conv1d(nn.Module):
         return x
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 2:
             self.unsqueeze = True
@@ -502,8 +497,7 @@ class Conv1d(nn.Module):
         return in_channels
 
     def remove_weight_norm(self):
-        """Removes weight normalization at inference if used during training.
-        """
+        """Removes weight normalization at inference if used during training."""
         self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
@@ -528,8 +522,11 @@ class Conv2d(nn.Module):
         Dilation factor of the 2d convolutional filters over time and
         frequency axis.
     padding : str
-        (same, valid). If "valid", no padding is performed.
+        (same, valid, causal).
+        If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
+        If "causal" then proper padding is inserted to simulate causal convolution on the first spatial dimension.
+        (spatial dim 1 is dim 3 for both skip_transpose=False and skip_transpose=True)
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -539,8 +536,8 @@ class Conv2d(nn.Module):
     bias : bool
         If True, the additive bias b is adopted.
     skip_transpose : bool
-        If False, uses batch x time x channel convention of speechbrain.
-        If True, uses batch x channel x time convention.
+        If False, uses batch x spatial.dim2 x spatial.dim1 x channel convention of speechbrain.
+        If True, uses batch x channel x spatial.dim1 x spatial.dim2 convention.
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
@@ -609,6 +606,7 @@ class Conv2d(nn.Module):
             groups=groups,
             bias=bias,
         )
+
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
 
@@ -635,12 +633,17 @@ class Conv2d(nn.Module):
                 x, self.kernel_size, self.dilation, self.stride
             )
 
+        elif self.padding == "causal":
+            num_pad = (self.kernel_size[0] - 1) * self.dilation[1]
+            x = F.pad(x, (0, 0, num_pad, 0))
+
         elif self.padding == "valid":
             pass
 
         else:
             raise ValueError(
-                "Padding must be 'same' or 'valid'. Got " + self.padding
+                "Padding must be 'same','valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)
@@ -689,8 +692,7 @@ class Conv2d(nn.Module):
         return x
 
     def _check_input(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 3:
             self.unsqueeze = True
@@ -714,8 +716,7 @@ class Conv2d(nn.Module):
         return in_channels
 
     def remove_weight_norm(self):
-        """Removes weight normalization at inference if used during training.
-        """
+        """Removes weight normalization at inference if used during training."""
         self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
@@ -977,8 +978,7 @@ class ConvTranspose1d(nn.Module):
         return wx
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 2:
             self.unsqueeze = True
@@ -995,8 +995,7 @@ class ConvTranspose1d(nn.Module):
         return in_channels
 
     def remove_weight_norm(self):
-        """Removes weight normalization at inference if used during training.
-        """
+        """Removes weight normalization at inference if used during training."""
         self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
@@ -1437,8 +1436,7 @@ class GaborConv1d(nn.Module):
         return self._gabor_params_from_mels()
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 2:
             in_channels = 1
