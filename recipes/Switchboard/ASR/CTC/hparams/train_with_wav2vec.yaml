@@ -33,6 +33,8 @@ split_ratio: [99, 1]
 skip_prep: False
 # The Fisher corpus is only used for Tokenizer training here
 add_fisher_corpus: True
+# Remove optional/deletable parts of the transcript
+normalize_words: True
 train_tokenizer_csv: !ref <output_folder>/train_lm.csv
 # Maximum number of times the same utterance is allowed to appear
 # in the training data

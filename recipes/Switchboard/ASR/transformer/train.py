@@ -377,11 +377,12 @@ def dataio_prepare(hparams):
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
-        # Select the proper audio channel of the segment
-        if channel == "A":
-            resampled = resampled[:, 0]
-        else:
-            resampled = resampled[:, 1]
+        if info.num_channels > 1:
+            # Select the proper audio channel of the segment
+            if channel == "A":
+                resampled = resampled[:, 0]
+            else:
+                resampled = resampled[:, 1]
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(valtest_datasets, audio_pipeline)
@@ -411,11 +412,12 @@ def dataio_prepare(hparams):
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
-        # Select the proper audio channel of the segment
-        if channel == "A":
-            resampled = resampled[:, 0]
-        else:
-            resampled = resampled[:, 1]
+        if info.num_channels > 1:
+            # Select the proper audio channel of the segment
+            if channel == "A":
+                resampled = resampled[:, 0]
+            else:
+                resampled = resampled[:, 1]
 
         if hparams["speed_perturb"]:
             # sig = sb.dataio.dataio.read_audio(wav)
@@ -506,9 +508,12 @@ if __name__ == "__main__":
 
     # Helper function that removes optional/deletable parts of the transcript
     # for cleaner performance metrics
-    normalize_fn = functools.partial(
-        normalize_words, glm_alternatives=read_glm_csv(hparams["output_folder"])
-    )
+    normalize_fn = None
+    if hparams["normalize_words"]:
+        normalize_fn = functools.partial(
+            normalize_words,
+            glm_alternatives=read_glm_csv(hparams["output_folder"]),
+        )
 
     # Trainer initialization
     asr_brain = ASR(

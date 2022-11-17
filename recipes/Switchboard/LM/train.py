@@ -206,3 +206,5 @@ if __name__ == "__main__":
         min_key="loss",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
+
+    lm_brain.checkpointer.save_checkpoint(name="latest")

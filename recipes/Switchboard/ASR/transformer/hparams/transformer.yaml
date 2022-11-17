@@ -22,6 +22,8 @@ train_log: !ref <output_folder>/train_log.txt
 # Speechbrain HuggingFace repository, or you can provide a local
 # path pointing to a directory containing the lm.ckpt and tokenizer.ckpt.
 pretrained_lm_tokenizer_path: !PLACEHOLDER
+tokenizer_file: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+lm_file: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here
@@ -32,6 +34,8 @@ skip_prep: False
 # We don't need the Fisher corpus, here since
 # it is only used for Tokenizer and LM training
 add_fisher_corpus: False
+# Remove optional/deletable parts of the transcript
+normalize_words: True
 # Maximum number of times the same utterance is allowed to appear
 # in the training data.
 max_utt: 300
@@ -284,5 +288,5 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     lm: !ref <lm_model>
     tokenizer: !ref <tokenizer>
   paths:
-    lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
-    tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+    lm: !ref <lm_file>
+    tokenizer: !ref <tokenizer_file>
