@@ -133,10 +133,10 @@ def create_librigm_csv(
                     "s1_wav": s1_path,
                     "s1_wav_format": "wav",
                     "s1_wav_opts": None,
-                    "s2_wav": s2_path,
+                    "s2_wav": s2_path if os.path.exists(s2_path) else None,
                     "s2_wav_format": "wav",
                     "s2_wav_opts": None,
-                    "noise_wav": noise_path,
+                    "noise_wav": noise_path if os.path.exists(noise_path) else None,
                     "noise_wav_format": "wav",
                     "noise_wav_opts": None,
                 }

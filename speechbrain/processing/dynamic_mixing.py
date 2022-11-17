@@ -397,7 +397,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             gain = self.config.audio_max_amp / mix_max_amp
 
         mixture = gain * mixture
-        sources = map(lambda src: gain * src, sources)
+        sources = list(map(lambda src: gain * src, sources))
         if noise is not None:
             noise = gain * noise
 
@@ -409,18 +409,19 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         # TODO: Refactor completly
-        mix, spkrs, ratios, srcs, noise, data = self.generate()
-        if len(srcs) != 2:
-            raise NotImplementedError("getitem supports exactly 2 sources")
+        mix, srcs, noise, mix_info = self.generate()
+
+        for i in range(3 - len(srcs)):
+            srcs.append(torch.zeros(mix.size(0)))
 
         if idx is None:
             idx = uuid.uuid4()
         mix_id = (
             str(idx)
             + "_"
-            + "-".join(spkrs)
+            + "-".join(mix_info["speakers"])
             + "_overlap"
-            + "-".join(map(lambda x: f"{x[0]:.2f}", ratios))
+            + "-".join(map(lambda x: f"{x[0]:.2f}", mix_info["overlap_ratios_paddings"]))
         )
         # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
         dct = {
@@ -428,9 +429,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             "mix_sig": mix,
             "s1_sig": srcs[0],
             "s2_sig": srcs[1],
-            "s3_sig": torch.zeros(mix.size(0)),
-            "noise_sig": noise if noise else torch.zeros(mix.size(0)),
-            "data": data,
+            "s3_sig": srcs[2],
+            "noise_sig": noise if noise is not None else torch.zeros(mix.size(0)),
+            "data": mix_info["data"],
         }
 
         return dct

@@ -57,26 +57,30 @@ n_audio_to_save: 20
 # Dynamic Mixing
 # Room impulse responses
 # e.g. /yourpath/RIRS_NOISES/simulated_rirs/rir_list
+use_rir: true
 rir_files: null
 # Noises
 # e.g. /yourpath/wham_noise/tr/noise.lst
+use_noise: true
 noise_files: null
 
 dm_config: !new:speechbrain.processing.dynamic_mixing.DynamicMixingConfig
   num_spkrs: [0, 1, 2]
-  num_spkrs_prob: [0.1, 0.6, 0.3]
+  num_spkrs_prob: [0.05, 0.2, 0.75]
   overlap_ratio: [-1.0, -0.25, 0.0, 0.1, 0.2, 0.3, 0.4, 1.0]
   overlap_prob:  [0.05, 0.1, 0.05, 0.15, 0.15, 0.15, 0.15, 0.2]
   audio_norm: true
-  noise_add: true
+  noise_add: !ref <use_noise>
   noise_prob: 0.8
-  noise_files: !ref <rir_files>
-  rir_add: true
+  noise_files: !ref <noise_files>
+  noise_min_loudness: -45.0
+  noise_max_loudness: -40.0
+  rir_add: !ref <use_rir>
   rir_prob: 0.8
-  rir_files: !ref <noise_files>
+  rir_files: !ref <rir_files>
   sample_rate: 16000
-  min_source_len: 32000
-  max_source_len: 64000
+  min_source_len: 16000 # 1s
+  max_source_len: 64000 # 4s
 
 # Parameters for data augmentation
 use_wavedrop: False

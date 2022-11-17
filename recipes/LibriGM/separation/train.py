@@ -63,7 +63,7 @@ class Separation(sb.Brain):
 
                     mix = targets.sum(-1)
 
-                    if self.hparams.use_wham_noise:
+                    if self.hparams.use_noise:
                         noise = noise.to(self.device)
                         len_noise = noise.shape[1]
                         len_mix = mix.shape[1]
@@ -122,7 +122,7 @@ class Separation(sb.Brain):
 
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
-        if self.hparams.use_wham_noise:
+        if self.hparams.use_noise:
             noise = batch.noise_sig[0]
         else:
             noise = None
