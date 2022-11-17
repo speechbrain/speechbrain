@@ -11,7 +11,11 @@
         "wrd": "SUNDAY IS THE BEST PART OF THE WEEK",
         "words": "SUNDAY IS THE BEST PART OF THE WEEK",
         "trans": "SUNDAY IS THE BEST PART OF THE WEEK",
-        "emo": "anger"
+        "label": "SUNDAY IS THE BEST PART OF THE WEEK",
+        "emo": "anger",
+		"fold" : 0,
+		"class_string": "dog_bark",
+		"segment": true
     },
     "spk2_snt5": {
         "wav": "{data_root}/spk2_snt5.wav",
@@ -25,6 +29,10 @@
         "wrd": "KEN PAIRS LACK FULL FLAVOR",
         "words": "KEN PAIRS LACK FULL FLAVOR",
         "trans": "KEN PAIRS LACK FULL FLAVOR",
-        "emo": "sadness"
+        "label": "KEN PAIRS LACK FULL FLAVOR",
+        "emo": "sadness",
+		"fold" : 0,
+		"class_string": "siren",
+		"segment": true
     }
 }

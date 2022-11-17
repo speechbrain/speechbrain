@@ -12,7 +12,11 @@
         "wrd": "THE CHILD ALMOST HURT THE SMALL DOG",
         "words": "THE CHILD ALMOST HURT THE SMALL DOG",
         "trans": "THE CHILD ALMOST HURT THE SMALL DOG",
-        "emo": "anger"
+        "label": "THE CHILD ALMOST HURT THE SMALL DOG",
+        "emo": "anger",
+		"fold" : 0,
+		"class_string": "dog_bark",
+		"segment": true
     },
     "spk1_snt2": {
         "wav": "{data_root}/spk1_snt2.wav",
@@ -27,7 +31,12 @@
         "wrd": "DROP THE TUE WHEN YOU ADD THE FIGURES",
         "words": "DROP THE TUE WHEN YOU ADD THE FIGURES",
         "trans": "DROP THE TUE WHEN YOU ADD THE FIGURES",
-        "emo": "sadness"
+        "label": "DROP THE TUE WHEN YOU ADD THE FIGURES",
+        "emo": "sadness",
+		"fold" : 0,
+		"class_string": "siren",
+        "segment": true
+
     },
     "spk1_snt3": {
         "wav": "{data_root}/spk1_snt3.wav",
@@ -42,7 +51,11 @@
         "wrd": "AT THAT HIGH LEVEL THE AIR IS PURE",
         "words": "AT THAT HIGH LEVEL THE AIR IS PURE",
         "trans": "AT THAT HIGH LEVEL THE AIR IS PURE",
-        "emo": "happiness"
+        "label": "AT THAT HIGH LEVEL THE AIR IS PURE",
+        "emo": "happiness",
+		"fold" : 0,
+		"class_string": "dog_bark",
+		"segment": true
     },
     "spk1_snt4": {
         "wav": "{data_root}/spk1_snt4.wav",
@@ -57,7 +70,11 @@
         "wrd": "A THIN STRIPE RUNS DOWN THE MIDDLE",
         "words": "A THIN STRIPE RUNS DOWN THE MIDDLE",
         "trans": "A THIN STRIPE RUNS DOWN THE MIDDLE",
-        "emo": "neutrality"
+        "label": "A THIN STRIPE RUNS DOWN THE MIDDLE",
+        "emo": "neutrality",
+		"fold" : 0,
+		"class_string": "dog_bark",
+		"segment": true
     },
     "spk2_snt1": {
         "wav": "{data_root}/spk2_snt1.wav",
@@ -72,7 +89,11 @@
         "wrd": "WE ARE SURE THAT ONE WORE IS ENOUGH",
         "words": "WE ARE SURE THAT ONE WORE IS ENOUGH",
         "trans": "WE ARE SURE THAT ONE WORE IS ENOUGH",
-        "emo": "sadness"
+        "label": "WE ARE SURE THAT ONE WORE IS ENOUGH",
+        "emo": "sadness",
+		"fold" : 0,
+		"class_string": "siren",
+		"segment": true
     },
     "spk2_snt2": {
         "wav": "{data_root}/spk2_snt2.wav",
@@ -87,7 +108,11 @@
         "wrd": "WHAT JOY THERE IS IN LIVING",
         "words": "WHAT JOY THERE IS IN LIVING",
         "trans": "WHAT JOY THERE IS IN LIVING",
-        "emo": "anger"
+        "label": "WHAT JOY THERE IS IN LIVING",
+        "emo": "anger",
+		"fold" : 0,
+		"class_string": "dog_bark",
+		"segment": true
     },
     "spk2_snt3": {
         "wav": "{data_root}/spk2_snt3.wav",
@@ -102,7 +127,11 @@
         "wrd": "TEAR THIN SHEEP FROM THE OTHER PAT",
         "words": "TEAR THIN SHEEP FROM THE OTHER PAT",
         "trans": "TEAR THIN SHEEP FROM THE OTHER PAT",
-        "emo": "anger"
+        "label": "TEAR THIN SHEEP FROM THE OTHER PAT",
+        "emo": "anger",
+		"fold" : 0,
+		"class_string": "siren",
+		"segment": true
     },
     "spk2_snt4": {
         "wav": "{data_root}/spk2_snt4.wav",
@@ -117,6 +146,10 @@
         "wrd": "MEND THE COAT BEFORE YOU GO OUT",
         "words": "MEND THE COAT BEFORE YOU GO OUT",
         "trans": "MEND THE COAT BEFORE YOU GO OUT",
-        "emo": "sadness"
+        "label": "MEND THE COAT BEFORE YOU GO OUT",
+        "emo": "sadness",
+		"fold" : 0,
+		"class_string": "dog_bark",
+		"segment": true
     }
 }
