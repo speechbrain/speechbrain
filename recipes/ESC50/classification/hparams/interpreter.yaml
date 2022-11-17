@@ -192,8 +192,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: embedding_model.ckpt  # e.g. /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
-classifier_model_path: classifier.ckpt
+embedding_model_path: /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
+classifier_model_path: /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
