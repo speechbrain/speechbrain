@@ -517,7 +517,7 @@ def dataio_prep(hparams):
         if s2_wav:
             s2_sig = sb.dataio.dataio.read_audio(s2_wav)
         else:
-            s2_sig = torch.zeros(duration * hparams["sample_rate"])
+            s2_sig = torch.zeros(int(duration * hparams["sample_rate"]))
         return s2_sig
 
     if hparams["num_spks"] == 3:
@@ -527,7 +527,7 @@ def dataio_prep(hparams):
             if s3_wav:
                 s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             else:
-                s3_sig = torch.zeros(duration * hparams["sample_rate"])
+                s3_sig = torch.zeros(int(duration * hparams["sample_rate"]))
             return s3_sig
 
     if hparams["use_noise"]:
@@ -537,7 +537,7 @@ def dataio_prep(hparams):
             if noise_wav:
                 noise_sig = sb.dataio.dataio.read_audio(noise_wav)
             else:
-                noise_sig = torch.zeros(duration * hparams["sample_rate"])
+                noise_sig = torch.zeros(int(duration * hparams["sample_rate"]))
             return noise_sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
