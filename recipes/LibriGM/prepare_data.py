@@ -44,7 +44,6 @@ def prepare_librigm(
             dmsource,
             savepath,
             tr_splits=["train-clean-360"],
-            skip_prep=skip_prep,
         )
     else:
         raise ValueError("Unsupported Dataset: {}".format(dmsource))
