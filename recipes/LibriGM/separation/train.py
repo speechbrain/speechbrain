@@ -511,24 +511,33 @@ def dataio_prep(hparams):
         s1_sig = sb.dataio.dataio.read_audio(s1_wav)
         return s1_sig
 
-    @sb.utils.data_pipeline.takes("s2_wav")
+    @sb.utils.data_pipeline.takes("s2_wav", "duration")
     @sb.utils.data_pipeline.provides("s2_sig")
-    def audio_pipeline_s2(s2_wav):
-        s2_sig = sb.dataio.dataio.read_audio(s2_wav)
+    def audio_pipeline_s2(s2_wav, duration):
+        if s2_wav:
+            s2_sig = sb.dataio.dataio.read_audio(s2_wav)
+        else:
+            s2_sig = torch.zeros(duration * hparams["sample_rate"])
         return s2_sig
 
     if hparams["num_spks"] == 3:
-        @sb.utils.data_pipeline.takes("s3_wav")
+        @sb.utils.data_pipeline.takes("s3_wav", "duration")
         @sb.utils.data_pipeline.provides("s3_sig")
-        def audio_pipeline_s3(s3_wav):
-            s3_sig = sb.dataio.dataio.read_audio(s3_wav)
+        def audio_pipeline_s3(s3_wav, duration):
+            if s3_wav:
+                s3_sig = sb.dataio.dataio.read_audio(s3_wav)
+            else:
+                s3_sig = torch.zeros(duration * hparams["sample_rate"])
             return s3_sig
 
     if hparams["use_noise"]:
-        @sb.utils.data_pipeline.takes("noise_wav")
+        @sb.utils.data_pipeline.takes("noise_wav", "duration")
         @sb.utils.data_pipeline.provides("noise_sig")
-        def audio_pipeline_noise(noise_wav):
-            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+        def audio_pipeline_noise(noise_wav, duration):
+            if noise_wav:
+                noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+            else:
+                noise_sig = torch.zeros(duration * hparams["sample_rate"])
             return noise_sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
@@ -538,7 +547,7 @@ def dataio_prep(hparams):
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
 
     if hparams["use_noise"]:
-        print("Using the WHAM! noise in the data pipeline")
+        print("Using the noise in the data pipeline")
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
 
     if (hparams["num_spks"] == 2) and hparams["use_noise"]:

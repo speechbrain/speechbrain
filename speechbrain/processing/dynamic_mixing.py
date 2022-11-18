@@ -323,12 +323,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         length = random.randint(
             self.config.min_source_len, self.config.max_source_len
         )
-        if length < source.size(0) and self.dataset:
-            logging.warn("Cutting source to shorter sequence!")
-            logging.warn("provided data do not correspondent to the mixture")
-            logging.warn(
-                "you can solve this issue by using larger 'config.min_source_len'"
-            )
+        # TODO: length shortening is huge problem for ASR
 
         if not is_noise:
             # noise is automatically adjusted to the mixture size

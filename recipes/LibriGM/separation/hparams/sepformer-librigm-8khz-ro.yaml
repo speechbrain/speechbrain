@@ -37,7 +37,7 @@ test_only: False
 num_spks: 2
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
-sample_rate: 16000
+sample_rate: 8000
 n_overlap: [0, 10, 20, 30, 40] # random overlap values to choose from
 
 # Training parameters
@@ -200,6 +200,6 @@ pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
         decoder: !ref <Decoder>
         masknet: !ref <MaskNet>
     paths:
-        encoder: speechbrain/sepformer-whamr16k/encoder.ckpt
-        decoder: speechbrain/sepformer-whamr16k/decoder.ckpt
-        masknet: speechbrain/sepformer-whamr16k/masknet.ckpt
+        encoder: speechbrain/sepformer-wsj02mix/encoder.ckpt
+        decoder: speechbrain/sepformer-wsj02mix/decoder.ckpt
+        masknet: speechbrain/sepformer-wsj02mix/masknet.ckpt
