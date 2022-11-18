@@ -2673,8 +2673,8 @@ class Tacotron2(Pretrained):
 
     Example
     -------
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_vocoder)
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
@@ -2685,8 +2685,8 @@ class Tacotron2(Pretrained):
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_tts)
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
     >>> # Running the TTS
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> # Running Vocoder (spectrogram-to-waveform)
@@ -2736,13 +2736,145 @@ class Tacotron2(Pretrained):
             lens = [self.text_to_seq(item)[1] for item in texts]
             assert lens == sorted(
                 lens, reverse=True
-            ), "ipnut lengths must be sorted in decreasing order"
+            ), "input lengths must be sorted in decreasing order"
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
                 inputs.text_sequences.data, input_lengths
             )
         return mel_outputs_postnet, mel_lengths, alignments
+
+    def encode_text(self, text):
+        """Runs inference for a single text str"""
+        return self.encode_batch([text])
+
+    def forward(self, texts):
+        "Encodes the input texts."
+        return self.encode_batch(texts)
+
+
+class Fastspeech2(Pretrained):
+    """
+    A ready-to-use wrapper for Fastspeech2 (text -> mel_spec).
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> fastspeech2 = Fastspeech2.from_hparams(source="speechbrain/tts-fastspeecg2-ljspeech", savedir=tmpdir_tts)
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_batch(items)
+    >>>
+    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
+    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
+    >>> # Running the TTS
+    >>> mel_output, mel_length, alignment = fastspeech2.encode_text("Mary had a little lamb")
+    >>> # Running Vocoder (spectrogram-to-waveform)
+    >>> waveforms = hifi_gan.decode_batch(mel_output)
+    """
+
+    HPARAMS_NEEDED = ["model", "input_encoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        lexicon = [
+            "t",
+            "?",
+            "q",
+            "j",
+            "g",
+            "p",
+            "x",
+            "(",
+            "é",
+            "e",
+            "z",
+            ",",
+            "o",
+            "a",
+            "m",
+            "n",
+            "u",
+            "d",
+            ":",
+            "w",
+            "à",
+            "“",
+            ".",
+            "”",
+            "’",
+            "[",
+            "v",
+            "h",
+            " ",
+            "ê",
+            "b",
+            "'",
+            '"',
+            "f",
+            "â",
+            "!",
+            ";",
+            "l",
+            "r",
+            "è",
+            "i",
+            "]",
+            "s",
+            "k",
+            "y",
+            ")",
+            "c",
+            "ü",
+            "-",
+        ]
+        lexicon = ["@@"] + lexicon
+        self.input_encoder = self.hparams.input_encoder
+        self.input_encoder.update_from_iterable(lexicon, sequence_input=False)
+
+    def encode_batch(self, texts):
+        """Computes mel-spectrogram for a list of texts
+
+        Texts must be sorted in decreasing order on their lengths
+
+        Arguments
+        ---------
+        text: List[str]
+            texts to be encoded into spectrogram
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+        with torch.no_grad():
+            inputs = [
+                {
+                    "text_sequences": self.input_encoder.encode_sequence_torch(
+                        item.lower()
+                    ).int()
+                }
+                for item in texts
+            ]
+            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
+            mel_outputs, durations, pitch, energy = self.hparams.model(
+                inputs.text_sequences.data
+            )
+
+            # Transpose to make in compliant with HiFI GAN expected format
+            mel_outputs = mel_outputs.transpose(-1, 1)
+
+        return mel_outputs, durations, pitch, energy
 
     def encode_text(self, text):
         """Runs inference for a single text str"""
