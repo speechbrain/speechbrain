@@ -151,7 +151,7 @@ def sample_channels(x, adjacency_mtx, ch_names, n_steps, seed_nodes=['Cz']):
         print("Sampling all channels available: {0}".format(ch_names))
     return x
 
-
+# todo: check leave-one-session-out for >1 session training+valid (epflp300)
 class LeaveOneSessionOut(object):
     """Leave one session out iterator for MOABB datasets.
     Designing within-subject, cross-session and session-agnostic iterations on the dataset for a specific paradigm.
@@ -391,10 +391,10 @@ class LeaveOneSubjectOut(object):
             idx_train = np.array(idx_train)
             idx_valid = np.array(idx_valid)
 
-            tmp_x_valid = tmp_x_train[idx_train, ...]
-            tmp_y_valid = tmp_y_train[idx_train]
-            tmp_x_train = tmp_x_train[idx_valid, ...]
-            tmp_y_train = tmp_y_train[idx_valid]
+            tmp_x_train = tmp_x_train[idx_train, ...]
+            tmp_y_train = tmp_y_train[idx_train]
+            tmp_x_valid = tmp_x_train[idx_valid, ...]
+            tmp_y_valid = tmp_y_train[idx_valid]
 
             x_train.extend(tmp_x_valid)
             y_train.extend(tmp_y_valid)
