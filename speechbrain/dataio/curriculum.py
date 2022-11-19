@@ -6,7 +6,10 @@ Authors
 """
 import torch
 import speechbrain as sb
-from speechbrain.dataio.dataset import DynamicItemDataset, FilteredSortedDynamicItemDataset
+from speechbrain.dataio.dataset import (
+    DynamicItemDataset,
+    FilteredSortedDynamicItemDataset,
+)
 
 
 SAMPLE_OUTPUTS = [
@@ -18,7 +21,7 @@ SAMPLE_OUTPUTS = [
     "phn_end",
     "wrd",
     "char",
-    "phn"
+    "phn",
 ]
 
 
@@ -27,7 +30,7 @@ class CurriculumSpeechDataset(DynamicItemDataset):
     curriculum learning over a speech dataset with phoneme
     alignments similar to LibriSpeech-Alignments. The dataset
     selects sub-samples within the specified length range in words
-    
+
     Arguments
     ---------
     from_dataset: DynamicItemDataset
@@ -40,7 +43,11 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         the number of samples per epoch
     sample_rate: int
         the audio sampling rate, in Hertz
+    generator: torch.Generator
+        a random number generator (optional). A custom generator may
+        be supplied for reproducibility or fofr unit tests.
     """
+
     def __init__(
         self,
         from_dataset,
@@ -48,6 +55,7 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         max_words=3,
         num_samples=None,
         sample_rate=16000,
+        generator=None,
     ):
         super().__init__(data=from_dataset.data)
         self.base_dataset = from_dataset
@@ -56,15 +64,16 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         self.num_samples = num_samples
         self.sample_rate = sample_rate
         self.data_id_indices = {
-            data_id: idx 
-            for idx, data_id in enumerate(self.data_ids)}
+            data_id: idx for idx, data_id in enumerate(self.data_ids)
+        }
+        self.generator = generator
         self.sample_segments(self.base_dataset)
         self.setup_pipeline()
         self.pipeline = PipelineWrapper(self.pipeline, SAMPLE_OUTPUTS)
 
     def sample_segments(self, dataset):
         """Samples parts of the audio file at specific word boundaries
-        
+
         Arguments
         ---------
         datset: DynamicItemDataset
@@ -73,48 +82,41 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         # Exclude samples than have fewer
         # words than the minimum
         dataset = dataset.filtered_sorted(
-            key_min_value={
-                "wrd_count": self.min_words
-            }                
+            key_min_value={"wrd_count": self.min_words}
         )
         keys = ["wrd_count", "wrd_start", "wrd_end"]
-        with dataset.output_keys_as(keys):            
+        with dataset.output_keys_as(keys):
             wrd_count = torch.tensor(self._pluck("wrd_count"))
             wrd_start = self._pluck("wrd_start")
             wrd_end = self._pluck("wrd_end")
-            
 
-        # Randomly sample word counts in the 
+        # Randomly sample word counts in the
         # range form num_words to last_words
         self.sample_word_counts = torch.randint(
             low=self.min_words,
             high=self.max_words + 1,
-            size=(len(dataset),)
+            size=(len(dataset),),
+            generator=self.generator,
         )
 
         # Sample relative offsets, from 0.0 to 1.0.
         # 0.0 corresponds to the beginning of the
         # utterance, where as 1.0 represents wrd_count - n
         # where n is the sampled word count
-        sample_offsets_rel = torch.rand(len(dataset))
-        
+        sample_offsets_rel = torch.rand(len(dataset), generator=self.generator)
+
         # Determine the maximum possible offsets
         max_offset = wrd_count - self.sample_word_counts
         self.wrd_offset_start = (sample_offsets_rel * max_offset).floor().int()
         self.wrd_offset_end = self.wrd_offset_start + self.sample_word_counts
-        sample_start = torch.tensor([
-            item[idx]
-            for item, idx in zip(wrd_start, self.wrd_offset_start)
-        ])
-        sample_end = torch.tensor([
-            item[idx - 1]
-            for item, idx in zip(wrd_end, self.wrd_offset_end)
-        ])
-        sample_start_idx = time_to_index(
-            sample_start, self.sample_rate)
-        sample_end_idx = time_to_index(
-            sample_end, self.sample_rate
+        sample_start = torch.tensor(
+            [item[idx] for item, idx in zip(wrd_start, self.wrd_offset_start)]
         )
+        sample_end = torch.tensor(
+            [item[idx - 1] for item, idx in zip(wrd_end, self.wrd_offset_end)]
+        )
+        sample_start_idx = time_to_index(sample_start, self.sample_rate)
+        sample_end_idx = time_to_index(sample_end, self.sample_rate)
         self.sample_start_idx = sample_start_idx
         self.sample_end_idx = sample_end_idx
 
@@ -130,7 +132,7 @@ class CurriculumSpeechDataset(DynamicItemDataset):
             "wrd_start",
             "wrd_end",
             "wrd",
-            "phn"
+            "phn",
         )
         @sb.utils.data_pipeline.provides(
             "_wrd_count",
@@ -141,17 +143,10 @@ class CurriculumSpeechDataset(DynamicItemDataset):
             "_phn_end",
             "_wrd",
             "_char",
-            "_phn"
+            "_phn",
         )
         def cut_sample(
-            data_id,
-            wav,
-            wrd_start,
-            wrd_end,
-            phn_start,
-            phn_end,
-            wrd,
-            phn
+            data_id, wav, wrd_start, wrd_end, phn_start, phn_end, wrd, phn
         ):
             idx = self.data_id_indices[data_id]
             # wrd_count
@@ -170,19 +165,21 @@ class CurriculumSpeechDataset(DynamicItemDataset):
             yield cut_offsets(wrd_end, wrd_offset_start, wrd_offset_end)
             # phn_start
             phn_start, phn_from, phn_to = cut_offsets_rel(
-                wrd_start, phn_start, wrd_offset_start, wrd_offset_end)
+                wrd_start, phn_start, wrd_offset_start, wrd_offset_end
+            )
             yield phn_start
             # phn_end
             phn_end, _, _ = cut_offsets_rel(
-                wrd_end, phn_end, wrd_offset_start, wrd_offset_end)
+                wrd_end, phn_end, wrd_offset_start, wrd_offset_end
+            )
             yield phn_end
             # wrd
             wrd_sample = wrd[wrd_offset_start:wrd_offset_end]
             yield wrd_sample
             yield " ".join(wrd_sample).upper()
-            phn = phn[phn_from: phn_to]
+            phn = phn[phn_from:phn_to]
             yield phn
-        
+
         self.add_dynamic_item(cut_sample)
 
     def sample(self):
@@ -191,25 +188,48 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         if self.num_samples:
             sample_indexes = torch.multinomial(
                 num_samples=self.num_samples,
-                replacement=self.num_samples > len(self.base_dataset)
+                replacement=self.num_samples > len(self.base_dataset),
             )
             sample_data_ids = sample_data_ids[sample_indexes]
 
         return FilteredSortedDynamicItemDataset(
-            from_dataset=self.base_dataset,
-            data_ids=sample_data_ids
+            from_dataset=self.base_dataset, data_ids=sample_data_ids
         )
 
 
 class PipelineWrapper:
+    """A pipeline wrapper that makes it possible to replace
+    static outputs with dynamic ones. The trick is to output an
+    item with the desired key prefixed with a '_'. The '_' will
+    br removed in the output
+
+
+    Arguments
+    ---------
+    pipeline: torch.tensor
+        the original pipeline
+    replace_keys: enumerable
+        the list of keys that will be replaced
+
+    """
+
     def __init__(self, pipeline, replace_keys):
         self.pipeline = pipeline
-        self.key_map = {
-            key: f"_{key}"
-            for key in replace_keys
-        }
+        self.key_map = {key: f"_{key}" for key in replace_keys}
 
     def compute_outputs(self, data):
+        """Computes the output
+
+        Arguments
+        ---------
+        data: dict
+            the static data
+
+        Returns
+        -------
+        result: dict
+            the pipeline output
+        """
         result = self.pipeline.compute_outputs(data)
         for key, key_r in self.key_map.items():
             if key_r in result:
@@ -218,6 +238,13 @@ class PipelineWrapper:
         return result
 
     def set_output_keys(self, keys):
+        """Sets the keys to be output by the pipeline
+
+        Arguments
+        ---------
+        keys: enumerable
+            a list of keys
+        """
         keys_r = {self.key_map.get(key, key) for key in keys}
         self.pipeline.set_output_keys(keys_r)
 
@@ -225,7 +252,7 @@ class PipelineWrapper:
 def time_to_index(times, sample_rate):
     """Converts a collection of time values to a list of
     wave array indexes at the specified sample rate
-    
+
     Arguments
     ---------
     times: enumerable
@@ -241,13 +268,9 @@ def time_to_index(times, sample_rate):
 
     if not torch.is_tensor(times):
         times = torch.tensor(times)
-    
-    return (
-        (times * sample_rate)
-        .floor()
-        .int()
-        .tolist()
-    )
+
+    return (times * sample_rate).floor().int().tolist()
+
 
 def cut_offsets(offsets, start, end):
     """Given an array of offsets (e.g. word start times),
@@ -258,10 +281,10 @@ def cut_offsets(offsets, start, end):
     ---------
     offsets: list|torch.tensor
         a list or tensor of offsets
-    
+
     start: int
         the starting index
-    
+
     end: int
         the final index
 
@@ -275,12 +298,8 @@ def cut_offsets(offsets, start, end):
         segment = torch.tensor(segment)
     return (segment - segment[0]).tolist()
 
-def cut_offsets_rel(
-    offsets,
-    ref_offsets,
-    start,
-    end
-):
+
+def cut_offsets_rel(offsets, ref_offsets, start, end):
     """Given a sequence of offsets (e.g. phoneme offsets)
     and a reference sequence (e.g. sequence of words), finds
     the range in <offsets> corresponding to the specified range
@@ -309,11 +328,7 @@ def cut_offsets_rel(
         ref_offsets = torch.tensor(ref_offsets)
     start_value = ref_offsets[start].item()
     end_value = ref_offsets[end].item()
-    condition = (
-        (offsets >= start_value)
-        &
-        (offsets < end_value)
-    )
+    condition = (offsets >= start_value) & (offsets < end_value)
     result = offsets[condition]
     result -= result[0].item()
     idx = condition.nonzero()

@@ -590,7 +590,9 @@ def parse_alignments(file_name):
 
     text_grid = textgrids.TextGrid()
     text_grid.read(file_name)
-    word_intervals = text_grid.interval_tier_to_array("words")
+    word_intervals = [
+        word.upper() for word in text_grid.interval_tier_to_array("words")
+    ]
     phn_intervals = text_grid.interval_tier_to_array("phones")
     details = {}
     details.update(intervals_to_dict(word_intervals, "wrd"))
