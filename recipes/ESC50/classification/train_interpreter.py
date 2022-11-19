@@ -41,6 +41,8 @@ import soundfile as sf
 
 
 eps = 1e-10
+
+
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
@@ -108,7 +110,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        #import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
         Xmel = librosa.feature.melspectrogram(
             sr=self.hparams.sample_rate,
@@ -126,17 +128,16 @@ class InterpreterESC50Brain(sb.core.Brain):
         embeddings, f_I = self.hparams.embedding_model(feats)
 
         psi_out = self.modules.psi(f_I)  # generate nmf activations
-        
+
         # cut the length of psi
-        psi_out = psi_out[:, :, :Xs.shape[-1]]
-        psi_out = psi_out.permute(0, 2, 1)
+        psi_out = psi_out[:, :, : Xs.shape[-1]]
+        # psi_out = psi_out.permute(0, 2, 1)
 
         reconstructed = self.hparams.nmf(
             psi_out
         )  #  generate log-mag spectrogram
-        psi_out = psi_out.permute(0, 2, 1)
-        reconstructed = reconstructed.permute(0, 2, 1)
-
+        # psi_out = psi_out.permute(0, 2, 1)
+        # reconstructed = reconstructed .permute(0, 2, 1)
 
         predictions = self.hparams.classifier(embeddings).squeeze(1)
 
@@ -193,7 +194,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         # Do W.abs() to force positive values
         W_mat = torch.abs(W)
         # ratio = np.outer(W_mat[:, idx], H[idx]) / (0.000001 + np.dot(W_mat, H))
-        ratio = (W_mat[:, idx].unsqueeze(1) * H[idx].unsqueeze(0)) / (eps + torch.matmul(W_mat, H))
+        ratio = (W_mat[:, idx].unsqueeze(1) * H[idx].unsqueeze(0)) / (
+            eps + torch.matmul(W_mat, H)
+        )
 
         # comp = np.exp(inp_lg_spec * ratio) - 1
         comp = inp_lg_spec * ratio
@@ -257,15 +260,14 @@ class InterpreterESC50Brain(sb.core.Brain):
                 embeddings, f_I = self.hparams.embedding_model(feats)
 
                 psi_out = self.modules.psi(f_I)  # generate nmf activations
-                psi_out = psi_out[:, :, :Xs.shape[-1]]
+                psi_out = psi_out[:, :, : Xs.shape[-1]]
 
-                psi_out = psi_out.permute(0, 2, 1)
+                # psi_out = psi_out.permute(0, 2, 1)
                 reconstructed = self.hparams.nmf(
                     psi_out
                 )  #  generate log-mag spectrogram
-                psi_out = psi_out.permute(0, 2, 1)
-                reconstructed = reconstructed.permute(0, 2, 1)
-
+                # psi_out = psi_out.permute(0, 2, 1)
+                # reconstructed = reconstructed.permute(0, 2, 1)
 
                 predictions = self.hparams.classifier(embeddings).squeeze(1)
                 pred_cl = torch.argmax(predictions, dim=1)[0].item()
@@ -278,48 +280,48 @@ class InterpreterESC50Brain(sb.core.Brain):
                 )
                 ratio = torch.ones_like(comp)
 
-                #nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
+                # nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
 
-                #comp_weights = self.modules.theta.classifier[0].weight
+                # comp_weights = self.modules.theta.classifier[0].weight
 
                 ## computes time activations per component
-                #pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
+                # pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
                 ## print(pooled_act.shape)
 
-                #pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
-                #pooled_act[0] = pooled_act[0] / pooled_act[0].max()
+                # pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
+                # pooled_act[0] = pooled_act[0] / pooled_act[0].max()
 
-                #softmask_weights = torch.exp(pooled_act[0]) / (
+                # softmask_weights = torch.exp(pooled_act[0]) / (
                 #    torch.exp(pooled_act[0]).sum()
-                #)
-                #main_components = (-1 * pooled_act[0]).argsort()[:5]
-                #enhanced_spec = torch.zeros_like(Xs)[0]
-                #residual_spec = Xs[0].clone()
+                # )
+                # main_components = (-1 * pooled_act[0]).argsort()[:5]
+                # enhanced_spec = torch.zeros_like(Xs)[0]
+                # residual_spec = Xs[0].clone()
 
-                #expl_comp = comp[0] * 0.0
-                #ratio_comp = ratio[0] * 0.0
+                # expl_comp = comp[0] * 0.0
+                # ratio_comp = ratio[0] * 0.0
 
-                #for i in main_components:
+                # for i in main_components:
                 #    comp[i], ratio[i] = self.select_component(
                 #        i, Xs[0], psi_out[0], nmf_dictionary
                 #    )
                 #    if pooled_act[0, i] > 0.2:
                 #        expl_comp += comp[i]
 
-                #expl_comp = torch.exp(expl_comp) - 1
-                #interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
-                #original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
+                # expl_comp = torch.exp(expl_comp) - 1
+                # interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
+                # original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
 
                 ## save reconstructed and original spectrograms
-                #makedirs(
+                # makedirs(
                 #    os.path.join(
                 #        self.hparams.output_folder,
                 #        f"audios_from_interpretation",
                 #    ),
                 #    exist_ok=True,
-                #)
+                # )
 
-                #sf.write(
+                # sf.write(
                 #    os.path.join(
                 #        self.hparams.output_folder,
                 #        f"audios_from_interpretation",
@@ -327,9 +329,9 @@ class InterpreterESC50Brain(sb.core.Brain):
                 #    ),
                 #    original_audio,
                 #    self.hparams.sample_rate,
-                #)
+                # )
 
-                #sf.write(
+                # sf.write(
                 #    os.path.join(
                 #        self.hparams.output_folder,
                 #        f"audios_from_interpretation",
@@ -337,7 +339,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 #    ),
                 #    interpretation,
                 #    self.hparams.sample_rate,
-                #)
+                # )
 
                 # print("Generated samples...")
                 # input()

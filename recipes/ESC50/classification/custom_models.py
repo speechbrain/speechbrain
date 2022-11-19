@@ -338,16 +338,12 @@ class Psi(nn.Module):
         self.c1 = nn.Conv2d(in_maps[0], out_c, kernel_size=3, padding="same")
         self.c2 = nn.Conv2d(in_maps[1], out_c, kernel_size=3, padding="same")
 
-        self.out_conv = nn.Conv2d(
-            out_c, N_COMP, kernel_size=3, padding="same"
-        )
+        self.out_conv = nn.Conv2d(out_c, N_COMP, kernel_size=3, padding="same")
 
         self.conv = nn.Sequential(
-            nn.Conv2d(
-                out_c * 3, out_c, kernel_size=3, padding="same"
-            ),
+            nn.Conv2d(out_c * 3, out_c, kernel_size=3, padding="same"),
             nn.BatchNorm2d(out_c),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
         self.act = nn.ReLU()
@@ -414,8 +410,10 @@ class Psi_independent(nn.Module):
         self.T = T
         self.K = N_COMP
         self.in_maps = in_maps
-        self.h = nn.Parameter(data=torch.rand(self.K, self.T, requires_grad=True))
-       
+        self.h = nn.Parameter(
+            data=torch.rand(self.K, self.T, requires_grad=True)
+        )
+
     def forward(self, inp):
         """
         `inp` contains the hidden representations from the network.
@@ -432,20 +430,65 @@ class Psi_ConvTranspose(nn.Module):
         super(Psi_ConvTranspose, self).__init__()
 
         self.in_maps = in_maps
-        self.c1_1 = sb.nnet.CNN.ConvTranspose1d(1024, kernel_size=8, in_channels=in_maps[0], stride=2, padding=6, skip_transpose=True)
-        self.c1_2 = sb.nnet.CNN.ConvTranspose1d(512, kernel_size=8, in_channels=1024, stride=2, padding=4, skip_transpose=True)
-        self.c1_3 = sb.nnet.CNN.ConvTranspose1d(256, kernel_size=8, in_channels=512, stride=3, padding=0, skip_transpose=True)
-        self.c1_4 = sb.nnet.CNN.ConvTranspose1d(128, kernel_size=8, in_channels=256, stride=2, padding=0, skip_transpose=True)
-        self.c1_5 = sb.nnet.CNN.ConvTranspose1d(N_COMP, kernel_size=8, in_channels=128, stride=2, padding=0, skip_transpose=True)
+        self.c1_1 = sb.nnet.CNN.ConvTranspose1d(
+            1024,
+            kernel_size=8,
+            in_channels=in_maps[0],
+            stride=2,
+            padding=6,
+            skip_transpose=True,
+        )
+        self.c1_2 = sb.nnet.CNN.ConvTranspose1d(
+            512,
+            kernel_size=8,
+            in_channels=1024,
+            stride=2,
+            padding=4,
+            skip_transpose=True,
+        )
+        self.c1_3 = sb.nnet.CNN.ConvTranspose1d(
+            256,
+            kernel_size=8,
+            in_channels=512,
+            stride=3,
+            padding=0,
+            skip_transpose=True,
+        )
+        self.c1_4 = sb.nnet.CNN.ConvTranspose1d(
+            128,
+            kernel_size=8,
+            in_channels=256,
+            stride=2,
+            padding=0,
+            skip_transpose=True,
+        )
+        self.c1_5 = sb.nnet.CNN.ConvTranspose1d(
+            N_COMP,
+            kernel_size=8,
+            in_channels=128,
+            stride=2,
+            padding=0,
+            skip_transpose=True,
+        )
 
+        self.c2_1 = sb.nnet.CNN.ConvTranspose1d(
+            1024,
+            kernel_size=8,
+            in_channels=in_maps[1],
+            stride=2,
+            padding=6,
+            skip_transpose=True,
+        )
 
+        self.c3_1 = sb.nnet.CNN.ConvTranspose1d(
+            256,
+            kernel_size=8,
+            in_channels=in_maps[2],
+            stride=2,
+            padding=6,
+            skip_transpose=True,
+        )
 
-        self.c2_1 = sb.nnet.CNN.ConvTranspose1d(1024, kernel_size=8, in_channels=in_maps[1], stride=2, padding=6, skip_transpose=True)
-        
-        self.c3_1 = sb.nnet.CNN.ConvTranspose1d(256, kernel_size=8, in_channels=in_maps[2], stride=2, padding=6, skip_transpose=True)
-
-
-        
     def forward(self, inp):
         """
         `inp` contains the hidden representations from the network.
@@ -467,7 +510,7 @@ class Psi_ConvTranspose(nn.Module):
         )
 
         x1, x2, x3 = inp
-        #x1 = x1.reshape(x1.shape[0], x1.shape[1], -1)
+        # x1 = x1.reshape(x1.shape[0], x1.shape[1], -1)
         x2 = x2.reshape(x2.shape[0], x2.shape[1], -1)
         x3 = x3.reshape(x3.shape[0], x3.shape[1], -1)
         x1 = x1.mean(-1)
@@ -477,7 +520,6 @@ class Psi_ConvTranspose(nn.Module):
         x1 = self.c1_3(x1)
         x1 = self.c1_4(x1)
         x1 = self.c1_5(x1)
-
 
         return F.relu(x1)
 
@@ -502,7 +544,7 @@ class NMFDecoder(nn.Module):
             inp.shape[0] * [W], dim=0
         )  # use same NMF dictionary for every element in the batch
 
-        output = self.activ(torch.bmm(W, inp)) #.transpose(1, -1)
+        output = self.activ(torch.bmm(W, inp))  # .transpose(1, -1)
 
         return output
 
@@ -518,12 +560,13 @@ class NMFDecoder(nn.Module):
 class Theta(nn.Module):
     def __init__(self, N_COMP=100, T=431, num_classes=50) -> None:
         super().__init__()
-        self.hard_att = nn.Linear(T, 1) # collapse time axis using "attention" based pooling
+        self.hard_att = nn.Linear(
+            T, 1
+        )  # collapse time axis using "attention" based pooling
         self.classifier = nn.Sequential(
-            nn.Linear(N_COMP, num_classes),
-            nn.Softmax(dim=1)
+            nn.Linear(N_COMP, num_classes), nn.Softmax(dim=1)
         )
-    
+
     def forward(self, psi_out):
         """psi_out is of shape n_batch x n_comp x T
         collapse time axis using "attention" based pooling"""
@@ -534,4 +577,3 @@ class Theta(nn.Module):
         # print(theta_out.shape)
         # input()
         return theta_out
-
