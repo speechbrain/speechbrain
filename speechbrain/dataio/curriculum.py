@@ -121,9 +121,23 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         self.sample_end_idx = sample_end_idx
 
     def _pluck(self, key):
+        """Retrieves a list of values of the specified key from
+        all data items in the dataset
+        
+        Arguments
+        ---------
+        key: str
+            the key
+            
+        Returns
+        -------
+        result: list
+            the resulting list"""
         return [self.data[data_id][key] for data_id in self.data_ids]
 
     def setup_pipeline(self):
+        """Sets up the dynamic pipeline to sample from the dataset
+        using the previously generated samples"""
         @sb.utils.data_pipeline.takes(
             "id",
             "wav",
