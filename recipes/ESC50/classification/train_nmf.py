@@ -14,6 +14,9 @@ import librosa
 from librosa.core import stft
 import scipy.io.wavfile as wavf
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from librosa.display import specshow
+from drawnow import drawnow, figure
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
@@ -104,6 +107,15 @@ def dataio_prep(hparams):
 
     return datasets, label_encoder
 
+def draw_fig():
+    plt.subplot(211)
+    specshow(Xhat.data.cpu().numpy())
+
+    plt.subplot(212)
+    specshow(Xs.squeeze().data.cpu().numpy())
+
+    plt.savefig('nmf_results.png', format='png')
+
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -127,19 +139,36 @@ if __name__ == "__main__":
     )
 
     datasets, _ = dataio_prep(hparams)
-    nmf_model = hparams["modules"]["nmf"]
+    nmf_model = hparams["nmf"].to(hparams['device'])
+    nmf_encoder = hparams["nmf_encoder"].to(hparams['device'])
+    opt = torch.optim.Adam(lr=1e-4, params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()))
 
-    for element in tqdm(datasets["train"]):
-        # print(element["sig"].shape[0] / hparams["sample_rate"])
+    for e in range(100):
+        for i, element in (enumerate(datasets["train"])):
+            # print(element["sig"].shape[0] / hparams["sample_rate"])
 
-        Xs = stft(element["sig"].cpu().numpy(), n_fft=1024, hop_length=512)
-        Xs = np.log(1 + np.abs(Xs))
+            opt.zero_grad()
+            Xs = stft(element["sig"].cpu().numpy(), n_fft=1024, hop_length=512)
+            Xs = torch.from_numpy(np.log(1 + np.abs(Xs))).unsqueeze(0).to(hparams['device'])
+            z = nmf_encoder(Xs)
 
+            Xhat = torch.matmul(nmf_model.return_W('torch'), z.squeeze())
+            loss = ((Xs.squeeze() - Xhat)**2).mean()
+            loss.backward()
+
+            opt.step()
+            if i in [17, 100, 200, 350]:
+                draw_fig()
+        print('loss is {}, epoch is {} '.format(loss.item(), e))
+
+
+
+
+            
         # print(Xs.shape)
         # input()
-
-        nmf_model.sparse_fit(torch.Tensor(Xs).T)
+        
     
-    torch.save(nmf_model, "nmf_decoder.pt")
+    # torch.save(nmf_model, "nmf_decoder.pt")
 
     

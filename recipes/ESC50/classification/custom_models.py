@@ -528,7 +528,7 @@ class NMFDecoder(nn.Module):
     def __init__(self, N_COMP=100, FREQ=513, init_file=None):
         super(NMFDecoder, self).__init__()
 
-        self.W = nn.Parameter(torch.rand(FREQ, N_COMP), requires_grad=True)
+        self.W = nn.Parameter(0.1 * torch.rand(FREQ, N_COMP), requires_grad=True)
         self.activ = nn.ReLU()
 
         if init_file is not None:
@@ -577,3 +577,21 @@ class Theta(nn.Module):
         # print(theta_out.shape)
         # input()
         return theta_out
+
+
+class NMFEncoder(nn.Module):
+    def __init__(self, nlayers) -> None:
+        super().__init__()
+        self.convenc = nn.Sequential(
+            nn.Conv1d(513, 256, kernel_size=8, padding='same'),
+            nn.ReLU(),
+            nn.Conv1d(256, 128, kernel_size=8, padding='same'),
+            nn.ReLU(),
+            nn.Conv1d(128, 100, kernel_size=8, padding='same'),
+            nn.ReLU(),
+        )
+
+    def forward(self, inp):
+        """psi_out is of shape n_batch x n_comp x T
+        collapse time axis using "attention" based pooling"""
+        return self.convenc(inp)

@@ -280,73 +280,73 @@ class InterpreterESC50Brain(sb.core.Brain):
                 )
                 ratio = torch.ones_like(comp)
 
-                # nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
+                nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
 
-                # comp_weights = self.modules.theta.classifier[0].weight
+                comp_weights = self.modules.theta.classifier[0].weight
 
-                ## computes time activations per component
-                # pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
-                ## print(pooled_act.shape)
+                # computes time activations per component
+                pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
+                # print(pooled_act.shape)
 
-                # pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
-                # pooled_act[0] = pooled_act[0] / pooled_act[0].max()
+                pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
+                pooled_act[0] = pooled_act[0] / pooled_act[0].max()
 
-                # softmask_weights = torch.exp(pooled_act[0]) / (
-                #    torch.exp(pooled_act[0]).sum()
-                # )
-                # main_components = (-1 * pooled_act[0]).argsort()[:5]
-                # enhanced_spec = torch.zeros_like(Xs)[0]
-                # residual_spec = Xs[0].clone()
+                softmask_weights = torch.exp(pooled_act[0]) / (
+                   torch.exp(pooled_act[0]).sum()
+                )
+                main_components = (-1 * pooled_act[0]).argsort()[:5]
+                enhanced_spec = torch.zeros_like(Xs)[0]
+                residual_spec = Xs[0].clone()
 
-                # expl_comp = comp[0] * 0.0
-                # ratio_comp = ratio[0] * 0.0
+                expl_comp = comp[0] * 0.0
+                ratio_comp = ratio[0] * 0.0
 
-                # for i in main_components:
-                #    comp[i], ratio[i] = self.select_component(
-                #        i, Xs[0], psi_out[0], nmf_dictionary
-                #    )
-                #    if pooled_act[0, i] > 0.2:
-                #        expl_comp += comp[i]
+                for i in main_components:
+                   comp[i], ratio[i] = self.select_component(
+                       i, Xs[0], psi_out[0], nmf_dictionary
+                   )
+                   if pooled_act[0, i] > 0.2:
+                       expl_comp += comp[i]
 
-                # expl_comp = torch.exp(expl_comp) - 1
-                # interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
-                # original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
+                expl_comp = torch.exp(expl_comp) - 1
+                interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
+                original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
 
-                ## save reconstructed and original spectrograms
-                # makedirs(
-                #    os.path.join(
-                #        self.hparams.output_folder,
-                #        f"audios_from_interpretation",
-                #    ),
-                #    exist_ok=True,
-                # )
+                # save reconstructed and original spectrograms
+                makedirs(
+                   os.path.join(
+                       self.hparams.output_folder,
+                       f"audios_from_interpretation",
+                   ),
+                   exist_ok=True,
+                )
 
-                # sf.write(
-                #    os.path.join(
-                #        self.hparams.output_folder,
-                #        f"audios_from_interpretation",
-                #        f"orig_{epoch}.wav",
-                #    ),
-                #    original_audio,
-                #    self.hparams.sample_rate,
-                # )
+                sf.write(
+                   os.path.join(
+                       self.hparams.output_folder,
+                       f"audios_from_interpretation",
+                       f"orig_{epoch}.wav",
+                   ),
+                   original_audio,
+                   self.hparams.sample_rate,
+                )
 
-                # sf.write(
-                #    os.path.join(
-                #        self.hparams.output_folder,
-                #        f"audios_from_interpretation",
-                #        f"recon_{epoch}.wav",
-                #    ),
-                #    interpretation,
-                #    self.hparams.sample_rate,
-                # )
+                sf.write(
+                   os.path.join(
+                       self.hparams.output_folder,
+                       f"audios_from_interpretation",
+                       f"recon_{epoch}.wav",
+                   ),
+                   interpretation,
+                   self.hparams.sample_rate,
+                )
 
                 # print("Generated samples...")
                 # input()
 
-                # theta_out = self.modules.theta(
-                #     psi_out
-                # )  # generate classifications from time activations
+                theta_out = self.modules.theta(
+                    psi_out
+                )  # generate classifications from time activations
 
         return super().on_stage_end(stage, stage_loss, epoch)
 
