@@ -1,5 +1,4 @@
 import torch
-from unittest.mock import patch
 
 
 def test_curriculum_speech_dataset():
