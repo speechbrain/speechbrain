@@ -88,7 +88,7 @@ class HuggingFaceWhisper(nn.Module):
                 self.model.feature_extractor._freeze_parameters()
 
     def forward(self, wav, tokens):
-        """Perform one step of the whisper (encoder-decoder) and get the logits.
+        """Perform mel transformation and one step of the whisper (encoder-decoder).
 
         Arguments
         ---------
