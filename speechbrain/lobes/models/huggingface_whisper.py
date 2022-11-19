@@ -15,7 +15,6 @@ from torch import nn
 
 try:
     from transformers import WhisperModel
-    from transformers import WhisperConfig
     from transformers import WhisperFeatureExtractor
 
 except ImportError:
