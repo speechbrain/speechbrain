@@ -481,9 +481,11 @@ class DiffusionBrain(sb.Brain):
         for key, cond_config in self.hparams.cond_emb.items():
             sample_count = cond_config["sample_count"]
             if sample_count is None:
-                sample = torch.arange(cond_config["count"])
+                sample = torch.arange(
+                    cond_config["count"], device=self.device)
             else:
-                sample = torch.randint(cond_config["count"], (sample_count,))
+                sample = torch.randint(
+                    cond_config["count"], (sample_count,), device=self.device)
             label_samples[key] = sample
 
         samples = dict_value_combinations(label_samples)
