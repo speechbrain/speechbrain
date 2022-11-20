@@ -484,8 +484,11 @@ class DiffusionBrain(sb.Brain):
                 sample = torch.arange(
                     cond_config["count"], device=self.device)
             else:
-                sample = torch.randint(
-                    cond_config["count"], (sample_count,), device=self.device)
+                sample = (
+                    torch
+                        .arange(cond_config["count"], device=self.device)
+                        .permute()                
+                )[:sample_count]
             label_samples[key] = sample
 
         samples = dict_value_combinations(label_samples)
