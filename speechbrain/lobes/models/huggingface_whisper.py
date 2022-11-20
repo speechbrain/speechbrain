@@ -10,6 +10,7 @@ Authors
 import torch
 import logging
 from torch import nn
+import torch.nn.functional as F
 
 try:
     from transformers import WhisperModel
@@ -53,12 +54,14 @@ class HuggingFaceWhisper(nn.Module):
         source,
         save_path,
         sampling_rate,
+        output_norm=True,
         freeze=False,
         freeze_feature_extractor=False,
     ):
         super().__init__()
 
         self.sampling_rate = sampling_rate
+        self.output_norm = output_norm
         self.freeze = freeze
 
         # Download the extractor from HuggingFace.
@@ -98,10 +101,14 @@ class HuggingFaceWhisper(nn.Module):
             with torch.no_grad():
                 audio_features = self.forward_encoder(wav)
                 out = self._get_decoder_hidden_state(audio_features, tokens)
+                if self.output_norm:
+                    out = F.layer_norm(out, out.shape)
                 return out
         else:
             audio_features = self.forward_encoder(wav)
             out = self._get_decoder_hidden_state(audio_features, tokens)
+            if self.output_norm:
+                out = F.layer_norm(out, out.shape)
             return out
 
     def forward_encoder(self, wav):
