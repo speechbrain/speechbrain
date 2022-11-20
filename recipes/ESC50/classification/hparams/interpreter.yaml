@@ -208,9 +208,22 @@ T: 413
 K: 100
 FREQ: 513
 
+# pre-processing
+n_fft: 1024
+spec_mag_power: 2
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: !ref <n_fft>
+    hop_length: 11.6099
+    win_length: 23.2199
+    sample_rate: !ref <sample_rate>
+
+compute_fbank: !new:speechbrain.processing.features.Filterbank
+    n_mels: 80
+    n_fft: !ref <n_fft>
+    sample_rate: !ref <sample_rate>
+
 psi_model: !new:custom_models.Psi
 theta: !new:custom_models.Theta
-
 
 # NMF Decoder
 nmf_d_path: "nmf_decoder.pt"
@@ -223,6 +236,8 @@ alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
 
 modules:
+    compute_stft: !ref <compute_stft>
+    compute_fbank: !ref <compute_fbank>
     compute_features: !ref <compute_features>
     augment_wavedrop: !ref <augment_wavedrop>
     augment_speed: !ref <augment_speed>

@@ -110,34 +110,23 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        # import pdb; pdb.set_trace()
-        Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
-        Xmel = librosa.feature.melspectrogram(
-            sr=self.hparams.sample_rate,
-            S=np.abs(Xs),
-            n_fft=1024,
-            hop_length=512,
-            n_mels=80,
+        X_stft = self.modules.compute_stft(wavs)
+        X_stft_power = sb.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
         )
-        Xlgmel = librosa.power_to_db(Xmel)
+        X_logmel = self.modules.compute_fbank(X_stft_power)
 
-        # test librosa stuff
-        feats = torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
-        # self.hparams.embedding_model.to(self.hparams.device)
         # Embeddings + sound classifier
-        embeddings, f_I = self.hparams.embedding_model(feats)
+        embeddings, f_I = self.hparams.embedding_model(X_logmel)
 
         psi_out = self.modules.psi(f_I)  # generate nmf activations
 
         # cut the length of psi
-        psi_out = psi_out[:, :, : Xs.shape[-1]]
-        # psi_out = psi_out.permute(0, 2, 1)
+        psi_out = psi_out[:, :, : X_stft_power.shape[1]]
 
         reconstructed = self.hparams.nmf(
             psi_out
         )  #  generate log-mag spectrogram
-        # psi_out = psi_out.permute(0, 2, 1)
-        # reconstructed = reconstructed .permute(0, 2, 1)
 
         predictions = self.hparams.classifier(embeddings).squeeze(1)
 
@@ -147,31 +136,31 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return (reconstructed, psi_out), (predictions, theta_out)
 
-    def compute_objectives(self, predictions, batch, stage):
+    def compute_objectives(self, reconstructions, batch, stage):
         """Computes the loss using class-id as label."""
         (
-            (predictions, time_activations),
+            (reconstructions, time_activations),
             (classification_out, theta_out,),
-        ) = predictions
+        ) = reconstructions
 
         uttid = batch.id
         classid, _ = batch.class_string_encoded
 
-        predictions = predictions
-
         batch = batch.to(self.device)
         wavs, _ = batch.sig
 
-        Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
-        Xs = np.log(1 + np.abs(Xs))
-        Xs = torch.Tensor(Xs).float().to(self.device)
+        X_stft = self.modules.compute_stft(wavs).to(self.device)
+        X_stft_power = sb.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
+        )
+        X_stft_logpower = torch.log(X_stft_power + 1).transpose(1, 2)
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN and False:
             classid = torch.cat([classid] * self.n_augment, dim=0)
 
-        loss_nmf = ((predictions - Xs) ** 2).mean()
-        loss_nmf = loss_nmf / predictions.shape[0]  # avg on batches
+        loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
+        # loss_nmf = loss_nmf / reconstructions.shape[0]  # avg on batches
         loss_nmf = self.hparams.alpha * loss_nmf
         # loss_nmf += self.hparams.beta * torch.linalg.norm(time_activations)
 
@@ -180,9 +169,12 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         self.last_batch = batch
-        self.batch_to_plot = (predictions, Xs)
+        self.batch_to_plot = (reconstructions.clone(), X_stft_logpower.clone())
 
         theta_out = -torch.log(theta_out)
+        import pdb
+
+        pdb.set_trace()
         loss_fdi = (F.softmax(classification_out, dim=0) * theta_out).mean()
 
         return loss_nmf + loss_fdi
