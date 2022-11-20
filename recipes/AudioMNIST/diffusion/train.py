@@ -126,15 +126,10 @@ class DiffusionBrain(sb.Brain):
             A key -> embedding dictionary
         """
         cond_emb = {}
-        for key, use_emb in self.hparams.use_cond_emb.items():
-            if use_emb:
-                emb_module = self.hparams.cond_emb[key]["emb"]
-                try:
-                    emb = emb_module(labels[key])
-                except:
-                    print(labels[key])
-                    raise
-                cond_emb[key] = emb
+        for key, emb_config in self.get_active_cond_emb().items():
+            emb_module = emb_config["emb"]
+            emb = emb_module(labels[key])
+            cond_emb[key] = emb
         return cond_emb
 
     def get_cond_labels(self, batch):
@@ -478,7 +473,7 @@ class DiffusionBrain(sb.Brain):
             combinations
         """
         label_samples = {}
-        for key, cond_config in self.hparams.cond_emb.items():
+        for key, cond_config in self.get_active_cond_emb().items():
             sample_count = cond_config["sample_count"]
             if sample_count is None:
                 sample = torch.arange(
@@ -491,6 +486,22 @@ class DiffusionBrain(sb.Brain):
 
         samples = dict_value_combinations(label_samples)
         return samples
+
+    def get_active_cond_emb(self):
+        """Returns conditional embeddings that have been enabled
+        in hyperparameters
+        
+        Returns
+        -------
+        cond_emb: dict
+            all enabled conditional embedding configurations
+        """
+        return {
+            key: value
+            for key, value in self.hparams.cond_emb.items()
+            if self.hparams.use_cond_emb[key]
+        }
+        
 
     def generate_spectrograms_for_label(self, label):
         """Generates samples for a specific label
