@@ -83,11 +83,23 @@ model_norm_num_groups: 32
 model_num_res_blocks: 4
 diffusion_channels: 1
 
+# Conditioning
+emb_dim: !ref <model_channels> * 4
+digit_conditioned: True
+digit_sample_count: 3
+digit_count: 10
+digit_emb_dim: !ref <emb_dim>
+speaker_conditioned: True
+speaker_count: 60
+speaker_emb_dim: !ref <emb_dim>
+speaker_sample_count: 5
+
+
 # Vocoder Settings
 vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
-eval_num_samples: 32
+eval_num_samples: 10
 eval_generate_audio: True
 eval_show_progress: True
 
@@ -120,6 +132,23 @@ compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
           steps: !ref <loss_l2_steps>
         - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
+use_cond_emb:
+    speaker: !ref <speaker_conditioned>
+    digit: !ref <digit_conditioned>
+
+cond_emb:
+    speaker:
+        emb: !ref <emb_speaker>
+        emb_dim: !ref <speaker_emb_dim>
+        key: speaker_label
+        sample_count: !ref <speaker_sample_count>
+        count: !ref <speaker_count>
+    digit:
+        emb: !ref <emb_digit>
+        emb_dim: !ref <digit_emb_dim>
+        key: digit_label
+        sample_count: !ref <digit_sample_count>
+        count: !ref <digit_count>
 
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
@@ -131,8 +160,18 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     num_res_blocks: !ref <model_num_res_blocks>
     norm_num_groups: 32
     attention_resolutions: [8]
+    cond_emb: !ref <cond_emb>
+    use_cond_emb: !ref <use_cond_emb>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
+
+emb_digit: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <digit_count>
+    embedding_dim: !ref <digit_emb_dim>
+
+emb_speaker: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <speaker_count>
+    embedding_dim: !ref <speaker_emb_dim>
 
 diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
     model: !ref <unet>
@@ -141,6 +180,8 @@ diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
     show_progress: !ref <eval_show_progress>
     sample_min: !ref <spec_sample_min>
     sample_max: !ref <spec_sample_max>
+
+diffusion_sample_channels: !ref <diffusion_channels>
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -157,6 +198,7 @@ vocoder: !name:speechbrain.pretrained.interfaces.HIFIGAN.from_hparams
 modules:
     unet: !ref <unet>
     diffusion: !ref <diffusion>
+    diffusion_sample: !ref <diffusion>
     compute_features: !ref <compute_features>
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>

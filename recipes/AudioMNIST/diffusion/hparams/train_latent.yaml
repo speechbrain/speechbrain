@@ -200,6 +200,9 @@ diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
     diffusion: !ref <diffusion>
 
 
+diffusion_sample_channels: !ref <diffusion_channels>
+
+
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
 # if it gets interrupted at any point.
@@ -217,6 +220,7 @@ modules:
     autoencoder: !ref <autoencoder>
     diffusion: !ref <diffusion>
     diffusion_latent: !ref <diffusion_latent>
+    diffusion_sample: !ref <diffusion_latent>
     compute_features: !ref <compute_features>
     compute_cost_laplacian: !ref <compute_cost_laplacian>
     dynamic_range_compression: !ref <dynamic_range_compression>

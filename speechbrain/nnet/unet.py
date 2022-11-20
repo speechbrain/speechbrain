@@ -361,7 +361,6 @@ class ResBlock(TimestepBlock):
         dropout,
         out_channels=None,
         use_conv=False,
-        use_scale_shift_norm=False,
         dims=2,
         up=False,
         down=False,
@@ -374,7 +373,6 @@ class ResBlock(TimestepBlock):
         self.dropout = dropout
         self.out_channels = out_channels or channels
         self.use_conv = use_conv
-        self.use_scale_shift_norm = use_scale_shift_norm
 
         self.in_layers = nn.Sequential(
             nn.GroupNorm(norm_num_groups, channels),
@@ -398,9 +396,7 @@ class ResBlock(TimestepBlock):
                 nn.SiLU(),
                 nn.Linear(
                     emb_channels,
-                    2 * self.out_channels
-                    if use_scale_shift_norm
-                    else self.out_channels,
+                    self.out_channels,
                 ),
             )
         else:
@@ -456,14 +452,9 @@ class ResBlock(TimestepBlock):
                 emb_out = emb_out[..., None]
         else:
             emb_out = torch.zeros_like(h)
-        if self.use_scale_shift_norm:
-            out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
-            scale, shift = torch.chunk(emb_out, 2, dim=1)
-            h = out_norm(h) * (1 + scale) + shift
-            h = out_rest(h)
-        else:
-            h = h + emb_out
-            h = self.out_layers(h)
+
+        h = h + emb_out
+        h = self.out_layers(h)
         return self.skip_connection(x) + h
 
 
@@ -571,6 +562,39 @@ class QKVAttention(nn.Module):
         return a.reshape(bs, -1, length)
 
 
+def build_emb_proj(emb_config, proj_dim=None, use_emb=None):
+    """Builds a dictionary of embedding modules for embedding
+    projections
+
+    Arguments
+    ---------
+    emb_config: dict
+        a configuration dictionary
+    
+    proj_dim: int
+        the target projection dimension
+
+    use_cond_emb: dict
+        an optional dictioanry of "switches" to turn
+        embeddings on and off
+
+    Returns
+    -------
+    result: torch.nn.ModuleDict
+        a ModuleDict with a module for each embedding
+    """
+    emb_proj = {}
+    for key, item_config in emb_config.items():
+        if use_emb is None or use_emb.get(key):
+            if "emb_proj" in item_config:
+                emb_proj[key] = emb_proj
+            else:
+                emb_proj[key] = EmbeddingProjection(
+                    emb_dim=item_config["emb_dim"],
+                    proj_dim=proj_dim
+                )
+    return nn.ModuleDict(emb_proj)
+
 class UNetModel(nn.Module):
     """
     The full UNet model with attention and timestep embedding.
@@ -596,12 +620,31 @@ class UNetModel(nn.Module):
         channel multiplier for each level of the UNet.
     conv_resample: bool
         if True, use learned convolutions for upsampling and
-        downsampling.
+        downsampling
+    emb_dim: int
+        time embedding dimension (defaults to model_channels * 4)
+    cond_emb: dict
+        embeddings on which the model will be conditioned
+        
+        Example:
+        {
+            "speaker": {
+                "emb_dim": 256
+            },
+            "label": {
+                "emb_dim": 12
+            }
+        }
+    use_cond_emb: dict
+        a dictionary with keys corresponding to keys in cond_emb
+        and values corresponding to Booleans that turn embeddings
+        on and off. This is useful in combination with hparams files
+        to turn embeddings on and off with simple switches
+
+        Example:
+        {"speaker": False, "label": True}
     dims: int
         determines if the signal is 1D, 2D, or 3D.
-    num_classes: int
-        if specified (as an int), then this model will be
-        class-conditional with `num_classes` classes.
     num_heads: int
         the number of attention heads in each attention layer.
     num_heads_channels: int
@@ -610,9 +653,6 @@ class UNetModel(nn.Module):
     num_heads_upsample: int
         works with num_heads to set a different number
                                of heads for upsampling. Deprecated.
-    use_scale_shift_norm: bool
-        use a FiLM-like conditioning mechanism.
-
     resblock_updown: bool
         use residual blocks for up/downsampling.
 
@@ -632,12 +672,13 @@ class UNetModel(nn.Module):
         channel_mult=(1, 2, 4, 8),
         conv_resample=True,
         dims=2,
-        num_classes=None,
+        emb_dim=None,
+        cond_emb=None,
+        use_cond_emb=None,
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
         norm_num_groups=32,
-        use_scale_shift_norm=False,
         resblock_updown=False,
         use_fixup_init=True
     ):
@@ -654,21 +695,23 @@ class UNetModel(nn.Module):
         self.dropout = dropout
         self.channel_mult = channel_mult
         self.conv_resample = conv_resample
-        self.num_classes = num_classes
         self.dtype = torch.float32
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
+        self.cond_emb = cond_emb
+        self.use_cond_emb = use_cond_emb
 
-        time_embed_dim = model_channels * 4
-        self.time_embed = nn.Sequential(
-            nn.Linear(model_channels, time_embed_dim),
-            nn.SiLU(),
-            nn.Linear(time_embed_dim, time_embed_dim),
+        if emb_dim is None:
+            emb_dim = model_channels * 4
+        self.time_embed = EmbeddingProjection(
+            model_channels, emb_dim)
+        
+        self.cond_emb_proj = build_emb_proj(
+            emb_config=cond_emb,
+            proj_dim=emb_dim,
+            use_emb=use_cond_emb
         )
-
-        if self.num_classes is not None:
-            self.label_emb = nn.Embedding(num_classes, time_embed_dim)
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
@@ -686,11 +729,10 @@ class UNetModel(nn.Module):
                 layers = [
                     ResBlock(
                         ch,
-                        time_embed_dim,
+                        emb_dim,
                         dropout,
                         out_channels=int(mult * model_channels),
                         dims=dims,
-                        use_scale_shift_norm=use_scale_shift_norm,
                         norm_num_groups=norm_num_groups,
                         use_fixup_init=use_fixup_init
                     )
@@ -715,11 +757,10 @@ class UNetModel(nn.Module):
                     TimestepEmbedSequential(
                         ResBlock(
                             ch,
-                            time_embed_dim,
+                            emb_dim,
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
-                            use_scale_shift_norm=use_scale_shift_norm,
                             down=True,
                             norm_num_groups=norm_num_groups,
                             use_fixup_init=use_fixup_init
@@ -738,10 +779,9 @@ class UNetModel(nn.Module):
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
                 ch,
-                time_embed_dim,
+                emb_dim,
                 dropout,
                 dims=dims,
-                use_scale_shift_norm=use_scale_shift_norm,
                 norm_num_groups=norm_num_groups,
                 use_fixup_init=use_fixup_init
             ),
@@ -752,10 +792,9 @@ class UNetModel(nn.Module):
             ),
             ResBlock(
                 ch,
-                time_embed_dim,
+                emb_dim,
                 dropout,
                 dims=dims,
-                use_scale_shift_norm=use_scale_shift_norm,
                 norm_num_groups=norm_num_groups,
                 use_fixup_init=use_fixup_init
             ),
@@ -769,11 +808,10 @@ class UNetModel(nn.Module):
                 layers = [
                     ResBlock(
                         ch + ich,
-                        time_embed_dim,
+                        emb_dim,
                         dropout,
                         out_channels=int(model_channels * mult),
                         dims=dims,
-                        use_scale_shift_norm=use_scale_shift_norm,
                         norm_num_groups=norm_num_groups,
                         use_fixup_init=use_fixup_init
                     )
@@ -794,11 +832,10 @@ class UNetModel(nn.Module):
                     layers.append(
                         ResBlock(
                             ch,
-                            time_embed_dim,
+                            emb_dim,
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
-                            use_scale_shift_norm=use_scale_shift_norm,
                             up=True,
                             norm_num_groups=norm_num_groups,
                             use_fixup_init=use_fixup_init
@@ -820,8 +857,8 @@ class UNetModel(nn.Module):
                 use_fixup_init=use_fixup_init
             ),
         )
-
-    def forward(self, x, timesteps, y=None):
+    
+    def forward(self, x, timesteps, cond_emb=None):
         """Apply the model to an input batch.
 
         Arguments
@@ -830,26 +867,24 @@ class UNetModel(nn.Module):
             an [N x C x ...] Tensor of inputs.
         timesteps: torch.Tensor
             a 1-D batch of timesteps.
-        y: torch.Tensor
-            an [N] Tensor of labels, if class-conditional.
-
+        cond_emb: dict
+            a string -> tensor dictionary of conditional
+            embeddings (multiple embeddings are supported)
         Returns
         -------
         result: torch.Tensor
             an [N x C x ...] Tensor of outputs.
         """
-        assert (y is not None) == (
-            self.num_classes is not None
-        ), "must specify y if and only if the model is class-conditional"
 
         hs = []
         emb = self.time_embed(
             timestep_embedding(timesteps, self.model_channels)
         )
 
-        if self.num_classes is not None:
-            assert y.shape == (x.shape[0],)
-            emb = emb + self.label_emb(y)
+        if cond_emb is not None:
+            for key, value in cond_emb.items():
+                emb_proj = self.cond_emb_proj[key](value)
+                emb += emb_proj
 
         h = x.type(self.dtype)
         for module in self.input_blocks:
@@ -884,7 +919,6 @@ class EncoderUNetModel(nn.Module):
         num_head_channels=-1,
         num_heads_upsample=-1,
         norm_num_groups=32,
-        use_scale_shift_norm=False,
         resblock_updown=False,
         pool=None,
         attention_pool_dim=None,
@@ -910,11 +944,11 @@ class EncoderUNetModel(nn.Module):
         self.num_heads_upsample = num_heads_upsample
         self.out_kernel_size = out_kernel_size
 
-        time_embed_dim = model_channels * 4
+        emb_dim = model_channels * 4
         self.time_embed = nn.Sequential(
-            nn.Linear(model_channels, time_embed_dim),
+            nn.Linear(model_channels, emb_dim),
             nn.SiLU(),
-            nn.Linear(time_embed_dim, time_embed_dim),
+            nn.Linear(emb_dim, emb_dim),
         )
 
         ch = int(channel_mult[0] * model_channels)
@@ -933,11 +967,10 @@ class EncoderUNetModel(nn.Module):
                 layers = [
                     ResBlock(
                         ch,
-                        time_embed_dim,
+                        emb_dim,
                         dropout,
                         out_channels=int(mult * model_channels),
                         dims=dims,
-                        use_scale_shift_norm=use_scale_shift_norm,
                         norm_num_groups=norm_num_groups,
                         use_fixup_init=use_fixup_init
                     )
@@ -962,11 +995,10 @@ class EncoderUNetModel(nn.Module):
                     TimestepEmbedSequential(
                         ResBlock(
                             ch,
-                            time_embed_dim,
+                            emb_dim,
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
-                            use_scale_shift_norm=use_scale_shift_norm,
                             down=True,
                             norm_num_groups=norm_num_groups,
                             use_fixup_init=use_fixup_init,
@@ -985,10 +1017,9 @@ class EncoderUNetModel(nn.Module):
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
                 ch,
-                time_embed_dim,
+                emb_dim,
                 dropout,
                 dims=dims,
-                use_scale_shift_norm=use_scale_shift_norm,
                 use_fixup_init=use_fixup_init,
             ),
             AttentionBlock(
@@ -998,10 +1029,9 @@ class EncoderUNetModel(nn.Module):
             ),
             ResBlock(
                 ch,
-                time_embed_dim,
+                emb_dim,
                 dropout,
                 dims=dims,
-                use_scale_shift_norm=use_scale_shift_norm,
                 use_fixup_init=use_fixup_init,
             ),
         )
@@ -1096,6 +1126,45 @@ class EncoderUNetModel(nn.Module):
             h = h.type(x.dtype)
             return self.out(h)
 
+class EmbeddingProjection(nn.Module):
+    """A simple module that computes the projection of an
+    embedding vector onto the specified number of dimensions
+    
+    Arguments
+    ---------
+    emb_dim: int
+        the original embedding dimensionality
+
+    proj_dim: int
+        the dimensionality of the target projection
+        space
+    """
+    def __init__(self, emb_dim, proj_dim):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.proj_dim = proj_dim
+        self.input = nn.Linear(emb_dim, proj_dim)
+        self.act = nn.SiLU()
+        self.output = nn.Linear(proj_dim, proj_dim)
+
+    def forward(self, emb):
+        """Computes the forward pass
+        
+        Arguments
+        ---------
+        emb: torch.Tensor
+            the original embedding tensor
+
+        Returns
+        -------
+        result: torch.Tensor
+            the target embedding space
+        """
+        x = self.input(emb)
+        x = self.act(x)
+        x = self.output(x)
+        return x
+
 class DecoderUNetModel(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
@@ -1116,7 +1185,6 @@ class DecoderUNetModel(nn.Module):
         num_heads=1,
         num_head_channels=-1,
         num_heads_upsample=-1,
-        use_scale_shift_norm=False,
         resblock_updown=False,
         norm_num_groups=32,
         out_kernel_size=3,
@@ -1140,11 +1208,11 @@ class DecoderUNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        time_embed_dim = model_channels * 4
+        emb_dim = model_channels * 4        
         self.time_embed = nn.Sequential(
-            nn.Linear(model_channels, time_embed_dim),
+            nn.Linear(model_channels, emb_dim),
             nn.SiLU(),
-            nn.Linear(time_embed_dim, time_embed_dim),
+            nn.Linear(emb_dim, emb_dim),
         )
 
         ch = int(channel_mult[0] * model_channels)
@@ -1156,10 +1224,9 @@ class DecoderUNetModel(nn.Module):
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
                 ch,
-                time_embed_dim,
+                emb_dim,
                 dropout,
                 dims=dims,
-                use_scale_shift_norm=use_scale_shift_norm,
                 norm_num_groups=norm_num_groups,
                 use_fixup_init=use_fixup_init,
             ),
@@ -1170,10 +1237,9 @@ class DecoderUNetModel(nn.Module):
             ),
             ResBlock(
                 ch,
-                time_embed_dim,
+                emb_dim,
                 dropout,
                 dims=dims,
-                use_scale_shift_norm=use_scale_shift_norm,
                 norm_num_groups=norm_num_groups,
                 use_fixup_init=use_fixup_init,
             ),
@@ -1188,11 +1254,10 @@ class DecoderUNetModel(nn.Module):
                 layers = [
                     ResBlock(
                         ch,
-                        time_embed_dim,
+                        emb_dim,
                         dropout,
                         out_channels=int(mult * model_channels),
                         dims=dims,
-                        use_scale_shift_norm=use_scale_shift_norm,
                         norm_num_groups=norm_num_groups,
                         use_fixup_init=use_fixup_init,                        
                     )
@@ -1216,11 +1281,10 @@ class DecoderUNetModel(nn.Module):
                     TimestepEmbedSequential(
                         ResBlock(
                             ch,
-                            time_embed_dim,
+                            emb_dim,
                             dropout,
                             out_channels=out_ch,
                             dims=dims,
-                            use_scale_shift_norm=use_scale_shift_norm,
                             up=True,
                             norm_num_groups=norm_num_groups,
                             use_fixup_init=use_fixup_init,                        
@@ -1362,8 +1426,6 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         the number of channels in attention heads
     num_heads_upsample: int
         the number of upsampling heads
-    use_scale_shift_norm: bool
-        whether to use scale shift normalization
     resblock_updown: bool
         whether to use residual blocks for upsampling and downsampling
     out_kernel_size: int
@@ -1388,7 +1450,6 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         num_head_channels=-1,
         num_heads_upsample=-1,
         norm_num_groups=32,
-        use_scale_shift_norm=False,
         resblock_updown=False,
         out_kernel_size=3,
         len_dim=2,
@@ -1409,7 +1470,6 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             num_head_channels=num_head_channels,
             num_heads_upsample=num_heads_upsample,
             norm_num_groups=norm_num_groups,
-            use_scale_shift_norm=use_scale_shift_norm,
             resblock_updown=resblock_updown,
             out_kernel_size=out_kernel_size,
             use_fixup_init=use_fixup_norm,
@@ -1437,7 +1497,6 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             num_head_channels=num_head_channels,
             num_heads_upsample=num_heads_upsample,
             norm_num_groups=norm_num_groups,
-            use_scale_shift_norm=use_scale_shift_norm,
             resblock_updown=resblock_updown,
             out_kernel_size=out_kernel_size,
             use_fixup_init=use_fixup_norm,

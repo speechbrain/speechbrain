@@ -87,7 +87,7 @@ class Diffuser(nn.Module):
         pred = self.model(noisy_sample, timesteps=timesteps)
         return pred, noise, noisy_sample
 
-    def sample(self, shape):
+    def sample(self, shape, **kwargs):
         """Generates the number of samples indicated by the
         count parameter
 
@@ -246,7 +246,7 @@ class DenoisingDiffusion(Diffuser):
         return noisy_sample, noise
 
     @torch.no_grad()
-    def sample(self, shape):
+    def sample(self, shape, **kwargs):
         """Generates the number of samples indicated by the
         count parameter
 
@@ -272,11 +272,11 @@ class DenoisingDiffusion(Diffuser):
                 )
                 * timestep_number
             )
-            sample = self.sample_step(sample, timestep)
+            sample = self.sample_step(sample, timestep, **kwargs)
         return sample
 
     @torch.no_grad()
-    def sample_step(self, sample, timestep):
+    def sample_step(self, sample, timestep, **kwargs):
         """Processes a single timestep for the sampling
         process
 
@@ -292,7 +292,7 @@ class DenoisingDiffusion(Diffuser):
         predicted_sample: torch.Tensor
             the predicted sample (denoised by one step`)
         """
-        model_out = self.model(sample, timestep)
+        model_out = self.model(sample, timestep, **kwargs)
         noise = self.noise(sample)
         sample_start = (
             unsqueeze_as(self.sample_pred_model_coefficient[timestep], sample)
@@ -409,7 +409,7 @@ class LatentDiffusion(nn.Module):
         latent = self.autencoder.encode(x)
         return self.diffusion.distort(latent)
     
-    def sample(self, shape):        
+    def sample(self, shape):
         # TODO: Auto-compute the latent shape
         latent = self.diffusion.sample(shape)
         return self.autencoder.decode(latent)

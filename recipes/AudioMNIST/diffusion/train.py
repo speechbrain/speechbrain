@@ -89,22 +89,74 @@ class DiffusionBrain(sb.Brain):
         feats, lens = self.prepare_features(batch, stage)
 
         autoencoder_out = None
+        cond_emb = None
+        if self.is_conditioned:
+            cond_labels = self.get_cond_labels(batch)
+            cond_emb = self.compute_cond_emb(cond_labels)            
         if self.diffusion_mode == DiffusionMode.LATENT:
             mask_value = self.modules.global_norm.normalize(
                 self.mask_value_norm
             )
             train_sample_diffusion, autoencoder_out = self.modules.diffusion_latent.train_sample_latent(
                 feats, length=lens, out_mask_value=mask_value,
+                cond_emb=cond_emb
             )
             pred, noise, noisy_sample = train_sample_diffusion
         else:
             pred, noise, noisy_sample = self.modules.diffusion.train_sample(
-                feats, lens=lens
+                feats, lens=lens, cond_emb=cond_emb
             )
 
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
         return DiffusionPredictions(pred, noise, noisy_sample, feats, lens, autoencoder_out)
+
+    def compute_cond_emb(self, labels):
+        """Computes conditioning embeddings for a set
+        of labels
+
+        Arguments
+        ---------
+        labels: dict
+            A key -> label dictionary
+
+        Returns
+        -------
+        emb: dict
+            A key -> embedding dictionary
+        """
+        cond_emb = {}
+        for key, use_emb in self.hparams.use_cond_emb.items():
+            if use_emb:
+                emb_module = self.hparams.cond_emb[key]["emb"]
+                try:
+                    emb = emb_module(labels[key])
+                except:
+                    print(labels[key])
+                    raise
+                cond_emb[key] = emb
+        return cond_emb
+
+    def get_cond_labels(self, batch):
+        """Returns the conditioning labels for the batch provided
+        based on information from the hparams file on which
+        conditioning labels are enabled
+        
+        Arguments
+        ---------
+        batch: PaddedBatch
+            a batch
+
+        Returns
+        -------
+        result: dict
+            the result
+        """
+        return {
+            key: getattr(batch, emb_config["key"])
+            for key, emb_config in self.hparams.cond_emb.items()
+            if self.hparams.use_cond_emb[key]
+        }
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -368,17 +420,27 @@ class DiffusionBrain(sb.Brain):
         """Generates spectrogram and (optionally) audio samples using the
         denoising diffusion model
         """
-        samples = self.generate_spectrograms()
+        labels, samples = self.generate_spectrograms()
 
         wav = None
         if self.hparams.eval_generate_audio:
             wav = self.generate_audio(samples)
 
-        return samples, wav
+        return labels, samples, wav
 
     def generate_spectrograms(self):
         """Generates sample spectrograms"""
-        sample = self.modules.diffusion_latent.sample(
+        if self.is_conditioned:
+            logger.info("Conditioned sampling")
+            sample = self.generate_spectrograms_conditioned()
+        else:
+            logger.info("Unconditioned sampling")
+            sample = self.generate_spectrograms_unconditioned()
+        return sample
+
+    def generate_spectrograms_unconditioned(self):
+        """Generates spectrograms without conditioning"""
+        sample = self.modules.diffusion_sample.sample(
             (
                 self.hparams.eval_num_samples,
                 self.hparams.diffusion_channels, 
@@ -386,8 +448,100 @@ class DiffusionBrain(sb.Brain):
                 self.hparams.spec_sample_size,
             )
         )
+        labels = [str(idx) for idx in range(1, len(sample) + 1)]
         sample = self.modules.global_norm.denormalize(sample)
+        return labels, sample
+
+    def generate_spectrograms_conditioned(self):
+        """Generates spectrograms with label conditioning"""
+        sample_labels = self.sample_cond_labels()
+        samples = [
+            (label, idx, sample)
+            for label in sample_labels
+            for idx, sample in enumerate(
+                self.generate_spectrograms_for_label(label)
+            )
+        ]
+        labels = [
+            self.get_sample_label(label, idx) for label, idx, _ in samples]
+        samples = [sample for _, _, sample in samples]
+        return labels, samples
+
+    def sample_cond_labels(self):
+        """Generates a sample of conditioning labels
+        based on hparams
+        
+        Returns
+        -------
+        result: list
+            a list of dictionaries with speaker/digit
+            combinations
+        """
+        label_samples = {}
+        for key, cond_config in self.hparams.cond_emb.items():
+            sample_count = cond_config["sample_count"]
+            if sample_count is None:
+                sample = torch.arange(cond_config["count"])
+            else:
+                sample = torch.randint(cond_config["count"], (sample_count,))
+            label_samples[key] = sample
+
+        samples = dict_value_combinations(label_samples)
+        return samples
+
+    def generate_spectrograms_for_label(self, label):
+        """Generates samples for a specific label
+        
+        Arguments
+        ---------
+        label: dict
+            a dictionary of labels with values to compute
+            the embeddings
+
+        Returns
+        -------
+        sample: torch.tensor
+            a batch of spectrograms
+        """
+        label_msg = ", ".join(
+            f"{key} = {value.item()}"
+            for key, value in label.items()
+        )
+        logger.info("Generating samples for labels %s", label_msg)
+        cond_emb = self.compute_cond_emb(label)
+        sample = self.modules.diffusion_sample.sample(            
+            (
+                self.hparams.eval_num_samples,
+                self.hparams.diffusion_sample_channels, 
+                self.hparams.spec_sample_size,
+                self.hparams.spec_sample_size,
+            ),
+            cond_emb=cond_emb,
+        )
         return sample
+        
+    def get_sample_label(self, label, idx):
+        """Gets a filename label for the specified sample
+
+        Arguments
+        ---------
+        label: dict
+            a dictionary similar to the following:
+            {"digit": 4, "speaker": 10}
+        idx: int
+            the item index (will be appended)
+
+        Returns
+        -------
+        result: str
+            a formatted label. For the example above, it will
+            be "digit_4_speaker_10"
+        """
+        label_str = '_'.join(
+            f"{key}_{value}"
+            for key, value in label.items()
+        )
+        return f"{label_str}_{idx}"
 
     def generate_rec_samples(self):
         predictions = self.compute_forward(self.reference_batch, sb.Stage.VALID)
@@ -396,7 +550,7 @@ class DiffusionBrain(sb.Brain):
             wav = self.generate_audio(feats)
         return feats, wav
 
-    def save_spectrograms(self, samples, path, folder="spec"):
+    def save_spectrograms(self, samples, path, folder="spec", labels=None):
         """Saves sample spectrograms to filesystem files
 
         Arguments
@@ -408,17 +562,21 @@ class DiffusionBrain(sb.Brain):
         folder: str
             the name of the folder where the spectrograms
             will be saved
+        labels: list
+            a list of labels - for saving. If omitted, sequential
+            samples will be used
         """
         spec_sample_path = os.path.join(path, folder)
         if not os.path.exists(spec_sample_path):
             os.makedirs(spec_sample_path)
-        for idx, sample in enumerate(samples):
-            spec_file_name = os.path.join(spec_sample_path, f"spec_{idx}.png")
+        if labels is None:
+            labels = range(len(samples))
+        for label, sample in zip(labels, samples):
+            spec_file_name = os.path.join(spec_sample_path, f"spec_{label}.png")
             self.save_spectrogram_sample(sample, spec_file_name)
 
     def save_spectrogram_sample(self, sample, file_name):
         """Saves a single spectrogram sample as an image
-
 
         Arguments
         ---------
@@ -444,8 +602,11 @@ class DiffusionBrain(sb.Brain):
         -------
         audio: torch.Tensor
             generated audio for the samples (vocoder output)
-        """
-        vocoder_in = samples[:, :, : self.hparams.spec_n_mels]
+        """ 
+        vocoder_in = samples
+        if not torch.is_tensor(vocoder_in):
+            vocoder_in = torch.stack(vocoder_in)
+        vocoder_in = vocoder_in[:, :, :self.hparams.spec_n_mels]
         vocoder_in = vocoder_in.transpose(-1, -2)
         vocoder_in = self.modules.min_level_norm.denormalize(vocoder_in)
         vocoder_in = AF.DB_to_amplitude(
@@ -455,7 +616,7 @@ class DiffusionBrain(sb.Brain):
         vocoder_in = vocoder_in.squeeze(1)
         return self.vocoder(vocoder_in)
 
-    def save_audio(self, wav, path, folder="wav"):
+    def save_audio(self, wav, path, folder="wav", labels=None):
         """Saves a batch of audio samples
 
         wav: torch.Tensor
@@ -463,12 +624,24 @@ class DiffusionBrain(sb.Brain):
 
         path: str
             the destination directory
+
+        folder: str
+            the subfolder within the destinatin directory
+
+        labels: list
+            a list of labels, for each sample. If omitted,
+            sequential labels will be generated
         """
         wav_sample_path = os.path.join(path, folder)
         if not os.path.exists(wav_sample_path):
             os.makedirs(wav_sample_path)
-        for idx, sample in enumerate(wav):
-            wav_file_name = os.path.join(wav_sample_path, f"sample_{idx}.wav")
+
+        if labels is None:
+            labels = range(len(wav))
+        
+        for label, sample in zip(labels, wav):
+            wav_file_name = os.path.join(
+                wav_sample_path, f"sample_{label}.wav")
             self.save_audio_sample(sample.squeeze(0), wav_file_name)
 
     def compute_sample_metrics(self, samples):
@@ -482,6 +655,15 @@ class DiffusionBrain(sb.Brain):
         self.sample_std_metric.append(sample_ids, samples)
 
     def save_audio_sample(self, sample, file_name):
+        """Saves a single audio sample
+        
+        Arguments
+        ---------
+        sample: torch.Tensor
+            an audio sample
+        file_name: str
+            the file name to save
+        """
         write_audio(file_name, sample, self.hparams.sample_rate_tgt)
 
     def on_stage_start(self, stage, epoch=None):
@@ -562,8 +744,9 @@ class DiffusionBrain(sb.Brain):
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
         self.reference_samples_neeed = False
-        
-
+        self.is_conditioned = any(
+            self.hparams.use_cond_emb.values()
+        )
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -612,9 +795,10 @@ class DiffusionBrain(sb.Brain):
             self.generate_reference_samples(self.reference_batch)
 
         if stage != sb.Stage.TRAIN:
-            samples, wav = self.generate_samples()
+            labels, samples, wav = self.generate_samples()
             samples_rec, wav_rec = None, None
             data = {
+                "labels": labels,
                 "samples": samples,
                 "wav": wav
             }
@@ -664,14 +848,18 @@ class DiffusionBrain(sb.Brain):
 
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
-        samples, wav = [data[key] for key in ["samples", "wav"]]
-        samples_rec, wav_rec = [data.get(key) for key in ["samples_rec", "wav_rec"]]
-        self.save_spectrograms(samples, epoch_sample_path)
+        samples, wav, labels, samples_rec, wav_rec = [
+            data.get(key) 
+            for key in ["samples", "wav", "labels", "samples_rec", "wav_rec"]
+        ]
+        if not torch.is_tensor(samples):
+            samples = torch.stack(samples)
+        self.save_spectrograms(samples, epoch_sample_path, labels=labels)
         sample_ids = torch.arange(1, len(samples) + 1)
         for metric in self.sample_metrics:
             metric.append(sample_ids, samples)
         if wav is not None:
-            self.save_audio(wav, epoch_sample_path)
+            self.save_audio(wav, epoch_sample_path, labels=labels)
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.save_spectrograms(samples_rec, epoch_sample_path, folder="spec_rec")
             if wav_rec is not None:
@@ -822,6 +1010,12 @@ def dataio_prep(hparams):
         sig = resample(sig)
         return sig
 
+    @sb.utils.data_pipeline.takes("digit", "speaker_id")
+    @sb.utils.data_pipeline.provides("digit_label", "speaker_label")
+    def labels_pipeline(digit, speaker_id):
+        yield int(digit)
+        yield int(speaker_id) - 1
+
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
 
@@ -829,9 +1023,10 @@ def dataio_prep(hparams):
     dataset_splits_values = dataset_splits.values()
 
     sb.dataio.dataset.set_output_keys(
-        dataset_splits_values, ["file_name", "sig", "digit", "speaker_id"]
+        dataset_splits_values, ["file_name", "sig", "digit_label", "speaker_label"]
     )
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, audio_pipeline)
+    sb.dataio.dataset.add_dynamic_item(dataset_splits_values, labels_pipeline)
 
     train_split = dataset_splits["train"]
     data_count = None
@@ -979,7 +1174,71 @@ def dist_stats(sample, mask=None):
         "max": masked_max(sample, mask)
     }
 
+def dict_value_combinations(values):
+    """Returns all possible key-value combinations from
+    the given dictionary
 
+    Arguments
+    ---------
+    values: dict
+        A dictionary with lists of values as values
+        Example:
+        {
+            "digit": [1,2,3],
+            "speaker": [10, 20]
+        }
+
+    keys: list
+        the keys to consider
+
+    Returns
+    -------
+    result: list
+        a list of dictionaries in which each dictionary
+        is a possible permitations
+    """
+    return [
+        item
+        for item in dict_value_combinations_gen(values, values.keys())
+        if len(item) == len(values)
+    ]
+
+def dict_value_combinations_gen(values, keys):
+    """Returns a generation of permutations of the specified
+    values dictionary
+    
+    Arguments
+    ---------
+    values: dict
+        A dictionary with lists of values as values
+        Example:
+        {
+            "digit": [1,2,3],
+            "speaker": [10, 20]
+        }
+
+    keys: list
+        the keys to consider
+
+    Returns
+    -------
+    result: generator
+        a generator of dictionaries in which each dictionary
+        is a possible permitations
+    """
+    if not keys:
+        return
+    key, *rest = keys
+    key_values = values[key]
+    for value in key_values:
+        curr = {key: value}
+        for sub in dict_value_combinations_gen(values, rest):
+            item = dict(curr)
+            item.update(sub)
+            yield item
+        else:
+            yield curr
+        
 def check_tensorboard(hparams):
     """Checks whether Tensorboard is enabled and initializes the logger if it is
 
