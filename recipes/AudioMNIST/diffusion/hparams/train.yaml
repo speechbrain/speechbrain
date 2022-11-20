@@ -203,6 +203,8 @@ modules:
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>
     global_norm: !ref <global_norm>
+    emb_digit: !ref <emb_digit>
+    emb_speaker: !ref <emb_speaker>
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -232,3 +234,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
         lr_annealing: !ref <lr_annealing>
         global_norm: !ref <global_norm>
+        emb_digit: !ref <emb_digit>
+        emb_speaker: !ref <emb_speaker>
