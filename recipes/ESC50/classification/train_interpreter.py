@@ -72,6 +72,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         
         pred_cl = torch.argmax(predictions, dim=1)[0].item()
+        print(pred_cl)
 
         spec_shape = reconstructed.shape
         nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
