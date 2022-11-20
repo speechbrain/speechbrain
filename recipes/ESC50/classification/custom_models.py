@@ -535,7 +535,7 @@ class NMFDecoder(nn.Module):
 
         if init_file is not None:
             # handle numpy or torch
-            if '.pt' in init_file:
+            if ".pt" in init_file:
                 self.W.data = torch.load(init_file)
             else:
                 temp = np.load(init_file)

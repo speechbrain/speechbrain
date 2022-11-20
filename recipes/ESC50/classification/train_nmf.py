@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from librosa.display import specshow
 from drawnow import drawnow, figure
 
+
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
 
@@ -29,7 +30,6 @@ def dataio_prep(hparams):
     hparams["resampler"] = torchaudio.transforms.Resample(
         new_freq=config_sample_rate
     )
-
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
@@ -107,6 +107,7 @@ def dataio_prep(hparams):
 
     return datasets, label_encoder
 
+
 def draw_fig():
     plt.subplot(211)
     specshow(Xhat.data.cpu().numpy())
@@ -114,7 +115,8 @@ def draw_fig():
     plt.subplot(212)
     specshow(Xs.squeeze().data.cpu().numpy())
 
-    plt.savefig('nmf_results.png', format='png')
+    plt.savefig("nmf_results.png", format="png")
+
 
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    
+
     run_on_main(
         prepare_esc50,
         kwargs={
@@ -139,29 +141,34 @@ if __name__ == "__main__":
     )
 
     datasets, _ = dataio_prep(hparams)
-    nmf_model = hparams["nmf"].to(hparams['device'])
-    nmf_encoder = hparams["nmf_encoder"].to(hparams['device'])
-    opt = torch.optim.Adam(lr=1e-4, params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()))
+    nmf_model = hparams["nmf"].to(hparams["device"])
+    nmf_encoder = hparams["nmf_encoder"].to(hparams["device"])
+    opt = torch.optim.Adam(
+        lr=1e-4,
+        params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()),
+    )
 
     for e in range(100):
-        for i, element in (enumerate(datasets["train"])):
+        for i, element in enumerate(datasets["train"]):
             # print(element["sig"].shape[0] / hparams["sample_rate"])
 
             opt.zero_grad()
             Xs = stft(element["sig"].cpu().numpy(), n_fft=1024, hop_length=512)
-            Xs = torch.from_numpy(np.log(1 + np.abs(Xs))).unsqueeze(0).to(hparams['device'])
+            Xs = (
+                torch.from_numpy(np.log(1 + np.abs(Xs)))
+                .unsqueeze(0)
+                .to(hparams["device"])
+            )
             z = nmf_encoder(Xs)
 
-            Xhat = torch.matmul(nmf_model.return_W('torch'), z.squeeze())
-            loss = ((Xs.squeeze() - Xhat)**2).mean()
+            Xhat = torch.matmul(nmf_model.return_W("torch"), z.squeeze())
+            loss = ((Xs.squeeze() - Xhat) ** 2).mean()
             loss.backward()
 
             opt.step()
             if 1:
                 if i in [100]:
                     draw_fig()
-        print('loss is {}, epoch is {} '.format(loss.item(), e))
+        print("loss is {}, epoch is {} ".format(loss.item(), e))
 
-    torch.save(nmf_model.return_W('torch'), "nmf_decoder.pt")
-
-    
+    torch.save(nmf_model.return_W("torch"), "nmf_decoder.pt")
