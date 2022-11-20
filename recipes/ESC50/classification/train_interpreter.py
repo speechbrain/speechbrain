@@ -99,8 +99,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         # x_int = self.modules.compute_istft(X_int.unsqueeze(0).transpose(1, 2).unsqueeze(-1))
         x_int = istft(X_int.cpu().numpy(), hop_length=512)
 
-        import pdb; pdb.set_trace()
-
         # save reconstructed and original spectrograms
         makedirs(
             os.path.join(
