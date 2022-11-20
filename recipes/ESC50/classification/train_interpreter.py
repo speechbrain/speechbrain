@@ -121,13 +121,10 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # cut the length of psi
         psi_out = psi_out[:, :, : X_stft_power.shape[1]]
-        # psi_out = psi_out.permute(0, 2, 1)
 
         reconstructed = self.hparams.nmf(
             psi_out
         )  #  generate log-mag spectrogram
-        # psi_out = psi_out.permute(0, 2, 1)
-        # reconstructed = reconstructed .permute(0, 2, 1)
 
         predictions = self.hparams.classifier(embeddings).squeeze(1)
 
@@ -135,7 +132,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             psi_out
         )  # generate classifications from time activations
         
-        import pdb; pdb.set_trace()
         return (reconstructed, psi_out), (predictions, theta_out)
 
     def compute_objectives(self, predictions, batch, stage):
