@@ -211,16 +211,23 @@ FREQ: 513
 # pre-processing
 n_fft: 1024
 spec_mag_power: 2
+hop_length: 11.6099
+win_length: 23.2199
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
-    hop_length: 11.6099
-    win_length: 23.2199
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
     sample_rate: !ref <sample_rate>
 
 compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_mels: 80
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
 
 psi_model: !new:custom_models.Psi
 theta: !new:custom_models.Theta
@@ -238,6 +245,7 @@ beta: 0.8 # L1 regularization to time activations
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
+    compute_istft: !ref <compute_istft>
     compute_features: !ref <compute_features>
     augment_wavedrop: !ref <augment_wavedrop>
     augment_speed: !ref <augment_speed>

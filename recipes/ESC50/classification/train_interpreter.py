@@ -46,33 +46,91 @@ eps = 1e-10
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
-    def topk_fidelity(self):
-        batch_size = int(sample_data.shape[0])
-        conf_matx_fy = np.zeros([50, 50])  # n_classes x n_classes
-        conf_matx_hf = np.zeros([50, 50])
-        conf_matx_hy = np.zeros([50, 50])
-        top5_fid, top3_fid = 0, 0
-        for batch_info in test_loader:
-            data, target = batch_info[0].to(device), batch_info[1].to(device)
-            output, inter = f(data)
-            embed = H(inter)
-            rec_data, expl = W(embed), h(embed)
-            pred_f = output.argmax(dim=1).cpu().data.numpy()
-            pred_h = expl.argmax(dim=1).cpu().data.numpy()
-            hp_full = expl.cpu().data.numpy()
-            y = target.cpu().data.numpy()
-            for j in range(y.shape[0]):
-                conf_matx_fy[pred_f[j], y[j]] += 1
-                conf_matx_hf[pred_h[j], pred_f[j]] += 1
-                conf_matx_hy[pred_h[j], y[j]] += 1
-                if pred_f[j] in (-1 * hp_full[j]).argsort()[:5]:
-                    top5_fid += 1
-                if pred_f[j] in (-1 * hp_full[j]).argsort()[:3]:
-                    top3_fid += 1
-        print("Top-3 fidelity total:", top3_fid)
-        print("Top-5 fidelity total:", top5_fid)
-        return conf_matx_fy, conf_matx_hf, conf_matx_hy
+    @torch.no_grad()
+    def interpret_batch(self, batch): 
+        """ Interprets first element of `batch`.
+        TODO: add overlap test on samples from batch """
+        batch = batch.to(self.device)
+        wavs, _ = batch.sig
+        wavs = wavs[0].unsqueeze(0)
 
+        X_stft = self.modules.compute_stft(wavs)
+        X_stft_power = sb.processing.features.spectral_magnitude(X_stft, power=self.hparams.spec_mag_power)
+        X_logmel = self.modules.compute_fbank(X_stft_power)
+
+        embeddings, f_I = self.hparams.embedding_model(X_logmel)
+
+        psi_out = self.modules.psi(f_I)  # generate nmf activations
+
+        # cut the length of psi
+        psi_out = psi_out[:, :, : X_stft_power.shape[1]]
+
+        reconstructed = self.hparams.nmf(
+            psi_out
+        )  #  generate log-mag spectrogram
+
+        predictions = self.hparams.classifier(embeddings).squeeze(1)
+        
+        pred_cl = torch.argmax(predictions, dim=1)[0].item()
+
+        spec_shape = reconstructed.shape
+        nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
+
+        # computes time activations per component
+        # FROM NOW ON WE FOLLOW THE PAPER'S NOTATION
+        psi_out = psi_out.squeeze()
+        z = self.modules.theta.hard_att(psi_out).squeeze()
+        theta_c_w = self.modules.theta.classifier[0].weight[pred_cl]
+        r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()   # some might be negative, relevance of component
+
+        L = torch.arange(r_c_x.shape[0])[r_c_x > 0.2].tolist()   # define selected components
+        
+        X_stft_power_log = torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
+        X_ks = torch.zeros(len(L), spec_shape[1], spec_shape[2]).to(self.device)
+        sum_X_k = torch.zeros(spec_shape[1], spec_shape[2]).to(self.device)
+        for (i, k) in enumerate(L):
+            X_k = nmf_dictionary[:, k].unsqueeze(1) @ psi_out[k, :].unsqueeze(0)
+            sum_X_k += X_k
+            X_ks[i] = X_k
+
+        X_int = (X_ks / sum_X_k.unsqueeze(0)).sum(0) * X_stft_power_log
+        X_int = torch.exp(X_int) - 1
+
+        # x_int = self.modules.compute_istft(X_int.unsqueeze(0).transpose(1, 2).unsqueeze(-1))
+        x_int = istft(X_int.cpu().numpy(), hop_length=512)
+
+        import pdb; pdb.set_trace()
+
+        # save reconstructed and original spectrograms
+        makedirs(
+            os.path.join(
+                self.hparams.output_folder,
+                f"audios_from_interpretation",
+            ),
+            exist_ok=True,
+        )
+
+        epoch = self.hparams.epoch_counter.current
+        sf.write(
+            os.path.join(
+                self.hparams.output_folder,
+                f"audios_from_interpretation",
+                f"original_{epoch}.wav",
+            ),
+            wavs[0],
+            self.hparams.sample_rate,
+        )
+
+        sf.write(
+            os.path.join(
+                self.hparams.output_folder,
+                f"audios_from_interpretation",
+                f"interpretation_{epoch}.wav",
+            ),
+            x_int,
+            self.hparams.sample_rate,
+        )
+    
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
         Data augmentation and environmental corruption are applied to the
@@ -109,6 +167,10 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs = torch.cat(wavs_aug_tot, dim=0)
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
+        
+        elif stage == sb.Stage.VALID and self.hparams.epoch_counter.current % 10:
+            # save some samples
+            self.interpret_batch(batch)
 
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(X_stft, power=self.hparams.spec_mag_power)
@@ -218,120 +280,6 @@ class InterpreterESC50Brain(sb.core.Brain):
                 f"{str(stage)}_{epoch}.png",
             )
         )
-
-        if epoch % 10:
-            with torch.no_grad():
-                wavs, lens = self.last_batch.sig
-
-                # run inference on selected samples
-                Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
-                Xs = np.log(1 + np.abs(Xs))
-                Xmel = librosa.feature.melspectrogram(
-                    sr=self.hparams.sample_rate,
-                    S=np.abs(Xs),
-                    n_fft=1024,
-                    hop_length=512,
-                    n_mels=80,
-                )
-                Xlgmel = librosa.power_to_db(Xmel)
-
-                # test librosa stuff
-                feats = (
-                    torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
-                )
-                Xs = torch.Tensor(Xs).float().to(self.device)
-
-                # Embeddings + sound classifier
-                embeddings, f_I = self.hparams.embedding_model(feats)
-
-                psi_out = self.modules.psi(f_I)  # generate nmf activations
-                psi_out = psi_out[:, :, : Xs.shape[-1]]
-
-                # psi_out = psi_out.permute(0, 2, 1)
-                reconstructed = self.hparams.nmf(
-                    psi_out
-                )  #  generate log-mag spectrogram
-                # psi_out = psi_out.permute(0, 2, 1)
-                # reconstructed = reconstructed.permute(0, 2, 1)
-
-                predictions = self.hparams.classifier(embeddings).squeeze(1)
-                pred_cl = torch.argmax(predictions, dim=1)[0].item()
-
-                mag_spec = torch.exp(Xs) - 1
-                spec_shape = reconstructed.shape
-
-                comp = torch.ones(100, spec_shape[1], spec_shape[2]).to(
-                    self.device
-                )
-                ratio = torch.ones_like(comp)
-
-                nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
-
-                comp_weights = self.modules.theta.classifier[0].weight
-
-                # computes time activations per component
-                pooled_act = F.adaptive_avg_pool1d(psi_out, 1).squeeze()
-                # print(pooled_act.shape)
-
-                pooled_act[0] = pooled_act[0] * comp_weights[int(pred_cl)]
-                pooled_act[0] = pooled_act[0] / pooled_act[0].max()
-
-                softmask_weights = torch.exp(pooled_act[0]) / (
-                   torch.exp(pooled_act[0]).sum()
-                )
-                main_components = (-1 * pooled_act[0]).argsort()[:5]
-                enhanced_spec = torch.zeros_like(Xs)[0]
-                residual_spec = Xs[0].clone()
-
-                expl_comp = comp[0] * 0.0
-                ratio_comp = ratio[0] * 0.0
-
-                for i in main_components:
-                   comp[i], ratio[i] = self.select_component(
-                       i, Xs[0], psi_out[0], nmf_dictionary
-                   )
-                   if pooled_act[0, i] > 0.2:
-                       expl_comp += comp[i]
-
-                expl_comp = torch.exp(expl_comp) - 1
-                interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
-                original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
-
-                # save reconstructed and original spectrograms
-                makedirs(
-                   os.path.join(
-                       self.hparams.output_folder,
-                       f"audios_from_interpretation",
-                   ),
-                   exist_ok=True,
-                )
-
-                sf.write(
-                   os.path.join(
-                       self.hparams.output_folder,
-                       f"audios_from_interpretation",
-                       f"orig_{epoch}.wav",
-                   ),
-                   original_audio,
-                   self.hparams.sample_rate,
-                )
-
-                sf.write(
-                   os.path.join(
-                       self.hparams.output_folder,
-                       f"audios_from_interpretation",
-                       f"recon_{epoch}.wav",
-                   ),
-                   interpretation,
-                   self.hparams.sample_rate,
-                )
-
-                # print("Generated samples...")
-                # input()
-
-                theta_out = self.modules.theta(
-                    psi_out
-                )  # generate classifications from time activations
 
         return super().on_stage_end(stage, stage_loss, epoch)
 
