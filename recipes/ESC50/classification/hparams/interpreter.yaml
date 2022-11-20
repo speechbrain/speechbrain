@@ -226,7 +226,7 @@ psi_model: !new:custom_models.Psi
 theta: !new:custom_models.Theta
 
 # NMF Decoder
-nmf_d_path: "initW_LMS_K100_sp0.8_Fold1_n1.npy"
+nmf_d_path: "nmf_decoder.pt"
 nmf: !new:custom_models.NMFDecoder
     init_file: !ref <nmf_d_path>
     N_COMP: !ref <K>

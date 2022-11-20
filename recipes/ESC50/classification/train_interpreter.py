@@ -168,7 +168,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         if stage == sb.Stage.TRAIN and False:
             classid = torch.cat([classid] * self.n_augment, dim=0)
 
-        loss_nmf = torch.linalg.norm(predictions - Xs) ** 2
+        loss_nmf = ((predictions - Xs) ** 2).mean()
         loss_nmf = loss_nmf / predictions.shape[0]  # avg on batches
         loss_nmf = self.hparams.alpha * loss_nmf
         # loss_nmf += self.hparams.beta * torch.linalg.norm(time_activations)
@@ -181,7 +181,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.batch_to_plot = (predictions, Xs)
 
         theta_out = -torch.log(theta_out)
-        loss_fdi = (F.softmax(classification_out.T, dim=0) @ theta_out).sum()
+        loss_fdi = (F.softmax(classification_out.T, dim=0) @ theta_out).mean()
 
         return loss_nmf + loss_fdi
 
@@ -290,7 +290,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 pooled_act[0] = pooled_act[0] / pooled_act[0].max()
 
                 softmask_weights = torch.exp(pooled_act[0]) / (
-                   torch.exp(pooled_act[0]).sum()
+                    torch.exp(pooled_act[0]).sum()
                 )
                 main_components = (-1 * pooled_act[0]).argsort()[:5]
                 enhanced_spec = torch.zeros_like(Xs)[0]
@@ -300,43 +300,45 @@ class InterpreterESC50Brain(sb.core.Brain):
                 ratio_comp = ratio[0] * 0.0
 
                 for i in main_components:
-                   comp[i], ratio[i] = self.select_component(
-                       i, Xs[0], psi_out[0], nmf_dictionary
-                   )
-                   if pooled_act[0, i] > 0.2:
-                       expl_comp += comp[i]
+                    comp[i], ratio[i] = self.select_component(
+                        i, Xs[0], psi_out[0], nmf_dictionary
+                    )
+                    if pooled_act[0, i] > 0.2:
+                        expl_comp += comp[i]
 
                 expl_comp = torch.exp(expl_comp) - 1
-                interpretation = istft((expl_comp * Xs[0]).cpu().numpy(), hop_length=512)
+                interpretation = istft(
+                    (expl_comp * Xs[0]).cpu().numpy(), hop_length=512
+                )
                 original_audio = istft(Xs[0].cpu().numpy(), hop_length=512)
 
                 # save reconstructed and original spectrograms
                 makedirs(
-                   os.path.join(
-                       self.hparams.output_folder,
-                       f"audios_from_interpretation",
-                   ),
-                   exist_ok=True,
+                    os.path.join(
+                        self.hparams.output_folder,
+                        f"audios_from_interpretation",
+                    ),
+                    exist_ok=True,
                 )
 
                 sf.write(
-                   os.path.join(
-                       self.hparams.output_folder,
-                       f"audios_from_interpretation",
-                       f"orig_{epoch}.wav",
-                   ),
-                   original_audio,
-                   self.hparams.sample_rate,
+                    os.path.join(
+                        self.hparams.output_folder,
+                        f"audios_from_interpretation",
+                        f"orig_{epoch}.wav",
+                    ),
+                    original_audio,
+                    self.hparams.sample_rate,
                 )
 
                 sf.write(
-                   os.path.join(
-                       self.hparams.output_folder,
-                       f"audios_from_interpretation",
-                       f"recon_{epoch}.wav",
-                   ),
-                   interpretation,
-                   self.hparams.sample_rate,
+                    os.path.join(
+                        self.hparams.output_folder,
+                        f"audios_from_interpretation",
+                        f"recon_{epoch}.wav",
+                    ),
+                    interpretation,
+                    self.hparams.sample_rate,
                 )
 
                 # print("Generated samples...")

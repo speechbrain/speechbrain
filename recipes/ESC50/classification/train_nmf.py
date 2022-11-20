@@ -157,18 +157,11 @@ if __name__ == "__main__":
             loss.backward()
 
             opt.step()
-            if i in [17, 100, 200, 350]:
-                draw_fig()
+            if 1:
+                if i in [100]:
+                    draw_fig()
         print('loss is {}, epoch is {} '.format(loss.item(), e))
 
-
-
-
-            
-        # print(Xs.shape)
-        # input()
-        
-    
-    # torch.save(nmf_model, "nmf_decoder.pt")
+    torch.save(nmf_model.return_W('torch'), "nmf_decoder.pt")
 
     

@@ -528,12 +528,18 @@ class NMFDecoder(nn.Module):
     def __init__(self, N_COMP=100, FREQ=513, init_file=None):
         super(NMFDecoder, self).__init__()
 
-        self.W = nn.Parameter(0.1 * torch.rand(FREQ, N_COMP), requires_grad=True)
+        self.W = nn.Parameter(
+            0.1 * torch.rand(FREQ, N_COMP), requires_grad=True
+        )
         self.activ = nn.ReLU()
 
         if init_file is not None:
-            temp = np.load(init_file)
-            self.W.data = torch.as_tensor(temp).float()
+            # handle numpy or torch
+            if '.pt' in init_file:
+                self.W.data = torch.load(init_file)
+            else:
+                temp = np.load(init_file)
+                self.W.data = torch.as_tensor(temp).float()
 
     def forward(self, inp):
         # Assume input of shape n_batch x n_comp x T
@@ -583,11 +589,11 @@ class NMFEncoder(nn.Module):
     def __init__(self, nlayers) -> None:
         super().__init__()
         self.convenc = nn.Sequential(
-            nn.Conv1d(513, 256, kernel_size=8, padding='same'),
+            nn.Conv1d(513, 256, kernel_size=8, padding="same"),
             nn.ReLU(),
-            nn.Conv1d(256, 128, kernel_size=8, padding='same'),
+            nn.Conv1d(256, 128, kernel_size=8, padding="same"),
             nn.ReLU(),
-            nn.Conv1d(128, 100, kernel_size=8, padding='same'),
+            nn.Conv1d(128, 100, kernel_size=8, padding="same"),
             nn.ReLU(),
         )
 
