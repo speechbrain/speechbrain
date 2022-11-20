@@ -46,7 +46,7 @@ class HuggingFaceWhisper(nn.Module):
     >>> sampling_rate = 16000
     >>> model = HuggingFaceWhisper(model_hub, save_path, sampling_rate)
     >>> tokens = torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id
-    >>> inputs = torch.rand([1, 93680])
+    >>> inputs = torch.randn([1, 93680])
     >>> outputs = model(inputs, tokens)
     """
 
