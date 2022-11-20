@@ -110,16 +110,14 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        # import pdb; pdb.set_trace()
-        Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
-        Xmel = librosa.feature.melspectrogram(
-            sr=self.hparams.sample_rate,
-            S=np.abs(Xs),
-            n_fft=1024,
-            hop_length=512,
-            n_mels=80,
-        )
+        X_stft = self.modules.compute_stft(wavs)
+        X_stft_power = sb.processing.features.spectral_magnitude(X_stft, power=self.hparams.spec_mag_power)
+        X_logmel = self.modules.compute_fbank(X_stft_power)
+        
         Xlgmel = librosa.power_to_db(Xmel)
+
+        X_comp = torch.Tensor(np.abs(Xs)).transpose(1, 2)
+        import pdb; pdb.set_trace()
 
         # test librosa stuff
         feats = torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
