@@ -30,7 +30,7 @@ from speechbrain.dataio.dataio import (
 DEFAULT_SPLITS = ["train", "valid", "test"]
 DEFAULT_AUDIOMNIST_REPO = "https://github.com/soerenab/AudioMNIST.git"
 DEFAULT_SRC_SAMPLE_RATE = 48000
-DEFAULT_TGT_SAMPLE_RATE = 22050
+DEFAULT_TGT_SAMPLE_RATE = 48000
 DB_BASE = 10.0
 DB_MULTIPLIER = 0.05
 OPT_FILE = "opt_audiomnist_prepare.pkl"
