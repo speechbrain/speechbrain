@@ -158,6 +158,23 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.hparams.sample_rate,
         )
 
+    @torch.no_grad()
+    def compute_fidelity(self, theta_out, predictions, k=3):
+        """ Computes top-`k` fidelity of interpreter. """
+        predictions = F.softmax(predictions, dim=1)
+        theta_out = F.softmax(theta_out, dim=1)
+
+        pred_cl = torch.argmax(
+            predictions,
+            dim=1
+        )
+        k_top = torch.topk(theta_out, k=k, dim=1)[1]
+
+        # 1 element for each sample in batch, is 0 if pred_cl is in top k
+        temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
+
+        return temp.sum() / temp.numel()
+
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
         Data augmentation and environmental corruption are applied to the
@@ -195,17 +212,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        elif (
-            stage == sb.Stage.VALID
-            and (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
-            )
-            == 0
-        ):
-            # save some samples
-            self.interpret_batch(batch)
-
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
@@ -230,14 +236,27 @@ class InterpreterESC50Brain(sb.core.Brain):
             psi_out
         )  # generate classifications from time activations
 
+        if (
+            stage == sb.Stage.VALID
+            and (
+                self.hparams.epoch_counter.current
+                % self.hparams.interpret_period
+            )
+            == 0
+        ):
+            # save some samples
+            self.interpret_batch(batch)
+            top_3_fidelity = self.compute_fidelity(theta_out, predictions, k=3)
+
+
         return (reconstructed, psi_out), (predictions, theta_out)
 
-    def compute_objectives(self, reconstructions, batch, stage):
+    def compute_objectives(self, pred, batch, stage):
         """Computes the loss using class-id as label."""
         (
             (reconstructions, time_activations),
-            (classification_out, theta_out,),
-        ) = reconstructions
+            (classification_out, theta_out),
+        ) = pred
 
         uttid = batch.id
         classid, _ = batch.class_string_encoded
@@ -271,24 +290,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         loss_fdi = (F.softmax(classification_out, dim=0) * theta_out).mean()
 
         return loss_nmf + loss_fdi
-
-    @staticmethod
-    def select_component(idx, inp_lg_spec, H, W):
-        # Selects the contribution of component j (j=idx) from the given input log magnitude spectrogram
-        # Assume integer/numpy arrays for all input arguments, W of shape N_FREQ x N_COMP and H of N_COMP x N_TIME
-        # Do W.abs() to force positive values
-        W_mat = torch.abs(W)
-        # ratio = np.outer(W_mat[:, idx], H[idx]) / (0.000001 + np.dot(W_mat, H))
-        ratio = (W_mat[:, idx].unsqueeze(1) * H[idx].unsqueeze(0)) / (
-            eps + torch.matmul(W_mat, H)
-        )
-
-        # comp = np.exp(inp_lg_spec * ratio) - 1
-        comp = inp_lg_spec * ratio
-        # comp = torch.Tensor(comp)
-        # ratio = torch.Tensor(ratio)
-
-        return comp, ratio
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
