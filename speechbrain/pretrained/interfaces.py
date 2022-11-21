@@ -1181,9 +1181,16 @@ class VAD(Pretrained):
             # Padding big chunk to an integer multiple of small chunk's length
             if large_chunk.shape[-1] < long_chunk_len:
                 small_chunks_num = large_chunk.shape[-1] // small_chunk_len + 1
-                large_chunk = F.pad(large_chunk,
-                    (0, small_chunk_len * small_chunks_num - large_chunk.shape[-1]),
-                "constant", 0)
+                large_chunk = F.pad(
+                    large_chunk,
+                    (
+                        0,
+                        small_chunk_len * small_chunks_num
+                        - large_chunk.shape[-1],
+                    ),
+                    "constant",
+                    0,
+                )
 
             # Splitting the big chunk into smaller (overlapped) ones
             small_chunks = torch.nn.functional.unfold(
@@ -1340,7 +1347,7 @@ class VAD(Pretrained):
         -------
         vad_th: torch.tensor
             Tensor containing 1 for speech regions and 0 for non-speech regions.
-       """
+        """
         vad_activation = (vad_prob >= activation_th).int()
         vad_deactivation = (vad_prob >= deactivation_th).int()
         vad_th = vad_activation + vad_deactivation
@@ -1380,7 +1387,7 @@ class VAD(Pretrained):
             in even positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).
-       """
+        """
         # Shifting frame-levels binary decision by 1
         # This allows detecting changes in speech/non-speech activities
         prob_th_shifted = torch.roll(prob_th, dims=1, shifts=1)
@@ -2583,8 +2590,7 @@ class WaveformEnhancement(Pretrained):
 
 
 class SNREstimator(Pretrained):
-    """A "ready-to-use" SNR estimator.
-    """
+    """A "ready-to-use" SNR estimator."""
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
     HPARAMS_NEEDED = ["stat_pooling", "snrmax", "snrmin"]
@@ -2702,8 +2708,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction
-        """
+        """Encodes raw text into a tensor with a customer text-to-equence fuction"""
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
