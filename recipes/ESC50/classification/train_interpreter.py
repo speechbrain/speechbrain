@@ -63,24 +63,20 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         X_logmel = self.modules.compute_fbank(X_stft_power)
 
+        # get the classifier embeddings
         embeddings, f_I = self.hparams.embedding_model(X_logmel)
 
-        psi_out = self.modules.psi(f_I)  # generate nmf activations
+        # get the nmf activations
+        psi_out = self.modules.psi(f_I)
 
-        # cut the length of psi
+        # cut the length of psi in case necessary
         psi_out = psi_out[:, :, : X_stft_power.shape[1]]
-
-        # cem: do we need this here?
-        reconstructed = self.hparams.nmf(
-            psi_out
-        )  #  generate log-mag spectrogram
 
         # get the classifier output
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         pred_cl = torch.argmax(predictions, dim=1)[0].item()
         # print(pred_cl)
 
-        spec_shape = reconstructed.shape
         nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
 
         # computes time activations per component
@@ -91,7 +87,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # some might be negative, relevance of component
         r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()
-        # define selected components
+        # define selected components by thresholding
         L = torch.arange(r_c_x.shape[0])[r_c_x > 0.2].tolist()
 
         # get the log power spectra, this is needed as NMF is trained on log-power spectra
@@ -144,7 +140,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             os.path.join(
                 self.hparams.output_folder,
                 f"audios_from_interpretation",
-                f"original_{epoch}.wav",
+                f"original_{epoch}_{batch.id[0]}.wav",
             ),
             wavs[0].cpu().numpy(),
             self.hparams.sample_rate,
@@ -154,7 +150,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             os.path.join(
                 self.hparams.output_folder,
                 f"audios_from_interpretation",
-                f"interpretation_{epoch}.wav",
+                f"interpretation_{epoch}_{batch.id[0]}.wav",
             ),
             x_int,
             self.hparams.sample_rate,
