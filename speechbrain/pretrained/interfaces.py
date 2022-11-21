@@ -1181,7 +1181,7 @@ class VAD(Pretrained):
             # Padding big chunk to an integer multiple of small chunk's length
             if large_chunk.shape[-1] < long_chunk_len:
                 small_chunks_num = large_chunk.shape[-1] // small_chunk_len + 1
-                large_chunk = F.pad(large_chunk, 
+                large_chunk = F.pad(large_chunk,
                     (0, small_chunk_len * small_chunks_num - large_chunk.shape[-1]),
                 "constant", 0)
 
