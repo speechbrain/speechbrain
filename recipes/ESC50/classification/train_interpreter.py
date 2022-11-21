@@ -104,17 +104,20 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
         # get the contribution of each component
-        X_ks = torch.zeros(len(L), spec_shape[1], spec_shape[2]).to(self.device)
-        sum_X_k = torch.zeros(spec_shape[1], spec_shape[2]).to(self.device)
-        for (i, k) in enumerate(L):
-            X_k = nmf_dictionary[:, k].unsqueeze(1) @ psi_out[k, :].unsqueeze(0)
-            sum_X_k += X_k
-            X_ks[i] = X_k
-            # cem : for the denominator we need to sum over all K, not just the selected ones. 
+        # X_ks = torch.zeros(len(L), spec_shape[1], spec_shape[2]).to(self.device)
+        # sum_X_k = torch.zeros(spec_shape[1], spec_shape[2]).to(self.device)
+        # for (i, k) in enumerate(L):
+        #     X_k = nmf_dictionary[:, k].unsqueeze(1) @ psi_out[k, :].unsqueeze(0)
+        #     sum_X_k += X_k
+        #     X_ks[i] = X_k
+        # cem : for the denominator we need to sum over all K, not just the selected ones. 
+        X_withselected = nmf_dictionary[:, L] @ psi_out[L, :]
+        Xhat = nmf_dictionary @ psi_out
 
         # need the eps for the denominator
         eps = 1e-10
-        X_int = (X_ks / (sum_X_k.unsqueeze(0)+eps)).sum(0) * X_stft_power_log
+        # X_int = (X_ks / (sum_X_k.unsqueeze(0)+eps)).sum(0) * X_stft_power_log
+        X_int = (X_withselected / (Xhat + eps)) * X_stft_power_log
 
         # get back to the standard stft
         X_int = torch.exp(X_int) - 1
@@ -155,7 +158,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             x_int,
             self.hparams.sample_rate,
         )
-
+        
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
         Data augmentation and environmental corruption are applied to the
@@ -193,7 +196,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        elif stage == sb.Stage.VALID and (self.hparams.epoch_counter.current % 10) == 0:
+        elif stage == sb.Stage.VALID and (self.hparams.epoch_counter.current % self.hparams.interpret_period) == 0:
             # save some samples
             self.interpret_batch(batch)
 

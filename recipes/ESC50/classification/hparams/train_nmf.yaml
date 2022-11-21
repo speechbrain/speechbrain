@@ -85,8 +85,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 ## Data augmentation
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: 1024
-    hop_length: 11.6099    
-    win_length:  23.2199  
+    hop_length: 11.6099
+    win_length:  23.2199
     sample_rate: !ref <sample_rate>
 
 compute_stft_mag: !name:speechbrain.processing.features.spectral_magnitude

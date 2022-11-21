@@ -54,6 +54,7 @@ base_lr: 0.0002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
+interpret_period: 1
 
 device: "cuda:0"
 
@@ -192,8 +193,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: embedding_model.ckpt
-classifier_model_path: classifier.ckpt
+embedding_model_path: /home/cem/Dropbox/speechbrain-1/recipes/ESC50/classification/results/cnn14/11/save/CKPT+2022-11-20+21-11-04+00/embedding_model.ckpt
+classifier_model_path: /home/cem/Dropbox/speechbrain-1/recipes/ESC50/classification/results/cnn14/11/save/CKPT+2022-11-20+21-11-04+00/classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
