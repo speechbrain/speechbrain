@@ -49,12 +49,9 @@ class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
     @torch.no_grad()
-    def interpret_sample(self, batch):
+    def interpret_sample(self, wavs, batch):
         """ Interprets first element of `batch`.
         TODO: add overlap test on samples from batch """
-        batch = batch.to(self.device)
-        wavs, _ = batch.sig
-        wavs = wavs[0].unsqueeze(0)
 
         # compute stft and logmel, and phase
         X_stft = self.modules.compute_stft(wavs)
@@ -128,36 +125,37 @@ class InterpreterESC50Brain(sb.core.Brain):
         x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
         # x_int = self.modules.compute_istft(X_int_wphase)
 
-        # save reconstructed and original spectrograms
-        makedirs(
-            os.path.join(
-                self.hparams.output_folder, f"audios_from_interpretation",
-            ),
-            exist_ok=True,
-        )
+        if not (batch is None):
+            # save reconstructed and original spectrograms
+            makedirs(
+                os.path.join(
+                    self.hparams.output_folder, f"audios_from_interpretation",
+                ),
+                exist_ok=True,
+            )
 
-        epoch = self.hparams.epoch_counter.current
-        current_class_ind = batch.class_string_encoded.data[0].item()
-        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
-        sf.write(
-            os.path.join(
-                self.hparams.output_folder,
-                f"audios_from_interpretation",
-                f"original_{current_class_name}.wav",
-            ),
-            wavs[0].cpu().numpy(),
-            self.hparams.sample_rate,
-        )
+            epoch = self.hparams.epoch_counter.current
+            current_class_ind = batch.class_string_encoded.data[0].item()
+            current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
+            sf.write(
+                os.path.join(
+                    self.hparams.output_folder,
+                    f"audios_from_interpretation",
+                    f"original_{current_class_name}.wav",
+                ),
+                wavs[0].cpu().numpy(),
+                self.hparams.sample_rate,
+            )
 
-        sf.write(
-            os.path.join(
-                self.hparams.output_folder,
-                f"audios_from_interpretation",
-                f"interpretation_{current_class_name}_{epoch}.wav",
-            ),
-            x_int,
-            self.hparams.sample_rate,
-        )
+            sf.write(
+                os.path.join(
+                    self.hparams.output_folder,
+                    f"audios_from_interpretation",
+                    f"interpretation_{current_class_name}_{epoch}.wav",
+                ),
+                x_int,
+                self.hparams.sample_rate,
+            )
 
         return X_int
 
@@ -228,7 +226,8 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0:
-                self.interpret_batch(batch)
+                wavs = wavs[0].unsqueeze(0)
+                self.interpret_sample(wavs, batch)
 
         return (reconstructed, psi_out), (predictions, theta_out)
 
@@ -293,6 +292,14 @@ class InterpreterESC50Brain(sb.core.Brain):
             temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
 
             return temp
+
+        @torch.no_grad()
+        def faithfulness(wavs, predictions):
+            X_stft = self.modules.compute_stft(wavs).to(self.device)
+            X_stft_power = sb.processing.features.spectral_magnitude(
+                X_stft, power=self.hparams.spec_mag_power
+            )
+            X_stft_logpower = torch.log(X_stft_power + 1).transpose(1, 2)
             
         self.top_3_fidelity = MetricStats(metric=compute_fidelity)
         return super().on_stage_start(stage, epoch)
