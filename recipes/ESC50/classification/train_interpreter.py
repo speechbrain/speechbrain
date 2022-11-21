@@ -49,7 +49,7 @@ class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
     @torch.no_grad()
-    def interpret_batch(self, batch):
+    def interpret_sample(self, batch):
         """ Interprets first element of `batch`.
         TODO: add overlap test on samples from batch """
         batch = batch.to(self.device)
@@ -158,6 +158,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             x_int,
             self.hparams.sample_rate,
         )
+
+        return X_int
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -299,6 +301,27 @@ class InterpreterESC50Brain(sb.core.Brain):
         """Gets called at the end of an epoch.
         Plots in subplots the values of `self.batch_to_plot` and saves the
         plot to the experiment folder. `self.hparams.output_folder`"""
+
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+            self.train_stats = {
+                "loss": self.train_loss,
+            }
+
+        if stage == sb.Stage.VALID:
+            valid_stats = {
+                "loss": stage_loss,
+                "top-3_fid": self.top_3_fidelity.summarize(
+                    "average"
+                ),
+            }
+
+            # The train_logger writes a summary to stdout and to the logfile.
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch},
+                train_stats=self.train_stats,
+                valid_stats=valid_stats,
+            )
 
         pred, target = self.batch_to_plot
         pred = pred.detach().cpu().numpy()[:2, ...]
