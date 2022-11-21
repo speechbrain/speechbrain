@@ -49,7 +49,7 @@ class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
     @torch.no_grad()
-    def interpret_sample(self, wavs, batch):
+    def interpret_sample(self, wavs, batch=None):
         """ Interprets first element of `batch`.
         TODO: add overlap test on samples from batch """
 
@@ -112,20 +112,20 @@ class InterpreterESC50Brain(sb.core.Brain):
         # get back to the standard stft
         X_int = torch.exp(X_int) - 1
 
-        # add the phase of the original audio
-        X_int_wphase = (
-            (X_int.permute(1, 0).unsqueeze(0) * torch.exp(1j * X_stft_phase))
-            .cpu()
-            .numpy()
-            .squeeze()
-        )
-
-        # invert back to time domain (cem: need to check if this is the exact same SB istft)
-        # I am being lazy by using numpy here for istft as it supports complex numbers directly
-        x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
-        # x_int = self.modules.compute_istft(X_int_wphase)
-
         if not (batch is None):
+            # add the phase of the original audio
+            X_int_wphase = (
+                (X_int.permute(1, 0).unsqueeze(0) * torch.exp(1j * X_stft_phase))
+                .cpu()
+                .numpy()
+                .squeeze()
+            )
+
+            # invert back to time domain (cem: need to check if this is the exact same SB istft)
+            # I am being lazy by using numpy here for istft as it supports complex numbers directly
+            x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
+            # x_int = self.modules.compute_istft(X_int_wphase)
+
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
@@ -257,6 +257,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.top_3_fidelity.append(
                 batch.id, theta_out, classification_out
             )
+            self.faithfulness.append(
+                batch.id, wavs, classification_out
+            )
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
         # loss_nmf = loss_nmf / reconstructions.shape[0]  # avg on batches
@@ -294,14 +297,32 @@ class InterpreterESC50Brain(sb.core.Brain):
             return temp
 
         @torch.no_grad()
-        def faithfulness(wavs, predictions):
+        def compute_faithfulness(wavs, predictions):
             X_stft = self.modules.compute_stft(wavs).to(self.device)
             X_stft_power = sb.processing.features.spectral_magnitude(
                 X_stft, power=self.hparams.spec_mag_power
-            )
-            X_stft_logpower = torch.log(X_stft_power + 1).transpose(1, 2)
+            ).transpose(1, 2)
+
+            X2 = torch.zeros_like(X_stft_power)
+            for (i, w) in enumerate(wavs):
+                X2[i] = X_stft_power[i] - self.interpret_sample(w.unsqueeze(0))
+
+            X2_logmel = self.modules.compute_fbank(X2.transpose(1, 2))
+
+            embeddings, _ = self.hparams.embedding_model(X2_logmel)
+            predictions_masked = self.hparams.classifier(embeddings).squeeze(1)
+
+            predictions = F.softmax(predictions, dim=1)
+            predictions_masked = F.softmax(predictions_masked, dim=1)
+
+            pred_cl = F.one_hot(
+                torch.argmax(predictions, dim=1), num_classes=50
+            ) == 1
+
+            return predictions[pred_cl] - predictions_masked[pred_cl]   # not sure if the difference should be on probs
             
         self.top_3_fidelity = MetricStats(metric=compute_fidelity)
+        self.faithfulness = MetricStats(metric=compute_faithfulness)
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -321,6 +342,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "top-3_fid": self.top_3_fidelity.summarize(
                     "average"
                 ),
+                "faithfulness": torch.median(torch.Tensor(self.faithfulness.scores))
             }
 
             # The train_logger writes a summary to stdout and to the logfile.
@@ -355,7 +377,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
         return super().on_stage_end(stage, stage_loss, epoch)
-
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."
