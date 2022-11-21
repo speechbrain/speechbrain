@@ -136,11 +136,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
         epoch = self.hparams.epoch_counter.current
+        current_class_ind = batch.class_string_encoded.data[0].item()
+        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
         sf.write(
             os.path.join(
                 self.hparams.output_folder,
                 f"audios_from_interpretation",
-                f"original_{epoch}_{batch.id[0]}.wav",
+                f"original_{current_class_name}.wav",
             ),
             wavs[0].cpu().numpy(),
             self.hparams.sample_rate,
@@ -150,7 +152,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             os.path.join(
                 self.hparams.output_folder,
                 f"audios_from_interpretation",
-                f"interpretation_{epoch}_{batch.id[0]}.wav",
+                f"interpretation_{current_class_name}_{epoch}.wav",
             ),
             x_int,
             self.hparams.sample_rate,
