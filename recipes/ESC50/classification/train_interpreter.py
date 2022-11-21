@@ -47,7 +47,7 @@ class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
 
     @torch.no_grad()
-    def interpret_batch(self, batch): 
+    def interpret_batch(self, batch):
         """ Interprets first element of `batch`.
         TODO: add overlap test on samples from batch """
         batch = batch.to(self.device)
@@ -55,7 +55,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         wavs = wavs[0].unsqueeze(0)
 
         X_stft = self.modules.compute_stft(wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(X_stft, power=self.hparams.spec_mag_power)
+        X_stft_power = sb.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
+        )
         X_logmel = self.modules.compute_fbank(X_stft_power)
 
         embeddings, f_I = self.hparams.embedding_model(X_logmel)
@@ -70,7 +72,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         )  #  generate log-mag spectrogram
 
         predictions = self.hparams.classifier(embeddings).squeeze(1)
-        
+
         pred_cl = torch.argmax(predictions, dim=1)[0].item()
         print(pred_cl)
 
@@ -82,11 +84,17 @@ class InterpreterESC50Brain(sb.core.Brain):
         psi_out = psi_out.squeeze()
         z = self.modules.theta.hard_att(psi_out).squeeze()
         theta_c_w = self.modules.theta.classifier[0].weight[pred_cl]
-        r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()   # some might be negative, relevance of component
+        r_c_x = (
+            theta_c_w * z / torch.abs(theta_c_w * z).max()
+        )  # some might be negative, relevance of component
 
-        L = torch.arange(r_c_x.shape[0])[r_c_x > 0.2].tolist()   # define selected components
-        
-        X_stft_power_log = torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
+        L = torch.arange(r_c_x.shape[0])[
+            r_c_x > 0.2
+        ].tolist()  # define selected components
+
+        X_stft_power_log = (
+            torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
+        )
         X_ks = torch.zeros(len(L), spec_shape[1], spec_shape[2]).to(self.device)
         sum_X_k = torch.zeros(spec_shape[1], spec_shape[2]).to(self.device)
         for (i, k) in enumerate(L):
@@ -103,8 +111,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         # save reconstructed and original spectrograms
         makedirs(
             os.path.join(
-                self.hparams.output_folder,
-                f"audios_from_interpretation",
+                self.hparams.output_folder, f"audios_from_interpretation",
             ),
             exist_ok=True,
         )
@@ -129,7 +136,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             x_int,
             self.hparams.sample_rate,
         )
-    
+
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
         Data augmentation and environmental corruption are applied to the
@@ -166,8 +173,10 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs = torch.cat(wavs_aug_tot, dim=0)
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
-        
-        elif stage == sb.Stage.VALID and self.hparams.epoch_counter.current % 10:
+
+        elif (
+            stage == sb.Stage.VALID and self.hparams.epoch_counter.current % 10
+        ):
             # save some samples
             self.interpret_batch(batch)
 

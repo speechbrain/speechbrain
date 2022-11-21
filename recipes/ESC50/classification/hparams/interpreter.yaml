@@ -210,7 +210,7 @@ FREQ: 513
 
 # pre-processing
 n_fft: 1024
-spec_mag_power: 2
+spec_mag_power: 0.5 
 hop_length: 11.6099
 win_length: 23.2199
 compute_stft: !new:speechbrain.processing.features.STFT

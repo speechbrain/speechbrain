@@ -10,13 +10,12 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
 
-import librosa
-from librosa.core import stft
 import scipy.io.wavfile as wavf
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from librosa.display import specshow
 from drawnow import drawnow, figure
+from speechbrain.processing.features import spectral_magnitude
 
 
 def dataio_prep(hparams):
@@ -147,18 +146,15 @@ if __name__ == "__main__":
         lr=1e-4,
         params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()),
     )
-
+    
     for e in range(100):
         for i, element in enumerate(datasets["train"]):
             # print(element["sig"].shape[0] / hparams["sample_rate"])
 
             opt.zero_grad()
-            Xs = stft(element["sig"].cpu().numpy(), n_fft=1024, hop_length=512)
-            Xs = (
-                torch.from_numpy(np.log(1 + np.abs(Xs)))
-                .unsqueeze(0)
-                .to(hparams["device"])
-            )
+            Xs = hparams['compute_stft'](element["sig"].unsqueeze(0).to(hparams["device"]))
+            Xs = hparams['compute_stft_mag'](Xs)
+            Xs = torch.log(Xs + 1).permute(0, 2, 1)
             z = nmf_encoder(Xs)
 
             Xhat = torch.matmul(nmf_model.return_W("torch"), z.squeeze())
