@@ -38,6 +38,7 @@ import librosa
 from librosa.core import stft, istft
 import scipy.io.wavfile as wavf
 import soundfile as sf
+from speechbrain.processing.NMF import spectral_phase
 
 
 eps = 1e-10
@@ -54,7 +55,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         wavs, _ = batch.sig
         wavs = wavs[0].unsqueeze(0)
 
+        # compute stft and logmel, and phase
         X_stft = self.modules.compute_stft(wavs)
+        X_stft_phase = spectral_phase(X_stft)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
@@ -67,14 +70,15 @@ class InterpreterESC50Brain(sb.core.Brain):
         # cut the length of psi
         psi_out = psi_out[:, :, : X_stft_power.shape[1]]
 
+        # cem: do we need this here? 
         reconstructed = self.hparams.nmf(
             psi_out
         )  #  generate log-mag spectrogram
 
+        # get the classifier output
         predictions = self.hparams.classifier(embeddings).squeeze(1)
-
         pred_cl = torch.argmax(predictions, dim=1)[0].item()
-        print(pred_cl)
+        # print(pred_cl)
 
         spec_shape = reconstructed.shape
         nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
@@ -84,29 +88,44 @@ class InterpreterESC50Brain(sb.core.Brain):
         psi_out = psi_out.squeeze()
         z = self.modules.theta.hard_att(psi_out).squeeze()
         theta_c_w = self.modules.theta.classifier[0].weight[pred_cl]
+        
+        # some might be negative, relevance of component
         r_c_x = (
             theta_c_w * z / torch.abs(theta_c_w * z).max()
-        )  # some might be negative, relevance of component
-
+        )  
+        # define selected components
         L = torch.arange(r_c_x.shape[0])[
             r_c_x > 0.2
-        ].tolist()  # define selected components
+        ].tolist()  
 
+        # get the log power spectra, this is needed as NMF is trained on log-power spectra
         X_stft_power_log = (
             torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
         )
+
+        # get the contribution of each component
         X_ks = torch.zeros(len(L), spec_shape[1], spec_shape[2]).to(self.device)
         sum_X_k = torch.zeros(spec_shape[1], spec_shape[2]).to(self.device)
         for (i, k) in enumerate(L):
             X_k = nmf_dictionary[:, k].unsqueeze(1) @ psi_out[k, :].unsqueeze(0)
             sum_X_k += X_k
             X_ks[i] = X_k
+            # cem : for the denominator we need to sum over all K, not just the selected ones. 
 
-        X_int = (X_ks / sum_X_k.unsqueeze(0)).sum(0) * X_stft_power_log
+        # need the eps for the denominator
+        eps = 1e-10
+        X_int = (X_ks / (sum_X_k.unsqueeze(0)+eps)).sum(0) * X_stft_power_log
+
+        # get back to the standard stft
         X_int = torch.exp(X_int) - 1
 
-        # x_int = self.modules.compute_istft(X_int.unsqueeze(0).transpose(1, 2).unsqueeze(-1))
-        x_int = istft(X_int.cpu().numpy(), hop_length=512)
+        # add the phase of the original audio 
+        X_int_wphase = (X_int.permute(1, 0).unsqueeze(0) * torch.exp(1j*X_stft_phase)).cpu().numpy().squeeze()
+
+        # invert back to time domain (cem: need to check if this is the exact same SB istft)
+        # I am being lazy by using numpy here for istft as it supports complex numbers directly
+        x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
+        # x_int = self.modules.compute_istft(X_int_wphase)
 
         # save reconstructed and original spectrograms
         makedirs(
@@ -123,7 +142,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 f"audios_from_interpretation",
                 f"original_{epoch}.wav",
             ),
-            wavs[0],
+            wavs[0].cpu().numpy(),
             self.hparams.sample_rate,
         )
 
@@ -174,9 +193,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        elif (
-            stage == sb.Stage.VALID and self.hparams.epoch_counter.current % 10
-        ):
+        elif stage == sb.Stage.VALID and (self.hparams.epoch_counter.current % 10) == 0:
             # save some samples
             self.interpret_batch(batch)
 
