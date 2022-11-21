@@ -22,7 +22,7 @@ train_log: !ref <output_folder>/train_log.txt
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-ckpt_interval_minutes: 15 # save checkpoint every N min
+ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Training Parameters
 dataset: flexthink/audiomnist
@@ -30,13 +30,15 @@ train_len: 28520
 sample_rate_src: 48000
 sample_rate_tgt: 16000
 number_of_epochs: 20
-batch_size: 16
-lr: 0.0005
-max_grad_norm: 1.
+batch_size: 64
+lr: 0.00020
+max_grad_norm: 0.05
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
 lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
-train_timesteps: 1000
+lr_decay_every: 1000
+train_timesteps: 250
+dropout: 0.25
 adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
@@ -120,6 +122,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     out_channels: 1
     num_res_blocks: 4
     attention_resolutions: [32, 16, 8]
+    dropout: !ref <dropout>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
@@ -168,6 +171,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     warmup: !ref <lr_warmup_steps>
     cooldown: !ref <lr_cooldown_steps>
     total_steps: !ref <lr_total_steps>
+    decay_every: !ref <lr_decay_every>
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
