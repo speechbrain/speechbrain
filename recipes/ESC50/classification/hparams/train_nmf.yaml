@@ -21,7 +21,7 @@ audio_data_folder: !ref <data_folder>/audio
 # files (mono channel and config SR) to train on
 #reasmpled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
 #
-experiment_name: L2I
+experiment_name: train_nmf
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -83,6 +83,15 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 ## Data augmentation
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: 1024
+    hop_length: 11.6099    
+    win_length:  23.2199  
+    sample_rate: !ref <sample_rate>
+
+compute_stft_mag: !name:speechbrain.processing.features.spectral_magnitude
+    power: 0.5
+
 
 augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
@@ -171,15 +180,6 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-compute_features: !new:speechbrain.lobes.features.Fbank
-    n_mels: !ref <n_mels>
-    left_frames: !ref <left_frames>
-    right_frames: !ref <right_frames>
-    deltas: !ref <deltas>
-    sample_rate: !ref <sample_rate>
-    n_fft: 1024
-    win_length: 20
-    hop_length: 10
 
 use_pretrain: False
 embedding_model: !new:recipes.ESC50.classification.custom_models.Cnn14
@@ -192,8 +192,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: embedding_model.ckpt
-classifier_model_path: classifier.ckpt
+embedding_model_path: /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
+classifier_model_path: /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
@@ -208,45 +208,24 @@ T: 413
 K: 100
 FREQ: 513
 
-# pre-processing
-n_fft: 1024
-spec_mag_power: 0.5
-hop_length: 11.6099
-win_length: 23.2199
-compute_stft: !new:speechbrain.processing.features.STFT
-    n_fft: !ref <n_fft>
-    hop_length: !ref <hop_length>
-    win_length: !ref <win_length>
-    sample_rate: !ref <sample_rate>
-
-compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: 80
-    n_fft: !ref <n_fft>
-    sample_rate: !ref <sample_rate>
-
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    hop_length: !ref <hop_length>
-    win_length: !ref <win_length>
-
 psi_model: !new:custom_models.Psi
 theta: !new:custom_models.Theta
 
+
 # NMF Decoder
-nmf_d_path: "nmf_decoder.pt"
+nmf_d_path: "initW_LMS_K100_sp0.8_Fold1_n1.npy"
 nmf: !new:custom_models.NMFDecoder
-    init_file: !ref <nmf_d_path>
     N_COMP: !ref <K>
-    FREQ: !ref <n_mels>
+    FREQ: !ref <FREQ>
+    # init_file: !ref <nmf_d_path>
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
 
+nmf_encoder: !new:custom_models.NMFEncoder
+    nlayers: 2
+
 modules:
-    compute_stft: !ref <compute_stft>
-    compute_fbank: !ref <compute_fbank>
-    compute_istft: !ref <compute_istft>
-    compute_features: !ref <compute_features>
     augment_wavedrop: !ref <augment_wavedrop>
     augment_speed: !ref <augment_speed>
     add_rev: !ref <add_rev>

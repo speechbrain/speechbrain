@@ -146,14 +146,16 @@ if __name__ == "__main__":
         lr=1e-4,
         params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()),
     )
-    
+
     for e in range(100):
         for i, element in enumerate(datasets["train"]):
             # print(element["sig"].shape[0] / hparams["sample_rate"])
 
             opt.zero_grad()
-            Xs = hparams['compute_stft'](element["sig"].unsqueeze(0).to(hparams["device"]))
-            Xs = hparams['compute_stft_mag'](Xs)
+            Xs = hparams["compute_stft"](
+                element["sig"].unsqueeze(0).to(hparams["device"])
+            )
+            Xs = hparams["compute_stft_mag"](Xs)
             Xs = torch.log(Xs + 1).permute(0, 2, 1)
             z = nmf_encoder(Xs)
 
