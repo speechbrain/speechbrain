@@ -11,7 +11,9 @@ seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
+prepare_data_folder: ./audiomnist-prepare-data
 output_folder: !ref ./results/diffusion/<seed>
+data_save_folder: !ref <save_folder>/audiomnist_prepared
 save_folder: !ref <output_folder>/save
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
