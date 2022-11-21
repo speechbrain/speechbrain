@@ -75,33 +75,18 @@ class ESC50Brain(sb.core.Brain):
             self.n_augment = len(wavs_aug_tot)
             lens = torch.cat([lens] * self.n_augment)
 
-        # Feature extraction and normalization
-        # sb_feats = self.modules.compute_features(wavs)
-
-        Xs = stft(wavs.data.cpu().numpy(), n_fft=1024, hop_length=512)
-        Xmel = librosa.feature.melspectrogram(
-            sr=44100, S=np.abs(Xs), n_fft=1024, hop_length=512, n_mels=80
+        X_stft = self.modules.compute_stft(wavs)
+        X_stft_power = sb.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
         )
-        # Xls = np.log(1.0 + np.abs(Xs))
-        Xlgmel = librosa.power_to_db(Xmel)
-
-        # feats = torch.log(1 + feats.abs())
-
-        # if self.hparams.amp_to_db:
-        #     Amp2db = torchaudio.transforms.AmplitudeToDB(
-        #         stype="power", top_db=80
-        #     )  # try "magnitude" Vs "power"? db= 80, 50...
-        #     feats = Amp2db(feats)
+        X_logmel = self.modules.compute_fbank(X_stft_power)
 
         # Normalization
         # if self.hparams.normalize:
         #    feats = self.modules.mean_var_norm(feats, lens)
 
-        # test librosa stuff
-        feats = torch.from_numpy(Xlgmel).to(self.device).permute(0, 2, 1)
-
         # Embeddings + sound classifier
-        embeddings = self.modules.embedding_model(feats)
+        embeddings = self.modules.embedding_model(X_logmel)
         outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
