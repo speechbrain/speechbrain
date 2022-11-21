@@ -260,6 +260,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.faithfulness.append(
                 batch.id, wavs, classification_out
             )
+        self.acc_metric.append(
+            uttid, predict=classification_out, target=classid, # lengths=lens
+        )
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
         # loss_nmf = loss_nmf / reconstructions.shape[0]  # avg on batches
@@ -279,6 +282,16 @@ class InterpreterESC50Brain(sb.core.Brain):
         return loss_nmf + loss_fdi
 
     def on_stage_start(self, stage, epoch=None):
+
+        def accuracy_value(predict, target):
+            """Computes Accuracy"""
+            predict = predict.argmax(1, keepdim=True)
+            nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
+                predict, target
+            )
+            acc = torch.tensor([nbr_correct / nbr_total])
+            return acc
+
         @torch.no_grad()
         def compute_fidelity(theta_out, predictions, k=3):
             """ Computes top-`k` fidelity of interpreter. """
@@ -323,6 +336,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             
         self.top_3_fidelity = MetricStats(metric=compute_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
+        self.acc_metric = sb.utils.metric_stats.MetricStats(
+            metric=accuracy_value, n_jobs=1
+        )
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -334,11 +350,13 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.train_loss = stage_loss
             self.train_stats = {
                 "loss": self.train_loss,
+                "acc": self.acc_metric.summarize("average")
             }
 
         if stage == sb.Stage.VALID:
             valid_stats = {
                 "loss": stage_loss,
+                "acc": self.acc_metric.summarize("average"),
                 "top-3_fid": self.top_3_fidelity.summarize(
                     "average"
                 ),

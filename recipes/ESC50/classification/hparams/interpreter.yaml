@@ -39,7 +39,7 @@ test_annotation: !ref <data_folder>/manifest/test.json
 
 # To standardize results, UrbanSound8k has pre-separated samples into
 # 10 folds for multi-fold validation
-train_fold_nums: [1]
+train_fold_nums: [1, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
 skip_manifest_creation: False
