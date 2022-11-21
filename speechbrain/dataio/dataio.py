@@ -7,6 +7,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Samuele Cornell 2020
  * Abdel HEBA 2020
+ * Sylvain de Langen 2022
 """
 
 import os
