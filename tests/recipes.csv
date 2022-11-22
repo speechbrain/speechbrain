@@ -158,3 +158,4 @@ recipe0156,LM,Switchboard,recipes/Switchboard/LM/train.py,recipes/Switchboard/LM
 recipe0157,LM,Switchboard,recipes/Switchboard/LM/train.py,recipes/Switchboard/LM/hparams/transformer_finetune.yaml,recipes/Switchboard/LM/switchboard_prepare.py,recipes/Switchboard/LM/README.md,,,,
 recipe0158,Tokenizer,Switchboard,recipes/Switchboard/Tokenizer/train.py,recipes/Switchboard/Tokenizer/hparams/2K_unigram_subword_bpe.yaml,recipes/Switchboard/Tokenizer/switchboard_prepare.py,recipes/Switchboard/Tokenizer/README.md,,,,
 recipe0159,Generative,AudioMNIST,recipes/AudioMNIST/diffusion/train.py,recipes/AudioMNIST/diffusion/hparams/train.yaml,,recipes/AudioMNIST/diffusion/README.md,,,,
+recipe0160,TTS,LJSpeech,recipes/LJSpeech/TTS/vocoder/diffwave/train.py,recipes/LJSpeech/TTS/vocoder/diffwave/hparams/train.yaml,recipes/LJSpeech/TTS/ljspeech_prepare.py,recipes/LJSpeech/TTS/README.md,,,,
