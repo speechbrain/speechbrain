@@ -204,21 +204,21 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # Embeddings + sound classifier
         embeddings, f_I = self.hparams.embedding_model(X_logmel)
+        predictions = self.hparams.classifier(embeddings).squeeze(1)
 
         psi_out = self.modules.psi(f_I)  # generate nmf activations
-
         # cut the length of psi
         psi_out = psi_out[:, :, : X_stft_power.shape[1]]
 
+        #  generate log-mag spectrogram
         reconstructed = self.hparams.nmf(
             psi_out
-        )  #  generate log-mag spectrogram
+        )
 
-        predictions = self.hparams.classifier(embeddings).squeeze(1)
-
+        # generate classifications from time activations
         theta_out = self.modules.theta(
             psi_out
-        )  # generate classifications from time activations
+        )
 
         if stage == sb.Stage.VALID:
             # save some samples
@@ -261,7 +261,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 batch.id, wavs, classification_out
             )
         self.acc_metric.append(
-            uttid, predict=classification_out, target=classid, # lengths=lens
+            uttid, predict=classification_out, target=classid, length=lens
         )
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
@@ -283,11 +283,11 @@ class InterpreterESC50Brain(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch=None):
 
-        def accuracy_value(predict, target):
+        def accuracy_value(predict, target, length):
             """Computes Accuracy"""
-            predict = predict.argmax(1, keepdim=True)
+            # predict = predict.argmax(1, keepdim=True)
             nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
-                predict, target
+                predict.unsqueeze(1), target, length
             )
             acc = torch.tensor([nbr_correct / nbr_total])
             return acc
