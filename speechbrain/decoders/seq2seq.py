@@ -553,14 +553,20 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
-    def _attn_weight_forward_step(
-        self, inp_tokens, memory, enc_states, enc_lens
-    ):
+    def _attn_weight_step(self, inp_tokens, memory, enc_states, enc_lens):
         log_probs, memory, attn = self.forward_step(
             inp_tokens, memory, enc_states, enc_lens
         )
         log_probs = self.attn_weight * log_probs
         return log_probs, memory, attn
+
+    def _max_attn_shift_step(self, attn, prev_attn_peak, log_probs):
+        # Block the candidates that exceed the max shift
+        cond, attn_peak = self._check_attn_shift(attn, prev_attn_peak)
+        log_probs = mask_by_condition(
+            log_probs, cond, fill_value=self.minus_inf
+        )
+        return log_probs, attn_peak
 
     def search(
         self,
@@ -583,17 +589,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_log_probs,
     ):
         if self.attn_weight > 0:
-            log_probs, memory, attn = self._attn_weight_forward_step(
+            log_probs, memory, attn = self._attn_weight_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
 
         if self.using_max_attn_shift:
-            # Block the candidates that exceed the max shift
-            cond, attn_peak = self._check_attn_shift(attn, prev_attn_peak)
-            log_probs = mask_by_condition(
-                log_probs, cond, fill_value=self.minus_inf
+            log_probs, prev_attn_peak = self._max_attn_shift_step(
+                attn, prev_attn_peak, log_probs
             )
-            prev_attn_peak = attn_peak
 
         # Set eos to minus_inf when less than minimum steps.
         if timestep < min_decode_steps:
