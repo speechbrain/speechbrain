@@ -1,23 +1,4 @@
 #!/usr/bin/python3
-"""Recipe for training sound class embeddings (e.g, xvectors) using the UrbanSound8k.
-We employ an encoder followed by a sound classifier.
-
-To run this recipe, use the following command:
-> python train_class_embeddings.py {hyperparameter_file}
-
-Using your own hyperparameter file or one of the following:
-    hparams/train_x_vectors.yaml (for standard xvectors)
-    hparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
-
-Authors
-    * David Whipps 2021
-    * Ala Eddine Limame 2021
-
-Based on VoxCeleb By:
-    * Mirco Ravanelli 2020
-    * Hwidong Na 2020
-    * Nauman Dawalatabad 2020
-"""
 import os
 import sys
 import torch
@@ -47,6 +28,144 @@ eps = 1e-10
 
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
+
+    @torch.no_grad()
+    def overlap_test(self, batch):
+        wavs, _ = batch.sig
+        wavs = wavs.to(self.device)
+
+        cl_indices = batch.class_string_encoded.data.squeeze(1)
+
+        s1, s1_class = wavs[0], cl_indices[0].item()
+        s2_class = list(set(cl_indices.tolist()).symmetric_difference({cl_indices[0].item()}))
+
+        try:
+            s2_idx = cl_indices.tolist().index(s2_class[0])
+
+        except:
+            print("Batch has only one class")
+            return
+
+        s2 = wavs[s2_idx]
+
+        mix = s1 + s2 * 0.2
+
+        # compute stft and logmel, and phase
+        X_stft = self.modules.compute_stft(mix.unsqueeze(0))
+        X_stft_phase = spectral_phase(X_stft)
+        X_stft_power = sb.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
+        )
+        X_logmel = self.modules.compute_fbank(X_stft_power)
+
+        # get the classifier embeddings
+        embeddings, f_I = self.hparams.embedding_model(X_logmel)
+
+        # get the nmf activations
+        psi_out = self.modules.psi(f_I)
+
+        # cut the length of psi in case necessary
+        psi_out = psi_out[:, :, : X_stft_power.shape[1]]
+
+        # get the classifier output
+        predictions = self.hparams.classifier(embeddings).squeeze(1)
+        pred_cl = torch.argmax(predictions, dim=1)[0].item()
+        # print(pred_cl)
+
+        nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
+
+        # computes time activations per component
+        # FROM NOW ON WE FOLLOW THE PAPER'S NOTATION
+        psi_out = psi_out.squeeze()
+        z = self.modules.theta.hard_att(psi_out).squeeze()
+        theta_c_w = self.modules.theta.classifier[0].weight[pred_cl]
+
+        # some might be negative, relevance of component
+        r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()
+        # define selected components by thresholding
+        L = torch.arange(r_c_x.shape[0])[r_c_x > 0.2].tolist()
+
+        # get the log power spectra, this is needed as NMF is trained on log-power spectra
+        X_stft_power_log = (
+            torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
+        )
+
+        # cem : for the denominator we need to sum over all K, not just the selected ones.
+        X_withselected = nmf_dictionary[:, L] @ psi_out[L, :]
+        Xhat = nmf_dictionary @ psi_out
+
+        X_int = (X_withselected / (Xhat + eps)) * X_stft_power_log
+
+        # get back to the standard stft
+        X_int = torch.exp(X_int) - 1
+
+        # add the phase of the original audio
+        X_int_wphase = (
+            (X_int.permute(1, 0).unsqueeze(0) * torch.exp(1j * X_stft_phase))
+            .cpu()
+            .numpy()
+            .squeeze()
+        )
+
+        # invert back to time domain (cem: need to check if this is the exact same SB istft)
+        # I am being lazy by using numpy here for istft as it supports complex numbers directly
+        x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
+        # x_int = self.modules.compute_istft(X_int_wphase)
+
+        # save reconstructed and original spectrograms
+        epoch = self.hparams.epoch_counter.current
+        current_class_ind = batch.class_string_encoded.data[0].item()
+        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
+        predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl]
+        out_folder = os.path.join(
+            self.hparams.output_folder, f"overlap_test", f"c1_{current_class_name}_c2_{self.hparams.label_encoder.ind2lab[s2_class[0]]}_pc_{predicted_class_name}"
+        )
+        makedirs(
+            out_folder,
+            exist_ok=True,
+        )
+
+        sf.write(
+            os.path.join(
+                out_folder, "mixture.wav"
+            ),
+            mix.squeeze().cpu().numpy(),
+            self.hparams.sample_rate,
+        )
+
+        sf.write(
+            os.path.join(
+                out_folder, "s1.wav"
+            ),
+            s1.cpu().numpy(),
+            self.hparams.sample_rate,
+        )
+
+        sf.write(
+            os.path.join(
+                out_folder, "s2.wav"
+            ),
+            s2.cpu().numpy(),
+            self.hparams.sample_rate,
+        )
+
+        sf.write(
+            os.path.join(
+                out_folder, "mixture.wav"
+            ),
+            mix.squeeze().cpu().numpy(),
+            self.hparams.sample_rate,
+        )
+
+        sf.write(
+            os.path.join(
+                out_folder, "interpretation.wav"
+            ),
+            x_int,
+            self.hparams.sample_rate,
+        )
+        
+        return
 
     @torch.no_grad()
     def interpret_sample(self, wavs, batch=None):
@@ -93,13 +212,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
         )
 
-        # get the contribution of each component
-        # X_ks = torch.zeros(len(L), spec_shape[1], spec_shape[2]).to(self.device)
-        # sum_X_k = torch.zeros(spec_shape[1], spec_shape[2]).to(self.device)
-        # for (i, k) in enumerate(L):
-        #     X_k = nmf_dictionary[:, k].unsqueeze(1) @ psi_out[k, :].unsqueeze(0)
-        #     sum_X_k += X_k
-        #     X_ks[i] = X_k
         # cem : for the denominator we need to sum over all K, not just the selected ones.
         X_withselected = nmf_dictionary[:, L] @ psi_out[L, :]
         Xhat = nmf_dictionary @ psi_out
@@ -228,6 +340,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             ) == 0:
                 wavs = wavs[0].unsqueeze(0)
                 self.interpret_sample(wavs, batch)
+                self.overlap_test(batch)
 
         return (reconstructed, psi_out), (predictions, theta_out)
 
