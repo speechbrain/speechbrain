@@ -7,6 +7,15 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
+from typing import NamedTuple 
+
+class Hypothesis(NamedTuple):
+    """Hypothesis class for beam search."""
+    sequence_of_tokens : torch.Tensor
+    sequence_of_words : list
+    score : torch.Tensor
+    log_probs_score : torch.Tensor
+    length : torch.Tensor
 
 
 class S2SBaseSearcher(torch.nn.Module):
