@@ -212,11 +212,13 @@ def basic_cleaners(text):
     text = collapse_whitespace(text)
     return text
 
+
 def german_cleaners(text):
     """Pipeline for German text, that collapses whitespace without transliteration.
     """
     text = collapse_whitespace(text)
     return text
+
 
 def transliteration_cleaners(text):
     """Pipeline for non-English text that transliterates to ASCII.
