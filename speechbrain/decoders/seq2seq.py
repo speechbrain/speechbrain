@@ -601,6 +601,85 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
         return prev_attn_peak
 
+    def _update_sequences_and_log_probs(
+        self,
+        alived_seq,
+        log_probs,
+        alived_log_probs,
+        inp_tokens,
+        predecessors,
+        candidates,
+        batch_size,
+        n_bh,
+    ):
+        # Update alived_seq
+        alived_seq = torch.cat(
+            [
+                torch.index_select(alived_seq, dim=0, index=predecessors),
+                inp_tokens.unsqueeze(1),
+            ],
+            dim=-1,
+        )
+
+        # Takes the log-probabilities
+        beam_log_probs = log_probs[
+            torch.arange(batch_size).unsqueeze(1), candidates
+        ].reshape(n_bh)
+
+        # Update alived_log_probs
+        alived_log_probs = torch.cat(
+            [
+                torch.index_select(alived_log_probs, dim=0, index=predecessors),
+                beam_log_probs.unsqueeze(1),
+            ],
+            dim=-1,
+        )
+
+        return alived_seq, alived_log_probs
+
+    def _compute_scores_and_next_inp_tokens(
+        self, sequence_scores, n_out, batch_size, log_probs, timestep, n_bh
+    ):
+        scores = sequence_scores.unsqueeze(1).expand(-1, n_out)
+        scores = scores + log_probs
+
+        # Keep the original value
+        log_probs_clone = log_probs.clone().reshape(batch_size, -1)
+
+        # length normalization
+        if self.length_normalization:
+            scores = scores / (timestep + 1)
+
+        # keep topk beams
+        scores, candidates = scores.view(batch_size, -1).topk(
+            self.beam_size, dim=-1
+        )
+
+        # The input for the next step, also the output of current step.
+        inp_tokens = (candidates % n_out).view(n_bh)
+
+        scores = scores.view(n_bh)
+        sequence_scores = scores
+
+        # recover the length normalization
+        if self.length_normalization:
+            sequence_scores = sequence_scores * (timestep + 1)
+
+        # The index of which beam the current top-K output came from in (t-1) timesteps.
+        predecessors = (
+            torch.div(candidates, n_out, rounding_mode="floor")
+            + self.beam_offset.unsqueeze(1).expand_as(candidates)
+        ).view(n_bh)
+
+        return (
+            log_probs_clone,
+            scores,
+            candidates,
+            predecessors,
+            inp_tokens,
+            sequence_scores,
+        )
+
     def search(
         self,
         n_bh,
@@ -644,36 +723,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.using_eos_threshold:
             log_probs = self._eos_threshold_step(log_probs)
 
-        scores = sequence_scores.unsqueeze(1).expand(-1, n_out)
-        scores = scores + log_probs
-
-        # Keep the original value
-        log_probs_clone = log_probs.clone().reshape(batch_size, -1)
-
-        # length normalization
-        if self.length_normalization:
-            scores = scores / (timestep + 1)
-
-        # keep topk beams
-        scores, candidates = scores.view(batch_size, -1).topk(
-            self.beam_size, dim=-1
+        (
+            log_probs_clone,
+            scores,
+            candidates,
+            predecessors,
+            inp_tokens,
+            sequence_scores,
+        ) = self._compute_scores_and_next_inp_tokens(
+            sequence_scores, n_out, batch_size, log_probs, timestep, n_bh
         )
-
-        # The input for the next step, also the output of current step.
-        inp_tokens = (candidates % n_out).view(n_bh)
-
-        scores = scores.view(n_bh)
-        sequence_scores = scores
-
-        # recover the length normalization
-        if self.length_normalization:
-            sequence_scores = sequence_scores * (timestep + 1)
-
-        # The index of which beam the current top-K output came from in (timestep-1) timesteps.
-        predecessors = (
-            torch.div(candidates, n_out, rounding_mode="floor")
-            + self.beam_offset.unsqueeze(1).expand_as(candidates)
-        ).view(n_bh)
 
         # Permute the memory to synchoronize with the output.
         if self.attn_weight > 0:
@@ -690,27 +749,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 prev_attn_peak, predecessors
             )
 
-        # Update alived_seq
-        alived_seq = torch.cat(
-            [
-                torch.index_select(alived_seq, dim=0, index=predecessors),
-                inp_tokens.unsqueeze(1),
-            ],
-            dim=-1,
-        )
-
-        # Takes the log-probabilities
-        beam_log_probs = log_probs_clone[
-            torch.arange(batch_size).unsqueeze(1), candidates
-        ].reshape(n_bh)
-
-        # Update alived_log_probs
-        alived_log_probs = torch.cat(
-            [
-                torch.index_select(alived_log_probs, dim=0, index=predecessors),
-                beam_log_probs.unsqueeze(1),
-            ],
-            dim=-1,
+        alived_seq, alived_log_probs = self._update_sequences_and_log_probs(
+            alived_seq,
+            log_probs_clone,
+            alived_log_probs,
+            inp_tokens,
+            predecessors,
+            candidates,
+            batch_size,
+            n_bh,
         )
 
         is_eos = self._update_hyp_and_scores(
