@@ -553,52 +553,66 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
-    def _attn_weight_step(self, inp_tokens, memory, enc_states, enc_lens):
-        log_probs, memory, attn = self.forward_step(
-            inp_tokens, memory, enc_states, enc_lens
-        )
-        log_probs = self.attn_weight * log_probs
+    def _attn_weight_step(
+        self, inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+    ):
+        if self.attn_weight > 0:
+            log_probs, memory, attn = self.forward_step(
+                inp_tokens, memory, enc_states, enc_lens
+            )
+            log_probs = self.attn_weight * log_probs
         return log_probs, memory, attn
 
     def _max_attn_shift_step(self, attn, prev_attn_peak, log_probs):
         # Block the candidates that exceed the max shift
-        cond, attn_peak = self._check_attn_shift(attn, prev_attn_peak)
-        log_probs = mask_by_condition(
-            log_probs, cond, fill_value=self.minus_inf
-        )
-        return log_probs, attn_peak
+        if self.using_max_attn_shift:
+            cond, prev_attn_peak = self._check_attn_shift(attn, prev_attn_peak)
+            log_probs = mask_by_condition(
+                log_probs, cond, fill_value=self.minus_inf
+            )
+        return log_probs, prev_attn_peak
 
     def _scorer_step(self, inp_tokens, scorer_memory, attn, log_probs):
-        log_probs, scorer_memory = self.scorer.score(
-            inp_tokens, scorer_memory, attn, log_probs, self.beam_size
-        )
+        if self.scorer is not None:
+            log_probs, scorer_memory = self.scorer.score(
+                inp_tokens, scorer_memory, attn, log_probs, self.beam_size
+            )
         return log_probs, scorer_memory
+
+    def _set_eos_minus_inf_step(self, log_probs, timestep, min_decode_steps):
+        # Set eos to minus_inf when less than minimum steps.
+        if timestep < min_decode_steps:
+            log_probs[:, self.eos_index] = self.minus_inf
+        return log_probs
 
     def _eos_threshold_step(self, log_probs):
         # Set the eos prob to minus_inf when it doesn't exceed threshold.
-        cond = self._check_eos_threshold(log_probs)
-        log_probs[:, self.eos_index] = mask_by_condition(
-            log_probs[:, self.eos_index], cond, fill_value=self.minus_inf,
-        )
-
+        if self.using_eos_threshold:
+            cond = self._check_eos_threshold(log_probs)
+            log_probs[:, self.eos_index] = mask_by_condition(
+                log_probs[:, self.eos_index], cond, fill_value=self.minus_inf,
+            )
         return log_probs
 
     def _attn_weight_permute_memory_step(self, memory, predecessors):
-        memory = self.permute_mem(memory, index=predecessors)
+        if self.attn_weight > 0:
+            memory = self.permute_mem(memory, index=predecessors)
         return memory
 
     def _scorer_permute_memory_step(
         self, scorer_memory, predecessors, candidates
     ):
-        scorer_memory = self.scorer.permute_scorer_mem(
-            scorer_memory, index=predecessors, candidates=candidates
-        )
+        if self.scorer is not None:
+            scorer_memory = self.scorer.permute_scorer_mem(
+                scorer_memory, index=predecessors, candidates=candidates
+            )
         return scorer_memory
 
     def _max_attn_shift_permute_memory_step(self, prev_attn_peak, predecessors):
-        prev_attn_peak = torch.index_select(
-            prev_attn_peak, dim=0, index=predecessors
-        )
+        if self.using_max_attn_shift:
+            prev_attn_peak = torch.index_select(
+                prev_attn_peak, dim=0, index=predecessors
+            )
         return prev_attn_peak
 
     def _update_sequences_and_log_probs(
@@ -700,28 +714,24 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_seq,
         alived_log_probs,
     ):
-        if self.attn_weight > 0:
-            log_probs, memory, attn = self._attn_weight_step(
-                inp_tokens, memory, enc_states, enc_lens
-            )
+        log_probs, memory, attn = self._attn_weight_step(
+            inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+        )
 
-        if self.using_max_attn_shift:
-            log_probs, prev_attn_peak = self._max_attn_shift_step(
-                attn, prev_attn_peak, log_probs
-            )
+        log_probs, prev_attn_peak = self._max_attn_shift_step(
+            attn, prev_attn_peak, log_probs
+        )
 
-        # Set eos to minus_inf when less than minimum steps.
-        if timestep < min_decode_steps:
-            log_probs[:, self.eos_index] = self.minus_inf
+        log_probs = self._set_eos_minus_inf_step(
+            log_probs, timestep, min_decode_steps
+        )
 
         # Adding Scorer scores to log_prob if Scorer is not None.
-        if self.scorer is not None:
-            log_probs, scorer_memory = self._scorer_step(
-                inp_tokens, scorer_memory, attn, log_probs
-            )
+        log_probs, scorer_memory = self._scorer_step(
+            inp_tokens, scorer_memory, attn, log_probs
+        )
 
-        if self.using_eos_threshold:
-            log_probs = self._eos_threshold_step(log_probs)
+        log_probs = self._eos_threshold_step(log_probs)
 
         (
             log_probs_clone,
@@ -735,19 +745,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         # Permute the memory to synchoronize with the output.
-        if self.attn_weight > 0:
-            memory = self._attn_weight_permute_memory_step(memory, predecessors)
+        memory = self._attn_weight_permute_memory_step(memory, predecessors)
 
-        if self.scorer is not None:
-            scorer_memory = self._scorer_permute_memory_step(
-                scorer_memory, predecessors, candidates
-            )
+        scorer_memory = self._scorer_permute_memory_step(
+            scorer_memory, predecessors, candidates
+        )
 
         # If using_max_attn_shift, then the previous attn peak has to be permuted too.
-        if self.using_max_attn_shift:
-            prev_attn_peak = self._max_attn_shift_permute_memory_step(
-                prev_attn_peak, predecessors
-            )
+        prev_attn_peak = self._max_attn_shift_permute_memory_step(
+            prev_attn_peak, predecessors
+        )
 
         alived_seq, alived_log_probs = self._update_sequences_and_log_probs(
             alived_seq,
