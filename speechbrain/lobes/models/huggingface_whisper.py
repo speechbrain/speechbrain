@@ -119,6 +119,7 @@ class HuggingFaceWhisper(nn.Module):
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         """
+        
         if self.freeze or self.freeze_feature_extractor:
             with torch.no_grad():
                 mel = self._get_mel(wav)
