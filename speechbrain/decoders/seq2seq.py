@@ -557,7 +557,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
-        log_probs = self.attn_weight * log_probs
+            log_probs = self.attn_weight * log_probs
 
         if self.using_max_attn_shift:
             # Block the candidates that exceed the max shift
