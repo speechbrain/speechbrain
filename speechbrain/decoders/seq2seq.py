@@ -7,15 +7,17 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-from typing import NamedTuple 
+from typing import NamedTuple
+
 
 class Hypothesis(NamedTuple):
     """Hypothesis class for beam search."""
-    sequence_of_tokens : torch.Tensor
-    sequence_of_words : list
-    score : torch.Tensor
-    log_probs_score : torch.Tensor
-    length : torch.Tensor
+
+    sequence_of_tokens: torch.Tensor
+    sequence_of_words: list
+    score: torch.Tensor
+    log_probs_score: torch.Tensor
+    length: torch.Tensor
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -371,7 +373,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 self.ctc_weight = self.scorer.weights["ctc"]
                 self.attn_weight = 1.0 - self.ctc_weight
 
-
     def _check_full_beams(self, hyps, beam_size):
         """This method checks whether hyps has been full.
 
@@ -552,7 +553,25 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
-    def search(self, hyps_and_scores, inp_tokens, memory, scorer_memory, enc_states, enc_lens, log_probs, attn, prev_attn_peak, t, min_decode_steps, sequence_scores, n_out, batch_size, alived_seq, alived_log_probs):
+    def search(
+        self,
+        hyps_and_scores,
+        inp_tokens,
+        memory,
+        scorer_memory,
+        enc_states,
+        enc_lens,
+        log_probs,
+        attn,
+        prev_attn_peak,
+        t,
+        min_decode_steps,
+        sequence_scores,
+        n_out,
+        batch_size,
+        alived_seq,
+        alived_log_probs,
+    ):
         if self.attn_weight > 0:
             log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
@@ -577,14 +596,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs, scorer_memory = self.scorer.score(
                 inp_tokens, scorer_memory, attn, log_probs, self.beam_size
             )
-        
+
         # Set the eos prob to minus_inf when it doesn't exceed threshold.
         if self.using_eos_threshold:
             cond = self._check_eos_threshold(log_probs)
             log_probs[:, self.eos_index] = mask_by_condition(
-                log_probs[:, self.eos_index],
-                cond,
-                fill_value=self.minus_inf,
+                log_probs[:, self.eos_index], cond, fill_value=self.minus_inf,
             )
 
         scores = sequence_scores.unsqueeze(1).expand(-1, n_out)
@@ -650,9 +667,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # Update alived_log_probs
         alived_log_probs = torch.cat(
             [
-                torch.index_select(
-                    alived_log_probs, dim=0, index=predecessors
-                ),
+                torch.index_select(alived_log_probs, dim=0, index=predecessors),
                 beam_log_probs.unsqueeze(1),
             ],
             dim=-1,
@@ -670,10 +685,19 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # Block the paths that have reached eos.
         sequence_scores.masked_fill_(is_eos, float("-inf"))
 
-        return inp_tokens, memory, scorer_memory, log_probs, attn, prev_attn_peak, sequence_scores, alived_seq, alived_log_probs, is_eos
-
-
-
+        return (
+            inp_tokens,
+            memory,
+            scorer_memory,
+            log_probs,
+            attn,
+            prev_attn_peak,
+            sequence_scores,
+            alived_seq,
+            alived_log_probs,
+            is_eos,
+            scores,
+        )
 
     def forward(self, enc_states, wav_len):  # noqa: C901
         """Applies beamsearch and returns the predicted tokens."""
@@ -737,7 +761,36 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self._check_full_beams(hyps_and_scores, self.beam_size):
                 break
 
-            inp_tokens, memory, scorer_memory, log_probs, attn, prev_attn_peak, sequence_scores, alived_seq, alived_log_probs, is_eos = self.search(hyps_and_scores, inp_tokens, memory, scorer_memory, enc_states, enc_lens, log_probs, attn, prev_attn_peak, t, min_decode_steps, sequence_scores, n_out, batch_size, alived_seq, alived_log_probs)
+            (
+                inp_tokens,
+                memory,
+                scorer_memory,
+                log_probs,
+                attn,
+                prev_attn_peak,
+                sequence_scores,
+                alived_seq,
+                alived_log_probs,
+                is_eos,
+                scores,
+            ) = self.search(
+                hyps_and_scores,
+                inp_tokens,
+                memory,
+                scorer_memory,
+                enc_states,
+                enc_lens,
+                log_probs,
+                attn,
+                prev_attn_peak,
+                t,
+                min_decode_steps,
+                sequence_scores,
+                n_out,
+                batch_size,
+                alived_seq,
+                alived_log_probs,
+            )
 
         if not self._check_full_beams(hyps_and_scores, self.beam_size):
             # Using all eos to fill-up the hyps.
