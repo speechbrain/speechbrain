@@ -553,6 +553,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
+    def _attn_weight_forward_step(
+        self, inp_tokens, memory, enc_states, enc_lens
+    ):
+        log_probs, memory, attn = self.forward_step(
+            inp_tokens, memory, enc_states, enc_lens
+        )
+        log_probs = self.attn_weight * log_probs
+        return log_probs, memory, attn
+
     def search(
         self,
         n_bh,
@@ -574,10 +583,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_log_probs,
     ):
         if self.attn_weight > 0:
-            log_probs, memory, attn = self.forward_step(
+            log_probs, memory, attn = self._attn_weight_forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
-            log_probs = self.attn_weight * log_probs
 
         if self.using_max_attn_shift:
             # Block the candidates that exceed the max shift
