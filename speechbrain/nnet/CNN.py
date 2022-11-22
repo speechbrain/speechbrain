@@ -339,6 +339,8 @@ class Conv1d(nn.Module):
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
+    conv_init : str
+        Weight initialization for the convolution network
 
     Example
     -------
@@ -397,6 +399,8 @@ class Conv1d(nn.Module):
 
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
+        elif conv_init == "zero":
+            nn.init.zeros_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
@@ -541,6 +545,8 @@ class Conv2d(nn.Module):
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
+    conv_init : str
+        Weight initialization for the convolution network
 
     Example
     -------
@@ -609,6 +615,8 @@ class Conv2d(nn.Module):
 
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
+        elif conv_init == "zero":
+            nn.init.zeros_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
