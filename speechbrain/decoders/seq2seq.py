@@ -7,17 +7,6 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-from typing import NamedTuple
-
-
-class Hypothesis(NamedTuple):
-    """Hypothesis class for beam search."""
-
-    sequence_of_tokens: torch.Tensor
-    sequence_of_words: list
-    score: torch.Tensor
-    log_probs_score: torch.Tensor
-    length: torch.Tensor
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -626,6 +615,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         batch_size,
         n_bh,
     ):
+        """ Update sequences and log probabilities based on new input tokens. """
         # Update alived_seq
         alived_seq = torch.cat(
             [
@@ -654,6 +644,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _compute_scores_and_next_inp_tokens(
         self, sequence_scores, n_out, batch_size, log_probs, timestep, n_bh
     ):
+        """ Compute scores and next input tokens."""
         scores = sequence_scores.unsqueeze(1).expand(-1, n_out)
         scores = scores + log_probs
 
@@ -714,6 +705,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_seq,
         alived_log_probs,
     ):
+        """ Search for the next most likely tokens."""
+
         log_probs, memory, attn = self._attn_weight_step(
             inp_tokens, memory, enc_states, enc_lens, attn, log_probs
         )
