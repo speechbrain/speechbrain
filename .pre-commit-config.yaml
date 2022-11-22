@@ -19,7 +19,7 @@ repos:
       - id: black
         types: [python]
         additional_dependencies: ['click==8.0.4']
-  - repo: https://gitlab.com/pycqa/flake8.git
+  - repo: https://github.com/PyCQA/flake8
     rev: 3.7.9
     hooks:
       - id: flake8
