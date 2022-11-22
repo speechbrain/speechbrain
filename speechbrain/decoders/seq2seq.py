@@ -555,6 +555,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def search(
         self,
+        n_bh,
         hyps_and_scores,
         inp_tokens,
         memory,
@@ -564,7 +565,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs,
         attn,
         prev_attn_peak,
-        t,
+        timestep,
         min_decode_steps,
         sequence_scores,
         n_out,
@@ -587,7 +588,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak = attn_peak
 
         # Set eos to minus_inf when less than minimum steps.
-        if t < min_decode_steps:
+        if timestep < min_decode_steps:
             log_probs[:, self.eos_index] = self.minus_inf
 
         # Adding Scorer scores to log_prob if Scorer is not None.
@@ -612,7 +613,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # length normalization
         if self.length_normalization:
-            scores = scores / (t + 1)
+            scores = scores / (timestep + 1)
 
         # keep topk beams
         scores, candidates = scores.view(batch_size, -1).topk(
@@ -620,20 +621,20 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         # The input for the next step, also the output of current step.
-        inp_tokens = (candidates % n_out).view(self.n_bh)
+        inp_tokens = (candidates % n_out).view(n_bh)
 
-        scores = scores.view(self.n_bh)
+        scores = scores.view(n_bh)
         sequence_scores = scores
 
         # recover the length normalization
         if self.length_normalization:
-            sequence_scores = sequence_scores * (t + 1)
+            sequence_scores = sequence_scores * (timestep + 1)
 
-        # The index of which beam the current top-K output came from in (t-1) timesteps.
+        # The index of which beam the current top-K output came from in (timestep-1) timesteps.
         predecessors = (
             torch.div(candidates, n_out, rounding_mode="floor")
             + self.beam_offset.unsqueeze(1).expand_as(candidates)
-        ).view(self.n_bh)
+        ).view(n_bh)
 
         # Permute the memory to synchoronize with the output.
         if self.attn_weight:
@@ -662,7 +663,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # Takes the log-probabilities
         beam_log_probs = log_probs_clone[
             torch.arange(batch_size).unsqueeze(1), candidates
-        ].reshape(self.n_bh)
+        ].reshape(n_bh)
 
         # Update alived_log_probs
         alived_log_probs = torch.cat(
@@ -679,7 +680,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_log_probs,
             hyps_and_scores,
             scores,
-            timesteps=t,
+            timesteps=timestep,
         )
 
         # Block the paths that have reached eos.
@@ -705,7 +706,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         device = enc_states.device
         batch_size = enc_states.shape[0]
         n_bh = batch_size * self.beam_size
-        self.n_bh = n_bh
+
         n_out = (
             self.fc.w.out_features
         )  # self.emb.num_embeddings is not always available
@@ -774,6 +775,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 is_eos,
                 scores,
             ) = self.search(
+                n_bh,
                 hyps_and_scores,
                 inp_tokens,
                 memory,
