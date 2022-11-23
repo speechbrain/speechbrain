@@ -273,7 +273,7 @@ class Separation(sb.Brain):
                 test_stats=stage_stats,
             )
             if hasattr(self, "wandb_table") and self.wandb_table is not None:
-                wandb.log({"test_samples": self.wandb_table})
+                wandb.log({"test_samples": self.wandb_table}, step=epoch, commit=True)
                 self.wandb_table = None
 
     def add_speed_perturb(self, targets, targ_lens):
@@ -350,6 +350,40 @@ class Separation(sb.Brain):
             if layer != child_layer:
                 self.reset_layer_recursively(child_layer)
 
+    def compute_metrics(self, mix_sig, est_sources, targets):
+        from mir_eval.separation import bss_eval_sources
+
+        mix_expanded = torch.stack([mix_sig] * self.hparams.num_spks, dim=-1)
+        mix_expanded = mix_expanded.to(targets.device)
+
+        # Compute SI-SNR
+        sisnr = self.compute_objectives(est_sources, targets)
+
+        # Compute SI-SNR improvement
+        sisnr_baseline = self.compute_objectives(
+            mix_expanded,
+            targets,
+        )
+        sisnr_i = sisnr - sisnr_baseline
+
+        # Compute SDR
+        sdr, _, _, _ = bss_eval_sources(
+            targets[0].t().cpu().numpy(),
+            est_sources[0].detach().t().cpu().numpy(),
+        )
+        sdr_baseline, _, _, _ = bss_eval_sources(
+            targets[0].t().cpu().numpy(),
+            mix_expanded[0].detach().t().cpu().numpy(),
+        )
+        sdr_i = sdr.mean() - sdr_baseline.mean()
+
+        return {
+            "sdr": sdr.mean(),
+            "sdr_i": sdr_i,
+            "si-snr": -sisnr.item(),
+            "si-snr_i": -sisnr_i.item(),
+        }
+
     def save_results(self, test_data):
         """This script computes the SDR and SI-SNR metrics and saves
         them into a csv file"""
@@ -391,47 +425,19 @@ class Separation(sb.Brain):
                             batch.mix_sig, targets, sb.Stage.TEST
                         )
 
-                    # Compute SI-SNR
-                    sisnr = self.compute_objectives(predictions, targets)
-
-                    # Compute SI-SNR improvement
-                    mixture_signal = torch.stack(
-                        [mixture] * self.hparams.num_spks, dim=-1
-                    )
-                    mixture_signal = mixture_signal.to(targets.device)
-                    sisnr_baseline = self.compute_objectives(
-                        mixture_signal, targets
-                    )
-                    sisnr_i = sisnr - sisnr_baseline
-
-                    # Compute SDR
-                    sdr, _, _, _ = bss_eval_sources(
-                        targets[0].t().cpu().numpy(),
-                        predictions[0].t().detach().cpu().numpy(),
-                    )
-
-                    sdr_baseline, _, _, _ = bss_eval_sources(
-                        targets[0].t().cpu().numpy(),
-                        mixture_signal[0].t().detach().cpu().numpy(),
-                    )
-
-                    sdr_i = sdr.mean() - sdr_baseline.mean()
-
+                    metrics = self.compute_metrics(mixture, predictions, targets)
                     # Saving on a csv file
                     row = {
                         "snt_id": snt_id[0],
-                        "sdr": sdr.mean(),
-                        "sdr_i": sdr_i,
-                        "si-snr": -sisnr.item(),
-                        "si-snr_i": -sisnr_i.item(),
+                        **metrics,
                     }
                     writer.writerow(row)
 
                     # Metric Accumulation
-                    all_sdrs.append(sdr.mean())
-                    all_sdrs_i.append(sdr_i.mean())
-                    all_sisnrs.append(-sisnr.item())
-                    all_sisnrs_i.append(-sisnr_i.item())
+                    all_sdrs.append(metrics["sdr"])
+                    all_sdrs_i.append(metrics["sdr_i"])
+                    all_sisnrs.append(metrics["si-snr"])
+                    all_sisnrs_i.append(metrics["si-snr_i"])
 
                 row = {
                     "snt_id": "avg",
@@ -455,13 +461,16 @@ class Separation(sb.Brain):
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
+        metrics = self.compute_metrics(mixture[0], predictions, targets)
+        data = list(metrics.values())
+
         if not hasattr(self, "wandb_table") or self.wandb_table is None:
             columns = ["est_source", "target"] * self.hparams.num_spks
             columns = [x + str(i // 2) for i, x in enumerate(columns)]
             columns.append("mixture")
+            columns = list(metrics.keys()) + columns
             self.wandb_table = wandb.Table(columns=columns)
 
-        data = []
         for ns in range(self.hparams.num_spks):
             # Estimated source
             signal = predictions[0, :, ns]
