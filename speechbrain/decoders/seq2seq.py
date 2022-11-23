@@ -759,78 +759,84 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def search_step(
         self,
-        inp_tokens,
-        memory,
-        scorer_memory,
-        log_probs,
-        attn,
-        prev_attn_peak,
         timestep,
-        hyps_and_scores,
         hypotheses,
         beam_search_config,
+        beam_search_running_data,
     ):
         """ Search for the next most likely tokens."""
 
-        log_probs, memory, attn = self._attn_weight_step(
-            inp_tokens,
-            memory,
+        (
+            beam_search_running_data.log_probs,
+            beam_search_running_data.memory,
+            beam_search_running_data.attn,
+        ) = self._attn_weight_step(
+            beam_search_running_data.inp_tokens,
+            beam_search_running_data.memory,
             beam_search_config.enc_states,
             beam_search_config.enc_lens,
-            attn,
-            log_probs,
+            beam_search_running_data.attn,
+            beam_search_running_data.log_probs,
         )
 
-        hypotheses.alived_log_probs, memory, attn = self._attn_weight_step(
-            inp_tokens,
-            memory,
-            beam_search_config.enc_states,
-            beam_search_config.enc_lens,
-            attn,
-            hypotheses.alived_log_probs,
+        (
+            beam_search_running_data.log_probs,
+            beam_search_running_data.prev_attn_peak,
+        ) = self._max_attn_shift_step(
+            beam_search_running_data.attn,
+            beam_search_running_data.prev_attn_peak,
+            beam_search_running_data.log_probs,
         )
 
-        log_probs, prev_attn_peak = self._max_attn_shift_step(
-            attn, prev_attn_peak, log_probs
-        )
-
-        log_probs = self._set_eos_minus_inf_step(
-            log_probs, timestep, beam_search_config.min_decode_steps
+        beam_search_running_data.log_probs = self._set_eos_minus_inf_step(
+            beam_search_running_data.log_probs,
+            timestep,
+            beam_search_config.min_decode_steps,
         )
 
         # Adding Scorer scores to log_prob if Scorer is not None.
-        log_probs, scorer_memory = self._scorer_step(
-            inp_tokens, scorer_memory, attn, log_probs
+        (
+            beam_search_running_data.log_probs,
+            beam_search_running_data.scorer_memory,
+        ) = self._scorer_step(
+            beam_search_running_data.inp_tokens,
+            beam_search_running_data.scorer_memory,
+            beam_search_running_data.attn,
+            beam_search_running_data.log_probs,
         )
 
-        log_probs = self._eos_threshold_step(log_probs)
+        beam_search_running_data.log_probs = self._eos_threshold_step(
+            beam_search_running_data.log_probs
+        )
 
         (
             log_probs_clone,
-            scores,
+            beam_search_running_data.scores,
             candidates,
             predecessors,
-            inp_tokens,
+            beam_search_running_data.inp_tokens,
             hypotheses.sequence_scores,
         ) = self._compute_scores_and_next_inp_tokens(
             hypotheses.sequence_scores,
             beam_search_config.n_out,
             beam_search_config.batch_size,
-            log_probs,
+            beam_search_running_data.log_probs,
             timestep,
             beam_search_config.n_bh,
         )
 
         # Permute the memory to synchoronize with the output.
-        memory = self._attn_weight_permute_memory_step(memory, predecessors)
+        beam_search_running_data.memory = self._attn_weight_permute_memory_step(
+            beam_search_running_data.memory, predecessors
+        )
 
-        scorer_memory = self._scorer_permute_memory_step(
-            scorer_memory, predecessors, candidates
+        beam_search_running_data.scorer_memory = self._scorer_permute_memory_step(
+            beam_search_running_data.scorer_memory, predecessors, candidates
         )
 
         # If using_max_attn_shift, then the previous attn peak has to be permuted too.
-        prev_attn_peak = self._max_attn_shift_permute_memory_step(
-            prev_attn_peak, predecessors
+        beam_search_running_data.prev_attn_peak = self._max_attn_shift_permute_memory_step(
+            beam_search_running_data.prev_attn_peak, predecessors
         )
 
         (
@@ -840,7 +846,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             hypotheses.alived_seq,
             log_probs_clone,
             hypotheses.alived_log_probs,
-            inp_tokens,
+            beam_search_running_data.inp_tokens,
             predecessors,
             candidates,
             beam_search_config.batch_size,
@@ -848,30 +854,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         is_eos = self._update_hyp_and_scores(
-            inp_tokens,
+            beam_search_running_data.inp_tokens,
             hypotheses.alived_seq,
             hypotheses.alived_log_probs,
-            hyps_and_scores,
-            scores,
+            beam_search_running_data.hyps_and_scores,
+            beam_search_running_data.scores,
             timesteps=timestep,
         )
 
         # Block the paths that have reached eos.
         hypotheses.sequence_scores.masked_fill_(is_eos, float("-inf"))
 
-        return (
-            inp_tokens,
-            memory,
-            scorer_memory,
-            log_probs,
-            attn,
-            prev_attn_peak,
-            hypotheses.sequence_scores,
-            hypotheses.alived_seq,
-            hypotheses.alived_log_probs,
-            is_eos,
-            scores,
-        )
+        return (beam_search_running_data, hypotheses, beam_search_config)
 
     def forward(self, enc_states, wav_len):  # noqa: C901
         """Applies beamsearch and returns the predicted tokens."""
@@ -914,10 +908,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         hyps_and_scores = [[] for _ in range(batch_size)]
 
         # keep the sequences that still not reaches eos.
-        alived_seq = torch.empty(n_bh, 0, device=device).long()
+        # alived_seq = torch.empty(n_bh, 0, device=device).long()
 
         # Keep the log-probabilities of alived log_probs
-        alived_log_probs = torch.empty(n_bh, 0, device=device)
+        # alived_log_probs = torch.empty(n_bh, 0, device=device)
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
@@ -942,7 +936,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         h = self.init_hypotheses(batch_size, device)
 
-        """
         beam_search_running_data = BeamSearchRunningData(
             inp_tokens=inp_tokens,
             memory=memory,
@@ -954,40 +947,29 @@ class S2SBeamSearcher(S2SBaseSearcher):
             scores=None,
             hyps_and_scores=hyps_and_scores,
         )
-        """
 
         for t in range(beam_search_config.max_decode_steps):
 
             # terminate condition
-            if self._check_full_beams(hyps_and_scores, self.beam_size):
+            if self._check_full_beams(
+                beam_search_running_data.hyps_and_scores, self.beam_size
+            ):
                 break
 
             (
-                inp_tokens,
-                memory,
-                scorer_memory,
-                log_probs,
-                attn,
-                prev_attn_peak,
-                sequence_scores,
-                alived_seq,
-                alived_log_probs,
-                is_eos,
-                scores,
+                beam_search_running_data,
+                hypotheses,
+                beam_search_config,
             ) = self.search_step(
-                inp_tokens,
-                memory,
-                scorer_memory,
-                log_probs,
-                attn,
-                prev_attn_peak,
                 t,
-                hyps_and_scores,
                 hypotheses=h,
                 beam_search_config=beam_search_config,
+                beam_search_running_data=beam_search_running_data,
             )
 
-        if not self._check_full_beams(hyps_and_scores, self.beam_size):
+        if not self._check_full_beams(
+            beam_search_running_data.hyps_and_scores, self.beam_size
+        ):
             # Using all eos to fill-up the hyps.
             eos = (
                 torch.zeros(
@@ -1000,8 +982,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 eos,
                 h.alived_seq,
                 h.alived_log_probs,
-                hyps_and_scores,
-                scores,
+                beam_search_running_data.hyps_and_scores,
+                beam_search_running_data.scores,
                 timesteps=beam_search_config.max_decode_steps,
             )
 
@@ -1010,7 +992,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             topk_lengths,
             topk_scores,
             topk_log_probs,
-        ) = self._get_topk_prediction(hyps_and_scores, topk=self.topk,)
+        ) = self._get_topk_prediction(
+            beam_search_running_data.hyps_and_scores, topk=self.topk,
+        )
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
