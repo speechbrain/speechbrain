@@ -7,27 +7,40 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-from typing import NamedTuple
-
-# TODO: creates data handler class to reduce the amount of code.
+from dataclasses import dataclass, field
 
 
+@dataclass
 class Hypotheses:
     """ This class handle the data for the hypotheses during the decoding.
     Default to None if we are not going to score on word / char level with external
     scorers.
     """
 
-    def __init__(
-        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None
-    ):
-        self.alived_seq = alived_seq
-        self.alived_log_probs = alived_log_probs
-        self.sequence_scores = sequence_scores
-        self.decoded_seq = decoded_seq
+    alived_seq: torch.Tensor
+    alived_log_probs: torch.Tensor
+    sequence_scores: torch.Tensor
+    decoded_seq: list = field(default_factory=list)
 
 
-class BeamSearchConfig(NamedTuple):
+@dataclass
+class BeamSearchRunningData:
+    """This class is used to store the running data for beam search.
+    """
+
+    inp_tokens: torch.Tensor
+    memory: torch.Tensor
+    scorer_memory: torch.Tensor
+    log_probs: torch.Tensor
+    attn: torch.Tensor
+    prev_attn_peak: torch.Tensor
+    is_eos: torch.Tensor
+    scores: torch.Tensor
+    hyps_and_scores: list
+
+
+@dataclass(frozen=True)
+class BeamSearchConfig:
     # TODO: add max_decode_steps and switch hyps_and_scores in Hypotheses?
     """This class contains the configuration parameters for beam search decoding.
     It allows us to reduce the number of parameters in the function call, and improves
@@ -38,12 +51,12 @@ class BeamSearchConfig(NamedTuple):
 
     n_bh: int
     min_decode_steps: int
+    max_decode_steps: int
     n_out: int
     batch_size: int
     device: str
     enc_states: torch.Tensor
     enc_lens: torch.Tensor
-    hyps_and_scores: list
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -744,7 +757,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             sequence_scores,
         )
 
-    def search(
+    def search_step(
         self,
         inp_tokens,
         memory,
@@ -753,9 +766,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         attn,
         prev_attn_peak,
         timestep,
-        sequence_scores,
-        alived_seq,
-        alived_log_probs,
+        hyps_and_scores,
         hypotheses,
         beam_search_config,
     ):
@@ -840,7 +851,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             inp_tokens,
             hypotheses.alived_seq,
             hypotheses.alived_log_probs,
-            beam_search_config.hyps_and_scores,
+            hyps_and_scores,
             scores,
             timesteps=timestep,
         )
@@ -857,7 +868,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak,
             hypotheses.sequence_scores,
             hypotheses.alived_seq,
-            alived_log_probs,
+            hypotheses.alived_log_probs,
             is_eos,
             scores,
         )
@@ -875,6 +886,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         memory = self.reset_mem(n_bh, device=device)
 
+        scorer_memory = None
         if self.scorer is not None:
             scorer_memory = self.scorer.reset_scorer_mem(enc_states, enc_lens)
 
@@ -920,21 +932,34 @@ class S2SBeamSearcher(S2SBaseSearcher):
         beam_search_config = BeamSearchConfig(
             n_bh=n_bh,
             min_decode_steps=min_decode_steps,
+            max_decode_steps=max_decode_steps,
             n_out=n_out,
             batch_size=batch_size,
             device=device,
             enc_states=enc_states,
             enc_lens=enc_lens,
-            hyps_and_scores=hyps_and_scores,
         )
 
         h = self.init_hypotheses(batch_size, device)
-        for t in range(max_decode_steps):
+
+        """
+        beam_search_running_data = BeamSearchRunningData(
+            inp_tokens=inp_tokens,
+            memory=memory,
+            scorer_memory=scorer_memory,
+            log_probs=log_probs,
+            attn=attn,
+            prev_attn_peak=prev_attn_peak,
+            is_eos=None,
+            scores=None,
+            hyps_and_scores=hyps_and_scores,
+        )
+        """
+
+        for t in range(beam_search_config.max_decode_steps):
 
             # terminate condition
-            if self._check_full_beams(
-                beam_search_config.hyps_and_scores, self.beam_size
-            ):
+            if self._check_full_beams(hyps_and_scores, self.beam_size):
                 break
 
             (
@@ -949,7 +974,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 alived_log_probs,
                 is_eos,
                 scores,
-            ) = self.search(
+            ) = self.search_step(
                 inp_tokens,
                 memory,
                 scorer_memory,
@@ -957,16 +982,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 attn,
                 prev_attn_peak,
                 t,
-                sequence_scores,
-                alived_seq,
-                alived_log_probs,
+                hyps_and_scores,
                 hypotheses=h,
                 beam_search_config=beam_search_config,
             )
 
-        if not self._check_full_beams(
-            beam_search_config.hyps_and_scores, self.beam_size
-        ):
+        if not self._check_full_beams(hyps_and_scores, self.beam_size):
             # Using all eos to fill-up the hyps.
             eos = (
                 torch.zeros(
@@ -977,11 +998,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
             _ = self._update_hyp_and_scores(
                 eos,
-                alived_seq,
-                alived_log_probs,
-                beam_search_config.hyps_and_scores,
+                h.alived_seq,
+                h.alived_log_probs,
+                hyps_and_scores,
                 scores,
-                timesteps=max_decode_steps,
+                timesteps=beam_search_config.max_decode_steps,
             )
 
         (
@@ -989,9 +1010,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             topk_lengths,
             topk_scores,
             topk_log_probs,
-        ) = self._get_topk_prediction(
-            beam_search_config.hyps_and_scores, topk=self.topk,
-        )
+        ) = self._get_topk_prediction(hyps_and_scores, topk=self.topk,)
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
