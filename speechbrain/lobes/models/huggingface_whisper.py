@@ -73,8 +73,12 @@ class HuggingFaceWhisper(nn.Module):
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
         self.freeze_feature_extractor = freeze_feature_extractor
         if self.freeze:
+            if self.encoder_only:
+                logger_msg = "whisper encoder is frozen."
+            else: 
+                logger_msg = "whisper encoder-decoder is frozen."
             logger.warning(
-                "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
+                "speechbrain.lobes.models.huggingface_whisper - " + logger_msg
             )
             self.model.train()  # we keep it to train to have dropout and LN computed adequaly
             for param in self.model.parameters():
@@ -87,6 +91,12 @@ class HuggingFaceWhisper(nn.Module):
                 )
                 for param in self.model.feature_extractor.parameters():
                     param.requires_grad = False
+        
+        if self.encoder_only:
+            logger.warning(
+                "speechbrain.lobes.models.huggingface_whisper - whisper encoder only, removing the decoder."
+            )
+            self.model.decoder = None #TODO: del or None? 
 
     def forward(self, wav, tokens=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
