@@ -62,7 +62,7 @@ test_dataloader_opts:
 activation: !name:torch.nn.LeakyReLU
 dnn_layers: 2
 dnn_neurons: 1024
-freeze_whisper: False
+freeze_whisper: True
 whisper_output_dim: 512
 
 
@@ -83,26 +83,26 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
    speeds: [95, 100, 105]
 
 enc: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <whisper_output_dim>]
-    linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <dnn_neurons>
-        bias: True
-    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation: !new:torch.nn.LeakyReLU
-    drop: !new:torch.nn.Dropout
-        p: 0.15
-    linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <dnn_neurons>
-        bias: True
-    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation2: !new:torch.nn.LeakyReLU
-    drop2: !new:torch.nn.Dropout
-        p: 0.15
-    linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <dnn_neurons>
-        bias: True
-    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation3: !new:torch.nn.LeakyReLU
+   input_shape: [null, null, !ref <whisper_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation: !new:torch.nn.LeakyReLU
+   drop: !new:torch.nn.Dropout
+      p: 0.15
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !new:torch.nn.LeakyReLU
+   drop2: !new:torch.nn.Dropout
+      p: 0.15
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !new:torch.nn.LeakyReLU
 
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
    source: !ref <whisper_hub>
