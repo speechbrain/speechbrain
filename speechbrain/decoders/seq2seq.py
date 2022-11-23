@@ -7,6 +7,37 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
+from typing import NamedTuple
+
+# TODO: creates data handler class to reduce the amount of code.
+
+
+class Hypotheses:
+    """ This class handle the data for the hypotheses during the decoding. """
+
+    def __init__(self, alived_seq, alived_log_probs, alived_scores, untok_seq):
+        self.alived_seq = alived_seq
+        self.alived_log_probs = alived_log_probs
+        self.alived_scores = alived_scores
+        self.untok_seq = untok_seq
+
+
+class BeamSearchConfig(NamedTuple):
+    """This class contains the configuration parameters for beam search decoding.
+    It allows us to reduce the number of parameters in the function call, and improves
+    readability.
+    Arguments
+    ---------
+    """
+
+    n_bh: int
+    min_decode_steps: int
+    n_out: int
+    batch_size: int
+    device: str
+    enc_states: torch.Tensor
+    enc_lens: torch.Tensor
+    hyps_and_scores: list
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -542,6 +573,27 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
+    def init_hypotheses(self, batch_size, device):
+        """This method initializes the hypotheses.
+
+        Arguments
+        ---------
+        batch_size : int
+            The batch size.
+
+        Returns
+        -------
+        """
+        n_bh = batch_size * self.beam_size
+        return Hypotheses(
+            alived_seq=torch.empty(n_bh, 0, device=device).long(),
+            alived_log_probs=torch.empty(n_bh, 0, device=device),
+            alived_scores=torch.empty(n_bh, device=device)
+            .fill_(float("-inf"))
+            .index_fill_(0, self.beam_offset, 0.0),
+            untok_seq=[[] for _ in range(batch_size)],
+        )
+
     def _attn_weight_step(
         self, inp_tokens, memory, enc_states, enc_lens, attn, log_probs
     ):
@@ -704,11 +756,21 @@ class S2SBeamSearcher(S2SBaseSearcher):
         batch_size,
         alived_seq,
         alived_log_probs,
+        hypotheses,
     ):
         """ Search for the next most likely tokens."""
 
         log_probs, memory, attn = self._attn_weight_step(
             inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+        )
+
+        hypotheses.alived_log_probs, _, _ = self._attn_weight_step(
+            inp_tokens,
+            memory,
+            enc_states,
+            enc_lens,
+            attn,
+            hypotheses.alived_log_probs,
         )
 
         log_probs, prev_attn_peak = self._max_attn_shift_step(
@@ -817,8 +879,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         # initialize sequence scores variables.
-        sequence_scores = torch.empty(n_bh, device=device)
-        sequence_scores.fill_(float("-inf"))
+        sequence_scores = torch.empty(n_bh, device=device).fill_(float("-inf"))
 
         # keep only the first to make sure no redundancy.
         sequence_scores.index_fill_(0, self.beam_offset, 0.0)
@@ -842,10 +903,24 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         log_probs = torch.full((n_bh, n_out), 0.0, device=device)
 
+        beam_search_config = BeamSearchConfig(
+            n_bh=n_bh,
+            min_decode_steps=min_decode_steps,
+            n_out=n_out,
+            batch_size=batch_size,
+            device=device,
+            enc_states=enc_states,
+            enc_lens=enc_lens,
+            hyps_and_scores=hyps_and_scores,
+        )
+
+        h = self.init_hypotheses(batch_size, device)
         for t in range(max_decode_steps):
 
             # terminate condition
-            if self._check_full_beams(hyps_and_scores, self.beam_size):
+            if self._check_full_beams(
+                beam_search_config.hyps_and_scores, self.beam_size
+            ):
                 break
 
             (
@@ -861,33 +936,42 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 is_eos,
                 scores,
             ) = self.search(
-                n_bh,
-                hyps_and_scores,
+                beam_search_config.n_bh,
+                beam_search_config.hyps_and_scores,
                 inp_tokens,
                 memory,
                 scorer_memory,
-                enc_states,
-                enc_lens,
+                beam_search_config.enc_states,
+                beam_search_config.enc_lens,
                 log_probs,
                 attn,
                 prev_attn_peak,
                 t,
-                min_decode_steps,
+                beam_search_config.min_decode_steps,
                 sequence_scores,
-                n_out,
-                batch_size,
+                beam_search_config.n_out,
+                beam_search_config.batch_size,
                 alived_seq,
                 alived_log_probs,
+                hypotheses=h,
             )
 
-        if not self._check_full_beams(hyps_and_scores, self.beam_size):
+        if not self._check_full_beams(
+            beam_search_config.hyps_and_scores, self.beam_size
+        ):
             # Using all eos to fill-up the hyps.
-            eos = torch.zeros(n_bh, device=device).fill_(self.eos_index).long()
+            eos = (
+                torch.zeros(
+                    beam_search_config.n_bh, device=beam_search_config.device
+                )
+                .fill_(self.eos_index)
+                .long()
+            )
             _ = self._update_hyp_and_scores(
                 eos,
                 alived_seq,
                 alived_log_probs,
-                hyps_and_scores,
+                beam_search_config.hyps_and_scores,
                 scores,
                 timesteps=max_decode_steps,
             )
@@ -897,7 +981,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             topk_lengths,
             topk_scores,
             topk_log_probs,
-        ) = self._get_topk_prediction(hyps_and_scores, topk=self.topk,)
+        ) = self._get_topk_prediction(
+            beam_search_config.hyps_and_scores, topk=self.topk,
+        )
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
