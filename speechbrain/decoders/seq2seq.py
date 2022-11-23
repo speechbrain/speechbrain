@@ -739,36 +739,35 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def search(
         self,
-        n_bh,
-        hyps_and_scores,
         inp_tokens,
         memory,
         scorer_memory,
-        enc_states,
-        enc_lens,
         log_probs,
         attn,
         prev_attn_peak,
         timestep,
-        min_decode_steps,
         sequence_scores,
-        n_out,
-        batch_size,
         alived_seq,
         alived_log_probs,
         hypotheses,
+        beam_search_config,
     ):
         """ Search for the next most likely tokens."""
 
         log_probs, memory, attn = self._attn_weight_step(
-            inp_tokens, memory, enc_states, enc_lens, attn, log_probs
+            inp_tokens,
+            memory,
+            beam_search_config.enc_states,
+            beam_search_config.enc_lens,
+            attn,
+            log_probs,
         )
 
         hypotheses.alived_log_probs, _, _ = self._attn_weight_step(
             inp_tokens,
             memory,
-            enc_states,
-            enc_lens,
+            beam_search_config.enc_states,
+            beam_search_config.enc_lens,
             attn,
             hypotheses.alived_log_probs,
         )
@@ -778,7 +777,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         log_probs = self._set_eos_minus_inf_step(
-            log_probs, timestep, min_decode_steps
+            log_probs, timestep, beam_search_config.min_decode_steps
         )
 
         # Adding Scorer scores to log_prob if Scorer is not None.
@@ -796,7 +795,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             inp_tokens,
             sequence_scores,
         ) = self._compute_scores_and_next_inp_tokens(
-            sequence_scores, n_out, batch_size, log_probs, timestep, n_bh
+            sequence_scores,
+            beam_search_config.n_out,
+            beam_search_config.batch_size,
+            log_probs,
+            timestep,
+            beam_search_config.n_bh,
         )
 
         # Permute the memory to synchoronize with the output.
@@ -818,15 +822,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
             inp_tokens,
             predecessors,
             candidates,
-            batch_size,
-            n_bh,
+            beam_search_config.batch_size,
+            beam_search_config.n_bh,
         )
 
         is_eos = self._update_hyp_and_scores(
             inp_tokens,
             alived_seq,
             alived_log_probs,
-            hyps_and_scores,
+            beam_search_config.hyps_and_scores,
             scores,
             timesteps=timestep,
         )
@@ -936,24 +940,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 is_eos,
                 scores,
             ) = self.search(
-                beam_search_config.n_bh,
-                beam_search_config.hyps_and_scores,
                 inp_tokens,
                 memory,
                 scorer_memory,
-                beam_search_config.enc_states,
-                beam_search_config.enc_lens,
                 log_probs,
                 attn,
                 prev_attn_peak,
                 t,
-                beam_search_config.min_decode_steps,
                 sequence_scores,
-                beam_search_config.n_out,
-                beam_search_config.batch_size,
                 alived_seq,
                 alived_log_probs,
                 hypotheses=h,
+                beam_search_config=beam_search_config,
             )
 
         if not self._check_full_beams(
