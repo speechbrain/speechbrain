@@ -40,7 +40,7 @@ class Diffuser(nn.Module):
 
     def distort(self, x, timesteps=None):
         """Adds noise to a batch of data
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -54,7 +54,7 @@ class Diffuser(nn.Module):
         Returns
         -------
         result: torch.Tensor
-            a tensor of the same dimension as x        
+            a tensor of the same dimension as x
         """
         raise NotImplementedError
 
@@ -84,7 +84,7 @@ class Diffuser(nn.Module):
         if timesteps is None:
             timesteps = sample_timesteps(x, self.timesteps)
         noisy_sample, noise = self.distort(x, timesteps=timesteps, **kwargs)
-        pred = self.model(noisy_sample, timesteps=timesteps)
+        pred = self.model(noisy_sample, timesteps=timesteps, **kwargs)
         return pred, noise, noisy_sample
 
     def sample(self, shape, **kwargs):
@@ -321,15 +321,16 @@ class DenoisingDiffusion(Diffuser):
 class LatentDiffusion(nn.Module):
     """A latent diffusion wrapper. Latent diffusion is denoising diffusion
     applied to a latent space instead of the original data space
-    
+
     Arguments
     ---------
     autoencoder: speechbrain.nnet.autoencoder.Autoencoder
         An autoencoder converting the original space to a latent space
-    
+
     diffusion: speechbrian.nnet.diffusion.Diffuser
         A diffusion wrapper
     """
+
     def __init__(self, autoencoder, diffusion):
         super().__init__()
         self.autencoder = autoencoder
@@ -358,14 +359,14 @@ class LatentDiffusion(nn.Module):
         noisy_sample
             the sample with the noise applied
         """
-        
+
         latent = self.autoencoder.encode(x)
         return self.diffusion.train_sample(latent, **kwargs)
 
     def train_sample_latent(self, x, **kwargs):
         """Returns a train sample with autoencoder output - can be used to jointly
         training the diffusion model and the autoencoder
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -379,10 +380,14 @@ class LatentDiffusion(nn.Module):
             x,
             length=length,
             out_mask_value=out_mask_value,
-            latent_mask_value=latent_mask_value
+            latent_mask_value=latent_mask_value,
         )
-        diffusion_train_sample = self.diffusion.train_sample(autoencoder_out.latent, **kwargs)
-        return LatentDiffusionTrainSample(diffusion=diffusion_train_sample, autoencoder=autoencoder_out)
+        diffusion_train_sample = self.diffusion.train_sample(
+            autoencoder_out.latent, **kwargs
+        )
+        return LatentDiffusionTrainSample(
+            diffusion=diffusion_train_sample, autoencoder=autoencoder_out
+        )
 
     def distort(self, x):
         """Adds noise to the sample, in a forward diffusion process,
@@ -408,7 +413,7 @@ class LatentDiffusion(nn.Module):
 
         latent = self.autencoder.encode(x)
         return self.diffusion.distort(latent)
-    
+
     def sample(self, shape):
         # TODO: Auto-compute the latent shape
         latent = self.diffusion.sample(shape)
@@ -486,5 +491,9 @@ _NOISE_FUNCTIONS = {
     "gaussian": GaussianNoise(),
 }
 
-DiffusionTrainSample = namedtuple("DiffusionTrainSample", ["pred", "noise", "noisy_sample"])
-LatentDiffusionTrainSample = namedtuple("LatentDiffusionTrainSample", ["diffusion", "autoencoder"])
+DiffusionTrainSample = namedtuple(
+    "DiffusionTrainSample", ["pred", "noise", "noisy_sample"]
+)
+LatentDiffusionTrainSample = namedtuple(
+    "LatentDiffusionTrainSample", ["diffusion", "autoencoder"]
+)

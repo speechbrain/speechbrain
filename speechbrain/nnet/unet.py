@@ -365,7 +365,7 @@ class ResBlock(TimestepBlock):
         up=False,
         down=False,
         norm_num_groups=32,
-        use_fixup_init=True
+        use_fixup_init=True,
     ):
         super().__init__()
         self.channels = channels
@@ -393,11 +393,7 @@ class ResBlock(TimestepBlock):
 
         if emb_channels is not None:
             self.emb_layers = nn.Sequential(
-                nn.SiLU(),
-                nn.Linear(
-                    emb_channels,
-                    self.out_channels,
-                ),
+                nn.SiLU(), nn.Linear(emb_channels, self.out_channels,),
             )
         else:
             self.emb_layers = None
@@ -409,7 +405,7 @@ class ResBlock(TimestepBlock):
                 conv_nd(
                     dims, self.out_channels, self.out_channels, 3, padding=1
                 ),
-                use_fixup_init=use_fixup_init
+                use_fixup_init=use_fixup_init,
             ),
         )
 
@@ -485,7 +481,7 @@ class AttentionBlock(nn.Module):
         num_heads=1,
         num_head_channels=-1,
         norm_num_groups=32,
-        use_fixup_init=True
+        use_fixup_init=True,
     ):
         super().__init__()
         self.channels = channels
@@ -570,7 +566,7 @@ def build_emb_proj(emb_config, proj_dim=None, use_emb=None):
     ---------
     emb_config: dict
         a configuration dictionary
-    
+
     proj_dim: int
         the target projection dimension
 
@@ -590,10 +586,10 @@ def build_emb_proj(emb_config, proj_dim=None, use_emb=None):
                 emb_proj[key] = emb_proj
             else:
                 emb_proj[key] = EmbeddingProjection(
-                    emb_dim=item_config["emb_dim"],
-                    proj_dim=proj_dim
+                    emb_dim=item_config["emb_dim"], proj_dim=proj_dim
                 )
     return nn.ModuleDict(emb_proj)
+
 
 class UNetModel(nn.Module):
     """
@@ -625,7 +621,7 @@ class UNetModel(nn.Module):
         time embedding dimension (defaults to model_channels * 4)
     cond_emb: dict
         embeddings on which the model will be conditioned
-        
+
         Example:
         {
             "speaker": {
@@ -680,7 +676,7 @@ class UNetModel(nn.Module):
         num_heads_upsample=-1,
         norm_num_groups=32,
         resblock_updown=False,
-        use_fixup_init=True
+        use_fixup_init=True,
     ):
         super().__init__()
 
@@ -704,13 +700,10 @@ class UNetModel(nn.Module):
 
         if emb_dim is None:
             emb_dim = model_channels * 4
-        self.time_embed = EmbeddingProjection(
-            model_channels, emb_dim)
-        
+        self.time_embed = EmbeddingProjection(model_channels, emb_dim)
+
         self.cond_emb_proj = build_emb_proj(
-            emb_config=cond_emb,
-            proj_dim=emb_dim,
-            use_emb=use_cond_emb
+            emb_config=cond_emb, proj_dim=emb_dim, use_emb=use_cond_emb
         )
 
         ch = input_ch = int(channel_mult[0] * model_channels)
@@ -734,7 +727,7 @@ class UNetModel(nn.Module):
                         out_channels=int(mult * model_channels),
                         dims=dims,
                         norm_num_groups=norm_num_groups,
-                        use_fixup_init=use_fixup_init
+                        use_fixup_init=use_fixup_init,
                     )
                 ]
                 ch = int(mult * model_channels)
@@ -745,7 +738,7 @@ class UNetModel(nn.Module):
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init
+                            use_fixup_init=use_fixup_init,
                         )
                     )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -763,7 +756,7 @@ class UNetModel(nn.Module):
                             dims=dims,
                             down=True,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init
+                            use_fixup_init=use_fixup_init,
                         )
                         if resblock_updown
                         else Downsample(
@@ -783,12 +776,14 @@ class UNetModel(nn.Module):
                 dropout,
                 dims=dims,
                 norm_num_groups=norm_num_groups,
-                use_fixup_init=use_fixup_init
+                use_fixup_init=use_fixup_init,
             ),
             AttentionBlock(
-                ch, num_heads=num_heads, num_head_channels=num_head_channels,
+                ch,
+                num_heads=num_heads,
+                num_head_channels=num_head_channels,
                 norm_num_groups=norm_num_groups,
-                use_fixup_init=use_fixup_init
+                use_fixup_init=use_fixup_init,
             ),
             ResBlock(
                 ch,
@@ -796,7 +791,7 @@ class UNetModel(nn.Module):
                 dropout,
                 dims=dims,
                 norm_num_groups=norm_num_groups,
-                use_fixup_init=use_fixup_init
+                use_fixup_init=use_fixup_init,
             ),
         )
         self._feature_size += ch
@@ -813,7 +808,7 @@ class UNetModel(nn.Module):
                         out_channels=int(model_channels * mult),
                         dims=dims,
                         norm_num_groups=norm_num_groups,
-                        use_fixup_init=use_fixup_init
+                        use_fixup_init=use_fixup_init,
                     )
                 ]
                 ch = int(model_channels * mult)
@@ -824,7 +819,7 @@ class UNetModel(nn.Module):
                             num_heads=num_heads_upsample,
                             num_head_channels=num_head_channels,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init
+                            use_fixup_init=use_fixup_init,
                         )
                     )
                 if level and i == num_res_blocks:
@@ -838,7 +833,7 @@ class UNetModel(nn.Module):
                             dims=dims,
                             up=True,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init
+                            use_fixup_init=use_fixup_init,
                         )
                         if resblock_updown
                         else Upsample(
@@ -854,11 +849,11 @@ class UNetModel(nn.Module):
             nn.SiLU(),
             fixup(
                 conv_nd(dims, input_ch, out_channels, 3, padding=1),
-                use_fixup_init=use_fixup_init
+                use_fixup_init=use_fixup_init,
             ),
         )
-    
-    def forward(self, x, timesteps, cond_emb=None):
+
+    def forward(self, x, timesteps, cond_emb=None, **kwargs):
         """Apply the model to an input batch.
 
         Arguments
@@ -972,7 +967,7 @@ class EncoderUNetModel(nn.Module):
                         out_channels=int(mult * model_channels),
                         dims=dims,
                         norm_num_groups=norm_num_groups,
-                        use_fixup_init=use_fixup_init
+                        use_fixup_init=use_fixup_init,
                     )
                 ]
                 ch = int(mult * model_channels)
@@ -983,7 +978,7 @@ class EncoderUNetModel(nn.Module):
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init
+                            use_fixup_init=use_fixup_init,
                         )
                     )
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
@@ -1016,23 +1011,17 @@ class EncoderUNetModel(nn.Module):
 
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
-                ch,
-                emb_dim,
-                dropout,
-                dims=dims,
-                use_fixup_init=use_fixup_init,
+                ch, emb_dim, dropout, dims=dims, use_fixup_init=use_fixup_init,
             ),
             AttentionBlock(
-                ch, num_heads=num_heads, num_head_channels=num_head_channels,
+                ch,
+                num_heads=num_heads,
+                num_head_channels=num_head_channels,
                 norm_num_groups=norm_num_groups,
                 use_fixup_init=use_fixup_init,
             ),
             ResBlock(
-                ch,
-                emb_dim,
-                dropout,
-                dims=dims,
-                use_fixup_init=use_fixup_init,
+                ch, emb_dim, dropout, dims=dims, use_fixup_init=use_fixup_init,
             ),
         )
         self._feature_size += ch
@@ -1040,15 +1029,17 @@ class EncoderUNetModel(nn.Module):
         self.spatial_pooling = False
         if pool is None:
             self.out = nn.Sequential(
-                nn.GroupNorm(num_channels=ch, num_groups=norm_num_groups, eps=1e-6),
+                nn.GroupNorm(
+                    num_channels=ch, num_groups=norm_num_groups, eps=1e-6
+                ),
                 nn.SiLU(),
                 conv_nd(
                     dims,
                     ch,
                     out_channels,
                     kernel_size=out_kernel_size,
-                    padding="same"
-                )
+                    padding="same",
+                ),
             )
         elif pool == "adaptive":
             self.out = nn.Sequential(
@@ -1057,7 +1048,8 @@ class EncoderUNetModel(nn.Module):
                 nn.AdaptiveAvgPool2d((1, 1)),
                 fixup(
                     conv_nd(dims, ch, out_channels, 1),
-                    use_fixup_init=use_fixup_init),
+                    use_fixup_init=use_fixup_init,
+                ),
                 nn.Flatten(),
             )
         elif pool == "attention":
@@ -1126,10 +1118,11 @@ class EncoderUNetModel(nn.Module):
             h = h.type(x.dtype)
             return self.out(h)
 
+
 class EmbeddingProjection(nn.Module):
     """A simple module that computes the projection of an
     embedding vector onto the specified number of dimensions
-    
+
     Arguments
     ---------
     emb_dim: int
@@ -1139,6 +1132,7 @@ class EmbeddingProjection(nn.Module):
         the dimensionality of the target projection
         space
     """
+
     def __init__(self, emb_dim, proj_dim):
         super().__init__()
         self.emb_dim = emb_dim
@@ -1149,7 +1143,7 @@ class EmbeddingProjection(nn.Module):
 
     def forward(self, emb):
         """Computes the forward pass
-        
+
         Arguments
         ---------
         emb: torch.Tensor
@@ -1164,6 +1158,7 @@ class EmbeddingProjection(nn.Module):
         x = self.act(x)
         x = self.output(x)
         return x
+
 
 class DecoderUNetModel(nn.Module):
     """
@@ -1188,7 +1183,7 @@ class DecoderUNetModel(nn.Module):
         resblock_updown=False,
         norm_num_groups=32,
         out_kernel_size=3,
-        use_fixup_init=True
+        use_fixup_init=True,
     ):
         super().__init__()
 
@@ -1208,7 +1203,7 @@ class DecoderUNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
 
-        emb_dim = model_channels * 4        
+        emb_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             nn.Linear(model_channels, emb_dim),
             nn.SiLU(),
@@ -1217,7 +1212,7 @@ class DecoderUNetModel(nn.Module):
 
         ch = int(channel_mult[0] * model_channels)
 
-        self.input_block =  TimestepEmbedSequential(
+        self.input_block = TimestepEmbedSequential(
             conv_nd(dims, in_channels, ch, 3, padding=1)
         )
 
@@ -1231,7 +1226,9 @@ class DecoderUNetModel(nn.Module):
                 use_fixup_init=use_fixup_init,
             ),
             AttentionBlock(
-                ch, num_heads=num_heads, num_head_channels=num_head_channels,
+                ch,
+                num_heads=num_heads,
+                num_head_channels=num_head_channels,
                 norm_num_groups=norm_num_groups,
                 use_fixup_init=use_fixup_init,
             ),
@@ -1259,7 +1256,7 @@ class DecoderUNetModel(nn.Module):
                         out_channels=int(mult * model_channels),
                         dims=dims,
                         norm_num_groups=norm_num_groups,
-                        use_fixup_init=use_fixup_init,                        
+                        use_fixup_init=use_fixup_init,
                     )
                 ]
                 ch = int(mult * model_channels)
@@ -1270,7 +1267,7 @@ class DecoderUNetModel(nn.Module):
                             num_heads=num_heads,
                             num_head_channels=num_head_channels,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init,                            
+                            use_fixup_init=use_fixup_init,
                         )
                     )
                 self.upsample_blocks.append(TimestepEmbedSequential(*layers))
@@ -1287,7 +1284,7 @@ class DecoderUNetModel(nn.Module):
                             dims=dims,
                             up=True,
                             norm_num_groups=norm_num_groups,
-                            use_fixup_init=use_fixup_init,                        
+                            use_fixup_init=use_fixup_init,
                         )
                         if resblock_updown
                         else Upsample(
@@ -1307,8 +1304,8 @@ class DecoderUNetModel(nn.Module):
                 ch,
                 out_channels,
                 kernel_size=out_kernel_size,
-                padding="same"
-            )
+                padding="same",
+            ),
         )
         self._feature_size += ch
 
@@ -1343,10 +1340,12 @@ class DecoderUNetModel(nn.Module):
 
 
 DEFAULT_PADDING_DIMS = [2, 3]
+
+
 class DownsamplingPadding(nn.Module):
     """A wrapper module that applies the necessary padding for
     the downsampling factor
-    
+
     Arguments
     ---------
     factor: int
@@ -1364,10 +1363,10 @@ class DownsamplingPadding(nn.Module):
         if dims is None:
             dims = DEFAULT_PADDING_DIMS
         self.dims = dims
-    
+
     def forward(self, x, lens=None):
         """Applies the padding
-        
+
         Arguments
         ---------
         x: torch.Tensor
@@ -1383,18 +1382,20 @@ class DownsamplingPadding(nn.Module):
             the new, adjusted lengths, if applicable
         """
         for dim in self.dims:
-            #TODO: Consider expanding pad_divisible to support multiple dimensions
-            x, lens_pad = pad_divisible(x, lens, self.factor, len_dim=self.len_dim)
+            # TODO: Consider expanding pad_divisible to support multiple dimensions
+            x, lens_pad = pad_divisible(
+                x, lens, self.factor, len_dim=self.len_dim
+            )
             if dim == self.len_dim:
                 lens = lens_pad
         return x, lens_pad
 
 
-#TODO: Get rid of all hard-coded constants
+# TODO: Get rid of all hard-coded constants
 class UNetVariationalAutencoder(VariationalAutoencoder):
     """A convenience class for a UNet-based Variational Autoencoder (VAE) -
     useful in constructing Latent Diffusion models
-    
+
     Arguments
     ---------
     in_channels: int
@@ -1433,6 +1434,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
     use_fixup_norm: bool
         whether to use FixUp normalization
     """
+
     def __init__(
         self,
         in_channels,
@@ -1453,9 +1455,9 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         resblock_updown=False,
         out_kernel_size=3,
         len_dim=2,
-        out_mask_value=0.,
-        latent_mask_value=0.,
-        use_fixup_norm=False
+        out_mask_value=0.0,
+        latent_mask_value=0.0,
+        use_fixup_norm=False,
     ):
         encoder_unet = EncoderUNetModel(
             in_channels=in_channels,
@@ -1475,14 +1477,9 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             use_fixup_init=use_fixup_norm,
         )
 
-        encoder_pad = DownsamplingPadding(
-            2 ** len(channel_mult)
-        )
+        encoder_pad = DownsamplingPadding(2 ** len(channel_mult))
 
-        encoder = nn.Sequential(
-            encoder_unet,
-            encoder_pad
-        )
+        encoder = nn.Sequential(encoder_unet, encoder_pad)
 
         decoder = DecoderUNetModel(
             in_channels=latent_channels,
@@ -1503,8 +1500,10 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         )
         mean, log_var = [
             conv_nd(
-                dims=dims, in_channels=encoder_out_channels, out_channels=latent_channels,
-                kernel_size=1
+                dims=dims,
+                in_channels=encoder_out_channels,
+                out_channels=latent_channels,
+                kernel_size=1,
             )
             for _ in range(2)
         ]
@@ -1515,5 +1514,5 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             log_var=log_var,
             len_dim=len_dim,
             out_mask_value=out_mask_value,
-            latent_mask_value=latent_mask_value
+            latent_mask_value=latent_mask_value,
         )
