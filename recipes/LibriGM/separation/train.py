@@ -39,6 +39,8 @@ from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.processing.dynamic_mixing import DynamicMixingDataset
 
+import wandb
+
 
 # Define training procedure
 class Separation(sb.Brain):
@@ -63,17 +65,18 @@ class Separation(sb.Brain):
 
                     mix = targets.sum(-1)
 
-                    if self.hparams.use_noise:
-                        noise = noise.to(self.device)
-                        len_noise = noise.shape[1]
-                        len_mix = mix.shape[1]
-                        min_len = min(len_noise, len_mix)
+                    # TODO: This is problem
+                    #if self.hparams.use_noise:
+                    #    noise = noise.to(self.device)
+                    #    len_noise = noise.shape[1]
+                    #    len_mix = mix.shape[1]
+                    #    min_len = min(len_noise, len_mix)
 
-                        # add the noise
-                        mix = mix[:, :min_len] + noise[:, :min_len]
+                    #    # add the noise
+                    #    mix = mix[:, :min_len] + noise[:, :min_len]
 
-                        # fix the length of targets also
-                        targets = targets[:, :min_len, :]
+                    #    # fix the length of targets also
+                    #    targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -257,6 +260,9 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
+            wandb.log({"lr": current_lr}, step=self.hparams.epoch_counter.current)
+            wandb.log({**stage_stats})
+
             self.checkpointer.save_and_keep_only(
                 meta={"si-snr": stage_stats["si-snr"]},
                 min_keys=["si-snr"],
@@ -266,6 +272,9 @@ class Separation(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
+            if hasattr(self, "wandb_table") and self.wandb_table is not None:
+                wandb.log({"test_samples": self.wandb_table})
+                self.wandb_table = None
 
     def add_speed_perturb(self, targets, targ_lens):
         """Adds speed perturbation and random_shift to the input signals"""
@@ -446,8 +455,13 @@ class Separation(sb.Brain):
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
-        for ns in range(self.hparams.num_spks):
+        if not hasattr(self, "wandb_table") or self.wandb_table is None:
+            columns = ["target", "est_source"] * self.hparams.num_spks
+            columns.append("mixture")
+            self.wandb_table = wandb.Table(columns=columns)
 
+        data = []
+        for ns in range(self.hparams.num_spks):
             # Estimated source
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
@@ -457,6 +471,7 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
+            data.append(wandb.Audio(signal.detach().unsqueeze(0).cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
             # Original source
             signal = targets[0, :, ns]
@@ -467,6 +482,7 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
+            data.append(wandb.Audio(signal.detach().unsqueeze(0).cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
         # Mixture
         signal = mixture[0][0, :]
@@ -475,6 +491,9 @@ class Separation(sb.Brain):
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
+        data.append(wandb.Audio(signal.detach().unsqueeze(0).cpu().numpy(), sample_rate=self.hparams.sample_rate))
+
+        self.wandb_table.add_data(*data)
 
 
 def dataio_prep(hparams):
@@ -625,6 +644,8 @@ if __name__ == "__main__":
             device=run_opts["device"]
         )
 
+    wandb.init(project="SepFormer", entity="mato1102", config={})
+
     # Brain class initialization
     separator = Separation(
         modules=hparams["modules"],
@@ -652,3 +673,5 @@ if __name__ == "__main__":
     # Eval
     separator.evaluate(test_data, min_key="si-snr")
     separator.save_results(test_data)
+
+    wandb.finish()

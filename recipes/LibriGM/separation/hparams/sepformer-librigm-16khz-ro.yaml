@@ -37,8 +37,8 @@ test_only: False
 num_spks: 2
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
+n_audio_to_save: 20
 sample_rate: 16000
-n_overlap: [0, 10, 20, 30, 40] # random overlap values to choose from
 
 # Training parameters
 N_epochs: 200
@@ -51,7 +51,6 @@ limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
 training_signal_len: 32000000
-n_audio_to_save: 20
 
 
 # Dynamic Mixing
