@@ -13,15 +13,18 @@ from typing import NamedTuple
 
 
 class Hypotheses:
-    """ This class handle the data for the hypotheses during the decoding. """
+    """ This class handle the data for the hypotheses during the decoding.
+    Default to None if we are not going to score on word / char level with external
+    scorers.
+    """
 
     def __init__(
-        self, alived_seq, alived_log_probs, sequence_scores, untok_seq=[]
+        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None
     ):
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
-        self.untok_seq = untok_seq
+        self.decoded_seq = decoded_seq
 
 
 class BeamSearchConfig(NamedTuple):
@@ -595,7 +598,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             sequence_scores=torch.empty(n_bh, device=device)
             .fill_(float("-inf"))
             .index_fill_(0, self.beam_offset, 0.0),
-            untok_seq=[[] for _ in range(batch_size)],
+            decoded_seq=[[] for _ in range(batch_size)],
         )
 
     def _attn_weight_step(
@@ -767,7 +770,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs,
         )
 
-        hypotheses.alived_log_probs, _, _ = self._attn_weight_step(
+        hypotheses.alived_log_probs, memory, attn = self._attn_weight_step(
             inp_tokens,
             memory,
             beam_search_config.enc_states,
@@ -797,9 +800,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             candidates,
             predecessors,
             inp_tokens,
-            sequence_scores,
+            hypotheses.sequence_scores,
         ) = self._compute_scores_and_next_inp_tokens(
-            sequence_scores,
+            hypotheses.sequence_scores,
             beam_search_config.n_out,
             beam_search_config.batch_size,
             log_probs,
@@ -819,10 +822,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             prev_attn_peak, predecessors
         )
 
-        alived_seq, alived_log_probs = self._update_sequences_and_log_probs(
-            alived_seq,
+        (
+            hypotheses.alived_seq,
+            hypotheses.alived_log_probs,
+        ) = self._update_sequences_and_log_probs(
+            hypotheses.alived_seq,
             log_probs_clone,
-            alived_log_probs,
+            hypotheses.alived_log_probs,
             inp_tokens,
             predecessors,
             candidates,
@@ -832,15 +838,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         is_eos = self._update_hyp_and_scores(
             inp_tokens,
-            alived_seq,
-            alived_log_probs,
+            hypotheses.alived_seq,
+            hypotheses.alived_log_probs,
             beam_search_config.hyps_and_scores,
             scores,
             timesteps=timestep,
         )
 
         # Block the paths that have reached eos.
-        sequence_scores.masked_fill_(is_eos, float("-inf"))
+        hypotheses.sequence_scores.masked_fill_(is_eos, float("-inf"))
 
         return (
             inp_tokens,
@@ -849,8 +855,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs,
             attn,
             prev_attn_peak,
-            sequence_scores,
-            alived_seq,
+            hypotheses.sequence_scores,
+            hypotheses.alived_seq,
             alived_log_probs,
             is_eos,
             scores,
