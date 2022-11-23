@@ -2847,13 +2847,6 @@ class DIFFUSION_VOCODER(Pretrained):
     ---------
     hparams
         Hyperparameters (from HyperPyYAML)
-
-    Example
-    -------
-    >>> tmpdir_vocoder = getfixture('tmpdir') / "diffwave"
-    >>> diffusion = DIFFUSION_VOCODER.from_hparams(source="speechbrain/tts-diffwave-ljspeech", savedir=tmpdir_vocoder)
-    >>> mel_specs = torch.rand(2, 80,298)
-    >>> waveforms = diffusion.decode_batch(mel_specs)
     """
 
     HPARAMS_NEEDED = ["difussion"]
