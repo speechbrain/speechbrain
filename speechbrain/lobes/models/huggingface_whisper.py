@@ -11,7 +11,6 @@ Authors
 import torch
 import logging
 from torch import nn
-import torch.nn.functional as F
 
 try:
     from transformers import WhisperModel
@@ -77,7 +76,7 @@ class HuggingFaceWhisper(nn.Module):
             logger.warning(
                 "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
             )
-            self.model.train() # we keep it to train to have dropout and LN computed adequaly
+            self.model.train()  # we keep it to train to have dropout and LN computed adequaly
             for param in self.model.parameters():
                 param.requires_grad = False
         else:
@@ -148,7 +147,7 @@ class HuggingFaceWhisper(nn.Module):
         ---------
         audio_features : torch.Tensor
             A batch of audio features (mel + whisper encoding).
-        tokens : torch.Tensor
+        tokens : torch.Tensor (TO DO: ARE MORE INFO IT S NOT CLEAR)
             A batch of whisper decoder input ids.
         """
         return self.model.decoder(
