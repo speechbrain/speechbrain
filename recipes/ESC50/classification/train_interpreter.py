@@ -320,7 +320,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
         # loss_nmf = loss_nmf / reconstructions.shape[0]  # avg on batches
         loss_nmf = self.hparams.alpha * loss_nmf
-        loss_nmf += self.hparams.beta * (time_activations).abs().mean()
+        # loss_nmf += self.hparams.beta * (time_activations).abs().mean()
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -407,47 +407,29 @@ class InterpreterESC50Brain(sb.core.Brain):
             }
 
         if stage == sb.Stage.VALID:
+            current_fid = self.top_3_fidelity.summarize("average")
+            old_lr, new_lr = self.hparams.lr_annealing([self.optimizer], epoch, -current_fid)
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             valid_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
-                "top-3_fid": self.top_3_fidelity.summarize(
-                    "average"
-                ),
-                "faithfulness": torch.median(torch.Tensor(self.faithfulness.scores))
+                "top-3_fid": current_fid,
+                "faithfulness": torch.median(torch.Tensor(self.faithfulness.scores)),
             }
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch},
+                stats_meta={"epoch": epoch,
+                            "lr": old_lr},
                 train_stats=self.train_stats,
                 valid_stats=valid_stats,
             )
 
-        pred, target = self.batch_to_plot
-        pred = pred.detach().cpu().numpy()[:2, ...]
-        target = target.detach().cpu().numpy()[:2, ...]
-
-        fig, ax = plt.subplots(2, 2, figsize=(10, 10))
-        ax[0, 0].set_ylabel("Predicted")
-        ax[0, 0].imshow(pred[0, ...])
-        ax[0, 1].imshow(pred[1, ...])
-        ax[1, 0].set_ylabel("Target")
-        ax[1, 0].imshow(target[0, ...])
-        ax[1, 1].imshow(target[1, ...])
-        # ax.
-        makedirs(
-            os.path.join(self.hparams.output_folder, f"reconstructions"),
-            exist_ok=True,
-        )
-        plt.savefig(
-            os.path.join(
-                self.hparams.output_folder,
-                f"reconstructions",
-                f"{str(stage)}_{epoch}.png",
+            # Save the current checkpoint and delete previous checkpoints,
+            self.checkpointer.save_and_keep_only(
+                meta=valid_stats, max_keys=["top-3_fid"]
             )
-        )
 
-        return super().on_stage_end(stage, stage_loss, epoch)
 
 def dataio_prep(hparams):
     "Creates the datasets and their data processing pipelines."

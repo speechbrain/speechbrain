@@ -49,12 +49,12 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 2
-lr: 0.0002
-base_lr: 0.0002
+lr: 0.0001
+base_lr: 0.00002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
-interpret_period: 1
+interpret_period: 4
 
 device: "cuda:0"
 
@@ -146,10 +146,11 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
 
-lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 3
+    dont_halve_until_epoch: 50
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -162,9 +163,8 @@ error_stats: !name:speechbrain.utils.metric_stats.MetricStats
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        embedding_model: !ref <embedding_model>
-        classifier: !ref <classifier>
-        normalizer: !ref <mean_var_norm>
+        theta: !ref <theta>
+        psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
 
 # Model and pre-processing
