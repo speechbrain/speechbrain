@@ -456,7 +456,8 @@ class Separation(sb.Brain):
             os.mkdir(save_path)
 
         if not hasattr(self, "wandb_table") or self.wandb_table is None:
-            columns = ["target", "est_source"] * self.hparams.num_spks
+            columns = ["est_source", "target"] * self.hparams.num_spks
+            columns = [x + str(i // 2) for i, x in enumerate(columns)]
             columns.append("mixture")
             self.wandb_table = wandb.Table(columns=columns)
 
@@ -471,7 +472,7 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
-            data.append(wandb.Audio(signal.detach().unsqueeze(0).cpu().numpy(), sample_rate=self.hparams.sample_rate))
+            data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
             # Original source
             signal = targets[0, :, ns]
@@ -482,7 +483,7 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
-            data.append(wandb.Audio(signal.detach().unsqueeze(0).cpu().numpy(), sample_rate=self.hparams.sample_rate))
+            data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
         # Mixture
         signal = mixture[0][0, :]
@@ -491,7 +492,7 @@ class Separation(sb.Brain):
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
-        data.append(wandb.Audio(signal.detach().unsqueeze(0).cpu().numpy(), sample_rate=self.hparams.sample_rate))
+        data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
         self.wandb_table.add_data(*data)
 
@@ -644,7 +645,7 @@ if __name__ == "__main__":
             device=run_opts["device"]
         )
 
-    wandb.init(project="SepFormer", entity="mato1102", config={})
+    wandb.init(project="SepFormer", entity="mato1102", config={}, resume=True)
 
     # Brain class initialization
     separator = Separation(

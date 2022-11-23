@@ -36,7 +36,7 @@ auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
 num_spks: 2
 noprogressbar: False
-save_audio: False # Save estimated sources on disk
+save_audio: True # Save estimated sources on disk
 n_audio_to_save: 20
 sample_rate: 16000
 
