@@ -5,6 +5,7 @@ https://huggingface.co/transformers/installation.html
 
 Authors
  * Adel Moumen 2022
+ * Titouan Parcollet 2022
 """
 
 import torch
@@ -88,7 +89,7 @@ class HuggingFaceWhisper(nn.Module):
                 for param in self.model.feature_extractor.parameters():
                     param.requires_grad = False
 
-    def forward(self, wav, tokens):
+    def forward(self, wav, tokens=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
 
         Arguments
@@ -96,7 +97,7 @@ class HuggingFaceWhisper(nn.Module):
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         tokens : torch.Tensor
-            A batch of whisper decoder input ids.
+            A batch of whisper decoder input ids. This is only necessary if the decoder is used.
         """
         if self.freeze:
             with torch.no_grad():
@@ -119,8 +120,8 @@ class HuggingFaceWhisper(nn.Module):
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         """
-        
-        if self.freeze or self.freeze_feature_extractor:
+
+        if self.freeze_feature_extractor:
             with torch.no_grad():
                 mel = self._get_mel(wav)
                 return self.model.encoder(mel).last_hidden_state
