@@ -313,7 +313,7 @@ class DenoisingDiffusion(Diffuser):
         unconditional,
         scale,
         condition=None,
-        fast_sampling=None,
+        fast_sampling=False,
         fast_sampling_noise_schedule=None,
         device=torch.device("cuda"),
     ):
@@ -332,6 +332,10 @@ class DenoisingDiffusion(Diffuser):
         condition: torch.tensor
             input spectrogram for vocoding or other conditions for other
             conditional generation, should be None for unconditional generation
+        fast_sampling: bool
+            whether to do fast sampling
+        fast_sampling_noise_schedule: list
+            the noise schedules used for fast sampling
         device:
             inference device
         Returns
