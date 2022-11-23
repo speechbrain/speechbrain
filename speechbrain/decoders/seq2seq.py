@@ -15,14 +15,17 @@ from typing import NamedTuple
 class Hypotheses:
     """ This class handle the data for the hypotheses during the decoding. """
 
-    def __init__(self, alived_seq, alived_log_probs, alived_scores, untok_seq):
+    def __init__(
+        self, alived_seq, alived_log_probs, sequence_scores, untok_seq=[]
+    ):
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
-        self.alived_scores = alived_scores
+        self.sequence_scores = sequence_scores
         self.untok_seq = untok_seq
 
 
 class BeamSearchConfig(NamedTuple):
+    # TODO: add max_decode_steps and switch hyps_and_scores in Hypotheses?
     """This class contains the configuration parameters for beam search decoding.
     It allows us to reduce the number of parameters in the function call, and improves
     readability.
@@ -574,6 +577,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
     def init_hypotheses(self, batch_size, device):
+        # TODO: refactor the input and use beam search config instead
         """This method initializes the hypotheses.
 
         Arguments
@@ -588,7 +592,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return Hypotheses(
             alived_seq=torch.empty(n_bh, 0, device=device).long(),
             alived_log_probs=torch.empty(n_bh, 0, device=device),
-            alived_scores=torch.empty(n_bh, device=device)
+            sequence_scores=torch.empty(n_bh, device=device)
             .fill_(float("-inf"))
             .index_fill_(0, self.beam_offset, 0.0),
             untok_seq=[[] for _ in range(batch_size)],
