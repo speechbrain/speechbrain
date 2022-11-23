@@ -139,7 +139,7 @@ class HuggingFaceWhisper(nn.Module):
         numpy_wav = wav.cpu().numpy().tolist()
         return self.feature_extractor(
             numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate
-        ).input_features.to(wav.device)
+        ).input_features.to(wav.device).to(wav.dtype)
 
     def forward_decoder(self, audio_features, tokens):
         """Perform one step of the whisper decoder.
