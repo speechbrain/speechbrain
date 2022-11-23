@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """Recipe for training a whisper-based ctc ASR system with librispeech.
 The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
-Two modes can be observed: 
+Two modes can be observed:
 - Take only the encoder and add a DNN + CTC to fine-tune.
 - Take the encoder-decoder and the official tokenizer of whisper to fine-tune with cross entropy.
 
@@ -26,6 +26,7 @@ import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -73,10 +74,13 @@ class ASR(sb.Brain):
         loss = loss_ctc
 
         if stage != sb.Stage.TRAIN:
-            # Decode token terms to words
-            predicted_words = self.tokenizer(predicted_tokens, task="decode_from_list")
 
-             # Convert indices to words
+            # Decode token terms to words
+            predicted_words = self.tokenizer(
+                predicted_tokens, task="decode_from_list"
+            )
+
+            # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer(target_words, task="decode_from_list")
 
@@ -171,7 +175,7 @@ class ASR(sb.Brain):
     def init_optimizers(self):
         "Initializes the whisper optimizer and model optimizer"
         self.whisper_optimizer = self.hparams.whisper_opt_class(
-             self.modules.whisper.parameters()
+            self.modules.whisper.parameters()
         )
 
         self.model_optimizer = self.hparams.model_opt_class(
@@ -251,7 +255,7 @@ def dataio_prepare(hparams, tokenizer):
         yield wrd
         char_list = list(wrd)
         yield char_list
-        tokens_list =tokenizer.sp.encode_as_ids(wrd)
+        tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -303,7 +307,7 @@ if __name__ == "__main__":
         },
     )
 
-     # Defining tokenizer and loading it
+    # Defining tokenizer and loading it
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
@@ -314,10 +318,7 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets = dataio_prepare(
-        hparams,
-        tokenizer
-    )
+    train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
