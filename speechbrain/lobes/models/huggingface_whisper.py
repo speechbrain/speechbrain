@@ -57,13 +57,14 @@ class HuggingFaceWhisper(nn.Module):
         sampling_rate=16000,
         encoder_only=False,
         freeze=False,
-        freeze_feature_extractor=False,
+        freeze_encoder=False,
     ):
         super().__init__()
 
         self.sampling_rate = sampling_rate
         self.encoder_only = encoder_only
         self.freeze = freeze
+        self.freeze_encoder = freeze_encoder
 
         # Download the extractor from HuggingFace.
         self.feature_extractor = WhisperFeatureExtractor.from_pretrained(
@@ -71,7 +72,7 @@ class HuggingFaceWhisper(nn.Module):
         )
 
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
-        self.freeze_feature_extractor = freeze_feature_extractor
+
         if self.freeze:
             logger.warning(
                 "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
@@ -81,11 +82,11 @@ class HuggingFaceWhisper(nn.Module):
                 param.requires_grad = False
         else:
             self.model.train()
-            if self.freeze_feature_extractor:
+            if self.freeze_encoder:
                 logger.warning(
                     "speechbrain.lobes.models.huggingface_whisper - whisper encoder is frozen."
                 )
-                for param in self.model.feature_extractor.parameters():
+                for param in self.model.encoder.parameters():
                     param.requires_grad = False
 
     def forward(self, wav, tokens=None):
@@ -106,11 +107,11 @@ class HuggingFaceWhisper(nn.Module):
                 out = self.forward_decoder(out_encoder, tokens)
                 return out
         else:
-            out_encoder = self.forward_encoder(wav)
             if self.encoder_only:
-                return out_encoder
-            out = self.forward_decoder(out_encoder, tokens)
-            return out
+                return self.forward_encoder(wav)
+            else:
+                out_encoder = self.forward_encoder(wav)
+                return self.forward_decoder(out_encoder, tokens)
 
     def forward_encoder(self, wav):
         """Perform one step of the whisper encoder.
@@ -120,7 +121,7 @@ class HuggingFaceWhisper(nn.Module):
             A batch of audio signals to transform to features.
         """
 
-        if self.freeze_feature_extractor:
+        if self.freeze_encoder:
             with torch.no_grad():
                 mel = self._get_mel(wav)
                 return self.model.encoder(mel).last_hidden_state
