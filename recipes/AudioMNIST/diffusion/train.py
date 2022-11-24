@@ -32,25 +32,38 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+
 class DiffusionMode(Enum):
     SIMPLE = "simple"
     LATENT = "latent"
 
 
-DiffusionPredictions = namedtuple("DiffusionPredictions", ["pred", "noise", "noisy_sample", "feats", "lens", "autoencoder_output"])
+DiffusionPredictions = namedtuple(
+    "DiffusionPredictions",
+    ["pred", "noise", "noisy_sample", "feats", "lens", "autoencoder_output"],
+)
 
 
 # Brain class for speech enhancement training
 class DiffusionBrain(sb.Brain):
     """Class that manages the training loop. See speechbrain.core.Brain."""
 
-    def __init__(self, modules=None, opt_class=None, hparams=None, run_opts=None, checkpointer=None, profiler=None):
-        super().__init__(modules, opt_class, hparams, run_opts, checkpointer, profiler)
+    def __init__(
+        self,
+        modules=None,
+        opt_class=None,
+        hparams=None,
+        run_opts=None,
+        checkpointer=None,
+        profiler=None,
+    ):
+        super().__init__(
+            modules, opt_class, hparams, run_opts, checkpointer, profiler
+        )
         self.diffusion_mode = DiffusionMode(self.hparams.diffusion_mode)
 
-
     def init_optimizers(self):
-        """Initializes the diffusion model optimizer - and the 
+        """Initializes the diffusion model optimizer - and the
         autoencoder optimizer, if applicable"""
         if self.opt_class is not None:
             self.optimizer = self.opt_class(self.modules.unet.parameters())
@@ -58,12 +71,13 @@ class DiffusionBrain(sb.Brain):
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(self.modules.autoencoder.parameters())
+            self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(
+                self.modules.autoencoder.parameters()
+            )
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable(
                     "autoencoder_optimizer", self.autoencoder_optimizer
                 )
-
 
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
@@ -92,14 +106,16 @@ class DiffusionBrain(sb.Brain):
         cond_emb = None
         if self.is_conditioned:
             cond_labels = self.get_cond_labels(batch)
-            cond_emb = self.compute_cond_emb(cond_labels)            
+            cond_emb = self.compute_cond_emb(cond_labels)
         if self.diffusion_mode == DiffusionMode.LATENT:
             mask_value = self.modules.global_norm.normalize(
                 self.mask_value_norm
             )
-            train_sample_diffusion, autoencoder_out = self.modules.diffusion_latent.train_sample_latent(
-                feats, length=lens, out_mask_value=mask_value,
-                cond_emb=cond_emb
+            (
+                train_sample_diffusion,
+                autoencoder_out,
+            ) = self.modules.diffusion_latent.train_sample_latent(
+                feats, length=lens, out_mask_value=mask_value, cond_emb=cond_emb
             )
             pred, noise, noisy_sample = train_sample_diffusion
         else:
@@ -109,7 +125,9 @@ class DiffusionBrain(sb.Brain):
 
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
-        return DiffusionPredictions(pred, noise, noisy_sample, feats, lens, autoencoder_out)
+        return DiffusionPredictions(
+            pred, noise, noisy_sample, feats, lens, autoencoder_oput
+        )
 
     def compute_cond_emb(self, labels):
         """Computes conditioning embeddings for a set
@@ -136,7 +154,7 @@ class DiffusionBrain(sb.Brain):
         """Returns the conditioning labels for the batch provided
         based on information from the hparams file on which
         conditioning labels are enabled
-        
+
         Arguments
         ---------
         batch: PaddedBatch
@@ -157,31 +175,38 @@ class DiffusionBrain(sb.Brain):
         """Train the parameters given a single batch in input"""
         if self.reference_batch is None:
             self.reference_batch = batch
-        
+
         should_step = self.step % self.grad_accumulation_factor == 0
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss, loss_autoencoder = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss, loss_autoencoder = self.compute_objectives(
+            outputs, batch, sb.Stage.TRAIN
+        )
         if self.train_diffusion:
             with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward(retain_graph=True)
-        if should_step:            
+                (loss / self.grad_accumulation_factor).backward(
+                    retain_graph=True
+                )
+        if should_step:
             if self.train_diffusion and self.check_gradients(loss):
                 self.optimizer.step()
             self.optimizer.zero_grad()
             # Latent diffusion: Step through the autoencoder
             if self.diffusion_mode == DiffusionMode.LATENT:
                 with self.no_sync(not should_step):
-                    (loss_autoencoder / self.grad_accumulation_factor).backward()                
+                    (
+                        loss_autoencoder / self.grad_accumulation_factor
+                    ).backward()
                 if self.check_gradients(loss_autoencoder):
                     self.autoencoder_optimizer.step()
                 self.autoencoder_optimizer.zero_grad()
 
             self.optimizer_step += 1
 
-
         self.hparams.lr_annealing(self.optimizer, self.optimizer_step)
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.hparams.lr_annealing_autoencoder(self.autoencoder_optimizer, self.optimizer_step)
+            self.hparams.lr_annealing_autoencoder(
+                self.autoencoder_optimizer, self.optimizer_step
+            )
         if (
             self.hparams.enable_train_metrics
             and self.hparams.use_tensorboard
@@ -216,9 +241,10 @@ class DiffusionBrain(sb.Brain):
         """
 
         out = self.compute_forward(batch, stage=stage)
-        loss, autoencoder_loss = self.compute_objectives(out, batch, stage=stage)
-        return loss.detach().cpu()        
-    
+        loss, autoencoder_loss = self.compute_objectives(
+            out, batch, stage=stage
+        )
+        return loss.detach().cpu()
 
     def log_batch(self, predictions):
         loss_stats = self.loss_metric.summarize()
@@ -227,28 +253,33 @@ class DiffusionBrain(sb.Brain):
             "lr": self.optimizer.param_groups[0]["lr"],
         }
         stats.update(
-            self.extract_dist_stats(
-                self.data_dist_stats_metric,
-                prefix="data"
-            )
+            self.extract_dist_stats(self.data_dist_stats_metric, prefix="data")
         )
         if self.diffusion_mode == DiffusionMode.LATENT:
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
             )
-            stats["laplacian_loss"] = self.autoencoder_laplacian_loss_stats_metric.summarize(field="average")
-            stats["weighted_laplacian_loss"] = self.hparams.loss_laplacian_weight * stats["laplacian_loss"]
-            stats["lr_autoencoder"] = self.autoencoder_optimizer.param_groups[0]["lr"]
+            stats[
+                "laplacian_loss"
+            ] = self.autoencoder_laplacian_loss_stats_metric.summarize(
+                field="average"
+            )
+            stats["weighted_laplacian_loss"] = (
+                self.hparams.loss_laplacian_weight * stats["laplacian_loss"]
+            )
+            stats["lr_autoencoder"] = self.autoencoder_optimizer.param_groups[
+                0
+            ]["lr"]
             stats.update(
                 self.extract_dist_stats(
                     self.autoencoder_rec_dist_stats_metric,
-                    prefix="autoencoder_rec"
+                    prefix="autoencoder_rec",
                 )
             )
             stats.update(
                 self.extract_dist_stats(
                     self.autoencoder_latent_dist_stats_metric,
-                    prefix="autoencoder_latent"
+                    prefix="autoencoder_latent",
                 )
             )
 
@@ -256,24 +287,23 @@ class DiffusionBrain(sb.Brain):
             stats_meta={"step": self.step}, train_stats=stats
         )
         if (
-            self.diffusion_mode == DiffusionMode.LATENT 
+            self.diffusion_mode == DiffusionMode.LATENT
             and self.hparams.enable_reconstruction_sample
         ):
             self.hparams.tensorboard_train_logger.log_figure(
-                f"train_ref_spectrogram",
-                predictions.feats[0]
-            )            
+                f"train_ref_spectrogram", predictions.feats[0]
+            )
             self.hparams.tensorboard_train_logger.log_figure(
-                f"train_rec_spectrogram",
-                predictions.autoencoder_output.rec[0]
+                f"train_rec_spectrogram", predictions.autoencoder_output.rec[0]
             )
             latent = predictions.autoencoder_output.latent[0]
-            latent = latent.view(latent.size(0) * latent.size(1), latent.size(2))
-            self.hparams.tensorboard_train_logger.log_figure(
-                f"train_rec_latent",
-                latent
+            latent = latent.view(
+                latent.size(0) * latent.size(1), latent.size(2)
             )
-        
+            self.hparams.tensorboard_train_logger.log_figure(
+                f"train_rec_latent", latent
+            )
+
     def extract_dist_stats(self, dist_stats_metric, prefix):
         """Extracts stats from a MultiMetricStats instance with a dist_stats metric
         into a flattened dictionary
@@ -295,7 +325,7 @@ class DiffusionBrain(sb.Brain):
         if metric_key != "average":
             suffix = "_" + metric_key.replace("_score", "")
         return f"{prefix}_{stat}{suffix}"
-        
+
     def prepare_features(self, batch, stage):
         """Prepare the features for computation, including augmentation.
 
@@ -316,25 +346,21 @@ class DiffusionBrain(sb.Brain):
         # UNet downsamples features in multiples of 2. Reshape to ensure
         # there are no mismatched tensors due to ambiguity
         feats, lens = data_utils.pad_divisible(
-            feats,
-            lens,
-            factor=self.hparams.downsample_factor,
-            len_dim=2            
+            feats, lens, factor=self.hparams.downsample_factor, len_dim=2
         )
 
         feats, _ = data_utils.pad_divisible(
-            feats,
-            factor=self.hparams.downsample_factor,
-            len_dim=3
+            feats, factor=self.hparams.downsample_factor, len_dim=3
         )
-        
+
         # Min Level Norm
         feats_raw = self.modules.min_level_norm(feats)
 
         # Global Norm
 
         feats = self.modules.global_norm(
-            feats_raw, lens, mask_value=self.mask_value_norm)
+            feats_raw, lens, mask_value=self.mask_value_norm
+        )
 
         # Compute metrics
         if self.hparams.enable_train_metrics:
@@ -342,7 +368,9 @@ class DiffusionBrain(sb.Brain):
             mask = length_to_mask(lens * max_len, max_len)[
                 :, None, :, None
             ].bool()
-            self.data_dist_stats_metric.append(batch.file_name, feats_raw, mask=mask)
+            self.data_dist_stats_metric.append(
+                batch.file_name, feats_raw, mask=mask
+            )
 
         return feats, lens
 
@@ -370,35 +398,46 @@ class DiffusionBrain(sb.Brain):
                 preds.squeeze(1), noise.squeeze(1), length=lens
             )
         else:
-            loss = torch.tensor(0., device=self.device)
+            loss = torch.tensor(0.0, device=self.device)
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
             batch.file_name, preds, noise, lens, reduction="batch"
         )
-        
+
         loss_autoencoder = None
         if self.diffusion_mode == DiffusionMode.LATENT:
             loss_autoencoder = self.hparams.compute_cost_autoencoder(
                 autoencoder_out, feats, length=lens
             )
             self.autoencoder_loss_metric.append(
-                batch.file_name, autoencoder_out, feats, length=lens, reduction="batch"
+                batch.file_name,
+                autoencoder_out,
+                feats,
+                length=lens,
+                reduction="batch",
             )
             loss_laplacian = self.modules.compute_cost_laplacian(
                 autoencoder_out.rec, length=lens
             )
 
             self.autoencoder_laplacian_loss_stats_metric.append(
-                batch.file_name, autoencoder_out.rec, length=lens, reduction="batch"
+                batch.file_name,
+                autoencoder_out.rec,
+                length=lens,
+                reduction="batch",
             )
 
-            loss_autoencoder += self.hparams.loss_laplacian_weight * loss_laplacian
+            loss_autoencoder += (
+                self.hparams.loss_laplacian_weight * loss_laplacian
+            )
 
             max_len = autoencoder_out.rec.size(2)
             rec_mask = length_to_mask(lens * max_len, max_len).unsqueeze(1)
             rec_mask = match_shape(rec_mask, autoencoder_out.rec)
-            rec_denorm = self.modules.global_norm.denormalize(autoencoder_out.rec)
+            rec_denorm = self.modules.global_norm.denormalize(
+                autoencoder_out.rec
+            )
             self.autoencoder_rec_dist_stats_metric.append(
                 batch.file_name, rec_denorm, mask=rec_mask
             )
@@ -408,7 +447,7 @@ class DiffusionBrain(sb.Brain):
             self.autoencoder_latent_dist_stats_metric.append(
                 batch.file_name, autoencoder_out.latent, mask=latent_mask
             )
-        
+
         return loss, loss_autoencoder
 
     def generate_samples(self):
@@ -438,7 +477,7 @@ class DiffusionBrain(sb.Brain):
         sample = self.modules.diffusion_sample.sample(
             (
                 self.hparams.eval_num_samples,
-                self.hparams.diffusion_channels, 
+                self.hparams.diffusion_channels,
                 self.hparams.spec_sample_size,
                 self.hparams.spec_sample_size,
             )
@@ -458,14 +497,15 @@ class DiffusionBrain(sb.Brain):
             )
         ]
         labels = [
-            self.get_sample_label(label, idx) for label, idx, _ in samples]
+            self.get_sample_label(label, idx) for label, idx, _ in samples
+        ]
         samples = [sample for _, _, sample in samples]
         return labels, samples
 
     def sample_cond_labels(self):
         """Generates a sample of conditioning labels
         based on hparams
-        
+
         Returns
         -------
         result: list
@@ -476,8 +516,7 @@ class DiffusionBrain(sb.Brain):
         for key, cond_config in self.get_active_cond_emb().items():
             sample_count = cond_config["sample_count"]
             if sample_count is None:
-                sample = torch.arange(
-                    cond_config["count"], device=self.device)
+                sample = torch.arange(cond_config["count"], device=self.device)
             else:
                 sample = torch.randperm(
                     cond_config["count"], device=self.device
@@ -490,7 +529,7 @@ class DiffusionBrain(sb.Brain):
     def get_active_cond_emb(self):
         """Returns conditional embeddings that have been enabled
         in hyperparameters
-        
+
         Returns
         -------
         cond_emb: dict
@@ -501,11 +540,10 @@ class DiffusionBrain(sb.Brain):
             for key, value in self.hparams.cond_emb.items()
             if self.hparams.use_cond_emb[key]
         }
-        
 
     def generate_spectrograms_for_label(self, label):
         """Generates samples for a specific label
-        
+
         Arguments
         ---------
         label: dict
@@ -518,22 +556,21 @@ class DiffusionBrain(sb.Brain):
             a batch of spectrograms
         """
         label_msg = ", ".join(
-            f"{key} = {value.item()}"
-            for key, value in label.items()
+            f"{key} = {value.item()}" for key, value in label.items()
         )
         logger.info("Generating samples for labels %s", label_msg)
         cond_emb = self.compute_cond_emb(label)
-        sample = self.modules.diffusion_sample.sample(            
+        sample = self.modules.diffusion_sample.sample(
             (
                 self.hparams.eval_num_samples,
-                self.hparams.diffusion_sample_channels, 
+                self.hparams.diffusion_sample_channels,
                 self.hparams.spec_sample_size,
                 self.hparams.spec_sample_size,
             ),
             cond_emb=cond_emb,
         )
         return sample
-        
+
     def get_sample_label(self, label, idx):
         """Gets a filename label for the specified sample
 
@@ -551,10 +588,7 @@ class DiffusionBrain(sb.Brain):
             a formatted label. For the example above, it will
             be "digit_4_speaker_10"
         """
-        label_str = '_'.join(
-            f"{key}_{value}"
-            for key, value in label.items()
-        )
+        label_str = "_".join(f"{key}_{value}" for key, value in label.items())
         return f"{label_str}_{idx}"
 
     def generate_rec_samples(self):
@@ -616,11 +650,11 @@ class DiffusionBrain(sb.Brain):
         -------
         audio: torch.Tensor
             generated audio for the samples (vocoder output)
-        """ 
+        """
         vocoder_in = samples
         if not torch.is_tensor(vocoder_in):
             vocoder_in = torch.stack(vocoder_in)
-        vocoder_in = vocoder_in[:, :, :self.hparams.spec_n_mels]
+        vocoder_in = vocoder_in[:, :, : self.hparams.spec_n_mels]
         vocoder_in = vocoder_in.transpose(-1, -2)
         vocoder_in = self.modules.min_level_norm.denormalize(vocoder_in)
         vocoder_in = AF.DB_to_amplitude(
@@ -652,10 +686,9 @@ class DiffusionBrain(sb.Brain):
 
         if labels is None:
             labels = range(len(wav))
-        
+
         for label, sample in zip(labels, wav):
-            wav_file_name = os.path.join(
-                wav_sample_path, f"sample_{label}.wav")
+            wav_file_name = os.path.join(wav_sample_path, f"sample_{label}.wav")
             self.save_audio_sample(sample.squeeze(0), wav_file_name)
 
     def compute_sample_metrics(self, samples):
@@ -670,7 +703,7 @@ class DiffusionBrain(sb.Brain):
 
     def save_audio_sample(self, sample, file_name):
         """Saves a single audio sample
-        
+
         Arguments
         ---------
         sample: torch.Tensor
@@ -692,41 +725,40 @@ class DiffusionBrain(sb.Brain):
             `None` during the test stage.
         """
 
-        self.train_diffusion = epoch >= self.hparams.train_diffusion_start_epoch
+        self.train_diffusion = (
+            (epoch is not None)
+            and 
+            (epoch >= self.hparams.train_diffusion_start_epoch)
+        )
 
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
-            metric=sb.nnet.losses.mse_loss        
+            metric=sb.nnet.losses.mse_loss
         )
-    
+
         self.mask_value_norm = self.modules.min_level_norm(
             torch.tensor(self.hparams.pad_level_db, device=self.device)
         )
 
         if self.hparams.enable_train_metrics:
             self.data_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=dist_stats,
-                batch_eval=True
+                metric=dist_stats, batch_eval=True
             )
-        
+
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.autoencoder_loss_metric = sb.utils.metric_stats.MultiMetricStats(
                 metric=self.hparams.compute_cost_autoencoder.details,
-                batch_eval=True
+                batch_eval=True,
             )
             self.autoencoder_rec_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=dist_stats,
-                batch_eval=True
+                metric=dist_stats, batch_eval=True
             )
             self.autoencoder_latent_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=dist_stats,
-                batch_eval=True
+                metric=dist_stats, batch_eval=True
             )
             self.autoencoder_laplacian_loss_stats_metric = sb.utils.metric_stats.MetricStats(
-                metric=self.hparams.compute_cost_laplacian,
-                batch_eval=True
+                metric=self.hparams.compute_cost_laplacian, batch_eval=True
             )
-
 
         self.sample_mean_metric = sb.utils.metric_stats.MetricStats(
             metric=masked_mean
@@ -758,9 +790,7 @@ class DiffusionBrain(sb.Brain):
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
         self.reference_samples_neeed = False
-        self.is_conditioned = any(
-            self.hparams.use_cond_emb.values()
-        )
+        self.is_conditioned = any(self.hparams.use_cond_emb.values())
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -811,11 +841,7 @@ class DiffusionBrain(sb.Brain):
         if stage != sb.Stage.TRAIN:
             labels, samples, wav = self.generate_samples()
             samples_rec, wav_rec = None, None
-            data = {
-                "labels": labels,
-                "samples": samples,
-                "wav": wav
-            }
+            data = {"labels": labels, "samples": samples, "wav": wav}
             if self.diffusion_mode == DiffusionMode.LATENT:
                 samples_rec, wav_rec = self.generate_rec_samples()
                 data["samples_rec"] = samples_rec
@@ -863,7 +889,7 @@ class DiffusionBrain(sb.Brain):
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
         samples, wav, labels, samples_rec, wav_rec = [
-            data.get(key) 
+            data.get(key)
             for key in ["samples", "wav", "labels", "samples_rec", "wav_rec"]
         ]
         if not torch.is_tensor(samples):
@@ -875,7 +901,9 @@ class DiffusionBrain(sb.Brain):
         if wav is not None:
             self.save_audio(wav, epoch_sample_path, labels=labels)
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.save_spectrograms(samples_rec, epoch_sample_path, folder="spec_rec")
+            self.save_spectrograms(
+                samples_rec, epoch_sample_path, folder="spec_rec"
+            )
             if wav_rec is not None:
                 self.save_audio(wav_rec, epoch_sample_path, folder="wav_rec")
         if self.hparams.use_tensorboard:
@@ -899,8 +927,11 @@ class DiffusionBrain(sb.Brain):
             )
             self.log_samples(spectrogram_samples=samples, wav_samples=wav)
             if self.diffusion_mode == DiffusionMode.LATENT:
-                self.log_samples(spectrogram_samples=samples_rec, wav_samples=wav_rec, key_prefix="rec_")
-
+                self.log_samples(
+                    spectrogram_samples=samples_rec,
+                    wav_samples=wav_rec,
+                    key_prefix="rec_",
+                )
 
     def log_samples(
         self,
@@ -953,14 +984,12 @@ class DiffusionBrain(sb.Brain):
 
 DATASET_SPLITS = ["train", "valid", "test"]
 
+
 def apply_sort(hparams, dataset):
     if hparams["sort"]:
-        dataset =  dataset.filtered_sorted(
-            sort_key=hparams["sort"])
+        dataset = dataset.filtered_sorted(sort_key=hparams["sort"])
     if hparams["batch_shuffle"]:
-        dataset = dataset.batch_shuffle(
-            hparams["batch_size"]
-        )
+        dataset = dataset.batch_shuffle(hparams["batch_size"])
     return dataset
 
 
@@ -970,7 +999,9 @@ def load_dataset(hparams):
         # Use a folder:
         for split_id in DATASET_SPLITS:
             split_path = os.path.join(hparams["dataset"], f"{split_id}.json")
-            dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
+            dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(
+                split_path
+            )
             dataset_split = apply_sort(hparams, dataset_split)
             dataset_splits[split_id] = dataset_split
     else:
@@ -984,7 +1015,7 @@ def load_dataset(hparams):
             )
             dataset_split = apply_sort(hparams, dataset_split)
             dataset_splits[split_id] = dataset_split
-            
+
     return dataset_splits
 
 
@@ -1037,7 +1068,8 @@ def dataio_prep(hparams):
     dataset_splits_values = dataset_splits.values()
 
     sb.dataio.dataset.set_output_keys(
-        dataset_splits_values, ["file_name", "sig", "digit_label", "speaker_label"]
+        dataset_splits_values,
+        ["file_name", "sig", "digit_label", "speaker_label"],
     )
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, audio_pipeline)
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, labels_pipeline)
@@ -1166,7 +1198,7 @@ def masked_max(sample, mask=None):
 
 def dist_stats(sample, mask=None):
     """Returns standard distribution statistics (mean, std, min, max)
-    
+
 
     Arguments
     ---------
@@ -1185,8 +1217,9 @@ def dist_stats(sample, mask=None):
         "mean": masked_mean(sample, mask),
         "std": masked_std(sample, mask),
         "min": masked_min(sample, mask),
-        "max": masked_max(sample, mask)
+        "max": masked_max(sample, mask),
     }
+
 
 def dict_value_combinations(values):
     """Returns all possible key-value combinations from
@@ -1217,10 +1250,11 @@ def dict_value_combinations(values):
         if len(item) == len(values)
     ]
 
+
 def dict_value_combinations_gen(values, keys):
     """Returns a generation of permutations of the specified
     values dictionary
-    
+
     Arguments
     ---------
     values: dict
@@ -1252,7 +1286,8 @@ def dict_value_combinations_gen(values, keys):
             yield item
         else:
             yield curr
-        
+
+
 def check_tensorboard(hparams):
     """Checks whether Tensorboard is enabled and initializes the logger if it is
 
