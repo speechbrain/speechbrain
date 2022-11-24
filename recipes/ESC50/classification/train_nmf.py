@@ -147,7 +147,7 @@ if __name__ == "__main__":
         params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()),
     )
 
-    for e in range(100):
+    for e in range(200):
         for i, element in enumerate(datasets["train"]):
             # print(element["sig"].shape[0] / hparams["sample_rate"])
 
@@ -164,9 +164,9 @@ if __name__ == "__main__":
             loss.backward()
 
             opt.step()
-            if 1:
+            if 0:
                 if i in [100]:
                     draw_fig()
         print("loss is {}, epoch is {} ".format(loss.item(), e))
 
-    torch.save(nmf_model.return_W("torch"), "nmf_decoder.pt")
+    torch.save(nmf_model.return_W("torch"), "nmf_decoder_folds123.pt")

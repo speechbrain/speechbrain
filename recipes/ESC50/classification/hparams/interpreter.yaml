@@ -234,7 +234,7 @@ psi_model: !new:custom_models.Psi
 theta: !new:custom_models.Theta
 
 # NMF Decoder
-nmf_d_path: "nmf_decoder.pt"
+nmf_d_path: "nmf_decoder_folds123.pt"
 nmf: !new:custom_models.NMFDecoder
     init_file: !ref <nmf_d_path>
     N_COMP: !ref <K>
