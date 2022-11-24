@@ -126,7 +126,7 @@ class DiffusionBrain(sb.Brain):
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
         return DiffusionPredictions(
-            pred, noise, noisy_sample, feats, lens, autoencoder_oput
+            pred, noise, noisy_sample, feats, lens, autoencoder_out
         )
 
     def compute_cond_emb(self, labels):
