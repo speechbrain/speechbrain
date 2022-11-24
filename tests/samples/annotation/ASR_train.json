@@ -14,7 +14,7 @@
         "trans": "THE CHILD ALMOST HURT THE SMALL DOG",
         "label": "THE CHILD ALMOST HURT THE SMALL DOG",
         "emo": "anger",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "dog_bark",
 		"segment": true
     },
@@ -33,7 +33,7 @@
         "trans": "DROP THE TUE WHEN YOU ADD THE FIGURES",
         "label": "DROP THE TUE WHEN YOU ADD THE FIGURES",
         "emo": "sadness",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "siren",
         "segment": true
 
@@ -53,7 +53,7 @@
         "trans": "AT THAT HIGH LEVEL THE AIR IS PURE",
         "label": "AT THAT HIGH LEVEL THE AIR IS PURE",
         "emo": "happiness",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "dog_bark",
 		"segment": true
     },
@@ -72,7 +72,7 @@
         "trans": "A THIN STRIPE RUNS DOWN THE MIDDLE",
         "label": "A THIN STRIPE RUNS DOWN THE MIDDLE",
         "emo": "neutrality",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "dog_bark",
 		"segment": true
     },
@@ -91,7 +91,7 @@
         "trans": "WE ARE SURE THAT ONE WORE IS ENOUGH",
         "label": "WE ARE SURE THAT ONE WORE IS ENOUGH",
         "emo": "sadness",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "siren",
 		"segment": true
     },
@@ -110,7 +110,7 @@
         "trans": "WHAT JOY THERE IS IN LIVING",
         "label": "WHAT JOY THERE IS IN LIVING",
         "emo": "anger",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "dog_bark",
 		"segment": true
     },
@@ -129,7 +129,7 @@
         "trans": "TEAR THIN SHEEP FROM THE OTHER PAT",
         "label": "TEAR THIN SHEEP FROM THE OTHER PAT",
         "emo": "anger",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "siren",
 		"segment": true
     },
@@ -148,7 +148,7 @@
         "trans": "MEND THE COAT BEFORE YOU GO OUT",
         "label": "MEND THE COAT BEFORE YOU GO OUT",
         "emo": "sadness",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "dog_bark",
 		"segment": true
     }

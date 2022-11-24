@@ -13,7 +13,7 @@
         "trans": "SUNDAY IS THE BEST PART OF THE WEEK",
         "label": "SUNDAY IS THE BEST PART OF THE WEEK",
         "emo": "anger",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "dog_bark",
 		"segment": true
     },
@@ -31,7 +31,7 @@
         "trans": "KEN PAIRS LACK FULL FLAVOR",
         "label": "KEN PAIRS LACK FULL FLAVOR",
         "emo": "sadness",
-		"fold" : 0,
+		"fold" : 1,
 		"class_string": "siren",
 		"segment": true
     }
