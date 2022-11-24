@@ -88,8 +88,12 @@ def foreign_class(
     """
     if savedir is None:
         savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
-    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
-    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+    hparams_local_path = fetch(
+        hparams_file, source, savedir, use_auth_token=use_auth_token
+    )
+    pymodule_local_path = fetch(
+        pymodule_file, source, savedir, use_auth_token=use_auth_token
+    )
     sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
@@ -340,11 +344,19 @@ class Pretrained(torch.nn.Module):
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
-            hparams_file, source, savedir, use_auth_token, revision
+            hparams_file,
+            source,
+            savedir,
+            use_auth_token=use_auth_token,
+            revision=revision,
         )
         try:
             pymodule_local_path = fetch(
-                pymodule_file, source, savedir, use_auth_token, revision
+                pymodule_file,
+                source,
+                savedir,
+                use_auth_token=use_auth_token,
+                revision=revision,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
