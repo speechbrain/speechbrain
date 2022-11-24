@@ -74,8 +74,12 @@ class HuggingFaceWhisper(nn.Module):
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
 
         if self.freeze:
+            if self.encoder_only:
+                logger_msg = "whisper encoder is frozen."
+            else:
+                logger_msg = "whisper encoder-decoder is frozen."
             logger.warning(
-                "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
+                "speechbrain.lobes.models.huggingface_whisper - " + logger_msg
             )
             self.model.train()  # we keep it to train to have dropout and LN computed adequaly
             for param in self.model.parameters():
@@ -88,6 +92,12 @@ class HuggingFaceWhisper(nn.Module):
                 )
                 for param in self.model.encoder.parameters():
                     param.requires_grad = False
+
+        if self.encoder_only:
+            logger.warning(
+                "speechbrain.lobes.models.huggingface_whisper - whisper encoder only, removing the decoder."
+            )
+            self.model.decoder = None  # TODO: del or None?
 
     def forward(self, wav, tokens=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
@@ -138,9 +148,13 @@ class HuggingFaceWhisper(nn.Module):
         """
         # need to cast tensor to numpy for the huggingface whisper feature extractor.
         numpy_wav = wav.cpu().numpy().tolist()
-        return self.feature_extractor(
-            numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate
-        ).input_features.to(wav.device)
+        return (
+            self.feature_extractor(
+                numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate
+            )
+            .input_features.to(wav.device)
+            .to(wav.dtype)
+        )
 
     def forward_decoder(self, audio_features, tokens):
         """Perform one step of the whisper decoder.
