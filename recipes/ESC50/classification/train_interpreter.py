@@ -370,8 +370,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             ).transpose(1, 2)
 
             X2 = torch.zeros_like(X_stft_power)
-            for (i, w) in enumerate(wavs):
-                X2[i] = X_stft_power[i] - self.interpret_sample(w.unsqueeze(0))
+            for (i, wav) in enumerate(wavs):
+                X2[i] = X_stft_power[i] - self.interpret_sample(wav.unsqueeze(0))
 
             X2_logmel = self.modules.compute_fbank(X2.transpose(1, 2))
 
@@ -381,12 +381,17 @@ class InterpreterESC50Brain(sb.core.Brain):
             predictions = F.softmax(predictions, dim=1)
             predictions_masked = F.softmax(predictions_masked, dim=1)
 
-            pred_cl = F.one_hot(
-                torch.argmax(predictions, dim=1), num_classes=50
-            ) == 1
-
-            return predictions[pred_cl] - predictions_masked[pred_cl]   # not sure if the difference should be on probs
+            # get the prediction indices
+            pred_cl = predictions.argmax(dim=1, keepdim=True)
             
+            # get the corresponding output probabilities
+            predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
+            predictions_masked_selected = torch.gather(predictions_masked, dim=1, index=pred_cl)
+            
+            faithfulness = (predictions_selected - predictions_masked_selected).squeeze()
+
+            return faithfulness
+
         self.top_3_fidelity = MetricStats(metric=compute_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
         self.acc_metric = sb.utils.metric_stats.MetricStats(
@@ -414,7 +419,8 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "top-3_fid": current_fid,
-                "faithfulness": torch.median(torch.Tensor(self.faithfulness.scores)),
+                "faithfulness_median": torch.Tensor(self.faithfulness.scores).median(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
             }
 
             # The train_logger writes a summary to stdout and to the logfile.
