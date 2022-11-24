@@ -39,20 +39,21 @@ def prepare_librigm(
     if skip_prep and os.path.exists(os.path.join(savepath, "librigm_dev.csv")):
         return
 
-    if "LibriSpeech" in dmsource:
-        prepare_librispeech(
-            dmsource,
-            savepath,
-            tr_splits=["train-clean-360"],
-        )
-    else:
-        raise ValueError("Unsupported Dataset: {}".format(dmsource))
-
     if "LibriGM" in datapath:
         # Libri 2/3Mix datasets
         create_librigm_csv(datapath, savepath)
     else:
         raise ValueError("Unsupported Dataset: {}".format(datapath))
+
+    if "LibriSpeech" in dmsource:
+        prepare_librispeech(
+            dmsource,
+            savepath,
+            tr_splits=["train-clean-360"],
+            skip_prep=skip_prep,
+        )
+    else:
+        raise ValueError("Unsupported Dataset: {}".format(dmsource))
 
 
 def create_librigm_csv(
@@ -75,6 +76,7 @@ def create_librigm_csv(
             )
         )
 
+        mix_ids = [f"{os.path.basename(fl)}_{i}" for i, fl in enumerate(files)]
         mix_fl_paths = [os.path.join(mix_path, fl + "_mix.wav") for fl in files]
         s1_fl_paths = [os.path.join(mix_path, fl + "_src1.wav") for fl in files]
         s2_fl_paths = [os.path.join(mix_path, fl + "_src2.wav") for fl in files]
@@ -106,6 +108,7 @@ def create_librigm_csv(
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
             for i, (
+                mix_id,
                 mix_path,
                 s1_path,
                 s2_path,
@@ -113,6 +116,7 @@ def create_librigm_csv(
                 info_path,
             ) in enumerate(
                 zip(
+                    mix_ids,
                     mix_fl_paths,
                     s1_fl_paths,
                     s2_fl_paths,
@@ -124,7 +128,7 @@ def create_librigm_csv(
                     mix_info = json.load(f)
 
                 row = {
-                    "ID": i,
+                    "ID": mix_id,
                     "duration": mix_info["duration"],
                     "mix_wav": mix_path,
                     "mix_wav_format": "wav",

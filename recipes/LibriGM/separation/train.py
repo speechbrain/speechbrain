@@ -470,13 +470,12 @@ class Separation(sb.Brain):
             os.mkdir(save_path)
 
         metrics = self.compute_metrics(mixture[0], predictions, targets)
-        data = list(metrics.values())
+        data = [snt_id] + list(metrics.values())
 
         if not hasattr(self, "wandb_table") or self.wandb_table is None:
             columns = ["est_source", "target"] * self.hparams.num_spks
             columns = [x + str(i // 2) for i, x in enumerate(columns)]
-            columns.append("mixture")
-            columns = list(metrics.keys()) + columns
+            columns = ["id"] + list(metrics.keys()) + columns + ["mixture"]
             self.wandb_table = wandb.Table(columns=columns)
 
         for ns in range(self.hparams.num_spks):
@@ -689,7 +688,7 @@ if __name__ == "__main__":
         )
 
     # Eval
-    separator.evaluate(test_data, min_key="si-snr")
+    separator.evaluate(test_data, min_key="si-snr", test_loader_kwargs={"shuffle": True})
     separator.save_results(test_data)
 
     wandb.finish()
