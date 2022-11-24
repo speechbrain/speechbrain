@@ -492,6 +492,10 @@ def run_recipe_tests(
             + run_opts
         )
 
+        # add --debug if no do_checks to save testing time
+        if not do_checks:
+            cmd += " --debug"
+
         # Running the test
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
 

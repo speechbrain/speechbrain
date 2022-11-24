@@ -303,7 +303,7 @@ our tests cover one PyTorch version only, _the latest_.
 ---
 
 This section demonstrated how II. covers all of I. in terms of test invocation.
-Below, we clarify on the parts of II.5, our particular/advanced testing strategy, which encompasses III.C to III.F and is here, in parts, referred to IV.4.
+Below, we clarify on the parts of II.5, our particular/advanced testing strategy, which encompasses III.D to III.F and is here, in parts, referred to IV.4.
 
 ## V. User tools for PR drafting = reviewer tools before merging
 
@@ -323,7 +323,7 @@ def func_sig(x, arg0, arg1=None):    |    my_var: !new:func_sig
         return x + arg1              |        arg1: 1/137 # fine structure constant
 
 
-AFTER - A. Changes to function body &/or interface invocation via YAML
+AFTER - A. Changes to function body &/or interface parameterization via YAML
 -----
            (python)                              (yaml)
 
@@ -367,9 +367,9 @@ def next_gen(x, arg0=6.28,           |    my_arg: !new:next_gen
     if !arg2:                        |    my_other: !new:next_gen
         return x                     |
     if arg1 is None:                 |    my_new_feature: !new:next_gen
-        return x / arg0              |        arg0: 2.718 # e
-    else:                            |        arg1: 1.618 # what could it be...
-        return x - arg1              |        arg2: false # ;-)
+        return x / arg0              |        arg0: 2.718
+    else:                            |        arg1: 1.618
+        return x - arg1              |        arg2: false
 
 ```
 
@@ -383,6 +383,7 @@ Changes in V.A:
    > __Reviewer: is the expected behaviour of these lines covered through pytest checks (does it work as should)?__
 4. Yaml: `my_var` to `my_arg`; [IV.2.a & IV.4.a] (consistency checks; also with use in Python scripts, nothing should remain unused & all hparams used are declared)
    > __Reviewer: is the logic consistent between `train.py` & `hparams.yaml` (likewise for custom pretrained model interfaces: between `custom_model.py` & `hyperparameters.yaml`)?__
+   > <br/>Note: conversely, if a hparams is required in script.py, simply run the script (either it fails/not).
 5. Yaml comments dropped; [IV.1] checks formatting issues (e.g. trailing whitespaces)
    <br/> _(no reviewer task)_
 6. Yaml: `1/137` to `0.0073`; [IV.4.b & IV.4.c] (recipe & pretrained model checks: is data processed to the end & for some, are certain performance test criteria fulfilled)
@@ -441,6 +442,27 @@ These testing parameters are used by [IV.4.a to IV.4.d] (checks before releases)
 
 Yet: _How to know all pretrained model (e.g. on HuggingFace) are enlisted?_
 
+---
+
+About II.5.
+
+pytest tests/consistency
+by extension run pytest 
+
+II.5 & III.D & III.E
+tests/.run-load-yaml-tests.sh
+
+II.5 & III.D to III.E & III.F
+tests/.run-recipe-tests.sh
+hook: tests/.run-HF-checks.sh
+hook: ests/.run-url-checks.sh
+
+What's missing?
+
+
+
+---
+
 > Note: support tools that both PR contributors and reviewers use offline would be a great addition to the github workflow checks.
 
 
@@ -470,6 +492,7 @@ Revisit section I., and identify gaps (compare "Future testing" section).
 ### TODO: the `unstable` branch
 
 ### TODO: the `testing-refactoring` branch
+ 
 
 ---
 
@@ -506,6 +529,10 @@ multiple/particular pytorch versions
 further automate reviewer tasks (=> community self-service)
 
 check readthedocs for consistent docmuentation style
+
+speeding up recipe tests through hparam override runs into this issue for some recipes: Hyperparameters of nested/late-imported yamls cannot be changed through the override mechanism (unless provided for); see teacher/student in TIMIT
+
+coverage tables for readme: python x pytorch versions
 
 ---
 
