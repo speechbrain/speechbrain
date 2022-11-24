@@ -109,6 +109,10 @@ def prepare_test(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        # skip setup scripts; consider CSV files only
+        if recipe_csvfile == "setup":
+            continue
+
         print(f"Loading recipes from: {recipe_csvfile}")
         # Detect needed information for the recipe tests
         with open(
@@ -472,15 +476,16 @@ def run_recipe_tests(
         setup_script = os.path.join(
             "tests/recipes/setup",
             test_script[recipe_id][:-3].replace("/", "_"),
-            os.path.dirname(test_script[recipe_id])
-            + test_hparam[recipe_id][:-5].replace("/", "_"),
+            test_hparam[recipe_id]
+            .replace(os.path.dirname(test_script[recipe_id]), "")[1:-5]
+            .replace("/", "_"),
         )
         if os.path.exists(setup_script):
             os.system(setup_script)
 
         # Composing command to run
         cmd = (
-            "python "
+            f"PYTHONPATH={os.getcwd() + '/' + os.path.dirname(test_script[recipe_id])} python "
             + test_script[recipe_id]
             + " "
             + test_hparam[recipe_id]
@@ -498,6 +503,11 @@ def run_recipe_tests(
 
         # Running the test
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
+
+        # Tear down
+        td_script = os.path.join(os.path.dirname(setup_script), "tear_down")
+        if os.path.exists(td_script):
+            os.system(td_script)
 
         # Check return code
         if return_code != 0:

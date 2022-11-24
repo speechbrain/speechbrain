@@ -1,9 +1,4 @@
-1 ests/samples/ASR/spk1_snt1.wav ests/samples/ASR/spk1_snt2.wav
-1 ests/samples/ASR/spk1_snt3.wav ests/samples/ASR/spk1_snt4.wav
-0 ests/samples/ASR/spk1_snt1.wav ests/samples/ASR/spk2_snt1.wav
-0 ests/samples/ASR/spk1_snt2.wav ests/samples/ASR/spk2_snt2.wav
-1 ests/samples/ASR/spk2_snt1.wav ests/samples/ASR/spk2_snt2.wav
-0 ests/samples/ASR/spk1_snt1.wav ests/samples/ASR/spk2_snt2.wav
-0 ests/samples/ASR/spk1_snt3.wav ests/samples/ASR/spk2_snt3.wav
-0 ests/samples/ASR/spk1_snt4.wav ests/samples/ASR/spk2_snt4.wav
-1 ests/samples/ASR/spk2_snt3.wav ests/samples/ASR/spk2_snt4.wav
+1 spk1_snt1 spk1_snt1.wav
+0 spk1_snt1 spk1_snt2.wav
+0 spk1_snt2 spk1_snt1.wav
+0 spk1_snt2 spk1_snt2.wav

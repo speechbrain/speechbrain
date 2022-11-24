@@ -270,7 +270,7 @@ def dataio_prepare(hparams):
         )
 
     for dataset in ["valid", "test"]:
-        json_path = hparams[f"{dataset}_annotation"]
+        json_path = hparams[f"annotation_{dataset}"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},

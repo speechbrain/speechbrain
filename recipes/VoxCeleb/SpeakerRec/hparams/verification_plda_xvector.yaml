@@ -37,6 +37,7 @@ n_train_snts: 300000 # used for normalization stats
 # Feature parameters
 n_mels: 24
 emb_dim: 512
+rank_f: 100
 
 # Dataloader options
 train_dataloader_opts:
@@ -60,13 +61,13 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
     tdnn_blocks: 5
-    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_channels: [!ref <emb_dim>, !ref <emb_dim>, !ref <emb_dim>, !ref <emb_dim>, 1500]
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
 
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
-    rank_f: 100
+    rank_f: !ref <rank_f>
     nb_iter: 10
     scaling_factor: 0.05
 

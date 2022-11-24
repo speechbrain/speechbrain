@@ -158,7 +158,7 @@ class Separation(sb.Brain):
     def fit_batch(self, batch):
         """Trains one batch"""
 
-        if self.hparams.use_whamr_train:
+        if self.hparams.use_whamr_train and self.hparams.dynamic_mixing:
             whamr_prob = torch.rand(1).item()
             if whamr_prob > (1 - self.hparams.whamr_proportion):
                 batch = next(self.hparams.train_whamr_loader)
@@ -606,14 +606,17 @@ if __name__ == "__main__":
     from prepare_data_wham import create_wham_whamr_csv
     from train_wham import dataio_prep as dataio_prep_whamr
 
-    create_wham_whamr_csv(
-        datapath=hparams["whamr_data_folder"],
-        savepath=hparams["save_folder"],
-        fs=hparams["sample_rate"],
-        add_reverb=True,
-        savename="whamr_",
-        set_types=["tr", "cv", "tt"],
-    )
+    # add another skip_prep to distinguish between LibriSpeech & WHAM/R prep
+    skip_prep = hparams["skip_prep"]
+    if not skip_prep:
+        create_wham_whamr_csv(
+            datapath=hparams["whamr_data_folder"],
+            savepath=hparams["save_folder"],
+            fs=hparams["sample_rate"],
+            add_reverb=True,
+            savename="whamr_",
+            set_types=["tr", "cv", "tt"],
+        )
 
     train_data_whamr, valid_data, test_data = dataio_prep_whamr(hparams)
 
