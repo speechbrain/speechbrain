@@ -367,18 +367,25 @@ class Separation(sb.Brain):
         sisnr_i = sisnr - sisnr_baseline
 
         # Compute SDR
-        sdr, _, _, _ = bss_eval_sources(
-            targets[0].t().cpu().numpy(),
-            est_sources[0].detach().t().cpu().numpy(),
-        )
-        sdr_baseline, _, _, _ = bss_eval_sources(
-            targets[0].t().cpu().numpy(),
-            mix_expanded[0].detach().t().cpu().numpy(),
-        )
-        sdr_i = sdr.mean() - sdr_baseline.mean()
+        try:
+            sdr, _, _, _ = bss_eval_sources(
+                targets[0].t().cpu().numpy(),
+                est_sources[0].detach().t().cpu().numpy(),
+            )
+            sdr = sdr.mean()
+
+            sdr_baseline, _, _, _ = bss_eval_sources(
+                targets[0].t().cpu().numpy(),
+                mix_expanded[0].detach().t().cpu().numpy(),
+            )
+            sdr_baseline = sdr_baseline.mean()
+
+            sdr_i = sdr - sdr_baseline
+        except ValueError:
+            sdr, sdr_baseline, sdr_i = None, None, None
 
         return {
-            "sdr": sdr.mean(),
+            "sdr": sdr,
             "sdr_i": sdr_i,
             "si-snr": -sisnr.item(),
             "si-snr_i": -sisnr_i.item(),
@@ -434,8 +441,9 @@ class Separation(sb.Brain):
                     writer.writerow(row)
 
                     # Metric Accumulation
-                    all_sdrs.append(metrics["sdr"])
-                    all_sdrs_i.append(metrics["sdr_i"])
+                    if metrics["sdr"] is not None and metrics["sdr_i"] is not None:
+                        all_sdrs.append(metrics["sdr"])
+                        all_sdrs_i.append(metrics["sdr_i"])
                     all_sisnrs.append(metrics["si-snr"])
                     all_sisnrs_i.append(metrics["si-snr_i"])
 
