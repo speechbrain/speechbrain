@@ -8,6 +8,9 @@ Authors
 """
 import torch
 from dataclasses import dataclass, field
+from typing import Union
+
+# TODO: init function for dataclass
 
 
 @dataclass
@@ -20,7 +23,7 @@ class Hypotheses:
     alived_seq: torch.Tensor
     alived_log_probs: torch.Tensor
     sequence_scores: torch.Tensor
-    decoded_seq: list = field(default_factory=list)
+    decoded_seq: Union[list, None] = field(default=None)
 
 
 @dataclass
@@ -41,7 +44,6 @@ class BeamSearchRunningData:
 
 @dataclass(frozen=True)
 class BeamSearchConfig:
-    # TODO: add max_decode_steps and switch hyps_and_scores in Hypotheses?
     """This class contains the configuration parameters for beam search decoding.
     It allows us to reduce the number of parameters in the function call, and improves
     readability.
@@ -867,8 +869,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return (beam_search_running_data, hypotheses, beam_search_config)
 
-    def forward(self, enc_states, wav_len):  # noqa: C901
-        """Applies beamsearch and returns the predicted tokens."""
+    def init_beam_search_data(self, enc_states, wav_len):
+        """ Initialize the beam search data."""
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
         batch_size = enc_states.shape[0]
@@ -934,7 +936,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             enc_lens=enc_lens,
         )
 
-        h = self.init_hypotheses(batch_size, device)
+        hypotheses = self.init_hypotheses(batch_size, device)
 
         beam_search_running_data = BeamSearchRunningData(
             inp_tokens=inp_tokens,
@@ -947,6 +949,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
             scores=None,
             hyps_and_scores=hyps_and_scores,
         )
+
+        return (beam_search_running_data, hypotheses, beam_search_config)
+
+    def forward(self, enc_states, wav_len):  # noqa: C901
+        """Applies beamsearch and returns the predicted tokens."""
+
+        (
+            beam_search_running_data,
+            hypotheses,
+            beam_search_config,
+        ) = self.init_beam_search_data(enc_states, wav_len)
 
         for t in range(beam_search_config.max_decode_steps):
 
@@ -962,7 +975,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 beam_search_config,
             ) = self.search_step(
                 t,
-                hypotheses=h,
+                hypotheses=hypotheses,
                 beam_search_config=beam_search_config,
                 beam_search_running_data=beam_search_running_data,
             )
@@ -980,8 +993,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
             _ = self._update_hyp_and_scores(
                 eos,
-                h.alived_seq,
-                h.alived_log_probs,
+                hypotheses.alived_seq,
+                hypotheses.alived_log_probs,
                 beam_search_running_data.hyps_and_scores,
                 beam_search_running_data.scores,
                 timesteps=beam_search_config.max_decode_steps,
