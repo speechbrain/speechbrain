@@ -430,10 +430,10 @@ class EndToEndSLU(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -441,7 +441,7 @@ class EndToEndSLU(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -455,10 +455,10 @@ class EndToEndSLU(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -547,10 +547,10 @@ class EncoderDecoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -558,7 +558,7 @@ class EncoderDecoderASR(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -576,10 +576,10 @@ class EncoderDecoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -644,7 +644,7 @@ class WaveformEncoder(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The audiofile embeddings produced by this system.
         """
         waveform = self.load_audio(path)
@@ -661,10 +661,10 @@ class WaveformEncoder(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -672,7 +672,7 @@ class WaveformEncoder(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -745,10 +745,10 @@ class EncoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -756,7 +756,7 @@ class EncoderASR(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -774,10 +774,10 @@ class EncoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -873,10 +873,10 @@ class EncoderClassifier(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -887,7 +887,7 @@ class EncoderClassifier(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         # Manage single waveforms in input
@@ -920,10 +920,10 @@ class EncoderClassifier(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -1142,7 +1142,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        prob_vad: torch.tensor
+        prob_vad: torch.Tensor
             Tensor containing the frame-level speech probabilities for the
             input audio file.
         """
@@ -1276,10 +1276,10 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -1287,7 +1287,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         # Manage single waveforms in input
@@ -1329,7 +1329,7 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        vad_prob: torch.tensor
+        vad_prob: torch.Tensor
             Frame-level speech probabilities.
         activation_th:  float
             Threshold for starting a speech segment.
@@ -1338,7 +1338,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        vad_th: torch.tensor
+        vad_th: torch.Tensor
             Tensor containing 1 for speech regions and 0 for non-speech regions.
        """
         vad_activation = (vad_prob >= activation_th).int()
@@ -1366,7 +1366,7 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        prob_th: torch.tensor
+        prob_th: torch.Tensor
             Frame-level binary decisions (1 for speech frame, 0 for a
             non-speech one).  The tensor can be obtained from apply_threshold.
         put_value: 'seconds' or 'samples'
@@ -1375,7 +1375,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        boundaries: torch.tensor
+        boundaries: torch.Tensor
             Tensor containing the start second (or sample) of speech segments
             in even positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
@@ -1465,7 +1465,7 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        boundaries : str
+        boundaries : torch.Tensor
             Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         len_th: float
@@ -1498,7 +1498,7 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        boundaries: torch.tensor
+        boundaries: torch.Tensor
             Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         save_path: path
@@ -1590,7 +1590,7 @@ class VAD(Pretrained):
         audio_file: path
             Path of the audio file containing the recording. The file is read
             with torchaudio.
-        boundaries : str
+        boundaries : torch.Tensor
             Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         activation_th: float
@@ -1958,7 +1958,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        boundaries: torch.tensor
+        boundaries: torch.Tensor
             Tensor containing the start second of speech segments in even
             positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
@@ -2039,7 +2039,7 @@ class SepformerSeparation(Pretrained):
 
         Arguments
         ---------
-        mix : torch.tensor
+        mix : torch.Tensor
             The mixture of sources.
 
         Returns
@@ -2149,7 +2149,7 @@ class SpectralMaskEnhancement(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             A batch of waveforms to convert to log spectral mags.
         """
         feats = self.hparams.compute_stft(wavs)
@@ -2161,14 +2161,14 @@ class SpectralMaskEnhancement(Pretrained):
 
         Arguments
         ---------
-        noisy : torch.tensor
+        noisy : torch.Tensor
             A batch of waveforms to perform enhancement on.
-        lengths : torch.tensor
+        lengths : torch.Tensor
             The lengths of the waveforms if the enhancement model handles them.
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             A batch of enhanced waveforms of the same shape as input.
         """
         noisy = noisy.to(self.device)
@@ -2542,14 +2542,14 @@ class WaveformEnhancement(Pretrained):
 
         Arguments
         ---------
-        noisy : torch.tensor
+        noisy : torch.Tensor
             A batch of waveforms to perform enhancement on.
-        lengths : torch.tensor
+        lengths : torch.Tensor
             The lengths of the waveforms if the enhancement model handles them.
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             A batch of enhanced waveforms of the same shape as input.
         """
         noisy = noisy.to(self.device)
@@ -2594,9 +2594,9 @@ class SNREstimator(Pretrained):
 
         Arguments
         ---------
-        mix : torch.tensor
+        mix : torch.Tensor
             The mixture of sources of shape B X T
-        predictions : torch.tensor
+        predictions : torch.Tensor
             of size (B x T x C),
             where B is batch size
                   T is number of time points
@@ -2724,7 +2724,7 @@ class Tacotron2(Pretrained):
         with torch.no_grad():
             inputs = [
                 {
-                    "text_sequences": torch.tensor(
+                    "text_sequences": torch.Tensor(
                         self.text_to_seq(item)[0], device=self.device
                     )
                 }
@@ -2790,12 +2790,12 @@ class HIFIGAN(Pretrained):
 
         Arguments
         ---------
-        spectrogram: torch.tensor
+        spectrogram: torch.Tensor
             Batch of mel-spectrograms [batch, mels, time]
 
         Returns
         -------
-        waveforms: torch.tensor
+        waveforms: torch.Tensor
             Batch of mel-waveforms [batch, 1, time]
 
         """
@@ -2812,12 +2812,12 @@ class HIFIGAN(Pretrained):
 
         Arguments
         ---------
-        spectrogram: torch.tensor
+        spectrogram: torch.Tensor
             mel-spectrogram [mels, time]
 
         Returns
         -------
-        waveform: torch.tensor
+        waveform: torch.Tensor
             waveform [1, time]
 
         audio can be saved by:
