@@ -1359,10 +1359,6 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         The model to use for decoding.
     **kwargs
         Arguments to pass to S2SBeamSearcher
-
-    Example:
-    --------
-    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
     """
 
     def __init__(
