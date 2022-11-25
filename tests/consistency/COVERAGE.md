@@ -49,13 +49,13 @@ Given this is an after-the-fact reporting, future validity is discerned.
   <br/> `python & yaml`
 2. https://github.com/speechbrain/speechbrain
   <br/> a. [docs](https://github.com/speechbrain/speechbrain/tree/develop/docs) for https://speechbrain.readthedocs.io/
-  <br/> b. [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes) 
+  <br/> b. [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes)
   <br/>`python & yaml & README`
-  <br/> c. [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/ 
+  <br/> c. [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/
   <br/>`python & yaml`
-  <br/> d. [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates) 
+  <br/> d. [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates)
   <br/>`python & yaml & README`
-  <br/> e. [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality 
+  <br/> e. [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality
   <br/>`perl; python & yaml`
 3. https://huggingface.co/speechbrain/
   <br/> hosting several model cards (pretrained models with code snippets)
@@ -72,8 +72,8 @@ linters: yaml; python
 
 ```
    (imported)        (used in)    (as units in) (integrated by)   (to code)
-.——————————————.    .—————————.    .—————————.    .—————————.    .—————————.  |  code & yaml 
-| dependencies | => | helpers | => | classes | => | modules | => | scripts |  | style checks 
+.——————————————.    .—————————.    .—————————.    .—————————.    .—————————.  |  code & yaml
+| dependencies | => | helpers | => | classes | => | modules | => | scripts |  | style checks
 \——————————————/    \—————————/    \—————————/    \—————————/    \—————————/  |   (linters)
         |                |              |              |              |
         v                v              v              v              v
@@ -333,7 +333,7 @@ I.2.d yaml                  <= IV.2.a & IV.4.a
 I.2.d README                <= IV.4.d
 I.2.e perl                  (indirect via IV.2.{b,c})
 I.2.e python                <= IV.2.b
-I.2.e yaml                  (indirect via IV.2.{b,c}) 
+I.2.e yaml                  (indirect via IV.2.{b,c})
 I.3 python snippets         <= IV.4.c
 I.3 python pretrained model (indirect via IV.4.c)
 I.3 yaml pretrained model   (indirect via IV.4.c)
@@ -343,7 +343,7 @@ I.4                         (indirect via IV.4.b)
 This schema holds so long as interfaces remain unchanged.
 Hence, below, we need to address refactorings, their natures, and how we ensure continuity of code & validity of pre-trained models through testing.
 
-We are moving testing from the sphere of pytest to the multi-platform SpeechBrain ecosystem. 
+We are moving testing from the sphere of pytest to the multi-platform SpeechBrain ecosystem.
 Therefore, testing of recipes and of pre-trained models is explained in more detail.
 
 ## V. User tools for PR drafting = reviewer tools before merging
@@ -430,7 +430,7 @@ Summary of changes in V.A with comments and tasks (for reviewers):
 6. Yaml: `1/137` to `0.0073`; [IV.4.b & IV.4.c] (recipe & pretrained model checks: is data processed to the end & for some, are certain performance test criteria fulfilled)
    > __Reviewer: is the tutorial/recipe/script/snippet (still) functional after this change?__
 
-These are the conventional types of changes to templates, recipes, and pretrained models. 
+These are the conventional types of changes to templates, recipes, and pretrained models.
 V.A.6 hints at pytest limitations (the recipe folder is not part of doc; unit/integration tests).
 This demands to understand better the composure of templates & recipes.
 
@@ -530,9 +530,9 @@ Revisit section I., and identify gaps (compare "Future testing" section).
 
 ---
 
-Branch topology: release <- CI/CD <- ecosystem-spanning refactorings. 
+Branch topology: release <- CI/CD <- ecosystem-spanning refactorings.
 ```
-    release | main             | business 
+    release | main             | business
       CI/CD |   \--- develop   | as usual
   ecosystem |         \   \<~> testing-refactoring   |  the tricky
 refactoring |          \--- unstable <~>/            | bits & pieces
@@ -546,13 +546,13 @@ https://huggingface.co/speechbrain
 
 e.g. [testing-refactoring/updates_pretrained_models/asr-wav2vec2-librispeech](https://github.com/speechbrain/speechbrain/tree/testing-refactoring/updates_pretrained_models/asr-wav2vec2-librispeech) outlines testing of the pretrained model for [speechbrain/asr-wav2vec2-librispeech](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) and the folders can contain:
 * `test.yaml` - test definition w/ integrated code [**mandatory**]
-* `hyperparams.yaml` - the standing (or updated) specification [**mandatory**] 
+* `hyperparams.yaml` - the standing (or updated) specification [**mandatory**]
 * `custom_interface.py` - the standing (or updated) custom interface [optional]
 
 _Note: changing parameters mean either a model revision &/or a new model._
 
 While `hyperparams.yaml` & `custom_interface.py` shall be updated through PRs complementary to conventional PRs, `test.yaml` is to be defined once only (and fixed when needed).
-Such a complementary PR is for example: 
+Such a complementary PR is for example:
 https://github.com/speechbrain/speechbrain/pull/1623
 
 Depending on the testing need, `test.yaml` grows - some examples
@@ -571,7 +571,7 @@ Depending on the testing need, `test.yaml` grows - some examples
    recipe_yaml: recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml # the training recipe for dataloader etc
    overrides: # what of the recipe_yaml needs to be overriden
      output_folder: !ref tests/tmp/<dataset> # the output folder is at the tmp dataset (data prep & eval tasks only)
-   dataio: from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare # which dataio_prepare to import 
+   dataio: from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare # which dataio_prepare to import
    test_datasets: dataio_prepare(recipe_hparams)[2] # where to get the test dataset from that prep pipeline (w/ input args)
    test_loader: test_dataloader_opts # dataloader name as in recipe_yaml
    performance: # which metric classes are used in the training recipe
@@ -663,9 +663,9 @@ The use case for this construction is a legacy-preserving refactoring, providing
 
 ---
 
-The `unstable` branch serves to collect a series of legacy-breaking PRs before making a major release through develop. [V.C] 
+The `unstable` branch serves to collect a series of legacy-breaking PRs before making a major release through develop. [V.C]
 
-_Note: ofc, the just introduced testing-refactoring strategy is applicable here, also. Especially, as it relaxes testing demands._ 
+_Note: ofc, the just introduced testing-refactoring strategy is applicable here, also. Especially, as it relaxes testing demands._
 
 
 ## VII. Maintainer checks for releases

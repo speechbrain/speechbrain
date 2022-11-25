@@ -63,7 +63,7 @@ def get_all_urls(file_lst, avoid_urls):
     all_urls = {}
 
     for path in file_lst:
-        if '.gz' in path:
+        if ".gz" in path:
             continue
 
         urls = get_url(path)
