@@ -17,11 +17,14 @@ class Hypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
     Default to None if we are not going to score on word / char level with external
     scorers.
+
+    It also contains the functions to tokenize to words etc...
     """
 
     def __init__(
-        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq
+        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None
     ):
+        super().__init__()
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
@@ -492,7 +495,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hyps_and_scores[batch_id].append((hyp, log_probs, final_scores))
         return is_eos
 
-    def _get_topk_prediction(self, hyps_and_scores, topk):
+    def _get_topk_prediction(self, hyps_and_scores):
         """This method sorts the scores and return corresponding hypothesis and log probs.
 
         Arguments
@@ -574,7 +577,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             sequence_scores=torch.empty(n_bh, device=device)
             .fill_(float("-inf"))
             .index_fill_(0, self.beam_offset, 0.0),
-            decoded_seq=[[] for _ in range(batch_size)],
+            decoded_seq=None,
         )
 
     def _attn_weight_step(
@@ -894,7 +897,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
     def _finalize_hyps_and_scores(
-        self, inp_tokens, hyps_and_scores, hypotheses, beam_size, scores,
+        self, inp_tokens, hyps_and_scores, hypotheses, scores,
     ):
         """ Fill the hypotheses that have not reached eos with eos."""
         if not self._check_full_beams(hyps_and_scores):
@@ -912,7 +915,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 scores,
             )
 
-        return (hyps_and_scores, hypotheses)
+        return hyps_and_scores
 
     def forward(self, enc_states, wav_len):  # noqa: C901
         """Applies beamsearch and returns the predicted tokens."""
@@ -960,8 +963,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hyps_and_scores,
             )
 
-        (hyps_and_scores, hypotheses,) = self._finalize_hyps_and_scores(
-            inp_tokens, hyps_and_scores, hypotheses, self.beam_size, scores,
+        hyps_and_scores = self._finalize_hyps_and_scores(
+            inp_tokens, hyps_and_scores, hypotheses, scores,
         )
 
         (
@@ -969,7 +972,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             topk_lengths,
             topk_scores,
             topk_log_probs,
-        ) = self._get_topk_prediction(hyps_and_scores, topk=self.topk,)
+        ) = self._get_topk_prediction(hyps_and_scores)
 
         return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
