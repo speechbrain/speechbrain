@@ -732,7 +732,7 @@ speechbrain/dataio/encoder.py                               328     46    86%
 speechbrain/dataio/iterators.py                              80     62    22% <== < 80%
 speechbrain/dataio/legacy.py                                121     41    66% <== < 80%
 speechbrain/dataio/preprocess.py                             22      4    82%
-speechbrain/dataio/sampler.py                               224     61    73%
+speechbrain/dataio/sampler.py                               224     61    73% <== < 80%
 speechbrain/dataio/wer.py                                    63     54    14% <== < 80%
 speechbrain/decoders/ctc.py                                 111     89    20% <== < 80%
 speechbrain/decoders/seq2seq.py                             370     46    88%

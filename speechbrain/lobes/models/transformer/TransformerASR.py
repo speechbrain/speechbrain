@@ -1,4 +1,4 @@
-"""Transformer for ASR in the SpeechBrain sytle.
+"""Transformer for ASR in the SpeechBrain style.
 
 Authors
 * Jianyuan Zhong 2020
