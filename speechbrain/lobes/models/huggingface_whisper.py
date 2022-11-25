@@ -58,6 +58,7 @@ class HuggingFaceWhisper(nn.Module):
         encoder_only=False,
         freeze=False,
         freeze_encoder=False,
+        language="en",
     ):
         super().__init__()
 
@@ -65,6 +66,7 @@ class HuggingFaceWhisper(nn.Module):
         self.encoder_only = encoder_only
         self.freeze = freeze
         self.freeze_encoder = freeze_encoder
+        self.language = language
 
         # Download the extractor from HuggingFace.
         self.feature_extractor = WhisperFeatureExtractor.from_pretrained(
@@ -74,12 +76,8 @@ class HuggingFaceWhisper(nn.Module):
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
 
         if self.freeze:
-            if self.encoder_only:
-                logger_msg = "whisper encoder is frozen."
-            else:
-                logger_msg = "whisper encoder-decoder is frozen."
             logger.warning(
-                "speechbrain.lobes.models.huggingface_whisper - " + logger_msg
+                "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
             )
             self.model.train()  # we keep it to train to have dropout and LN computed adequaly
             for param in self.model.parameters():
@@ -92,12 +90,6 @@ class HuggingFaceWhisper(nn.Module):
                 )
                 for param in self.model.encoder.parameters():
                     param.requires_grad = False
-
-        if self.encoder_only:
-            logger.warning(
-                "speechbrain.lobes.models.huggingface_whisper - whisper encoder only, removing the decoder."
-            )
-            self.model.decoder = None  # TODO: del or None?
 
     def forward(self, wav, tokens=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
@@ -148,13 +140,9 @@ class HuggingFaceWhisper(nn.Module):
         """
         # need to cast tensor to numpy for the huggingface whisper feature extractor.
         numpy_wav = wav.cpu().numpy().tolist()
-        return (
-            self.feature_extractor(
-                numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate
-            )
-            .input_features.to(wav.device)
-            .to(wav.dtype)
-        )
+        return self.feature_extractor(
+            numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate
+        ).input_features.to(wav.device)
 
     def forward_decoder(self, audio_features, tokens):
         """Perform one step of the whisper decoder.
@@ -165,6 +153,16 @@ class HuggingFaceWhisper(nn.Module):
         tokens : torch.Tensor (TO DO: ARE MORE INFO IT S NOT CLEAR)
             A batch of whisper decoder input ids.
         """
-        return self.model.decoder(
+        output_states = self.model.decoder(
             encoder_hidden_states=audio_features, input_ids=tokens
         ).last_hidden_state
+
+        logits = (
+            output_states
+            @ torch.transpose(
+                self.model.decoder.embed_tokens.weight.to(output_states.dtype),
+                0,
+                1,
+            )
+        ).float()
+        return logits
