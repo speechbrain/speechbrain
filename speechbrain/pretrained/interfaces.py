@@ -288,6 +288,7 @@ class Pretrained(torch.nn.Module):
         savedir=None,
         use_auth_token=False,
         revision=None,
+        encoding='utf-8',
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -335,6 +336,8 @@ class Pretrained(torch.nn.Module):
             The model revision corresponding to the HuggingFace Hub model revision.
             This is particularly useful if you wish to pin your code to a particular
             version of a model hosted at HuggingFace.
+        encoding : str
+            The encoding to use when reading the hparams_file.
         """
         if savedir is None:
             clsname = cls.__name__
@@ -358,7 +361,7 @@ class Pretrained(torch.nn.Module):
                 raise
 
         # Load the modules:
-        with open(hparams_local_path) as fin:
+        with open(hparams_local_path, encoding=encoding) as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
         # Pretraining:
