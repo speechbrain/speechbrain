@@ -76,7 +76,6 @@ def create_libricss_csv(
                 mix_info = torchaudio.info(mix_path)
                 assert mix_info.sample_rate == fs
                 mix_id = create_id(mix_path)
-                print(ptrn, mix_id)
                 m = ptrn.match(mix_id)
 
                 row = {
