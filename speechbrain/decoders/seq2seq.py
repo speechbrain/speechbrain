@@ -683,16 +683,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
         hypotheses = self.init_hypotheses()
 
         return (
-            enc_states,
-            enc_lens,
             hypotheses,
             inp_tokens,
+            log_probs,
+            eos_hyps_and_log_probs_scores,
             memory,
             scorer_memory,
-            log_probs,
             attn,
             prev_attn_peak,
-            eos_hyps_and_log_probs_scores,
+            enc_states,
+            enc_lens,
         )
 
     def _update_hyps_and_scores_if_eos_token(
@@ -816,17 +816,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def search_step(
         self,
-        timestep,
         hypotheses,
-        enc_states,
-        enc_lens,
         inp_tokens,
+        log_probs,
+        eos_hyps_and_log_probs_scores,
         memory,
         scorer_memory,
-        log_probs,
         attn,
         prev_attn_peak,
-        eos_hyps_and_log_probs_scores,
+        enc_states,
+        enc_lens,
+        timestep,
     ):
         """ A search step for the next most likely tokens."""
         (log_probs, memory, attn,) = self._attn_weight_step(
@@ -878,17 +878,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return (
             hypotheses,
             inp_tokens,
+            log_probs,
+            eos_hyps_and_log_probs_scores,
             memory,
             scorer_memory,
-            log_probs,
             attn,
             prev_attn_peak,
-            eos_hyps_and_log_probs_scores,
             scores,
         )
 
     def _fill_alived_hyps_with_eos_token(
-        self, inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
+        self, hypotheses, eos_hyps_and_log_probs_scores, scores,
     ):
         """ Fill the hypotheses that have not reached eos with eos."""
         if not self._check_full_beams(eos_hyps_and_log_probs_scores):
@@ -911,16 +911,16 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def forward(self, enc_states, wav_len):  # noqa: C901
         """Applies beamsearch and returns the predicted tokens."""
         (
-            enc_states,
-            enc_lens,
             alived_hyps,
             inp_tokens,
+            log_probs,
+            eos_hyps_and_log_probs_scores,
             memory,
             scorer_memory,
-            log_probs,
             attn,
             prev_attn_peak,
-            eos_hyps_and_log_probs_scores,
+            enc_states,
+            enc_lens,
         ) = self.init_beam_search_data(enc_states, wav_len)
 
         for step in range(self.max_decode_steps):
@@ -931,29 +931,29 @@ class S2SBeamSearcher(S2SBaseSearcher):
             (
                 alived_hyps,
                 inp_tokens,
+                log_probs,
+                eos_hyps_and_log_probs_scores,
                 memory,
                 scorer_memory,
-                log_probs,
                 attn,
                 prev_attn_peak,
-                eos_hyps_and_log_probs_scores,
                 scores,
             ) = self.search_step(
-                step,
                 alived_hyps,
-                enc_states,
-                enc_lens,
                 inp_tokens,
+                log_probs,
+                eos_hyps_and_log_probs_scores,
                 memory,
                 scorer_memory,
-                log_probs,
                 attn,
                 prev_attn_peak,
-                eos_hyps_and_log_probs_scores,
+                enc_states,
+                enc_lens,
+                step,
             )
 
         finals_hyps_and_log_probs_scores = self._fill_alived_hyps_with_eos_token(
-            inp_tokens, eos_hyps_and_log_probs_scores, alived_hyps, scores,
+            alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
 
         # topk_hyps, topk_lengths, topk_scores, topk_log_probs,
