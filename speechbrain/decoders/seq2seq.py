@@ -7,7 +7,6 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-from dataclasses import dataclass
 
 # TODO: init function for dataclass
 # TODO: use self.config_param1
@@ -27,22 +26,6 @@ class Hypotheses(torch.nn.Module):
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
         self.decoded_seq = decoded_seq
-
-
-@dataclass
-class BeamSearchRunningData(torch.nn.Module):
-    """This class is used to store the running data for beam search.
-    """
-
-    inp_tokens: torch.Tensor
-    memory: torch.Tensor
-    scorer_memory: torch.Tensor
-    log_probs: torch.Tensor
-    attn: torch.Tensor
-    prev_attn_peak: torch.Tensor
-    is_eos: torch.Tensor
-    scores: torch.Tensor
-    hyps_and_scores: list
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -743,7 +726,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         hypotheses,
         enc_states,
         enc_lens,
-        beam_search_running_data,
         inp_tokens,
         memory,
         scorer_memory,
@@ -814,26 +796,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
             self.n_bh,
         )
 
-        beam_search_running_data.inp_tokens = inp_tokens
-        beam_search_running_data.memory = memory
-        beam_search_running_data.scorer_memory = scorer_memory
-        beam_search_running_data.prev_attn_peak = prev_attn_peak
-        beam_search_running_data.log_probs = log_probs
-        beam_search_running_data.attn = attn
-        beam_search_running_data.hyps_and_scores = hyps_and_scores
-        beam_search_running_data.score = scores
-
         is_eos = self._update_hyp_and_scores(
             inp_tokens, timestep, hypotheses, hyps_and_scores, scores
         )
-
-        beam_search_running_data.is_eos = is_eos
 
         # Block the paths that have reached eos.
         hypotheses.sequence_scores.masked_fill_(is_eos, float("-inf"))
 
         return (
-            beam_search_running_data,
             hypotheses,
             inp_tokens,
             memory,
@@ -910,22 +880,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         hypotheses = self.init_hypotheses(batch_size, device)
 
-        beam_search_running_data = BeamSearchRunningData(
-            inp_tokens=inp_tokens,
-            memory=memory,
-            scorer_memory=scorer_memory,
-            log_probs=log_probs,
-            attn=attn,
-            prev_attn_peak=prev_attn_peak,
-            is_eos=None,
-            scores=None,
-            hyps_and_scores=hyps_and_scores,
-        )
-
         return (
             enc_states,
             enc_lens,
-            beam_search_running_data,
             hypotheses,
             inp_tokens,
             memory,
@@ -963,7 +920,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         (
             enc_states,
             enc_lens,
-            beam_search_running_data,
             hypotheses,
             inp_tokens,
             memory,
@@ -981,7 +937,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 break
 
             (
-                beam_search_running_data,
                 hypotheses,
                 inp_tokens,
                 memory,
@@ -996,7 +951,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 hypotheses,
                 enc_states,
                 enc_lens,
-                beam_search_running_data,
                 inp_tokens,
                 memory,
                 scorer_memory,
