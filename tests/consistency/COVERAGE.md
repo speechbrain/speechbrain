@@ -46,29 +46,35 @@ Given this is an after-the-fact reporting, future validity is discerned.
 1. https://speechbrain.github.io/
   <br/> a. via: https://github.com/speechbrain/speechbrain.github.io
   <br/> b. pointing to several tutorials on Google Colab
+  <br/> `python & yaml`
 2. https://github.com/speechbrain/speechbrain
   <br/> a. [docs](https://github.com/speechbrain/speechbrain/tree/develop/docs) for https://speechbrain.readthedocs.io/
-  <br/> b. [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes)
-  <br/> c. [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/
-  <br/> d. [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates)
-  <br/> e. [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality
+  <br/> b. [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes) 
+  <br/>`python & yaml & README`
+  <br/> c. [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/ 
+  <br/>`python & yaml`
+  <br/> d. [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates) 
+  <br/>`python & yaml & README`
+  <br/> e. [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality 
+  <br/>`perl; python & yaml`
 3. https://huggingface.co/speechbrain/
   <br/> hosting several model cards (pretrained models with code snippets)
+  <br/> `python & yaml`
   <br/> [option to host datasets]
 4. Gdrive (and alike)
   <br/> hosting training results; checkpoints; ...
 
 These points need testing coverage (demonstrated below).
 
-
+linters: yaml; python
 
 ## II. How is functionality provided?
 
 ```
    (imported)        (used in)    (as units in) (integrated by)   (to code)
-.——————————————.    .—————————.    .—————————.    .—————————.    .—————————.
-| dependencies | => | helpers | => | classes | => | modules | => | scripts |
-\——————————————/    \—————————/    \—————————/    \—————————/    \—————————/
+.——————————————.    .—————————.    .—————————.    .—————————.    .—————————.  |  code & yaml 
+| dependencies | => | helpers | => | classes | => | modules | => | scripts |  | style checks 
+\——————————————/    \—————————/    \—————————/    \—————————/    \—————————/  |   (linters)
         |                |              |              |              |
         v                v              v              v              v
  version updates     docstring      unittests     integration      tutorials,
@@ -89,9 +95,11 @@ requirements configs                                           testing strategie
 2. Docstring tests: commented function signatures <br/>_(of functions intended for outer calls)_
 3. [Unittests](https://github.com/speechbrain/speechbrain/tree/develop/tests/unittests) per function-critical code block
 4. [Integration tests](https://github.com/speechbrain/speechbrain/tree/develop/tests/integration) for vanilla experiments to cover use-cases on a generic task basis
-5. Advanced testing (see below)
+5. Advanced testing: standing interfaces & their refactoring
+6. Linters for automated style checks & corrections of python & yaml code
 
 _Also below: How to know all of II. covers all of I. ?_
+
 
 ## III. How is the SpeechBrain community improving quality, continuously?
 
@@ -135,7 +143,7 @@ git commit -m ...           E. added/modified recipe [1.2.b]
 git push                    F. uploaded pretrained model [I.3]
 
 Missed out on one?
-pre-commit run --all-files  G. Well-formatted py & yaml files
+pre-commit run --all-files  G. Well-formatted py & yaml files []
 git status
 git add ...
 ```
@@ -167,7 +175,6 @@ I.1.a;
 I.2.a;
 II.1; II.5, and
 III.C to III.G.
-
 Through III., checks for I.2.c, the speechbrain core modules, are standing as of II.2 to II.4 (doctests; unittests & integration tests).
 That II.2 to II.4 are carried out will be demonstrated below, also.
 
@@ -302,8 +309,42 @@ our tests cover one PyTorch version only, _the latest_.
 
 ---
 
-This section demonstrated how II. covers all of I. in terms of test invocation.
-Below, we clarify on the parts of II.5, our particular/advanced testing strategy, which encompasses III.D to III.F and is here, in parts, referred to IV.4.
+Summary of how II covers I in terms of test invocation.
+```
+
+Concerning III.A-G, w/o III.C:
+IV.4                       -> II.1
+IV.2.c                     -> II.2
+IV.2.b                     -> II.3
+IV.2.d                     -> II.4
+IV.4.a to IV.4.d & IV.2.a  -> II.5
+IV.1                       -> II.6
+
+I.1.a                       <= IV.5
+I.1.b python & yaml         N/A (TODO); relates to III.C
+I.2.a                       <= IV.3
+I.2.b python                <= IV.2.a & IV.4.b
+I.2.b yaml                  <= IV.2.a & IV.4.a
+I.2.b README                <= IV.4.d
+I.2.c python                <= IV.2.{b,c,d} & IV.5 | core modules
+I.2.c yaml                  <= IV.2.{b,c,d} & IV.5 | core modules
+I.2.d python                <= IV.2.a & IV.4.b
+I.2.d yaml                  <= IV.2.a & IV.4.a
+I.2.d README                <= IV.4.d
+I.2.e perl                  (indirect via IV.2.{b,c})
+I.2.e python                <= IV.2.b
+I.2.e yaml                  (indirect via IV.2.{b,c}) 
+I.3 python snippets         <= IV.4.c
+I.3 python pretrained model (indirect via IV.4.c)
+I.3 yaml pretrained model   (indirect via IV.4.c)
+I.4                         (indirect via IV.4.b)
+```
+
+This schema holds so long as interfaces remain unchanged.
+Hence, below, we need to address refactorings, their natures, and how we ensure continuity of code & validity of pre-trained models through testing.
+
+We are moving testing from the sphere of pytest to the multi-platform SpeechBrain ecosystem. 
+Therefore, testing of recipes and of pre-trained models is explained in more detail.
 
 ## V. User tools for PR drafting = reviewer tools before merging
 
@@ -373,7 +414,7 @@ def next_gen(x, arg0=6.28,           |    my_arg: !new:next_gen
 
 ```
 
-Changes in V.A:
+Summary of changes in V.A with comments and tasks (for reviewers):
 1. new break in `func_sig` declartion (in the signature of the function);
    <br/>yet—this is formatting only, which is checked by pre-commit/linters [IV.1].
    > __Reviewer: is every (tops every other) code line commented?__
@@ -389,12 +430,11 @@ Changes in V.A:
 6. Yaml: `1/137` to `0.0073`; [IV.4.b & IV.4.c] (recipe & pretrained model checks: is data processed to the end & for some, are certain performance test criteria fulfilled)
    > __Reviewer: is the tutorial/recipe/script/snippet (still) functional after this change?__
 
-These are the conventional types of changes to templates, recipes, and pretrained models. [II.5 regarding III.D to III.F]
+These are the conventional types of changes to templates, recipes, and pretrained models. 
+V.A.6 hints at pytest limitations (the recipe folder is not part of doc; unit/integration tests).
+This demands to understand better the composure of templates & recipes.
 
 _Note: Changes as shown in V.B & V.C are discussed in the next section._
-
-V.A.6 hints at pytest limitations (the recipe folder is not part of doc; unit/integration tests).
-Which demands to understand better the composure of templates & recipes.
 
 ---
 
@@ -449,17 +489,15 @@ About II.5.
 pytest tests/consistency
 by extension run pytest 
 
-II.5 & III.D & III.E
+III.{D,E}
 tests/.run-load-yaml-tests.sh
 
-II.5 & III.D to III.E & III.F
+III.{D, E, F}
 tests/.run-recipe-tests.sh
 hook: tests/.run-HF-checks.sh
 hook: ests/.run-url-checks.sh
 
 What's missing?
-
-
 
 ---
 
@@ -544,150 +582,3 @@ Futher reading:
 <br/> https://breadcrumbscollector.tech/how-to-use-code-coverage-in-python-with-pytest/ (pointer by @Adel-Moumen)
 
 ---
-
-PyTest coverage, 2022-11-08 _(cpu-only)_
-```
----------- coverage: platform linux, python 3.9.12-final-0 -----------
-Name                                                      Stmts   Miss  Cover
------------------------------------------------------------------------------
-speechbrain/__init__.py                                      15      0   100%
-speechbrain/alignment/__init__.py                             0      0   100%
-speechbrain/alignment/aligner.py                            380     61    84%
-speechbrain/alignment/ctc_segmentation.py                   189     10    95%
-speechbrain/core.py                                         424    155    63%
-speechbrain/dataio/__init__.py                                7      0   100%
-speechbrain/dataio/batch.py                                  99      8    92%
-speechbrain/dataio/dataio.py                                279     50    82%
-speechbrain/dataio/dataloader.py                            140     25    82%
-speechbrain/dataio/dataset.py                               100      8    92%
-speechbrain/dataio/encoder.py                               328     46    86%
-speechbrain/dataio/iterators.py                              80     62    22%
-speechbrain/dataio/legacy.py                                121     41    66%
-speechbrain/dataio/preprocess.py                             22      4    82%
-speechbrain/dataio/sampler.py                               224     61    73%
-speechbrain/dataio/wer.py                                    63     54    14%
-speechbrain/decoders/__init__.py                              2      0   100%
-speechbrain/decoders/ctc.py                                 111     89    20%
-speechbrain/decoders/seq2seq.py                             370     46    88%
-speechbrain/decoders/transducer.py                          133     64    52%
-speechbrain/lm/__init__.py                                    0      0   100%
-speechbrain/lm/arpa.py                                       77      3    96%
-speechbrain/lm/counting.py                                   37      4    89%
-speechbrain/lm/ngram.py                                      36      1    97%
-speechbrain/lobes/__init__.py                                 1      0   100%
-speechbrain/lobes/augment.py                                154     55    64%
-speechbrain/lobes/beamform_multimic.py                       20     14    30%
-speechbrain/lobes/features.py                                96      9    91%
-speechbrain/lobes/models/CRDNN.py                            52     12    77%
-speechbrain/lobes/models/ContextNet.py                       83      3    96%
-speechbrain/lobes/models/ECAPA_TDNN.py                      157      7    96%
-speechbrain/lobes/models/ESPnetVGG.py                        20      0   100%
-speechbrain/lobes/models/EnhanceResnet.py                    64      0   100%
-speechbrain/lobes/models/HifiGAN.py                         321    146    55%
-speechbrain/lobes/models/MetricGAN.py                        74     29    61%
-speechbrain/lobes/models/MetricGAN_U.py                      63      0   100%
-speechbrain/lobes/models/RNNLM.py                            32      0   100%
-speechbrain/lobes/models/Tacotron2.py                       364     66    82%
-speechbrain/lobes/models/VanillaNN.py                         8      0   100%
-speechbrain/lobes/models/Xvector.py                          51      0   100%
-speechbrain/lobes/models/__init__.py                          0      0   100%
-speechbrain/lobes/models/conv_tasnet.py                     121      6    95%
-speechbrain/lobes/models/convolution.py                      32      0   100%
-speechbrain/lobes/models/dual_path.py                       357     55    85%
-speechbrain/lobes/models/fairseq_wav2vec.py                  93     93     0%
-speechbrain/lobes/models/g2p/__init__.py                      4      0   100%
-speechbrain/lobes/models/g2p/dataio.py                      136    107    21%
-speechbrain/lobes/models/g2p/homograph.py                   118     20    83%
-speechbrain/lobes/models/g2p/model.py                       132    109    17%
-speechbrain/lobes/models/huggingface_wav2vec.py             145     47    68%
-speechbrain/lobes/models/resepformer.py                     180     21    88%
-speechbrain/lobes/models/segan_model.py                     102     88    14%
-speechbrain/lobes/models/transformer/Conformer.py           111      7    94%
-speechbrain/lobes/models/transformer/Transformer.py         180     22    88%
-speechbrain/lobes/models/transformer/TransformerASR.py       92     28    70%
-speechbrain/lobes/models/transformer/TransformerLM.py        47      5    89%
-speechbrain/lobes/models/transformer/TransformerSE.py        20      2    90%
-speechbrain/lobes/models/transformer/TransformerST.py        81     60    26%
-speechbrain/lobes/models/transformer/__init__.py              0      0   100%
-speechbrain/lobes/models/wav2vec.py                         123     55    55%
-speechbrain/nnet/CNN.py                                     417     56    87%
-speechbrain/nnet/RNN.py                                     471     51    89%
-speechbrain/nnet/__init__.py                                  8      0   100%
-speechbrain/nnet/activations.py                              39      1    97%
-speechbrain/nnet/attention.py                               234     44    81%
-speechbrain/nnet/complex_networks/__init__.py                 0      0   100%
-speechbrain/nnet/complex_networks/c_CNN.py                  130     23    82%
-speechbrain/nnet/complex_networks/c_RNN.py                  374     67    82%
-speechbrain/nnet/complex_networks/c_linear.py                26      0   100%
-speechbrain/nnet/complex_networks/c_normalization.py        277     68    75%
-speechbrain/nnet/complex_networks/c_ops.py                  108     40    63%
-speechbrain/nnet/containers.py                              139     14    90%
-speechbrain/nnet/dropout.py                                  15      0   100%
-speechbrain/nnet/embedding.py                                24      0   100%
-speechbrain/nnet/linear.py                                   27      1    96%
-speechbrain/nnet/loss/__init__.py                             0      0   100%
-speechbrain/nnet/loss/guidedattn_loss.py                     25      0   100%
-speechbrain/nnet/loss/si_snr_loss.py                         20     16    20%
-speechbrain/nnet/loss/stoi_loss.py                           81      1    99%
-speechbrain/nnet/loss/transducer_loss.py                    136    136     0%
-speechbrain/nnet/losses.py                                  323    112    65%
-speechbrain/nnet/normalization.py                           142      6    96%
-speechbrain/nnet/pooling.py                                 156     31    80%
-speechbrain/nnet/quantisers.py                               47      2    96%
-speechbrain/nnet/quaternion_networks/__init__.py              0      0   100%
-speechbrain/nnet/quaternion_networks/q_CNN.py               150     25    83%
-speechbrain/nnet/quaternion_networks/q_RNN.py               370     59    84%
-speechbrain/nnet/quaternion_networks/q_linear.py             50     11    78%
-speechbrain/nnet/quaternion_networks/q_normalization.py      44      4    91%
-speechbrain/nnet/quaternion_networks/q_ops.py               229    122    47%
-speechbrain/nnet/schedulers.py                              363    103    72%
-speechbrain/nnet/transducer/__init__.py                       0      0   100%
-speechbrain/nnet/transducer/transducer_joint.py              33      5    85%
-speechbrain/pretrained/__init__.py                            1      0   100%
-speechbrain/pretrained/fetching.py                           48      6    88%
-speechbrain/pretrained/interfaces.py                        786    338    57%
-speechbrain/pretrained/training.py                           33     28    15%
-speechbrain/processing/NMF.py                                50      0   100%
-speechbrain/processing/PLDA_LDA.py                          345     96    72%
-speechbrain/processing/__init__.py                            0      0   100%
-speechbrain/processing/decomposition.py                     102      8    92%
-speechbrain/processing/diarization.py                       319    157    51%
-speechbrain/processing/features.py                          359     75    79%
-speechbrain/processing/multi_mic.py                         345      2    99%
-speechbrain/processing/signal_processing.py                 166     39    77%
-speechbrain/processing/speech_augmentation.py               386     34    91%
-speechbrain/tokenizers/SentencePiece.py                     181     74    59%
-speechbrain/tokenizers/__init__.py                            0      0   100%
-speechbrain/utils/Accuracy.py                                24      3    88%
-speechbrain/utils/DER.py                                     44     33    25%
-speechbrain/utils/__init__.py                                 7      0   100%
-speechbrain/utils/bleu.py                                    50      9    82%
-speechbrain/utils/callchains.py                              28      5    82%
-speechbrain/utils/check_HF_repo.py                           58     52    10%
-speechbrain/utils/check_docstrings.py                        62      9    85%
-speechbrain/utils/check_url.py                               50     40    20%
-speechbrain/utils/check_yaml.py                             116     50    57%
-speechbrain/utils/checkpoints.py                            294     37    87%
-speechbrain/utils/data_pipeline.py                          181     13    93%
-speechbrain/utils/data_utils.py                             197     61    69%
-speechbrain/utils/depgraph.py                                82      1    99%
-speechbrain/utils/distributed.py                             61     37    39%
-speechbrain/utils/edit_distance.py                          180     50    72%
-speechbrain/utils/epoch_loop.py                              55      5    91%
-speechbrain/utils/hparams.py                                  2      1    50%
-speechbrain/utils/hpopt.py                                  134     21    84%
-speechbrain/utils/logger.py                                  73     24    67%
-speechbrain/utils/metric_stats.py                           285     46    84%
-speechbrain/utils/parameter_transfer.py                      87     17    80%
-speechbrain/utils/profiling.py                              191     54    72%
-speechbrain/utils/recipe_tests.py                           211    196     7%
-speechbrain/utils/superpowers.py                             20      6    70%
-speechbrain/utils/text_to_sequence.py                        77     22    71%
-speechbrain/utils/torch_audio_backend.py                      9      2    78%
-speechbrain/utils/train_logger.py                           150    113    25%
-speechbrain/wordemb/__init__.py                               0      0   100%
-speechbrain/wordemb/transformer.py                           90     67    26%
-speechbrain/wordemb/util.py                                  11      0   100%
------------------------------------------------------------------------------
-TOTAL                                                     17279   4687    73%
-```

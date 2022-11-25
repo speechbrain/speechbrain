@@ -535,16 +535,7 @@ def load_yaml_test(
     test_field="Hparam_file",
     filters_fields=[],
     filters=[],
-    avoid_list=[
-        "recipes/Voicebank/MTL/ASR_enhance/hparams/robust_asr.yaml",  # no libsndfile
-        "recipes/Voicebank/MTL/ASR_enhance/hparams/enhance_mimic.yaml",  # no libsndfile
-        "recipes/Voicebank/dereverb/MetricGAN-U/hparams/train_dereverb.yaml",  # segfault
-        "recipes/Voicebank/dereverb/spectral_mask/hparams/train.yaml",  # segfault
-        "recipes/Voicebank/enhance/MetricGAN-U/hparams/train_dnsmos.yaml",  # segfault
-        "recipes/Voicebank/enhance/MetricGAN/hparams/train.yaml",  # segfault
-        "recipes/Voicebank/enhance/spectral_mask/hparams/train.yaml",  # segfault
-        "recipes/Voicebank/enhance/waveform_map/hparams/train.yaml",  # segfault
-    ],
+    avoid_list=[],
     rir_folder="tests/tmp/rir",
     data_folder="tests/tmp/yaml",
     output_folder="tests/tmp/",
