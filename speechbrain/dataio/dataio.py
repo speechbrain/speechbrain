@@ -7,6 +7,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Samuele Cornell 2020
  * Abdel HEBA 2020
+ * Sylvain de Langen 2022
 """
 
 import os
@@ -164,26 +165,41 @@ def read_audio(waveforms_obj):
     Expected use case is in conjunction with Datasets
     specified by JSON.
 
-    The custom notation:
+    The parameter may just be a path to a file:
+    `read_audio("/path/to/wav1.wav")`
 
-    The annotation can be just a path to a file:
-    "/path/to/wav1.wav"
+    Alternatively, you can specify more options in a dict, e.g.:
+    ```
+    # load a file from sample 8000 through 15999
+    read_audio({
+        "file": "/path/to/wav2.wav",
+        "start": 8000,
+        "stop": 16000
+    })
+    ```
 
-    Or can specify more options in a dict:
-    {"file": "/path/to/wav2.wav",
-    "start": 8000,
-    "stop": 16000
-    }
+    Which codecs are supported depends on your torchaudio backend.
+    Refer to `torchaudio.load` documentation for further details.
 
     Arguments
     ----------
     waveforms_obj : str, dict
-        Audio reading annotation, see above for format.
+        Path to audio or dict with the desired configuration.
+
+        Keys for the dict variant:
+        - `"file"` (str): Path to the audio file.
+        - `"start"` (int, optional): The first sample to load.
+        If unspecified, load from the very first frame.
+        - `"stop"` (int, optional): The last sample to load (exclusive).
+        If unspecified or equal to start, load from `start` to the end.
+        Will not fail if `stop` is past the sample count of the file and will
+        return less frames.
 
     Returns
     -------
     torch.Tensor
-        Audio tensor with shape: (samples, ).
+        1-channel: audio tensor with shape: `(samples, )`.
+        >=2-channels: audio tensor with shape: `(samples, channels)`.
 
     Example
     -------
@@ -198,15 +214,37 @@ def read_audio(waveforms_obj):
     """
     if isinstance(waveforms_obj, str):
         audio, _ = torchaudio.load(waveforms_obj)
-        return audio.transpose(0, 1).squeeze(1)
+    else:
+        path = waveforms_obj["file"]
+        start = waveforms_obj.get("start", 0)
+        # To match past SB behavior, `start == stop` or omitted `stop` means to
+        # load all frames from `start` to the file end.
+        stop = waveforms_obj.get("stop", start)
 
-    path = waveforms_obj["file"]
-    start = waveforms_obj.get("start", 0)
-    # Default stop to start -> if not specified, num_frames becomes 0,
-    # which is the torchaudio default
-    stop = waveforms_obj.get("stop", start)
-    num_frames = stop - start
-    audio, fs = torchaudio.load(path, num_frames=num_frames, frame_offset=start)
+        if start < 0:
+            raise ValueError(
+                f"Invalid sample range (start < 0): {start}..{stop}!"
+            )
+
+        if stop < start:
+            # Could occur if the user tried one of two things:
+            # - specify a negative value as an attempt to index from the end;
+            # - specify -1 as an attempt to load up to the last sample.
+            raise ValueError(
+                f"Invalid sample range (stop < start): {start}..{stop}!\n"
+                'Hint: Omit "stop" if you want to read to the end of file.'
+            )
+
+        # Requested to load until a specific frame?
+        if start != stop:
+            num_frames = stop - start
+            audio, fs = torchaudio.load(
+                path, num_frames=num_frames, frame_offset=start
+            )
+        else:
+            # Load to the end.
+            audio, fs = torchaudio.load(path, frame_offset=start)
+
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
 

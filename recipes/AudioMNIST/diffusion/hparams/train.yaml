@@ -11,7 +11,9 @@ seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
+prepare_data_folder: ./audiomnist-prepare-data
 output_folder: !ref ./results/diffusion/<seed>
+data_save_folder: !ref <save_folder>/audiomnist_prepared
 save_folder: !ref <output_folder>/save
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
@@ -20,7 +22,14 @@ train_log: !ref <output_folder>/train_log.txt
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-ckpt_interval_minutes: 15 # save checkpoint every N min
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
+# Preparation Parameters
+data_prepare_norm: True
+data_prepare_trim: True
+data_prepare_trim_threshold: -30.
+data_prepare_sample_rate_src: 48000
+data_prepare_sample_rate_tgt: 48000
 
 # Training Parameters
 diffusion_mode: simple
@@ -31,9 +40,9 @@ batch_shuffle: True
 sample_rate_src: 48000
 sample_rate_tgt: 16000
 number_of_epochs: 20
-batch_size: 16
-lr: 0.0005
-max_grad_norm: 1.
+batch_size: 64
+lr: 0.00020
+max_grad_norm: 0.05
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
 lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
@@ -162,6 +171,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     attention_resolutions: [8]
     cond_emb: !ref <cond_emb>
     use_cond_emb: !ref <use_cond_emb>
+    dropout: !ref <dropout>    
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
@@ -223,6 +233,7 @@ lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     warmup: !ref <lr_warmup_steps>
     cooldown: !ref <lr_cooldown_steps>
     total_steps: !ref <lr_total_steps>
+    decay_every: !ref <lr_decay_every>
 
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint

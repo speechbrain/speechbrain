@@ -29,6 +29,7 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
+from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
 
@@ -2830,6 +2831,137 @@ class HIFIGAN(Pretrained):
             self.first_call = False
         with torch.no_grad():
             waveform = self.infer(spectrogram.unsqueeze(0).to(self.device))
+        return waveform.squeeze(0)
+
+    def forward(self, spectrogram):
+        "Decodes the input spectrograms"
+        return self.decode_batch(spectrogram)
+
+
+class DIFFUSION_VOCODER(Pretrained):
+    """
+    A ready-to-use inference wrapper for Diffusion vocoders.
+    The wrapper allows to perform generative tasks:
+        locally-conditional generation: mel_spec -> waveform
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    """
+
+    HPARAMS_NEEDED = ["difussion"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if hasattr(self.hparams, "diffwave"):
+            self.infer = self.hparams.diffusion.diffwave_inference
+        else:
+            raise NotImplementedError
+
+    def decode_batch(
+        self,
+        mel,
+        hop_len,
+        mel_lens=None,
+        fast_sampling=False,
+        fast_sampling_noise_schedule=None,
+    ):
+        """Generate waveforms from spectrograms
+        Arguments
+        ---------
+        shape: enumerable
+            the shape of the sample to generate
+            for diffwave the shape (audio length) is defined in hyperparameters
+        mel: torch.tensor
+            spectrogram [batch, mels, time]
+        hop_len: int
+            Hop length during mel-spectrogram extraction
+            Should be the same value as in the .yaml file
+            Used to determine the output wave length
+            Also used to mask the noise for vocoding task
+        mel_lens: torch.tensor
+            Used to mask the noise caused by padding
+            A list of lengths of mel-spectrograms for the batch
+            Can be obtained from the output of Tacotron/FastSpeech
+        fast_sampling: bool
+            whether to do fast sampling
+        fast_sampling_noise_schedule: list
+            the noise schedules used for fast sampling
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+
+        """
+        with torch.no_grad():
+            waveform = self.infer(
+                unconditional=False,
+                scale=hop_len,
+                condition=mel.to(self.device),
+                fast_sampling=fast_sampling,
+                fast_sampling_noise_schedule=fast_sampling_noise_schedule,
+            )
+
+        # Mask the noise caused by padding during batch inference
+        if mel_lens is not None and hop_len is not None:
+            waveform = self.mask_noise(waveform, mel_lens, hop_len)
+        return waveform
+
+    def mask_noise(self, waveform, mel_lens, hop_len):
+        """Mask the noise caused by padding during batch inference
+        Arguments
+        ---------
+        wavform: torch.tensor
+            Batch of generated waveforms [batch, 1, time]
+        mel_lens: torch.tensor
+            A list of lengths of mel-spectrograms for the batch
+            Can be obtained from the output of Tacotron/FastSpeech
+        hop_len: int
+            hop length used for mel-spectrogram extraction
+            same value as in the .yaml file
+        Returns
+        -------
+        waveform: torch.tensor
+            Batch of waveforms without padded noise [batch, 1, time]
+        """
+        waveform = waveform.squeeze(1)
+        # the correct audio length should be hop_len * mel_len
+        mask = length_to_mask(
+            mel_lens * hop_len, waveform.shape[1], device=waveform.device
+        ).bool()
+        waveform.masked_fill_(~mask, 0.0)
+        return waveform.unsqueeze(1)
+
+    def decode_spectrogram(
+        self,
+        spectrogram,
+        hop_len,
+        fast_sampling=False,
+        fast_sampling_noise_schedule=None,
+    ):
+        """Computes waveforms from a single mel-spectrogram
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            mel-spectrogram [mels, time]
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> sample_rate = 22050
+        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
+        """
+        with torch.no_grad():
+            waveform = self.infer(
+                unconditional=False,
+                scale=hop_len,
+                condition=spectrogram.unsqueeze(0).to(self.device),
+                fast_sampling=fast_sampling,
+                fast_sampling_noise_schedule=fast_sampling_noise_schedule,
+            )
         return waveform.squeeze(0)
 
     def forward(self, spectrogram):

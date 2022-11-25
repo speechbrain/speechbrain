@@ -12,7 +12,6 @@ for each batch during training.
 Authors
  * Artem Ploujnikov 2022
 """
-import datasets
 import logging
 import math
 import sys
@@ -20,6 +19,7 @@ import torch
 import speechbrain as sb
 import os
 from collections import namedtuple
+from audiomnist_prepare import prepare_audiomnist
 from hyperpyyaml import load_hyperpyyaml
 from torchaudio import functional as AF
 from torchaudio import transforms
@@ -29,6 +29,7 @@ from speechbrain.utils import data_utils
 from speechbrain.utils.train_logger import plot_spectrogram
 from speechbrain.utils.data_utils import match_shape, unsqueeze_as
 from enum import Enum
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -993,27 +994,13 @@ def apply_sort(hparams, dataset):
 
 def load_dataset(hparams):
     dataset_splits = {}
-    if os.path.exists(hparams["dataset"]):
-        # Use a folder:
-        for split_id in DATASET_SPLITS:
-            split_path = os.path.join(hparams["dataset"], f"{split_id}.json")
-            dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(
-                split_path
-            )
-            dataset_split = apply_sort(hparams, dataset_split)
-            dataset_splits[split_id] = dataset_split
-    else:
-        dataset = datasets.load_dataset(
-            hparams["dataset"], cache_dir=hparams["data_folder"]
+    for split_id in DATASET_SPLITS:
+        split_path = os.path.join(
+            hparams["data_save_folder"], f"{split_id}.json"
         )
-        for split_id in DATASET_SPLITS:
-            dataset_split = sb.dataio.dataset.DynamicItemDataset.from_arrow_dataset(
-                dataset[split_id],
-                replacements={"data_root": hparams["data_folder"]},
-            )
-            dataset_split = apply_sort(hparams, dataset_split)
-            dataset_splits[split_id] = dataset_split
-
+        dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
+        dataset_split = apply_sort(hparams, dataset_split)
+        dataset_splits[split_id] = dataset_split 
     return dataset_splits
 
 
@@ -1048,7 +1035,7 @@ def dataio_prep(hparams):
     def audio_pipeline(wav):
         """Load the signal, and output it"""
         if not os.path.isabs(wav):
-            wav = os.path.join(hparams["dataset"], wav)
+            wav = os.path.join(hparams["data_save_folder"], wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = resample(sig)
         return sig
@@ -1329,6 +1316,19 @@ if __name__ == "__main__":
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
+    )
+    run_on_main(
+        prepare_audiomnist,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_save_folder"],
+            "prepare_data_folder": hparams["prepare_data_folder"],
+            "norm": hparams["data_prepare_norm"],
+            "trim": hparams["data_prepare_trim"],
+            "trim_threshold": hparams["data_prepare_trim_threshold"],
+            "src_sample_rate": hparams["data_prepare_sample_rate_src"],
+            "tgt_sample_rate": hparams["data_prepare_sample_rate_tgt"],
+        },
     )
 
     # Create dataset objects "train", "valid", and "test".
