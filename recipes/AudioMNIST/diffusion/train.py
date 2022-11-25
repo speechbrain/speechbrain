@@ -789,7 +789,10 @@ class DiffusionBrain(sb.Brain):
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
         self.reference_samples_neeed = False
-        self.is_conditioned = any(self.hparams.use_cond_emb.values())
+        self.is_conditioned = (
+            hasattr(self.hparams, "use_cond_emb")
+            and any(self.hparams.use_cond_emb.values())
+        )
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.

@@ -13,8 +13,8 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: ./data
 prepare_data_folder: ./audiomnist-prepare-data
 output_folder: !ref ./results/diffusion/<seed>
-data_save_folder: !ref <save_folder>/audiomnist_prepared
 save_folder: !ref <output_folder>/save
+data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
 
@@ -46,6 +46,7 @@ max_grad_norm: 0.05
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
 lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
+lr_decay_every: 1000
 train_timesteps: 250
 adam_beta1: 0.95
 adam_beta2: 0.999
@@ -57,6 +58,7 @@ enable_reference_samples: True
 loss_l2_steps: 100000
 train_log_interval: 10
 train_diffusion_start_epoch: 1
+dropout: 0.0
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000

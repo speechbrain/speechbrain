@@ -11,8 +11,10 @@ seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
+prepare_data_folder: ./audiomnist-prepare-data
 output_folder: !ref ./results/diffusion-latent/<seed>
 save_folder: !ref <output_folder>/save
+data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
 
@@ -22,9 +24,15 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
+# Preparation Parameters
+data_prepare_norm: True
+data_prepare_trim: True
+data_prepare_trim_threshold: -30.
+data_prepare_sample_rate_src: 48000
+data_prepare_sample_rate_tgt: 48000
+
 # Training Parameters
 diffusion_mode: latent
-dataset: flexthink/audiomnist
 train_len: 28520
 sort: len
 batch_shuffle: true
@@ -234,14 +242,14 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 
 # This function manages learning rate annealing over the epochs.

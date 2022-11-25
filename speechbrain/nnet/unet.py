@@ -580,14 +580,15 @@ def build_emb_proj(emb_config, proj_dim=None, use_emb=None):
         a ModuleDict with a module for each embedding
     """
     emb_proj = {}
-    for key, item_config in emb_config.items():
-        if use_emb is None or use_emb.get(key):
-            if "emb_proj" in item_config:
-                emb_proj[key] = emb_proj
-            else:
-                emb_proj[key] = EmbeddingProjection(
-                    emb_dim=item_config["emb_dim"], proj_dim=proj_dim
-                )
+    if emb_config is not None:
+        for key, item_config in emb_config.items():
+            if use_emb is None or use_emb.get(key):
+                if "emb_proj" in item_config:
+                    emb_proj[key] = emb_proj
+                else:
+                    emb_proj[key] = EmbeddingProjection(
+                        emb_dim=item_config["emb_dim"], proj_dim=proj_dim
+                    )
     return nn.ModuleDict(emb_proj)
 
 
