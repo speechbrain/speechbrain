@@ -842,6 +842,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             attn,
             prev_attn_peak,
             hyps_and_scores,
+            scores,
         )
 
     def init_beam_search_data(self, enc_states, wav_len):
@@ -989,6 +990,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 attn,
                 prev_attn_peak,
                 hyps_and_scores,
+                scores,
             ) = self.search_step(
                 t,
                 hypotheses,
@@ -1005,11 +1007,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
 
         (hyps_and_scores, hypotheses,) = self._finalize_hyps_and_scores(
-            inp_tokens,
-            hyps_and_scores,
-            hypotheses,
-            self.beam_size,
-            beam_search_running_data.scores,
+            inp_tokens, hyps_and_scores, hypotheses, self.beam_size, scores,
         )
 
         (
