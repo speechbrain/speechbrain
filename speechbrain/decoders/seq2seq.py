@@ -448,7 +448,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         cond = eos_probs > (self.eos_threshold * max_probs)
         return cond
 
-    def _update_hyp_and_scores(
+    def _update_hyps_and_scores_if_eos_tokens(
         self,
         inp_tokens,
         timesteps,
@@ -777,7 +777,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs_clone, inp_tokens, predecessors, candidates, hypotheses,
         )
 
-        is_eos = self._update_hyp_and_scores(
+        is_eos = self._update_hyps_and_scores_if_eos_tokens(
             inp_tokens,
             timestep,
             hypotheses,
@@ -888,7 +888,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             eos_hyps_and_log_probs_scores,
         )
 
-    def _finalize_eos_hyps_and_log_probs_scores(
+    def _fill_hyps_with_eos_token(
         self, inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
     ):
         """ Fill the hypotheses that have not reached eos with eos."""
@@ -899,7 +899,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 .fill_(self.eos_index)
                 .long()
             )
-            _ = self._update_hyp_and_scores(
+            _ = self._update_hyps_and_scores_if_eos_tokens(
                 inp_tokens,
                 self.max_decode_steps,
                 hypotheses,
@@ -953,7 +953,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 eos_hyps_and_log_probs_scores,
             )
 
-        eos_hyps_and_log_probs_scores = self._finalize_eos_hyps_and_log_probs_scores(
+        eos_hyps_and_log_probs_scores = self._fill_hyps_with_eos_token(
             inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
         )
 
