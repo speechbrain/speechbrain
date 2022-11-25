@@ -749,8 +749,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ---------
         eos_hyps_and_log_probs_scores : list
             To store generated hypotheses and scores.
-        topk : int
-            Number of hypothesis to return.
 
         Returns
         -------
@@ -832,7 +830,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs, step, self.min_decode_steps,
         )
 
-        # Adding Scorer scores to log_prob if Scorer is not None.
         (log_probs, scorer_memory,) = self._scorer_step(
             inp_tokens, scorer_memory, attn, log_probs,
         )
