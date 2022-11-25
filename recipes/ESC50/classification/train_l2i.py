@@ -7,17 +7,12 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
-from sklearn.metrics import confusion_matrix
 import numpy as np
-from confusion_matrix_fig import create_cm_fig
 from speechbrain.utils.metric_stats import MetricStats
-import matplotlib.pyplot as plt
 from os import makedirs
 
 import torch.nn.functional as F
 
-import librosa
-from librosa.core import stft, istft
 import scipy.io.wavfile as wavf
 import soundfile as sf
 from speechbrain.processing.NMF import spectral_phase
@@ -90,18 +85,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
         if not (batch is None):
-            # add the phase of the original audio
-            X_int_wphase = (
-                (X_int.permute(1, 0).unsqueeze(0) * torch.exp(1j * X_stft_phase))
-                .cpu()
-                .numpy()
-                .squeeze()
+            X_stft_phase_sb = torch.cat(
+                (torch.cos(X_stft_phase).unsqueeze(-1), torch.sin(X_stft_phase).unsqueeze(-1)), dim=-1
             )
 
-            # invert back to time domain (cem: need to check if this is the exact same SB istft)
-            # I am being lazy by using numpy here for istft as it supports complex numbers directly
-            x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
-            # x_int = self.modules.compute_istft(X_int_wphase)
+            temp = X_int.transpose(0, 1).unsqueeze(0).unsqueeze(-1)
+
+            X_wpsb = temp * X_stft_phase_sb
+            x_int_sb = self.modules.compute_istft(X_wpsb)
 
             # save reconstructed and original spectrograms
             makedirs(
@@ -114,25 +105,26 @@ class InterpreterESC50Brain(sb.core.Brain):
             current_class_ind = batch.class_string_encoded.data[0].item()
             current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
             predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl]
-            sf.write(
+            torchaudio.save(
                 os.path.join(
                     self.hparams.output_folder,
                     f"audios_from_interpretation",
                     f"original_tc_{current_class_name}_pc_{predicted_class_name}.wav",
                 ),
-                wavs[0].cpu().numpy(),
+                wavs[0].unsqueeze(0),
                 self.hparams.sample_rate,
             )
 
-            sf.write(
+            torchaudio.save(
                 os.path.join(
                     self.hparams.output_folder,
                     f"audios_from_interpretation",
                     f"interpretation_tc_{current_class_name}_pc_{predicted_class_name}.wav",
                 ),
-                x_int,
+                x_int_sb,
                 self.hparams.sample_rate,
             )
+
         return X_int
 
     def overlap_test(self, batch):
@@ -149,18 +141,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(mix)
 
-        # add the phase of the original audio
-        X_int_wphase = (
-            (X_int.permute(1, 0).unsqueeze(0) * torch.exp(1j * X_stft_phase))
-            .cpu()
-            .numpy()
-            .squeeze()
+        X_stft_phase_sb = torch.cat(
+            (torch.cos(X_stft_phase).unsqueeze(-1), torch.sin(X_stft_phase).unsqueeze(-1)), dim=-1
         )
+        
+        temp = X_int.transpose(0, 1).unsqueeze(0).unsqueeze(-1)
 
-        # invert back to time domain (cem: need to check if this is the exact same SB istft)
-        # I am being lazy by using numpy here for istft as it supports complex numbers directly
-        x_int = istft(X_int_wphase.transpose(), win_length=1024, hop_length=512)
-        # x_int = self.modules.compute_istft(X_int_wphase)
+        X_wpsb = temp * X_stft_phase_sb
+        x_int_sb = self.modules.compute_istft(X_wpsb)
 
         # save reconstructed and original spectrograms
         # epoch = self.hparams.epoch_counter.current
@@ -179,35 +167,35 @@ class InterpreterESC50Brain(sb.core.Brain):
             exist_ok=True,
         )
 
-        sf.write(
+        torchaudio.save(
             os.path.join(
                 out_folder, "mixture.wav"
             ),
-            mix.squeeze().cpu().numpy(),
+            mix,
             self.hparams.sample_rate,
         )
 
-        sf.write(
+        torchaudio.save(
             os.path.join(
                 out_folder, "source.wav"
             ),
-            s1.cpu().numpy(),
+            s1.unsqueeze(0),
             self.hparams.sample_rate,
         )
 
-        sf.write(
+        torchaudio.save(
             os.path.join(
                 out_folder, "noise.wav"
             ),
-            s2.cpu().numpy(),
+            s2.unsqueeze(0),
             self.hparams.sample_rate,
         )
 
-        sf.write(
+        torchaudio.save(
             os.path.join(
                 out_folder, "interpretation.wav"
             ),
-            x_int,
+            x_int_sb,
             self.hparams.sample_rate,
         )
 
