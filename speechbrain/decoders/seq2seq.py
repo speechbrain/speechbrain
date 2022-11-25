@@ -156,7 +156,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
     def forward(self, enc_states, wav_len):
         """This method performs a greedy search.
-
         Arguments
         ---------
         enc_states : torch.Tensor
@@ -194,6 +193,42 @@ class S2SGreedySearcher(S2SBaseSearcher):
         )
 
         return predictions, scores
+
+
+class S2SWhisperGreedySearch(S2SGreedySearcher):
+    """
+    This class implements the greedy decoding
+    for Whisper neural nets made by OpenAI in
+    https://cdn.openai.com/papers/whisper.pdf.
+
+    Arguments
+    ---------
+    module : HuggingFaceWhisper
+        The Whisper model.
+    **kwargs
+        see S2SBaseSearcher, arguments are directly passed.
+    """
+
+    def __init__(self, module, **kwargs):
+        super().__init__(**kwargs)
+        self.module = module
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+    def reset_mem(self, batch_size, device):
+        """When doing greedy search, keep hidden state (hs) adn context vector (c)
+        as memory.
+        """
+        # TODO: '<|startoftranscript|><|en|>'. Need to let the possibility to modify the second value at least.
+        return torch.tensor([[50258, 50259]] * batch_size).to(device)
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        memory = _update_mem(inp_tokens, memory)
+        dec_out = self.module.forward_decoder(
+            enc_states, memory
+        )  # TODO: switch args
+        log_probs = self.softmax(dec_out[:, -1])
+        return log_probs, memory, None
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
@@ -1302,6 +1337,70 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
+
+    def lm_forward_step(self, inp_tokens, memory):
+        """Performs a step in the implemented LM module."""
+        memory = _update_mem(inp_tokens, memory)
+        if not next(self.lm_modules.parameters()).is_cuda:
+            self.lm_modules.to(inp_tokens.device)
+        logits = self.lm_modules(memory)
+        log_probs = self.softmax(logits / self.temperature_lm)
+        return log_probs[:, -1, :], memory
+
+
+class S2SWhisperBeamSearch(S2SBeamSearcher):
+    """    This class implements the beam search decoding
+    for Whisper neural nets made by OpenAI in
+    https://cdn.openai.com/papers/whisper.pdf.
+
+    Arguments
+    ---------
+    model : torch.nn.Module
+        The model to use for decoding.
+    **kwargs
+        Arguments to pass to S2SBeamSearcher
+
+    Example:
+    --------
+    >>> # see recipes/LibriSpeech/ASR_transformer/experiment.py
+    """
+
+    def __init__(
+        self, model, temperature=1.0, temperature_lm=1.0, **kwargs,
+    ):
+        super(S2SWhisperBeamSearch, self).__init__(**kwargs)
+
+        self.model = model
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
+        self.temperature_lm = temperature_lm
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during beamsearch."""
+        # TODO: '<|startoftranscript|><|en|>'. Need to let the possibility to modify the second value at least.
+        return torch.tensor([[50258, 50259]] * batch_size).to(device)
+
+    def reset_lm_mem(self, batch_size, device):
+        """Needed to reset the LM memory during beamsearch."""
+        return None
+
+    def permute_mem(self, memory, index):
+        """Permutes the memory."""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def permute_lm_mem(self, memory, index):
+        """Permutes the memory of the language model."""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        memory = _update_mem(inp_tokens, memory)
+        dec_out = self.model.forward_decoder(enc_states, memory)
+        log_probs = self.softmax(dec_out[:, -1])
+        return log_probs, memory, None
 
     def lm_forward_step(self, inp_tokens, memory):
         """Performs a step in the implemented LM module."""

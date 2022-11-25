@@ -61,7 +61,6 @@ class HuggingFaceWhisper(nn.Module):
         language="en",
     ):
         super().__init__()
-
         self.sampling_rate = sampling_rate
         self.encoder_only = encoder_only
         self.freeze = freeze
