@@ -448,123 +448,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         cond = eos_probs > (self.eos_threshold * max_probs)
         return cond
 
-    def _update_hyps_and_scores_if_eos_tokens(
-        self,
-        inp_tokens,
-        timesteps,
-        hypotheses,
-        eos_hyps_and_log_probs_scores,
-        scores,
-    ):
-        """This method will update hyps and scores if inp_tokens are eos.
-
-        Arguments
-        ---------
-        inp_tokens : torch.Tensor
-            The current output.
-        alived_seq : torch.Tensor
-            The tensor to store the alived_seq.
-        alived_log_probs : torch.Tensor
-            The tensor to store the alived_log_probs.
-        eos_hyps_and_log_probs_scores : list
-            To store generated hypotheses and scores.
-        scores : torch.Tensor
-            The final scores of beam search.
-        timesteps : float
-            The current timesteps. This is for length rewarding.
-
-        Returns
-        -------
-        is_eos : torch.BoolTensor
-            Each element represents whether the token is eos.
-        """
-        is_eos = inp_tokens.eq(self.eos_index)
-        (eos_indices,) = torch.nonzero(is_eos, as_tuple=True)
-
-        # Store the hypothesis and their scores when reaching eos.
-        if eos_indices.shape[0] > 0:
-            for index in eos_indices:
-                # convert to int
-                index = index.item()
-                batch_id = torch.div(
-                    index, self.beam_size, rounding_mode="floor"
-                )
-                if (
-                    len(eos_hyps_and_log_probs_scores[batch_id])
-                    == self.beam_size
-                ):
-                    continue
-                hyp = hypotheses.alived_seq[index, :]
-                log_probs = hypotheses.alived_log_probs[index, :]
-                final_scores = scores[index]
-                eos_hyps_and_log_probs_scores[batch_id].append(
-                    (hyp, log_probs, final_scores)
-                )
-        return is_eos
-
-    def _get_topk_prediction(self, eos_hyps_and_log_probs_scores):
-        """This method sorts the scores and return corresponding hypothesis and log probs.
-
-        Arguments
-        ---------
-        eos_hyps_and_log_probs_scores : list
-            To store generated hypotheses and scores.
-        topk : int
-            Number of hypothesis to return.
-
-        Returns
-        -------
-        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
-            This tensor stores the topk predicted hypothesis.
-        topk_lengths : torch.Tensor (batch, topk)
-            This tensor contains the final scores of topk hypotheses.
-        topk_scores : torch.Tensor (batch, topk)
-            The length of each topk sequence in the batch.
-        topk_log_probs : torch.Tensor (batch, topk, max length of token_id sequences)
-            The log probabilities of each hypotheses.
-        """
-        top_hyps, top_log_probs, top_scores, top_lengths = [], [], [], []
-        batch_size = len(eos_hyps_and_log_probs_scores)
-
-        # Collect hypotheses
-        for i in range(len(eos_hyps_and_log_probs_scores)):
-            hyps, log_probs, scores = zip(*eos_hyps_and_log_probs_scores[i])
-            top_hyps += hyps
-            top_scores += scores
-            top_log_probs += log_probs
-            top_lengths += [len(hyp) for hyp in hyps]
-        # Convert lists to tensors
-        top_hyps = torch.nn.utils.rnn.pad_sequence(
-            top_hyps, batch_first=True, padding_value=0
-        )
-        top_log_probs = torch.nn.utils.rnn.pad_sequence(
-            top_log_probs, batch_first=True, padding_value=0
-        )
-        top_lengths = torch.tensor(
-            top_lengths, dtype=torch.float, device=top_hyps.device
-        )
-        top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
-
-        # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1) / top_hyps.size(1)
-
-        # Get topk indices
-        topk_scores, indices = top_scores.topk(self.topk, dim=-1)
-        indices = (indices + self.beam_offset.unsqueeze(1)).view(
-            batch_size * self.topk
-        )
-        # Select topk hypotheses
-        topk_hyps = torch.index_select(top_hyps, dim=0, index=indices,)
-        topk_hyps = topk_hyps.view(batch_size, self.topk, -1)
-        topk_lengths = torch.index_select(top_lengths, dim=0, index=indices,)
-        topk_lengths = topk_lengths.view(batch_size, self.topk)
-        topk_log_probs = torch.index_select(
-            top_log_probs, dim=0, index=indices,
-        )
-        topk_log_probs = topk_log_probs.view(batch_size, self.topk, -1)
-
-        return topk_hyps, topk_lengths, topk_scores, topk_log_probs
-
     def init_hypotheses(self):
         """This method initializes the Hypotheses object."""
         return Hypotheses(
@@ -645,6 +528,31 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
         return prev_attn_peak
 
+    def _update_reset_memory(self, enc_states, enc_lens):
+        """ Call reset memory for each module. """
+        memory = self.reset_mem(self.n_bh, device=self.device)
+        scorer_memory = None
+        if self.scorer is not None:
+            scorer_memory = self.scorer.reset_scorer_mem(enc_states, enc_lens)
+        return memory, scorer_memory
+
+    def _update_permute_memory(
+        self, memory, scorer_memory, predecessors, candidates, prev_attn_peak
+    ):
+        """ Call permute memory for each module. It allows us to synchronize the memory with the output."""
+        memory = self._attn_weight_permute_memory_step(memory, predecessors)
+
+        scorer_memory = self._scorer_permute_memory_step(
+            scorer_memory, predecessors, candidates
+        )
+
+        # If using_max_attn_shift, then the previous attn peak has to be permuted too.
+        prev_attn_peak = self._max_attn_shift_permute_memory_step(
+            prev_attn_peak, predecessors
+        )
+
+        return memory, scorer_memory, prev_attn_peak
+
     def _update_sequences_and_log_probs(
         self, log_probs, inp_tokens, predecessors, candidates, hypotheses,
     ):
@@ -724,107 +632,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             hypotheses,
         )
 
-    def search_step(
-        self,
-        timestep,
-        hypotheses,
-        enc_states,
-        enc_lens,
-        inp_tokens,
-        memory,
-        scorer_memory,
-        log_probs,
-        attn,
-        prev_attn_peak,
-        eos_hyps_and_log_probs_scores,
-    ):
-        """ A search step for the next most likely tokens."""
-        (log_probs, memory, attn,) = self._attn_weight_step(
-            inp_tokens, memory, enc_states, enc_lens, attn, log_probs,
-        )
-
-        (log_probs, prev_attn_peak,) = self._max_attn_shift_step(
-            attn, prev_attn_peak, log_probs,
-        )
-
-        log_probs = self._set_eos_minus_inf_step(
-            log_probs, timestep, self.min_decode_steps,
-        )
-
-        # Adding Scorer scores to log_prob if Scorer is not None.
-        (log_probs, scorer_memory,) = self._scorer_step(
-            inp_tokens, scorer_memory, attn, log_probs,
-        )
-
-        log_probs = self._eos_threshold_step(log_probs)
-
-        (
-            log_probs_clone,
-            scores,
-            candidates,
-            predecessors,
-            inp_tokens,
-            hypotheses,
-        ) = self._compute_scores_and_next_inp_tokens(
-            hypotheses, log_probs, timestep,
-        )
-
-        memory, scorer_memory, prev_attn_peak = self._update_permute_memory(
-            memory, scorer_memory, predecessors, candidates, prev_attn_peak
-        )
-
-        hypotheses = self._update_sequences_and_log_probs(
-            log_probs_clone, inp_tokens, predecessors, candidates, hypotheses,
-        )
-
-        is_eos = self._update_hyps_and_scores_if_eos_tokens(
-            inp_tokens,
-            timestep,
-            hypotheses,
-            eos_hyps_and_log_probs_scores,
-            scores,
-        )
-
-        # Block the paths that have reached eos.
-        hypotheses.sequence_scores.masked_fill_(is_eos, self.minus_inf)
-
-        return (
-            hypotheses,
-            inp_tokens,
-            memory,
-            scorer_memory,
-            log_probs,
-            attn,
-            prev_attn_peak,
-            eos_hyps_and_log_probs_scores,
-            scores,
-        )
-
-    def _update_reset_memory(self, enc_states, enc_lens):
-        """ Call reset memory for each module. """
-        memory = self.reset_mem(self.n_bh, device=self.device)
-        scorer_memory = None
-        if self.scorer is not None:
-            scorer_memory = self.scorer.reset_scorer_mem(enc_states, enc_lens)
-        return memory, scorer_memory
-
-    def _update_permute_memory(
-        self, memory, scorer_memory, predecessors, candidates, prev_attn_peak
-    ):
-        """ Call permute memory for each module. It allows us to synchronize the memory with the output."""
-        memory = self._attn_weight_permute_memory_step(memory, predecessors)
-
-        scorer_memory = self._scorer_permute_memory_step(
-            scorer_memory, predecessors, candidates
-        )
-
-        # If using_max_attn_shift, then the previous attn peak has to be permuted too.
-        prev_attn_peak = self._max_attn_shift_permute_memory_step(
-            prev_attn_peak, predecessors
-        )
-
-        return memory, scorer_memory, prev_attn_peak
-
     def init_beam_search_data(self, enc_states, wav_len):
         """ Initialize the beam search data."""
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
@@ -888,6 +695,198 @@ class S2SBeamSearcher(S2SBaseSearcher):
             eos_hyps_and_log_probs_scores,
         )
 
+    def _update_hyps_and_scores_if_eos_token(
+        self,
+        inp_tokens,
+        timesteps,
+        hypotheses,
+        eos_hyps_and_log_probs_scores,
+        scores,
+    ):
+        """This method will update hyps and scores if inp_tokens are eos.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The current output.
+        alived_seq : torch.Tensor
+            The tensor to store the alived_seq.
+        alived_log_probs : torch.Tensor
+            The tensor to store the alived_log_probs.
+        eos_hyps_and_log_probs_scores : list
+            To store generated hypotheses and scores.
+        scores : torch.Tensor
+            The final scores of beam search.
+        timesteps : float
+            The current timesteps. This is for length rewarding.
+
+        Returns
+        -------
+        is_eos : torch.BoolTensor
+            Each element represents whether the token is eos.
+        """
+        is_eos = inp_tokens.eq(self.eos_index)
+        (eos_indices,) = torch.nonzero(is_eos, as_tuple=True)
+
+        # Store the hypothesis and their scores when reaching eos.
+        if eos_indices.shape[0] > 0:
+            for index in eos_indices:
+                # convert to int
+                index = index.item()
+                batch_id = torch.div(
+                    index, self.beam_size, rounding_mode="floor"
+                )
+                if (
+                    len(eos_hyps_and_log_probs_scores[batch_id])
+                    == self.beam_size
+                ):
+                    continue
+                hyp = hypotheses.alived_seq[index, :]
+                log_probs = hypotheses.alived_log_probs[index, :]
+                final_scores = scores[index]
+                eos_hyps_and_log_probs_scores[batch_id].append(
+                    (hyp, log_probs, final_scores)
+                )
+
+        # Block the paths that have reached eos.
+        hypotheses.sequence_scores.masked_fill_(is_eos, self.minus_inf)
+
+    def _get_topk_prediction(self, eos_hyps_and_log_probs_scores):
+        """This method sorts the scores and return corresponding hypothesis and log probs.
+
+        Arguments
+        ---------
+        eos_hyps_and_log_probs_scores : list
+            To store generated hypotheses and scores.
+        topk : int
+            Number of hypothesis to return.
+
+        Returns
+        -------
+        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
+            This tensor stores the topk predicted hypothesis.
+        topk_lengths : torch.Tensor (batch, topk)
+            This tensor contains the final scores of topk hypotheses.
+        topk_scores : torch.Tensor (batch, topk)
+            The length of each topk sequence in the batch.
+        topk_log_probs : torch.Tensor (batch, topk, max length of token_id sequences)
+            The log probabilities of each hypotheses.
+        """
+        top_hyps, top_log_probs, top_scores, top_lengths = [], [], [], []
+        batch_size = len(eos_hyps_and_log_probs_scores)
+
+        # Collect hypotheses
+        for i in range(len(eos_hyps_and_log_probs_scores)):
+            hyps, log_probs, scores = zip(*eos_hyps_and_log_probs_scores[i])
+            top_hyps += hyps
+            top_scores += scores
+            top_log_probs += log_probs
+            top_lengths += [len(hyp) for hyp in hyps]
+        # Convert lists to tensors
+        top_hyps = torch.nn.utils.rnn.pad_sequence(
+            top_hyps, batch_first=True, padding_value=0
+        )
+        top_log_probs = torch.nn.utils.rnn.pad_sequence(
+            top_log_probs, batch_first=True, padding_value=0
+        )
+        top_lengths = torch.tensor(
+            top_lengths, dtype=torch.float, device=top_hyps.device
+        )
+        top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
+
+        # Use SpeechBrain style lengths
+        top_lengths = (top_lengths - 1) / top_hyps.size(1)
+
+        # Get topk indices
+        topk_scores, indices = top_scores.topk(self.topk, dim=-1)
+        indices = (indices + self.beam_offset.unsqueeze(1)).view(
+            batch_size * self.topk
+        )
+        # Select topk hypotheses
+        topk_hyps = torch.index_select(top_hyps, dim=0, index=indices,)
+        topk_hyps = topk_hyps.view(batch_size, self.topk, -1)
+        topk_lengths = torch.index_select(top_lengths, dim=0, index=indices,)
+        topk_lengths = topk_lengths.view(batch_size, self.topk)
+        topk_log_probs = torch.index_select(
+            top_log_probs, dim=0, index=indices,
+        )
+        topk_log_probs = topk_log_probs.view(batch_size, self.topk, -1)
+
+        return topk_hyps, topk_lengths, topk_scores, topk_log_probs
+
+    def search_step(
+        self,
+        timestep,
+        hypotheses,
+        enc_states,
+        enc_lens,
+        inp_tokens,
+        memory,
+        scorer_memory,
+        log_probs,
+        attn,
+        prev_attn_peak,
+        eos_hyps_and_log_probs_scores,
+    ):
+        """ A search step for the next most likely tokens."""
+        (log_probs, memory, attn,) = self._attn_weight_step(
+            inp_tokens, memory, enc_states, enc_lens, attn, log_probs,
+        )
+
+        (log_probs, prev_attn_peak,) = self._max_attn_shift_step(
+            attn, prev_attn_peak, log_probs,
+        )
+
+        log_probs = self._set_eos_minus_inf_step(
+            log_probs, timestep, self.min_decode_steps,
+        )
+
+        # Adding Scorer scores to log_prob if Scorer is not None.
+        (log_probs, scorer_memory,) = self._scorer_step(
+            inp_tokens, scorer_memory, attn, log_probs,
+        )
+
+        log_probs = self._eos_threshold_step(log_probs)
+
+        (
+            log_probs_clone,
+            scores,
+            candidates,
+            predecessors,
+            inp_tokens,
+            hypotheses,
+        ) = self._compute_scores_and_next_inp_tokens(
+            hypotheses, log_probs, timestep,
+        )
+
+        memory, scorer_memory, prev_attn_peak = self._update_permute_memory(
+            memory, scorer_memory, predecessors, candidates, prev_attn_peak
+        )
+
+        hypotheses = self._update_sequences_and_log_probs(
+            log_probs_clone, inp_tokens, predecessors, candidates, hypotheses,
+        )
+
+        self._update_hyps_and_scores_if_eos_token(
+            inp_tokens,
+            timestep,
+            hypotheses,
+            eos_hyps_and_log_probs_scores,
+            scores,
+        )
+
+        return (
+            hypotheses,
+            inp_tokens,
+            memory,
+            scorer_memory,
+            log_probs,
+            attn,
+            prev_attn_peak,
+            eos_hyps_and_log_probs_scores,
+            scores,
+        )
+
     def _fill_hyps_with_eos_token(
         self, inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
     ):
@@ -899,7 +898,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 .fill_(self.eos_index)
                 .long()
             )
-            _ = self._update_hyps_and_scores_if_eos_tokens(
+            self._update_hyps_and_scores_if_eos_token(
                 inp_tokens,
                 self.max_decode_steps,
                 hypotheses,
@@ -953,12 +952,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 eos_hyps_and_log_probs_scores,
             )
 
-        eos_hyps_and_log_probs_scores = self._fill_hyps_with_eos_token(
+        finals_hyps_and_log_probs_scores = self._fill_hyps_with_eos_token(
             inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
         )
 
         # topk_hyps, topk_lengths, topk_scores, topk_log_probs,
-        return self._get_topk_prediction(eos_hyps_and_log_probs_scores)
+        return self._get_topk_prediction(finals_hyps_and_log_probs_scores)
 
     def permute_mem(self, memory, index):
         """This method permutes the seq2seq model memory
