@@ -85,9 +85,9 @@ class S2SBaseSearcher(torch.nn.Module):
         Arguments
         ---------
         inp_tokens : torch.Tensor
-            The input tensor of the current timestep.
+            The input tensor of the current step.
         memory : No limit
-            The memory variables input for this timestep.
+            The memory variables input for this step.
             (ex. RNN hidden states).
         enc_states : torch.Tensor
             The encoder states to be attended.
@@ -97,9 +97,9 @@ class S2SBaseSearcher(torch.nn.Module):
         Returns
         -------
         log_probs : torch.Tensor
-            Log-probabilities of the current timestep output.
+            Log-probabilities of the current step output.
         memory : No limit
-            The memory variables generated in this timestep.
+            The memory variables generated in this step.
             (ex. RNN hidden states).
         attn : torch.Tensor
             The attention weight for doing penalty.
@@ -489,9 +489,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
         return log_probs, scorer_memory
 
-    def _set_eos_minus_inf_step(self, log_probs, timestep, min_decode_steps):
-        """This method set the log_probs of eos to minus infinity if the timestep is less than min_decode_steps."""
-        if timestep < min_decode_steps:
+    def _set_eos_minus_inf_step(self, log_probs, step, min_decode_steps):
+        """This method set the log_probs of eos to minus infinity if the step is less than min_decode_steps."""
+        if step < min_decode_steps:
             log_probs[:, self.eos_index] = self.minus_inf
         return log_probs
 
@@ -586,9 +586,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         return alived_hyps
 
-    def _compute_scores_and_next_inp_tokens(
-        self, alived_hyps, log_probs, timestep
-    ):
+    def _compute_scores_and_next_inp_tokens(self, alived_hyps, log_probs, step):
         """ Compute scores and next input tokens."""
         scores = alived_hyps.sequence_scores.unsqueeze(1).expand(-1, self.n_out)
         scores = scores + log_probs
@@ -598,7 +596,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # length normalization
         if self.length_normalization:
-            scores = scores / (timestep + 1)
+            scores = scores / (step + 1)
 
         # keep topk beams
         scores, candidates = scores.view(self.batch_size, -1).topk(
@@ -614,10 +612,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         # recover the length normalization
         if self.length_normalization:
             alived_hyps.sequence_scores = alived_hyps.sequence_scores * (
-                timestep + 1
+                step + 1
             )
 
-        # The index of which beam the current top-K output came from in (t-1) timesteps.
+        # The index of which beam the current top-K output came from in (t-1) steps.
         predecessors = (
             torch.div(candidates, self.n_out, rounding_mode="floor")
             + self.beam_offset.unsqueeze(1).expand_as(candidates)
@@ -819,7 +817,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         prev_attn_peak,
         enc_states,
         enc_lens,
-        timestep,
+        step,
     ):
         """ A search step for the next most likely tokens."""
         (log_probs, memory, attn,) = self._attn_weight_step(
@@ -831,7 +829,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         log_probs = self._set_eos_minus_inf_step(
-            log_probs, timestep, self.min_decode_steps,
+            log_probs, step, self.min_decode_steps,
         )
 
         # Adding Scorer scores to log_prob if Scorer is not None.
@@ -849,7 +847,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             inp_tokens,
             alived_hyps,
         ) = self._compute_scores_and_next_inp_tokens(
-            alived_hyps, log_probs, timestep,
+            alived_hyps, log_probs, step,
         )
 
         memory, scorer_memory, prev_attn_peak = self._update_permute_memory(
