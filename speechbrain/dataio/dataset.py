@@ -355,7 +355,7 @@ class DynamicItemDataset(Dataset):
         """Creates a subset of this dataset for an overfitting
         test - repeating sample_count samples to create a repeating
         dataset with a total of epoch_data_count samples
-        
+
         Argument
         --------
         sample_count: int
@@ -459,10 +459,10 @@ def set_output_keys(datasets, output_keys):
     for dataset in datasets:
         dataset.set_output_keys(output_keys)
 
+
 def apply_overfit_test(hparams, dataset):
     if hparams["overfit_test"]:
         sample_count = hparams["overfit_test_sample_count"]
         epoch_data_count = hparams["overfit_test_epoch_data_count"]
         dataset = dataset.overfit_test(sample_count, epoch_data_count)
     return dataset
-

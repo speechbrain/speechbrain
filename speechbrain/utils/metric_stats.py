@@ -885,6 +885,7 @@ class ClassificationStats(MetricStats):
             label = key
         return label
 
+
 class MultiMetricStats:
     """A wrapper that evaluates multiple metrics simultaneously
 
@@ -905,6 +906,7 @@ class MultiMetricStats:
         more than one, every sample is processed individually, otherwise
         the whole batch is passed at once.
     """
+
     def __init__(self, metric, n_jobs=1, batch_eval=False):
         self.metric = _dictify(metric)
         self.n_jobs = n_jobs
@@ -927,7 +929,6 @@ class MultiMetricStats:
         # Batch evaluation
         if self.batch_eval:
             scores = self.eval_simple(*args, **kwargs)
-            
 
         else:
             if "predict" not in kwargs or "target" not in kwargs:
@@ -942,13 +943,13 @@ class MultiMetricStats:
                 scores_raw = multiprocess_evaluation(
                     metric=self.metric, n_jobs=self.n_jobs, **kwargs
                 )
-        
+
             keys = scores_raw[0].keys()
             scores = {
                 key: torch.tensor([score[key] for score in scores_raw])
                 for key in keys
             }
-                
+
         for key, metric_scores in scores.items():
             if key not in self.metrics:
                 self.metrics[key] = MetricStats(lambda x: x, batch_eval=True)
@@ -957,7 +958,6 @@ class MultiMetricStats:
     def eval_simple(self, *args, **kwargs):
         scores = self.metric(*args, **kwargs)
         return {key: score.detach() for key, score in scores.items()}
-
 
     def summarize(self, field=None, flat=False):
         """Summarize the metric scores, returning relevant stats.
@@ -976,22 +976,29 @@ class MultiMetricStats:
             Returns a dictionary of all computed stats
         """
 
-        result = {key: metric.summarize(field) for key, metric in self.metrics.items()}
+        result = {
+            key: metric.summarize(field) for key, metric in self.metrics.items()
+        }
         if flat:
-            result = {f"{key}_{field}": value for key, fields in result.items() for field, value in fields.items()}
+            result = {
+                f"{key}_{field}": value
+                for key, fields in result.items()
+                for field, value in fields.items()
+            }
         return result
 
 
 def _dictify(f):
-    """A wrapper that converts functions returning 
+    """A wrapper that converts functions returning
     namedtuples to functions returning dicts while leaving
     functions returning dicts intact"""
     has_asdict = None
+
     def wrapper(*args, **kwargs):
         nonlocal has_asdict
         result = f(*args, **kwargs)
         if has_asdict is None:
             has_asdict = hasattr(result, "_asdict")
         return result._asdict() if has_asdict else result
+
     return wrapper
-        

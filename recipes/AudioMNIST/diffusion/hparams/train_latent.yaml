@@ -26,7 +26,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 diffusion_mode: latent
 dataset: flexthink/audiomnist
 train_len: 28520
-sort: len 
+sort: len
 batch_shuffle: true
 sample_rate_src: 48000
 sample_rate_tgt: 16000
@@ -162,7 +162,7 @@ compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
 unet: !new:speechbrain.nnet.unet.UNetModel
     in_channels: !ref <autoencoder_latent_channels>
     model_channels: !ref <model_channels>
-    norm_num_groups: !ref <model_norm_num_groups>    
+    norm_num_groups: !ref <model_norm_num_groups>
     out_channels: !ref <autoencoder_latent_channels>
     num_res_blocks: !ref <model_num_res_blocks>
     attention_resolutions: [2]
@@ -275,4 +275,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
         compute_cost_autoencoder_rec: !ref <compute_cost_autoencoder_rec>
         global_norm: !ref <global_norm>
-        
+

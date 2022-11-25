@@ -1041,14 +1041,14 @@ def split_word(sequences, space="_"):
     return results
 
 
-def clean_padding_(tensor, length, len_dim=1, mask_value=0.):
-    """Sets the value of any padding on the specified tensor to mask_value. 
-    
+def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
+    """Sets the value of any padding on the specified tensor to mask_value.
+
     For instance, this can be used to zero out the outputs of an autoencoder
     during training past the specified length.
 
     This is an in-place operation
-    
+
     Arguments
     ---------
     tensor: torch.Tensor
@@ -1070,14 +1070,14 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.):
     tensor[~mask] = mask_value
 
 
-def clean_padding(tensor, length, len_dim=1, mask_value=0.):
-    """Sets the value of any padding on the specified tensor to mask_value. 
-    
+def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
+    """Sets the value of any padding on the specified tensor to mask_value.
+
     For instance, this can be used to zero out the outputs of an autoencoder
     during training past the specified length.
 
     This version of the operation does not modify the original tensor
-    
+
     Arguments
     ---------
     tensor: torch.Tensor
@@ -1090,9 +1090,6 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.):
         the value to be assigned to padding positions
     """
 
-
     result = tensor.clone()
     clean_padding_(result, length, len_dim, mask_value)
     return result
-
-

@@ -601,12 +601,12 @@ def unsqueeze_as(x, target):
 
 
 def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
-    """Adds extra padding to the specified dimension of a tensor to make 
+    """Adds extra padding to the specified dimension of a tensor to make
     it divisible  by the specified factor. This is useful when passing
-    variable-length sequences to downsampling UNets or other similar 
-    architectures in which inputs are expected to be divisible by the 
+    variable-length sequences to downsampling UNets or other similar
+    architectures in which inputs are expected to be divisible by the
     downsampling factor
-    
+
     Arguments
     ---------
     tensor: torch.Tensor
@@ -614,10 +614,10 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     length: torch.Tensor
         a 1-D tensor of relative lengths
-    
+
     factor: int
         the divisibility factor
-    
+
     len_dim: int
         the index of the dimension used as the length
 
@@ -628,7 +628,7 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
     -------
     tensor_padded: torch.Tensor
         the tensor, with additional padding if required
-    
+
     length: torch.Tensor
         the adjsted length tensor, if provided
 
@@ -655,11 +655,7 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
     new_shape = list(tensor.shape)
     new_shape[len_dim] = desired_time_dim
 
-    tensor_padded, _ = pad_right_to(
-        tensor,
-        new_shape,
-        value=pad_value,
-    )
+    tensor_padded, _ = pad_right_to(tensor, new_shape, value=pad_value,)
 
     # Adjust lengths to the new dimenson, post-padding
     if length is not None:
@@ -670,14 +666,14 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
 def trim_to_shape(tensor, shape):
     """Trims the specified tensor to match the specified shape
-    
+
     Arguments
     ---------
     tensor: torch.Tensor
         a tensor
     shape: enumerable
         the desired shape
-    
+
     Returns
     -------
     tensor: torch.Tensor
@@ -691,14 +687,14 @@ def trim_to_shape(tensor, shape):
 def trim_as(tensor, other):
     """Trims the specified tensor to match the shape of another
     tensor (at most)
-    
+
     Arguments
     ---------
     tensor: torch.Tensor:
         a tensor
     other: torch.Tensor
         the tensor whose shape to match
-        
+
     Returns
     -------
     tensor: torch.Tensor
@@ -717,7 +713,7 @@ def match_shape(tensor, other):
         a tensor
     other: torch.Tensor
         the tensor whose shape to match
-        
+
     Returns
     -------
     tensor: torch.Tensor
@@ -731,7 +727,7 @@ def match_shape(tensor, other):
 
 def batch_shuffle(items, batch_size):
     """Shuffles batches of fixed size within a sequence
-    
+
     Arguments
     ---------
     items: sequence
@@ -739,25 +735,22 @@ def batch_shuffle(items, batch_size):
 
     batch_size: int
         the batch size
-    
+
     Returns
     -------
     items: sequence
-        the original items. If a tensor was passed, a tensor 
+        the original items. If a tensor was passed, a tensor
         will be returned. Otherwise, it will return a list
     """
     batch_count = math.floor(len(items) / batch_size)
     batches = torch.randperm(batch_count)
     batch_idx = (
-        batches.unsqueeze(-1).expand(batch_count, batch_size)
-        * batch_size
+        batches.unsqueeze(-1).expand(batch_count, batch_size) * batch_size
     )
     batch_offset = torch.arange(batch_size).unsqueeze(0)
     batch_idx += batch_offset
     tail = torch.arange(batch_count * batch_size, len(items))
-    batch_idx = torch.concat(
-        (batch_idx.flatten(), tail)
-    )
+    batch_idx = torch.concat((batch_idx.flatten(), tail))
     if torch.is_tensor(items):
         result = items[batch_idx]
     else:

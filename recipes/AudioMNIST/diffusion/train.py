@@ -725,10 +725,8 @@ class DiffusionBrain(sb.Brain):
             `None` during the test stage.
         """
 
-        self.train_diffusion = (
-            (epoch is not None)
-            and 
-            (epoch >= self.hparams.train_diffusion_start_epoch)
+        self.train_diffusion = (epoch is not None) and (
+            epoch >= self.hparams.train_diffusion_start_epoch
         )
 
         # Set up statistics trackers for this stage

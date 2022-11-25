@@ -657,7 +657,9 @@ def compute_masked_loss(
 
     # Compute, then reduce loss
     loss = loss_fn(predictions, targets) * mask
-    return reduce_loss(loss, mask, reduction, label_smoothing, predictions, targets)
+    return reduce_loss(
+        loss, mask, reduction, label_smoothing, predictions, targets
+    )
 
 
 def compute_length_mask(data, length=None):
@@ -675,7 +677,14 @@ def compute_length_mask(data, length=None):
     return mask
 
 
-def reduce_loss(loss, mask, reduction="mean", label_smoothing=0.0, predictions=None, targets=None):
+def reduce_loss(
+    loss,
+    mask,
+    reduction="mean",
+    label_smoothing=0.0,
+    predictions=None,
+    targets=None,
+):
     """Performs the specified reduction of the raw loss value
 
     Arguments
@@ -724,7 +733,6 @@ def reduce_loss(loss, mask, reduction="mean", label_smoothing=0.0, predictions=N
             loss_reg = loss_reg.sum(1) / mask.sum(1)
 
         return -label_smoothing * loss_reg + (1 - label_smoothing) * loss
-
 
 
 def get_si_snr_with_pitwrapper(source, estimate_source):
@@ -1295,12 +1303,12 @@ class VariationalAutoencoderLoss(nn.Module):
     """The Variational Autoencoder loss, with support for length masking
 
     From Autoencoding Variational Bayes: https://arxiv.org/pdf/1312.6114.pdf
-    
+
     Arguments
     ---------
     rec_loss: callable
         a function or module to compute the reconstruction loss
-    
+
     dist_loss_weight: float
         the relative weight of the distribution loss (K-L divergence)
     """
@@ -1315,7 +1323,7 @@ class VariationalAutoencoderLoss(nn.Module):
 
     def forward(self, predictions, targets, length=None, reduction="batchmean"):
         """Computes the forward pass
-        
+
         Arguments
         ---------
         predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
@@ -1325,7 +1333,7 @@ class VariationalAutoencoderLoss(nn.Module):
         length : torch.Tensor
             Length of each sample for computing true error with a mask.
 
-        
+
         Results
         -------
         loss: torch.Tensor
@@ -1347,11 +1355,11 @@ class VariationalAutoencoderLoss(nn.Module):
 
         length : torch.Tensor
             Length of each sample for computing true error with a mask.
-        
+
         reduce: bool
             Whether or not to apply reduction
 
-        
+
         Results
         -------
         details: VAELossDetails
@@ -1374,34 +1382,40 @@ class VariationalAutoencoderLoss(nn.Module):
         dist_loss = self._reduce_loss(dist_loss, length, reduction)
         weighted_dist_loss = self.dist_loss_weight * dist_loss
         loss = rec_loss + weighted_dist_loss
-            
-        return VariationalAutoencoderLossDetails(loss, rec_loss, dist_loss, weighted_dist_loss)
-    
+
+        return VariationalAutoencoderLossDetails(
+            loss, rec_loss, dist_loss, weighted_dist_loss
+        )
+
     def _compute_components(self, predictions, targets):
         rec, _, mean, log_var = predictions
-        rec_loss = self._align_length_axis(self.rec_loss(targets, rec, reduction=None))
-        dist_loss = self._align_length_axis(-0.5 * (1 + log_var - mean ** 2 - log_var.exp()))
+        rec_loss = self._align_length_axis(
+            self.rec_loss(targets, rec, reduction=None)
+        )
+        dist_loss = self._align_length_axis(
+            -0.5 * (1 + log_var - mean ** 2 - log_var.exp())
+        )
         return rec_loss, dist_loss
-    
+
     def _reduce_loss(self, loss, length, reduction):
         max_len = loss.size(1)
         mask = length_to_mask(length * max_len, max_len)
-        mask = unsqueeze_as(mask, loss).expand_as(loss)        
+        mask = unsqueeze_as(mask, loss).expand_as(loss)
         reduced_loss = reduce_loss(loss * mask, mask, reduction=reduction)
         return reduced_loss
-        
-    
+
     def _align_length_axis(self, tensor):
         return tensor.moveaxis(self.len_dim, 1)
 
 
 VariationalAutoencoderLossDetails = namedtuple(
-    "VAELossDetails", ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"])
+    "VAELossDetails", ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"]
+)
 
 
 class Laplacian(nn.Module):
     """Computes the Laplacian for image-like data
-    
+
     Arguments
     ---------
     kernel_size: int
@@ -1419,16 +1433,18 @@ class Laplacian(nn.Module):
 
     def get_kernel(self):
         """Computes the Laplacian kernel"""
-        kernel = -torch.ones(self.kernel_size, self.kernel_size, dtype=self.dtype)
+        kernel = -torch.ones(
+            self.kernel_size, self.kernel_size, dtype=self.dtype
+        )
         mid_position = self.kernel_size // 2
-        mid_value = self.kernel_size ** 2 - 1.
+        mid_value = self.kernel_size ** 2 - 1.0
         kernel[mid_position, mid_position] = mid_value
         kernel = kernel.unsqueeze(0).unsqueeze(0)
         return kernel
 
     def forward(self, data):
         """Computes the Laplacian of image-like data
-        
+
         Arguments
         ---------
         data: torch.Tensor
@@ -1440,7 +1456,7 @@ class Laplacian(nn.Module):
 class LaplacianVarianceLoss(nn.Module):
     """The Laplacian variance loss - used to penalize blurriness in image-like
     data, such as spectrograms
-    
+
     Arguments
     ---------
     kernel_size: int
@@ -1457,7 +1473,7 @@ class LaplacianVarianceLoss(nn.Module):
 
     def forward(self, predictions, length=None, reduction=None):
         """Computes the Laplacian loss
-        
+
         Arguments
         ---------
         predictions: torch.Tensor
@@ -1473,10 +1489,12 @@ class LaplacianVarianceLoss(nn.Module):
         mask = compute_length_mask(laplacian, length).bool()
         if reduction == "batch":
             # TODO: Vectorize
-            loss = torch.stack([
-                item.masked_select(item_mask).var()
-                for item, item_mask in zip(laplacian, mask)
-            ])
+            loss = torch.stack(
+                [
+                    item.masked_select(item_mask).var()
+                    for item, item_mask in zip(laplacian, mask)
+                ]
+            )
         else:
             loss = laplacian.masked_select(mask).var()
         return -loss
