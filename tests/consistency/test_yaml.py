@@ -1,6 +1,6 @@
 import os
 import csv
-from speechbrain.utils.check_yaml import check_yaml_vs_script
+from tests.utils.check_yaml import check_yaml_vs_script
 
 
 def test_yaml_script_consistency(recipe_folder="tests/recipes"):

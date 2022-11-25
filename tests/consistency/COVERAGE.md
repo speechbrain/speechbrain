@@ -480,29 +480,32 @@ Templates & recipes comprise:
 
 These testing parameters are used by [IV.4.a to IV.4.d] (checks before releases) and by [IV.2.a] (checks after each `git push`).
 
+---
+
 Yet: _How to know all pretrained model (e.g. on HuggingFace) are enlisted?_
 
 ---
 
-About II.5.
-
+From the above hooks, some tools can be used by PR contributors and reviewers alike:
+```
+tests/.run-linters.sh
 pytest tests/consistency
-by extension run pytest 
-
-III.{D,E}
-tests/.run-load-yaml-tests.sh
-
-III.{D, E, F}
-tests/.run-recipe-tests.sh
-hook: tests/.run-HF-checks.sh
-hook: ests/.run-url-checks.sh
-
-What's missing?
+tests/.run-doctests.sh
+tests/.run-unittests.sh
+pytest tests/integration
+```
 
 ---
 
-> Note: support tools that both PR contributors and reviewers use offline would be a great addition to the github workflow checks.
+Yet: _How to avail the following tools to github workflow checks concerning what was changed only, and what is impacted from that change?_
+```
+tests/.run-load-yaml-tests.sh
+tests/.run-recipe-tests.sh
+tests/.run-HF-checks.sh
+tests/.run-url-checks.sh
+```
 
+---
 
 ## VI. Developer tools for refactoring
 
@@ -527,12 +530,143 @@ Revisit section I., and identify gaps (compare "Future testing" section).
 
 ---
 
-### TODO: the `unstable` branch
+Branch topology: release <- CI/CD <- ecosystem-spanning refactorings. 
+```
+    release | main             | business 
+      CI/CD |   \--- develop   | as usual
+  ecosystem |         \   \<~> testing-refactoring   |  the tricky
+refactoring |          \--- unstable <~>/            | bits & pieces
+```
 
-### TODO: the `testing-refactoring` branch
- 
+The `testing-refactoring` branch contains this folder:<br/>
+https://github.com/speechbrain/speechbrain/tree/testing-refactoring/updates_pretrained_models
+
+which contains folders identical to the model names uploaded to HuggingFace:<br/>
+https://huggingface.co/speechbrain
+
+e.g. [testing-refactoring/updates_pretrained_models/asr-wav2vec2-librispeech](https://github.com/speechbrain/speechbrain/tree/testing-refactoring/updates_pretrained_models/asr-wav2vec2-librispeech) outlines testing of the pretrained model for [speechbrain/asr-wav2vec2-librispeech](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) and the folders can contain:
+* `test.yaml` - test definition w/ integrated code [**mandatory**]
+* `hyperparams.yaml` - the standing (or updated) specification [**mandatory**] 
+* `custom_interface.py` - the standing (or updated) custom interface [optional]
+
+_Note: changing parameters mean either a model revision &/or a new model._
+
+While `hyperparams.yaml` & `custom_interface.py` shall be updated through PRs complementary to conventional PRs, `test.yaml` is to be defined once only (and fixed when needed).
+Such a complementary PR is for example: 
+https://github.com/speechbrain/speechbrain/pull/1623
+
+Depending on the testing need, `test.yaml` grows - some examples
+1. [ssl-wav2vec2-base-librispeech/test.yaml](https://github.com/speechbrain/speechbrain/blob/testing-refactoring/updates_pretrained_models/ssl-wav2vec2-base-librispeech/test.yaml) - the play between test sample, interface class, and batch function is handled via HF testing in `tests/utils`
+   ```yaml
+   sample: example.wav # test audio provided via HF repo
+   cls: WaveformEncoder # existing speechbrain.pretrained.interfraces class
+   fnx: encode_batch # it's batch-wise function after audio loading
+   ```
+2. [asr-wav2vec2-librispeech/test.yaml](https://github.com/speechbrain/speechbrain/blob/testing-refactoring/updates_pretrained_models/asr-wav2vec2-librispeech/test.yaml) - testing single example & against a dataset test partition
+   ```yaml
+   sample: example.wav # as above
+   cls: EncoderASR # as above
+   fnx: transcribe_batch # as above
+   dataset: LibriSpeech # which dataset to use -> will create a tests/tmp/LibriSpeech folder
+   recipe_yaml: recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml # the training recipe for dataloader etc
+   overrides: # what of the recipe_yaml needs to be overriden
+     output_folder: !ref tests/tmp/<dataset> # the output folder is at the tmp dataset (data prep & eval tasks only)
+   dataio: from recipes.LibriSpeech.ASR.CTC.train_with_wav2vec import dataio_prepare # which dataio_prepare to import 
+   test_datasets: dataio_prepare(recipe_hparams)[2] # where to get the test dataset from that prep pipeline (w/ input args)
+   test_loader: test_dataloader_opts # dataloader name as in recipe_yaml
+   performance: # which metric classes are used in the training recipe
+     CER: # name for testing
+       handler: cer_computer # name as in recipe_yaml
+       field: error_rate # field/function as used in train script
+     WER: # another one
+       handler: error_rate_computer # another one
+       field: error_rate # another one
+   predicted: predictions[0] # what of the forward to use to compute metrics
+   ```
+3. [emotion-recognition-wav2vec2-IEMOCAP/test.yaml](https://github.com/speechbrain/speechbrain/blob/testing-refactoring/updates_pretrained_models/emotion-recognition-wav2vec2-IEMOCAP/test.yaml) - custom interfaces
+   ```yaml
+   sample: anger.wav # as above
+   cls: CustomEncoderWav2vec2Classifier # => name of custom class provided through custom interface
+   fnx: classify_batch # as above
+   foreign: custom_interface.py # name of custom interface availed through HF repo
+   dataset: IEMOCAP # as above
+   recipe_yaml: recipes/IEMOCAP/emotion_recognition/hparams/train_with_wav2vec2.yaml # as above
+   overrides: # as above
+     output_folder: !ref tests/tmp/<dataset> # as above
+   dataio: from recipes.IEMOCAP.emotion_recognition.train_with_wav2vec2 import dataio_prep # as above
+   test_datasets: dataio_prepare(recipe_hparams)["test"] # as above
+   test_loader: dataloader_options # as above
+   performance: # as above
+     ClassError: # as above
+       handler: error_stats # as above
+       field: average # as above
+   predicted: predictions[0] # as above
+   ```
+
+When testing the HF snippets, use the functions `gather_expected_results()` and `gather_refactoring_results()`.
+They will create another yaml in which the gather before/after refactoring test results.
+While standing interfaces are drawn from HF repos, their updated/refactored counterparts need to be specified to clone the PR git+branch into, e.g., `tests/tmp/hf_interfaces`. See the default values:
+```python
+def gather_refactoring_results(
+    new_interfaces_git="https://github.com/speechbrain/speechbrain",  # change to yours
+    new_interfaces_branch="testing-refactoring",  # maybe you have another branch
+    new_interfaces_local_dir="tests/tmp/hf_interfaces",  # you can leave this, or put it elsewhere
+    yaml_path="tests/tmp/refactoring_results.yaml",  # same here, change only if necessary
+):
+    ...
+```
+
+When testing against a dataset's test partition, this function is used: `test_performance()`.
+It will be handled through the main function of `tests/utils/refactoring_checks.py`, which expects its own config e.g.:
+`tests/utils/overrides.yaml`.
+
+Example:
+```yaml
+LibriSpeech_data: !PLACEHOLDER
+CommonVoice_EN_data: !PLACEHOLDER
+CommonVoice_FR_data: !PLACEHOLDER
+IEMOCAP_data: !PLACEHOLDER
+
+new_interfaces_git: https://github.com/speechbrain/speechbrain
+new_interfaces_branch: testing-refactoring
+new_interfaces_local_dir: tests/tmp/hf_interfaces
+
+# Filter HF repos (will be used in a local glob dir crawling)
+# glob_filter: "*wav2vec2*"
+# glob_filter: "*libri*"
+glob_filter: "*"
+
+# put False to test 'before' only, e.g. via override
+after: True
+
+LibriSpeech:
+  data_folder: !ref <LibriSpeech_data>
+  skip_prep: True
+
+CommonVoice_EN:
+  data_folder: !ref <CommonVoice_EN_data>
+
+CommonVoice_FR:
+  data_folder: !ref <CommonVoice_FR_data>
+
+IEMOCAP:
+  data_folder: !ref <IEMOCAP_data>
+```
+
+Example call:
+```
+python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data=""
+--glob_filter="*commonvoice*"
+```
+
+The use case for this construction is a legacy-preserving refactoring, providing an alternative interface. [V.B]
 
 ---
+
+The `unstable` branch serves to collect a series of legacy-breaking PRs before making a major release through develop. [V.C] 
+
+_Note: ofc, the just introduced testing-refactoring strategy is applicable here, also. Especially, as it relaxes testing demands._ 
+
 
 ## VII. Maintainer checks for releases
 
@@ -582,3 +716,112 @@ Futher reading:
 <br/> https://breadcrumbscollector.tech/how-to-use-code-coverage-in-python-with-pytest/ (pointer by @Adel-Moumen)
 
 ---
+
+```
+---------- coverage: platform linux, python 3.9.12-final-0 -----------
+Name                                                      Stmts   Miss  Cover
+-----------------------------------------------------------------------------
+speechbrain/alignment/aligner.py                            380     61    84%
+speechbrain/alignment/ctc_segmentation.py                   189     10    95%
+speechbrain/core.py                                         424    155    63% <== < 80%
+speechbrain/dataio/batch.py                                  99      8    92%
+speechbrain/dataio/dataio.py                                279     50    82%
+speechbrain/dataio/dataloader.py                            140     25    82%
+speechbrain/dataio/dataset.py                               100      8    92%
+speechbrain/dataio/encoder.py                               328     46    86%
+speechbrain/dataio/iterators.py                              80     62    22% <== < 80%
+speechbrain/dataio/legacy.py                                121     41    66% <== < 80%
+speechbrain/dataio/preprocess.py                             22      4    82%
+speechbrain/dataio/sampler.py                               224     61    73%
+speechbrain/dataio/wer.py                                    63     54    14% <== < 80%
+speechbrain/decoders/ctc.py                                 111     89    20% <== < 80%
+speechbrain/decoders/seq2seq.py                             370     46    88%
+speechbrain/decoders/transducer.py                          133     64    52% <== < 80%
+speechbrain/lm/arpa.py                                       77      3    96%
+speechbrain/lm/counting.py                                   37      4    89%
+speechbrain/lm/ngram.py                                      36      1    97%
+speechbrain/lobes/augment.py                                154     55    64% <== < 80%
+speechbrain/lobes/beamform_multimic.py                       20     14    30% <== < 80%
+speechbrain/lobes/features.py                                96      9    91%
+speechbrain/lobes/models/CRDNN.py                            52     12    77% <== < 80%
+speechbrain/lobes/models/ContextNet.py                       83      3    96%
+speechbrain/lobes/models/ECAPA_TDNN.py                      157      7    96%
+speechbrain/lobes/models/HifiGAN.py                         321    146    55% <== < 80%
+speechbrain/lobes/models/MetricGAN.py                        74     29    61% <== < 80%
+speechbrain/lobes/models/Tacotron2.py                       364     66    82%
+speechbrain/lobes/models/conv_tasnet.py                     121      6    95%
+speechbrain/lobes/models/dual_path.py                       357     55    85%
+speechbrain/lobes/models/fairseq_wav2vec.py                  93     93     0% <== < 80%
+speechbrain/lobes/models/g2p/dataio.py                      136    107    21% <== < 80%
+speechbrain/lobes/models/g2p/homograph.py                   118     20    83%
+speechbrain/lobes/models/g2p/model.py                       132    109    17% <== < 80%
+speechbrain/lobes/models/huggingface_wav2vec.py             145     47    68% <== < 80%
+speechbrain/lobes/models/resepformer.py                     180     21    88%
+speechbrain/lobes/models/segan_model.py                     102     88    14% <== < 80%
+speechbrain/lobes/models/transformer/Conformer.py           111      7    94%
+speechbrain/lobes/models/transformer/Transformer.py         180     22    88%
+speechbrain/lobes/models/transformer/TransformerASR.py       92     28    70% <== < 80%
+speechbrain/lobes/models/transformer/TransformerLM.py        47      5    89%
+speechbrain/lobes/models/transformer/TransformerSE.py        20      2    90%
+speechbrain/lobes/models/transformer/TransformerST.py        81     60    26% <== < 80%
+speechbrain/lobes/models/wav2vec.py                         123     55    55% <== < 80%
+speechbrain/nnet/CNN.py                                     417     56    87%
+speechbrain/nnet/RNN.py                                     471     51    89%
+speechbrain/nnet/activations.py                              39      1    97%
+speechbrain/nnet/attention.py                               234     44    81%
+speechbrain/nnet/complex_networks/c_CNN.py                  130     23    82%
+speechbrain/nnet/complex_networks/c_RNN.py                  374     67    82%
+speechbrain/nnet/complex_networks/c_normalization.py        277     68    75% <== < 80%
+speechbrain/nnet/complex_networks/c_ops.py                  108     40    63% <== < 80%
+speechbrain/nnet/containers.py                              139     14    90%
+speechbrain/nnet/linear.py                                   27      1    96%
+speechbrain/nnet/loss/si_snr_loss.py                         20     16    20% <== < 80%
+speechbrain/nnet/loss/stoi_loss.py                           81      1    99%
+speechbrain/nnet/loss/transducer_loss.py                    136    136     0% <== < 80%
+speechbrain/nnet/losses.py                                  323    112    65% <== < 80%
+speechbrain/nnet/normalization.py                           142      6    96%
+speechbrain/nnet/pooling.py                                 156     31    80%
+speechbrain/nnet/quantisers.py                               47      2    96%
+speechbrain/nnet/quaternion_networks/q_CNN.py               150     25    83%
+speechbrain/nnet/quaternion_networks/q_RNN.py               370     59    84%
+speechbrain/nnet/quaternion_networks/q_linear.py             50     11    78% <== < 80%
+speechbrain/nnet/quaternion_networks/q_normalization.py      44      4    91%
+speechbrain/nnet/quaternion_networks/q_ops.py               229    122    47% <== < 80%
+speechbrain/nnet/schedulers.py                              363    103    72% <== < 80%
+speechbrain/nnet/transducer/transducer_joint.py              33      5    85%
+speechbrain/pretrained/fetching.py                           48      6    88%
+speechbrain/pretrained/interfaces.py                        786    338    57% <== < 80%
+speechbrain/pretrained/training.py                           33     28    15% <== < 80%
+speechbrain/processing/PLDA_LDA.py                          345     96    72% <== < 80%
+speechbrain/processing/decomposition.py                     102      8    92%
+speechbrain/processing/diarization.py                       319    157    51% <== < 80%
+speechbrain/processing/features.py                          359     75    79% <== < 80%
+speechbrain/processing/multi_mic.py                         345      2    99%
+speechbrain/processing/signal_processing.py                 166     39    77% <== < 80%
+speechbrain/processing/speech_augmentation.py               386     34    91%
+speechbrain/tokenizers/SentencePiece.py                     181     74    59% <== < 80%
+speechbrain/utils/Accuracy.py                                24     17    29% <== < 80%
+speechbrain/utils/DER.py                                     44     33    25% <== < 80%
+speechbrain/utils/bleu.py                                    50     43    14% <== < 80%
+speechbrain/utils/callchains.py                              28      5    82%
+speechbrain/utils/checkpoints.py                            294     52    82%
+speechbrain/utils/data_pipeline.py                          181     15    92%
+speechbrain/utils/data_utils.py                             197     77    61% <== < 80%
+speechbrain/utils/depgraph.py                                82      1    99%
+speechbrain/utils/distributed.py                             61     37    39% <== < 80%
+speechbrain/utils/edit_distance.py                          180     50    72% <== < 80%
+speechbrain/utils/epoch_loop.py                              55     22    60% <== < 80%
+speechbrain/utils/hparams.py                                  2      1    50% <== < 80%
+speechbrain/utils/hpopt.py                                  134     41    69% <== < 80%
+speechbrain/utils/logger.py                                  73     45    38% <== < 80%
+speechbrain/utils/metric_stats.py                           285     48    83%
+speechbrain/utils/parameter_transfer.py                      87     17    80%
+speechbrain/utils/profiling.py                              191     54    72% <== < 80%
+speechbrain/utils/superpowers.py                             20      6    70% <== < 80%
+speechbrain/utils/text_to_sequence.py                        77     22    71% <== < 80%
+speechbrain/utils/torch_audio_backend.py                      9      2    78% <== < 80%
+speechbrain/utils/train_logger.py                           150    113    25% <== < 80%
+speechbrain/wordemb/transformer.py                           90     67    26% <== < 80%
+-----------------------------------------------------------------------------
+TOTAL                                                     16782   4481    73%
+```

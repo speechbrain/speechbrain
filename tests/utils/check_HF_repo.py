@@ -64,6 +64,9 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
+        if recipe_csvfile == "setup":
+            continue
+
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:
