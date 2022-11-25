@@ -554,14 +554,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return memory, scorer_memory, prev_attn_peak
 
     def _update_sequences_and_log_probs(
-        self, log_probs, inp_tokens, predecessors, candidates, hypotheses,
+        self, log_probs, inp_tokens, predecessors, candidates, alived_hyps,
     ):
         """This method update sequences and log probabilities based on new input tokens. """
         # Update alived_seq
-        hypotheses.alived_seq = torch.cat(
+        alived_hyps.alived_seq = torch.cat(
             [
                 torch.index_select(
-                    hypotheses.alived_seq, dim=0, index=predecessors
+                    alived_hyps.alived_seq, dim=0, index=predecessors
                 ),
                 inp_tokens.unsqueeze(1),
             ],
@@ -574,23 +574,23 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ].reshape(self.n_bh)
 
         # Update alived_log_probs
-        hypotheses.alived_log_probs = torch.cat(
+        alived_hyps.alived_log_probs = torch.cat(
             [
                 torch.index_select(
-                    hypotheses.alived_log_probs, dim=0, index=predecessors
+                    alived_hyps.alived_log_probs, dim=0, index=predecessors
                 ),
                 beam_log_probs.unsqueeze(1),
             ],
             dim=-1,
         )
 
-        return hypotheses
+        return alived_hyps
 
     def _compute_scores_and_next_inp_tokens(
-        self, hypotheses, log_probs, timestep
+        self, alived_hyps, log_probs, timestep
     ):
         """ Compute scores and next input tokens."""
-        scores = hypotheses.sequence_scores.unsqueeze(1).expand(-1, self.n_out)
+        scores = alived_hyps.sequence_scores.unsqueeze(1).expand(-1, self.n_out)
         scores = scores + log_probs
 
         # Keep the original value
@@ -609,11 +609,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         inp_tokens = (candidates % self.n_out).view(self.n_bh)
 
         scores = scores.view(self.n_bh)
-        hypotheses.sequence_scores = scores
+        alived_hyps.sequence_scores = scores
 
         # recover the length normalization
         if self.length_normalization:
-            hypotheses.sequence_scores = hypotheses.sequence_scores * (
+            alived_hyps.sequence_scores = alived_hyps.sequence_scores * (
                 timestep + 1
             )
 
@@ -629,7 +629,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             candidates,
             predecessors,
             inp_tokens,
-            hypotheses,
+            alived_hyps,
         )
 
     def init_beam_search_data(self, enc_states, wav_len):
@@ -680,10 +680,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         log_probs = torch.full((self.n_bh, self.n_out), 0.0, device=self.device)
 
-        hypotheses = self.init_hypotheses()
+        alived_hyps = self.init_hypotheses()
 
         return (
-            hypotheses,
+            alived_hyps,
             inp_tokens,
             log_probs,
             eos_hyps_and_log_probs_scores,
@@ -696,12 +696,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
     def _update_hyps_and_scores_if_eos_token(
-        self,
-        inp_tokens,
-        timesteps,
-        hypotheses,
-        eos_hyps_and_log_probs_scores,
-        scores,
+        self, inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores,
     ):
         """This method will update hyps and scores if inp_tokens are eos.
 
@@ -717,8 +712,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             To store generated hypotheses and scores.
         scores : torch.Tensor
             The final scores of beam search.
-        timesteps : float
-            The current timesteps. This is for length rewarding.
 
         Returns
         -------
@@ -741,15 +734,15 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     == self.beam_size
                 ):
                     continue
-                hyp = hypotheses.alived_seq[index, :]
-                log_probs = hypotheses.alived_log_probs[index, :]
+                hyp = alived_hyps.alived_seq[index, :]
+                log_probs = alived_hyps.alived_log_probs[index, :]
                 final_scores = scores[index]
                 eos_hyps_and_log_probs_scores[batch_id].append(
                     (hyp, log_probs, final_scores)
                 )
 
         # Block the paths that have reached eos.
-        hypotheses.sequence_scores.masked_fill_(is_eos, self.minus_inf)
+        alived_hyps.sequence_scores.masked_fill_(is_eos, self.minus_inf)
 
     def _get_topk_prediction(self, eos_hyps_and_log_probs_scores):
         """This method sorts the scores and return corresponding hypothesis and log probs.
@@ -816,7 +809,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def search_step(
         self,
-        hypotheses,
+        alived_hyps,
         inp_tokens,
         log_probs,
         eos_hyps_and_log_probs_scores,
@@ -854,29 +847,25 @@ class S2SBeamSearcher(S2SBaseSearcher):
             candidates,
             predecessors,
             inp_tokens,
-            hypotheses,
+            alived_hyps,
         ) = self._compute_scores_and_next_inp_tokens(
-            hypotheses, log_probs, timestep,
+            alived_hyps, log_probs, timestep,
         )
 
         memory, scorer_memory, prev_attn_peak = self._update_permute_memory(
             memory, scorer_memory, predecessors, candidates, prev_attn_peak
         )
 
-        hypotheses = self._update_sequences_and_log_probs(
-            log_probs_clone, inp_tokens, predecessors, candidates, hypotheses,
+        alived_hyps = self._update_sequences_and_log_probs(
+            log_probs_clone, inp_tokens, predecessors, candidates, alived_hyps,
         )
 
         self._update_hyps_and_scores_if_eos_token(
-            inp_tokens,
-            timestep,
-            hypotheses,
-            eos_hyps_and_log_probs_scores,
-            scores,
+            inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
 
         return (
-            hypotheses,
+            alived_hyps,
             inp_tokens,
             log_probs,
             eos_hyps_and_log_probs_scores,
@@ -888,9 +877,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
     def _fill_alived_hyps_with_eos_token(
-        self, hypotheses, eos_hyps_and_log_probs_scores, scores,
+        self, alived_hyps, eos_hyps_and_log_probs_scores, scores,
     ):
-        """ Fill the hypotheses that have not reached eos with eos."""
+        """ Fill the alived_hyps that have not reached eos with eos."""
         if not self._check_full_beams(eos_hyps_and_log_probs_scores):
             # Using all eos to fill-up the hyps.
             inp_tokens = (
@@ -899,11 +888,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 .long()
             )
             self._update_hyps_and_scores_if_eos_token(
-                inp_tokens,
-                self.max_decode_steps,
-                hypotheses,
-                eos_hyps_and_log_probs_scores,
-                scores,
+                inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores,
             )
 
         return eos_hyps_and_log_probs_scores
