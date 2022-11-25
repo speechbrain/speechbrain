@@ -887,7 +887,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             scores,
         )
 
-    def _fill_hyps_with_eos_token(
+    def _fill_alived_hyps_with_eos_token(
         self, inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
     ):
         """ Fill the hypotheses that have not reached eos with eos."""
@@ -913,7 +913,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         (
             enc_states,
             enc_lens,
-            hypotheses,
+            alived_hyps,
             inp_tokens,
             memory,
             scorer_memory,
@@ -929,7 +929,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 break
 
             (
-                hypotheses,
+                alived_hyps,
                 inp_tokens,
                 memory,
                 scorer_memory,
@@ -940,7 +940,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 scores,
             ) = self.search_step(
                 step,
-                hypotheses,
+                alived_hyps,
                 enc_states,
                 enc_lens,
                 inp_tokens,
@@ -952,8 +952,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 eos_hyps_and_log_probs_scores,
             )
 
-        finals_hyps_and_log_probs_scores = self._fill_hyps_with_eos_token(
-            inp_tokens, eos_hyps_and_log_probs_scores, hypotheses, scores,
+        finals_hyps_and_log_probs_scores = self._fill_alived_hyps_with_eos_token(
+            inp_tokens, eos_hyps_and_log_probs_scores, alived_hyps, scores,
         )
 
         # topk_hyps, topk_lengths, topk_scores, topk_log_probs,
