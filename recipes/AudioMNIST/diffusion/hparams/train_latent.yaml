@@ -35,7 +35,7 @@ data_prepare_sample_rate_tgt: 48000
 diffusion_mode: latent
 train_len: 28520
 sort: len
-batch_shuffle: true
+batch_shuffle: True
 sample_rate_src: 48000
 sample_rate_tgt: 16000
 number_of_epochs: 10
@@ -108,7 +108,7 @@ autoencoder_nom_num_groups: 32
 autoencoder_latent_channels: 2
 autoencoder_dropout: 0.1
 latent_mask_value: -3.
-autoencoder_use_fixup_norm: false
+autoencoder_use_fixup_norm: False
 diffusion_channels: !ref <autoencoder_latent_channels>
 
 
@@ -144,10 +144,10 @@ global_norm: !new:custom_transforms.GlobalNorm
 dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 
 compute_cost_autoencoder_rec: !new:speechbrain.nnet.schedulers.ScheduledLoss
-        schedule:
-            - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
               steps: !ref <autoencoder_rec_loss_l2_steps>
-            - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
 compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLoss
     len_dim: 2
@@ -283,4 +283,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
         compute_cost_autoencoder_rec: !ref <compute_cost_autoencoder_rec>
         global_norm: !ref <global_norm>
-

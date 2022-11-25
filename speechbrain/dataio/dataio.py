@@ -1101,7 +1101,7 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
 
     max_len = tensor.size(len_dim)
     mask = length_to_mask(length * max_len, max_len).bool()
-    new_shape = [1,] * tensor.dim()
+    new_shape = [1] * tensor.dim()
     new_shape[0] = tensor.size(0)
     new_shape[len_dim] = mask.size(1)
     mask = mask.view(new_shape).expand_as(tensor)

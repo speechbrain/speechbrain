@@ -13,7 +13,6 @@ Authors
  * Artem Ploujnikov 2022
 """
 import logging
-import math
 import sys
 import torch
 import speechbrain as sb
@@ -789,9 +788,8 @@ class DiffusionBrain(sb.Brain):
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
         self.reference_samples_neeed = False
-        self.is_conditioned = (
-            hasattr(self.hparams, "use_cond_emb")
-            and any(self.hparams.use_cond_emb.values())
+        self.is_conditioned = hasattr(self.hparams, "use_cond_emb") and any(
+            self.hparams.use_cond_emb.values()
         )
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -1001,9 +999,11 @@ def load_dataset(hparams):
         split_path = os.path.join(
             hparams["data_save_folder"], f"{split_id}.json"
         )
-        dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(split_path)
+        dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(
+            split_path
+        )
         dataset_split = apply_sort(hparams, dataset_split)
-        dataset_splits[split_id] = dataset_split 
+        dataset_splits[split_id] = dataset_split
     return dataset_splits
 
 

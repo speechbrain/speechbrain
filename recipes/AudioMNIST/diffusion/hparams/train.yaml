@@ -173,7 +173,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     attention_resolutions: [8]
     cond_emb: !ref <cond_emb>
     use_cond_emb: !ref <use_cond_emb>
-    dropout: !ref <dropout>    
+    dropout: !ref <dropout>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
