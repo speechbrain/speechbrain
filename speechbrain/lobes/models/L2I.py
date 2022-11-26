@@ -525,7 +525,7 @@ class Psi_ConvTranspose(nn.Module):
 
 
 class NMFDecoder(nn.Module):
-    def __init__(self, N_COMP=100, FREQ=513, init_file=None):
+    def __init__(self, N_COMP=100, FREQ=513, init_file=None, device="cuda"):
         super(NMFDecoder, self).__init__()
 
         self.W = nn.Parameter(
@@ -536,7 +536,7 @@ class NMFDecoder(nn.Module):
         if init_file is not None:
             # handle numpy or torch
             if ".pt" in init_file:
-                self.W.data = torch.load(init_file)
+                self.W.data = torch.load(init_file, map_location=torch.device(device))
             else:
                 temp = np.load(init_file)
                 self.W.data = torch.as_tensor(temp).float()

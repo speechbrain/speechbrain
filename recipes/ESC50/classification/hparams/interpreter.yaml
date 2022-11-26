@@ -183,7 +183,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     hop_length: 10
 
 use_pretrain: False
-embedding_model: !new:recipes.ESC50.classification.custom_models.Cnn14
+embedding_model: !new:speechbrain.lobes.models.L2I.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     interpret: True
@@ -230,15 +230,16 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:custom_models.Psi
-theta: !new:custom_models.Theta
+psi_model: !new:speechbrain.lobes.models.L2I.Psi
+theta: !new:speechbrain.lobes.models.L2I.Theta
 
 # NMF Decoder
 nmf_d_path: "nmf_decoder.pt"
-nmf: !new:custom_models.NMFDecoder
+nmf: !new:speechbrain.lobes.models.L2I.NMFDecoder
     init_file: !ref <nmf_d_path>
     N_COMP: !ref <K>
     FREQ: !ref <n_mels>
+    device: !ref <device> 
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
