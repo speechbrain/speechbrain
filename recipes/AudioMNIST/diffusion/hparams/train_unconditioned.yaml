@@ -12,7 +12,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
 prepare_data_folder: ./audiomnist-prepare-data
-output_folder: !ref ./results/diffusion/<seed>
+output_folder: !ref ./results/diffusion/unconditioned/<seed>
 save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
@@ -25,8 +25,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Preparation Parameters
-data_prepare_norm: True
-data_prepare_trim: True
+data_prepare_norm: False
+data_prepare_trim: False
 data_prepare_trim_threshold: -30.
 data_prepare_sample_rate_src: 48000
 data_prepare_sample_rate_tgt: 48000
@@ -40,7 +40,7 @@ batch_shuffle: True
 sample_rate_src: 48000
 sample_rate_tgt: 16000
 number_of_epochs: 20
-batch_size: 64
+batch_size: 32
 lr: 0.00020
 max_grad_norm: 0.05
 lr_warmup_steps: 500
@@ -89,18 +89,18 @@ min_level_db: -80.0
 pad_level_db: -50.
 
 # Model Parameters
-model_channels: 64
+model_channels: 128
 model_norm_num_groups: 32
 model_num_res_blocks: 4
 diffusion_channels: 1
 
 # Conditioning
 emb_dim: !ref <model_channels> * 4
-digit_conditioned: True
+digit_conditioned: False
 digit_sample_count: 3
 digit_count: 10
 digit_emb_dim: !ref <emb_dim>
-speaker_conditioned: True
+speaker_conditioned: False
 speaker_count: 60
 speaker_emb_dim: !ref <emb_dim>
 speaker_sample_count: 5
