@@ -689,6 +689,9 @@ class DiffusionBrain(sb.Brain):
 
         for label, sample in zip(labels, wav):
             wav_file_name = os.path.join(wav_sample_path, f"sample_{label}.wav")
+            if self.hparams.norm_out_sample:
+                max_samp, _ = sample.abs().max(1)
+                sample = sample/max_samp
             self.save_audio_sample(sample.squeeze(0), wav_file_name)
 
     def compute_sample_metrics(self, samples):

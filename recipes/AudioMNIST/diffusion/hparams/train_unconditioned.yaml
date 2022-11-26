@@ -112,6 +112,7 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 eval_num_samples: 10
 eval_generate_audio: True
 eval_show_progress: True
+norm_out_sample: True
 
 # Feature extraction
 compute_features: !new:speechbrain.nnet.containers.Sequential
