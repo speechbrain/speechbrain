@@ -55,7 +55,7 @@ max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
 
-device: "cuda:0"
+device: "cpu"
 
 # Feature parameters
 n_mels: 80
@@ -182,7 +182,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 
 use_pretrain: False
-embedding_model: !new:recipes.ESC50.classification.custom_models.Cnn14
+embedding_model: !new:speechbrain.lobes.models.L2I.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     interpret: True
@@ -208,13 +208,13 @@ T: 413
 K: 100
 FREQ: 513
 
-psi_model: !new:custom_models.Psi
-theta: !new:custom_models.Theta
+psi_model: !new:speechbrain.lobes.models.L2I.Psi
+theta: !new:speechbrain.lobes.models.L2I.Theta
 
 
 # NMF Decoder
 nmf_d_path: "initW_LMS_K100_sp0.8_Fold1_n1.npy"
-nmf: !new:custom_models.NMFDecoder
+nmf: !new:speechbrain.lobes.models.L2I.NMFDecoder
     N_COMP: !ref <K>
     FREQ: !ref <FREQ>
     # init_file: !ref <nmf_d_path>
@@ -222,7 +222,7 @@ nmf: !new:custom_models.NMFDecoder
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
 
-nmf_encoder: !new:custom_models.NMFEncoder
+nmf_encoder: !new:speechbrain.lobes.models.L2I.NMFEncoder
     nlayers: 2
 
 modules:
