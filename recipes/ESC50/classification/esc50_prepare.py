@@ -59,7 +59,7 @@ def download_esc50(data_folder):
         print("ESC50 missing. Downloading from github...")
         os.system(f"git clone https://github.com/karolpiczak/ESC-50.git {os.path.join(data_folder, 'temp_download')}")
         os.system(f"mv {os.path.join(data_folder, 'temp_download', '*')} {data_folder}")
-        os.system(f"rm {os.path.join(data_folder, 'temp_download')}")
+        os.system(f"rm -rf {os.path.join(data_folder, 'temp_download')}")
         print(f"ESC50 download in {data_folder}")
 
 def prepare_esc50(
