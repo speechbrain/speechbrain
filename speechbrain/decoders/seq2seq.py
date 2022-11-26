@@ -5,6 +5,7 @@ Authors
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
  * Sung-Lin Yeh 2020
+ * Adel Moumen 2022
 """
 import torch
 
@@ -224,11 +225,13 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        dec_out = self.module.forward_decoder(
+        # WARNING: the max_decode_ratio need to be under 449 becasue of positinal encoding
+        dec_out, attn = self.module.forward_decoder(
             enc_states, memory
         )  # TODO: switch args
         log_probs = self.softmax(dec_out[:, -1])
-        return log_probs, memory, None
+
+        return log_probs, memory, attn
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
@@ -1349,7 +1352,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
 
 
 class S2SWhisperBeamSearch(S2SBeamSearcher):
-    """    This class implements the beam search decoding
+    """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
     https://cdn.openai.com/papers/whisper.pdf.
 
@@ -1362,11 +1365,11 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, model, temperature=1.0, temperature_lm=1.0, **kwargs,
+        self, module, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
 
-        self.model = model
+        self.module = module
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
@@ -1394,9 +1397,9 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        dec_out = self.model.forward_decoder(enc_states, memory)
+        dec_out, attn, = self.module.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
-        return log_probs, memory, None
+        return log_probs, memory, attn
 
     def lm_forward_step(self, inp_tokens, memory):
         """Performs a step in the implemented LM module."""

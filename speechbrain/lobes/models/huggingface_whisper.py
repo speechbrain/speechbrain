@@ -59,6 +59,7 @@ class HuggingFaceWhisper(nn.Module):
         freeze=False,
         freeze_encoder=False,
         language="en",
+        output_attentions=True,
     ):
         super().__init__()
         self.sampling_rate = sampling_rate
@@ -66,6 +67,7 @@ class HuggingFaceWhisper(nn.Module):
         self.freeze = freeze
         self.freeze_encoder = freeze_encoder
         self.language = language
+        self.output_attentions = output_attentions
 
         # Download the extractor from HuggingFace.
         self.feature_extractor = WhisperFeatureExtractor.from_pretrained(
@@ -153,8 +155,14 @@ class HuggingFaceWhisper(nn.Module):
             A batch of whisper decoder input ids.
         """
         output_states = self.model.decoder(
-            encoder_hidden_states=audio_features, input_ids=tokens
-        ).last_hidden_state
+            encoder_hidden_states=audio_features,
+            input_ids=tokens,
+            output_attentions=self.output_attentions,
+        )
+
+        attn = output_states.attentions[-1]
+        attn = attn.view(attn.shape[0] * attn.shape[1], *attn.shape[2:])
+        output_states = output_states.last_hidden_state
 
         logits = (
             output_states
@@ -163,5 +171,6 @@ class HuggingFaceWhisper(nn.Module):
                 0,
                 1,
             )
-        ).float()
-        return logits
+        ).to(audio_features.dtype)
+
+        return logits, attn
