@@ -333,7 +333,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             return acc
 
         @torch.no_grad()
-        def compute_fidelity(theta_out, predictions, k=3):
+        def compute_fidelity(theta_out, predictions):
             """ Computes top-`k` fidelity of interpreter. """
             predictions = F.softmax(predictions, dim=1)
             theta_out = F.softmax(theta_out, dim=1)
@@ -342,7 +342,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 predictions,
                 dim=1
             )
-            k_top = torch.topk(theta_out, k=k, dim=1)[1]
+            k_top = torch.topk(theta_out, k=self.hparams.k_fidelity, dim=1)[1]
 
             # 1 element for each sample in batch, is 0 if pred_cl is in top k
             temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
