@@ -29,15 +29,13 @@ data_prepare_norm: True
 data_prepare_trim: True
 data_prepare_trim_threshold: -30.
 data_prepare_sample_rate_src: 48000
-data_prepare_sample_rate_tgt: 48000
+data_prepare_sample_rate_tgt: 16000
 
 # Training Parameters
 diffusion_mode: latent
 train_len: 28520
 sort: len
 batch_shuffle: True
-sample_rate_src: 48000
-sample_rate_tgt: 16000
 number_of_epochs: 10
 batch_size: 32
 lr: 0.001

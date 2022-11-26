@@ -711,7 +711,7 @@ class DiffusionBrain(sb.Brain):
         file_name: str
             the file name to save
         """
-        write_audio(file_name, sample, self.hparams.sample_rate_tgt)
+        write_audio(file_name, sample, self.hparams.data_prepare_sample_rate_tgt)
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
@@ -1027,11 +1027,6 @@ def dataio_prep(hparams):
         to the appropriate DynamicItemDataset object.
     """
 
-    resample = transforms.Resample(
-        orig_freq=hparams["sample_rate_src"],
-        new_freq=hparams["sample_rate_tgt"],
-    )
-
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("file_name")
     @sb.utils.data_pipeline.provides("sig")
@@ -1040,7 +1035,6 @@ def dataio_prep(hparams):
         if not os.path.isabs(wav):
             wav = os.path.join(hparams["data_save_folder"], wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        sig = resample(sig)
         return sig
 
     @sb.utils.data_pipeline.takes("digit", "speaker_id")

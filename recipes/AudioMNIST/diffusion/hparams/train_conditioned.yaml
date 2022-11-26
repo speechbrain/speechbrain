@@ -29,7 +29,7 @@ data_prepare_norm: False
 data_prepare_trim: False
 data_prepare_trim_threshold: -30.
 data_prepare_sample_rate_src: 48000
-data_prepare_sample_rate_tgt: 48000
+data_prepare_sample_rate_tgt: 16000
 
 # Training Parameters
 diffusion_mode: simple
@@ -37,8 +37,6 @@ dataset: flexthink/audiomnist
 train_len: 28520
 sort: len
 batch_shuffle: True
-sample_rate_src: 48000
-sample_rate_tgt: 16000
 number_of_epochs: 20
 batch_size: 32
 lr: 0.00020
