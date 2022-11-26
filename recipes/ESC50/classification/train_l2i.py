@@ -263,7 +263,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower = torch.log(X_stft_power + 1).transpose(1, 2)
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.VALID:
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.top_3_fidelity.append(
                 batch.id, theta_out, classification_out
             )
@@ -378,7 +378,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "top-3_fid": current_fid,
                 "faithfulness_median": torch.Tensor(self.faithfulness.scores).median(),
                 "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
-            }
+           }
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
@@ -391,8 +391,23 @@ class InterpreterESC50Brain(sb.core.Brain):
             # Save the current checkpoint and delete previous checkpoints,
             self.checkpointer.save_and_keep_only(
                 meta=valid_stats, max_keys=["top-3_fid"]
-            )
+           )
 
+        if stage == sb.Stage.TEST:
+            current_fid = self.top_3_fidelity.summarize("average")
+            test_stats = {
+                "loss": stage_loss,
+                "acc": self.acc_metric.summarize("average"),
+                "top-3_fid": current_fid,
+                "faithfulness_median": torch.Tensor(self.faithfulness.scores).median(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
+            }
+            
+            # The train_logger writes a summary to stdout and to the logfile.
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch},
+                test_stats=test_stats
+            )
 
 if __name__ == "__main__":
 
@@ -475,11 +490,11 @@ if __name__ == "__main__":
             train_loader_kwargs=hparams["dataloader_options"],
             valid_loader_kwargs=hparams["dataloader_options"],
         )
-
-    # # Load the best checkpoint for evaluation
-    # test_stats = ESC50_brain.evaluate(
-    #     test_set=datasets["test"],
-    #     min_key="error",
-    #     progressbar=True,
-    #     test_loader_kwargs=hparams["dataloader_options"],
-    # )
+    else:
+        # Load the best checkpoint for evaluation
+        test_stats = Interpreter_brain.evaluate(
+            test_set=datasets["test"],
+            min_key="error",
+            progressbar=True,
+            test_loader_kwargs=hparams["dataloader_options"],
+        )
