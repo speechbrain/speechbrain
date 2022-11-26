@@ -55,7 +55,7 @@ ACCEPTABLE_FOLD_NUMS = [1, 2, 3, 4, 5]
 
 def download_esc50(data_folder):
     import os
-    if not os.path.exists(data_folder + "meta"):
+    if not os.path.exists(os.path.join(data_folder, "meta")):
         print("ESC50 missing. Downloading from github...")
         os.system(f"git clone https://github.com/karolpiczak/ESC-50.git {os.path.join(data_folder, 'temp_download')}")
         os.system(f"mv {os.path.join(data_folder, 'temp_download', '*')} {data_folder}")
