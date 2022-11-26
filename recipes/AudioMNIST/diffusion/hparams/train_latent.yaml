@@ -71,7 +71,9 @@ dataloader_options:
     batch_size: !ref <batch_size>
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
-
+rand_amplitude: True
+min_amp: 0.1
+max_amp: 0.4
 
 # Spectrogram Parameters
 spec_n_fft: 1024

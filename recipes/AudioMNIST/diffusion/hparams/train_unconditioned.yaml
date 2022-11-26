@@ -25,8 +25,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Preparation Parameters
-data_prepare_norm: False
-data_prepare_trim: False
+data_prepare_norm: True
+data_prepare_trim: True
 data_prepare_trim_threshold: -30.
 data_prepare_sample_rate_src: 48000
 data_prepare_sample_rate_tgt: 16000
@@ -37,7 +37,6 @@ dataset: flexthink/audiomnist
 train_len: 28520
 sort: len
 batch_shuffle: True
-sample_rate_src: 48000
 number_of_epochs: 20
 batch_size: 32
 lr: 0.00020
@@ -66,6 +65,9 @@ dataloader_options:
     batch_size: !ref <batch_size>
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
+rand_amplitude: True
+min_amp: 0.1
+max_amp: 0.4
 
 
 # Spectrogram Parameters

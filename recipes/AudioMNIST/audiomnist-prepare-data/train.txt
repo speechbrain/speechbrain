@@ -533,7 +533,6 @@ data/02/1_02_12.wav
 data/02/1_02_13.wav
 data/02/1_02_14.wav
 data/02/1_02_15.wav
-data/02/1_02_16.wav
 data/02/1_02_17.wav
 data/02/1_02_18.wav
 data/02/1_02_19.wav

@@ -845,6 +845,7 @@ class DiffusionBrain(sb.Brain):
 
         if (
             stage != sb.Stage.TRAIN
+            and epoch is not None
             and epoch % self.hparams.samples_interval == 0
         ):
             labels, samples, wav = self.generate_samples()
@@ -1043,6 +1044,14 @@ def dataio_prep(hparams):
         if not os.path.isabs(wav):
             wav = os.path.join(hparams["data_save_folder"], wav)
         sig = sb.dataio.dataio.read_audio(wav)
+
+        # To Support random amplitude
+        if hparams["rand_amplitude"]:
+            rand_amp = (hparams["max_amp"] - hparams["min_amp"]) * torch.rand(
+                1
+            ) + hparams["min_amp"]
+            sig = sig / sig.abs().max()
+            sig = sig * rand_amp
         return sig
 
     @sb.utils.data_pipeline.takes("digit", "speaker_id")
