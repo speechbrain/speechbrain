@@ -115,6 +115,7 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
 eval_num_samples: 10
+samples_interval: 5
 eval_generate_audio: True
 eval_show_progress: True
 norm_out_sample: True

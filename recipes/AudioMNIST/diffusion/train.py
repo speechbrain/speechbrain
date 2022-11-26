@@ -691,7 +691,7 @@ class DiffusionBrain(sb.Brain):
             wav_file_name = os.path.join(wav_sample_path, f"sample_{label}.wav")
             if self.hparams.norm_out_sample:
                 max_samp, _ = sample.abs().max(1)
-                sample = sample/max_samp
+                sample = sample / max_samp
             self.save_audio_sample(sample.squeeze(0), wav_file_name)
 
     def compute_sample_metrics(self, samples):
@@ -714,7 +714,9 @@ class DiffusionBrain(sb.Brain):
         file_name: str
             the file name to save
         """
-        write_audio(file_name, sample, self.hparams.data_prepare_sample_rate_tgt)
+        write_audio(
+            file_name, sample, self.hparams.data_prepare_sample_rate_tgt
+        )
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
@@ -841,7 +843,10 @@ class DiffusionBrain(sb.Brain):
         if stage == sb.Stage.TRAIN and self.hparams.enable_reference_samples:
             self.generate_reference_samples(self.reference_batch)
 
-        if stage != sb.Stage.TRAIN:
+        if (
+            stage != sb.Stage.TRAIN
+            and epoch % self.hparams.samples_interval == 0
+        ):
             labels, samples, wav = self.generate_samples()
             samples_rec, wav_rec = None, None
             data = {"labels": labels, "samples": samples, "wav": wav}
