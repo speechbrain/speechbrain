@@ -207,35 +207,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        # no data augmentation here
-        if stage == sb.Stage.TRAIN and False:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
-
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
@@ -292,9 +263,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower = torch.log(X_stft_power + 1).transpose(1, 2)
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN and False:
-            classid = torch.cat([classid] * self.n_augment, dim=0)
-        elif stage == sb.Stage.VALID:
+        if stage == sb.Stage.VALID:
             self.top_3_fidelity.append(
                 batch.id, theta_out, classification_out
             )
@@ -308,7 +277,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
         # loss_nmf = loss_nmf / reconstructions.shape[0]  # avg on batches
         loss_nmf = self.hparams.alpha * loss_nmf
-        # loss_nmf += self.hparams.beta * (time_activations).abs().mean()
+        loss_nmf += self.hparams.beta * (time_activations).abs().mean()
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
