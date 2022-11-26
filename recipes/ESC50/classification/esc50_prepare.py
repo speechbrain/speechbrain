@@ -53,6 +53,14 @@ MODIFIED_METADATA_FILE_NAME = "esc50_speechbrain.csv"
 
 ACCEPTABLE_FOLD_NUMS = [1, 2, 3, 4, 5]
 
+def download_esc50(data_folder):
+    import os
+    if not os.path.exists(data_folder + "meta"):
+        print("ESC50 missing. Downloading from github...")
+        os.system(f"git clone https://github.com/karolpiczak/ESC-50.git {os.path.join(data_folder, 'temp_download')}")
+        os.system(f"mv {os.path.join(data_folder, 'temp_download', '*')} {data_folder}")
+        os.system(f"rm {os.path.join(data_folder, 'temp_download')}")
+        print(f"ESC50 download in {data_folder}")
 
 def prepare_esc50(
     data_folder,
@@ -94,6 +102,7 @@ def prepare_esc50(
     >>> data_folder = '/path/to/UrbanSound8k'
     >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3,4,5,6,7,8], [9], [10])
     """
+    download_esc50(data_folder)
 
     # Tease params to correct type if necessary
     if type(train_fold_nums) is int:
