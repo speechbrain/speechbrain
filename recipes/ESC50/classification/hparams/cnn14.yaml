@@ -91,7 +91,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     hop_length: 10
 
 use_pretrain: False
-embedding_model: !new:recipes.ESC50.classification.custom_models.Cnn14
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
 
@@ -226,4 +226,4 @@ pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
         embedding_model: !ref <embedding_model>
     paths:
-        embedding_model: /data2/save_cnn14arc/task0/CKPT+2022-04-15+05-31-46+00/embedding_model.ckpt
+        embedding_model: embedding_model.ckpt

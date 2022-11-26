@@ -27,6 +27,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 test_only: False
+save_interpretations: False
 
 # Tensorboard logs
 use_tensorboard: False
@@ -54,9 +55,9 @@ base_lr: 0.00002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
-interpret_period: 4
+interpret_period: 1 
 
-device: "cuda:0"
+device: "cpu"
 
 # Feature parameters
 n_mels: 80
@@ -183,7 +184,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     hop_length: 10
 
 use_pretrain: False
-embedding_model: !new:recipes.ESC50.classification.custom_models.Cnn14
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     interpret: True
@@ -193,8 +194,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: /home/cem/Dropbox/speechbrain-1/recipes/ESC50/classification/results/cnn14/11/save/CKPT+2022-11-20+21-11-04+00/embedding_model.ckpt
-classifier_model_path: /home/cem/Dropbox/speechbrain-1/recipes/ESC50/classification/results/cnn14/11/save/CKPT+2022-11-20+21-11-04+00/classifier.ckpt
+embedding_model_path: embedding_model.ckpt 
+classifier_model_path: classifier.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
@@ -230,18 +231,20 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:custom_models.Psi
-theta: !new:custom_models.Theta
+psi_model: !new:speechbrain.lobes.models.L2I.Psi
+theta: !new:speechbrain.lobes.models.L2I.Theta
 
 # NMF Decoder
-nmf_d_path: "nmf_decoder_folds123.pt"
-nmf: !new:custom_models.NMFDecoder
+nmf_d_path: "nmf_decoder.pt"
+nmf: !new:speechbrain.lobes.models.L2I.NMFDecoder
     init_file: !ref <nmf_d_path>
     N_COMP: !ref <K>
     FREQ: !ref <n_mels>
+    device: !ref <device> 
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
+k_fidelity: 3 # top-k fidelity
 
 modules:
     compute_stft: !ref <compute_stft>
