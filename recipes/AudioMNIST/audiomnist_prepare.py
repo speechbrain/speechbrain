@@ -650,7 +650,9 @@ def trim_sig(sig, threshold):
         the decibel threhold
     """
     threshold_amp = math.pow(DB_BASE, threshold * DB_MULTIPLIER)
-    sound_pos = (sig > threshold_amp).nonzero()
+    sig = sig / sig.abs().max()
+    en_sig = sig ** 2
+    sound_pos = (en_sig > threshold_amp).nonzero()
     first, last = sound_pos[0], sound_pos[-1]
     return sig[first:last]
 
