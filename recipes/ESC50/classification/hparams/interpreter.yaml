@@ -184,7 +184,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     hop_length: 10
 
 use_pretrain: False
-embedding_model: !new:speechbrain.lobes.models.L2I.Cnn14
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     interpret: True
