@@ -57,7 +57,7 @@ step_size: 65000
 sample_rate: 44100
 interpret_period: 1 
 
-device: "cpu"
+device: "cuda:0"
 
 # Feature parameters
 n_mels: 80
