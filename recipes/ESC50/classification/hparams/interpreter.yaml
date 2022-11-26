@@ -27,6 +27,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 test_only: False
+save_interpretations: False
 
 # Tensorboard logs
 use_tensorboard: False
@@ -54,7 +55,7 @@ base_lr: 0.00002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
-interpret_period: 4
+interpret_period: 1 
 
 device: "cpu"
 

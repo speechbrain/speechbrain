@@ -236,7 +236,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             if (
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
-            ) == 0:
+                ) == 0 and self.hparams.save_interpretations: 
                 wavs = wavs[0].unsqueeze(0)
                 self.interpret_sample(wavs, batch)
                 self.overlap_test(batch)
