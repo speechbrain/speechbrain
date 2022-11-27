@@ -106,13 +106,9 @@ def write_ders_file(ref_rttm: str, DER: np.ndarray, out_der_file: str) -> None:
         f.write("%s\n" % line_str)
 
 
-<<<<<<< HEAD
-def prepare_subset_csv(full_diary_csv: List[List[str]], rec_id: str, out_csv_file: str) -> None:
-=======
 def prepare_subset_csv(
     full_diary_csv: List[List[str]], rec_id: str, out_csv_file: str
 ) -> None:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """Prepares csv for a given recording ID.
 
     Arguments
@@ -171,13 +167,9 @@ def is_overlapped(end1: float, start2: float) -> bool:
         return True
 
 
-<<<<<<< HEAD
-def merge_ssegs_same_speaker(lol: List[List[Union[str,float]]]) -> List[List[Union[str,float]]]:
-=======
 def merge_ssegs_same_speaker(
     lol: List[List[Union[str, float]]]
 ) -> List[List[Union[str, float]]]:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """Merge adjacent sub-segs from the same speaker.
 
     Arguments
@@ -230,13 +222,9 @@ def merge_ssegs_same_speaker(
     return new_lol
 
 
-<<<<<<< HEAD
-def distribute_overlap(lol: List[List[Union[str,float]]]) -> List[List[Union[str,float]]]:
-=======
 def distribute_overlap(
     lol: List[List[Union[str, float]]]
 ) -> List[List[Union[str, float]]]:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """Distributes the overlapped speech equally among the adjacent segments
     with different speakers.
 
@@ -315,13 +303,9 @@ def distribute_overlap(
     return new_lol
 
 
-<<<<<<< HEAD
-def write_rttm(segs_list: List[List[Union[str,float]]], out_rttm_file: str) -> None:
-=======
 def write_rttm(
     segs_list: List[List[Union[str, float]]], out_rttm_file: str
 ) -> None:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """Writes the segment list in RTTM format (A standard NIST format).
 
     Arguments
@@ -335,16 +319,12 @@ def write_rttm(
     rec_id = segs_list[0][0]
 
     with open(out_rttm_file, "w") as f:
-<<<<<<< HEAD
-        f.writelines([f"SPEAKER {rec_id} 0 {s[1]:.4f} {s[2]-s[1]} <NA> <NA> {s[3]} <NA> <NA>\n" for s in segs_list])
-=======
         f.writelines(
             [
                 f"SPEAKER {rec_id} 0 {s[1]:.4f} {s[2]-s[1]} <NA> <NA> {s[3]} <NA> <NA>\n"
                 for s in segs_list
             ]
         )
->>>>>>> 1a1c441a (- Add Diarization interface)
 
 
 #######################################
@@ -416,13 +396,9 @@ def _graph_is_connected(graph: np.ndarray) -> np.ndarray:
         return _graph_connected_component(graph, 0).sum() == graph.shape[0]
 
 
-<<<<<<< HEAD
-def _set_diag(laplacian: np.ndarray, value: float, norm_laplacian: bool) -> np.ndarray:
-=======
 def _set_diag(
     laplacian: np.ndarray, value: float, norm_laplacian: bool
 ) -> np.ndarray:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """
     Set the diagonal of the laplacian matrix and convert it to a sparse
     format well suited for eigenvalue decomposition.
@@ -489,13 +465,9 @@ def _deterministic_vector_sign_flip(u: np.ndarray) -> np.ndarray:
     return u
 
 
-<<<<<<< HEAD
-def _check_random_state(seed: Union[None, int, np.random.RandomState]) -> np.random.RandomState:
-=======
 def _check_random_state(
     seed: Union[None, int, np.random.RandomState]
 ) -> np.random.RandomState:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """Turn seed into a np.random.RandomState instance.
 
     Arguments
@@ -559,14 +531,10 @@ def get_oracle_num_spkrs(rec_id: str, spkr_info: List[str]) -> int:
 
 
 def spectral_embedding_sb(
-<<<<<<< HEAD
-    adjacency: np.ndarray, n_components: int = 8, norm_laplacian: bool = True, drop_first: bool = True,
-=======
     adjacency: np.ndarray,
     n_components: int = 8,
     norm_laplacian: bool = True,
     drop_first: bool = True,
->>>>>>> 1a1c441a (- Add Diarization interface)
 ) -> np.ndarray:
     """Returns spectral embeddings.
 
@@ -651,15 +619,11 @@ def spectral_embedding_sb(
 
 
 def spectral_clustering_sb(
-<<<<<<< HEAD
-    affinity: np.ndarray, n_clusters: int = 8, n_components: Union[int,None] = None, random_state: Union[None, int, np.random.RandomState] = None, n_init: int = 10,
-=======
     affinity: np.ndarray,
     n_clusters: int = 8,
     n_components: Union[int, None] = None,
     random_state: Union[None, int, np.random.RandomState] = None,
     n_init: int = 10,
->>>>>>> 1a1c441a (- Add Diarization interface)
 ) -> List[int]:
     """Performs spectral clustering.
 
@@ -716,13 +680,9 @@ def spectral_clustering_sb(
 class Spec_Cluster(SpectralClustering):
     """Performs spectral clustering using sklearn on embeddings."""
 
-<<<<<<< HEAD
-    def perform_sc(self, X: np.ndarray, n_neighbors: int = 10): # (-> Self) ... Python >= 3.11
-=======
     def perform_sc(
         self, X: np.ndarray, n_neighbors: int = 10
     ):  # (-> Self) ... Python >= 3.11
->>>>>>> 1a1c441a (- Add Diarization interface)
         """
         Performs spectral clustering using sklearn on embeddings.
 
@@ -1021,9 +981,6 @@ class Spec_Clust_unorm:
 
 
 def do_spec_clustering(
-<<<<<<< HEAD
-    diary_obj: StatObject_SB, out_rttm_file: str, rec_id: str, k: Union[None, int], pval: float, affinity_type: str, n_neighbors: int
-=======
     diary_obj: StatObject_SB,
     out_rttm_file: str,
     rec_id: str,
@@ -1031,7 +988,6 @@ def do_spec_clustering(
     pval: float,
     affinity_type: str,
     n_neighbors: int,
->>>>>>> 1a1c441a (- Add Diarization interface)
 ) -> Union[None, List[List[Union[str, float]]]]:
     """Performs spectral clustering on embeddings. This function calls specific
     clustering algorithms as per affinity.
@@ -1111,15 +1067,11 @@ def do_spec_clustering(
 
 
 def do_kmeans_clustering(
-<<<<<<< HEAD
-    diary_obj: StatObject_SB, out_rttm_file: str, rec_id: str, k_oracle: int = 4, p_val: float = 0.3
-=======
     diary_obj: StatObject_SB,
     out_rttm_file: str,
     rec_id: str,
     k_oracle: int = 4,
     p_val: float = 0.3,
->>>>>>> 1a1c441a (- Add Diarization interface)
 ) -> None:
     """Performs kmeans clustering on embeddings.
 
@@ -1199,9 +1151,6 @@ def do_kmeans_clustering(
     write_rttm(lol, out_rttm_file)
 
 
-<<<<<<< HEAD
-def do_AHC(diary_obj: StatObject_SB, out_rttm_file: str, rec_id: str, k_oracle: int = 4, p_val: float = 0.3) -> None:
-=======
 def do_AHC(
     diary_obj: StatObject_SB,
     out_rttm_file: str,
@@ -1209,7 +1158,6 @@ def do_AHC(
     k_oracle: int = 4,
     p_val: float = 0.3,
 ) -> None:
->>>>>>> 1a1c441a (- Add Diarization interface)
     """Performs Agglomerative Hierarchical Clustering on embeddings.
 
     Arguments
