@@ -24,6 +24,7 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -107,13 +108,18 @@ class ASR(sb.Brain):
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                self.scaler.scale(
+                    loss / self.grad_accumulation_factor
+                ).backward()
             if should_step:
-                self.scaler.unscale_(self.wav2vec_optimizer)
+                if not self.hparams.freeze_wav2vec:
+                    self.scaler.unscale_(self.wav2vec_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
-                    self.scaler.step(self.wav2vec_optimizer)
+                    if not self.hparams.freeze_wav2vec:
+                        self.scaler.step(self.wav2vec_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
@@ -185,9 +191,15 @@ class ASR(sb.Brain):
         "Initializes the wav2vec2 optimizer and model optimizer"
         # Handling SpeechBrain vs HuggingFance pretrained models
         if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.encoder_wrapper.latent_encoder.parameters()
-            )
+            # DDP compliance (it adds one layer)
+            if self.distributed_launch:
+                self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                    self.modules.encoder_wrapper.module.latent_encoder.parameters()
+                )
+            else:
+                self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                    self.modules.encoder_wrapper.latent_encoder.parameters()
+                )
 
         else:  # HuggingFace pretrained model
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
@@ -258,6 +270,10 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
+
+        # Audio normalization
+        with torch.no_grad():
+            sig = F.layer_norm(sig, sig.shape)
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
