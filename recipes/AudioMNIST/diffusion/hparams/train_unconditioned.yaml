@@ -25,8 +25,8 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Preparation Parameters
-data_prepare_norm: True
-data_prepare_trim: True
+data_prepare_norm: False
+data_prepare_trim: False
 data_prepare_trim_threshold: -30.
 data_prepare_sample_rate_src: 48000
 data_prepare_sample_rate_tgt: 16000
@@ -112,10 +112,11 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
 eval_num_samples: 10
-samples_interval: 5
+samples_interval: 1
 eval_generate_audio: True
 eval_show_progress: True
-norm_out_sample: True
+norm_out_sample: False
+eval_time_steps: 40
 
 # Feature extraction
 compute_features: !new:speechbrain.nnet.containers.Sequential

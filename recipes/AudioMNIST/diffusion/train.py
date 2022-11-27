@@ -478,7 +478,7 @@ class DiffusionBrain(sb.Brain):
             (
                 self.hparams.eval_num_samples,
                 self.hparams.diffusion_channels,
-                self.hparams.spec_sample_size,
+                self.hparams.eval_time_steps,
                 self.hparams.spec_sample_size,
             )
         )
@@ -564,7 +564,7 @@ class DiffusionBrain(sb.Brain):
             (
                 self.hparams.eval_num_samples,
                 self.hparams.diffusion_sample_channels,
-                self.hparams.spec_sample_size,
+                self.hparams.eval_time_steps,
                 self.hparams.spec_sample_size,
             ),
             cond_emb=cond_emb,
