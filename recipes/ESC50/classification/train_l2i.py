@@ -8,13 +8,9 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
 from train import dataio_prep
-import numpy as np
 from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs
-
 import torch.nn.functional as F
-
-import scipy.io.wavfile as wavf
 from speechbrain.processing.NMF import spectral_phase
 
 
@@ -86,7 +82,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
         if not (batch is None):
             X_stft_phase_sb = torch.cat(
-                (torch.cos(X_stft_phase).unsqueeze(-1), torch.sin(X_stft_phase).unsqueeze(-1)), dim=-1
+                (
+                    torch.cos(X_stft_phase).unsqueeze(-1),
+                    torch.sin(X_stft_phase).unsqueeze(-1),
+                ),
+                dim=-1,
             )
 
             temp = X_int.transpose(0, 1).unsqueeze(0).unsqueeze(-1)
@@ -103,7 +103,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             )
 
             current_class_ind = batch.class_string_encoded.data[0].item()
-            current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
+            current_class_name = self.hparams.label_encoder.ind2lab[
+                current_class_ind
+            ]
             predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl]
             torchaudio.save(
                 os.path.join(
@@ -142,9 +144,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(mix)
 
         X_stft_phase_sb = torch.cat(
-            (torch.cos(X_stft_phase).unsqueeze(-1), torch.sin(X_stft_phase).unsqueeze(-1)), dim=-1
+            (
+                torch.cos(X_stft_phase).unsqueeze(-1),
+                torch.sin(X_stft_phase).unsqueeze(-1),
+            ),
+            dim=-1,
         )
-        
+
         temp = X_int.transpose(0, 1).unsqueeze(0).unsqueeze(-1)
 
         X_wpsb = temp * X_stft_phase_sb
@@ -153,48 +159,43 @@ class InterpreterESC50Brain(sb.core.Brain):
         # save reconstructed and original spectrograms
         # epoch = self.hparams.epoch_counter.current
         current_class_ind = batch.class_string_encoded.data[0].item()
-        current_class_name = self.hparams.label_encoder.ind2lab[current_class_ind]
+        current_class_name = self.hparams.label_encoder.ind2lab[
+            current_class_ind
+        ]
         predicted_class_name = self.hparams.label_encoder.ind2lab[pred_cl]
 
         noise_class_ind = batch.class_string_encoded.data[1].item()
         noise_class_name = self.hparams.label_encoder.ind2lab[noise_class_ind]
 
         out_folder = os.path.join(
-            self.hparams.output_folder, f"overlap_test", f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}"
+            self.hparams.output_folder,
+            f"overlap_test",
+            f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder,
-            exist_ok=True,
+            out_folder, exist_ok=True,
         )
 
         torchaudio.save(
-            os.path.join(
-                out_folder, "mixture.wav"
-            ),
+            os.path.join(out_folder, "mixture.wav"),
             mix,
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
-            os.path.join(
-                out_folder, "source.wav"
-            ),
+            os.path.join(out_folder, "source.wav"),
             s1.unsqueeze(0),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
-            os.path.join(
-                out_folder, "noise.wav"
-            ),
+            os.path.join(out_folder, "noise.wav"),
             s2.unsqueeze(0),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
-            os.path.join(
-                out_folder, "interpretation.wav"
-            ),
+            os.path.join(out_folder, "interpretation.wav"),
             x_int_sb,
             self.hparams.sample_rate,
         )
@@ -222,21 +223,17 @@ class InterpreterESC50Brain(sb.core.Brain):
         psi_out = psi_out[:, :, : X_stft_power.shape[1]]
 
         #  generate log-mag spectrogram
-        reconstructed = self.hparams.nmf(
-            psi_out
-        )
+        reconstructed = self.hparams.nmf(psi_out)
 
         # generate classifications from time activations
-        theta_out = self.modules.theta(
-            psi_out
-        )
+        theta_out = self.modules.theta(psi_out)
 
         if stage == sb.Stage.VALID:
             # save some samples
             if (
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
-                ) == 0 and self.hparams.save_interpretations: 
+            ) == 0 and self.hparams.save_interpretations:
                 wavs = wavs[0].unsqueeze(0)
                 self.interpret_sample(wavs, batch)
                 self.overlap_test(batch)
@@ -264,12 +261,8 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            self.top_3_fidelity.append(
-                batch.id, theta_out, classification_out
-            )
-            self.faithfulness.append(
-                batch.id, wavs, classification_out
-            )
+            self.top_3_fidelity.append(batch.id, theta_out, classification_out)
+            self.faithfulness.append(batch.id, wavs, classification_out)
         self.acc_metric.append(
             uttid, predict=classification_out, target=classid, length=lens
         )
@@ -292,7 +285,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         return loss_nmf + loss_fdi
 
     def on_stage_start(self, stage, epoch=None):
-
         def accuracy_value(predict, target, length):
             """Computes Accuracy"""
             # predict = predict.argmax(1, keepdim=True)
@@ -308,10 +300,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             predictions = F.softmax(predictions, dim=1)
             theta_out = F.softmax(theta_out, dim=1)
 
-            pred_cl = torch.argmax(
-                predictions,
-                dim=1
-            )
+            pred_cl = torch.argmax(predictions, dim=1)
             k_top = torch.topk(theta_out, k=self.hparams.k_fidelity, dim=1)[1]
 
             # 1 element for each sample in batch, is 0 if pred_cl is in top k
@@ -328,7 +317,9 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             X2 = torch.zeros_like(X_stft_power)
             for (i, wav) in enumerate(wavs):
-                X2[i] = X_stft_power[i] - self.interpret_sample(wav.unsqueeze(0))
+                X2[i] = X_stft_power[i] - self.interpret_sample(
+                    wav.unsqueeze(0)
+                )
 
             X2_logmel = self.modules.compute_fbank(X2.transpose(1, 2))
 
@@ -340,12 +331,18 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             # get the prediction indices
             pred_cl = predictions.argmax(dim=1, keepdim=True)
-            
+
             # get the corresponding output probabilities
-            predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
-            predictions_masked_selected = torch.gather(predictions_masked, dim=1, index=pred_cl)
-            
-            faithfulness = (predictions_selected - predictions_masked_selected).squeeze()
+            predictions_selected = torch.gather(
+                predictions, dim=1, index=pred_cl
+            )
+            predictions_masked_selected = torch.gather(
+                predictions_masked, dim=1, index=pred_cl
+            )
+
+            faithfulness = (
+                predictions_selected - predictions_masked_selected
+            ).squeeze()
 
             return faithfulness
 
@@ -365,25 +362,30 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.train_loss = stage_loss
             self.train_stats = {
                 "loss": self.train_loss,
-                "acc": self.acc_metric.summarize("average")
+                "acc": self.acc_metric.summarize("average"),
             }
 
         if stage == sb.Stage.VALID:
             current_fid = self.top_3_fidelity.summarize("average")
-            old_lr, new_lr = self.hparams.lr_annealing([self.optimizer], epoch, -current_fid)
+            old_lr, new_lr = self.hparams.lr_annealing(
+                [self.optimizer], epoch, -current_fid
+            )
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             valid_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "top-3_fid": current_fid,
-                "faithfulness_median": torch.Tensor(self.faithfulness.scores).median(),
-                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
-           }
+                "faithfulness_median": torch.Tensor(
+                    self.faithfulness.scores
+                ).median(),
+                "faithfulness_mean": torch.Tensor(
+                    self.faithfulness.scores
+                ).mean(),
+            }
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch,
-                            "lr": old_lr},
+                stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
                 valid_stats=valid_stats,
             )
@@ -391,7 +393,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             # Save the current checkpoint and delete previous checkpoints,
             self.checkpointer.save_and_keep_only(
                 meta=valid_stats, max_keys=["top-3_fid"]
-           )
+            )
 
         if stage == sb.Stage.TEST:
             current_fid = self.top_3_fidelity.summarize("average")
@@ -399,15 +401,19 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "top-3_fid": current_fid,
-                "faithfulness_median": torch.Tensor(self.faithfulness.scores).median(),
-                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
+                "faithfulness_median": torch.Tensor(
+                    self.faithfulness.scores
+                ).median(),
+                "faithfulness_mean": torch.Tensor(
+                    self.faithfulness.scores
+                ).mean(),
             }
-            
+
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch},
-                test_stats=test_stats
+                stats_meta={"epoch": epoch}, test_stats=test_stats
             )
+
 
 if __name__ == "__main__":
 
