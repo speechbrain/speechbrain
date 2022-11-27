@@ -23,7 +23,7 @@ class Psi(nn.Module):
     >>> inp = [torch.ones(2, 150, 6, 2), torch.ones(2, 100, 6, 2), torch.ones(2, 50, 12, 5)]
     >>> psi = Psi(n_comp=100, T=120, in_emb_dims=[150, 100, 50])
     >>> h = psi(inp)
-    >>> h.shape
+    >>> print(h.shape)
     torch.Size([2, 100, 120])
     """
 
