@@ -24,7 +24,6 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -191,15 +190,9 @@ class ASR(sb.Brain):
         "Initializes the wav2vec2 optimizer and model optimizer"
         # Handling SpeechBrain vs HuggingFance pretrained models
         if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
-            # DDP compliance (it adds one layer)
-            if self.distributed_launch:
-                self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                    self.modules.encoder_wrapper.module.latent_encoder.parameters()
-                )
-            else:
-                self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                    self.modules.encoder_wrapper.latent_encoder.parameters()
-                )
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.encoder_wrapper.latent_encoder.parameters()
+            )
 
         else:  # HuggingFace pretrained model
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
@@ -270,10 +263,6 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
-
-        # Audio normalization
-        with torch.no_grad():
-            sig = F.layer_norm(sig, sig.shape)
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
