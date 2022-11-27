@@ -2,24 +2,49 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import numpy as np
-import speechbrain as sb
 
 
 class Psi(nn.Module):
-    def __init__(self, N_COMP=100, T=431, in_maps=[2048, 1024, 512]):
+    """ Convolutional Layers to estimate NMF Activations from Classifier Representations
+
+    Arguments
+    ---------
+    n_comp : int
+        Number of NMF components (or equivalently number of neurons at the output per timestep)
+    T: int
+        The targeted length along the time dimension
+    in_emb_dims: List with int elements
+        A list with length 3 that contains the dimensionality of the input dimensions
+        The list needs to match the number of channels in the input classifier representations
+        The last entry should be the smallest entry
+
+    Example
+    -------
+    >>> inp = [torch.ones(2, 150, 6, 2), torch.ones(2, 100, 6, 2), torch.ones(2, 50, 12, 5)]
+    >>> psi = Psi(n_comp=100, T=120, in_emb_dims=[150, 100, 50])
+    >>> h = psi(inp)
+    >>> h.shape
+    torch.Size([2, 100, 120])
+    """
+
+    def __init__(self, n_comp=100, T=431, in_emb_dims=[2048, 1024, 512]):
         """
-        Computes NMF dictionary activations given classifier hidden layers
+        Computes NMF activations given classifier hidden representations
         """
         super(Psi, self).__init__()
-        self.in_maps = in_maps
+        self.in_emb_dims = in_emb_dims
         self.upsamp = nn.UpsamplingBilinear2d(scale_factor=(2, 2))
         self.upsamp_time = nn.UpsamplingBilinear2d(size=(T, 1))
-        out_c = min(in_maps)
+        out_c = min(in_emb_dims)
 
-        self.c1 = nn.Conv2d(in_maps[0], out_c, kernel_size=3, padding="same")
-        self.c2 = nn.Conv2d(in_maps[1], out_c, kernel_size=3, padding="same")
+        self.c1 = nn.Conv2d(
+            in_emb_dims[0], out_c, kernel_size=3, padding="same"
+        )
+        self.c2 = nn.Conv2d(
+            in_emb_dims[1], out_c, kernel_size=3, padding="same"
+        )
 
-        self.out_conv = nn.Conv2d(out_c, N_COMP, kernel_size=3, padding="same")
+        self.out_conv = nn.Conv2d(out_c, n_comp, kernel_size=3, padding="same")
 
         self.conv = nn.Sequential(
             nn.Conv2d(out_c * 3, out_c, kernel_size=3, padding="same"),
@@ -30,14 +55,14 @@ class Psi(nn.Module):
         self.act = nn.ReLU()
 
     def forward(self, inp):
+        """This forward function returns the NMF time activations given classifier activations
+        Argument:
+            inp: A length 3 list of classifier input representions.
         """
-        `inp` contains the hidden representations from the network.
-        inp[0] and inp[1] need a factor 2 upsampling on the time axis, while inp[0] just needs features to match K
-        """
-        error = "in PSI doesn't match. Did you change the classifier model?"
-        for i in range(len(self.in_maps)):
+        error = "in PSI doesn't match. The embedding dimensions need to be consistent with the list self.in_emb_dims"
+        for i, in_emb_dim in enumerate(self.in_emb_dims):
             # sanity check on shapes
-            assert inp[0].shape[1] == self.in_maps[0], (
+            assert inp[i].shape[1] == self.in_emb_dims[i], (
                 "Nr. of channels " + error
             )
 
@@ -51,24 +76,17 @@ class Psi(nn.Module):
 
         x1, x2, x3 = inp
 
-        # print(x1.shape, x2.shape, x3.shape)
-        # input()
-
         # upsample inp[0] and inp[1] time and frequency axis once
         x1 = self.upsamp(x1)
         x2 = self.upsamp(x2)
 
-        # compress feature number to the min among given hidden repr
+        # compress feature number to the min among given hidden representations
         x1 = self.act(self.c1(x1))
         x2 = self.act(self.c2(x2))
 
-        # for cnn14 fix frequency dimension
+        # for compatibility with cnn14 fixed frequency dimension
         x1 = F.pad(x1, (0, 1, 0, 0))
         x2 = F.pad(x2, (0, 1, 0, 0))
-
-        # print(x1.shape, x2.shape, x3.shape)
-        # input()
-
         x = torch.cat((x1, x2, x3), axis=1)
 
         # upsample time axis and collapse freq
@@ -77,132 +95,7 @@ class Psi(nn.Module):
         # mix contribution for the three hidden layers -- work on this when fixing training
         x = self.conv(x)
         x = self.act(self.out_conv(x)).squeeze(3)
-
         return x
-
-
-class Psi_independent(nn.Module):
-    def __init__(self, N_COMP=100, T=431, in_maps=[2048, 1024, 512]):
-        """
-        Computes NMF dictionary activations given classifier hidden layers
-        """
-        super(Psi_independent, self).__init__()
-
-        self.T = T
-        self.K = N_COMP
-        self.in_maps = in_maps
-        self.h = nn.Parameter(
-            data=torch.rand(self.K, self.T, requires_grad=True)
-        )
-
-    def forward(self, inp):
-        """
-        `inp` contains the hidden representations from the network.
-        inp[0] and inp[1] need a factor 2 upsampling on the time axis, while inp[0] just needs features to match K
-        """
-        return F.relu(self.h)
-
-
-class Psi_ConvTranspose(nn.Module):
-    def __init__(self, N_COMP=100, T=431, in_maps=[2048, 1024, 512]):
-        """
-        Computes NMF dictionary activations given classifier hidden layers
-        """
-        super(Psi_ConvTranspose, self).__init__()
-
-        self.in_maps = in_maps
-        self.c1_1 = sb.nnet.CNN.ConvTranspose1d(
-            1024,
-            kernel_size=8,
-            in_channels=in_maps[0],
-            stride=2,
-            padding=6,
-            skip_transpose=True,
-        )
-        self.c1_2 = sb.nnet.CNN.ConvTranspose1d(
-            512,
-            kernel_size=8,
-            in_channels=1024,
-            stride=2,
-            padding=4,
-            skip_transpose=True,
-        )
-        self.c1_3 = sb.nnet.CNN.ConvTranspose1d(
-            256,
-            kernel_size=8,
-            in_channels=512,
-            stride=3,
-            padding=0,
-            skip_transpose=True,
-        )
-        self.c1_4 = sb.nnet.CNN.ConvTranspose1d(
-            128,
-            kernel_size=8,
-            in_channels=256,
-            stride=2,
-            padding=0,
-            skip_transpose=True,
-        )
-        self.c1_5 = sb.nnet.CNN.ConvTranspose1d(
-            N_COMP,
-            kernel_size=8,
-            in_channels=128,
-            stride=2,
-            padding=0,
-            skip_transpose=True,
-        )
-
-        self.c2_1 = sb.nnet.CNN.ConvTranspose1d(
-            1024,
-            kernel_size=8,
-            in_channels=in_maps[1],
-            stride=2,
-            padding=6,
-            skip_transpose=True,
-        )
-
-        self.c3_1 = sb.nnet.CNN.ConvTranspose1d(
-            256,
-            kernel_size=8,
-            in_channels=in_maps[2],
-            stride=2,
-            padding=6,
-            skip_transpose=True,
-        )
-
-    def forward(self, inp):
-        """
-        `inp` contains the hidden representations from the network.
-        inp[0] and inp[1] need a factor 2 upsampling on the time axis, while inp[0] just needs features to match K
-        """
-        error = "in PSI doesn't match. Did you change the classifier model?"
-        for i in range(len(self.in_maps)):
-            # sanity check on shapes
-            assert inp[0].shape[1] == self.in_maps[0], (
-                "Nr. of channels " + error
-            )
-
-        assert inp[0].shape[2] == inp[1].shape[2], "Spatial dimension " + error
-        assert inp[0].shape[3] == inp[1].shape[3], "Spatial dimension " + error
-        assert 2 * inp[0].shape[3] == (inp[2].shape[3] - 1), (
-            "Spatial dimension "
-            + error
-            + f" 1st (idx 0) element has shape {inp[0].shape[3]} second element (idx 1) has shape {inp[2].shape[3]}"
-        )
-
-        x1, x2, x3 = inp
-        # x1 = x1.reshape(x1.shape[0], x1.shape[1], -1)
-        x2 = x2.reshape(x2.shape[0], x2.shape[1], -1)
-        x3 = x3.reshape(x3.shape[0], x3.shape[1], -1)
-        x1 = x1.mean(-1)
-
-        x1 = self.c1_1(x1)
-        x1 = self.c1_2(x1)
-        x1 = self.c1_3(x1)
-        x1 = self.c1_4(x1)
-        x1 = self.c1_5(x1)
-
-        return F.relu(x1)
 
 
 class NMFDecoder(nn.Module):
@@ -217,7 +110,9 @@ class NMFDecoder(nn.Module):
         if init_file is not None:
             # handle numpy or torch
             if ".pt" in init_file:
-                self.W.data = torch.load(init_file, map_location=torch.device(device))
+                self.W.data = torch.load(
+                    init_file, map_location=torch.device(device)
+                )
             else:
                 temp = np.load(init_file)
                 self.W.data = torch.as_tensor(temp).float()
