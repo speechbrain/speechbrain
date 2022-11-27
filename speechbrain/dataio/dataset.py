@@ -10,7 +10,7 @@ import contextlib
 from types import MethodType
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
-from speechbrain.dataio.dataio import load_data_json, load_data_csv
+from speechbrain.dataio.dataio import load_data_json, load_data_csv, load_data_dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -355,6 +355,14 @@ class DynamicItemDataset(Dataset):
     ):
         """Load a data prep JSON file and create a Dataset based on it."""
         data = load_data_json(json_path, replacements)
+        return cls(data, dynamic_items, output_keys)
+
+    @classmethod
+    def from_dict(
+        cls, dict_obj, replacements={}, dynamic_items=[], output_keys=[]
+    ):
+        """Load a data prep dict object and create a Dataset based on it."""
+        data = load_data_dict(dict_obj, replacements)
         return cls(data, dynamic_items, output_keys)
 
     @classmethod

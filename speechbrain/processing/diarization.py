@@ -25,10 +25,12 @@ import scipy
 import pytest
 import numpy as np
 
+from typing import Union, List
 from scipy import sparse
 from scipy.sparse.linalg import eigsh
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse.csgraph import laplacian as csgraph_laplacian
+from speechbrain.processing.PLDA_LDA import StatObject_SB
 
 np.random.seed(1234)
 pytest.importorskip("sklearn")
@@ -51,7 +53,7 @@ except ImportError:
     raise ImportError(err_msg)
 
 
-def read_rttm(rttm_file_path):
+def read_rttm(rttm_file_path: str) -> List[str]:
     """Reads and returns RTTM in list format.
 
     Arguments
@@ -65,15 +67,12 @@ def read_rttm(rttm_file_path):
         List containing rows of RTTM file.
     """
 
-    rttm = []
     with open(rttm_file_path, "r") as f:
-        for line in f:
-            entry = line[:-1]
-            rttm.append(entry)
+        rttm = [line.strip() for line in f]
     return rttm
 
 
-def write_ders_file(ref_rttm, DER, out_der_file):
+def write_ders_file(ref_rttm: str, DER: np.ndarray, out_der_file: str) -> None:
     """Write the final DERs for individual recording.
 
     Arguments
@@ -87,7 +86,7 @@ def write_ders_file(ref_rttm, DER, out_der_file):
     """
 
     rttm = read_rttm(ref_rttm)
-    spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), rttm))
+    spkr_info = tuple(filter(lambda x: x.startswith("SPKR-INFO"), rttm))
 
     rec_id_list = []
     count = 0
@@ -107,7 +106,7 @@ def write_ders_file(ref_rttm, DER, out_der_file):
         f.write("%s\n" % line_str)
 
 
-def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
+def prepare_subset_csv(full_diary_csv: List[List[str]], rec_id: str, out_csv_file: str) -> None:
     """Prepares csv for a given recording ID.
 
     Arguments
@@ -136,7 +135,7 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
             csv_writer.writerow(r)
 
 
-def is_overlapped(end1, start2):
+def is_overlapped(end1: float, start2: float) -> bool:
     """Returns True if segments are overlapping.
 
     Arguments
@@ -166,7 +165,7 @@ def is_overlapped(end1, start2):
         return True
 
 
-def merge_ssegs_same_speaker(lol):
+def merge_ssegs_same_speaker(lol: List[List[Union[str,float]]]) -> List[List[Union[str,float]]]:
     """Merge adjacent sub-segs from the same speaker.
 
     Arguments
@@ -219,7 +218,7 @@ def merge_ssegs_same_speaker(lol):
     return new_lol
 
 
-def distribute_overlap(lol):
+def distribute_overlap(lol: List[List[Union[str,float]]]) -> List[List[Union[str,float]]]:
     """Distributes the overlapped speech equally among the adjacent segments
     with different speakers.
 
@@ -298,7 +297,7 @@ def distribute_overlap(lol):
     return new_lol
 
 
-def write_rttm(segs_list, out_rttm_file):
+def write_rttm(segs_list: List[List[Union[str,float]]], out_rttm_file: str) -> None:
     """Writes the segment list in RTTM format (A standard NIST format).
 
     Arguments
@@ -309,34 +308,16 @@ def write_rttm(segs_list, out_rttm_file):
         Path of the output RTTM file.
     """
 
-    rttm = []
     rec_id = segs_list[0][0]
 
-    for seg in segs_list:
-        new_row = [
-            "SPEAKER",
-            rec_id,
-            "0",
-            str(round(seg[1], 4)),
-            str(round(seg[2] - seg[1], 4)),
-            "<NA>",
-            "<NA>",
-            seg[3],
-            "<NA>",
-            "<NA>",
-        ]
-        rttm.append(new_row)
-
     with open(out_rttm_file, "w") as f:
-        for row in rttm:
-            line_str = " ".join(row)
-            f.write("%s\n" % line_str)
+        f.writelines([f"SPEAKER {rec_id} 0 {s[1]:.4f} {s[2]-s[1]} <NA> <NA> {s[3]} <NA> <NA>\n" for s in segs_list])
 
 
 #######################################
 
 
-def _graph_connected_component(graph, node_id):
+def _graph_connected_component(graph: np.ndarray, node_id: int) -> np.ndarray:
     """Find the largest graph connected components that contains one
     given node.
 
@@ -379,7 +360,7 @@ def _graph_connected_component(graph, node_id):
     return connected_nodes
 
 
-def _graph_is_connected(graph):
+def _graph_is_connected(graph: np.ndarray) -> np.ndarray:
     """Return whether the graph is connected (True) or Not (False)
 
     Arguments
@@ -402,7 +383,7 @@ def _graph_is_connected(graph):
         return _graph_connected_component(graph, 0).sum() == graph.shape[0]
 
 
-def _set_diag(laplacian, value, norm_laplacian):
+def _set_diag(laplacian: np.ndarray, value: float, norm_laplacian: bool) -> np.ndarray:
     """
     Set the diagonal of the laplacian matrix and convert it to a sparse
     format well suited for eigenvalue decomposition.
@@ -447,7 +428,7 @@ def _set_diag(laplacian, value, norm_laplacian):
     return laplacian
 
 
-def _deterministic_vector_sign_flip(u):
+def _deterministic_vector_sign_flip(u: np.ndarray) -> np.ndarray:
     """Modify the sign of vectors for reproducibility. Flips the sign of
     elements of all the vectors (rows of u) such that the absolute
     maximum element of each vector is positive.
@@ -469,7 +450,7 @@ def _deterministic_vector_sign_flip(u):
     return u
 
 
-def _check_random_state(seed):
+def _check_random_state(seed: Union[None, int, np.random.RandomState]) -> np.random.RandomState:
     """Turn seed into a np.random.RandomState instance.
 
     Arguments
@@ -481,7 +462,7 @@ def _check_random_state(seed):
         Otherwise raise ValueError.
     """
 
-    if seed is None or seed is np.random:
+    if seed is None:
         return np.random.mtrand._rand
     if isinstance(seed, numbers.Integral):
         return np.random.RandomState(seed)
@@ -495,7 +476,7 @@ def _check_random_state(seed):
 #####################
 
 
-def get_oracle_num_spkrs(rec_id, spkr_info):
+def get_oracle_num_spkrs(rec_id: str, spkr_info: List[str]) -> int:
     """
     Returns actual number of speakers in a recording from the ground-truth.
     This can be used when the condition is oracle number of speakers.
@@ -533,8 +514,8 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
 
 
 def spectral_embedding_sb(
-    adjacency, n_components=8, norm_laplacian=True, drop_first=True,
-):
+    adjacency: np.ndarray, n_components: int = 8, norm_laplacian: bool = True, drop_first: bool = True,
+) -> np.ndarray:
     """Returns spectral embeddings.
 
     Arguments
@@ -618,8 +599,8 @@ def spectral_embedding_sb(
 
 
 def spectral_clustering_sb(
-    affinity, n_clusters=8, n_components=None, random_state=None, n_init=10,
-):
+    affinity: np.ndarray, n_clusters: int = 8, n_components: Union[int,None] = None, random_state: Union[None, int, np.random.RandomState] = None, n_init: int = 10,
+) -> List[int]:
     """Performs spectral clustering.
 
     Arguments
@@ -675,7 +656,7 @@ def spectral_clustering_sb(
 class Spec_Cluster(SpectralClustering):
     """Performs spectral clustering using sklearn on embeddings."""
 
-    def perform_sc(self, X, n_neighbors=10):
+    def perform_sc(self, X: np.ndarray, n_neighbors: int = 10): # (-> Self) ... Python >= 3.11
         """
         Performs spectral clustering using sklearn on embeddings.
 
@@ -775,12 +756,12 @@ class Spec_Clust_unorm:
     >>> # print(clust.labels_) # [0 0 0 2 2 2 1 1 1 1]
     """
 
-    def __init__(self, min_num_spkrs=2, max_num_spkrs=10):
+    def __init__(self, min_num_spkrs: int = 2, max_num_spkrs: int = 10):
 
         self.min_num_spkrs = min_num_spkrs
         self.max_num_spkrs = max_num_spkrs
 
-    def do_spec_clust(self, X, k_oracle, p_val):
+    def do_spec_clust(self, X: np.ndarray, k_oracle: int, p_val: float) -> None:
         """Function for spectral clustering.
 
         Arguments
@@ -812,7 +793,7 @@ class Spec_Clust_unorm:
         # Perform clustering
         self.cluster_embs(emb, num_of_spk)
 
-    def get_sim_mat(self, X):
+    def get_sim_mat(self, X: np.ndarray) -> np.ndarray:
         """Returns the similarity matrix based on cosine similarities.
 
         Arguments
@@ -832,7 +813,7 @@ class Spec_Clust_unorm:
         M = sklearn.metrics.pairwise.cosine_similarity(X, X)
         return M
 
-    def p_pruning(self, A, pval):
+    def p_pruning(self, A: np.ndarray, pval: float) -> np.ndarray:
         """Refine the affinity matrix by zeroing less similar values.
 
         Arguments
@@ -862,7 +843,7 @@ class Spec_Clust_unorm:
 
         return A
 
-    def get_laplacian(self, M):
+    def get_laplacian(self, M: np.ndarray) -> np.ndarray:
         """Returns the un-normalized laplacian for the given affinity matrix.
 
         Arguments
@@ -884,7 +865,7 @@ class Spec_Clust_unorm:
         L = D - M
         return L
 
-    def get_spec_embs(self, L, k_oracle=4):
+    def get_spec_embs(self, L: np.ndarray, k_oracle: int = 4) -> np.ndarray:
         """Returns spectral embeddings and estimates the number of speakers
         using maximum Eigen gap.
 
@@ -930,7 +911,7 @@ class Spec_Clust_unorm:
 
         return emb, num_of_spk
 
-    def cluster_embs(self, emb, k):
+    def cluster_embs(self, emb: np.ndarray, k: int) -> None:
         """Clusters the embeddings using kmeans.
 
         Arguments
@@ -947,7 +928,7 @@ class Spec_Clust_unorm:
         """
         _, self.labels_, _ = k_means(emb, k)
 
-    def getEigenGaps(self, eig_vals):
+    def getEigenGaps(self, eig_vals: List[float]) -> List[float]:
         """Returns the difference (gaps) between the Eigen values.
 
         Arguments
@@ -974,8 +955,8 @@ class Spec_Clust_unorm:
 
 
 def do_spec_clustering(
-    diary_obj, out_rttm_file, rec_id, k, pval, affinity_type, n_neighbors
-):
+    diary_obj: StatObject_SB, out_rttm_file: str, rec_id: str, k: Union[None, int], pval: float, affinity_type: str, n_neighbors: int
+) -> Union[None, List[List[Union[str, float]]]]:
     """Performs spectral clustering on embeddings. This function calls specific
     clustering algorithms as per affinity.
 
@@ -993,6 +974,13 @@ def do_spec_clustering(
         `pval` for prunning affinity matrix.
     affinity_type : str
         Type of similarity to be used to get affinity matrix (cos or nn).
+    n_neighbors : int
+        Number of neighbors in estimating affinity matrix.
+
+    Returns
+    -------
+    lol: list of list
+        List of RTTM-like rows.
     """
 
     if affinity_type == "cos":
@@ -1015,7 +1003,7 @@ def do_spec_clustering(
     lol = []
 
     for i in range(labels.shape[0]):
-        spkr_id = rec_id + "_" + str(labels[i])
+        spkr_id = f"{rec_id}_{labels[i]}"
 
         sub_seg = subseg_ids[i]
 
@@ -1039,12 +1027,16 @@ def do_spec_clustering(
     lol = distribute_overlap(lol)
 
     # logger.info("Completed diarizing " + rec_id)
-    write_rttm(lol, out_rttm_file)
+    if out_rttm_file:
+        write_rttm(lol, out_rttm_file)
+        return None
+
+    return lol
 
 
 def do_kmeans_clustering(
-    diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3
-):
+    diary_obj: StatObject_SB, out_rttm_file: str, rec_id: str, k_oracle: int = 4, p_val: float = 0.3
+) -> None:
     """Performs kmeans clustering on embeddings.
 
     Arguments
@@ -1123,7 +1115,7 @@ def do_kmeans_clustering(
     write_rttm(lol, out_rttm_file)
 
 
-def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
+def do_AHC(diary_obj: StatObject_SB, out_rttm_file: str, rec_id: str, k_oracle: int = 4, p_val: float = 0.3) -> None:
     """Performs Agglomerative Hierarchical Clustering on embeddings.
 
     Arguments
