@@ -2724,7 +2724,7 @@ class Tacotron2(Pretrained):
         with torch.no_grad():
             inputs = [
                 {
-                    "text_sequences": torch.Tensor(
+                    "text_sequences": torch.tensor(
                         self.text_to_seq(item)[0], device=self.device
                     )
                 }
