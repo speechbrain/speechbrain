@@ -149,7 +149,7 @@ dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 compute_cost_autoencoder_rec: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
         - loss_fn: !name:speechbrain.nnet.losses.mse_loss
-              steps: !ref <autoencoder_rec_loss_l2_steps>
+          steps: !ref <autoencoder_rec_loss_l2_steps>
         - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
 compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLoss

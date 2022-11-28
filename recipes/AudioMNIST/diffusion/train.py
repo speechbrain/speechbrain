@@ -21,7 +21,6 @@ from collections import namedtuple
 from audiomnist_prepare import prepare_audiomnist
 from hyperpyyaml import load_hyperpyyaml
 from torchaudio import functional as AF
-from torchaudio import transforms
 from speechbrain.dataio.dataio import length_to_mask, write_audio
 from speechbrain.dataio.dataset import apply_overfit_test
 from speechbrain.utils import data_utils
