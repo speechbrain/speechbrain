@@ -88,7 +88,7 @@ class Diffuser(nn.Module):
 
         # in case that certain models do not have any condition as input
         if condition is None:
-            pred = self.model(noisy_sample, timesteps)
+            pred = self.model(noisy_sample, timesteps, **kwargs)
         else:
             pred = self.model(noisy_sample, timesteps, condition, **kwargs)
         return pred, noise, noisy_sample
