@@ -38,7 +38,6 @@ def prepare_libricss(
         return
 
     if "LibriCSS" in datapath:
-        # Libri 2/3Mix datasets
         create_libricss_csv(datapath, savepath, partitions, fs)
     else:
         raise ValueError("Unsupported Dataset: {}".format(datapath))
@@ -56,7 +55,7 @@ def create_libricss_csv(
     ptrn = re.compile(r".*overlap_ratio_([^/_]+)_sil(.*)_session.*")
 
     for set_type in partitions:
-        mix_path = os.path.join(datapath, set_type)
+        mix_path = os.path.join(datapath, "monaural" , set_type)
         files = glob(os.path.join(mix_path, "**", "*.wav"))
 
         csv_columns = [
