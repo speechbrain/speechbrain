@@ -1,6 +1,7 @@
 """Decoding methods for seq2seq autoregressive model.
 
 Authors
+ * Adel Moumen 2022
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
@@ -8,12 +9,10 @@ Authors
 """
 import torch
 
-# TODO: init function for dataclass
-# TODO: use self.config_param1
 # TODO: when scoring on words, in the scorer, add a function to None that can be used to do some preprocessing on the words
 
 
-class Hypotheses(torch.nn.Module):
+class AlivedHypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
     Default to None if we are not going to score on word / char level with external
     scorers.
@@ -449,8 +448,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return cond
 
     def init_hypotheses(self):
-        """This method initializes the Hypotheses object."""
-        return Hypotheses(
+        """This method initializes the AlivedHypotheses object."""
+        return AlivedHypotheses(
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
             alived_log_probs=torch.empty(self.n_bh, 0, device=self.device),
             sequence_scores=torch.empty(self.n_bh, device=self.device)
@@ -556,7 +555,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _update_sequences_and_log_probs(
         self, log_probs, inp_tokens, predecessors, candidates, alived_hyps,
     ):
-        """This method update sequences and log probabilities based on new input tokens. """
+        """This method update sequences and log probabilities by adding the new inp_tokens. """
         # Update alived_seq
         alived_hyps.alived_seq = torch.cat(
             [
@@ -702,14 +701,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ---------
         inp_tokens : torch.Tensor
             The current output.
-        alived_seq : torch.Tensor
-            The tensor to store the alived_seq.
-        alived_log_probs : torch.Tensor
-            The tensor to store the alived_log_probs.
+        alived_hyps : AlivedHypotheses
+            alived_seq : torch.Tensor
+            alived_log_probs : torch.Tensor
         eos_hyps_and_log_probs_scores : list
-            To store generated hypotheses and scores.
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
         scores : torch.Tensor
-            The final scores of beam search.
+            Scores at the current step.
 
         Returns
         -------
@@ -748,7 +746,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Arguments
         ---------
         eos_hyps_and_log_probs_scores : list
-            To store generated hypotheses and scores.
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
 
         Returns
         -------
