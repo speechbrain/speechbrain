@@ -17,6 +17,7 @@ import warnings
 import uuid
 import logging
 import os
+import re
 import pyloudnorm  # WARNING: External dependency
 
 from dataclasses import dataclass, fields
@@ -37,20 +38,13 @@ class DynamicMixingConfig:
     audio_max_amp: float = 0.9  # max amplitude in mixture and sources
     noise_add: bool = False
     noise_prob: float = 1.0
-    noise_files: Optional[
-        Union[str, list]
-    ] = None  # list or path to list of files separated by newline
-    # noise_snr: float = 20.0 # dB TODO
-    noise_min_loudness: float = -33.0 - 5
-    noise_max_loudness: float = -25.0 - 5
+    noise_min_loudness: float = -33.0  # dB
+    noise_max_loudness: float = -43.0  # dB
     white_noise_add: bool = True
     white_noise_mu: float = 0.0
     white_noise_var: float = 1e-7
     rir_add: bool = False
     rir_prob: float = 1.0
-    rir_files: Optional[
-        Union[str, list]
-    ] = None  # list or path to list of files separated by newline
     sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
@@ -80,34 +74,8 @@ class DynamicMixingConfig:
                 for _ in range(len(self.overlap_ratio))
             ]
 
-        if isinstance(self.noise_files, list):
-            paths = []
-            try:
-                for path_lst in self.noise_files:
-                    paths.extend(parse_paths(path_lst))
-                self.noise_files = paths
-            except AssertionError:
-                logger.info("Assuming that noise files are actual files")
-
-        if isinstance(self.noise_files, str):
-            self.noise_files = parse_paths(self.noise_files)
-
-        if isinstance(self.rir_files, list):
-            paths = []
-            try:
-                for path_lst in self.rir_files:
-                    paths.extend(parse_paths(path_lst))
-                self.rir_files = paths
-            except AssertionError:
-                logger.info("Assuming that RIR files are actual files")
-
-        if isinstance(self.rir_files, str):
-            self.rir_files = parse_paths(self.rir_files)
-
         assert len(self.num_spkrs) == len(self.num_spkrs_prob)
         assert len(self.overlap_ratio) == len(self.overlap_prob)
-        assert (self.noise_add and self.noise_files) or not self.noise_add
-        assert (self.rir_add and self.rir_files) or not self.rir_add
 
 
 class DynamicMixingDataset(torch.utils.data.Dataset):
@@ -135,7 +103,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     config: DynamicMixingConfig
     """
 
-    def __init__(self, spkr_files, config):
+    def __init__(
+        self,
+        spkr_files,
+        config,
+        noise_flist=None,
+        rir_flist=None,
+        replacements={},
+    ):
         if len(spkr_files.keys()) < max(config.num_spkrs):
             raise ValueError(
                 f"Expected at least {config.num_spkrs} spkrs in spkr_files"
@@ -168,27 +143,43 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         if self.config.audio_norm:
             self.meter = pyloudnorm.Meter(self.config.sample_rate)
 
+        if self.config.noise_add:
+            assert (
+                noise_flist is not None
+            ), "Provide `noise_flist` or use `config.noise_add=False`"
+            self.noise_files = parse_paths(noise_flist, replacements)
+            assert len(self.noise_files) > 0
+
+        if self.config.rir_add:
+            assert (
+                rir_flist is not None
+            ), "Provide `rir_flist` or use `config.rir_add=False`"
+            self.rir_files = parse_paths(rir_flist, replacements)
+            assert len(self.rir_files) > 0
+
         self.dataset = None  # used for inner database
 
     @classmethod
-    def from_didataset(cls, dataset, config, wav_key=None, spkr_key=None):
+    def from_didataset(
+        cls, dataset, config, wav_key=None, spkr_key=None, **kwargs
+    ):
         if wav_key is None:
             raise ValueError("Provide valid wav_key for dataset item")
 
         if spkr_key is None:
             files = [(d[wav_key], idx) for idx, d in enumerate(dataset)]
-            dmdataset = cls.from_wavs(files, config)
+            dmdataset = cls.from_wavs(files, config, **kwargs)
         else:
             spkr_files = {}
             for idx, d in enumerate(dataset):
                 spkr_files[d[spkr_key]] = spkr_files.get(d[spkr_key], [])
                 spkr_files[d[spkr_key]].append((d[wav_key], idx))
-            dmdataset = cls(spkr_files, config)
+            dmdataset = cls(spkr_files, config, **kwargs)
         dmdataset.set_dataset(dataset)
         return dmdataset
 
     @classmethod
-    def from_wavs(cls, wav_file_list, config):
+    def from_wavs(cls, wav_file_list, config, **kwargs):
         spkr_files = {}
         spkr = 0
         # we assume that each wav is coming from different spkr
@@ -196,7 +187,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             spkr_files[f"spkr{spkr}"] = [(wavfile, None)]
             spkr += 1
 
-        return cls(spkr_files, config)
+        return cls(spkr_files, config, **kwargs)
 
     def set_dataset(self, dataset):
         self.dataset = dataset
@@ -238,7 +229,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 sources[0], sources, mix_info=mix_info
             )
             mix_info["speakers"].append("no-spkr")
-            # return mixture, ["noise"], [(0.0, [(0, 0)])], sources, noise, []
             return mixture, sources, noise, mix_info
 
         mix_info["speakers"] = np.random.choice(
@@ -251,13 +241,13 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         rir = None
         if self.config.rir_add and random.uniform(0, 1) < self.config.rir_prob:
-            mix_info["rir"] = np.random.choice(self.config.rir_files)
+            mix_info["rir"] = np.random.choice(self.rir_files)
             rir, fs = torchaudio.load(mix_info["rir"])
             assert (
                 fs == self.orig_sr
             ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
             rir = self.resampler(rir)
-            rir = rir[0]
+            rir = rir[0]  # pick 1st channel
 
         sources = []
         source_idxs = []
@@ -266,28 +256,27 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             spkr_idx = random.randint(0, len(self.spkr_files[spkr]) - 1)
             src_file, src_idx = self.spkr_files[spkr][spkr_idx]
             mix_info["sources"].append(src_file)
-            src_audio, fs = torchaudio.load(src_file)
-            assert (
-                fs == self.orig_sr
-            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
-            src_audio = self.resampler(src_audio)
-            src_audio = src_audio[0]  # Support only single channel
             # use same RIR for all sources
             src_audio = self.__prepare_source__(
-                src_audio, rir, mix_info=mix_info
+                src_file, rir, mix_info=mix_info
             )
             sources.append(src_audio)
             source_idxs.append(src_idx)
 
         sources, source_idxs, src_files, src_lens = zip(
             *sorted(
-                zip(sources, source_idxs, mix_info['sources'], mix_info["source_lengths"]),
+                zip(
+                    sources,
+                    source_idxs,
+                    mix_info["sources"],
+                    mix_info["source_lengths"],
+                ),
                 key=lambda x: x[0].size(0),
                 reverse=True,
             )
         )
-        mix_info['sources'] = list(src_files)
-        mix_info['source_lengths'] = list(src_lens)
+        mix_info["sources"] = list(src_files)
+        mix_info["source_lengths"] = list(src_lens)
 
         mixture = sources[0].detach().clone()  # longest audio
         padded_sources = [sources[0]]
@@ -317,7 +306,13 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         return mixture, padded_sources, noise, mix_info
 
-    def __prepare_source__(self, source, rir, is_noise=False, mix_info={}):
+    def __prepare_source__(self, source_file, rir, is_noise=False, mix_info={}):
+        source, fs = torchaudio.load(source_file)
+        assert (
+            fs == self.orig_sr
+        ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
+        source = self.resampler(source)
+        source = source[0]  # Support only single channel
 
         # cut the source to a random length
         length = random.randint(
@@ -333,22 +328,31 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         if self.config.audio_norm:
             # normalize loudness and apply random gain
+            mix_info["source_loudness"] = mix_info.get("source_loudness", [])
+            if is_noise:
+                loudness = random.uniform(
+                    self.config.noise_min_loudness,
+                    self.config.noise_max_loudness,
+                )
+                mix_info["noise_loudness"] = loudness
+            else:
+                loudness = random.uniform(
+                    self.config.audio_min_loudness,
+                    self.config.audio_max_loudness,
+                )
+                mix_info["source_loudness"].append(loudness)
+
             source = normalize(
                 source,
                 self.meter,
-                self.config.audio_min_loudness
-                if not is_noise
-                else self.config.noise_min_loudness,
-                self.config.audio_max_loudness
-                if not is_noise
-                else self.config.noise_max_loudness,
+                loudness,
                 self.config.audio_max_amp,
             )
 
         # add reverb
         if not is_noise and rir is not None:
             # noise is not reverberated
-            reverberate(source, rir)
+            source = reverberate(source, rir)
         return source
 
     def __postprocess__(self, mixture, sources, mix_info={}):
@@ -358,14 +362,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             self.config.noise_add
             and random.uniform(0, 1) < self.config.noise_prob
         ):
-            mix_info["noise"] = np.random.choice(self.config.noise_files)
-            noise, fs = torchaudio.load(mix_info["noise"])
-            assert (
-                fs == self.orig_sr
-            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
-            noise = self.resampler(noise)
+            mix_info["noise"] = np.random.choice(self.noise_files)
             noise = self.__prepare_source__(
-                noise[0], None, is_noise=True, mix_info=mix_info
+                mix_info["noise"], None, is_noise=True, mix_info=mix_info
             )
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
@@ -403,7 +402,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return sum(map(len, self.spkr_files.values()))  # dict of lists
 
     def __getitem__(self, idx):
-        # TODO: Refactor completly
         mix, srcs, noise, mix_info = self.generate()
 
         for i in range(3 - len(srcs)):
@@ -416,7 +414,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             + "_"
             + "-".join(mix_info["speakers"])
             + "_overlap"
-            + "-".join(map(lambda x: f"{x[0]:.2f}", mix_info["overlap_ratios_paddings"]))
+            + "-".join(
+                map(
+                    lambda x: f"{x[0]:.2f}", mix_info["overlap_ratios_paddings"]
+                )
+            )
         )
         # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
         dct = {
@@ -425,24 +427,23 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             "s1_sig": srcs[0],
             "s2_sig": srcs[1],
             "s3_sig": srcs[2],
-            "noise_sig": noise if noise is not None else torch.zeros(mix.size(0)),
+            "noise_sig": noise
+            if noise is not None
+            else torch.zeros(mix.size(0)),
             "data": mix_info["data"],
         }
 
         return dct
 
 
-def normalize(audio, meter, min_loudness=-33, max_loudness=-25, max_amp=0.9):
+def normalize(audio, meter, loudness=-25, max_amp=0.9):
     """This function normalizes the loudness of audio signal"""
     audio = audio.numpy()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         c_loudness = meter.integrated_loudness(audio)
-        target_loudness = random.uniform(min_loudness, max_loudness)
         # TODO: pyloudnorm.normalize.loudness could be replaced by rescale from SB
-        signal = pyloudnorm.normalize.loudness(
-            audio, c_loudness, target_loudness
-        )
+        signal = pyloudnorm.normalize.loudness(audio, c_loudness, loudness)
 
         # check for clipping
         if np.max(np.abs(signal)) >= 1:
@@ -509,14 +510,12 @@ def __pad_sources__(sources, paddings):
     return result
 
 
-def parse_paths(file):
+def parse_paths(file, replacements={}):
     paths = []
     with open(file) as f:
         for line in f:
-            line = line.strip()
-            assert len(line.split()) == 1
-            if not line.startswith("/"):
-                # relative paths
-                line = os.path.join(os.path.dirname(file), line)
-            paths.append(line)
+            path = line.strip().split()[-1]
+            for ptrn, replacement in replacements.items():
+                path = re.sub(ptrn, replacement, path)
+            paths.append(path)
     return paths
