@@ -757,7 +757,7 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=True, drop_last=drop_last
+                    dataset, rank=self.rank, shuffle=shuffle, drop_last=drop_last
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -767,7 +767,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
-                    shuffle=True,
+                    shuffle=shuffle,
                 )
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
