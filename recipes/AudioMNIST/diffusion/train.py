@@ -478,7 +478,7 @@ class DiffusionBrain(sb.Brain):
             (
                 self.hparams.eval_num_samples,
                 self.hparams.diffusion_channels,
-                self.hparams.spec_sample_size,
+                self.hparams.eval_time_steps,
                 self.hparams.spec_sample_size,
             )
         )
@@ -564,7 +564,7 @@ class DiffusionBrain(sb.Brain):
             (
                 self.hparams.eval_num_samples,
                 self.hparams.diffusion_sample_channels,
-                self.hparams.spec_sample_size,
+                self.hparams.eval_time_steps,
                 self.hparams.spec_sample_size,
             ),
             cond_emb=cond_emb,
@@ -689,6 +689,9 @@ class DiffusionBrain(sb.Brain):
 
         for label, sample in zip(labels, wav):
             wav_file_name = os.path.join(wav_sample_path, f"sample_{label}.wav")
+            if self.hparams.norm_out_sample:
+                max_samp, _ = sample.abs().max(1)
+                sample = sample / max_samp
             self.save_audio_sample(sample.squeeze(0), wav_file_name)
 
     def compute_sample_metrics(self, samples):
@@ -711,7 +714,9 @@ class DiffusionBrain(sb.Brain):
         file_name: str
             the file name to save
         """
-        write_audio(file_name, sample, self.hparams.sample_rate_tgt)
+        write_audio(
+            file_name, sample, self.hparams.data_prepare_sample_rate_tgt
+        )
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch.
@@ -838,7 +843,11 @@ class DiffusionBrain(sb.Brain):
         if stage == sb.Stage.TRAIN and self.hparams.enable_reference_samples:
             self.generate_reference_samples(self.reference_batch)
 
-        if stage != sb.Stage.TRAIN:
+        if (
+            stage != sb.Stage.TRAIN
+            and epoch is not None
+            and epoch % self.hparams.samples_interval == 0
+        ):
             labels, samples, wav = self.generate_samples()
             samples_rec, wav_rec = None, None
             data = {"labels": labels, "samples": samples, "wav": wav}
@@ -1027,11 +1036,6 @@ def dataio_prep(hparams):
         to the appropriate DynamicItemDataset object.
     """
 
-    resample = transforms.Resample(
-        orig_freq=hparams["sample_rate_src"],
-        new_freq=hparams["sample_rate_tgt"],
-    )
-
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("file_name")
     @sb.utils.data_pipeline.provides("sig")
@@ -1040,7 +1044,14 @@ def dataio_prep(hparams):
         if not os.path.isabs(wav):
             wav = os.path.join(hparams["data_save_folder"], wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        sig = resample(sig)
+
+        # To Support random amplitude
+        if hparams["rand_amplitude"]:
+            rand_amp = (hparams["max_amp"] - hparams["min_amp"]) * torch.rand(
+                1
+            ) + hparams["min_amp"]
+            sig = sig / sig.abs().max()
+            sig = sig * rand_amp
         return sig
 
     @sb.utils.data_pipeline.takes("digit", "speaker_id")

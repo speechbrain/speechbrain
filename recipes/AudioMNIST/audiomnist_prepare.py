@@ -13,6 +13,7 @@ import csv
 import math
 import json
 import os
+import torchaudio
 import speechbrain as sb
 
 from glob import glob
@@ -51,6 +52,7 @@ def prepare_audiomnist(
     trim=True,
     trim_threshold=-30.0,
     norm=True,
+    highpass=True,
     process_audio=None,
 ):
     """Auto-downloads and prepares the AudioMNIST dataset
@@ -128,6 +130,7 @@ def prepare_audiomnist(
             trim=trim,
             trim_threshold=trim_threshold,
             norm=norm,
+            highpass=highpass,
         )
 
     # Get file lists for train/valid/test splits
@@ -572,7 +575,6 @@ def convert_split(
     """
     metadata = dict(get_file_metadata(meta, split, file_list, lookup))
     metadata_file_path = os.path.join(tgt, f"{split}.json")
-
     wav_files = [
         (
             os.path.join(src, file_name),
@@ -650,7 +652,9 @@ def trim_sig(sig, threshold):
         the decibel threhold
     """
     threshold_amp = math.pow(DB_BASE, threshold * DB_MULTIPLIER)
-    sound_pos = (sig > threshold_amp).nonzero()
+    sig = sig / sig.abs().max()
+    en_sig = sig ** 2
+    sound_pos = (en_sig > threshold_amp).nonzero()
     first, last = sound_pos[0], sound_pos[-1]
     return sig[first:last]
 
@@ -659,6 +663,7 @@ def process_audio_default(
     sig,
     norm=True,
     trim=True,
+    highpass=True,
     src_sample_rate=48000,
     tgt_sample_rate=22050,
     trim_threshold=-30.0,
@@ -678,15 +683,25 @@ def process_audio_default(
     trim_threshold: float
         the decibels threshold for trimming the file
     """
-    # Normalize
-    if norm:
-        sig = sig / sig.abs().max()
     # Resample
     if src_sample_rate != tgt_sample_rate:
         sig = F.resample(sig, src_sample_rate, tgt_sample_rate)
     # VAD
     if trim:
+        torchaudio.save("prova.wav", sig.unsqueeze(0), 16000)
         sig = trim_sig(sig, trim_threshold)
+
+    # High pass filter (> 70 Hz)
+    if highpass:
+        effects = [["highpass", "-2", "70"]]
+        sig, _ = torchaudio.sox_effects.apply_effects_tensor(
+            sig.unsqueeze(0), tgt_sample_rate, effects, channels_first=True
+        )
+        sig = sig.squeeze(0)
+
+    # Normalize
+    if norm:
+        sig = sig / sig.abs().max()
     return sig
 
 
