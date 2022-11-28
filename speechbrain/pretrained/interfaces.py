@@ -79,7 +79,7 @@ def foreign_class(
         ./pretrained_models/<class-name>-hash(source).
     use_auth_token : bool (default: False)
         If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
-        default is False because majority of models are public.
+        default is False because the majority of models are public.
 
     Returns
     -------
@@ -225,7 +225,7 @@ class Pretrained(torch.nn.Module):
                 p.requires_grad = False
 
     def load_audio(self, path, savedir="."):
-        """Load an audio file with this model"s input spec
+        """Load an audio file with this model's input spec
 
         When using a speech model, it is important to use the same type of data,
         as was used to train the model. This means for example using the same
@@ -330,7 +330,7 @@ class Pretrained(torch.nn.Module):
             ./pretrained_models/<class-name>-hash(source).
         use_auth_token : bool (default: False)
             If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
-            default is False because majority of models are public.
+            default is False because the majority of models are public.
         revision : str
             The model revision corresponding to the HuggingFace Hub model revision.
             This is particularly useful if you wish to pin your code to a particular
@@ -375,7 +375,7 @@ class Pretrained(torch.nn.Module):
 
 
 class EndToEndSLU(Pretrained):
-    """A end-to-end SLU model.
+    """An end-to-end SLU model.
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire model (decode()) to map the speech to its semantics.
@@ -493,7 +493,7 @@ class EncoderDecoderASR(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    (transcribe()) to transcribe speech. The given YAML must contain the fields
     specified in the *_NEEDED[] lists.
 
     Example
@@ -615,8 +615,7 @@ class WaveformEncoder(Pretrained):
     encode_file. They can be used to obtain the embeddings directly from an audio
     file or from a batch of audio tensors respectively.
 
-    The given YAML must contains the fields
-    specified in the *_NEEDED[] lists.
+    The given YAML must contain the fields specified in the *_NEEDED[] lists.
 
     Example
     -------
@@ -690,7 +689,7 @@ class EncoderASR(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire encoder + decoder function model
-    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    (transcribe()) to transcribe speech. The given YAML must contain the fields
     specified in the *_NEEDED[] lists.
 
     Example
@@ -1158,7 +1157,7 @@ class VAD(Pretrained):
         long_chunk_len = int(sample_rate * large_chunk_size)
         small_chunk_len = int(sample_rate * small_chunk_size)
 
-        # Setting the step size of the small chunk (50% overapping windows are supported)
+        # Setting the step size of the small chunk (50% overlapping windows are supported)
         small_chunk_step = small_chunk_size
         if overlap_small_chunk:
             small_chunk_step = small_chunk_size / 2
@@ -1248,7 +1247,7 @@ class VAD(Pretrained):
         small chunks have a 50% overlap."""
 
         # Weighting the frame-level probabilities with a hamming window
-        # reduces uncertainnty when overlapping chunks are used.
+        # reduces uncertainty when overlapping chunks are used.
         hamming_window = torch.hamming_window(
             small_chunks_prob.shape[1], device=self.device
         )
@@ -1369,7 +1368,7 @@ class VAD(Pretrained):
         prob_th: torch.Tensor
             Frame-level binary decisions (1 for speech frame, 0 for a
             non-speech one).  The tensor can be obtained from apply_threshold.
-        put_value: 'seconds' or 'samples'
+        output_value: 'seconds' or 'samples'
             When the option 'seconds' is set, the returned boundaries are in
             seconds, otherwise, it reports them in samples.
 
@@ -1431,7 +1430,7 @@ class VAD(Pretrained):
             The new boundaries with the merged segments.
         """
 
-        new_boudaries = []
+        new_boundaries = []
 
         # Single segment case
         if boundaries.shape[0] == 0:
@@ -1446,19 +1445,19 @@ class VAD(Pretrained):
             beg_seg = boundaries[i, 0]
             segment_distance = beg_seg - prev_end_seg
 
-            # Mergin close segments
+            # Merging close segments
             if segment_distance <= close_th:
                 prev_end_seg = boundaries[i, 1]
 
             else:
                 # Appending new segments
-                new_boudaries.append([prev_beg_seg, prev_end_seg])
+                new_boundaries.append([prev_beg_seg, prev_end_seg])
                 prev_beg_seg = beg_seg
                 prev_end_seg = boundaries[i, 1]
 
-        new_boudaries.append([prev_beg_seg, prev_end_seg])
-        new_boudaries = torch.FloatTensor(new_boudaries).to(boundaries.device)
-        return new_boudaries
+        new_boundaries.append([prev_beg_seg, prev_end_seg])
+        new_boundaries = torch.FloatTensor(new_boundaries).to(boundaries.device)
+        return new_boundaries
 
     def remove_short_segments(self, boundaries, len_th=0.250):
         """Removes segments that are too short.
@@ -1824,7 +1823,7 @@ class VAD(Pretrained):
             )
             speech_prob = self.get_speech_prob_chunk(segment)
             if speech_prob.mean() > speech_th:
-                # Accept this a as a speech segment
+                # Accept this as a speech segment
                 new_boundaries.append([boundaries[i, 0], boundaries[i, 1]])
 
         # Convert boundaries from list to tensor
@@ -1920,7 +1919,7 @@ class VAD(Pretrained):
             The audio signal is processed in parallel within the small chunks.
             Note that large_chunk_size/small_chunk_size must be an integer.
         overlap_small_chunk: bool
-            If True, it creates overlapped small chunks (with 50% overal).
+            If True, it creates overlapped small chunks (with 50% overlap).
             The probabilities of the overlapped chunks are combined using
             hamming windows.
         apply_energy_VAD: bool
@@ -1931,7 +1930,7 @@ class VAD(Pretrained):
             The energy thresholds is  managed by activation_th and
             deactivation_th (see below).
         double_check: bool
-            If True, double checkis (using the neural VAD) that the candidate
+            If True, double checks (using the neural VAD) that the candidate
             speech segments actually contain speech. A threshold on the mean
             posterior probabilities provided by the neural network is applied
             based on the speech_th parameter (see below).
@@ -1984,7 +1983,7 @@ class VAD(Pretrained):
             deactivation_th=deactivation_th,
         ).float()
 
-        # Comupute the boundaries of the speech segments
+        # Compute the boundaries of the speech segments
         boundaries = self.get_boundaries(prob_th, output_value="seconds")
 
         # Apply energy-based VAD on the detected speech segments
@@ -2303,7 +2302,7 @@ class EncodeDecodePipelineMixin:
 
     def _get_value(self, data, key):
         """
-        Retrives the value associated with the specified key, dereferencing
+        Retrieves the value associated with the specified key, dereferencing
         .data where applicable
 
         Arguments
@@ -2332,7 +2331,7 @@ class EncodeDecodePipelineMixin:
 
         Returns
         -------
-        batch_intputs: bool
+        batch_inputs: bool
         """
         return self.hparams.encode_pipeline.get("batch", True)
 
@@ -2377,7 +2376,7 @@ class EncodeDecodePipelineMixin:
         input: dict
             the raw inputs
 
-        Results
+        Returns
         -------
         results: object
 
@@ -2402,7 +2401,7 @@ class EncodeDecodePipelineMixin:
         output: tuple
             raw model outputs
 
-        Results
+        Returns
         -------
         result: dict or list
             the output of the pipeline
@@ -2683,7 +2682,7 @@ class Tacotron2(Pretrained):
     >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_tts)
     >>> # Running the TTS
@@ -2702,7 +2701,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction
+        """Encodes raw text into a tensor with a customer text-to-sequence function
         """
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
@@ -2714,7 +2713,7 @@ class Tacotron2(Pretrained):
 
         Arguments
         ---------
-        text: List[str]
+        texts: List[str]
             texts to be encoded into spectrogram
 
         Returns
@@ -2735,7 +2734,7 @@ class Tacotron2(Pretrained):
             lens = [self.text_to_seq(item)[1] for item in texts]
             assert lens == sorted(
                 lens, reverse=True
-            ), "ipnut lengths must be sorted in decreasing order"
+            ), "input lengths must be sorted in decreasing order"
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
@@ -2769,7 +2768,7 @@ class HIFIGAN(Pretrained):
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
 
     >>> # You can use the vocoder coupled with a TTS system
-    >>>	# Intialize TTS (tacotron2)
+    >>>	# Initialize TTS (tacotron2)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
