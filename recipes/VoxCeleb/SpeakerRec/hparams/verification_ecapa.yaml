@@ -8,8 +8,7 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-# data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
-data_folder: /data/xuechen/corpus/voxceleb1
+data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
 output_folder: results/voxceleb1_2/speaker_verification_ecapa_big_vox2only
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
@@ -26,8 +25,7 @@ verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-# pretrain_path: speechbrain/spkrec-ecapa-voxceleb
-pretrain_path: results/ecapa_augment/1986/save/CKPT+2022-08-23+14-22-41+00
+pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 
 # csv files
 train_data: !ref <save_folder>/train.csv
@@ -35,7 +33,7 @@ enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
 
 batch_size: 8
-# score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
+score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
 cohort_size: 20000 # amount of imposter utterances in normalization cohort
 n_train_snts: 400000 # used for normalization stats
 

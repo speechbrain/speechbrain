@@ -1,26 +1,29 @@
-# LibriSpeech ASR with ctc models.
-This folder contains the scripts to train a wav2vec based system using LibriSpeech.
-You can download LibriSpeech at http://www.openslr.org/12
+# LibriSpeech ASR with CTC and pre-trained wav2vec2 models.
+This folder contains the scripts to finetune a wav2vec2 based system using LibriSpeech.
+You can download LibriSpeech at http://www.openslr.org/12.
+
+**Supported pre-trained wav2vec2:** [SpeechBrain]() and [HuggingFace]()
 
 # How to run
 python train_with_wav2vec.py hparams/file.yaml
 
-Make sure you have "transformers" installed in your environment (see extra-requirements.txt)
+**If using a HuggingFace pre-trained model, please make sure you have "transformers"
+installed in your environment (see extra-requirements.txt)**
 
 # Results
 
-| Release | hyperparams file | Test Clean WER | HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 09-09-21 | train_with_wav2vec.yaml | 1.90 | Not Avail. | [Link](https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing) | 1xRTX8000 48GB |
+| Release | Hyperparams file | Finetuning Split | Test Clean WER | HuggingFace link | Full model link | GPUs |
+|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|
+| 09-09-21 | train_hf_wav2vec.yaml | 960h | 1.90 | Not Avail. | [Link](https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing) | 1xRTX8000 48GB |
+| 22-09-22 | train_sb_wav2vec.yaml | 100h | 7.X | Not Avail. | Not Avail. | 1xTesla V100 32GB |
 
 # Training Time
-It takes about 3 hours for an epoch on a rtx8000 (48 GB).
+TO UPDATE.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
-
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.

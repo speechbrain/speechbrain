@@ -389,10 +389,10 @@ class BinaryMetricStats(MetricStats):
 
         if threshold is None:
             positive_scores = self.scores[
-                (self.labels == 1).nonzero(as_tuple=True)
+                (self.labels == self.positive_label).nonzero(as_tuple=True)
             ]
             negative_scores = self.scores[
-                (self.labels == 0).nonzero(as_tuple=True)
+                (self.labels != self.positive_label).nonzero(as_tuple=True)
             ]
             if max_samples is not None:
                 if len(positive_scores) > max_samples:

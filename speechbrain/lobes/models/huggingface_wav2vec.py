@@ -83,6 +83,12 @@ class HuggingFaceWav2Vec2(nn.Module):
         If True, the model will apply spec augment on the output of feature extractor
         (inside huggingface Wav2VecModel() class).
         If False, the model will not apply spec augment. We set this to false to prevent from doing it twice.
+    output_all_hiddens : bool (default: False)
+        If True, the forward function outputs the hidden states from all transformer layers.
+        For example wav2vec2-base has 12 transformer layers and the output is of shape (13, B, T, C),
+        where a projection of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer.
+
     Example
     -------
     >>> inputs = torch.rand([10, 600])
@@ -100,6 +106,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         freeze=True,
         freeze_feature_extractor=False,
         apply_spec_augment=False,
+        output_all_hiddens=False,
     ):
         super().__init__()
 
@@ -145,6 +152,7 @@ class HuggingFaceWav2Vec2(nn.Module):
             self.model.train()
             if self.freeze_feature_extractor:
                 self.model.feature_extractor._freeze_parameters()
+        self.output_all_hiddens = output_all_hiddens
 
     def _from_pretrained(self, source, config, model, save_path):
         """This function manages the source checking and loading of the params.
@@ -278,11 +286,18 @@ class HuggingFaceWav2Vec2(nn.Module):
             wav = F.layer_norm(wav, wav.shape)
 
         # Extract wav2vec output
-        out = self.model(wav)[0]
+        out = self.model(wav, output_hidden_states=True)
+
+        if self.output_all_hiddens:
+            out = torch.stack(list(out.hidden_states), dim=0)
+            norm_shape = out.shape[-3:]
+        else:
+            out = out.last_hidden_state
+            norm_shape = out.shape
 
         # We normalize the output if required
         if self.output_norm:
-            out = F.layer_norm(out, out.shape)
+            out = F.layer_norm(out, norm_shape)
 
         return out
 
