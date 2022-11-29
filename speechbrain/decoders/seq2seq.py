@@ -1,11 +1,11 @@
 """Decoding methods for seq2seq autoregressive model.
 
 Authors
+ * Adel Moumen 2022
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
  * Sung-Lin Yeh 2020
- * Adel Moumen 2022
 """
 import torch
 
@@ -214,21 +214,56 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         super().__init__(**kwargs)
         self.module = module
         self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.decoder_input_tokens = None
+        self.language_token = 50259  # default language is english
+        self.bos_token = 50258  # always this value
+        self.task_token = 50359  # default task is transcribe
+        self.timestamp_token = 50363  # default is notimestamp
+
+    def set_language_token(self, language_token):
+        self.language_token = language_token
+
+    def set_bos_token(self, bos_token):
+        self.bos_token = bos_token
+
+    def set_task_token(self, task_token):
+        self.task_token = task_token
+
+    def set_timestamp_token(self, timestamp_token):
+        self.timestamp_token = timestamp_token
+        # need to reset bos_index too as timestamp_token is the first
+        # inp_token and need to be the first so that the first input gave
+        # to the model is [bos, language, task, timestamp] (order matters).
+        self.bos_index = self.timestamp_token
+
+    def set_decoder_input_tokens(self, decoder_input_tokens):
+        """decoder_input_tokens are the tokens used as input to the decoder.
+        They are directly taken from the tokenizer.prefix_tokens attribute.
+
+        decoder_input_tokens = [bos_token, language_token, task_token, timestamp_token]
+        """
+        self.set_bos_token(decoder_input_tokens[0])
+        self.set_language_token(decoder_input_tokens[1])
+        self.set_task_token(decoder_input_tokens[2])
+        self.set_timestamp_token(decoder_input_tokens[3])
+
+        # bos will be timestamp in our case.
+        self.decoder_input_tokens = [
+            self.bos_token,
+            self.language_token,
+            self.task_token,
+        ]
 
     def reset_mem(self, batch_size, device):
-        """When doing greedy search, keep hidden state (hs) adn context vector (c)
-        as memory.
-        """
-        # TODO: '<|startoftranscript|><|en|>'. Need to let the possibility to modify the second value at least.
-        return torch.tensor([[50258, 50259]] * batch_size).to(device)
+        """This method set the first tokens to be decoder_input_tokens during search."""
+        return torch.tensor([self.decoder_input_tokens] * batch_size).to(device)
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        # WARNING: the max_decode_ratio need to be under 449 becasue of positinal encoding
-        dec_out, attn = self.module.forward_decoder(
-            enc_states, memory
-        )  # TODO: switch args
+        # WARNING: the max_decode_ratio need to be under 449 because
+        #  of positinal encoding
+        dec_out, attn = self.module.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
 
         return log_probs, memory, attn
@@ -1375,10 +1410,49 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.temperature = temperature
         self.temperature_lm = temperature_lm
 
+        self.decoder_input_tokens = None
+        self.language_token = 50259  # default language is english
+        self.bos_token = 50258  # always this value
+        self.task_token = 50359  # default task is transcribe
+        self.timestamp_token = 50363  # default is notimestamp
+
+    def set_language_token(self, language_token):
+        self.language_token = language_token
+
+    def set_bos_token(self, bos_token):
+        self.bos_token = bos_token
+
+    def set_task_token(self, task_token):
+        self.task_token = task_token
+
+    def set_timestamp_token(self, timestamp_token):
+        self.timestamp_token = timestamp_token
+        # need to reset bos_index too as timestamp_token is the first
+        # inp_token and need to be the first so that the first input gave
+        # to the model is [bos, language, task, timestamp] (order matters).
+        self.bos_index = self.timestamp_token
+
+    def set_decoder_input_tokens(self, decoder_input_tokens):
+        """decoder_input_tokens are the tokens used as input to the decoder.
+        They are directly taken from the tokenizer.prefix_tokens attribute.
+
+        decoder_input_tokens = [bos_token, language_token, task_token, timestamp_token]
+        """
+        self.set_bos_token(decoder_input_tokens[0])
+        self.set_language_token(decoder_input_tokens[1])
+        self.set_task_token(decoder_input_tokens[2])
+        self.set_timestamp_token(decoder_input_tokens[3])
+
+        # bos will be timestamp in our case.
+        self.decoder_input_tokens = [
+            self.bos_token,
+            self.language_token,
+            self.task_token,
+        ]
+
     def reset_mem(self, batch_size, device):
-        """Needed to reset the memory during beamsearch."""
-        # TODO: '<|startoftranscript|><|en|>'. Need to let the possibility to modify the second value at least.
-        return torch.tensor([[50258, 50259]] * batch_size).to(device)
+        """This method set the first tokens to be decoder_input_tokens during search."""
+        return torch.tensor([self.decoder_input_tokens] * batch_size).to(device)
 
     def reset_lm_mem(self, batch_size, device):
         """Needed to reset the LM memory during beamsearch."""
