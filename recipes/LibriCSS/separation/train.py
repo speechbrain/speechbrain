@@ -246,7 +246,9 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            wandb.log({"lr": current_lr}, step=self.hparams.epoch_counter.current)
+            wandb.log(
+                {"lr": current_lr}, step=self.hparams.epoch_counter.current
+            )
             wandb.log({**stage_stats})
 
             self.checkpointer.save_and_keep_only(
@@ -259,7 +261,9 @@ class Separation(sb.Brain):
                 test_stats=stage_stats,
             )
             if hasattr(self, "wandb_table") and self.wandb_table is not None:
-                wandb.log({"test_samples": self.wandb_table}, step=epoch, commit=True)
+                wandb.log(
+                    {"test_samples": self.wandb_table}, step=epoch, commit=True
+                )
                 self.wandb_table = None
 
     def add_speed_perturb(self, targets, targ_lens):
@@ -418,7 +422,9 @@ class Separation(sb.Brain):
                             batch.mix_sig, targets, sb.Stage.TEST
                         )
 
-                    metrics = self.compute_metrics(mixture, predictions, targets)
+                    metrics = self.compute_metrics(
+                        mixture, predictions, targets
+                    )
                     # Saving on a csv file
                     row = {
                         "snt_id": snt_id[0],
@@ -427,7 +433,10 @@ class Separation(sb.Brain):
                     writer.writerow(row)
 
                     # Metric Accumulation
-                    if metrics["sdr"] is not None and metrics["sdr_i"] is not None:
+                    if (
+                        metrics["sdr"] is not None
+                        and metrics["sdr_i"] is not None
+                    ):
                         all_sdrs.append(metrics["sdr"])
                         all_sdrs_i.append(metrics["sdr_i"])
                     all_sisnrs.append(metrics["si-snr"])
@@ -474,7 +483,12 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
-            data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
+            data.append(
+                wandb.Audio(
+                    signal.detach().cpu().numpy(),
+                    sample_rate=self.hparams.sample_rate,
+                )
+            )
 
             # Original source
             signal = targets[0, :, ns]
@@ -485,7 +499,12 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
-            data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
+            data.append(
+                wandb.Audio(
+                    signal.detach().cpu().numpy(),
+                    sample_rate=self.hparams.sample_rate,
+                )
+            )
 
         # Mixture
         signal = mixture[0][0, :]
@@ -494,7 +513,12 @@ class Separation(sb.Brain):
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
-        data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
+        data.append(
+            wandb.Audio(
+                signal.detach().cpu().numpy(),
+                sample_rate=self.hparams.sample_rate,
+            )
+        )
 
         self.wandb_table.add_data(*data)
 
@@ -510,10 +534,13 @@ def dataio_prep(hparams):
     ]
     dm_datasets = [
         DynamicMixingDataset.from_didataset(
-            data, dm_config, "wav", "spk_id",
+            data,
+            dm_config,
+            "wav",
+            "spk_id",
             noise_flist=hparams["noise_files"],
             rir_flist=hparams["rir_files"],
-            replacements={"RIRS_NOISES": hparams["noises_root"]}
+            replacements={"RIRS_NOISES": hparams["noises_root"]},
         )
         for data in datasets
     ]
@@ -552,7 +579,7 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
             "tr_splits": ["train-clean-360"],
             "dev_splits": ["dev-clean"],
-        }
+        },
     )
     train_data, valid_data = dataio_prep(hparams)
 
@@ -563,7 +590,13 @@ if __name__ == "__main__":
             device=run_opts["device"]
         )
 
-    wandb.init(project="SepFormer", entity="mato1102", config={}, resume=True)
+    wandb.init(
+        project="SepFormer",
+        entity="mato1102",
+        config={},
+        resume=True,
+        name=hparams["experiment_name"],
+    )
 
     # Brain class initialization
     separator = Separation(
@@ -589,8 +622,8 @@ if __name__ == "__main__":
             valid_loader_kwargs=hparams["dataloader_opts"],
         )
 
-#    # Eval
-#    separator.evaluate(test_data, min_key="si-snr", test_loader_kwargs={"shuffle": True})
-#    separator.save_results(test_data)
+    #    # Eval
+    #    separator.evaluate(test_data, min_key="si-snr", test_loader_kwargs={"shuffle": True})
+    #    separator.save_results(test_data)
 
     wandb.finish()
