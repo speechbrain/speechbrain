@@ -148,9 +148,11 @@ model: !new:torch.nn.ModuleList
 
 model_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr>
+   weight_decay: 0.001
 
 wav2vec_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr_wav2vec>
+   weight_decay: 0.001
 
 lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
