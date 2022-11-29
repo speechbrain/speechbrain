@@ -188,7 +188,7 @@ class ASR(sb.Brain):
         # Handling SpeechBrain vs HuggingFance pretrained models
         if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.encoder_wrapper.latent_encoder.parameters()
+                self.modules.encoder_wrapper.parameters()
             )
 
         else:  # HuggingFace pretrained model
