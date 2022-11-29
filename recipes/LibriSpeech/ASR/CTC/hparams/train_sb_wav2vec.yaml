@@ -40,6 +40,7 @@ auto_mix_prec: False
 sample_rate: 16000
 sorting: ascending
 warmup_steps: 1000
+num_workers: 4
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -49,6 +50,7 @@ test_batch_size: 8
 
 train_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
    batch_size: !ref <batch_size>
