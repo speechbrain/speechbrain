@@ -100,10 +100,10 @@ nll_loss: !name:speechbrain.nnet.losses.nll_loss
 modules:
    whisper: !ref <whisper>
 
-whisper_opt_class: !name:torch.optim.Adadelta
+whisper_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr_whisper>
-   rho: 0.95
-   eps: 1.e-8
+   weight_decay: 0.01
+   eps: 0.000001
 
 valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     module: !ref <whisper>
