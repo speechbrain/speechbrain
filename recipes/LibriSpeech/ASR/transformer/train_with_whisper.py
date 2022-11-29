@@ -17,16 +17,15 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from transformers import WhisperTokenizer
 from transformers.models.whisper.tokenization_whisper import LANGUAGES
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 import json
 
 logger = logging.getLogger(__name__)
+
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -164,7 +163,7 @@ class ASR(sb.Brain):
                 self.whisper_optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper,},
+                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -314,11 +313,12 @@ if __name__ == "__main__":
         },
     )
 
-    with open(
-        os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
-    ) as f:
-        english_spelling_mapping = json.load(f)
-    hparams["normalizer"] = EnglishTextNormalizer(english_spelling_mapping)
+    if hasattr(hparams, "normalizer_path"):
+        with open(
+            os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
+        ) as f:
+            english_spelling_mapping = json.load(f)
+        hparams["normalizer"] = EnglishTextNormalizer(english_spelling_mapping)
 
     # Defining tokenizer and loading it
     tokenizer = hparams["tokenizer"]()

@@ -17,7 +17,7 @@ whisper_hub: openai/whisper-tiny
 language: english
 ###
 # Uncomment this block if you prefer to use an english normalizer.
-# Please download the json english normalizer used by OpenAI here: 
+# Please download the json english normalizer used by OpenAI here:
 # https://github.com/openai/whisper/blob/main/whisper/normalizers/english.json
 #normalizer_path: !PLACEHOLDER
 
@@ -52,8 +52,8 @@ sample_rate: 16000
 batch_size: 12
 test_batch_size: 8
 
-# this value is only used for the searchers as the bos starting token. 
-timestamp_index: 50363 
+# this value is only used for the searchers as the bos starting token.
+timestamp_index: 50363
 eos_index: 50257
 bos_index: 50258
 
