@@ -1400,14 +1400,11 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, module, temperature=1.0, temperature_lm=1.0, **kwargs,
+        self, model, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
 
-        self.model = module[0]
-        if len(module) == 2:
-            self.ctc_lin = module[1]
-
+        self.model = model
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
