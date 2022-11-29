@@ -15,7 +15,11 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
 language: english
-normalizer_path: !PLACEHOLDER
+###
+# Uncomment this block if you prefer to use an english normalizer.
+# Please download the json english normalizer used by OpenAI here: 
+# https://github.com/openai/whisper/blob/main/whisper/normalizers/english.json
+#normalizer_path: !PLACEHOLDER
 
 # Data files
 #data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
