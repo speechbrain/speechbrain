@@ -121,7 +121,7 @@ samples_interval: 5
 eval_generate_audio: True
 eval_show_progress: True
 norm_out_sample: True
-eval_time_steps: 40
+eval_time_steps: 6
 
 # Feature extraction
 compute_features: !new:speechbrain.nnet.containers.Sequential
