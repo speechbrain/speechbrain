@@ -37,6 +37,7 @@ lr_whisper: 0.0001
 sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
+warmup_steps: 1000
 
 # BPE parameters
 token_type: char  # ["unigram", "bpe", "char"]

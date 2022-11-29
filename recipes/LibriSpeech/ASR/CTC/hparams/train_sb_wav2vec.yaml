@@ -39,6 +39,7 @@ lr_wav2vec: 0.00005
 auto_mix_prec: True
 sample_rate: 16000
 sorting: ascending
+warmup_steps: 1000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs

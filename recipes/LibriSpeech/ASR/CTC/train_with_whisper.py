@@ -105,7 +105,8 @@ class ASR(sb.Brain):
                 self.scaler.unscale_(self.whisper_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
-                    self.scaler.step(self.whisper_optimizer)
+                    if self.optimizer_step > self.hparams.warmup_steps:
+                        self.scaler.step(self.whisper_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
@@ -115,7 +116,7 @@ class ASR(sb.Brain):
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
-                    if self.optimizer_step > 5000:
+                    if self.optimizer_step > self.hparams.warmup_steps:
                         self.whisper_optimizer.step()
                     self.model_optimizer.step()
                 self.whisper_optimizer.zero_grad()
