@@ -1,23 +1,14 @@
-#!/usr/bin/env/python3
-"""Recipe for training a whisper-based ctc ASR system with librispeech.
-The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
-This recipe take only the whisper encoder and add a DNN + CTC to fine-tune.
+#!/usr/bin/env python3
+""" Take the encoder-decoder Whisper and the official tokenizer of whisper to fine-tune it with the NLL.
 
-If you want to use the full whisper system, please refer to the recipe
-speechbrain/recipes/LibriSpeech/ASR/transformer/train_with_whisper.py
+This recipe can also be used as a zero-shot recipe by removing the training part.
 
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
 
 Authors
+ * Adel Moumen 2022
  * Titouan Parcollet 2022
- * Rudolf A Braun 2022
- * Sung-Lin Yeh 2021
- * Ju-Chieh Chou 2020
- * Mirco Ravanelli 2020
- * Abdel Heba 2020
- * Peter Plantinga 2020
- * Samuele Cornell 2020
 """
 
 import os
@@ -30,9 +21,12 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
+from transformers import WhisperTokenizer
+from transformers.models.whisper.tokenization_whisper import LANGUAGES
+from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
+import json
 
 logger = logging.getLogger(__name__)
-
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -41,49 +35,76 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        bos_tokens, bos_tokens_lens = batch.tokens_bos
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
+        # TODO: need to check why using the default padding value
+        # during dataio is not working to replace this block of code.
+        abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
+        pad_mask = (
+            torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
+            < abs_tokens_lens[:, None]
+        )
+        bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
+
         # Forward pass
+        enc_out = self.modules.whisper.forward_encoder(wavs)
 
-        # Encode with Whisper and then DNN
-        feats = self.modules.whisper(wavs)
-        x = self.modules.enc(feats)
+        logits, _ = self.modules.whisper.forward_decoder(enc_out, bos_tokens)
 
-        # Compute outputs
-        p_tokens = None
-        logits = self.modules.ctc_lin(x)
-        p_ctc = self.hparams.log_softmax(logits)
-        if stage != sb.Stage.TRAIN:
-            p_tokens = sb.decoders.ctc_greedy_decode(
-                p_ctc, wav_lens, blank_id=self.hparams.blank_index
-            )
-        return p_ctc, wav_lens, p_tokens
+        log_probs = self.hparams.log_softmax(logits)
+
+        hyps = None
+        if stage == sb.Stage.VALID:
+            hyps, scores = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+        elif stage == sb.Stage.TEST:
+            hyps, scores = self.hparams.test_beam_searcher(enc_out, wav_lens)
+
+        return log_probs, hyps, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
+        """Computes the loss NLL given predictions and targets."""
 
-        p_ctc, wav_lens, predicted_tokens = predictions
+        log_probs, hyps, wav_lens, = predictions
 
         ids = batch.id
-        tokens, tokens_lens = batch.tokens
+        tokens_eos, tokens_eos_lens = batch.tokens_eos
+        tokens_eos, tokens_eos_lens = (
+            tokens_eos.to(self.device),
+            tokens_eos_lens.to(self.device),
+        )
 
-        loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
-        loss = loss_ctc
+        loss = self.hparams.nll_loss(
+            log_probs, tokens_eos, length=tokens_eos_lens,
+        )
 
         if stage != sb.Stage.TRAIN:
+            tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
-            predicted_words = self.tokenizer(
-                predicted_tokens, task="decode_from_list"
+            predicted_words = self.tokenizer.batch_decode(
+                hyps, skip_special_tokens=True
             )
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
-            target_words = self.tokenizer(target_words, task="decode_from_list")
+            target_words = self.tokenizer.batch_decode(
+                target_words, skip_special_tokens=True
+            )
+
+            if hasattr(self.hparams, "normalizer"):
+
+                predicted_words = [
+                    self.hparams.normalizer(text) for text in predicted_words
+                ]
+
+                target_words = [
+                    self.hparams.normalizer(text) for text in target_words
+                ]
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
@@ -96,32 +117,25 @@ class ASR(sb.Brain):
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             self.whisper_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             self.scaler.scale(loss / self.grad_accumulation_factor).backward()
             if should_step:
                 self.scaler.unscale_(self.whisper_optimizer)
-                self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
                     self.scaler.step(self.whisper_optimizer)
-                    self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.whisper_optimizer.step()
-                    self.model_optimizer.step()
-                self.whisper_optimizer.zero_grad()
-                self.model_optimizer.zero_grad()
-                self.optimizer_step += 1
+            loss.backward()
+            if self.check_gradients(loss):
+                self.whisper_optimizer.step()
+            self.whisper_optimizer.zero_grad()
 
-        return loss.detach().cpu()
+        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -141,24 +155,16 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
-                stage_stats["loss"]
-            )
+
             old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
                 stage_stats["loss"]
             )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+
             sb.nnet.schedulers.update_learning_rate(
                 self.whisper_optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
-                stats_meta={
-                    "epoch": epoch,
-                    "lr_model": old_lr_model,
-                    "lr_whisperc": old_lr_whisper,
-                },
+                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper,},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -179,15 +185,10 @@ class ASR(sb.Brain):
             self.modules.whisper.parameters()
         )
 
-        self.model_optimizer = self.hparams.model_opt_class(
-            self.hparams.model.parameters()
-        )
-
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "whisper_opt", self.whisper_optimizer
             )
-            self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -203,14 +204,14 @@ def dataio_prepare(hparams, tokenizer):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+        hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+        hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -250,14 +251,18 @@ def dataio_prepare(hparams, tokenizer):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
         yield wrd
-        char_list = list(wrd)
-        yield char_list
-        tokens_list = tokenizer.sp.encode_as_ids(wrd)
+        tokens_list = tokenizer.encode(wrd)
+        # avoid bos and eos tokens.
+        tokens_list = tokens_list[1:-1]
         yield tokens_list
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
+        yield tokens_bos
+        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
@@ -265,7 +270,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
+        datasets,
+        ["id", "sig", "tokens_list", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     return train_data, valid_data, test_datasets
@@ -308,15 +314,31 @@ if __name__ == "__main__":
         },
     )
 
+    with open(
+        os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
+    ) as f:
+        english_spelling_mapping = json.load(f)
+    hparams["normalizer"] = EnglishTextNormalizer(english_spelling_mapping)
+
     # Defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["output_neurons"],
-        annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
+    tokenizer = hparams["tokenizer"]()
+    language = LANGUAGES.get(
+        hparams["language"], "english"
+    )  # if key not found, default to english
+    tokenizer.set_prefix_tokens(language=language)
+
+    # we need to prepare the tokens for searchers
+    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
+        tokenizer.prefix_tokens
     )
+    hparams["valid_greedy_searcher"].set_language_token(
+        tokenizer.prefix_tokens[1]
+    )
+
+    hparams["test_beam_searcher"].set_decoder_input_tokens(
+        tokenizer.prefix_tokens
+    )
+    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
@@ -337,14 +359,13 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
-
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=hparams["train_loader_kwargs"],
+        valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
 
     # Testing
@@ -353,5 +374,5 @@ if __name__ == "__main__":
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k], test_loader_kwargs=hparams["test_loader_kwargs"]
         )
