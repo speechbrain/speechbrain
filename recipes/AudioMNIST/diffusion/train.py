@@ -653,7 +653,7 @@ class DiffusionBrain(sb.Brain):
         vocoder_in = samples
         if not torch.is_tensor(vocoder_in):
             vocoder_in = torch.stack(vocoder_in)
-        vocoder_in = vocoder_in[:, :, : self.hparams.spec_n_mels]
+        vocoder_in = vocoder_in[:, :, :, : self.hparams.spec_n_mels]
         vocoder_in = vocoder_in.transpose(-1, -2)
         vocoder_in = self.modules.min_level_norm.denormalize(vocoder_in)
         vocoder_in = AF.DB_to_amplitude(
