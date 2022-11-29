@@ -115,7 +115,8 @@ class ASR(sb.Brain):
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
-                    self.whisper_optimizer.step()
+                    if self.optimizer_step > 5000:
+                        self.whisper_optimizer.step()
                     self.model_optimizer.step()
                 self.whisper_optimizer.zero_grad()
                 self.model_optimizer.zero_grad()
