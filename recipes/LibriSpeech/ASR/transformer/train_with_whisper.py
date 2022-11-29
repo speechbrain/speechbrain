@@ -277,7 +277,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -313,7 +312,7 @@ if __name__ == "__main__":
         },
     )
 
-    if hasattr(hparams, "normalizer_path"):
+    if "normalizer_path" in hparams.keys():
         with open(
             os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
         ) as f:
@@ -359,6 +358,8 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
+
+    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -367,6 +368,7 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_loader_kwargs"],
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
+    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
