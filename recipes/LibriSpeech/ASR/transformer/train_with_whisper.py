@@ -17,16 +17,15 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from transformers import WhisperTokenizer
 from transformers.models.whisper.tokenization_whisper import LANGUAGES
 from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 import json
 
 logger = logging.getLogger(__name__)
+
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -60,9 +59,9 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.hparams.test_beam_searcher(enc_out, wav_lens)
+            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
 
         return log_probs, hyps, wav_lens
 
@@ -97,7 +96,6 @@ class ASR(sb.Brain):
             )
 
             if hasattr(self.hparams, "normalizer"):
-
                 predicted_words = [
                     self.hparams.normalizer(text) for text in predicted_words
                 ]
@@ -164,7 +162,7 @@ class ASR(sb.Brain):
                 self.whisper_optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper,},
+                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -278,7 +276,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -314,11 +311,12 @@ if __name__ == "__main__":
         },
     )
 
-    with open(
-        os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
-    ) as f:
-        english_spelling_mapping = json.load(f)
-    hparams["normalizer"] = EnglishTextNormalizer(english_spelling_mapping)
+    if "normalizer_path" in hparams.keys():
+        with open(
+            os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
+        ) as f:
+            english_spelling_mapping = json.load(f)
+        hparams["normalizer"] = EnglishTextNormalizer(english_spelling_mapping)
 
     # Defining tokenizer and loading it
     tokenizer = hparams["tokenizer"]()
@@ -359,6 +357,7 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
+
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,

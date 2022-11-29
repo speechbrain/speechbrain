@@ -204,15 +204,15 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
 
     Arguments
     ---------
-    module : HuggingFaceWhisper
+    model : HuggingFaceWhisper
         The Whisper model.
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
     """
 
-    def __init__(self, module, **kwargs):
+    def __init__(self, model, **kwargs):
         super().__init__(**kwargs)
-        self.module = module
+        self.model = model
         self.softmax = torch.nn.LogSoftmax(dim=-1)
         self.decoder_input_tokens = None
         self.language_token = 50259  # default language is english
@@ -263,7 +263,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         memory = _update_mem(inp_tokens, memory)
         # WARNING: the max_decode_ratio need to be under 449 because
         #  of positinal encoding
-        dec_out, attn = self.module.forward_decoder(enc_states, memory)
+        dec_out, attn = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
 
         return log_probs, memory, attn
@@ -1400,11 +1400,11 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, module, temperature=1.0, temperature_lm=1.0, **kwargs,
+        self, model, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
 
-        self.module = module
+        self.model = model
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
@@ -1471,7 +1471,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        dec_out, attn, = self.module.forward_decoder(enc_states, memory)
+        dec_out, attn, = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
         return log_probs, memory, attn
 
