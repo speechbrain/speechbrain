@@ -58,7 +58,6 @@ class HuggingFaceWhisper(nn.Module):
         encoder_only=False,
         freeze=False,
         freeze_encoder=False,
-        language="en",
         output_attentions=True,
     ):
         super().__init__()
@@ -66,7 +65,6 @@ class HuggingFaceWhisper(nn.Module):
         self.encoder_only = encoder_only
         self.freeze = freeze
         self.freeze_encoder = freeze_encoder
-        self.language = language
         self.output_attentions = output_attentions
 
         # Download the extractor from HuggingFace.
