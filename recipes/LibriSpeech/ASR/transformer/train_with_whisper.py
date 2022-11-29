@@ -59,9 +59,9 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.hparams.test_beam_searcher(enc_out, wav_lens)
+            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
 
         return log_probs, hyps, wav_lens
 
@@ -96,7 +96,6 @@ class ASR(sb.Brain):
             )
 
             if hasattr(self.hparams, "normalizer"):
-
                 predicted_words = [
                     self.hparams.normalizer(text) for text in predicted_words
                 ]
@@ -359,7 +358,6 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
 
-    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -368,7 +366,6 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_loader_kwargs"],
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
-    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
