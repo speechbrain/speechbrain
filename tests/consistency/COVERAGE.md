@@ -161,7 +161,7 @@ pip install pytest-cov
 # run the test (w/ duration reporting)
 pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests --ignore=speechbrain/nnet/loss/transducer_loss.py
 ```
-Example: _After collecting 506 testing items, 4687/17279 statements are reported "missing" (73% coverage)._
+Example: _After collecting 459 testing items, 4481/16782 statements are reported "missing" (73% coverage)._
 
 YET—python code of the core modules is not all to be covered; thus far, only, consistency is ensured for III.A (through III.B).
 
@@ -684,40 +684,30 @@ The task at hand is:
 
 ## VIII. Future testing
 
-how to know all GDrive & HF repos are referenced in tests/recipes?
-
-tutorial tests [I.1.b => III.C => n/a]
-
-pre-trained interfaces & data caching
-
-targeted testing tools for where changes happened
-
-suggestion tools around hyperpyyaml
-
-once in a while run all recipes to some target (community retrains)
-
-multiple/particular pytorch versions
-
-further automate reviewer tasks (=> community self-service)
-
-check readthedocs for consistent docmuentation style
-
-speeding up recipe tests through hparam override runs into this issue for some recipes: Hyperparameters of nested/late-imported yamls cannot be changed through the override mechanism (unless provided for); see teacher/student in TIMIT
-
-coverage tables for readme: python x pytorch versions
+As mentioned above, this document portrays a point in time.
+Naturally for OpenSource, there are so many pathways for CI/CD:
+* Tutorial testing [III.C: I.1.b => IV.? <- II.?]
+* How to know all GDrive & HF repos are referenced in tests/recipes?
+* Pre-trained interfaces & data caching (models & audios)
+* Targeted testing tools & workflows: test only what is impacted by a change (and not covered elsewhere already)
+* Suggestion tools for default/optional args when using hyperpyyaml
+* Community-driven 'full' recipe checks from dataio to few-epoch outcomes
+* PR testing automation for a self-service SB community (move beyond checklists -> discuss ideas)
+* readthedocs as vivid part in PR drafting; testing & reviewing
+* restructure recipe yamls &/or testing scripts for easier parameter override (see `recipes/TIMIT/ASR/seq2seq_knowledge_distillation`) 
+* speed-up recipe tests through yaml rewritings (availing necessary overrides)
+* Coverage tables (e.g. for README): `Python x PyTorch` versions
 
 ---
 
-// summary (by I.x.* coverage) & appendix?
-
----
-
-Futher reading:
-<br/> https://breadcrumbscollector.tech/how-to-use-code-coverage-in-python-with-pytest/ (pointer by @Adel-Moumen)
+Further reading:
+<br/> pytest & coverage - https://breadcrumbscollector.tech/how-to-use-code-coverage-in-python-with-pytest/ (pointer by @Adel-Moumen)
 
 ---
 
 ```
+pytest --durations=0 --cov=speechbrain --cov-context=test --doctest-modules speechbrain tests --ignore=speechbrain/nnet/loss/transducer_loss.py
+
 ---------- coverage: platform linux, python 3.9.12-final-0 -----------
 Name                                                      Stmts   Miss  Cover
 -----------------------------------------------------------------------------
