@@ -47,10 +47,12 @@ character_coverage: 1.0
 # With DDP batch_size is multiplied by N jobs
 batch_size: 6
 test_batch_size: 8
+num_workers: 4
 
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
    batch_size: !ref <batch_size>
