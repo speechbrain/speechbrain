@@ -1471,7 +1471,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        dec_out, attn, = self.module.forward_decoder(enc_states, memory)
+        dec_out, attn, = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
         return log_probs, memory, attn
 
