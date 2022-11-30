@@ -189,15 +189,15 @@ class DiffusionBrain(sb.Brain):
             if self.train_diffusion and self.check_gradients(loss):
                 self.optimizer.step()
             self.optimizer.zero_grad()
-            # Latent diffusion: Step through the autoencoder
-            if self.diffusion_mode == DiffusionMode.LATENT:
-                with self.no_sync(not should_step):
-                    (
-                        loss_autoencoder / self.grad_accumulation_factor
-                    ).backward()
-                if self.check_gradients(loss_autoencoder):
-                    self.autoencoder_optimizer.step()
-                self.autoencoder_optimizer.zero_grad()
+        # Latent diffusion: Step through the autoencoder
+        if self.diffusion_mode == DiffusionMode.LATENT and loss_autoencoder is not None:
+            with self.no_sync(not should_step):
+                (
+                    loss_autoencoder / self.grad_accumulation_factor
+                ).backward()
+            if should_step and self.check_gradients(loss_autoencoder):
+                self.autoencoder_optimizer.step()            
+            self.autoencoder_optimizer.zero_grad()
 
             self.optimizer_step += 1
 
@@ -405,7 +405,7 @@ class DiffusionBrain(sb.Brain):
         )
 
         loss_autoencoder = None
-        if self.diffusion_mode == DiffusionMode.LATENT:
+        if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
             loss_autoencoder = self.hparams.compute_cost_autoencoder(
                 autoencoder_out, feats, length=lens
             )
@@ -731,6 +731,11 @@ class DiffusionBrain(sb.Brain):
 
         self.train_diffusion = (epoch is not None) and (
             epoch >= self.hparams.train_diffusion_start_epoch
+        )
+        self.train_autoencoder = (
+            (epoch is not None)
+            and (self.diffusion_mode == DiffusionMode.LATENT) 
+            and (self.epoch <= self.hparams.train_autoencoder_stop_epoch)
         )
 
         # Set up statistics trackers for this stage

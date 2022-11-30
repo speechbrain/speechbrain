@@ -63,6 +63,7 @@ loss_laplacian_weight: 0.1
 autoencoder_rec_loss_l2_steps: 1000
 train_log_interval: 50
 train_diffusion_start_epoch: 2
+train_autoencoder_stop_epoch: 10
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000
