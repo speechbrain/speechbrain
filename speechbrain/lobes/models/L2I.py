@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-import numpy as np
 
 
 class Psi(nn.Module):
@@ -99,44 +98,63 @@ class Psi(nn.Module):
 
 
 class NMFDecoder(nn.Module):
-    def __init__(self, N_COMP=100, FREQ=513, init_file=None, device="cuda"):
+    """This class implements an NMF decoder
+
+    Arguments
+    ---------
+    n_comp : int
+        Number of NMF components
+    n_freq : int
+        The number of frequency bins in the NMF dictionary
+    init_file : str
+        The path for the NMF dictionary to be loaded
+    device : str
+        The device to run the model
+
+    Example:
+    --------
+    >>> NMF_dec = NMFDecoder(20, 210, device='cpu')
+    >>> H = torch.rand(3, 20, 150)
+    >>> Xhat = NMF_dec.forward(H)
+    >>> print(Xhat.shape)
+    torch.Size([3, 210, 150])
+    """
+
+    def __init__(self, n_comp=100, n_freq=513, init_file=None, device="cuda"):
         super(NMFDecoder, self).__init__()
 
         self.W = nn.Parameter(
-            0.1 * torch.rand(FREQ, N_COMP), requires_grad=True
-        )
+            0.1 * torch.rand(n_freq, n_comp), requires_grad=True
+        ).to(device)
         self.activ = nn.ReLU()
 
+        # we need to fix this! we should download from HF
         if init_file is not None:
-            # handle numpy or torch
-            if ".pt" in init_file:
-                self.W.data = torch.load(
-                    init_file, map_location=torch.device(device)
-                )
-            else:
-                temp = np.load(init_file)
-                self.W.data = torch.as_tensor(temp).float()
+            self.W.data = torch.load(
+                init_file, map_location=torch.device(device)
+            )
 
-    def forward(self, inp):
-        # Assume input of shape n_batch x n_comp x T
+    def forward(self, H):
+        """The forward pass for NMF given the activations H
+
+        Arguments:
+        ---------
+        H : torch.Tensor
+            The activations Tensor with shape B x n_comp x T
+
+        where B = Batchsize
+              n_comp = number of NMF components
+              T = number of timepoints
+        """
         W = self.activ(self.W)
         W = nn.functional.normalize(W, dim=0, p=2)
-
-        W = torch.stack(
-            inp.shape[0] * [W], dim=0
-        )  # use same NMF dictionary for every element in the batch
-
-        output = self.activ(torch.bmm(W, inp))  # .transpose(1, -1)
-
+        output = torch.matmul(W.unsqueeze(0), H)
         return output
 
-    def return_W(self, dtype="numpy"):
+    def return_W(self):
         W = self.W
         W = nn.functional.normalize(self.activ(W), dim=0, p=2)
-        if dtype == "numpy":
-            return W.cpu().data.numpy()
-        else:
-            return W
+        return W
 
 
 class Theta(nn.Module):

@@ -55,7 +55,7 @@ base_lr: 0.00002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 44100
-interpret_period: 1 
+interpret_period: 1
 
 device: "cuda:0"
 
@@ -238,9 +238,9 @@ theta: !new:speechbrain.lobes.models.L2I.Theta
 nmf_d_path: "nmf_decoder.pt"
 nmf: !new:speechbrain.lobes.models.L2I.NMFDecoder
     init_file: !ref <nmf_d_path>
-    N_COMP: !ref <K>
-    FREQ: !ref <n_mels>
-    device: !ref <device> 
+    n_comp: !ref <K>
+    n_freq: !ref <n_mels>
+    device: !ref <device>
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
