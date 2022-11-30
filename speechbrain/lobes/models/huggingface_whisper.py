@@ -123,24 +123,24 @@ class HuggingFaceWhisper(nn.Module):
                 out_encoder = self.forward_encoder(wav)
                 return self.forward_decoder(out_encoder, decoder_input_ids)
 
-    def forward_encoder(self, wav):
-        """Perform one step of the whisper encoder.
+    def forward_encoder(self, mel):
+        """Perform one step of the whisper encoder with Mel FBANKs as Input.
         Arguments
         ---------
-        wav : torch.Tensor (signal)
-            A batch of audio signals to transform to features.
+        wav : torch.Tensor (FBANKs)
+            A batch of Mel FBANK from HF to transform to features.
         """
 
         if self.freeze_encoder:
             with torch.no_grad():
-                mel = self._get_mel(wav)
                 return self.model.encoder(mel).last_hidden_state
         else:
-            mel = self._get_mel(wav)
             return self.model.encoder(mel).last_hidden_state
 
     def _get_mel(self, wav):
-        """Takes an input waveform and return its corresponding mel spectrogram.
+        """Takes an input waveform and return its corresponding mel spectrogram
+        according to HuggingFace implementation. WARNING: it's slow! Better push this
+        in the DataLoader.
         Arguments
         ---------
         wav : torch.Tensor (signal)
@@ -149,7 +149,10 @@ class HuggingFaceWhisper(nn.Module):
         # need to cast tensor to numpy for the huggingface whisper feature extractor.
         numpy_wav = wav.cpu().numpy().tolist()
         return self.feature_extractor(
-            numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate
+            numpy_wav,
+            truncation=False,
+            return_tensors="pt",
+            sampling_rate=self.sampling_rate,
         ).input_features.to(wav.device)
 
     def forward_decoder(self, audio_features, decoder_input_ids):

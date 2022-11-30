@@ -43,9 +43,9 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # if stage == sb.Stage.TRAIN:
+        #    if hasattr(self.hparams, "augmentation"):
+        #       wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
 
@@ -61,6 +61,7 @@ class ASR(sb.Brain):
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -241,11 +242,16 @@ def dataio_prepare(hparams, tokenizer):
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     # 2. Define audio pipeline:
+    # We offload the mel computation to the dataloader because HuggingFace
+    # implementation is very slow (even that actually slows down the training)
+
+    mel_extractor = hparams["whisper"]
+
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        return mel_extractor._get_mel(sig).squeeze()
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
