@@ -739,6 +739,12 @@ class Brain:
 
         # Possibly make a DistributedSampler or a wrapper for some other sampler
         if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            # sort or not
+            if hasattr(self.hparams, "sorting"):
+                shuffle_ddp = self.hparams.sorting == "random"  # False if 'ascending' or 'descending'
+            else:
+                shuffle_ddp = True
+
             drop_last = loader_kwargs.get("drop_last", False)
             # num_replicas arg is equal to world_size
             # and retrieved automatically within
@@ -757,7 +763,7 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last,
+                    dataset, rank=self.rank, shuffle=shuffle_ddp, drop_last=drop_last,
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -767,7 +773,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
-                    shuffle=False,
+                    shuffle=shuffle_ddp,
                 )
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
@@ -1200,11 +1206,18 @@ class Brain:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(
-                        module,
-                        device_ids=[self.device],
-                        find_unused_parameters=self.find_unused_parameters,
-                    )
+                    if self.distributed_backend == "gloo":
+                        module = DDP(
+                            module,
+                            device_ids=None,
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
+                    else:
+                        module = DDP(
+                            module,
+                            device_ids=[self.device],
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
                     self.modules[name] = module
         else:
             # data_parallel_backend
