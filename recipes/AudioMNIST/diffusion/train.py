@@ -735,7 +735,7 @@ class DiffusionBrain(sb.Brain):
         self.train_autoencoder = (
             (epoch is not None)
             and (self.diffusion_mode == DiffusionMode.LATENT) 
-            and (self.epoch <= self.hparams.train_autoencoder_stop_epoch)
+            and (epoch <= self.hparams.train_autoencoder_stop_epoch)
         )
 
         # Set up statistics trackers for this stage
