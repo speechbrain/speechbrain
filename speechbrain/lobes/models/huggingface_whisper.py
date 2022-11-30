@@ -149,10 +149,7 @@ class HuggingFaceWhisper(nn.Module):
         # need to cast tensor to numpy for the huggingface whisper feature extractor.
         numpy_wav = wav.cpu().numpy().tolist()
         return self.feature_extractor(
-            numpy_wav,
-            truncation=False,
-            return_tensors="pt",
-            sampling_rate=self.sampling_rate,
+            numpy_wav, return_tensors="pt", sampling_rate=self.sampling_rate,
         ).input_features.to(wav.device)
 
     def forward_decoder(self, audio_features, decoder_input_ids):
