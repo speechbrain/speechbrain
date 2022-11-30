@@ -16,7 +16,6 @@ import random
 import warnings
 import uuid
 import logging
-import os
 import re
 import pyloudnorm  # WARNING: External dependency
 
@@ -40,11 +39,9 @@ class DynamicMixingConfig:
     noise_prob: float = 1.0
     noise_min_loudness: float = -33.0  # dB
     noise_max_loudness: float = -43.0  # dB
-    white_noise_add: bool = True
-    white_noise_mu: float = 0.0
-    white_noise_var: float = 1e-7
-    rir_add: bool = False
-    rir_prob: float = 1.0
+    reverb: bool = False
+    reverb_sources: bool = False
+    reverb_prob: float = 1.0
     sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
@@ -147,14 +144,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             assert (
                 noise_flist is not None
             ), "Provide `noise_flist` or use `config.noise_add=False`"
-            self.noise_files = parse_paths(noise_flist, replacements)
+            self.noise_files = parse_noises(noise_flist, replacements)
             assert len(self.noise_files) > 0
 
-        if self.config.rir_add:
+        if self.config.reverb:
             assert (
                 rir_flist is not None
-            ), "Provide `rir_flist` or use `config.rir_add=False`"
-            self.rir_files = parse_paths(rir_flist, replacements)
+            ), "Provide `rir_flist` or use `config.reverb=False`"
+            self.rir_files = parse_noises(rir_flist, replacements)
             assert len(self.rir_files) > 0
 
         self.dataset = None  # used for inner database
@@ -224,12 +221,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             length = random.randint(
                 self.config.min_source_len, self.config.max_source_len
             )
-            sources = [torch.zeros(length)]
-            mixture, sources, noise = self.__postprocess__(
-                sources[0], sources, mix_info=mix_info
+            mixture, _, noise = self.__postprocess__(
+                torch.zeros(length), [], mix_info=mix_info
             )
             mix_info["speakers"].append("no-spkr")
-            return mixture, sources, noise, mix_info
+            return mixture, [], noise, mix_info
 
         mix_info["speakers"] = np.random.choice(
             self.spkr_names,
@@ -239,27 +235,13 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         )
         mix_info["speakers"] = list(mix_info["speakers"])
 
-        rir = None
-        if self.config.rir_add and random.uniform(0, 1) < self.config.rir_prob:
-            mix_info["rir"] = np.random.choice(self.rir_files)
-            rir, fs = torchaudio.load(mix_info["rir"])
-            assert (
-                fs == self.orig_sr
-            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
-            rir = self.resampler(rir)
-            rir = rir[0]  # pick 1st channel
-
         sources = []
         source_idxs = []
-        fs = None
         for spkr in mix_info["speakers"]:
             spkr_idx = random.randint(0, len(self.spkr_files[spkr]) - 1)
             src_file, src_idx = self.spkr_files[spkr][spkr_idx]
             mix_info["sources"].append(src_file)
-            # use same RIR for all sources
-            src_audio = self.__prepare_source__(
-                src_file, rir, mix_info=mix_info
-            )
+            src_audio = self.__prepare_source__(src_file, mix_info=mix_info)
             sources.append(src_audio)
             source_idxs.append(src_idx)
 
@@ -286,6 +268,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 self.config.overlap_ratio, p=self.config.overlap_prob
             ).item()
             overlap_samples = int(src.size(0) * ratio)
+            print(overlap_samples)
 
             mixture, padded_tmp, paddings = mix(src, mixture, overlap_samples)
             # padded sources are returned in same order
@@ -306,7 +289,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         return mixture, padded_sources, noise, mix_info
 
-    def __prepare_source__(self, source_file, rir, is_noise=False, mix_info={}):
+    def __prepare_source__(self, source_file, is_noise=False, mix_info={}):
         source, fs = torchaudio.load(source_file)
         assert (
             fs == self.orig_sr
@@ -314,15 +297,16 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         source = self.resampler(source)
         source = source[0]  # Support only single channel
 
-        # cut the source to a random length
-        length = random.randint(
-            self.config.min_source_len, self.config.max_source_len
-        )
-        # TODO: length shortening is huge problem for ASR
-
         if not is_noise:
+            # cut the source to a random length
+            length = random.randint(
+                self.config.min_source_len, self.config.max_source_len
+            )
+            # TODO: length shortening is huge problem for ASR
+            offset = random.randint(0, max(len(source) - length, 0))
+
             # noise is automatically adjusted to the mixture size
-            source = source[:length]
+            source = source[offset : offset + length]
             mix_info["source_lengths"] = mix_info.get("source_lengths", [])
             mix_info["source_lengths"].append(length)
 
@@ -348,14 +332,26 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 loudness,
                 self.config.audio_max_amp,
             )
-
-        # add reverb
-        if not is_noise and rir is not None:
-            # noise is not reverberated
-            source = reverberate(source, rir)
         return source
 
     def __postprocess__(self, mixture, sources, mix_info={}):
+        # reverberate
+        if (
+            self.config.reverb
+            and random.uniform(0, 1) < self.config.reverb_prob
+        ):
+            mix_info["rir"] = np.random.choice(self.rir_files)
+            rir, fs = torchaudio.load(mix_info["rir"])
+            assert (
+                fs == self.orig_sr
+            ), f"{self.orig_sr} Hz sampling rate expected, but found {fs}"
+            rir = self.resampler(rir)
+            rir = rir[0]  # pick 1st channel
+
+            mixture = reverberate(mixture, rir)
+            if self.config.reverb_sources:
+                sources = list(map(lambda x: reverberate(x, rir), sources))
+
         # add noise
         noise = None
         if (
@@ -364,7 +360,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         ):
             mix_info["noise"] = np.random.choice(self.noise_files)
             noise = self.__prepare_source__(
-                mix_info["noise"], None, is_noise=True, mix_info=mix_info
+                mix_info["noise"], is_noise=True, mix_info=mix_info
             )
             noise = noise.repeat(
                 mixture.size(0) // noise.size(0) + 1
@@ -372,16 +368,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
             noise = noise[: mixture.size(0)]
             mixture += noise
-
-        # replace zeros with small gaussian noise
-        if self.config.white_noise_add:
-            white_noise = np.random.normal(
-                self.config.white_noise_mu,
-                self.config.white_noise_var,
-                size=mixture.size(0),
-            )
-            white_noise = torch.from_numpy(white_noise)
-            mixture += white_noise
 
         # normalize gain
         # this should be the final step
@@ -510,12 +496,21 @@ def __pad_sources__(sources, paddings):
     return result
 
 
-def parse_paths(file, replacements={}):
+def parse_noises(file, replacements={}):
     paths = []
     with open(file) as f:
         for line in f:
-            path = line.strip().split()[-1]
+            path, room_id = parse_line(line)
             for ptrn, replacement in replacements.items():
                 path = re.sub(ptrn, replacement, path)
             paths.append(path)
     return paths
+
+
+def parse_line(line):
+    args = line.strip().replace("--", "").split()
+    path = args[-1]
+    room_id = None
+    if "room-id" in args:
+        room_id = args[args.index("room-id") + 1]
+    return path, room_id
