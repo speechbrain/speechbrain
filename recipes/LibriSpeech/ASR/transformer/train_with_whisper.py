@@ -68,13 +68,10 @@ class ASR(sb.Brain):
         """Computes the loss NLL given predictions and targets."""
 
         log_probs, hyps, wav_lens, = predictions
-
+        batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens_eos, tokens_eos_lens = (
-            tokens_eos.to(self.device),
-            tokens_eos_lens.to(self.device),
-        )
+
 
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
