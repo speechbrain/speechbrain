@@ -33,7 +33,6 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         bos_tokens, bos_tokens_lens = batch.tokens_bos
 
         # Add augmentation if specified
