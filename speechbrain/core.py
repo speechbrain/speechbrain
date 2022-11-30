@@ -741,7 +741,9 @@ class Brain:
         if self.distributed_launch and not isinstance(dataset, IterableDataset):
             # sort or not
             if hasattr(self.hparams, "sorting"):
-                shuffle_ddp = self.hparams.sorting == "random"  # False if 'ascending' or 'descending'
+                shuffle_ddp = (
+                    self.hparams.sorting == "random"
+                )  # False if 'ascending' or 'descending'
             else:
                 shuffle_ddp = True
 
@@ -763,7 +765,10 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=shuffle_ddp, drop_last=drop_last,
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle_ddp,
+                    drop_last=drop_last,
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader

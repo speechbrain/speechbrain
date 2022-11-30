@@ -1,6 +1,4 @@
-"""This minimal example trains a Voice Activity Detector (VAD) on a tiny dataset.
-The network is based on a LSTM with a linear transformation on the top of that.
-The system is trained with the binary cross-entropy metric.
+"""This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP.
 """
 
 import os
@@ -13,7 +11,7 @@ import torch.multiprocessing as mp
 from hyperpyyaml import load_hyperpyyaml
 
 
-class VADBrain(sb.Brain):
+class SamplingBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         "Given an input batch it computes the binary probability."
         batch = batch.to(self.device)
@@ -26,7 +24,9 @@ class VADBrain(sb.Brain):
                     print(lens)
                     assert False
             elif self.hparams.sorting == "descending":
-                if not all([x == y for x, y in zip(lens, sorted(lens, reverse=True))]):
+                if not all(
+                    [x == y for x, y in zip(lens, sorted(lens, reverse=True))]
+                ):
                     print(lens)
                     assert False
             elif self.hparams.sorting == "random":
@@ -59,7 +59,10 @@ class VADBrain(sb.Brain):
 
             # write out to check later all IDs were visited
             if self.distributed_launch:
-                with open(f'tests/tmp/ddp_sorting_ids_{self.hparams.sorting}_{self.hparams.rank}', 'wb') as f:
+                with open(
+                    f"tests/tmp/ddp_sorting_ids_{self.hparams.sorting}_{self.hparams.rank}",
+                    "wb",
+                ) as f:
                     pickle.dump(batched_ids, f)
 
 
@@ -67,7 +70,8 @@ def data_prep(data_folder, hparams):
     "Creates the datasets and their data processing pipelines."
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=data_folder / "../annotation/dev-clean.csv", replacements={"data_root": data_folder},
+        csv_path=data_folder / "../annotation/dev-clean.csv",
+        replacements={"data_root": data_folder},
     )
 
     # start: sorting impact
@@ -99,7 +103,8 @@ def data_prep(data_folder, hparams):
     # end: sorting impact
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=data_folder / "../annotation/dev-clean.csv", replacements={"data_root": data_folder},
+        csv_path=data_folder / "../annotation/dev-clean.csv",
+        replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data]
@@ -138,11 +143,8 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
         hparams["rank"] = run_opts["local_rank"]
     run_opts["device"] = device
 
-    ctc_brain = VADBrain(
-        hparams["modules"],
-        hparams["opt_class"],
-        hparams,
-        run_opts=run_opts,
+    ctc_brain = SamplingBrain(
+        hparams["modules"], hparams["opt_class"], hparams, run_opts=run_opts,
     )
 
     # Training/validation loop
@@ -168,12 +170,12 @@ def test_error(device):
     recipe(device=device, yaml_file="dsc.yaml")
 
 
-def ddp_recipes(rank, size, backend='gloo'):
+def ddp_recipes(rank, size, backend="gloo"):
     """ Initialize the distributed environment. """
     os.environ["WORLD_SIZE"] = f"{size}"
     os.environ["RANK"] = f"{rank}"
-    os.environ['MASTER_ADDR'] = '127.0.0.1'
-    os.environ['MASTER_PORT'] = '29500'
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "29500"
 
     run_opts = dict()
     run_opts["distributed_launch"] = True
@@ -205,8 +207,8 @@ def test_ddp():
     for sorting in ["random", "ascending", "descending"]:
         ids = []
         for rank in range(2):
-            idf = f'tests/tmp/ddp_sorting_ids_{sorting}_{rank}'
-            with open(idf, 'rb') as f:
+            idf = f"tests/tmp/ddp_sorting_ids_{sorting}_{rank}"
+            with open(idf, "rb") as f:
                 ids += pickle.load(f)
         assert len(ids) == 100
         assert len(set(ids)) == 99
