@@ -20,9 +20,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from transformers.models.whisper.tokenization_whisper import LANGUAGES
-from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
-import json
+from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +31,6 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         bos_tokens, bos_tokens_lens = batch.tokens_bos
 
         # Add augmentation if specified
@@ -69,13 +66,10 @@ class ASR(sb.Brain):
         """Computes the loss NLL given predictions and targets."""
 
         log_probs, hyps, wav_lens, = predictions
-
+        batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens_eos, tokens_eos_lens = (
-            tokens_eos.to(self.device),
-            tokens_eos_lens.to(self.device),
-        )
+
 
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
@@ -95,13 +89,13 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
 
-            if hasattr(self.hparams, "normalizer"):
+            if hasattr(self.hparams, "do_normalize"):
                 predicted_words = [
-                    self.hparams.normalizer(text) for text in predicted_words
+                    self.tokenizer._normalizer(text) for text in predicted_words
                 ]
 
                 target_words = [
-                    self.hparams.normalizer(text) for text in target_words
+                    self.tokenizer._normalizer(text) for text in target_words
                 ]
 
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -311,19 +305,10 @@ if __name__ == "__main__":
         },
     )
 
-    if "normalizer_path" in hparams.keys():
-        with open(
-            os.path.join(os.path.dirname(__file__), hparams["normalizer_path"])
-        ) as f:
-            english_spelling_mapping = json.load(f)
-        hparams["normalizer"] = EnglishTextNormalizer(english_spelling_mapping)
-
     # Defining tokenizer and loading it
-    tokenizer = hparams["tokenizer"]()
-    language = LANGUAGES.get(
-        hparams["language"], "english"
-    )  # if key not found, default to english
-    tokenizer.set_prefix_tokens(language=language)
+    tokenizer = WhisperTokenizer(hparams["whisper_hub"])
+    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
+
 
     # we need to prepare the tokens for searchers
     hparams["valid_greedy_searcher"].set_decoder_input_tokens(

@@ -6,6 +6,7 @@ https://huggingface.co/transformers/installation.html
 Authors
  * Adel Moumen 2022
  * Titouan Parcollet 2022
+ * Luca Della Libera 2022
 """
 
 import torch
@@ -71,8 +72,14 @@ class HuggingFaceWhisper(nn.Module):
         self.output_attentions = output_attentions
 
         # Download the extractor from HuggingFace.
-        self.feature_extractor = WhisperFeatureExtractor.from_pretrained(
-            source, cache_dir=save_path
+        feature_extractor = WhisperFeatureExtractor.from_pretrained(
+            source, cache_dir=save_path, sampling_rate=sampling_rate,
+        )
+        self._n_fft = feature_extractor.n_fft
+        self._hop_length = feature_extractor.hop_length
+        self._n_samples = feature_extractor.n_samples
+        self.register_buffer(
+            "_mel_filters", torch.as_tensor(feature_extractor.mel_filters)
         )
         self._n_fft = self.feature_extractor.n_fft
         self._hop_length = self.feature_extractor.hop_length

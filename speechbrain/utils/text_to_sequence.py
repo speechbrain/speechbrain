@@ -213,6 +213,13 @@ def basic_cleaners(text):
     return text
 
 
+def german_cleaners(text):
+    """Pipeline for German text, that collapses whitespace without transliteration.
+    """
+    text = collapse_whitespace(text)
+    return text
+
+
 def transliteration_cleaners(text):
     """Pipeline for non-English text that transliterates to ASCII.
     """
@@ -285,6 +292,8 @@ def _clean_text(text, cleaner_names):
             cleaner = transliteration_cleaners
         if name == "basic_cleaners":
             cleaner = basic_cleaners
+        if name == "german_cleaners":
+            cleaner = german_cleaners
         if not cleaner:
             raise Exception("Unknown cleaner: %s" % name)
         text = cleaner(text)

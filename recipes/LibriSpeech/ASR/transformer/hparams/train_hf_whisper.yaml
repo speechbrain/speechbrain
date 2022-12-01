@@ -15,14 +15,12 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
 language: english
-###
-# Uncomment this block if you prefer to use an english normalizer.
-# Please download the json english normalizer used by OpenAI here:
-# https://github.com/openai/whisper/blob/main/whisper/normalizers/english.json
-#normalizer_path: !PLACEHOLDER
+
+# Normalize the english inputs with
+# the same normalization done in the paper
+do_normalize: True
 
 # Data files
-#data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
@@ -32,11 +30,11 @@ train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-    - !ref <data_folder>/test-clean.csv
-    - !ref <data_folder>/test-other.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -62,6 +60,10 @@ min_decode_ratio: 0.0
 max_decode_ratio: 0.1
 test_beam_size: 8
 
+# Model parameters
+freeze_whisper: False
+
+
 train_loader_kwargs:
    batch_size: !ref <batch_size>
 
@@ -71,14 +73,6 @@ valid_loader_kwargs:
 test_loader_kwargs:
    batch_size: !ref <batch_size>
 
-# Model parameters
-freeze_whisper: False
-
-tokenizer: !name:transformers.WhisperTokenizer.from_pretrained
-   pretrained_model_name_or_path: !ref <whisper_hub>
-   language: !ref <language>
-   task: transcribe
-   predict_timestamps: False
 
 #
 # Functions and classes
@@ -116,7 +110,7 @@ valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     max_decode_ratio: !ref <max_decode_ratio>
 
 test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
-    model: !ref <whisper>
+    module: [!ref <whisper>]
     bos_index: !ref <timestamp_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
