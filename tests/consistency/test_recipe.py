@@ -13,6 +13,7 @@ def test_recipe_list(
     hparam_ext=[".yaml"],
     hparam_field="Hparam_file",
     recipe_folder="tests/recipes",
+    flags_field="test_debug_flags",
     avoid_list=[
         "/models/",
         "/results/",
@@ -34,6 +35,8 @@ def test_recipe_list(
         Field of the csv file where the path of the hparam file is reported.
     recipe_folder: path
         Path of the folder containing csv recipe files.
+    flags_field: str
+        Field of the csv file where the debug flags are stated (for data flow testing).
     avoid_list: list
         List of files for which this check must be avoided.
 
@@ -44,6 +47,7 @@ def test_recipe_list(
 
     """
     all_diffs_zero = True
+    all_with_flags = True
     for recipe_csvfile in os.listdir(recipe_folder):
         if recipe_csvfile == "setup":
             continue
@@ -66,7 +70,17 @@ def test_recipe_list(
             )
 
         all_diffs_zero &= len(diff_lst) == 0
+
+        flags_lst = get_list_from_csv(
+            os.path.join(recipe_folder, recipe_csvfile), flags_field
+        )
+        for flags in flags_lst:
+            if not flags:
+                all_with_flags = False
+                print(f"\tERROR: {flags_field} are missing in {recipe_csvfile}")
+
     assert all_diffs_zero
+    assert all_with_flags
 
 
 def test_recipe_files(

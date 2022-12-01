@@ -187,6 +187,12 @@ def parse_arguments(arg_list=None):
         "If a non-positive number is passed, all epochs are run.",
     )
     parser.add_argument(
+        "--debug_persistently",
+        default=False,
+        action="store_true",
+        help="Keep data stored during debug mode (not using /tmp).",
+    )
+    parser.add_argument(
         "--log_config",
         type=str,
         help="A file storing the configuration options for logging",
@@ -379,6 +385,8 @@ class Brain:
         debug_epochs (int)
             Number of epochs to run in debug mode, Default ``2``.
             If a non-positive number is passed, all epochs are run.
+        debug_persistently (bool)
+            Keep data stored during debug mode (not using /tmp), Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
         distributed_backend (str)
@@ -442,6 +450,7 @@ class Brain:
             "debug": False,
             "debug_batches": 2,
             "debug_epochs": 2,
+            "debug_persistently": False,
             "device": "cpu",
             "data_parallel_backend": False,
             "distributed_launch": False,
@@ -521,6 +530,7 @@ class Brain:
         # Checkpointer should point at a temporary directory in debug mode
         if (
             self.debug
+            and not self.debug_persistently
             and self.checkpointer is not None
             and hasattr(self.checkpointer, "checkpoints_dir")
         ):
