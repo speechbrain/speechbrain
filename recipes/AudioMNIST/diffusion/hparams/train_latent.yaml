@@ -17,6 +17,7 @@ save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
+skip_prepare: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -38,7 +39,7 @@ sort: len
 batch_shuffle: True
 number_of_epochs: 10
 batch_size: 32
-lr: 0.001
+lr: 0.0005
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
 lr_total_steps: !ref <train_len> * <number_of_epochs>
@@ -48,13 +49,14 @@ lr_autoencoder_warmup_steps: 500
 lr_autoencoder_cooldown_steps: 500
 lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
 lr_autoencoder_decay_every: 1000
-max_grad_norm: 0.1
+max_grad_norm: 0.05
 train_timesteps: 500
 adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
 downsample_factor: 8
+latent_downsample_factor: 8
 enable_train_metrics: True
 enable_reference_samples: True
 enable_reconstruction_sample: True
@@ -98,8 +100,8 @@ pad_level_db: -50.
 # Model Parameters
 model_channels: 64
 model_norm_num_groups: 32
-model_num_res_blocks: 1
-model_dropout: 0.1
+model_num_res_blocks: 2
+model_dropout: 0.
 autoencoder_channels: 32
 autoencoder_norm_num_groups: 32
 autoencoder_num_res_blocks: 1
@@ -177,8 +179,8 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     norm_num_groups: !ref <model_norm_num_groups>
     out_channels: !ref <autoencoder_latent_channels>
     num_res_blocks: !ref <model_num_res_blocks>
-    attention_resolutions: [2]
-    channel_mult: [1, 2]
+    attention_resolutions: [1, 2, 4]
+    channel_mult: [1, 2, 4]
     dropout: !ref <model_dropout>
 
 autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
@@ -210,6 +212,8 @@ diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
 diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
     autoencoder: !ref <autoencoder>
     diffusion: !ref <diffusion>
+    latent_downsample_factor: !ref <latent_downsample_factor>
+    latent_pad_dim: [2, 3]
 
 
 diffusion_sample_channels: !ref <diffusion_channels>

@@ -16,6 +16,7 @@ from torch.nn import functional as F
 from tqdm.auto import tqdm
 from speechbrain.utils.data_utils import unsqueeze_as
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils import data_utils
 
 
 class Diffuser(nn.Module):
@@ -448,12 +449,32 @@ class LatentDiffusion(nn.Module):
 
     diffusion: speechbrian.nnet.diffusion.Diffuser
         A diffusion wrapper
+
+    latent_downsample_factor: int
+        The factor that latent space dimensions need to be divisible
+        by. This is useful if the underlying model for the diffusion
+        wrapper is based on a UNet-like architecture where the inputs
+        are progressively downsampled and upsampled by factors of two
+    
+    latent_pad_dims: int|list[int]
+        the dimension(s) along which the latent space will be
+        padded
     """
 
-    def __init__(self, autoencoder, diffusion):
+    def __init__(
+        self,
+        autoencoder,
+        diffusion,
+        latent_downsample_factor=None,
+        latent_pad_dim=1
+    ):
         super().__init__()
         self.autencoder = autoencoder
         self.diffusion = diffusion
+        self.latent_downsample_factor = latent_downsample_factor
+        if isinstance(latent_pad_dim, int):
+            latent_pad_dim = [latent_pad_dim]
+        self.latent_pad_dim = latent_pad_dim
 
     def train_sample(self, x, **kwargs):
         """Creates a sample for the training loop with a
@@ -480,7 +501,34 @@ class LatentDiffusion(nn.Module):
         """
 
         latent = self.autoencoder.encode(x)
+        latent = self._pad_latent(latent)
         return self.diffusion.train_sample(latent, **kwargs)
+
+    def _pad_latent(self, latent):
+        """Pads the latent space to the desired dimension
+        
+        Arguments
+        ---------
+        latent: torch.Tensor
+            the latent representation
+            
+        Returns
+        -------
+        result: torch.Tensor
+            the latent representation, with padding"""
+        
+        # TODO: Check whether masking will need to be adjusted
+        if (
+            self.latent_downsample_factor is not None
+            and self.latent_downsample_factor > 1
+        ):
+            for dim in self.latent_pad_dim:
+                latent, _ = data_utils.pad_divisible(
+                    latent,
+                    factor=self.latent_downsample_factor,
+                    len_dim=dim
+                )
+        return latent
 
     def train_sample_latent(self, x, **kwargs):
         """Returns a train sample with autoencoder output - can be used to jointly
@@ -501,8 +549,9 @@ class LatentDiffusion(nn.Module):
             out_mask_value=out_mask_value,
             latent_mask_value=latent_mask_value,
         )
+        latent = self._pad_latent(autoencoder_out.latent)
         diffusion_train_sample = self.diffusion.train_sample(
-            autoencoder_out.latent, **kwargs
+            latent, **kwargs
         )
         return LatentDiffusionTrainSample(
             diffusion=diffusion_train_sample, autoencoder=autoencoder_out

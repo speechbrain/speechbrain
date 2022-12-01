@@ -17,6 +17,7 @@ save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
+skip_prepare: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

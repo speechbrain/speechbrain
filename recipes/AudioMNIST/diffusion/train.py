@@ -254,7 +254,7 @@ class DiffusionBrain(sb.Brain):
         stats.update(
             self.extract_dist_stats(self.data_dist_stats_metric, prefix="data")
         )
-        if self.diffusion_mode == DiffusionMode.LATENT:
+        if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
             )
@@ -1335,19 +1335,21 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-    run_on_main(
-        prepare_audiomnist,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_folder": hparams["data_save_folder"],
-            "prepare_data_folder": hparams["prepare_data_folder"],
-            "norm": hparams["data_prepare_norm"],
-            "trim": hparams["data_prepare_trim"],
-            "trim_threshold": hparams["data_prepare_trim_threshold"],
-            "src_sample_rate": hparams["data_prepare_sample_rate_src"],
-            "tgt_sample_rate": hparams["data_prepare_sample_rate_tgt"],
-        },
-    )
+
+    if not hparams["skip_prepare"]:
+        run_on_main(
+            prepare_audiomnist,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_folder": hparams["data_save_folder"],
+                "prepare_data_folder": hparams["prepare_data_folder"],
+                "norm": hparams["data_prepare_norm"],
+                "trim": hparams["data_prepare_trim"],
+                "trim_threshold": hparams["data_prepare_trim_threshold"],
+                "src_sample_rate": hparams["data_prepare_sample_rate_src"],
+                "tgt_sample_rate": hparams["data_prepare_sample_rate_tgt"],
+            },
+        )
 
     # Create dataset objects "train", "valid", and "test".
     diffusion_datasets = dataio_prep(hparams)
