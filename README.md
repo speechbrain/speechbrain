@@ -214,7 +214,7 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 
 # SpeechBrain Roadmap
 
-As a community-based and open-source project, SpeechBrain needs the help of its community to grow in the right direction. Opening the roadmap to our users enables the toolkit to benefit from new ideas, new research axes, or even new technologies. The roadmap, will be available on our [Discussions](https://github.com/speechbrain/speechbrain/discussions/categories/announcements) and will lists all the changes and updates that need to be done in the current version of SpeechBrain. Users are more than welcome to propose new items via new Discussions topics!
+As a community-based and open-source project, SpeechBrain needs the help of its community to grow in the right direction. Opening the roadmap to our users enables the toolkit to benefit from new ideas, new research axes, or even new technologies. The roadmap will be available in our [GitHub Discussions](https://github.com/speechbrain/speechbrain/discussions/categories/announcements) and will list all the changes and updates that need to be done in the current version of SpeechBrain. Users are more than welcome to propose new items via new Discussions topics!
 
 # Learning SpeechBrain
 
