@@ -688,7 +688,6 @@ def process_audio_default(
         sig = F.resample(sig, src_sample_rate, tgt_sample_rate)
     # VAD
     if trim:
-        torchaudio.save("prova.wav", sig.unsqueeze(0), 16000)
         sig = trim_sig(sig, trim_threshold)
 
     # High pass filter (> 70 Hz)
