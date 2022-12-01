@@ -50,7 +50,7 @@ lr_autoencoder_cooldown_steps: 500
 lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
 lr_autoencoder_decay_every: 1000
 max_grad_norm: 0.05
-train_timesteps: 500
+train_timesteps: 250
 adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
