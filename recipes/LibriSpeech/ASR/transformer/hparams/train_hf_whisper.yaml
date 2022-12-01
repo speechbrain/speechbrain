@@ -15,14 +15,12 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
 language: english
-###
-# Uncomment this block if you prefer to use an english normalizer.
-# Please download the json english normalizer used by OpenAI here:
-# https://github.com/openai/whisper/blob/main/whisper/normalizers/english.json
-#normalizer_path: !PLACEHOLDER
+
+# Normalize the english inputs with
+# the same normalization done in the paper
+do_normalize: True
 
 # Data files
-#data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
@@ -62,6 +60,10 @@ min_decode_ratio: 0.0
 max_decode_ratio: 0.1
 test_beam_size: 8
 
+# Model parameters
+freeze_whisper: False
+
+
 train_loader_kwargs:
    batch_size: !ref <batch_size>
 
@@ -71,14 +73,6 @@ valid_loader_kwargs:
 test_loader_kwargs:
    batch_size: !ref <batch_size>
 
-# Model parameters
-freeze_whisper: False
-
-tokenizer: !name:transformers.WhisperTokenizer.from_pretrained
-   pretrained_model_name_or_path: !ref <whisper_hub>
-   language: !ref <language>
-   task: transcribe
-   predict_timestamps: False
 
 #
 # Functions and classes
