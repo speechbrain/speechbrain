@@ -200,7 +200,13 @@ class Pretrainer:
                     "and no default_source given!"
                 )
             path = fetch(
-                filename, source, self.collect_in, save_filename=save_filename
+                filename=filename,
+                source=source,
+                savedir=self.collect_in,
+                overwrite=False,
+                save_filename=save_filename,
+                use_auth_token=False,
+                revision=None,
             )
             loadable_paths[name] = path
         return loadable_paths
