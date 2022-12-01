@@ -6,7 +6,6 @@ import torch.fx
 def test_SincConv(device):
     from speechbrain.nnet.CNN import SincConv
 
-    # single channel case
     input = torch.rand([4, 16000], device=device)
     convolve = SincConv(
         input_shape=input.shape, out_channels=8, kernel_size=65, padding="same"
@@ -16,7 +15,6 @@ def test_SincConv(device):
 
     assert torch.jit.trace(convolve, input)
     assert torch.fx.symbolic_trace(convolve)
-
 
     # Multichannel case
     input = torch.rand([10, 16000, 8], device=device)
