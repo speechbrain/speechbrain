@@ -7,6 +7,7 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
+ * Andreas Nautsch 2022
 """
 import logging
 import hashlib
@@ -41,6 +42,7 @@ def foreign_class(
     overrides={},
     savedir=None,
     use_auth_token=False,
+    download_only=False,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -80,6 +82,8 @@ def foreign_class(
     use_auth_token : bool (default: False)
         If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because majority of models are public.
+    download_only : bool (default: False)
+        If true, class and instance creation is skipped.
 
     Returns
     -------
@@ -88,8 +92,24 @@ def foreign_class(
     """
     if savedir is None:
         savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
-    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
-    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+    hparams_local_path = fetch(
+        filename=hparams_file,
+        source=source,
+        savedir=savedir,
+        overwrite=False,
+        save_filename=None,
+        use_auth_token=use_auth_token,
+        revision=None,
+    )
+    pymodule_local_path = fetch(
+        filename=pymodule_file,
+        source=source,
+        savedir=savedir,
+        overwrite=False,
+        save_filename=None,
+        use_auth_token=use_auth_token,
+        revision=None,
+    )
     sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
@@ -102,13 +122,14 @@ def foreign_class(
     # For distributed setups, have this here:
     run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
     # Load on the CPU. Later the params can be moved elsewhere by specifying
-    # run_opts={"device": ...}
-    pretrainer.load_collected(device="cpu")
+    if not download_only:
+        # run_opts={"device": ...}
+        pretrainer.load_collected(device="cpu")
 
-    # Import class and create instance
-    module = import_from_path(pymodule_local_path)
-    cls = getattr(module, classname)
-    return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
+        # Import class and create instance
+        module = import_from_path(pymodule_local_path)
+        cls = getattr(module, classname)
+        return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
 
 
 class Pretrained(torch.nn.Module):
@@ -288,6 +309,7 @@ class Pretrained(torch.nn.Module):
         savedir=None,
         use_auth_token=False,
         revision=None,
+        download_only=False,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -335,16 +357,30 @@ class Pretrained(torch.nn.Module):
             The model revision corresponding to the HuggingFace Hub model revision.
             This is particularly useful if you wish to pin your code to a particular
             version of a model hosted at HuggingFace.
+        download_only : bool (default: False)
+            If true, class and instance creation is skipped.
         """
         if savedir is None:
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
-            hparams_file, source, savedir, use_auth_token, revision
+            filename=hparams_file,
+            source=source,
+            savedir=savedir,
+            overwrite=False,
+            save_filename=None,
+            use_auth_token=use_auth_token,
+            revision=revision,
         )
         try:
             pymodule_local_path = fetch(
-                pymodule_file, source, savedir, use_auth_token, revision
+                filename=pymodule_file,
+                source=source,
+                savedir=savedir,
+                overwrite=False,
+                save_filename=None,
+                use_auth_token=use_auth_token,
+                revision=revision,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -367,11 +403,12 @@ class Pretrained(torch.nn.Module):
         # For distributed setups, have this here:
         run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
         # Load on the CPU. Later the params can be moved elsewhere by specifying
-        # run_opts={"device": ...}
-        pretrainer.load_collected(device="cpu")
+        if not download_only:
+            # run_opts={"device": ...}
+            pretrainer.load_collected(device="cpu")
 
-        # Now return the system
-        return cls(hparams["modules"], hparams, **kwargs)
+            # Now return the system
+            return cls(hparams["modules"], hparams, **kwargs)
 
 
 class EndToEndSLU(Pretrained):
