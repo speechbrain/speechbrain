@@ -1393,18 +1393,24 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
 
     Arguments
     ---------
-    model : torch.nn.Module
-        The model to use for decoding.
+    module : list with the followings one: 
+        model : torch.nn.Module
+            A whisper model. It should have a decode() method.
+        ctc_lin : torch.nn.Module (optional)
+            A linear output layer for CTC.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
 
     def __init__(
-        self, model, temperature=1.0, temperature_lm=1.0, **kwargs,
+        self, module, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
 
-        self.model = model
+        self.model = module[0]
+        if len(module) == 2:
+            self.ctc_fc = module[1]
+
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
