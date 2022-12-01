@@ -69,7 +69,7 @@ class Linear(torch.nn.Module):
             Input to transform linearly.
         """
         if self.combine_dims:
-            x = x.reshape(x.shape[0], x.shape[1], -1) 
+            x = x.reshape(x.shape[0], x.shape[1], -1)
 
         wx = self.w(x)
 

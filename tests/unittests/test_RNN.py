@@ -35,7 +35,6 @@ def test_RNN(device):
     net.padded_sequence_eval = False
     net.eval()
     assert torch.fx.symbolic_trace(net)
-    
 
     # Check GRU
     inputs = torch.randn(4, 2, 7, device=device)
