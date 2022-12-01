@@ -20,17 +20,27 @@ class SamplingBrain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             self.ids_list.append(batch.id)
             if self.hparams.sorting == "ascending":
-                if not all([x == y for x, y in zip(lens, sorted(lens))]):
+                # ignore last; non-evenly divisible data; 99 items -> last batch: 19 -> 20 items (thus, nearby sort)
+                if not all(
+                    [x == y for x, y in zip(lens[:-1], sorted(lens[:-1]))]
+                ):  # ":-1" is specific to dummy data
                     print(lens)
                     assert False
             elif self.hparams.sorting == "descending":
                 if not all(
-                    [x == y for x, y in zip(lens, sorted(lens, reverse=True))]
+                    [
+                        x == y
+                        for x, y in zip(
+                            lens[:-1], sorted(lens[:-1], reverse=True)
+                        )
+                    ]
                 ):
                     print(lens)
                     assert False
             elif self.hparams.sorting == "random":
-                assert not all([x == y for x, y in zip(lens, sorted(lens))])
+                assert not all(
+                    [x == y for x, y in zip(lens[:-1], sorted(lens[:-1]))]
+                )
             else:
                 raise NotImplementedError(
                     "sorting must be random, ascending or descending"
@@ -70,7 +80,7 @@ def data_prep(data_folder, hparams):
     "Creates the datasets and their data processing pipelines."
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=data_folder / "../annotation/dev-clean.csv",
+        csv_path=data_folder / "annotation/dev-clean.csv",
         replacements={"data_root": data_folder},
     )
 
@@ -79,21 +89,24 @@ def data_prep(data_folder, hparams):
         # we sort training data to speed up training and get better results.
         train_data = train_data.filtered_sorted(
             sort_key="duration",
-            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+            # key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["shuffle"] = False
+        # hparams["dataloader_options"]["drop_last"] = True  # drops last entry which is out of order
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
             sort_key="duration",
             reverse=True,
-            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+            # key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["dataloader_options"]["shuffle"] = False
+        # hparams["dataloader_options"]["drop_last"] = True  # drops last entry which is out of order
 
     elif hparams["sorting"] == "random":
+        # hparams["dataloader_options"]["drop_last"] = True  # reduced length from 99 to 80
         pass
 
     else:
@@ -103,7 +116,7 @@ def data_prep(data_folder, hparams):
     # end: sorting impact
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=data_folder / "../annotation/dev-clean.csv",
+        csv_path=data_folder / "annotation/dev-clean.csv",
         replacements={"data_root": data_folder},
     )
 
@@ -126,7 +139,7 @@ def data_prep(data_folder, hparams):
 def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
     experiment_dir = pathlib.Path(__file__).resolve().parent
     hparams_file = os.path.join(experiment_dir, yaml_file)
-    data_folder = "../../samples/VAD"
+    data_folder = "../../samples/"
     data_folder = (experiment_dir / data_folder).resolve()
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin)
@@ -155,7 +168,6 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["dataloader_options"],
     )
-    return ctc_brain.ids_list
 
 
 if __name__ == "__main__":
@@ -210,5 +222,7 @@ def test_ddp():
             idf = f"tests/tmp/ddp_sorting_ids_{sorting}_{rank}"
             with open(idf, "rb") as f:
                 ids += pickle.load(f)
-        assert len(ids) == 100
+        assert (
+            len(ids) == 100 if sorting == "random" else 99
+        )  # sorted data stays within the 99; random not
         assert len(set(ids)) == 99
