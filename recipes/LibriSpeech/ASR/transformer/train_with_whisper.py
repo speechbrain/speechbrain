@@ -145,17 +145,6 @@ class ASR(sb.Brain):
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
-    def init_optimizers(self):
-        "Initializes the whisper optimizer and model optimizer"
-        self.whisper_optimizer = self.hparams.whisper_opt_class(
-            self.modules.whisper.parameters()
-        )
-
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "whisper_opt", self.whisper_optimizer
-            )
-
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
