@@ -306,6 +306,7 @@ if __name__ == "__main__":
     tokenizer = WhisperTokenizer.from_pretrained(hparams["whisper_hub"])
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
+
     # we need to prepare the tokens for searchers
     hparams["valid_greedy_searcher"].set_decoder_input_tokens(
         tokenizer.prefix_tokens
@@ -336,10 +337,9 @@ if __name__ == "__main__":
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamicaly add the tokenizer to our brain class.
-    # NB: This tokenizer corresponds to the one used for the LM!!
+    # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
 
-    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -348,7 +348,6 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_loader_kwargs"],
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
-    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
