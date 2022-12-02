@@ -81,12 +81,6 @@ class HuggingFaceWhisper(nn.Module):
         self.register_buffer(
             "_mel_filters", torch.as_tensor(feature_extractor.mel_filters)
         )
-        self._n_fft = self.feature_extractor.n_fft
-        self._hop_length = self.feature_extractor.hop_length
-        self._n_samples = self.feature_extractor.n_samples
-        self.register_buffer(
-            "_mel_filters", torch.as_tensor(self.feature_extractor.mel_filters)
-        )
 
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
 
