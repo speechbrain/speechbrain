@@ -13,6 +13,8 @@ Given this is an after-the-fact reporting, future validity is discerned.
 <br/> VII. Maintainer checks for releases
 <br/> VIII. Future testing
 
+Editorial note:<br/>
+In the developmental process of this file's making, its sole purpose was to outline a proof concept that constitutes a foundation to the other files which emerged from here.
 
 ## I. Functionality provided on multiple platforms, in the SpeechBrain ecosystem.
 
