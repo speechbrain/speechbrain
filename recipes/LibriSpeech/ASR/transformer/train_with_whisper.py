@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-""" Take the encoder-decoder Whisper and the official tokenizer of whisper to fine-tune it with the NLL.
+"""Recipe for training a whisper-based ASR system with librispeech.
+The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+This recipe take the whisper encoder-decoder to fine-tune on the NLL.
 
-This recipe can also be used as a zero-shot recipe by removing the training part.
+If you want to only use the whisper encoder system, please refer to the recipe
+speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
