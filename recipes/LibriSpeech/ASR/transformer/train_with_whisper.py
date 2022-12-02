@@ -84,7 +84,7 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
 
-            if hasattr(self.hparams, "do_normalize"):
+            if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
                     self.tokenizer._normalize(text) for text in predicted_words
                 ]
