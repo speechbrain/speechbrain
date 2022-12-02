@@ -1,1 +1,2 @@
-ln -s `realpath \`find tests/tmp/TIMIT_row_5 | grep model.ckpt\`` tests/tmp/TIMIT_row_5/model.ckpt
+fpath=`find tests/tmp/TIMIT_row_5 | grep model.ckpt`
+ln -s `realpath $fpath` tests/tmp/TIMIT_row_5/model.ckpt

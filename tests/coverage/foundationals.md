@@ -696,7 +696,7 @@ Naturally for OpenSource, there are so many pathways for CI/CD:
 * Community-driven 'full' recipe checks from dataio to few-epoch outcomes
 * PR testing automation for a self-service SB community (move beyond checklists -> discuss ideas)
 * readthedocs as vivid part in PR drafting; testing & reviewing
-* restructure recipe yamls &/or testing scripts for easier parameter override (see `recipes/TIMIT/ASR/seq2seq_knowledge_distillation`) 
+* restructure recipe yamls &/or testing scripts for easier parameter override (see `recipes/TIMIT/ASR/seq2seq_knowledge_distillation`)
 * speed-up recipe tests through yaml rewritings (availing necessary overrides)
 * Coverage tables (e.g. for README): `Python x PyTorch` versions
 

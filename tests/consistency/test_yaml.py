@@ -15,10 +15,7 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
     """
 
     # Use this list to itemize special yaml for which we do not have to test
-    avoid_check = [
-        "recipes/Voicebank/MTL/ASR_enhance/hparams/enhance_mimic.yaml",
-        "recipes/Voicebank/MTL/ASR_enhance/hparams/pretrain_perceptual.yaml",
-    ]
+    avoid_check = []
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
