@@ -5,11 +5,11 @@ You can download LibriSpeech at http://www.openslr.org/12
 
 # How to run
 ## Whisper fine-tuning
-python train_with_whisper.py train/train
+python train_with_whisper.py hparams/train
 _hf_whisper.yaml
 
 ## Transformer training
-python train.py train/train.yaml
+python train.py hparams/transformer.yaml
 # Results
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
