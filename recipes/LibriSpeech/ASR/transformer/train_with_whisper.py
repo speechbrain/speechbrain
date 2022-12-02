@@ -269,7 +269,7 @@ if __name__ == "__main__":
     )
 
     # Defining tokenizer and loading it
-    tokenizer = WhisperTokenizer.from_pretrained(hparams["whisper_hub"])
+    tokenizer = hparams["Whisper"].tokenizer
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
 
