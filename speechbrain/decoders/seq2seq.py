@@ -1393,7 +1393,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
 
     Arguments
     ---------
-    module : list with the followings one: 
+    module : list with the followings one:
         model : torch.nn.Module
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)

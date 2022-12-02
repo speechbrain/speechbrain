@@ -68,7 +68,6 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
-
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
         )
@@ -306,7 +305,6 @@ if __name__ == "__main__":
     # Defining tokenizer and loading it
     tokenizer = WhisperTokenizer.from_pretrained(hparams["whisper_hub"])
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
-
 
     # we need to prepare the tokens for searchers
     hparams["valid_greedy_searcher"].set_decoder_input_tokens(
