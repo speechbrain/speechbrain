@@ -1,13 +1,15 @@
 # LibriSpeech ASR with Transformers.
-This folder contains the scripts to train a Transformer-based speech recognizer
-using LibriSpeech.
+This folder contains the scripts to train a Transformer-based speech recognizer or the scripts to fine-tune the Whisper encoder-decoder model. 
 
 You can download LibriSpeech at http://www.openslr.org/12
 
-
 # How to run
-python train.py train/train.yaml
+## Whisper fine-tuning
+python train_with_whisper.py train/train
+_hf_whisper.yaml
 
+## Transformer training
+python train.py train/train.yaml
 # Results
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
