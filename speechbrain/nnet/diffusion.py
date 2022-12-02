@@ -585,6 +585,7 @@ class LatentDiffusion(nn.Module):
     def sample(self, shape):
         # TODO: Auto-compute the latent shape
         latent = self.diffusion.sample(shape)
+        latent = self._pad_latent(latent)
         return self.autencoder.decode(latent)
 
 
