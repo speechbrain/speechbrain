@@ -47,10 +47,8 @@ class ASR(sb.Brain):
         )
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
-        # Forward pass
-        enc_out = self.modules.whisper.forward_encoder(wavs)
-
-        logits, _ = self.modules.whisper.forward_decoder(enc_out, bos_tokens)
+        # Forward encoder + decoder
+        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         log_probs = self.hparams.log_softmax(logits)
 
@@ -298,15 +296,15 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
+            "save_folder": hparams["save_folder"],
             "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "merge_name": hparams["train_csv"],
             "skip_prep": hparams["skip_prep"],
         },
     )
 
     # Defining tokenizer and loading it
-    tokenizer = WhisperTokenizer(hparams["whisper_hub"])
+    tokenizer = WhisperTokenizer.from_pretrained(hparams["whisper_hub"])
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
 
