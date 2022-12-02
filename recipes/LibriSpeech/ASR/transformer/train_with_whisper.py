@@ -38,8 +38,6 @@ class ASR(sb.Brain):
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        # TODO: need to check why using the default padding value
-        # during dataio is not working to replace this block of code.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
