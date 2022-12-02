@@ -38,8 +38,6 @@ class ASR(sb.Brain):
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        # TODO: need to check why using the default padding value
-        # during dataio is not working to replace this block of code.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
@@ -47,10 +45,8 @@ class ASR(sb.Brain):
         )
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
-        # Forward pass
-        enc_out = self.modules.whisper.forward_encoder(wavs)
-
-        logits, _ = self.modules.whisper.forward_decoder(enc_out, bos_tokens)
+        # Forward encoder + decoder
+        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         log_probs = self.hparams.log_softmax(logits)
 
@@ -69,7 +65,6 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-
 
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
@@ -91,11 +86,11 @@ class ASR(sb.Brain):
 
             if hasattr(self.hparams, "do_normalize"):
                 predicted_words = [
-                    self.tokenizer._normalizer(text) for text in predicted_words
+                    self.tokenizer._normalize(text) for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalizer(text) for text in target_words
+                    self.tokenizer._normalize(text) for text in target_words
                 ]
 
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -298,15 +293,15 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
+            "save_folder": hparams["save_folder"],
             "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "merge_name": hparams["train_csv"],
             "skip_prep": hparams["skip_prep"],
         },
     )
 
     # Defining tokenizer and loading it
-    tokenizer = WhisperTokenizer(hparams["whisper_hub"])
+    tokenizer = WhisperTokenizer.from_pretrained(hparams["whisper_hub"])
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
 
@@ -340,7 +335,7 @@ if __name__ == "__main__":
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamicaly add the tokenizer to our brain class.
-    # NB: This tokenizer corresponds to the one used for the LM!!
+    # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
 
     # Training

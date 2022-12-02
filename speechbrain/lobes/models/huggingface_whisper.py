@@ -81,12 +81,6 @@ class HuggingFaceWhisper(nn.Module):
         self.register_buffer(
             "_mel_filters", torch.as_tensor(feature_extractor.mel_filters)
         )
-        self._n_fft = self.feature_extractor.n_fft
-        self._hop_length = self.feature_extractor.hop_length
-        self._n_samples = self.feature_extractor.n_samples
-        self.register_buffer(
-            "_mel_filters", torch.as_tensor(self.feature_extractor.mel_filters)
-        )
 
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
 
@@ -130,14 +124,19 @@ class HuggingFaceWhisper(nn.Module):
                 out_encoder = self.forward_encoder(wav)
                 if self.encoder_only:
                     return out_encoder
-                out = self.forward_decoder(out_encoder, decoder_input_ids)
-                return out
+                logits, attn = self.forward_decoder(
+                    out_encoder, decoder_input_ids
+                )
+                return out_encoder, logits, attn
         else:
             if self.encoder_only:
                 return self.forward_encoder(wav)
             else:
                 out_encoder = self.forward_encoder(wav)
-                return self.forward_decoder(out_encoder, decoder_input_ids)
+                logits, attn = self.forward_decoder(
+                    out_encoder, decoder_input_ids
+                )
+                return out_encoder, logits, attn
 
     def forward_encoder(self, wav):
         """Perform one step of the whisper encoder with Mel FBANKs as Input.
@@ -164,7 +163,6 @@ class HuggingFaceWhisper(nn.Module):
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         """
-        # need to cast tensor to numpy for the huggingface whisper feature extractor.
         mels = self._pad_or_trim(wav)
         mels = self._log_mel_spectrogram(mels)
         return mels
