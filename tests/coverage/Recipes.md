@@ -52,7 +52,7 @@ Let's take a look at recipes: their structural outline & their testing definitio
   * additional references, incl. further URLs
   > _Note: all URLs references (in .py, .md & .txt files) are checked to be valid._
 
-## Recipe testing mirrors the recipes' structure: 
+## Recipe testing mirrors the recipes' structure:
 * `tests/recipes/DATASET.csv` – a summary of testing parameters for templates & recipes, including derived pretrained models
   <br/>_(as hinted above; example: [tests/recipes/LibriSpeech.csv](https://github.com/speechbrain/speechbrain/tree/develop/tests/recipes/LibriSpeech.csv):2)_
   * Task

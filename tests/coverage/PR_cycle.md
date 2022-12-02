@@ -131,7 +131,7 @@ def next_gen(x, arg0=6.28,           |    my_arg: !new:next_gen
         return x - arg1              |        arg2: false
 
 ```
-Summary: 
+Summary:
 1. Interface substitution, throughout
    > __Reviewer: all working under expected performance criteria (w/o recomputing all pretrained models)?__
 
