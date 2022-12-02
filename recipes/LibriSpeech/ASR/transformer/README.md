@@ -1,5 +1,5 @@
 # LibriSpeech ASR with Transformers.
-This folder contains the scripts to train a Transformer-based speech recognizer or the scripts to fine-tune the Whisper encoder-decoder model. 
+This folder contains the scripts to train a Transformer-based speech recognizer or the scripts to fine-tune the Whisper encoder-decoder model.
 
 You can download LibriSpeech at http://www.openslr.org/12
 
@@ -15,10 +15,6 @@ python train.py hparams/transformer.yaml
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 24-03-22 | transformer.yaml | 2.26 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1sM3_PksmGQZMxXPibp7W7mQfPXFdHqc5?usp=sharing) | 1xA100 40GB |
-
-# Training Time
-## Transformer training
-It takes about 45 minutes for each epoch on 1 NVDIA A100 (40GB).
 
 
 # PreTrained Model + Easy-Inference
