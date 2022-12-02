@@ -7,7 +7,7 @@ If you want to use the full whisper system, please refer to the recipe
 speechbrain/recipes/LibriSpeech/ASR/transformer/train_with_whisper.py
 
 To run this recipe, do the following:
-> python train_with_whisper.py hparams/train_hf_whisper.yaml
+> python train_with_whisper.py hparams/train_hf_whisper_encoder.yaml
 
 Authors
  * Titouan Parcollet 2022
@@ -43,9 +43,9 @@ class ASR(sb.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Add augmentation if specified
-        # if stage == sb.Stage.TRAIN:
-        #    if hasattr(self.hparams, "augmentation"):
-        #       wavs = self.hparams.augmentation(wavs, wav_lens)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "augmentation"):
+                wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
 
@@ -65,7 +65,7 @@ class ASR(sb.Brain):
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
+        """Computes the loss (CTC) given predictions and targets."""
 
         p_ctc, wav_lens, predicted_tokens = predictions
 
@@ -107,6 +107,8 @@ class ASR(sb.Brain):
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
                     if self.optimizer_step > self.hparams.warmup_steps:
+                        # Here we added a warmup to the CTC encoder to make sure that
+                        # it does not screw the whisper with too large gradients.
                         self.scaler.step(self.whisper_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
@@ -117,6 +119,8 @@ class ASR(sb.Brain):
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
+                    # Here we added a warmup to the CTC encoder to make sure that
+                    # it does not screw the whisper with too large gradients.
                     if self.optimizer_step > self.hparams.warmup_steps:
                         self.whisper_optimizer.step()
                     self.model_optimizer.step()
@@ -242,16 +246,11 @@ def dataio_prepare(hparams, tokenizer):
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     # 2. Define audio pipeline:
-    # We offload the mel computation to the dataloader because HuggingFace
-    # implementation is very slow (even that actually slows down the training)
-
-    mel_extractor = hparams["whisper"]
-
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
-        return mel_extractor._get_mel(sig).squeeze()
+        return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
