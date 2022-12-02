@@ -38,7 +38,7 @@ For testing, the challenge rests in the community-driven approach: how to integr
                    (checkpoints)             (results)            (code snippets)
 ```
 Each platform/functionality has their own dependencies (which can break) and interfaces (which are specific and can change).
-[[link list]](tests/coverage/Multiplatform.md)
+[[link list]](Multiplatform.md)
 
 ## How is functionality provided?
 
@@ -70,7 +70,7 @@ Python, business as usual:
 While one cannot control others (dependencies), CI/CD workflows are periodic actions to assert functionality of the known.
 Multi-platform checks, for it goes beyond this repo, is on a hybrid (partly irregular periodicity), i.e., before a future SpeechBrain release.
 
-_Naturally, writing style (linters checks) is a part of functionality._ [[Up for a config rabbit hole?]](tests/coverage/Approaches.md)
+_Naturally, writing style (linters checks) is a part of functionality._ [[Up for a config rabbit hole?]](Approaches.md)
 
 ## How is the SpeechBrain community improving quality, continuously?
 
@@ -107,7 +107,7 @@ git add ...
 ```
 
 To guide the lifecycle of a PR within the SpeechBrain lifecycle—as contributor and as reviewer—can be demanding to being exhausted.
-Test automation (e.g., through github and offline workflows) simplify discussions to the points that are of debate, actually. [[PyTest for testing coverage]](tests/coverage/PyCoverage.md)
+Test automation (e.g., through github and offline workflows) simplify discussions to the points that are of debate, actually. [[PyTest for testing coverage]](PyCoverage.md)
 
 ## The location of a change foreshadows its integrative complexity.
 
@@ -179,9 +179,9 @@ How would you approach testing each of them?
 While changes internal to a function is not of concern to others inasmuch as that it works as should, changes to the function signature impacts function in the overall—the multi-platform ecosystem.
 Legacy-breaking changes will impact the outline of all recipes: how will all work after a change, and after the next major refactoring after that one?
 
-[[Details to the above]](tests/coverage/PR_cycle.md)
-<br/> [[Recipes: tests for data flow with minimal examples]](tests/coverage/Recipes.md) <= for contributing a recipe
-<br/> [[What work should remain before a future release]](tests/coverage/Maintainer.md)
+[[Details to the above]](PR_cycle.md)
+<br/> [[Recipes: tests for data flow with minimal examples]](Recipes.md) <= for contributing a recipe
+<br/> [[What work should remain before a future release]](Maintainer.md)
 
 ## Branch topology: release <- CI/CD <- ecosystem-spanning refactorings.
 ```
@@ -207,5 +207,5 @@ Keep in mind, the SpeechBrain community is in-flux, so is a constellation of mai
 _Note: github workflows take the definition of a PR, what is specified within its branch. We might update our procedures on the `develop` branch (e.g., to meet dependency updates).
 Consequentially, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._
 
-[[A guided strategy to refactor w/o loosing hold to past achievements]](tests/coverage/Refactoring.md)
-<br/> [[There's more to be done]](tests/coverage/Future.md)
+[[A guided strategy to refactor w/o loosing hold to past achievements]](Refactoring.md)
+<br/> [[There's more to be done]](Future.md)
