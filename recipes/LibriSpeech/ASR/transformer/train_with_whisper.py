@@ -41,6 +41,8 @@ class ASR(sb.Brain):
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
+        # We compute the padding mask and replace the values with the pad_token_id
+        # that the Whisper decoder expect to see. 
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
