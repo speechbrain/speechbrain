@@ -127,7 +127,7 @@ class ASR(sb.Brain):
             )
 
             sb.nnet.schedulers.update_learning_rate(
-                self.whisper_optimizer, new_lr_whisper
+                self.whisper_opt_class, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
@@ -286,6 +286,8 @@ if __name__ == "__main__":
     )
     hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
 
+
+
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
 
@@ -295,6 +297,7 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
+        opt_class=hparams["whisper_opt_class"],
     )
 
     # We load the pretrained whisper model
