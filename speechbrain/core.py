@@ -358,7 +358,7 @@ class Brain:
         These modules are passed to the optimizer by default if they have
         trainable parameters, and will have ``train()``/``eval()`` called on them.
     opt_class : torch.optim class
-        A torch optimizer constructor that has takes only the list of
+        A torch optimizer constructor that takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
@@ -984,6 +984,7 @@ class Brain:
     def _fit_train(self, train_set, epoch, enable):
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
+        self.optimizer.zero_grad()
         self.modules.train()
 
         # Reset nonfinite count to 0 each epoch
@@ -1040,6 +1041,7 @@ class Brain:
                     last_ckpt_time = time.time()
 
         # Run train "on_stage_end" on all processes
+        self.optimizer.zero_grad(set_to_none=True)  # flush gradients and save mem
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
