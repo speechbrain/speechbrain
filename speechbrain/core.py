@@ -865,7 +865,6 @@ class Brain:
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
@@ -878,6 +877,7 @@ class Brain:
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.scaler.update()
+                self.optimizer.zero_grad()
                 self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
