@@ -1041,7 +1041,9 @@ class Brain:
                     last_ckpt_time = time.time()
 
         # Run train "on_stage_end" on all processes
-        self.optimizer.zero_grad(set_to_none=True)  # flush gradients and save mem
+        self.optimizer.zero_grad(
+            set_to_none=True
+        )  # flush gradients and save mem
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
