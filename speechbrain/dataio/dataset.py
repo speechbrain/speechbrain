@@ -10,7 +10,11 @@ import contextlib
 from types import MethodType
 from torch.utils.data import Dataset
 from speechbrain.utils.data_pipeline import DataPipeline
-from speechbrain.dataio.dataio import load_data_json, load_data_csv, load_data_dict
+from speechbrain.dataio.dataio import (
+    load_data_json,
+    load_data_csv,
+    load_data_dict,
+)
 import logging
 
 logger = logging.getLogger(__name__)
