@@ -205,7 +205,13 @@ if __name__ == "__main__":
             device=run_opts["device"]
         )
 
-    wandb.init(project="SepFormer", entity="mato1102", config={}, resume=True)
+    wandb.init(
+        project="SepFormer",
+        entity="mato1102",
+        config={},
+        resume=True,
+        name=hparams["experiment_name"],
+    )
 
     # Brain class initialization
     separator = Separation(

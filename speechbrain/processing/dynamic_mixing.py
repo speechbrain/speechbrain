@@ -268,7 +268,6 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 self.config.overlap_ratio, p=self.config.overlap_prob
             ).item()
             overlap_samples = int(src.size(0) * ratio)
-            print(overlap_samples)
 
             mixture, padded_tmp, paddings = mix(src, mixture, overlap_samples)
             # padded sources are returned in same order
