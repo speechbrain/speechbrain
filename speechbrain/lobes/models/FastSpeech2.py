@@ -534,7 +534,7 @@ class FastSpeech2(nn.Module):
                 torch.exp(predict_durations) - 1, 0
             )
 
-        spec_feats = upsample(
+        spec_feats, mel_lens = upsample(
             token_feats,
             durations if durations is not None else dur_pred_reverse_log,
             pace=pace,
@@ -573,7 +573,7 @@ class FastSpeech2(nn.Module):
         )
         mel_post = self.linear(output_mel_feats) * srcmask_inverted
         postnet_output = self.postnet(mel_post) + mel_post
-        return mel_post, postnet_output, predict_durations, predict_pitch, predict_energy
+        return mel_post, postnet_output, predict_durations, predict_pitch, predict_energy, torch.tensor(mel_lens)
 
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
@@ -595,14 +595,19 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     predict_durations: torch.Tensor
         predicted durations for each token
     """
-    return torch.nn.utils.rnn.pad_sequence(
-        [
-            torch.repeat_interleave(feats[i], (pace * durs[i]).long(), dim=0)
-            for i in range(len(durs))
-        ],
+    upsampled_mels = [
+        torch.repeat_interleave(feats[i], (pace * durs[i]).long(), dim=0)
+        for i in range(len(durs))
+    ]
+
+    mel_lens = [mel.shape[0] for mel in upsampled_mels]
+
+    padded_upsampled_mels = torch.nn.utils.rnn.pad_sequence(
+        upsampled_mels,
         batch_first=True,
         padding_value=padding_value,
     )
+    return padded_upsampled_mels, mel_lens
 
 
 class TextMelCollate:
@@ -730,9 +735,9 @@ class Loss(nn.Module):
 
         self.mel_loss = nn.L1Loss()
         self.postnet_mel_loss = nn.L1Loss()
-        self.dur_loss = nn.L1Loss()
-        self.pitch_loss = nn.L1Loss()
-        self.energy_loss = nn.L1Loss()
+        self.dur_loss = nn.MSELoss()
+        self.pitch_loss = nn.MSELoss()
+        self.energy_loss = nn.MSELoss()
         self.log_scale_durations = log_scale_durations
         self.mel_loss_weight = mel_loss_weight
         self.postnet_mel_loss_weight = postnet_mel_loss_weight
@@ -768,6 +773,7 @@ class Loss(nn.Module):
             log_durations,
             predicted_pitch,
             predicted_energy,
+            mel_lens
         ) = predictions
         predicted_pitch = predicted_pitch.squeeze()
         predicted_energy = predicted_energy.squeeze()

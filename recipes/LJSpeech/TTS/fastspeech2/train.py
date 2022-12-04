@@ -114,6 +114,7 @@ class FastSpeech2Brain(sb.Brain):
             predict_durations,
             predict_pitch,
             predict_energy,
+            predict_mel_lens,
         ) = predictions
         self.hparams.progress_sample_logger.remember(
             target=self.process_mel(spectogram, mel_lengths),
@@ -124,7 +125,7 @@ class FastSpeech2Brain(sb.Brain):
                     "input_lengths": input_lengths,
                     "mel_target": spectogram,
                     "mel_out": postnet_mel_out,
-                    "mel_lengths": mel_lengths,
+                    "mel_lengths": predict_mel_lens,
                     "durations": durations,
                     "predict_durations": predict_durations,
                     "labels": labels,
@@ -184,9 +185,9 @@ class FastSpeech2Brain(sb.Brain):
 
             if output_progress_sample:
                 logger.info("Saving predicted samples")
-                inference_mel = self.run_inference()
+                inference_mel, mel_lens = self.run_inference()
                 self.hparams.progress_sample_logger.save(epoch)
-                self.run_vocoder(inference_mel)
+                self.run_vocoder(inference_mel, mel_lens)
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(
@@ -202,30 +203,34 @@ class FastSpeech2Brain(sb.Brain):
 
     def run_inference(self):
         """Produces a sample in inference mode with predicted durations.
-        Arguments
-        ---------
-        index: int
-            batch index
         """
         if self.last_batch is None:
             return
-        tokens, input_lengths, *_ = self.last_batch
+        tokens, *_ = self.last_batch
 
-        _, postnet_mel_out,  *_ =  self.hparams.model(tokens)
+        _, postnet_mel_out, _, _, _, predict_mel_lens =  self.hparams.model(tokens)
         self.hparams.progress_sample_logger.remember(
             infer_output=self.process_mel(postnet_mel_out, [len(postnet_mel_out[0])])
         )
-        return postnet_mel_out
+        return postnet_mel_out, predict_mel_lens
 
-    def run_vocoder(self, inference_mel):
+    def run_vocoder(self, inference_mel, mel_lens):
         """Uses a pretrained vocoder to generate audio from predicted mel
-        spectogram. By default, uses speechbrain hifigan."""
-
+        spectogram. By default, uses speechbrain hifigan.
+        Arguments
+        ---------
+        inference_mel: torch.Tensor
+            predicted mel from fastspeech2 inference
+        mel_lens: torch.Tensor
+            predicted mel lengths from fastspeech2 inference
+            used to mask the noise from padding
+        """
         if self.last_batch is None:
             return
-        _, _, mel_len, mel, _, wavs = self.last_batch
+        *_, wavs = self.last_batch
+
         inference_mel = inference_mel[: self.hparams.progress_batch_sample_size]
-        mel_len = mel_len[0 : self.hparams.progress_batch_sample_size]
+        mel_lens = mel_lens[0 : self.hparams.progress_batch_sample_size]
         assert (
             self.hparams.vocoder == "hifi-gan"
             and self.hparams.pretrained_vocoder is True
@@ -238,7 +243,7 @@ class FastSpeech2Brain(sb.Brain):
             savedir=self.hparams.vocoder_download_path,
         )
         waveforms = hifi_gan.decode_batch(
-            inference_mel.transpose(2, 1), mel_len, self.hparams.hop_length
+            inference_mel.transpose(2, 1), mel_lens, self.hparams.hop_length
         )
         for idx, wav in enumerate(waveforms):
 
