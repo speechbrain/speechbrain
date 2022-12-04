@@ -49,7 +49,9 @@ def clean_dataframe(df):
     )
 
     # Sort by start/stop
-    df = df.groupby("session_id").apply(lambda x: x.sort_values("start"))
+    df = df.groupby("session_id", group_keys=False).apply(
+        lambda x: x.sort_values("start")
+    )
     df = pd.melt(df, id_vars=["session_id", "start"])
     df.drop(["variable"], axis=1, inplace=True)
     df.rename({"value": "stop"}, axis=1, inplace=True)
@@ -59,6 +61,7 @@ def clean_dataframe(df):
 def create_dataframe(df, json):
     sessions = list(json.keys())
     session_id = 0
+    records_lst = []
     for session in sessions:
         sub_section = list(json[session].keys())
         for sub in sub_section:
@@ -67,9 +70,10 @@ def create_dataframe(df, json):
                 for i in range(length):
                     temp_dict = json[session][sub][i]
                     temp_dict["session_id"] = session_id
-                    df = df.append([temp_dict])
+                    records_lst.append(temp_dict)
         session_id += 1
 
+    df = pd.concat([df, pd.DataFrame(records_lst)])
     df = clean_dataframe(df)
     return df
 
