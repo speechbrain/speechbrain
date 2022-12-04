@@ -19,6 +19,7 @@ def test_recipe_list(
         "recipes/Voicebank/MTL/CoopNet/hparams/logger.yaml",
         "recipes/LibriParty/generate_dataset/dataset.yaml",
         "hpopt.yaml",
+        "recipes/DNS/noisyspeech_synthesizer/noisyspeech_synthesizer.yaml",
     ],
 ):
     """This test checks if all the all hparam file of all the recipes are listed

@@ -28,7 +28,7 @@ train_data: !ref <save_folder>/dns_16k_tr.csv
 valid_data: !ref <save_folder>/dns_16k_cv.csv
 # For time-being we use valid data for test evaluation
 test_data: !ref <save_folder>/dns_16k_cv.csv
-baseline_dev_data: !ref <save_folder>/dns_baseline_dev_48K.csv
+# baseline_dev_data: !ref <save_folder>/dns_baseline_dev_48K.csv # TODOs
 skip_prep: False
 shuffle_train_data: True
 
