@@ -91,9 +91,9 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
     """
     del end_of_epoch  # Unused
     try:
-        obj.load_state_dict(torch.load(path, map_location=device), strict=True)
+        obj.load_state_dict(torch.load(path, map_location="cpu"), strict=True)
     except TypeError:
-        obj.load_state_dict(torch.load(path, map_location=device))
+        obj.load_state_dict(torch.load(path, map_location="cpu"))
 
 
 def torch_save(obj, path):
@@ -141,7 +141,7 @@ def torch_parameter_transfer(obj, path, device):
         The object is modified in place.
     """
     incompatible_keys = obj.load_state_dict(
-        torch.load(path, map_location=device), strict=False
+        torch.load(path, map_location="cpu"), strict=False
     )
     for missing_key in incompatible_keys.missing_keys:
         logger.warning(
