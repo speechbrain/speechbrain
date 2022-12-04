@@ -91,13 +91,20 @@ class ASR(sb.Brain):
 
             if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text) for text in predicted_words
+                    self.tokenizer._normalize(text).split(" ") for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text) for text in target_words
+                    self.tokenizer._normalize(text).split(" ") for text in target_words
+                ]
+            else:
+                predicted_words = [
+                    text.split(" ") for text in predicted_words
                 ]
 
+                target_words = [
+                    text.split(" ") for text in target_words
+                ]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
