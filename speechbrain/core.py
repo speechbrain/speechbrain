@@ -817,6 +817,10 @@ class Brain:
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        if hasattr(self, "optimizer"):
+            self.optimizer.zero_grad(set_to_none)
+
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
 
@@ -984,8 +988,8 @@ class Brain:
     def _fit_train(self, train_set, epoch, enable):
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
-        self.optimizer.zero_grad()
         self.modules.train()
+        self.zero_grad()
 
         # Reset nonfinite count to 0 each epoch
         self.nonfinite_count = 0
@@ -1041,9 +1045,7 @@ class Brain:
                     last_ckpt_time = time.time()
 
         # Run train "on_stage_end" on all processes
-        self.optimizer.zero_grad(
-            set_to_none=True
-        )  # flush gradients and save mem
+        self.zero_grad(set_to_none=True)  # flush gradients
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0

@@ -128,9 +128,7 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         if self.auto_mix_prec:
 
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
+            self.zero_grad()
 
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
@@ -158,9 +156,7 @@ class ASR(sb.core.Brain):
                     self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
+            self.zero_grad()
 
         return loss.detach()
 
@@ -238,6 +234,11 @@ class ASR(sb.core.Brain):
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.model_optimizer.zero_grad(set_to_none)
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer.zero_grad(set_to_none)
 
 
 # Define custom data procedure

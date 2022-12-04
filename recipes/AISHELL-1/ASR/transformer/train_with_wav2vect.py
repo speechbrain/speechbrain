@@ -134,8 +134,7 @@ class ASR(sb.core.Brain):
 
             self.optimizer.step()
             self.optimizer_wav2vect.step()
-            self.optimizer.zero_grad()
-            self.optimizer_wav2vect.zero_grad()
+            self.zero_grad()
 
             # anneal lr every update
             self.hparams.noam_annealing(self.optimizer)
@@ -288,6 +287,10 @@ class ASR(sb.core.Brain):
                 "wav2vec_opt", self.optimizer_wav2vect
             )
             self.checkpointer.add_recoverable("modelopt", self.optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.optimizer_wav2vect.zero_grad(set_to_none)
+        self.optimizer.zero_grad(set_to_none)
 
 
 def dataio_prepare(hparams):

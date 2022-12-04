@@ -118,8 +118,7 @@ class SLU(sb.Brain):
             self.wav2vec2_optimizer.step()
             self.optimizer.step()
 
-        self.wav2vec2_optimizer.zero_grad()
-        self.optimizer.zero_grad()
+        self.zero_grad()
         self.batch_count += 1
         return loss.detach()
 
@@ -194,6 +193,10 @@ class SLU(sb.Brain):
                 "wav2vec2_opt", self.wav2vec2_optimizer
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec2_optimizer.zero_grad(set_to_none)
+        self.optimizer.zero_grad(set_to_none)
 
 
 def dataio_prepare(hparams):

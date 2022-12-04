@@ -97,6 +97,11 @@ class ST(sb.core.Brain):
             self.hparams.model.parameters()
         )
 
+    def zero_grad(self, set_to_none=False):
+        if not self.hparams.wav2vec2_frozen:
+            self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.adam_optimizer.zero_grad(set_to_none)
+
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
@@ -108,9 +113,7 @@ class ST(sb.core.Brain):
                 self.wav2vec_optimizer.step()
             self.adam_optimizer.step()
 
-        if not self.hparams.wav2vec2_frozen:
-            self.wav2vec_optimizer.zero_grad()
-        self.adam_optimizer.zero_grad()
+        self.zero_grad()
 
         return loss.detach().cpu()
 

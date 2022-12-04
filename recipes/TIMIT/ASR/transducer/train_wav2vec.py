@@ -169,8 +169,7 @@ class ASR_Brain(sb.Brain):
         # Managing automatic mixed precision
         if self.auto_mix_prec:
 
-            self.wav2vec_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
+            self.zero_grad()
 
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
@@ -195,8 +194,7 @@ class ASR_Brain(sb.Brain):
                 self.wav2vec_optimizer.step()
                 self.adam_optimizer.step()
 
-            self.wav2vec_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
+            self.zero_grad()
 
         return loss.detach()
 
@@ -214,6 +212,10 @@ class ASR_Brain(sb.Brain):
                 "wav2vec_opt", self.wav2vec_optimizer
             )
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.adam_optimizer.zero_grad(set_to_none)
 
 
 def dataio_prep(hparams):
