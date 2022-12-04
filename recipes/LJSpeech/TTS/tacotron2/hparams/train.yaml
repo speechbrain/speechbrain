@@ -65,7 +65,7 @@ n_mel_channels: 80
 n_fft: 1024
 mel_fmin: 0.0
 mel_fmax: 8000.0
-mel_normalized: null
+mel_normalized: False
 power: 1
 norm: "slaney"
 mel_scale: "slaney"
