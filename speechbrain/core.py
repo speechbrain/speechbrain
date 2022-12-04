@@ -818,8 +818,11 @@ class Brain:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
     def zero_grad(self, set_to_none=False):
-        """Sets the gradients of all optimized `torch.Tensor`s to zero
-        if `set_to_none=False` (default) or to `None` otherwise.
+        """Sets the gradients of all optimized ``torch.Tensor``s to zero
+        if ``set_to_none=False`` (default) or to None otherwise.
+
+        Setting gradients to None should save the memory, e.g.
+        during ``evaluate()`` and thus larger batch might be used
         """
         if hasattr(self, "optimizer"):
             self.optimizer.zero_grad(set_to_none)
