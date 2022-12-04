@@ -157,3 +157,5 @@ recipe0155,ASR,Switchboard,recipes/Switchboard/ASR/transformer/train.py,recipes/
 recipe0156,LM,Switchboard,recipes/Switchboard/LM/train.py,recipes/Switchboard/LM/hparams/transformer.yaml,recipes/Switchboard/LM/switchboard_prepare.py,recipes/Switchboard/LM/README.md,,,,
 recipe0157,LM,Switchboard,recipes/Switchboard/LM/train.py,recipes/Switchboard/LM/hparams/transformer_finetune.yaml,recipes/Switchboard/LM/switchboard_prepare.py,recipes/Switchboard/LM/README.md,,,,
 recipe0158,Tokenizer,Switchboard,recipes/Switchboard/Tokenizer/train.py,recipes/Switchboard/Tokenizer/hparams/2K_unigram_subword_bpe.yaml,recipes/Switchboard/Tokenizer/switchboard_prepare.py,recipes/Switchboard/Tokenizer/README.md,,,,
+recipe0159,Enhancement,DNS,recipes/DNS/enhancement/train.py,recipes/DNS/enhancement/hparams/sepformer-dns-16k.yaml,recipes/DNS/prepare_dns.py,recipes/DNS/enhancement/README.md,,,,
+recipe0160,Enhancement,DNS,recipes/DNS/enhancement/train.py,recipes/DNS/enhancement/hparams/sepformer-dns-8k.yaml,recipes/DNS/prepare_dns.py,recipes/DNS/enhancement/README.md,,,,
