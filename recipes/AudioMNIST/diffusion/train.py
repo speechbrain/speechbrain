@@ -1081,7 +1081,7 @@ def dataio_prep(hparams):
 
     train_split = dataset_splits["train"]
     data_count = None
-    apply_overfit_test(hparams, train_split)
+    train_split = apply_overfit_test(hparams, train_split)
 
     if hparams["train_data_count"] is not None:
         data_count = hparams["train_data_count"]
