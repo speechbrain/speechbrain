@@ -221,7 +221,8 @@ class Cnn14(nn.Module):
         x2 = torch.mean(x, dim=2)
         x = x1 + x2
 
+        # [B x 1 x emb_dim]
         if not self.return_reps:
-            return x.unsqueeze(1)  # [B, 1, D]
+            return x.unsqueeze(1)
 
         return x.unsqueeze(1), (x1_out, x2_out, x3_out)
