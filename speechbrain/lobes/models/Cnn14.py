@@ -78,6 +78,9 @@ class ConvBlock(nn.Module):
         self.init_weight()
 
     def init_weight(self):
+        """
+        Initializes the model convolutional layers and the batchnorm layers
+        """
         init_layer(self.conv1)
         init_layer(self.conv2)
         init_bn(self.norm1)
@@ -116,10 +119,31 @@ class ConvBlock(nn.Module):
 
 
 class Cnn14(nn.Module):
-    def __init__(self, mel_bins, emb_dim, norm_type="bn", interpret=False):
+    """This class implements the Cnn14 model from https://arxiv.org/abs/1912.10211
 
+    Arguments
+    ---------
+    mel_bins : int
+        Number of mel frequency bins in the input
+    emb_dim : int
+        The dimensionality of the output embeddings
+    norm_type: str in ['bn', 'in', 'ln']
+        The type of normalization
+    return_reps: bool (default=False)
+        If True the model returns intermediate representations as well for interpretation
+
+    Example:
+    --------
+    >>> cnn14 = Cnn14(120, 256)
+    >>> x = torch.rand(3, 400, 120)
+    >>> h = cnn14.forward(x)
+    >>> print(h.shape)
+    torch.Size([3, 1, 256])
+    """
+
+    def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False):
         super(Cnn14, self).__init__()
-        self.interpret = interpret
+        self.return_reps = return_reps
 
         self.norm_type = norm_type
         if norm_type == "bn":
@@ -151,15 +175,27 @@ class Cnn14(nn.Module):
         self.conv_block6 = ConvBlock(
             in_channels=1024, out_channels=emb_dim, norm_type=norm_type
         )
-
         self.init_weight()
 
     def init_weight(self):
+        """
+        Initializes the model batch norm layer
+        """
         init_bn(self.norm0)
 
-    def forward(self, x, mixup_lambda=None):
+    def forward(self, x):
         """
-        Input: (B, 1, T, M)"""
+        The forward pass for the CNN14 encoder
+
+        Arguments:
+        ----------
+        x : torch.Tensor
+            input tensor with shape B x C_in x D1 x D2
+        where B = Batchsize
+              C_in = Number of input channel
+              D1 = Dimensionality of the first spatial dim
+              D2 = Dimensionality of the second spatial dim
+        """
 
         if x.dim() == 3:
             x = x.unsqueeze(1)
@@ -185,7 +221,7 @@ class Cnn14(nn.Module):
         x2 = torch.mean(x, dim=2)
         x = x1 + x2
 
-        if not self.interpret:
+        if not self.return_reps:
             return x.unsqueeze(1)  # [B, 1, D]
 
         return x.unsqueeze(1), (x1_out, x2_out, x3_out)
