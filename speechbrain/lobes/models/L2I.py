@@ -125,7 +125,7 @@ class NMFDecoder(nn.Module):
 
         self.W = nn.Parameter(
             0.1 * torch.rand(n_freq, n_comp), requires_grad=True
-        ).to(device)
+        )
         self.activ = nn.ReLU()
 
         # we need to fix this! we should download from HF
