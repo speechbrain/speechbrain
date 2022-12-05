@@ -179,8 +179,8 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     norm_num_groups: !ref <model_norm_num_groups>
     out_channels: !ref <autoencoder_latent_channels>
     num_res_blocks: !ref <model_num_res_blocks>
-    attention_resolutions: [1, 2, 4]
-    channel_mult: [1, 2, 4]
+    attention_resolutions: [1, 2]
+    channel_mult: [1, 2]
     dropout: !ref <model_dropout>
 
 autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder

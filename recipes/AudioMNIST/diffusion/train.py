@@ -394,7 +394,7 @@ class DiffusionBrain(sb.Brain):
         preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions
         if self.train_diffusion:
             loss = self.hparams.compute_cost(
-                preds.squeeze(1), noise.squeeze(1), length=lens
+                channels_last(preds), channels_last(noise), length=lens
             )
         else:
             loss = torch.tensor(0.0, device=self.device)
@@ -997,6 +997,8 @@ class DiffusionBrain(sb.Brain):
 
 DATASET_SPLITS = ["train", "valid", "test"]
 
+def channels_last(feats):
+    return feats.transpose(1, -1)
 
 def apply_sort(hparams, dataset):
     if hparams["sort"]:
