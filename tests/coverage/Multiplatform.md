@@ -34,7 +34,7 @@
   <br/> a. [docs](https://github.com/speechbrain/speechbrain/tree/develop/docs) for https://speechbrain.readthedocs.io/
   <br/> b. [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes)
   <br/>`python & yaml & README`
-  <br/> c. [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/
+  <br/> c. [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/)
   <br/>`python & yaml`
   <br/> d. [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates)
   <br/>`python & yaml & README`

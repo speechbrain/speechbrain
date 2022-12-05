@@ -10,6 +10,7 @@ The following ideographics illustrate the different complexity landscapes at wor
 conversational AI, scalable to incubate services and educate researchers, alike.
 For testing, the challenge rests in the community-driven approach: how to integrate (potentially legacy-breaking) refactorings without loosing hold on prior achievements, such that continuity of purpose is preserved (regardless of change encountered).
 
+by Andreas Nautsch, 2022
 
 ## Functionality provided on multiple platforms, in the SpeechBrain ecosystem.
 
@@ -38,7 +39,7 @@ For testing, the challenge rests in the community-driven approach: how to integr
                    (checkpoints)             (results)            (code snippets)
 ```
 Each platform/functionality has their own dependencies (which can break) and interfaces (which are specific and can change).
-[[link list]](Multiplatform.md)
+<br/>[[link list]](Multiplatform.md)
 
 ## How is functionality provided?
 
@@ -70,7 +71,8 @@ Python, business as usual:
 While one cannot control others (dependencies), CI/CD workflows are periodic actions to assert functionality of the known.
 Multi-platform checks, for it goes beyond this repo, is on a hybrid (partly irregular periodicity), i.e., before a future SpeechBrain release.
 
-_Naturally, writing style (linters checks) is a part of functionality._ [[Up for a config rabbit hole?]](Approaches.md)
+_Naturally, writing style (linters checks) is a part of functionality._
+<br/>[[Up for a config rabbit hole?]](Approaches.md)
 
 ## How is the SpeechBrain community improving quality, continuously?
 
@@ -93,21 +95,22 @@ _Naturally, writing style (linters checks) is a part of functionality._ [[Up for
      v                          v
 
 To push formatted code:    Review of:
-git add ...                 A. changes to core modules
-pre-commit                  B. enhanced testing/documentation
-git status                  C. contributed tutorial
-git add ...                 D. new/edited template/tool
-git commit -m ...           E. added/modified recipe
-git push                    F. uploaded pretrained model
-
+git add ...                 * changes to core modules
+pre-commit                  * enhanced testing/documentation
+git status                  * contributed tutorial
+git add ...                 * new/edited template/tool
+git commit -m ...           * added/modified recipe
+git push                    * uploaded pretrained model
+                            * well-formatted py & yaml files
 Missed out on one?
-pre-commit run --all-files  G. Well-formatted py & yaml files
+pre-commit run --all-files
 git status
 git add ...
 ```
 
 To guide the lifecycle of a PR within the SpeechBrain lifecycle—as contributor and as reviewer—can be demanding to being exhausted.
-Test automation (e.g., through github and offline workflows) simplify discussions to the points that are of debate, actually. [[PyTest for testing coverage]](PyCoverage.md)
+Test automation (e.g., through github and offline workflows) simplify discussions to the points that are of debate, actually.
+<br/>[[PyTest for testing coverage]](PyCoverage.md)
 
 ## The location of a change foreshadows its integrative complexity.
 
@@ -176,8 +179,12 @@ def next_gen(x, arg0=6.28,           |    my_arg: !new:next_gen
 How would you approach testing each of them?
 <br/>Such changes happen not only once, but on a regular basis, throughout all core modules.
 
-While changes internal to a function is not of concern to others inasmuch as that it works as should, changes to the function signature impacts function in the overall—the multi-platform ecosystem.
-Legacy-breaking changes will impact the outline of all recipes: how will all work after a change, and after the next major refactoring after that one?
+Changes can be internal to a function &/or alter the function signature:
+* function-internal changes are not of concern to other function (so long they do what they should),
+* function signature changes impact the overall—the multi-platform ecosystem.
+
+Legacy-breaking changes will impact the outline of all recipes:
+<br/>how will all work after a change—, and after the next major refactoring (after that first one)?
 
 [[Details to the above]](PR_cycle.md)
 <br/> [[Recipes: tests for data flow with minimal examples]](Recipes.md) <= for contributing a recipe
