@@ -134,7 +134,7 @@ class ASR(sb.Brain):
             )
 
             sb.nnet.schedulers.update_learning_rate(
-                self.whisper_opt_class, new_lr_whisper
+                self.optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
