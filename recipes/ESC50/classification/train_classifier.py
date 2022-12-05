@@ -1,22 +1,16 @@
 #!/usr/bin/python3
-"""Recipe for training sound class embeddings (e.g, xvectors) using the UrbanSound8k.
+"""Recipe to train a classifier on ESC50 data
 We employ an encoder followed by a sound classifier.
 
 To run this recipe, use the following command:
-> python train_class_embeddings.py {hyperparameter_file}
-
-Using your own hyperparameter file or one of the following:
-    hparams/train_x_vectors.yaml (for standard xvectors)
-    hparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
+> python train_classifier.py hparams/cnn14.py --data_folder yourpath/ESC-50-master
 
 Authors
+    * Cem Subakan 2022
+    * Francesco Paissan 2022
+Based on Urban8k recipe by
     * David Whipps 2021
     * Ala Eddine Limame 2021
-
-Based on VoxCeleb By:
-    * Mirco Ravanelli 2020
-    * Hwidong Na 2020
-    * Nauman Dawalatabad 2020
 """
 import os
 import sys
@@ -30,8 +24,6 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
 
-import librosa
-from librosa.core import stft
 import scipy.io.wavfile as wavf
 
 
