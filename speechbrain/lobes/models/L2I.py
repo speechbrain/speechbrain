@@ -158,24 +158,52 @@ class NMFDecoder(nn.Module):
 
 
 class Theta(nn.Module):
-    def __init__(self, N_COMP=100, T=431, num_classes=50) -> None:
+    """This class implements a linear classifier on top of NMF activations
+
+    Arguments
+    ---------
+    n_comp : int
+        Number of NMF components
+    T : int
+        Number of Timepoints in the NMF activations
+    num_classes : int
+        Number of classes that the classifier works with
+
+    Example:
+    --------
+    >>> theta = Theta(30, 120, 50)
+    >>> H = torch.rand(5, 30, 120)
+    >>> c_hat = theta.forward(H)
+    >>> print(c_hat.shape)
+    torch.Size([5, 50])
+    """
+
+    def __init__(self, n_comp=100, T=431, num_classes=50):
         super().__init__()
-        self.hard_att = nn.Linear(
-            T, 1
-        )  # collapse time axis using "attention" based pooling
+
+        # This linear layer collapses the time axis using "attention" based pooling
+        self.hard_att = nn.Linear(T, 1)
+
+        # The Linear layer for classification
         self.classifier = nn.Sequential(
-            nn.Linear(N_COMP, num_classes), nn.Softmax(dim=1)
+            nn.Linear(n_comp, num_classes), nn.Softmax(dim=1)
         )
 
-    def forward(self, psi_out):
-        """psi_out is of shape n_batch x n_comp x T
-        collapse time axis using "attention" based pooling"""
-        theta_out = self.hard_att(psi_out).squeeze(2)
-        # print(theta_out.shape)
-        # input()
+    def forward(self, H):
+        """We first collapse the time axis, and then pass through the linear layer
+
+        Arguments:
+        ---------
+        H : torch.Tensor
+            The activations Tensor with shape B x n_comp x T
+
+        where B = Batchsize
+              n_comp = number of NMF components
+              T = number of timepoints
+        """
+
+        theta_out = self.hard_att(H).squeeze(2)
         theta_out = self.classifier(theta_out)
-        # print(theta_out.shape)
-        # input()
         return theta_out
 
 
