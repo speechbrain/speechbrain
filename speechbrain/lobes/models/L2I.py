@@ -208,18 +208,44 @@ class Theta(nn.Module):
 
 
 class NMFEncoder(nn.Module):
-    def __init__(self, nlayers) -> None:
+    """This class implements an NMF encoder with a convolutional network
+
+    Arguments
+    ---------
+    n_freq : int
+        The number of frequency bins in the NMF dictionary
+    n_comp : int
+        Number of NMF components
+
+    Example:
+    --------
+    >>> nmfencoder = NMFEncoder(513, 100)
+    >>> X = torch.rand(12, 513, 240)
+    >>> Hhat = nmfencoder(X)
+    >>> print(Hhat.shape)
+    torch.Size([12, 100, 240])
+    """
+
+    def __init__(self, n_freq, n_comp):
         super().__init__()
         self.convenc = nn.Sequential(
-            nn.Conv1d(513, 256, kernel_size=8, padding="same"),
+            nn.Conv1d(n_freq, 256, kernel_size=8, padding="same"),
             nn.ReLU(),
             nn.Conv1d(256, 128, kernel_size=8, padding="same"),
             nn.ReLU(),
-            nn.Conv1d(128, 100, kernel_size=8, padding="same"),
+            nn.Conv1d(128, n_comp, kernel_size=8, padding="same"),
             nn.ReLU(),
         )
 
-    def forward(self, inp):
-        """psi_out is of shape n_batch x n_comp x T
-        collapse time axis using "attention" based pooling"""
-        return self.convenc(inp)
+    def forward(self, X):
+        """
+        Arguments:
+        ---------
+        X : torch.Tensor
+            The input spectrogram Tensor with shape B x n_freq x T
+
+        where B = Batchsize
+              n_freq = nfft for the input spectrogram
+              T = number of timepoints
+        """
+        return self.convenc(X)
