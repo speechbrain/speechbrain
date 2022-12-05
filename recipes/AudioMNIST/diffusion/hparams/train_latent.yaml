@@ -91,7 +91,7 @@ spec_norm: "slaney"
 spec_mel_scale: "slaney"
 spec_norm_mean: 0.
 spec_norm_std: 0.5
-spec_sample_size: 10
+spec_sample_size: 16
 spec_sample_min: -4.7
 spec_sample_max: 3.0
 min_level_db: -80.0
@@ -105,7 +105,7 @@ model_dropout: 0.
 autoencoder_channels: 32
 autoencoder_norm_num_groups: 32
 autoencoder_num_res_blocks: 1
-autoencoder_dist_loss_weight: 0.
+autoencoder_dist_loss_weight: .1
 autoencoder_encoder_out_channels: 32
 autoencoder_nom_num_groups: 32
 autoencoder_latent_channels: 2
