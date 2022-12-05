@@ -19,10 +19,28 @@ def init_bn(bn):
 
 
 class ConvBlock(nn.Module):
+    """This class implements the convolutional block used in CNN14
+
+    Arguments
+    ---------
+    in_channels : int
+        Number of input channels
+    out_channels : int
+        Number of output channels
+    norm_type : str in ['bn', 'in', 'ln']
+        The type of normalization
+
+    Example:
+    --------
+    >>> convblock = ConvBlock(10, 20, 'ln')
+    >>> x = torch.rand(5, 10, 20, 30)
+    >>> y = convblock(x)
+    >>> print(y.shape)
+    torch.Size([5, 20, 10, 15])
+    """
+
     def __init__(self, in_channels, out_channels, norm_type):
-
         super(ConvBlock, self).__init__()
-
         self.conv1 = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -31,7 +49,6 @@ class ConvBlock(nn.Module):
             padding=(1, 1),
             bias=False,
         )
-
         self.conv2 = nn.Conv2d(
             in_channels=out_channels,
             out_channels=out_channels,
@@ -40,7 +57,6 @@ class ConvBlock(nn.Module):
             padding=(1, 1),
             bias=False,
         )
-
         self.norm_type = norm_type
 
         if norm_type == "bn":
@@ -67,9 +83,23 @@ class ConvBlock(nn.Module):
         init_bn(self.norm1)
         init_bn(self.norm2)
 
-    def forward(self, input, pool_size=(2, 2), pool_type="avg"):
+    def forward(self, x, pool_size=(2, 2), pool_type="avg"):
+        """The forward pass for convblocks in CNN14
 
-        x = input
+        Arguments:
+        ----------
+        x : torch.Tensor
+            input tensor with shape B x C_in x D1 x D2
+        where B = Batchsize
+              C_in = Number of input channel
+              D1 = Dimensionality of the first spatial dim
+              D2 = Dimensionality of the second spatial dim
+        pool_size : tuple with integer values
+            Amount of pooling at each layer
+        pool_type : str in ['max', 'avg', 'avg+max']
+            The type of pooling
+        """
+
         x = F.relu_(self.norm1(self.conv1(x)))
         x = F.relu_(self.norm2(self.conv2(x)))
         if pool_type == "max":
@@ -81,8 +111,7 @@ class ConvBlock(nn.Module):
             x2 = F.max_pool2d(x, kernel_size=pool_size)
             x = x1 + x2
         else:
-            raise Exception("Incorrect argument!")
-
+            raise Exception("Incorrect pooling type!")
         return x
 
 
