@@ -1,8 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-import numpy as np
-import speechbrain as sb
 
 
 def init_layer(layer):
@@ -49,8 +47,6 @@ class ConvBlock(nn.Module):
             self.norm1 = nn.BatchNorm2d(out_channels)
             self.norm2 = nn.BatchNorm2d(out_channels)
         elif norm_type == "in":
-            #  self.norm1 = nn.GroupNorm(out_channels, out_channels)
-            #  self.norm2 = nn.GroupNorm(out_channels, out_channels)
             self.norm1 = nn.InstanceNorm2d(
                 out_channels, affine=True, track_running_stats=True
             )
@@ -91,38 +87,15 @@ class ConvBlock(nn.Module):
 
 
 class Cnn14(nn.Module):
-    #  def __init__(self, sample_rate, window_size, hop_size, mel_bins, fmin,
-    #      fmax, classes_num):
     def __init__(self, mel_bins, emb_dim, norm_type="bn", interpret=False):
 
         super(Cnn14, self).__init__()
         self.interpret = interpret
 
-        #  window = 'hann'
-        #  center = True
-        #  pad_mode = 'reflect'
-        #  ref = 1.0
-        #  amin = 1e-10
-        #  top_db = None
-
-        #  # Spectrogram extractor
-        #  self.spectrogram_extractor = Spectrogram(n_fft=window_size, hop_length=hop_size,
-        #      win_length=window_size, window=window, center=center, pad_mode=pad_mode,
-        #      freeze_parameters=True)
-        #
-        #  # Logmel feature extractor
-        #  self.logmel_extractor = LogmelFilterBank(sr=sample_rate, n_fft=window_size,
-        #      n_mels=mel_bins, fmin=fmin, fmax=fmax, ref=ref, amin=amin, top_db=top_db,
-        #      freeze_parameters=True)
-        #
-        #  # Spec augmenter
-        #  self.spec_augmenter = SpecAugmentation(time_drop_width=64, time_stripes_num=2,
-        #      freq_drop_width=8, freq_stripes_num=2)
         self.norm_type = norm_type
         if norm_type == "bn":
             self.norm0 = nn.BatchNorm2d(mel_bins)
         elif norm_type == "in":
-            #  self.norm0 = nn.GroupNorm(mel_bins, mel_bins)
             self.norm0 = nn.InstanceNorm2d(
                 mel_bins, affine=True, track_running_stats=True
             )
@@ -150,35 +123,20 @@ class Cnn14(nn.Module):
             in_channels=1024, out_channels=emb_dim, norm_type=norm_type
         )
 
-        #  self.fc1 = nn.Linear(2048, 2048, bias=True)
-        #  self.fc_audioset = nn.Linear(2048, classes_num, bias=True)
-
         self.init_weight()
 
     def init_weight(self):
         init_bn(self.norm0)
-        #  init_layer(self.fc1)
-        #  init_layer(self.fc_audioset)
 
     def forward(self, x, mixup_lambda=None):
         """
         Input: (B, 1, T, M)"""
-
-        #  x = self.spectrogram_extractor(input)   # (batch_size, 1, time_steps, freq_bins)
-        #  x = self.logmel_extractor(x)    # (batch_size, 1, time_steps, mel_bins)
 
         if x.dim() == 3:
             x = x.unsqueeze(1)
         x = x.transpose(1, 3)
         x = self.norm0(x)
         x = x.transpose(1, 3)
-
-        #  if self.training:
-        #      x = self.spec_augmenter(x)
-        #
-        #  # Mixup on spectrogram
-        #  if self.training and mixup_lambda is not None:
-        #      x = do_mixup(x, mixup_lambda)
 
         x = self.conv_block1(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x, p=0.2, training=self.training)
@@ -202,12 +160,3 @@ class Cnn14(nn.Module):
             return x.unsqueeze(1)  # [B, 1, D]
 
         return x.unsqueeze(1), (x1_out, x2_out, x3_out)
-
-        #  x = F.dropout(x, p=0.5, training=self.training)
-        #  x = F.relu_(self.fc1(x))
-        #  embedding = F.dropout(x, p=0.5, training=self.training)
-        #  clipwise_output = torch.sigmoid(self.fc_audioset(x))
-        #
-        #  output_dict = {'clipwise_output': clipwise_output, 'embedding': embedding}
-        #
-        #  return output_dict
