@@ -18,14 +18,10 @@ language: english
 
 # Normalize the english inputs with
 # the same normalization done in the paper
-do_normalize: True
+normalized_transcripts: True
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
-# then data_folder_rirs should be /localscratch/xxx_corpus
-# otherwise the dataset will automatically be downloaded
-# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -50,7 +46,11 @@ sample_rate: 16000
 batch_size: 12
 test_batch_size: 8
 
-# this value is only used for the searchers as the bos starting token.
+# These values are only used for the searchers.
+# They needs to be hardcoded and should not be changed with Whisper.
+# They are used as part of the searching process.
+# The bos token of the searcher will be timestamp_index
+# and will be concatenated with the bos, language and task tokens.
 timestamp_index: 50363
 eos_index: 50257
 bos_index: 50258

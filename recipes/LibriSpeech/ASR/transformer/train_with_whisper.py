@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-""" Take the encoder-decoder Whisper and the official tokenizer of whisper to fine-tune it with the NLL.
+"""Recipe for training a whisper-based ASR system with librispeech.
+The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+This recipe take the whisper encoder-decoder to fine-tune on the NLL.
 
-This recipe can also be used as a zero-shot recipe by removing the training part.
+If you want to only use the whisper encoder system, please refer to the recipe
+speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
@@ -38,6 +41,8 @@ class ASR(sb.Brain):
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
+        # We compute the padding mask and replace the values with the pad_token_id
+        # that the Whisper decoder expect to see. 
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
@@ -84,45 +89,26 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
 
-            if hasattr(self.hparams, "do_normalize"):
+            if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text) for text in predicted_words
+                    self.tokenizer._normalize(text).split(" ") for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text) for text in target_words
+                    self.tokenizer._normalize(text).split(" ") for text in target_words
+                ]
+            else:
+                predicted_words = [
+                    text.split(" ") for text in predicted_words
                 ]
 
+                target_words = [
+                    text.split(" ") for text in target_words
+                ]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        should_step = self.step % self.grad_accumulation_factor == 0
-
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.whisper_optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.whisper_optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.whisper_optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss.backward()
-            if self.check_gradients(loss):
-                self.whisper_optimizer.step()
-            self.whisper_optimizer.zero_grad()
-
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -148,7 +134,7 @@ class ASR(sb.Brain):
             )
 
             sb.nnet.schedulers.update_learning_rate(
-                self.whisper_optimizer, new_lr_whisper
+                self.optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
@@ -165,17 +151,6 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
-
-    def init_optimizers(self):
-        "Initializes the whisper optimizer and model optimizer"
-        self.whisper_optimizer = self.hparams.whisper_opt_class(
-            self.modules.whisper.parameters()
-        )
-
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable(
-                "whisper_opt", self.whisper_optimizer
-            )
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -295,13 +270,13 @@ if __name__ == "__main__":
             "te_splits": hparams["test_splits"],
             "save_folder": hparams["save_folder"],
             "merge_lst": hparams["train_splits"],
-            "merge_name": hparams["train_csv"],
+            "merge_name": "train.csv",
             "skip_prep": hparams["skip_prep"],
         },
     )
 
     # Defining tokenizer and loading it
-    tokenizer = WhisperTokenizer.from_pretrained(hparams["whisper_hub"])
+    tokenizer = hparams["whisper"].tokenizer
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
 
@@ -318,6 +293,8 @@ if __name__ == "__main__":
     )
     hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
 
+
+
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
 
@@ -327,6 +304,7 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
+        opt_class=hparams["whisper_opt_class"],
     )
 
     # We load the pretrained whisper model
