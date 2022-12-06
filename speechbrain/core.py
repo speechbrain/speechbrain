@@ -822,7 +822,7 @@ class Brain:
         if ``set_to_none=False`` (default) or to None otherwise.
 
         Setting gradients to None should save the memory, e.g.
-        during ``evaluate()`` and thus larger batch might be used
+        during ``evaluate()`` and thus larger batch might be used.
         """
         if hasattr(self, "optimizer"):
             self.optimizer.zero_grad(set_to_none)

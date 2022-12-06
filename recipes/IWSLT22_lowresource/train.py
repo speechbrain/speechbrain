@@ -113,7 +113,9 @@ class ST(sb.core.Brain):
                 self.wav2vec_optimizer.step()
             self.adam_optimizer.step()
 
-        self.zero_grad()
+        if not self.hparams.wav2vec2_frozen:
+            self.wav2vec_optimizer.zero_grad()
+        self.adam_optimizer.zero_grad()
 
         return loss.detach().cpu()
 

@@ -90,7 +90,9 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         if self.auto_mix_prec:
 
-            self.zero_grad()
+            if not self.hparams.wav2vec2.freeze:
+                self.wav2vec_optimizer.zero_grad()
+            self.model_optimizer.zero_grad()
 
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
@@ -118,7 +120,9 @@ class ASR(sb.core.Brain):
                     self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            self.zero_grad()
+            if not self.hparams.wav2vec2.freeze:
+                self.wav2vec_optimizer.zero_grad()
+            self.model_optimizer.zero_grad()
 
         return loss.detach()
 

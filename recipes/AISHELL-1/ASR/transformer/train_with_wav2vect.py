@@ -134,7 +134,8 @@ class ASR(sb.core.Brain):
 
             self.optimizer.step()
             self.optimizer_wav2vect.step()
-            self.zero_grad()
+            self.optimizer.zero_grad()
+            self.optimizer_wav2vect.zero_grad()
 
             # anneal lr every update
             self.hparams.noam_annealing(self.optimizer)
