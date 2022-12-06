@@ -71,7 +71,7 @@ valid_loader_kwargs:
     batch_size: !ref <batch_size>
 
 test_loader_kwargs:
-    batch_size: !ref <batch_size>
+    batch_size: !ref <test_batch_size>
 
 
 #

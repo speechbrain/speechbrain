@@ -60,8 +60,6 @@ test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
-dnn_layers: 2
 dnn_neurons: 1024
 freeze_whisper: False
 whisper_output_dim: 512
@@ -147,7 +145,6 @@ lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
    annealing_factor: 0.75
    patient: 0
 
-label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
