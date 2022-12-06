@@ -887,7 +887,7 @@ class Brain:
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.scaler.update()
-                self.optimizer.zero_grad()
+                self.zero_grad()
                 self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
@@ -897,7 +897,7 @@ class Brain:
             if should_step:
                 if self.check_gradients(loss):
                     self.optimizer.step()
-                self.optimizer.zero_grad()
+                self.zero_grad()
                 self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
