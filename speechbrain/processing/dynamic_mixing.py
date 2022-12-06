@@ -221,11 +221,11 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             length = random.randint(
                 self.config.min_source_len, self.config.max_source_len
             )
-            mixture, _, noise = self.__postprocess__(
+            mixture, _, noise, rir = self.__postprocess__(
                 torch.zeros(length), [], mix_info=mix_info
             )
             mix_info["speakers"].append("no-spkr")
-            return mixture, [], noise, mix_info
+            return mixture, [], noise, rir, mix_info
 
         mix_info["speakers"] = np.random.choice(
             self.spkr_names,
@@ -279,14 +279,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 [paddings[1] for _ in range(len(padded_sources))],
             )
             padded_sources.append(padded_tmp[0])
-        mixture, padded_source, noise = self.__postprocess__(
+        mixture, padded_source, noise, rir = self.__postprocess__(
             mixture, padded_sources, mix_info=mix_info
         )
 
         if self.dataset is not None:
             mix_info["data"] = [self.dataset[idx] for idx in source_idxs]
 
-        return mixture, padded_sources, noise, mix_info
+        return mixture, padded_sources, noise, rir, mix_info
 
     def __prepare_source__(self, source_file, is_noise=False, mix_info={}):
         source, fs = torchaudio.load(source_file)
@@ -335,6 +335,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
     def __postprocess__(self, mixture, sources, mix_info={}):
         # reverberate
+        rir = None
         if (
             self.config.reverb
             and random.uniform(0, 1) < self.config.reverb_prob
@@ -349,7 +350,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
             mixture = reverberate(mixture, rir)
             if self.config.reverb_sources:
-                sources = list(map(lambda x: reverberate(x, rir), sources))
+                sources = [reverberate(x, rir) for x in sources]
 
         # add noise
         noise = None
@@ -381,16 +382,16 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             noise = gain * noise
 
         mix_info["duration"] = mixture.size(0) / self.config.sample_rate
-        return mixture, sources, noise
+        return mixture, sources, noise, rir
 
     def __len__(self):
         return sum(map(len, self.spkr_files.values()))  # dict of lists
 
     def __getitem__(self, idx):
-        mix, srcs, noise, mix_info = self.generate()
+        mix, srcs, noise, rir, mix_info = self.generate()
 
         for i in range(3 - len(srcs)):
-            srcs.append(torch.zeros(mix.size(0)))
+            srcs.append(torch.zeros(mix.shape))
 
         if idx is None:
             idx = uuid.uuid4()
@@ -405,7 +406,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 )
             )
         )
-        # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"
+        # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig", "rir"
         dct = {
             "id": mix_id,
             "mix_sig": mix,
@@ -414,7 +415,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             "s3_sig": srcs[2],
             "noise_sig": noise
             if noise is not None
-            else torch.zeros(mix.size(0)),
+            else torch.zeros(mix.shape),
+            "rir": rir if rir is not None
+            else torch.ones(1),
             "data": mix_info["data"],
         }
 
