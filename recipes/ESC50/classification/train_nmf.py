@@ -1,3 +1,15 @@
+#!/usr/bin/python3
+"""The recipe to train an NMF model with amortized inference on ESC50 data.
+
+To run this recipe, use the following command:
+> python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC-50-master
+
+Authors
+    * Cem Subakan 2022
+    * Francesco Paissan 2022
+"""
+
+
 import sys
 import torch
 import speechbrain as sb
@@ -29,6 +41,9 @@ class NMFBrain(sb.core.Brain):
         return Xhat
 
     def compute_objectives(self, predictions, batch, stage=sb.Stage.TRAIN):
+        """
+        this function computes the l2-error to train the NMF model.
+        """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -38,6 +53,33 @@ class NMFBrain(sb.core.Brain):
 
         loss = ((target.squeeze() - predictions) ** 2).mean()
         return loss
+
+    def on_stage_end(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of an epoch.
+        """
+        # Compute/store important stats
+        if stage == sb.Stage.TRAIN:
+            self.train_loss = stage_loss
+            self.train_stats = {
+                "loss": self.train_loss,
+            }
+        # Summarize Valid statistics from the stage for record-keeping.
+        elif stage == sb.Stage.VALID:
+            valid_stats = {
+                "loss": stage_loss,
+            }
+        # Perform end-of-iteration things, like annealing, logging, etc.
+        if stage == sb.Stage.VALID:
+            # The train_logger writes a summary to stdout and to the logfile.
+            self.hparams.train_logger.log_stats(
+                stats_meta={"epoch": epoch},
+                train_stats=self.train_stats,
+                valid_stats=valid_stats,
+            )
+            # Save the current checkpoint and delete previous checkpoints,
+            self.checkpointer.save_and_keep_only(
+                meta=valid_stats, min_keys=["loss"]
+            )
 
 
 if __name__ == "__main__":
@@ -93,38 +135,10 @@ if __name__ == "__main__":
 
     test_stats = nmfbrain.evaluate(
         test_set=datasets["test"],
-        min_key="error",
+        min_key="loss",
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"],
     )
 
-    # nmf_model = hparams["nmf"].to(hparams["device"])
-    # nmf_encoder = hparams["nmf_encoder"].to(hparams["device"])
-    # opt = torch.optim.Adam(
-    #     lr=1e-4,
-    #     params=list(nmf_encoder.parameters()) + list(nmf_model.parameters()),
-    # )
-
-    # for e in range(200):
-    #     for i, element in enumerate(datasets["train"]):
-    #         # print(element["sig"].shape[0] / hparams["sample_rate"])
-
-    #         opt.zero_grad()
-    #         Xs = hparams["compute_stft"](
-    #             element["sig"].unsqueeze(0).to(hparams["device"])
-    #         )
-    #         Xs = hparams["compute_stft_mag"](Xs)
-    #         Xs = torch.log(Xs + 1).permute(0, 2, 1)
-    #         z = nmf_encoder(Xs)
-
-    #         Xhat = torch.matmul(nmf_model.return_W("torch"), z.squeeze())
-    #         loss = ((Xs.squeeze() - Xhat) ** 2).mean()
-    #         loss.backward()
-
-    #         opt.step()
-    #         if 0:
-    #             if i in [100]:
-    #                 draw_fig()
-    #     print("loss is {}, epoch is {} ".format(loss.item(), e))
-
-    # torch.save(nmf_model.return_W("torch"), "nmf_decoder.pt")
+    if hparams["save_nmfdictionary"]:
+        torch.save(hparams["nmf_decoder"].return_W(), hparams["nmf_savepath"])

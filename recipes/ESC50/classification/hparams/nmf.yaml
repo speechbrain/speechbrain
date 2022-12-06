@@ -1,10 +1,9 @@
 # #################################
-# Basic training parameters for sound classification using the ESC50 dataset.
-# This recipe uses the ecapa-tdnn backbone for classification.
+# The hyperparameters to train an NMF model on ESC50
 #
 # Author:
 #  * Cem Subakan
-#  (based on the SpeechBrain UrbanSound8k recipe)
+#  * Francesco Paissan
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -13,20 +12,20 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER # e.g., /localscratch/ESC-50-master
 open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
-# TODO the follwing folder will contain the resampled audio
-# files (mono channel and config SR) to train on
-#reasmpled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
-#
 experiment_name: train_nmf
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 test_only: False
+
+# if true we save the nmf dictionary at the end of training
+save_nmfdictionary: False
+nmf_savepath: nmf_dictionary.pt
 
 # Tensorboard logs
 use_tensorboard: False
@@ -47,7 +46,7 @@ skip_manifest_creation: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
+number_of_epochs: 100
 batch_size: 2
 lr: 0.0002
 base_lr: 0.0002
@@ -103,7 +102,7 @@ error_stats: !name:speechbrain.utils.metric_stats.MetricStats
 # Interpretation hyperparams
 T: 413
 K: 100
-FREQ: 513
+N_FREQ: 513
 
 psi_model: !new:speechbrain.lobes.models.L2I.Psi
 theta: !new:speechbrain.lobes.models.L2I.Theta
@@ -111,13 +110,12 @@ theta: !new:speechbrain.lobes.models.L2I.Theta
 # NMF Decoder
 nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoder
     n_comp: !ref <K>
-    n_freq: !ref <FREQ>
+    n_freq: !ref <N_FREQ>
     # init_file: !ref <nmf_d_path>
 
 nmf_encoder: !new:speechbrain.lobes.models.L2I.NMFEncoder
     n_comp: !ref <K>
-    n_freq: !ref <FREQ>
-
+    n_freq: !ref <N_FREQ>
 
 modules:
     nmf_decoder: !ref <nmf_decoder>
@@ -128,3 +126,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         nmf_decoder: !ref <nmf_decoder>
         nmf_encoder: !ref <nmf_encoder>
+        counter: !ref <epoch_counter>

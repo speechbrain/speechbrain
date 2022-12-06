@@ -3,7 +3,7 @@
 We employ an encoder followed by a sound classifier.
 
 To run this recipe, use the following command:
-> python train_classifier.py hparams/cnn14.py --data_folder yourpath/ESC-50-master
+> python train_classifier.py hparams/cnn14.yaml --data_folder yourpath/ESC-50-master
 
 Authors
     * Cem Subakan 2022
