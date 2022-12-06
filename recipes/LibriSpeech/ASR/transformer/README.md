@@ -5,6 +5,7 @@ You can download LibriSpeech at http://www.openslr.org/12
 
 # How to run
 python train_with_whisper.py hparams/train_hf_whisper.yaml
+
 python train.py hparams/transformer.yaml
 
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
