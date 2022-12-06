@@ -210,26 +210,38 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         see S2SBaseSearcher, arguments are directly passed.
     """
 
-    def __init__(self, model, **kwargs):
+    def __init__(
+        self,
+        model,
+        language_token=50259,
+        bos_token=50258,
+        task_token=50359,
+        timestamp_token=50363,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.model = model
         self.softmax = torch.nn.LogSoftmax(dim=-1)
         self.decoder_input_tokens = None
-        self.language_token = 50259  # default language is english
-        self.bos_token = 50258  # always this value
-        self.task_token = 50359  # default task is transcribe
-        self.timestamp_token = 50363  # default is notimestamp
+        self.language_token = language_token  # default language is english
+        self.bos_token = bos_token  # always this value
+        self.task_token = task_token  # default task is transcribe
+        self.timestamp_token = timestamp_token  # default is notimestamp
 
     def set_language_token(self, language_token):
+        """set the language token to be used for the decoder input."""
         self.language_token = language_token
 
     def set_bos_token(self, bos_token):
+        """set the bos token to be used for the decoder input."""
         self.bos_token = bos_token
 
     def set_task_token(self, task_token):
+        """set the task token to be used for the decoder input."""
         self.task_token = task_token
 
     def set_timestamp_token(self, timestamp_token):
+        """set the timestamp token to be used for the decoder input."""
         self.timestamp_token = timestamp_token
         # need to reset bos_index too as timestamp_token is the first
         # inp_token and need to be the first so that the first input gave
@@ -1403,7 +1415,15 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, module, temperature=1.0, temperature_lm=1.0, **kwargs,
+        self,
+        module,
+        temperature=1.0,
+        temperature_lm=1.0,
+        language_token=50259,
+        bos_token=50258,
+        task_token=50359,
+        timestamp_token=50363,
+        **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
 
@@ -1417,21 +1437,25 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.temperature_lm = temperature_lm
 
         self.decoder_input_tokens = None
-        self.language_token = 50259  # default language is english
-        self.bos_token = 50258  # always this value
-        self.task_token = 50359  # default task is transcribe
-        self.timestamp_token = 50363  # default is notimestamp
+        self.language_token = language_token  # default language is english
+        self.bos_token = bos_token  # always this value
+        self.task_token = task_token  # default task is transcribe
+        self.timestamp_token = timestamp_token  # default is notimestamp
 
     def set_language_token(self, language_token):
+        """set the language token to use for the decoder input."""
         self.language_token = language_token
 
     def set_bos_token(self, bos_token):
+        """set the bos token to use for the decoder input."""
         self.bos_token = bos_token
 
     def set_task_token(self, task_token):
+        """set the task token to use for the decoder input."""
         self.task_token = task_token
 
     def set_timestamp_token(self, timestamp_token):
+        """set the timestamp token to use for the decoder input."""
         self.timestamp_token = timestamp_token
         # need to reset bos_index too as timestamp_token is the first
         # inp_token and need to be the first so that the first input gave
