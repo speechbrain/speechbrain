@@ -77,7 +77,7 @@ dm_config: !new:speechbrain.processing.dynamic_mixing.DynamicMixingConfig
   noise_min_loudness: -45.0
   noise_max_loudness: -35.0
   reverb: !ref <use_rir>
-  reverb_sources: false
+  reverb_sources: true
   reverb_prob: 0.8
   sample_rate: !ref <sample_rate>
   min_source_len: 32000 # 2s

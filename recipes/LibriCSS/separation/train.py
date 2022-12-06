@@ -38,14 +38,28 @@ import logging
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.processing.dynamic_mixing import DynamicMixingDataset
+from speechbrain.processing.signal_processing import reverberate
 
 import wandb
 
 
 # Define training procedure
 class Separation(sb.Brain):
-    def compute_forward(self, mix, targets, stage, noise=None):
+    def compute_forward(self, batch, stage=sb.Stage.TRAIN):
         """Forward computations from the mixture to the separated signals."""
+        # Unpacking batch list
+        if not isinstance(batch, PaddedBatch):
+            for key in batch:
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].squeeze(0)
+            batch = PaddedBatch([batch])
+
+        mix = batch.mix_sig
+        noise = batch.noise_sig
+        targets = [batch.s1_sig, batch.s2_sig]
+
+        if self.hparams.num_spks == 3:
+            targets.append(batch.s3_sig)
 
         # Unpack lists and put tensors in the right device
         mix, mix_lens = mix
@@ -63,6 +77,10 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
                     mix = targets.sum(-1)
+                    if not self.hparams.dm_config.reverb_sources and batch.rir is not None:
+                        # targets are clear, we need to manually reverberate the mixture
+                        mix = reverberate(mix, batch.rir)
+                    mix += noise
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -93,131 +111,28 @@ class Separation(sb.Brain):
         else:
             est_source = est_source[:, :T_origin, :]
 
-        return est_source, targets
-
-    def compute_objectives(self, predictions, targets):
-        """Computes the si-snr loss"""
-        return self.hparams.loss(targets, predictions)
-
-    def fit_batch(self, batch):
-        """Trains one batch"""
-        # Unpacking batch list
-
-        if not isinstance(batch, PaddedBatch):
-            for key in batch:
-                if isinstance(batch[key], torch.Tensor):
-                    batch[key] = batch[key].squeeze(0)
-            batch = PaddedBatch([batch])
-
-        mixture = batch.mix_sig
-        targets = [batch.s1_sig, batch.s2_sig]
-        if self.hparams.use_noise:
-            noise = batch.noise_sig[0]
-        else:
-            noise = None
-
-        if self.hparams.num_spks == 3:
-            targets.append(batch.s3_sig)
-
-        if self.auto_mix_prec:
-            with autocast():
-                predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN, noise
-                )
-                loss = self.compute_objectives(predictions, targets)
-
-                # hard threshold the easy dataitems
-                if self.hparams.threshold_byloss:
-                    th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
-                else:
-                    loss = loss.mean()
-
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                self.scaler.scale(loss).backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(),
-                        self.hparams.clip_grad_norm,
-                    )
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
-        else:
-            predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN, noise
-            )
-            loss = self.compute_objectives(predictions, targets)
-
-            if self.hparams.threshold_byloss:
-                th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
-            else:
-                loss = loss.mean()
-
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                loss.backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm
-                    )
-                self.optimizer.step()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
-        self.optimizer.zero_grad()
-
-        return loss.detach().cpu()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        if not isinstance(batch, PaddedBatch):
-            for key in batch:
-                if isinstance(batch[key], torch.Tensor):
-                    batch[key] = batch[key].squeeze(0)
-            batch = PaddedBatch([batch])
-
-        snt_id = batch.id
-        mixture = batch.mix_sig
-        targets = [batch.s1_sig, batch.s2_sig]
-        if self.hparams.num_spks == 3:
-            targets.append(batch.s3_sig)
-
-        with torch.no_grad():
-            predictions, targets = self.compute_forward(mixture, targets, stage)
-            loss = self.compute_objectives(predictions, targets)
-
-        # Manage audio file saving
-        if stage == sb.Stage.TEST and self.hparams.save_audio:
+        if stage == sb.Stage.TEST:
             if hasattr(self.hparams, "n_audio_to_save"):
                 if self.hparams.n_audio_to_save > 0:
-                    self.save_audio(snt_id[0], mixture, targets, predictions)
+                    self.save_audio(batch.id[0], mix, targets, est_source)
                     self.hparams.n_audio_to_save += -1
             else:
-                self.save_audio(snt_id[0], mixture, targets, predictions)
+                self.save_audio(batch.id[0], mix, targets, est_source)
 
-        return loss.mean().detach()
+        return est_source, targets
+
+    def compute_objectives(self, predictions, batch, stage=sb.Stage.TRAIN):
+        """Computes the si-snr loss"""
+        est_source, targets = predictions
+        loss = self.hparams.loss(targets, est_source)
+        # hard threshold the easy dataitems
+        if self.hparams.threshold_byloss and stage == sb.Stage.TRAIN:
+            th = self.hparams.threshold
+            loss_to_keep = loss[loss > th]
+            if loss_to_keep.nelement() > 0:
+                loss = loss_to_keep
+
+        return loss.mean()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -228,7 +143,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
