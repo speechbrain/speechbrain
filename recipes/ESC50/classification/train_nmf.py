@@ -23,14 +23,19 @@ class NMFBrain(sb.core.Brain):
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
         X_stft_tf = torch.log1p(X_stft_power)
-        z = self.hparams.nmf_encoder(X_stft_tf)
-        Xhat = torch.matmul(
-            self.hparams.nmf_model.return_W("torch"), z.squeeze()
-        )
+        z = self.hparams.nmf_encoder(X_stft_tf.permute(0, 2, 1))
+        Xhat = torch.matmul(self.hparams.nmf_decoder.return_W(), z.squeeze())
 
         return Xhat
 
-    def compute_objectives(self, target, predictions):
+    def compute_objectives(self, predictions, batch, stage=sb.Stage.TRAIN):
+        batch = batch.to(self.device)
+        wavs, lens = batch.sig
+
+        X_stft = self.hparams.compute_stft(wavs)
+        X_stft_power = self.hparams.compute_stft_mag(X_stft)
+        target = torch.log1p(X_stft_power).permute(0, 2, 1)
+
         loss = ((target.squeeze() - predictions) ** 2).mean()
         return loss
 
