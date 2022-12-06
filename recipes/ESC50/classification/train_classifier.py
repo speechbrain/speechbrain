@@ -8,7 +8,8 @@ To run this recipe, use the following command:
 Authors
     * Cem Subakan 2022
     * Francesco Paissan 2022
-Based on Urban8k recipe by
+
+Based on the Urban8k recipe by
     * David Whipps 2021
     * Ala Eddine Limame 2021
 """
@@ -24,11 +25,9 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
 
-import scipy.io.wavfile as wavf
-
 
 class ESC50Brain(sb.core.Brain):
-    """Class for sound class embedding training"
+    """Class for classifier training"
     """
 
     def compute_forward(self, batch, stage):
@@ -38,44 +37,11 @@ class ESC50Brain(sb.core.Brain):
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
-
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
-
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
         X_logmel = self.modules.compute_fbank(X_stft_power)
-
-        # Normalization
-        # if self.hparams.normalize:
-        #    feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + sound classifier
         embeddings = self.modules.embedding_model(X_logmel)
@@ -89,10 +55,6 @@ class ESC50Brain(sb.core.Brain):
         predictions, lens = predictions
         uttid = batch.id
         classid, _ = batch.class_string_encoded
-
-        # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            classid = torch.cat([classid] * self.n_augment, dim=0)
 
         loss = self.hparams.compute_cost(predictions, classid, lens)
 
@@ -199,9 +161,7 @@ class ESC50Brain(sb.core.Brain):
             self.train_loss = stage_loss
             self.train_stats = {
                 "loss": self.train_loss,
-                "acc": self.acc_metric.summarize(
-                    "average"
-                ),  # "acc": self.train_acc_metric.summarize(),
+                "acc": self.acc_metric.summarize("average"),
             }
         # Summarize Valid statistics from the stage for record-keeping.
         elif stage == sb.Stage.VALID:
@@ -216,9 +176,7 @@ class ESC50Brain(sb.core.Brain):
         else:
             test_stats = {
                 "loss": stage_loss,
-                "acc": self.acc_metric.summarize(
-                    "average"
-                ),  # "acc": self.test_acc_metric.summarize(),
+                "acc": self.acc_metric.summarize("average"),
                 "error": self.error_metrics.summarize("average"),
             }
 
@@ -243,7 +201,7 @@ class ESC50Brain(sb.core.Brain):
                 )
                 self.hparams.tensorboard_train_logger.writer.add_figure(
                     "Validation Confusion Matrix", cm_fig, epoch
-                )  # TODO use global_step from writer
+                )
 
             # Per class accuracy from Validation confusion matrix
             per_class_acc_arr = np.diag(self.valid_confusion_matrix) / np.sum(
@@ -296,8 +254,6 @@ def dataio_prep(hparams):
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    # TODO  use SB implementation but need to make sure it give the same results as PyTorch
-    # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
     hparams["resampler"] = torchaudio.transforms.Resample(
         new_freq=config_sample_rate
     )
@@ -328,19 +284,9 @@ def dataio_prep(hparams):
             # Resample audio
             sig = hparams["resampler"].forward(sig)
 
-        # the librosa version
-        fs, inp_audio = wavf.read(wave_file)
-        inp_audio = inp_audio.astype(np.float32)
-        inp_audio = inp_audio / inp_audio.max()
-        # if self.noise:
-        #     energy_signal = (inp_audio ** 2).mean()
-        #     noise = np.random.normal(0, 0.05, inp_audio.shape[0])
-        #     energy_noise = (noise ** 2).mean()
-        #     const = np.sqrt(energy_signal / energy_noise)
-        #     noise = const * noise
-        #     inp_audio = inp_audio + noise
-
-        return torch.from_numpy(inp_audio)
+        sig = sig.float()
+        sig = sig / sig.max()
+        return sig
 
     # 3. Define label pipeline:
     @sb.utils.data_pipeline.takes("class_string")
@@ -438,29 +384,6 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-
-    # print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
-    if hparams["use_pretrain"]:
-        state_dict = torch.load(
-            "mx-h64-1024_0d3-1.17.pkl",
-            map_location=lambda storage, loc: storage,
-        )
-        from collections import OrderedDict
-
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            if "module." in k:
-                name = k[7:]
-            else:
-                name = k
-            new_state_dict[name] = v
-        ESC50_brain.modules.embedding_model.load_state_dict(new_state_dict)
-    # print(ESC50_brain.modules.embedding_model.layer1[0].weight[0])
-
-    # The `fit()` method iterates the training loop, calling the methods
-    # necessary to update the parameters of the model. Since all objects
-    # with changing state are managed by the Checkpointer, training can be
-    # stopped at any point, and will be resumed on next call.
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_encoder" in hparams:
