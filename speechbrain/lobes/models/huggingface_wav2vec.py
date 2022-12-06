@@ -16,18 +16,14 @@ from functools import partial
 from speechbrain.lobes.models.huggingface.transformers import (
     HuggingFaceTransformer,
 )
-from speechbrain.lobes.models.huggingface.lib_deser import (
+from speechbrain.lobes.models.huggingface.overrides import (
     modify_state_dict_wav2vec2,
-)
-from speechbrain.lobes.models.huggingface.lib_modify_config import (
     config_return_hidden_states,
-)
-from speechbrain.lobes.models.huggingface.lib_modify_model import (
     model_set_spectral_augmentation,
 )
-from speechbrain.lobes.models.huggingface.lib_forward import (
-    wav2vec2_forward,
-    wav2vec2_pretraining_forward,
+from speechbrain.lobes.models.huggingface.forward import (
+    wav2vec2,
+    wav2vec2_pretraining,
 )
 
 # We check if transformers is installed.
@@ -109,7 +105,7 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
             freeze=freeze,
             modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2),
             forward_partial_fn=partial(
-                wav2vec2_forward,
+                wav2vec2,
                 output_all_hiddens=output_all_hiddens,
                 output_norm=output_norm,  # TODO drop: superfluous
                 normalize_wav=transformers.Wav2Vec2FeatureExtractor.from_pretrained(  # TODO drop: superfluous
@@ -179,7 +175,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
             for_pretraining_cls=Wav2Vec2ForPreTraining,
             override_hf_config_partial_fn=partial(config_return_hidden_states),
             forward_partial_fn=partial(
-                wav2vec2_pretraining_forward,
+                wav2vec2_pretraining,
                 mask_prob=mask_prob,
                 mask_length=mask_length,
                 normalize_wav=normalize_wav,  # TODO drop: superfluous

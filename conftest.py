@@ -24,7 +24,7 @@ try:
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/lobes/models/huggingface_wav2vec.py")
     collect_ignore.append("speechbrain/lobes/models/huggingface/interfaces.py")
-    collect_ignore.append("speechbrain/lobes/models/huggingface/lib_forward.py")
+    collect_ignore.append("speechbrain/lobes/models/huggingface/forward.py")
     collect_ignore.append(
         "speechbrain/lobes/models/huggingface/transformers.py"
     )

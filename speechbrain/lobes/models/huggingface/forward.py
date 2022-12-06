@@ -27,7 +27,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def default_forward(model, data):
+def default(model, data):
     """Takes input data and returns its forward pass of a given model.
 
     Default for HuggingFaceTransformer init argument:
@@ -63,7 +63,7 @@ def default_forward(model, data):
 
 
 # TODO drop normalize_wav & output_norm arguments
-def wav2vec2_forward(
+def wav2vec2(
     model,
     data,
     output_all_hiddens=False,
@@ -129,7 +129,7 @@ def wav2vec2_forward(
 
 
 # TODO drop normalize_wav argument
-def wav2vec2_pretraining_forward(
+def wav2vec2_pretraining(
     model, data, mask_prob, mask_length, normalize_wav=False
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.

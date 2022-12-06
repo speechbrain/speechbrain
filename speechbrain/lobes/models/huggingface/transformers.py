@@ -20,8 +20,8 @@ from torch import nn
 from functools import partial
 from typing import Union, List, Callable
 from speechbrain.pretrained.fetching import fetch
-from speechbrain.lobes.models.huggingface.lib_forward import default_forward
-from speechbrain.lobes.models.huggingface.lib_deser import _check_model_source
+from speechbrain.lobes.models.huggingface.forward import default
+from speechbrain.lobes.models.huggingface.overrides import _check_model_source
 
 # We check if transformers is installed.
 try:
@@ -167,15 +167,16 @@ class HuggingFaceTransformer(nn.Module):
 
         # Set inner forward function
         if forward_partial_fn is not None:
+            # if forward_partial_fn is a partial, add model to the partial's keyword attributes
             if isinstance(forward_partial_fn, partial):
                 self.forward_partial_fn = forward_partial_fn
                 self.forward_partial_fn.keywords["model"] = self.model
-            else:
+            else:  # if forward_partial_fn is a function, create a partial from it with the model parameter set
                 self.forward_partial_fn = partial(
                     forward_partial_fn, model=self.model
                 )
         else:
-            self.forward_partial_fn = partial(default_forward, model=self.model)
+            self.forward_partial_fn = partial(default, model=self.model)
 
         # Prepare for training, fine-tuning, or inference
         self.freeze = freeze
