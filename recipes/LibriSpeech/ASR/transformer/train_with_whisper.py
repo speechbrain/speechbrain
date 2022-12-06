@@ -23,7 +23,6 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class ASR(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # We compute the padding mask and replace the values with the pad_token_id
-        # that the Whisper decoder expect to see. 
+        # that the Whisper decoder expect to see.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
@@ -91,20 +90,18 @@ class ASR(sb.Brain):
 
             if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ") for text in predicted_words
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text).split(" ") for text in target_words
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in target_words
                 ]
             else:
-                predicted_words = [
-                    text.split(" ") for text in predicted_words
-                ]
+                predicted_words = [text.split(" ") for text in predicted_words]
 
-                target_words = [
-                    text.split(" ") for text in target_words
-                ]
+                target_words = [text.split(" ") for text in target_words]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -279,7 +276,6 @@ if __name__ == "__main__":
     tokenizer = hparams["whisper"].tokenizer
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
-
     # we need to prepare the tokens for searchers
     hparams["valid_greedy_searcher"].set_decoder_input_tokens(
         tokenizer.prefix_tokens
@@ -292,8 +288,6 @@ if __name__ == "__main__":
         tokenizer.prefix_tokens
     )
     hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
-
-
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)

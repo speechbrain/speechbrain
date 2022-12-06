@@ -16,7 +16,9 @@ from torch import nn
 try:
     from transformers import WhisperModel
     from transformers import WhisperFeatureExtractor
-    from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
+    from transformers.models.whisper.tokenization_whisper import (
+        WhisperTokenizer,
+    )
 except ImportError:
     MSG = "Please install transformers from HuggingFace to use Whisper\n"
     MSG += "E.G. run: pip install transformers"
@@ -72,7 +74,7 @@ class HuggingFaceWhisper(nn.Module):
         self.output_attentions = output_attentions
 
         self.tokenizer = None
-        # Download the tokenizer only if we are going to use the Decoder. 
+        # Download the tokenizer only if we are going to use the Decoder.
         if not encoder_only:
             self.tokenizer = WhisperTokenizer.from_pretrained(source)
 

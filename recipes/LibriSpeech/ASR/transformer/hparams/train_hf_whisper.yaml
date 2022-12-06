@@ -65,30 +65,30 @@ freeze_whisper: False
 
 
 train_loader_kwargs:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 valid_loader_kwargs:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 test_loader_kwargs:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 
 #
 # Functions and classes
 #
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-   limit: !ref <number_of_epochs>
+    limit: !ref <number_of_epochs>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-   sample_rate: !ref <sample_rate>
-   speeds: [95, 100, 105]
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
-   source: !ref <whisper_hub>
-   freeze: !ref <freeze_whisper>
-   save_path: !ref <save_folder>/whisper_checkpoint
-   encoder_only: False
+    source: !ref <whisper_hub>
+    freeze: !ref <freeze_whisper>
+    save_path: !ref <save_folder>/whisper_checkpoint
+    encoder_only: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -96,11 +96,11 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 nll_loss: !name:speechbrain.nnet.losses.nll_loss
 
 modules:
-   whisper: !ref <whisper>
+    whisper: !ref <whisper>
 
 whisper_opt_class: !name:torch.optim.AdamW
-   lr: !ref <lr_whisper>
-   weight_decay: 0.000000001
+    lr: !ref <lr_whisper>
+    weight_decay: 0.000000001
 
 valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
@@ -118,22 +118,22 @@ test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
     beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr_whisper>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.9
-   patient: 0
+    initial_value: !ref <lr_whisper>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-   checkpoints_dir: !ref <save_folder>
-   recoverables:
-      whisper: !ref <whisper>
-      scheduler_whisper: !ref <lr_annealing_whisper>
-      counter: !ref <epoch_counter>
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        whisper: !ref <whisper>
+        scheduler_whisper: !ref <lr_annealing_whisper>
+        counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-   save_file: !ref <train_log>
+    save_file: !ref <train_log>
 
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-   split_tokens: True
+    split_tokens: True
