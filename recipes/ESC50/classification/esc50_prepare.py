@@ -1,41 +1,14 @@
 """
-Creates data manifest files from UrbanSound8k, suitable for use in SpeechBrain.
+Creates data manifest files for ESC50
+If the data does not exist in the specified --data_folder, we download the data automatically.
 
-https://urbansounddataset.weebly.com/urbansound8k.html
-
-From the authors of UrbanSound8k:
-
-1. Don't reshuffle the data! Use the predefined 10 folds and perform 10-fold (not 5-fold) cross validation
-The experiments conducted by vast majority of publications using UrbanSound8K (by ourselves and others)
-evaluate classification models via 10-fold cross validation using the predefined splits*.
-We strongly recommend following this procedure.
-
-Why?
-If you reshuffle the data (e.g. combine the data from all folds and generate a random train/test split)
-you will be incorrectly placing related samples in both the train and test sets, leading to inflated
-scores that don't represent your model's performance on unseen data. Put simply, your results will be wrong.
-Your results will NOT be comparable to previous results in the literature, meaning any claims to an
-improvement on previous research will be invalid. Even if you don't reshuffle the data, evaluating using
-different splits (e.g. 5-fold cross validation) will mean your results are not comparable to previous research.
-
-2. Don't evaluate just on one split! Use 10-fold (not 5-fold) cross validation and average the scores
-We have seen reports that only provide results for a single train/test split, e.g. train on folds 1-9,
-test on fold 10 and report a single accuracy score. We strongly advise against this. Instead, perform
-10-fold cross validation using the provided folds and report the average score.
-
-Why?
-Not all the splits are as "easy". That is, models tend to obtain much higher scores when trained on folds
-1-9 and tested on fold 10, compared to (e.g.) training on folds 2-10 and testing on fold 1. For this reason,
-it is important to evaluate your model on each of the 10 splits and report the average accuracy.
-Again, your results will NOT be comparable to previous results in the literature.
-
-​* 10-fold cross validation using the predefined folds: train on data from 9 of the 10 predefined folds and
-test on data from the remaining fold. Repeat this process 10 times (each time using a different set of
-9 out of the 10 folds for training and the remaining fold for testing). Finally report the average classification
-accuracy over all 10 experiments (as an average score + standard deviation, or, even better, as a boxplot).
+https://urbansounddataset.weebly.com/urbansound8k.htm://github.com/karolpiczak/ESC-50
 
 Authors:
- * David Whipps, 2021
+ * Cem Subakan 2022
+ * Francesco Paissan 2022
+
+ Adapted from the Urbansound8k recipe.
 """
 
 import os
@@ -58,7 +31,7 @@ def download_esc50(data_folder):
     import os
 
     if not os.path.exists(os.path.join(data_folder, "meta")):
-        print("ESC50 missing. Downloading from github...")
+        print("ESC50 is missing. Downloading from github...")
         os.system(
             f"git clone https://github.com/karolpiczak/ESC-50.git {os.path.join(data_folder, 'temp_download')}"
         )
@@ -81,33 +54,33 @@ def prepare_esc50(
     skip_manifest_creation=False,
 ):
     """
-    Prepares the json files for the UrbanSound8k dataset.
+    Prepares the json files for the ESC50 dataset.
     Prompts to download the dataset if it is not found in the `data_folder`.
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the UrbanSound8k dataset metadata is stored.
+        Path to the folder where the ESC50 dataset (including the metadata) is stored.
     audio_data_folder: str
-        Path to the folder where the UrbanSound8k dataset audio files are stored.
+        Path to the folder where the ESC50 dataset audio files are stored.
     save_json_train : str
         Path where the train data specification file will be saved.
     save_json_valid : str
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
-    train_folds: list or int (integers [1,10])
+    train_folds: list or int (integers [1,5])
         A list of integers defining which pre-defined "folds" to use for training. Must be
         exclusive of valid_folds and test_folds.
-    valid_folds: list or int (integers [1,10])
+    valid_folds: list or int (integers [1,5])
         A list of integers defining which pre-defined "folds" to use for validation. Must be
         exclusive of train_folds and test_folds.
-    test_folds: list or int (integers [1,10])
+    test_folds: list or int (integers [1,5])
         A list of integers defining which pre-defined "folds" to use for test. Must be
         exclusive of train_folds and valid_folds.
     Example
     -------
-    >>> data_folder = '/path/to/UrbanSound8k'
-    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3,4,5,6,7,8], [9], [10])
+    >>> data_folder = '/path/to/ESC-50-master'
+    >>> prepare_urban_sound_8k(data_folder, 'train.json', 'valid.json', 'test.json', [1,2,3], [4], [5])
     """
     download_esc50(data_folder)
 
@@ -185,7 +158,6 @@ def prepare_esc50(
         esc50_speechbrain_metadata_csv_path = create_metadata_speechbrain_file(
             data_folder
         )
-        # TODO: If it does not exist, we create it, but next step will certainly fail?
 
     # Read the metadata into a dictionary
     # Every key of this dictionary is now one of the sound filenames, without the ".wav" suffix
@@ -208,10 +180,10 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
     Arguments
     ---------
     metadata: dict
-        A dictionary containing the UrbanSound8k metadata file modified for the
+        A dictionary containing the ESC50 metadata file modified for the
         SpeechBrain, such that keys are IDs (which are the .wav file names without the file extension).
     folds_list : list of int
-        The list of folds [1,10] to include in this batch
+        The list of folds [1,5] to include in this batch
     json_file : str
         The path of the output json file
     """
@@ -311,7 +283,7 @@ def create_metadata_speechbrain_file(data_folder):
     Arguments
     ---------
     data_folder : str
-        UrbanSound8k data folder.
+        ESC50 data folder.
     Returns
     ------
     string containing absolute path to metadata csv file modified for SpeechBrain or None if source file not found
@@ -371,7 +343,7 @@ def prompt_download_esc50(destination):
         Place to put dataset.
     """
     print(
-        "UrbanSound8k data is missing from {}!\nRequest it from here: {}".format(
+        "ESC50 data is missing from {}!\nRequest it from here: {}".format(
             destination, ESC50_DOWNLOAD_URL
         )
     )
