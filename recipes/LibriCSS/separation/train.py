@@ -29,7 +29,6 @@ import torchaudio
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import run_on_main
-from torch.cuda.amp import autocast
 from hyperpyyaml import load_hyperpyyaml
 import numpy as np
 from tqdm import tqdm
@@ -77,7 +76,10 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
                     mix = targets.sum(-1)
-                    if not self.hparams.dm_config.reverb_sources and batch.rir is not None:
+                    if (
+                        not self.hparams.dm_config.reverb_sources
+                        and batch.rir is not None
+                    ):
                         # targets are clear, we need to manually reverberate the mixture
                         mix = reverberate(mix, batch.rir)
                     mix += noise
@@ -250,17 +252,14 @@ class Separation(sb.Brain):
     def cut_signals(self, mixture, targets):
         """This function selects a random segment of a given length withing the mixture.
         The corresponding targets are selected accordingly"""
-        randstart = torch.randint(
-            0,
-            1 + max(0, mixture.shape[1] - self.hparams.training_signal_len),
-            (1,),
+        length = torch.randint(
+            self.hparams.min_training_len, self.hparams.max_training_len, (1,)
         ).item()
-        targets = targets[
-            :, randstart : randstart + self.hparams.training_signal_len, :
-        ]
-        mixture = mixture[
-            :, randstart : randstart + self.hparams.training_signal_len
-        ]
+        randstart = torch.randint(
+            0, max(1, mixture.shape[1] - length), (1,)
+        ).item()
+        targets = targets[:, randstart : randstart + length, :]
+        mixture = mixture[:, randstart : randstart + length]
         return mixture, targets
 
     def reset_layer_recursively(self, layer):
