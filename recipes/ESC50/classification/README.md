@@ -6,13 +6,11 @@ This recipe implements the following:
 
 - [Listen to Interpret](https://arxiv.org/abs/2202.11479v2) which makes use of Non-Negative Matrix Factorization to reconstruct the classifier hidden representation in order to provide an interpretation audio signal for the classifier decision. The corresponding training script is `train_l2i.py`.
 
-- A training script to train an NMF dictionary matrix required for L2I. This script is called `train_nmf.py`.
+- Note that the recipe automatically downloads the ESC50 dataset. You only need to specify where you need to download it
 
 
-# PreTrained Model + Easy-Inference
 
 
-# ESC50 Download and Use
 
 
 # **About SpeechBrain**
