@@ -44,15 +44,17 @@ import wandb
 
 # Define training procedure
 class Separation(sb.Brain):
-    def compute_forward(self, batch, stage=sb.Stage.TRAIN):
-        """Forward computations from the mixture to the separated signals."""
-        # Unpacking batch list
+    def fit_batch(self, batch):
         if not isinstance(batch, PaddedBatch):
             for key in batch:
                 if isinstance(batch[key], torch.Tensor):
                     batch[key] = batch[key].squeeze(0)
             batch = PaddedBatch([batch])
+        return super().fit_batch(batch)
 
+    def compute_forward(self, batch, stage=sb.Stage.TRAIN):
+        """Forward computations from the mixture to the separated signals."""
+        # Unpacking batch list
         mix = batch.mix_sig
         noise = batch.noise_sig
         targets = [batch.s1_sig, batch.s2_sig]

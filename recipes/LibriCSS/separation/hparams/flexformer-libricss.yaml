@@ -50,10 +50,9 @@ lr: 0.00015
 clip_grad_norm: 5
 loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
 # if True, the training sequences are cut to a specified length
-limit_training_signal_len: True
+limit_training_signal_len: False
 # this is the length of sequences if we choose to limit
 # the signal length of training sequences
-training_signal_len: 32000000
 min_training_len: 8000 # 0.5s
 max_training_len: 128000 # 8s
 
@@ -85,8 +84,8 @@ dm_config: !new:speechbrain.processing.dynamic_mixing.DynamicMixingConfig
   reverb_sources: true
   reverb_prob: 0.8
   sample_rate: !ref <sample_rate>
-  min_source_len: 3200000000 # Infinite
-  max_source_len: 5600000000 # Infinite
+  min_source_len: 8000 # 0.5s
+  max_source_len: 56000 # 3.5s
 
 # Parameters for data augmentation
 use_wavedrop: False
