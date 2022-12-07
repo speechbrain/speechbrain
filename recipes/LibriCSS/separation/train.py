@@ -188,7 +188,7 @@ class Separation(sb.Brain):
             wandb_train_table.add_data(*data)
             wandb.log(
                 {
-                    "train_samples_e{self.hparams.epoch_counter.current}_s{self.optimizer_step}": wandb_train_table
+                    f"train_samples_e{self.hparams.epoch_counter.current}_s{self.optimizer_step}": wandb_train_table
                 },
                 commit=True,
             )
