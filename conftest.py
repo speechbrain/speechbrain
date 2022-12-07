@@ -44,6 +44,10 @@ except ModuleNotFoundError:
         "tests/integration/HuggingFace_transformers/example_wav2vec2_from_pretrained_immediate.py"
     )
 try:
+    from transformers import WhisperModel  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/lobes/models/huggingface_whisper.py")
+try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/bleu.py")
