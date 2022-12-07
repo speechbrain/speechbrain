@@ -6,10 +6,19 @@ This recipe implements the following:
 
 - [Listen to Interpret](https://arxiv.org/abs/2202.11479v2) which makes use of Non-Negative Matrix Factorization to reconstruct the classifier hidden representation in order to provide an interpretation audio signal for the classifier decision. The corresponding training script is `train_l2i.py`.
 
-- Note that the recipe automatically downloads the ESC50 dataset. You only need to specify where you need to download it
+
+- We have three main training scripts. Here's the breakdown, and how to run them:
+
+	* *The training script for the classifier:* This script trains a classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1odiG8UOsNfXd3LGkKnGRIFa8XfPU9FAU?usp=share_link`.
+
+	* *The training script NMF on ESC50:* This script trains an NMF model on the ESC50 dataset. To run this, you can use the command `python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1bjniBr6fuYiPyKNlcyiMbHW-XzZytkUt?usp=share_link`.
+
+	* *The training script for L2I interpretation method:*: This script trains the L2I method on the ESC50 dataset. To run this you can use the command `python train_l2i.py hparams/l2i.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1eMPpDSOeGQ0awMPf8LeWZkPy0KP7XV_X?usp=share_link`.
 
 
+- Note that the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it.
 
+- Note that all of the necessary models are downloaded automatically for each training script.
 
 
 
