@@ -159,6 +159,7 @@ class NMFDecoder(nn.Module):
         return output
 
     def return_W(self):
+        """This function returns the NMF dictionary"""
         W = self.W
         W = nn.functional.normalize(self.activ(W), dim=0, p=2)
         return W

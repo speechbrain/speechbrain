@@ -58,8 +58,6 @@ n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
-amp_to_db: True
-normalize: True
 
 # Number of classes
 out_n_neurons: 50
@@ -82,7 +80,6 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     win_length: 20
     hop_length: 10
 
-use_pretrain: False
 embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048

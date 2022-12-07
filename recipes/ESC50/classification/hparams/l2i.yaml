@@ -14,7 +14,6 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
-open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
 experiment_name: L2I
@@ -45,9 +44,6 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 number_of_epochs: 200
 batch_size: 2
 lr: 0.0001
-base_lr: 0.00002
-max_lr: !ref <lr>
-step_size: 65000
 sample_rate: 44100
 interpret_period: 1
 
@@ -58,8 +54,6 @@ n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
-amp_to_db: True
-normalize: True
 
 # Number of classes
 out_n_neurons: 50
@@ -73,11 +67,6 @@ dataloader_options:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-        margin: 0.2
-        scale: 30
-
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
@@ -90,10 +79,6 @@ lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-
-error_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.classification_error
-        reduction: batch
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -123,7 +108,6 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     lin_blocks: 1
 
 # Interpretation hyperparams
-T: 413
 K: 100
 n_freq: 513
 
@@ -171,7 +155,7 @@ modules:
 
 embedding_model_path: cemsubakan/cnn14-esc50/embedding_model_esc50ft.ckpt
 classifier_model_path: cemsubakan/cnn14-esc50/classifier_esc50.ckpt
-nmf_decoder_path: cemsubakan/cnn14-esc50/decoder.ckpt
+nmf_decoder_path: cemsubakan/cnn14-esc50/nmf_decoder.ckpt
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
