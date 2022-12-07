@@ -438,7 +438,7 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": hparams["train_csv"],
             "skip_prep": hparams["skip_prep"],
