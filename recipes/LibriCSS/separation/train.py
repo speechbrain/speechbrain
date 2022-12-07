@@ -53,7 +53,12 @@ class Separation(sb.Brain):
         try:
             return super().fit_batch(batch)
         except ValueError as e:
-            logger.warn(e)
+            logger.warning(e)
+            logger.warning(
+                "... for mixture of shape %s with id %s",
+                batch.mix_sig[0].shape,
+                batch.id[0],
+            )
             return torch.zeros(1).detach().cpu()
 
     def compute_forward(self, batch, stage=sb.Stage.TRAIN):
@@ -149,17 +154,48 @@ class Separation(sb.Brain):
         mix, est_source, targets = outputs
 
         if self.optimizer_step % self.hparams.audio_logging_interval == 0:
-            signals = [x.detach().cpu() for x in [mix, targets[:, :, 0], targets[:, :, 1], est_source[:, :, 0], est_source[:, :, 1]]]
+            signals = [
+                x.detach().cpu()
+                for x in [
+                    mix,
+                    targets[:, :, 0],
+                    targets[:, :, 1],
+                    est_source[:, :, 0],
+                    est_source[:, :, 1],
+                ]
+            ]
             signals = [x / x.abs().max() for x in signals]
-            audios = [wandb.Audio(x.squeeze().float().numpy(), sample_rate=self.hparams.sample_rate) for x in signals]
-            if not hasattr(self, "wandb_train_table"):
-                self.wandb_train_table = wandb.Table(columns=["epoch", "step", "id", "mix", "target1", "target2", "est_source1", "est_source2"])
-            data = [self.hparams.epoch_counter.current, self.optimizer_step, batch.id[0]] + audios
-            self.wandb_train_table.add_data(*data)
-            wandb.log({"train_samples": self.wandb_train_table})
+            audios = [
+                wandb.Audio(
+                    x.squeeze().float().numpy(),
+                    sample_rate=self.hparams.sample_rate,
+                )
+                for x in signals
+            ]
+            wandb_train_table = wandb.Table(
+                columns=[
+                    "id",
+                    "mix",
+                    "target1",
+                    "target2",
+                    "est_source1",
+                    "est_source2",
+                ]
+            )
+            data = [
+                batch.id[0],
+            ] + audios
+            wandb_train_table.add_data(*data)
+            wandb.log({"train_samples_e{self.hparams.epoch_counter.current}_s{self.optimizer_step}": self.wandb_train_table}, commit=True)
+            logger.info("Wandb: log table")
 
         if self.optimizer_step % self.hparams.logging_interval == 0:
-            wandb.log({"train_sisnr": loss.detach().cpu().numpy()}, commit=True, step=self.optimizer_step)
+            wandb.log(
+                {"train_sisnr": loss.detach().cpu().numpy()},
+                commit=True,
+                step=self.optimizer_step,
+            )
+            logger.info("Wandb: log loss")
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -350,7 +386,9 @@ class Separation(sb.Brain):
 
                     # Apply Separation
                     with torch.no_grad():
-                        mixture, predictions, targets = self.compute_forward(batch, sb.Stage.TEST)
+                        mixture, predictions, targets = self.compute_forward(
+                            batch, sb.Stage.TEST
+                        )
 
                     metrics = self.compute_metrics(
                         mixture, predictions, targets
