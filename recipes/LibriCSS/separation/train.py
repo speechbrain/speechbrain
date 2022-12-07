@@ -186,7 +186,12 @@ class Separation(sb.Brain):
                 batch.id[0],
             ] + audios
             wandb_train_table.add_data(*data)
-            wandb.log({"train_samples_e{self.hparams.epoch_counter.current}_s{self.optimizer_step}": self.wandb_train_table}, commit=True)
+            wandb.log(
+                {
+                    "train_samples_e{self.hparams.epoch_counter.current}_s{self.optimizer_step}": wandb_train_table
+                },
+                commit=True,
+            )
             logger.info("Wandb: log table")
 
         if self.optimizer_step % self.hparams.logging_interval == 0:
