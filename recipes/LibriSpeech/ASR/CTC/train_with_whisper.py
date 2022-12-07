@@ -1,15 +1,17 @@
 #!/usr/bin/env/python3
-"""Recipe for training a wav2vec-based ctc ASR system with librispeech.
-The system employs wav2vec as its encoder. Decoding is performed with
-ctc greedy decoder.
+"""Recipe for training a whisper-based ctc ASR system with librispeech.
+The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+This recipe take only the whisper encoder and add a DNN + CTC to fine-tune.
+
+If you want to use the full whisper system, please refer to the recipe
+speechbrain/recipes/LibriSpeech/ASR/transformer/train_with_whisper.py
+
 To run this recipe, do the following:
-> python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
-The neural network is trained on CTC likelihood target and character units
-are used as basic recognition tokens.
+> python train_with_whisper.py hparams/train_hf_whisper_encoder.yaml
 
 Authors
- * Rudolf A Braun 2022
  * Titouan Parcollet 2022
+ * Rudolf A Braun 2022
  * Sung-Lin Yeh 2021
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
@@ -24,6 +26,8 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -40,25 +44,13 @@ class ASR(sb.Brain):
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
 
-        # Handling SpeechBrain vs HuggingFance pretrained models
-        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
-            latents = self.modules.extractor(wavs)
-            feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[
-                "embeddings"
-            ]
-        else:  # HuggingFace pretrained model
-            feats = self.modules.wav2vec2(wavs)
-
+        # Encode with Whisper and then DNN
+        feats = self.modules.whisper(wavs)
         x = self.modules.enc(feats)
 
         # Compute outputs
@@ -69,30 +61,31 @@ class ASR(sb.Brain):
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
+        """Computes the loss (CTC) given predictions and targets."""
 
         p_ctc, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens = torch.cat([tokens, tokens], dim=0)
-            tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
-
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
         if stage != sb.Stage.TRAIN:
+
             # Decode token terms to words
-            predicted_words = [
-                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                for utt_seq in predicted_tokens
-            ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            predicted_words = self.tokenizer(
+                predicted_tokens, task="decode_from_list"
+            )
+
+            # Convert indices to words
+            target_words = undo_padding(tokens, tokens_lens)
+            target_words = self.tokenizer(target_words, task="decode_from_list")
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -103,22 +96,20 @@ class ASR(sb.Brain):
 
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            self.wav2vec_optimizer.zero_grad()
+            self.whisper_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
             if should_step:
-                if not self.hparams.freeze_wav2vec:
-                    self.scaler.unscale_(self.wav2vec_optimizer)
+                self.scaler.unscale_(self.whisper_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
                     if self.optimizer_step > self.hparams.warmup_steps:
-                        self.scaler.step(self.wav2vec_optimizer)
+                        # Here we added a warmup to the CTC encoder to make sure that
+                        # it does not screw the whisper with too large gradients.
+                        self.scaler.step(self.whisper_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
@@ -128,10 +119,12 @@ class ASR(sb.Brain):
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
+                    # Here we added a warmup to the CTC encoder to make sure that
+                    # it does not screw the whisper with too large gradients.
                     if self.optimizer_step > self.hparams.warmup_steps:
-                        self.wav2vec_optimizer.step()
+                        self.whisper_optimizer.step()
                     self.model_optimizer.step()
-                self.wav2vec_optimizer.zero_grad()
+                self.whisper_optimizer.zero_grad()
                 self.model_optimizer.zero_grad()
                 self.optimizer_step += 1
 
@@ -158,20 +151,20 @@ class ASR(sb.Brain):
             old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
                 stage_stats["loss"]
             )
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+            old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
                 stage_stats["loss"]
             )
             sb.nnet.schedulers.update_learning_rate(
                 self.model_optimizer, new_lr_model
             )
             sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_wav2vec
+                self.whisper_optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
                     "lr_model": old_lr_model,
-                    "lr_wav2vec": old_lr_wav2vec,
+                    "lr_whisperc": old_lr_whisper,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
@@ -188,17 +181,10 @@ class ASR(sb.Brain):
                 self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
-        "Initializes the wav2vec2 optimizer and model optimizer"
-        # Handling SpeechBrain vs HuggingFance pretrained models
-        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.encoder_wrapper.parameters()
-            )
-
-        else:  # HuggingFace pretrained model
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.wav2vec2.parameters()
-            )
+        "Initializes the whisper optimizer and model optimizer"
+        self.whisper_optimizer = self.hparams.whisper_opt_class(
+            self.modules.whisper.parameters()
+        )
 
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
@@ -206,12 +192,12 @@ class ASR(sb.Brain):
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
+                "whisper_opt", self.whisper_optimizer
             )
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
-def dataio_prepare(hparams):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
@@ -267,7 +253,6 @@ def dataio_prepare(hparams):
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
@@ -278,31 +263,19 @@ def dataio_prepare(hparams):
         yield wrd
         char_list = list(wrd)
         yield char_list
-        tokens_list = label_encoder.encode_sequence(char_list)
+        tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
         tokens = torch.LongTensor(tokens_list)
         yield tokens
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
-    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    special_labels = {
-        "blank_label": hparams["blank_index"],
-    }
-    label_encoder.load_or_create(
-        path=lab_enc_file,
-        from_didatasets=[train_data],
-        output_key="char_list",
-        special_labels=special_labels,
-        sequence_input=True,
-    )
-
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "char_list", "tokens"],
     )
 
-    return train_data, valid_data, test_datasets, label_encoder
+    return train_data, valid_data, test_datasets
 
 
 if __name__ == "__main__":
@@ -342,10 +315,18 @@ if __name__ == "__main__":
         },
     )
 
-    # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
-        hparams
+    # Defining tokenizer and loading it
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["output_neurons"],
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
+        model_type=hparams["token_type"],
+        character_coverage=hparams["character_coverage"],
     )
+
+    # here we create the datasets objects as well as tokenization and encoding
+    train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -355,14 +336,14 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # We load the pretrained wav2vec2 model
+    # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
-    asr_brain.tokenizer = label_encoder
+    asr_brain.tokenizer = tokenizer
 
     # Training
     asr_brain.fit(
