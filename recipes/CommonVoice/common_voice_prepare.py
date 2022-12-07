@@ -1,11 +1,11 @@
 """
 Data preparation.
-
 Download: https://voice.mozilla.org/en/datasets
-
 Author
 ------
 Titouan Parcollet
+Luca Della Libera 2022
+Pooneh Mousavi 2022
 """
 
 import os
@@ -15,6 +15,8 @@ import logging
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
+import datasets
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +30,16 @@ def prepare_common_voice(
     accented_letters=False,
     language="en",
     skip_prep=False,
+    dataset_version="10_0"
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
     Download: https://voice.mozilla.org/en/datasets
-
     Arguments
     ---------
     data_folder : str
         Path to the folder where the original Common Voice dataset is stored.
-        This path should include the lang: /datasets/CommonVoice/en/
+        This path should include the lang: /datasets/CommonVoice/<language>/
     save_folder : str
         The directory where to store the csv files.
     train_tsv_file : str, optional
@@ -53,7 +55,6 @@ def prepare_common_voice(
         Specify the language for text normalization.
     skip_prep: bool
         If True, skip data preparation.
-
     Example
     -------
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
@@ -118,7 +119,7 @@ def prepare_common_voice(
         return
 
     # Additional checks to make sure the data folder contains Common Voice
-    check_commonvoice_folders(data_folder)
+    check_commonvoice_folders(data_folder,dataset_version,language)
 
     # Creating csv files for {train, dev, test} data
     file_pairs = zip(
@@ -134,9 +135,7 @@ def prepare_common_voice(
 def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the Common Voice data preparation has been already done.
-
     If the preparation has been done, we can skip it.
-
     Returns
     -------
     bool
@@ -162,7 +161,6 @@ def create_csv(
 ):
     """
     Creates the csv file given a list of wav files.
-
     Arguments
     ---------
     orig_tsv_file : str
@@ -172,7 +170,6 @@ def create_csv(
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-
     Returns
     -------
     None
@@ -264,10 +261,21 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
+                "ابتةثجحخدذرزژشصضطظعغفقكلمنهويىءآأؤإئ"
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
+            )
+            words = re.sub("[^" + letters + " ]+", "", words).upper()
+        elif language== "fa":
+            HAMZA = "\u0621"
+            ALEF_MADDA = "\u0622"
+            # ALEF_HAMZA_ABOVE = "\u0623"
+            letters = (
+                "ءآابپتةثجچحخدذرزژشصضطظعغفقكگلمنهویى"
+                + HAMZA
+                + ALEF_MADDA
+                # + ALEF_HAMZA_ABOVE
             )
             words = re.sub("[^" + letters + " ]+", "", words).upper()
         elif language == "ga-IE":
@@ -325,33 +333,52 @@ def create_csv(
     logger.info(msg)
 
 
-def check_commonvoice_folders(data_folder):
+
+
+def check_commonvoice_folders(data_folder,dataset_version,language):
     """
     Check if the data folder actually contains the Common Voice dataset.
-
-    If not, raises an error.
-
+    If not, download the data 
     Returns
     -------
     None
-
-    Raises
-    ------
-    FileNotFoundError
-        If data folder doesn't contain Common Voice dataset.
     """
 
     files_str = "/clips"
 
-    # Checking clips
-    if not os.path.exists(data_folder + files_str):
 
-        err_msg = (
+    # Checking clips
+   
+    if not os.path.exists(data_folder + files_str):
+        logger.info(
             "the folder %s does not exist (it is expected in "
             "the Common Voice dataset)" % (data_folder + files_str)
         )
-        raise FileNotFoundError(err_msg)
+        logger.info(f"Downloading dataset for {language}")
+        download_common_voice(data_folder,dataset_version,language)
 
+
+    else:
+        logger.info("Dataset already downloaded")
+
+
+def download_common_voice(data_folder,dataset_version,language):
+    logger.info("Downloading dataset...")
+    cache_dir = os.path.join("cache")
+    dataset_name = f"mozilla-foundation/common_voice_{dataset_version}"
+    datasets.load_dataset(
+                dataset_name, language, cache_dir=cache_dir, use_auth_token=True
+            )
+    extracted_dir = os.path.join(cache_dir, "downloads", "extracted")
+    extracted_dir = os.path.join(
+        extracted_dir, os.listdir(extracted_dir)[0]
+        )
+    extracted_dir = os.path.join(
+    extracted_dir, os.listdir(extracted_dir)[0])
+    shutil.move(os.path.join(extracted_dir, language), data_folder)
+    shutil.rmtree(cache_dir)
+
+            
 
 def unicode_normalisation(text):
 
@@ -369,5 +396,5 @@ def strip_accents(text):
         .encode("ascii", "ignore")
         .decode("utf-8")
     )
+    return text
 
-    return str(text)
