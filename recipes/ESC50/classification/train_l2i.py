@@ -7,7 +7,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
-from train import dataio_prep
+from train_classifier import dataio_prep
 from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs
 import torch.nn.functional as F
@@ -44,7 +44,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         pred_cl = torch.argmax(predictions, dim=1)[0].item()
         # print(pred_cl)
 
-        nmf_dictionary = self.hparams.nmf.return_W(dtype="torch")
+        nmf_dictionary = self.hparams.nmf_decoder.return_W()
 
         # computes time activations per component
         # FROM NOW ON WE FOLLOW THE PAPER'S NOTATION
@@ -223,7 +223,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         psi_out = psi_out[:, :, : X_stft_power.shape[1]]
 
         #  generate log-mag spectrogram
-        reconstructed = self.hparams.nmf(psi_out)
+        reconstructed = self.hparams.nmf_decoder(psi_out)
 
         # generate classifications from time activations
         theta_out = self.modules.theta(psi_out)
@@ -483,10 +483,11 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
 
+    # transfer the frozen parts to the model to the device
     hparams["embedding_model"].to(hparams["device"])
     hparams["classifier"].to(hparams["device"])
+    hparams["nmf_decoder"].to(hparams["device"])
     hparams["embedding_model"].eval()
-    hparams["nmf"].to(hparams["device"])
 
     if not hparams["test_only"]:
         Interpreter_brain.fit(
