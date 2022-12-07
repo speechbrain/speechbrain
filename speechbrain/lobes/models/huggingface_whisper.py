@@ -65,6 +65,7 @@ class HuggingFaceWhisper(nn.Module):
         freeze=False,
         freeze_encoder=False,
         output_attentions=True,
+        output_hidden_states=False,
     ):
         super().__init__()
         self.sampling_rate = sampling_rate
@@ -72,6 +73,7 @@ class HuggingFaceWhisper(nn.Module):
         self.freeze = freeze
         self.freeze_encoder = freeze_encoder
         self.output_attentions = output_attentions
+        self.output_hidden_states = output_hidden_states
 
         self.tokenizer = None
         # Download the tokenizer only if we are going to use the Decoder.
@@ -131,18 +133,29 @@ class HuggingFaceWhisper(nn.Module):
                 out_encoder = self.forward_encoder(wav)
                 if self.encoder_only:
                     return out_encoder
-                logits, attn = self.forward_decoder(
-                    out_encoder, decoder_input_ids
-                )
+
+                if self.output_hidden_states:
+                    logits, attn = self.forward_decoder(
+                        out_encoder[-1], decoder_input_ids
+                    )
+                else:
+                    logits, attn = self.forward_decoder(
+                        out_encoder, decoder_input_ids
+                    )
                 return out_encoder, logits, attn
         else:
             if self.encoder_only:
                 return self.forward_encoder(wav)
             else:
                 out_encoder = self.forward_encoder(wav)
-                logits, attn = self.forward_decoder(
-                    out_encoder, decoder_input_ids
-                )
+                if self.output_hidden_states:
+                    logits, attn = self.forward_decoder(
+                        out_encoder[-1], decoder_input_ids
+                    )
+                else:
+                    logits, attn = self.forward_decoder(
+                        out_encoder, decoder_input_ids
+                    )
                 return out_encoder, logits, attn
 
     def forward_encoder(self, wav):
@@ -155,10 +168,16 @@ class HuggingFaceWhisper(nn.Module):
 
         if self.freeze_encoder:
             with torch.no_grad():
-                mel = self._get_mel(wav)
-                return self.model.encoder(mel).last_hidden_state
+                return self._get_encoder_states(wav)
         else:
-            mel = self._get_mel(wav)
+            return self._get_encoder_states(wav)
+
+    def _get_encoder_states(self, wav):
+        mel = self._get_mel(wav)
+        if self.output_hidden_states:
+            states = self.model.encoder(mel, output_hidden_states=True)
+            return states.hidden_states
+        else:
             return self.model.encoder(mel).last_hidden_state
 
     def _get_mel(self, wav):
