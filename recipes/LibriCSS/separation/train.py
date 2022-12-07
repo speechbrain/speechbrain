@@ -54,7 +54,7 @@ class Separation(sb.Brain):
             return super().fit_batch(batch)
         except ValueError as e:
             logger.warn(e)
-            return 0.0
+            return torch.zeros(1).detach().cpu()
 
     def compute_forward(self, batch, stage=sb.Stage.TRAIN):
         """Forward computations from the mixture to the separated signals."""
