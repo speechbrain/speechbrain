@@ -119,11 +119,11 @@ class Separation(sb.Brain):
             else:
                 self.save_audio(batch.id[0], mix, targets, est_source)
 
-        return est_source, targets
+        return mix, est_source, targets
 
-    def compute_objectives(self, predictions, batch, stage=sb.Stage.TRAIN):
+    def compute_objectives(self, outputs, batch, stage=sb.Stage.TRAIN):
         """Computes the si-snr loss"""
-        est_source, targets = predictions
+        _, est_source, targets = outputs
         loss = self.hparams.loss(targets, est_source)
         # hard threshold the easy dataitems
         if self.hparams.threshold_byloss and stage == sb.Stage.TRAIN:
@@ -133,6 +133,23 @@ class Separation(sb.Brain):
                 loss = loss_to_keep
 
         return loss.mean()
+
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """Called from _fit_train"""
+        mix, est_source, targets = outputs
+
+        if self.optimizer_step % self.hparams.audio_logging_interval == 0:
+            signals = [x.detach().cpu() for x in [mix, targets[:, :, 0], targets[:, :, 1], est_source[:, :, 0], est_source[:, :, 1]]]
+            signals = [x / x.abs().max() for x in signals]
+            audios = [wandb.Audio(x.squeeze().float().numpy(), sample_rate=self.hparams.sample_rate) for x in signals]
+            if not hasattr(self, "wandb_train_table"):
+                self.wandb_train_table = wandb.Table(columns=["epoch", "step", "id", "mix", "target1", "target2", "est_source1", "est_source2"])
+            data = [self.hparams.epoch_counter.current, self.optimizer_step, batch.id[0]] + audios
+            self.wandb_train_table.add_data(*data)
+            wandb.log({"train_samples": self.wandb_train_table})
+
+        if self.optimizer_step % self.hparams.logging_interval == 0:
+            wandb.log({"train_sisnr": loss.detach().cpu().numpy()}, commit=True, step=self.optimizer_step)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -325,16 +342,8 @@ class Separation(sb.Brain):
                 for i, batch in enumerate(t):
 
                     # Apply Separation
-                    mixture, mix_len = batch.mix_sig
-                    snt_id = batch.id
-                    targets = [batch.s1_sig, batch.s2_sig]
-                    if self.hparams.num_spks == 3:
-                        targets.append(batch.s3_sig)
-
                     with torch.no_grad():
-                        predictions, targets = self.compute_forward(
-                            batch.mix_sig, targets, sb.Stage.TEST
-                        )
+                        mixture, predictions, targets = self.compute_forward(batch, sb.Stage.TEST)
 
                     metrics = self.compute_metrics(
                         mixture, predictions, targets

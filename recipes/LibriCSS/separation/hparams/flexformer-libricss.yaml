@@ -19,9 +19,10 @@ data_folder: !PLACEHOLDER
 # this is the base folder for dynamic mixing
 # e.g. /yourpath/LibriSpeech
 dm_data_folder: !PLACEHOLDER
+results_root: !PLACEHOLDER
 
-experiment_name: flexformer-libricss-16kHz
-output_folder: !ref results/<experiment_name>/<seed>
+experiment_name: flexformer-libricss-16kHz-new-training
+output_folder: !ref <results_root>/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
 train_data: !ref <save_folder>/train-clean-360.csv
@@ -39,6 +40,8 @@ noprogressbar: False
 save_audio: True # Save estimated sources on disk
 n_audio_to_save: 20
 sample_rate: 16000
+logging_interval: 1000
+audio_logging_interval: 5000
 
 # Training parameters
 N_epochs: 3
