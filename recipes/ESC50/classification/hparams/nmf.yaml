@@ -2,8 +2,9 @@
 # The hyperparameters to train an NMF model on ESC50
 #
 # Author:
-#  * Cem Subakan
-#  * Francesco Paissan
+#  * Cem Subakan 2022
+#  * Francesco Paissan 2022
+#  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made

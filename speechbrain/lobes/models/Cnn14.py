@@ -1,3 +1,10 @@
+""" This file implements the CNN14 model from https://arxiv.org/abs/1912.10211
+
+ Authors
+ * Cem Subakan 2022
+ * Francesco Paissan 2022
+"""
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch

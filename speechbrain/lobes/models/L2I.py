@@ -1,3 +1,10 @@
+"""This file implements the necessary classes and functions to implement Listen-to-Interpret (L2I) interpretation method from https://arxiv.org/abs/2202.11479v2
+
+ Authors
+ * Cem Subakan 2022
+ * Francesco Paissan 2022
+"""
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
