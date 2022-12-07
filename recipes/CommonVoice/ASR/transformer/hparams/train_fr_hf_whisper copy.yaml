@@ -14,14 +14,14 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
-language: arabic #Language for whsiper tokenizer
+language: french #Language for whsiper tokenizer
 
 # Normalize the english inputs with
 # the same normalization done in the paper
 normalized_transcripts: True
 
 # Data files
-locale: ar # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
+locale: fr # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
 data_folder: !ref 'data/common_voice_10_0/<locale>' 
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
@@ -66,6 +66,8 @@ test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
+freeze_encoder: True
+
 
 
 train_loader_kwargs:
@@ -91,6 +93,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
+    freeze_encoder: !ref <freeze_encoder>
     save_path: !ref <save_folder>/whisper_checkpoint
     encoder_only: False
 

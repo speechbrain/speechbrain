@@ -66,6 +66,8 @@ test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
+freeze_encoder: True
+
 
 
 train_loader_kwargs:
@@ -91,6 +93,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
+    freeze_encoder: !ref <freeze_encoder>
     save_path: !ref <save_folder>/whisper_checkpoint
     encoder_only: False
 
