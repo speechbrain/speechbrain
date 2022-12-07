@@ -50,7 +50,11 @@ class Separation(sb.Brain):
                 if isinstance(batch[key], torch.Tensor):
                     batch[key] = batch[key].squeeze(0)
             batch = PaddedBatch([batch])
-        return super().fit_batch(batch)
+        try:
+            return super().fit_batch(batch)
+        except ValueError as e:
+            logger.warn(e)
+            return 0.0
 
     def compute_forward(self, batch, stage=sb.Stage.TRAIN):
         """Forward computations from the mixture to the separated signals."""
@@ -135,6 +139,8 @@ class Separation(sb.Brain):
             loss_to_keep = loss[loss > th]
             if loss_to_keep.nelement() > 0:
                 loss = loss_to_keep
+            else:
+                raise ValueError(f"Loss {loss} is too small")
 
         return loss.mean()
 
