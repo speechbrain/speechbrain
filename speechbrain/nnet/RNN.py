@@ -151,11 +151,7 @@ class RNN(torch.nn.Module):
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if (
-            lengths is not None
-            and not self.training
-            and self.padded_sequence_eval
-        ):
+        if lengths is not None and self.padded_sequence_eval:
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -165,11 +161,7 @@ class RNN(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if (
-            lengths is not None
-            and not self.training
-            and self.padded_sequence_eval
-        ):
+        if lengths is not None and self.padded_sequence_eval:
             output = pad_packed_sequence(output)
 
         return output, hn
@@ -272,11 +264,7 @@ class LSTM(torch.nn.Module):
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if (
-            lengths is not None
-            and not self.training
-            and self.padded_sequence_eval
-        ):
+        if lengths is not None and self.padded_sequence_eval:
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -286,11 +274,7 @@ class LSTM(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if (
-            lengths is not None
-            and not self.training
-            and self.padded_sequence_eval
-        ):
+        if lengths is not None and self.padded_sequence_eval:
             output = pad_packed_sequence(output)
 
         return output, hn
@@ -393,11 +377,7 @@ class GRU(torch.nn.Module):
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if (
-            lengths is not None
-            and not self.training
-            and self.padded_sequence_eval
-        ):
+        if lengths is not None and self.padded_sequence_eval:
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -407,11 +387,7 @@ class GRU(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if (
-            lengths is not None
-            and not self.training
-            and self.padded_sequence_eval
-        ):
+        if lengths is not None and self.padded_sequence_eval:
             output = pad_packed_sequence(output)
 
         return output, hn
