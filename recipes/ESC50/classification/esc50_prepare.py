@@ -12,12 +12,14 @@ Authors:
 """
 
 import os
+import shutil
 import json
 import logging
 import ntpath
 import torchaudio
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.dataio.dataio import load_data_csv
+from speechbrain.pretrained import fetch
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +29,36 @@ MODIFIED_METADATA_FILE_NAME = "esc50_speechbrain.csv"
 ACCEPTABLE_FOLD_NUMS = [1, 2, 3, 4, 5]
 
 
-def download_esc50(data_folder):
-    import os
+def download_esc50(data_path):
+    """
+    This function automatically downloads the ESC50 dataset to the specified data path in the data_path variable
+    """
+    if not os.path.exists(os.path.join(data_path, "meta")):
+        print(
+            f"ESC50 is missing. We are now downloading it. Be patient it's a 600M file. You can check {data_path}/temp_download to see the download progression"
+        )
+        temp_path = os.path.join(data_path, "temp_download")
 
-    if not os.path.exists(os.path.join(data_folder, "meta")):
-        print("ESC50 is missing. Downloading from github...")
-        os.system(
-            f"git clone https://github.com/karolpiczak/ESC-50.git {os.path.join(data_folder, 'temp_download')}"
+        # download the data
+        fetch(
+            "master.zip",
+            "https://github.com/karoldvl/ESC-50/archive/",
+            savedir=temp_path,
         )
-        os.system(
-            f"mv {os.path.join(data_folder, 'temp_download', '*')} {data_folder}"
-        )
-        os.system(f"rm -rf {os.path.join(data_folder, 'temp_download')}")
-        print(f"ESC50 download in {data_folder}")
+
+        # unpack the .zip file
+        shutil.unpack_archive(os.path.join(temp_path, "master.zip"), data_path)
+
+        # move the files up to the datapath
+        files = os.listdir(os.path.join(data_path, "ESC-50-master"))
+        for fl in files:
+            shutil.move(os.path.join(data_path, "ESC-50-master", fl), data_path)
+
+        # remove the unused datapath
+        shutil.rmtree(os.path.join(data_path, "temp_download"))
+        shutil.rmtree(os.path.join(data_path, "ESC-50-master"))
+
+        print(f"ESC50 is downloaded in {data_path}")
 
 
 def prepare_esc50(
@@ -140,11 +159,6 @@ def prepare_esc50(
         return
 
     # If the dataset doesn't exist yet, prompt the user to set or download it
-
-    # fix
-    if not check_folders(audio_data_folder):
-        prompt_download_esc50(audio_data_folder)
-        return
 
     # Don't need to do this every single time
     if skip_manifest_creation is True:
@@ -333,17 +347,3 @@ def removesuffix(somestring, suffix):
         return somestring[: -1 * len(suffix)]
     else:
         return somestring
-
-
-def prompt_download_esc50(destination):
-    """Prompt to download dataset
-    Arguments
-    ---------
-    destination : str
-        Place to put dataset.
-    """
-    print(
-        "ESC50 data is missing from {}!\nRequest it from here: {}".format(
-            destination, ESC50_DOWNLOAD_URL
-        )
-    )
