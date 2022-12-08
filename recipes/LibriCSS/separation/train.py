@@ -617,7 +617,7 @@ if __name__ == "__main__":
     wandb.init(
         project="SepFormer",
         entity="mato1102",
-        config={},
+        config=hparams,
         resume=True,
         name=hparams["experiment_name"],
     )
