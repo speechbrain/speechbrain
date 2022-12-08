@@ -44,7 +44,8 @@ logging_interval: 1000
 audio_logging_interval: 5000
 
 # Training parameters
-N_epochs: 3
+N_epochs: 6
+N_steps: 30000
 batch_size: 1
 lr: 0.00015
 clip_grad_norm: 5

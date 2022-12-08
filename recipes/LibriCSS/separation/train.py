@@ -525,6 +525,7 @@ def dataio_prep(hparams):
             noise_flist=hparams["noise_files"],
             rir_flist=hparams["rir_files"],
             replacements={"RIRS_NOISES": hparams["noises_root"]},
+            length=hparams["N_steps"],
         )
         for data in datasets
     ]

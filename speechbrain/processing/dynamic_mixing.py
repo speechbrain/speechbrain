@@ -107,6 +107,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         noise_flist=None,
         rir_flist=None,
         replacements={},
+        length=None,
     ):
         if len(spkr_files.keys()) < max(config.num_spkrs):
             raise ValueError(
@@ -154,6 +155,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             self.rir_files = parse_noises(rir_flist, replacements)
             assert len(self.rir_files) > 0
 
+        self.length = length
         self.dataset = None  # used for inner database
 
     @classmethod
@@ -385,7 +387,10 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         return mixture, sources, noise, rir
 
     def __len__(self):
-        return sum(map(len, self.spkr_files.values()))  # dict of lists
+        if hasattr(self, "length") and self.length is not None:
+            return self.length
+        self.length = sum(map(len, self.spkr_files.values()))  # dict of lists
+        return self.length
 
     def __getitem__(self, idx):
         mix, srcs, noise, rir, mix_info = self.generate()
