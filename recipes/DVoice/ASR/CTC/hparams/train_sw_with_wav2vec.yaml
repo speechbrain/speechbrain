@@ -134,7 +134,6 @@ wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
         dim: (-2, -1)
 
 
-
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead
 # of a HuggingFace one. Here, we provide an URL that is obtained from the

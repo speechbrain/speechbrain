@@ -105,7 +105,6 @@ enc: !new:speechbrain.nnet.containers.Sequential
     activation3: !new:torch.nn.LeakyReLU
 
 
-
 output_all_hiddens: False
 apply_spec_augment: False
 # freeze_nested_models_their_calls: "feature_extractor._freeze_parameters"

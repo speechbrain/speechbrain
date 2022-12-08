@@ -93,7 +93,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 
-
 w2v2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_folder>
