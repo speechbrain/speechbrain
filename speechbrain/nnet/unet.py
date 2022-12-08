@@ -1459,6 +1459,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         out_mask_value=0.0,
         latent_mask_value=0.0,
         use_fixup_norm=False,
+        latent_stochastic=True,
     ):
         encoder_unet = EncoderUNetModel(
             in_channels=in_channels,
@@ -1516,4 +1517,5 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             len_dim=len_dim,
             out_mask_value=out_mask_value,
             latent_mask_value=latent_mask_value,
+            latent_stochastic=latent_stochastic
         )
