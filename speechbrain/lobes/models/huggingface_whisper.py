@@ -45,6 +45,11 @@ class HuggingFaceWhisper(nn.Module):
         HuggingFace hub name: e.g "openai/whisper-tiny"
     save_path : str
         Path (dir) of the downloaded model.
+    output_all_hiddens: bool (default: False)
+        If True, the forward function outputs the hidden states from all transformer layers of the encoder.
+        For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),
+        where the output of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer of the encoder.
     Example
     -------
     >>> model_hub = "openai/whisper-tiny"
@@ -65,7 +70,7 @@ class HuggingFaceWhisper(nn.Module):
         freeze=False,
         freeze_encoder=False,
         output_attentions=True,
-        output_hidden_states=False,
+        output_all_hiddens=False,
     ):
         super().__init__()
         self.sampling_rate = sampling_rate
@@ -73,7 +78,7 @@ class HuggingFaceWhisper(nn.Module):
         self.freeze = freeze
         self.freeze_encoder = freeze_encoder
         self.output_attentions = output_attentions
-        self.output_hidden_states = output_hidden_states
+        self.output_all_hiddens = output_all_hiddens
 
         self.tokenizer = None
         # Download the tokenizer only if we are going to use the Decoder.
@@ -134,9 +139,9 @@ class HuggingFaceWhisper(nn.Module):
                 if self.encoder_only:
                     return out_encoder
 
-                if self.output_hidden_states:
+                if self.output_all_hiddens:
                     logits, attn = self.forward_decoder(
-                        out_encoder[-1], decoder_input_ids
+                        out_encoder[-1, ...], decoder_input_ids
                     )
                 else:
                     logits, attn = self.forward_decoder(
@@ -148,7 +153,7 @@ class HuggingFaceWhisper(nn.Module):
                 return self.forward_encoder(wav)
             else:
                 out_encoder = self.forward_encoder(wav)
-                if self.output_hidden_states:
+                if self.output_all_hiddens:
                     logits, attn = self.forward_decoder(
                         out_encoder[-1], decoder_input_ids
                     )
@@ -174,9 +179,9 @@ class HuggingFaceWhisper(nn.Module):
 
     def _get_encoder_states(self, wav):
         mel = self._get_mel(wav)
-        if self.output_hidden_states:
+        if self.output_all_hiddens:
             states = self.model.encoder(mel, output_hidden_states=True)
-            return states.hidden_states
+            return torch.stack(states.hidden_states)
         else:
             return self.model.encoder(mel).last_hidden_state
 
