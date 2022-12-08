@@ -264,7 +264,7 @@ if __name__ == "__main__":
     hparams["wav2vec2"] = hparams["wav2vec2"].to("cuda:0")
     # freeze the feature extractor part when unfreezing
     if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:
-        hparams["wav2vec2"].model.feature_extractor._freeze_parameters()
+        hparams["w2v2"].model.feature_extractor._freeze_parameters()
 
     # Initialize the Brain object to prepare for mask training.
     emo_id_brain = EmoIdBrain(

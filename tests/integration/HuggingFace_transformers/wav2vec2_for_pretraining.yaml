@@ -74,7 +74,7 @@ input_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     dim: -1
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTransformer
+w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_folder>
     for_pretraining_cls: !name:transformers.Wav2Vec2ForPreTraining
@@ -86,6 +86,16 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface.transformers.HuggingFaceTran
           mask_length: !ref <mask_length>
     freeze: False
     cache_dir: !ref <output_folder>/cache
+
+wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    input_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: -1
+    w2v2: !ref <w2v2>
+    output_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: (-2, -1)
+
 
 modules:
     input_norm: !ref <input_norm>
@@ -105,7 +115,7 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        wav2vec2: !ref <wav2vec2>
+        wav2vec2: !ref <w2v2>
         scheduler: !ref <noam_annealing>
         counter: !ref <epoch_counter>
 

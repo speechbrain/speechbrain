@@ -20,7 +20,8 @@ import pathlib
 import numpy as np
 from torch import nn
 from functools import partial
-import torch.nn.functional as F
+
+# import torch.nn.functional as F
 from typing import Union, List, Callable
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
@@ -480,9 +481,7 @@ def forward_default(model, data):
 
 
 def forward_wav2vec2(
-    model,
-    data,
-    output_all_hiddens=False,
+    model, data, output_all_hiddens=False,
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 

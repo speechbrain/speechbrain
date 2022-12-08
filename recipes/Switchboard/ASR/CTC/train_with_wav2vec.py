@@ -121,7 +121,7 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         if self.auto_mix_prec:
 
-            if not self.hparams.wav2vec2.freeze:
+            if not self.hparams.w2v2.freeze:
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
@@ -130,12 +130,12 @@ class ASR(sb.core.Brain):
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
             self.scaler.scale(loss).backward()
-            if not self.hparams.wav2vec2.freeze:
+            if not self.hparams.w2v2.freeze:
                 self.scaler.unscale_(self.wav2vec_optimizer)
             self.scaler.unscale_(self.model_optimizer)
 
             if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
+                if not self.hparams.w2v2.freeze:
                     self.scaler.step(self.wav2vec_optimizer)
                 self.scaler.step(self.model_optimizer)
 
@@ -147,11 +147,11 @@ class ASR(sb.core.Brain):
             loss.backward()
 
             if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
+                if not self.hparams.w2v2.freeze:
                     self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            if not self.hparams.wav2vec2.freeze:
+            if not self.hparams.w2v2.freeze:
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
@@ -191,7 +191,7 @@ class ASR(sb.core.Brain):
             sb.nnet.schedulers.update_learning_rate(
                 self.model_optimizer, new_lr_model
             )
-            if not self.hparams.wav2vec2.freeze:
+            if not self.hparams.w2v2.freeze:
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
                 )
@@ -219,7 +219,7 @@ class ASR(sb.core.Brain):
         "Initializes the wav2vec2 optimizer and model optimizer"
 
         # If the wav2vec encoder is unfrozen, we create the optimizer
-        if not self.hparams.wav2vec2.freeze:
+        if not self.hparams.w2v2.freeze:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )

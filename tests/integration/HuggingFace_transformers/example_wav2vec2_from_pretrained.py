@@ -94,11 +94,11 @@ class HFBrain(sb.core.Brain):
             loss.backward()
 
             if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
+                if not self.hparams.w2v2.freeze:
                     self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            if not self.hparams.wav2vec2.freeze:
+            if not self.hparams.w2v2.freeze:
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
@@ -138,7 +138,7 @@ class HFBrain(sb.core.Brain):
             sb.nnet.schedulers.update_learning_rate(
                 self.model_optimizer, new_lr_model
             )
-            if not self.hparams.wav2vec2.freeze:
+            if not self.hparams.w2v2.freeze:
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
                 )

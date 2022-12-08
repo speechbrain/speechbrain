@@ -22,14 +22,7 @@ except ModuleNotFoundError:
 try:
     from transformers import Wav2Vec2Model  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/huggingface/interfaces.py")
-    collect_ignore.append("speechbrain/lobes/models/huggingface/forward.py")
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface/HuggingFace.py"
-    )
-    collect_ignore.append(
-        "tests/integration/HuggingFace_transformers/refactoring_checks.py"
-    )
+    collect_ignore.append("speechbrain/lobes/models/transformer/HuggingFace.py")
     collect_ignore.append(
         "tests/integration/HuggingFace_transformers/example_wav2vec2_for_pretraining.py"
     )

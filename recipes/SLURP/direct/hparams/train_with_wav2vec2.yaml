@@ -30,6 +30,7 @@ skip_prep: False
 
 # URL for the wav2vec2 model, you can change to benchmark diffrenet models
 wav2vec2_hub: "facebook/hubert-base-ls960"
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Training parameters
 number_of_epochs: 35
@@ -70,11 +71,35 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+
+output_all_hiddens: False
+apply_spec_augment: False
+freeze_nested_models_their_calls: "feature_extractor._freeze_parameters"
+
+w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
-    output_norm: True
-    freeze: !ref <freeze_wav2vec2>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
+    forward_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
+          output_all_hiddens: !ref <output_all_hiddens>
+    modify_state_dict_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
+    override_hf_model_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
+          apply_spec_augment: !ref <apply_spec_augment>
+    freeze: !ref <freeze_wav2vec>
+    freeze_nested_models_their_calls: !ref <freeze_nested_models_their_calls>  # freeze the feature extractor
+    cache_dir: !ref <wav2vec2_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
+
+wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    input_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: -1
+    w2v2: !ref <w2v2>
+    output_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: (-2, -1)
+
 
 output_emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
@@ -154,7 +179,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
-        wav2vec2: !ref <wav2vec2>
+        wav2vec2: !ref <w2v2>
         scheduler: !ref <lr_annealing>
         lr_annealing_wav2vec2: !ref <lr_annealing_wav2vec2>
         counter: !ref <epoch_counter>

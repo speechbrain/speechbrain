@@ -18,6 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Important: we use wav2vec2 base and not the fine-tuned one with ASR task
 # This allow you to have ~4% improvment
 wav2vec2_hub: "facebook/wav2vec2-base"
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # different speakers for train, valid and test sets
 different_speakers: False
@@ -59,13 +60,34 @@ dataloader_options:
     num_workers: 2  # 2 on linux but 0 works on windows
     drop_last: False
 
-# Wav2vec2 encoder
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+output_all_hiddens: False
+apply_spec_augment: False
+freeze_nested_models_their_calls: "feature_extractor._freeze_parameters"
+
+w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
-    output_norm: True
-    freeze: !ref <freeze_wav2vec2>
-    freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
+    forward_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
+          output_all_hiddens: !ref <output_all_hiddens>
+    modify_state_dict_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
+    override_hf_model_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
+          apply_spec_augment: !ref <apply_spec_augment>
+    freeze: !ref <freeze_wav2vec>
+    freeze_nested_models_their_calls: !ref <freeze_nested_models_their_calls>  # freeze the feature extractor
+    cache_dir: !ref <wav2vec2_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
+
+wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    input_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: -1
+    w2v2: !ref <w2v2>
+    output_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: (-2, -1)
+
 
 avg_pool: !new:speechbrain.nnet.pooling.StatisticsPooling
     return_std: False
