@@ -156,23 +156,11 @@ class Separation(sb.Brain):
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called from _fit_train"""
-        mix, est_source, targets = outputs
-
-        epoch = self.hparams.epoch_counter.current
-        step = self.optimizer_step
-
-        if step % self.hparams.audio_logging_interval == 0:
-            table = build_table(batch.id[0], mix, est_source, targets, loss, sr=self.hparams.sample_rate)
-            wandb.log({f"train_samples_e{epoch}_s{step}": table}, commit=True)
-            logger.info("Wandb: log train table")
-
         if self.optimizer_step % self.hparams.logging_interval == 0:
             wandb.log(
                 {"train_sisnr": loss.detach().cpu().numpy()},
                 commit=True,
-                step=self.optimizer_step,
             )
-            logger.info("Wandb: log loss")
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
         mix, est_source, targets = outputs
