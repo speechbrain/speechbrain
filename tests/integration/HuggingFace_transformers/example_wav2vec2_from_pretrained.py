@@ -2,7 +2,6 @@
 """This minimal example.
 Define training procedure - from: recipes/CommonVoice/ASR/CTC/train_with_wav2vec.py
 """
-
 import torch
 import pathlib
 import speechbrain as sb
@@ -24,7 +23,7 @@ class HFBrain(sb.core.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
@@ -48,7 +47,6 @@ class HFBrain(sb.core.Brain):
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
 
-            # predicted_words = self.tokenizer(sequence, task="decode_from_list")
             predicted_words = [
                 self.tokenizer.decode_ids(utt_seq).split(" ")
                 for utt_seq in sequence
@@ -56,7 +54,6 @@ class HFBrain(sb.core.Brain):
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
-            # target_words = self.tokenizer(target_words, task="decode_from_list")
             target_words = [
                 self.tokenizer.decode_ids(utt_seq).split(" ")
                 for utt_seq in target_words
@@ -169,7 +166,7 @@ class HFBrain(sb.core.Brain):
         "Initializes the wav2vec2 optimizer and model optimizer"
 
         # If the wav2vec encoder is unfrozen, we create the optimizer
-        if not self.hparams.wav2vec2.freeze:
+        if not self.hparams.w2v2.freeze:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )

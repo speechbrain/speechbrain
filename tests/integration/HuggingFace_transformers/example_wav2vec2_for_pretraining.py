@@ -2,6 +2,7 @@
 """This minimal example.
 Define training procedure - from: recipes/CommonVoice/self-supervised-learning/wav2vec2/hparams/wav2vec2_base.yaml
 """
+
 import torch
 import pathlib
 import speechbrain as sb
@@ -17,6 +18,8 @@ class W2VBrain(sb.core.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Forward on w2v2 and take the loss.
+        wavs = self.modules.input_norm(wavs, wav_lens)
+
         # It has to be on train mode even for eval. Otherwise it would deactivate
         # the loss computation ...
         out, mask = self.modules.wav2vec2(wavs)
