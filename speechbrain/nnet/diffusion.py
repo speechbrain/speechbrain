@@ -629,7 +629,7 @@ class LengthMaskedGaussianNoise(nn.Module):
         super().__init__()
         self.length_dim = length_dim
 
-    def forward(self, sample, lens=None, **kwargs):
+    def forward(self, sample, length=None, **kwargs):
         """Creates Gaussian noise. If a tensor of lengths is
         provided, no noise is added to the padding positions.
 
@@ -639,9 +639,9 @@ class LengthMaskedGaussianNoise(nn.Module):
             relative lengths
         """
         noise = torch.randn_like(sample)
-        if lens is not None:
+        if length is not None:
             max_len = sample.size(self.length_dim)
-            mask = length_to_mask(lens * max_len, max_len).bool()
+            mask = length_to_mask(length * max_len, max_len).bool()
             mask_shape = self._compute_mask_shape(noise, max_len)
             mask = mask.view(mask_shape)
             noise.masked_fill_(~mask, 0.0)

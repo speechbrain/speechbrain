@@ -86,6 +86,11 @@ class VariationalAutoencoder(Autoencoder):
     latent_mask_value: float
         the mask value used for the latent representation
 
+    latent_stochastic: bool
+        if true, the "latent" parameter of VariationalAutoencoderOutput
+        will be the latent space sample
+
+        if false, it will be the mean
     """
 
     def __init__(
@@ -99,6 +104,7 @@ class VariationalAutoencoder(Autoencoder):
         mask_out=True,
         out_mask_value=0.0,
         latent_mask_value=0.0,
+        latent_stochastic=True
     ):
         super().__init__()
         self.encoder = encoder
@@ -110,6 +116,7 @@ class VariationalAutoencoder(Autoencoder):
         self.mask_out = mask_out
         self.out_mask_value = out_mask_value
         self.latent_mask_value = latent_mask_value
+        self.latent_stochastic = latent_stochastic
 
     def encode(self, x):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
@@ -205,10 +212,12 @@ class VariationalAutoencoder(Autoencoder):
         x_rec = trim_as(x_rec, x)
         if self.mask_out and length is not None:
             x_rec = clean_padding(x_rec, length, self.len_dim, out_mask_value)
+        latent = latent_sample if self.latent_stochastic else mean
 
-        return VariationalAutoencoderOutput(x_rec, latent_sample, mean, log_var)
+        return VariationalAutoencoderOutput(x_rec, latent, mean, log_var, latent_sample)
 
 
 VariationalAutoencoderOutput = namedtuple(
-    "VariationalAutoencoderOutput", ["rec", "latent", "mean", "log_var"]
+    "VariationalAutoencoderOutput",
+    ["rec", "latent", "mean", "log_var", "latent_sample"]
 )

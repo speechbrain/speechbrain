@@ -37,7 +37,7 @@ diffusion_mode: latent
 train_len: 28520
 sort: len
 batch_shuffle: True
-number_of_epochs: 10
+number_of_epochs: 20
 batch_size: 32
 lr: 0.0005
 lr_warmup_steps: 500
@@ -198,6 +198,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     latent_mask_value: !ref <latent_mask_value>
     dropout: !ref <autoencoder_dropout>
     use_fixup_norm: !ref <autoencoder_use_fixup_norm>
+    latent_stochastic: false
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
