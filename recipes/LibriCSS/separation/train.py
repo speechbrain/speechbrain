@@ -147,52 +147,24 @@ class Separation(sb.Brain):
             else:
                 raise ValueError(f"Loss {loss} is too small")
 
-        return loss.mean()
+        loss = loss.mean()
+
+        if stage != sb.Stage.TRAIN:
+            self.on_evaluate_batch_end(batch, outputs, loss, stage)
+
+        return loss
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called from _fit_train"""
         mix, est_source, targets = outputs
 
-        if self.optimizer_step % self.hparams.audio_logging_interval == 0:
-            signals = [
-                x.detach().cpu()
-                for x in [
-                    mix,
-                    targets[:, :, 0],
-                    targets[:, :, 1],
-                    est_source[:, :, 0],
-                    est_source[:, :, 1],
-                ]
-            ]
-            signals = [x / x.abs().max() for x in signals]
-            audios = [
-                wandb.Audio(
-                    x.squeeze().float().numpy(),
-                    sample_rate=self.hparams.sample_rate,
-                )
-                for x in signals
-            ]
-            wandb_train_table = wandb.Table(
-                columns=[
-                    "id",
-                    "mix",
-                    "target1",
-                    "target2",
-                    "est_source1",
-                    "est_source2",
-                ]
-            )
-            data = [
-                batch.id[0],
-            ] + audios
-            wandb_train_table.add_data(*data)
-            wandb.log(
-                {
-                    f"train_samples_e{self.hparams.epoch_counter.current}_s{self.optimizer_step}": wandb_train_table
-                },
-                commit=True,
-            )
-            logger.info("Wandb: log table")
+        epoch = self.hparams.epoch_counter.current
+        step = self.optimizer_step
+
+        if step % self.hparams.audio_logging_interval == 0:
+            table = build_table(batch.id[0], mix, est_source, targets, loss, sr=self.hparams.sample_rate)
+            wandb.log({f"train_samples_e{epoch}_s{step}": table}, commit=True)
+            logger.info("Wandb: log train table")
 
         if self.optimizer_step % self.hparams.logging_interval == 0:
             wandb.log(
@@ -201,6 +173,15 @@ class Separation(sb.Brain):
                 step=self.optimizer_step,
             )
             logger.info("Wandb: log loss")
+
+    def on_evaluate_batch_end(self, batch, outputs, loss, stage):
+        mix, est_source, targets = outputs
+        if stage == sb.Stage.VALID:
+            self.valid_table = build_table(batch.id[0], mix, est_source, targets, loss, sr=self.hparams.sample_rate, table=self.valid_table)
+
+    def on_stage_start(self, stage, epoch):
+        if stage == sb.Stage.VALID:
+            self.valid_table = None
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -237,6 +218,12 @@ class Separation(sb.Brain):
                 meta={"si-snr": stage_stats["si-snr"]},
                 min_keys=["si-snr"],
             )
+
+            # log valid_table
+            wandb.log({f"valid_samples_e{epoch}": self.valid_table}, commit=True)
+            logger.info("Wandb: log valid table")
+            self.valid_table = None
+
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -496,6 +483,25 @@ class Separation(sb.Brain):
         self.wandb_table.add_data(*data)
 
 
+def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
+    signals = [
+        x.detach().cpu() for x in
+        [mix, targets[:, :, 0], targets[:, :, 1], est_source[:, :, 0], est_source[:, :, 1]]
+    ]
+    signals = [x / x.abs().max() for x in signals]
+    audios = [
+        wandb.Audio(x.squeeze().float().numpy(), sample_rate=sr)
+        for x in signals
+    ]
+    if table is None:
+        table = wandb.Table(
+            columns=["id", "SI-SNR", "mix", "target1", "target2", "est_source1", "est_source2"]
+        )
+    data = [mix_id, -loss] + audios
+    table.add_data(*data)
+    return table
+
+
 def dataio_prep(hparams):
     """Creates data processing pipeline"""
     dm_config = hparams["dm_config"]
@@ -503,7 +509,8 @@ def dataio_prep(hparams):
         DynamicItemDataset.from_csv(
             hparams[key], output_keys=["id", "wav", "spk_id", "duration"]
         )
-        for key in ["train_data", "valid_data"]
+        for key in ["train_data"]
+        # for key in ["train_data", "valid_data"]
     ]
     dm_datasets = [
         DynamicMixingDataset.from_didataset(
@@ -517,7 +524,41 @@ def dataio_prep(hparams):
         )
         for data in datasets
     ]
-    return dm_datasets
+
+    @sb.utils.data_pipeline.takes("mix_wav")
+    @sb.utils.data_pipeline.provides("mix_sig")
+    def audio_pipeline_mix(mix_wav):
+        return sb.dataio.dataio.read_audio(mix_wav)
+
+    @sb.utils.data_pipeline.takes("s1_wav", "duration")
+    @sb.utils.data_pipeline.provides("s1_sig")
+    def audio_pipeline_s1(s1_wav, duration):
+        if not s1_wav:
+            return torch.zeros(int(duration * hparams["sample_rate"]))
+        return sb.dataio.dataio.read_audio(s1_wav)
+
+    @sb.utils.data_pipeline.takes("s2_wav", "duration")
+    @sb.utils.data_pipeline.provides("s2_sig")
+    def audio_pipeline_s2(s2_wav, duration):
+        if not s2_wav:
+            return torch.zeros(int(duration * hparams["sample_rate"]))
+        return sb.dataio.dataio.read_audio(s2_wav)
+
+    @sb.utils.data_pipeline.takes("noise_wav", "duration")
+    @sb.utils.data_pipeline.provides("noise_sig")
+    def audio_pipeline_noise(noise_wav, duration):
+        if not noise_wav:
+            return torch.zeros(int(duration * hparams["sample_rate"]))
+        return sb.dataio.dataio.read_audio(noise_wav)
+
+    valid_data = DynamicItemDataset.from_csv(hparams["valid_data"])
+    datasets = [valid_data]
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"])
+    return (*dm_datasets, *datasets)
 
 
 if __name__ == "__main__":
@@ -543,6 +584,7 @@ if __name__ == "__main__":
     # Data preparation
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     from recipes.LibriSpeech.librispeech_prepare import prepare_librispeech
+    from recipes.LibriCSS.prepare_libridm import prepare_libridm
 
     run_on_main(
         prepare_librispeech,
@@ -552,6 +594,15 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
             "tr_splits": ["train-clean-360"],
             "dev_splits": ["dev-clean"],
+        },
+    )
+    run_on_main(
+        prepare_libridm,
+        kwargs={
+            "librispeech_path": hparams["dm_data_folder"],
+            "openrir_path": hparams["noises_root"],
+            "savepath": hparams["save_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
     train_data, valid_data = dataio_prep(hparams)

@@ -26,7 +26,7 @@ output_folder: !ref <results_root>/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
 train_data: !ref <save_folder>/train-clean-360.csv
-valid_data: !ref <save_folder>/dev-clean.csv
+valid_data: !ref <save_folder>/libridm.csv
 test_data: !ref <save_folder>/libricss_utterances.csv
 skip_prep: True
 
