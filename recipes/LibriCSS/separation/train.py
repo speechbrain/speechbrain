@@ -52,7 +52,7 @@ class Separation(sb.Brain):
             batch = PaddedBatch([batch])
         try:
             return super().fit_batch(batch)
-        except ValueError as e:
+        except LossException as e:
             logger.warning(e)
             logger.warning(
                 "... for mixture of shape %s with id %s",
@@ -145,7 +145,7 @@ class Separation(sb.Brain):
             if loss_to_keep.nelement() > 0:
                 loss = loss_to_keep
             else:
-                raise ValueError(f"Loss {loss} is too small")
+                raise LossException(f"Loss {loss} is too small")
 
         loss = loss.mean()
 
@@ -481,6 +481,10 @@ class Separation(sb.Brain):
         )
 
         self.wandb_table.add_data(*data)
+
+
+class LossException(Exception):
+    pass
 
 
 def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
