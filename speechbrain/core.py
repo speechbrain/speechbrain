@@ -270,11 +270,11 @@ def parse_arguments(arg_list=None):
         help="Number of optimizer steps to run. If not passed, all epochs are run.",
     )
     parser.add_argument(
-        "--white_tqdm",
-        default=False,
+        "--tqdm_default_color",
+        default=True,
         action="store_true",
-        help="Enable default (white) color for tqdm progress-bar. If this is "
-        "not passed a multi-colored progress-bar is used.",
+        help="Enable default color for tqdm progress-bar. If this is "
+        "false, a multi-colored progress-bar is used.",
     )
 
     # Accept extra args to override yaml
@@ -462,7 +462,7 @@ class Brain:
             "ckpt_interval_minutes": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
-            "white_tqdm": False,
+            "tqdm_default_color": False,
             "tqdm_progressbar": {
                 "train": "GREEN",
                 "valid": "MAGENTA",
@@ -600,7 +600,7 @@ class Brain:
             self.checkpointer.add_recoverable("brain", self)
 
         # Force default color for tqdm progrressbar
-        if self.white_tqdm:
+        if self.tqdm_default_color:
             self.tqdm_progressbar = dict.fromkeys(self.tqdm_progressbar, "")
 
     def compute_forward(self, batch, stage):
