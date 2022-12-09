@@ -365,7 +365,7 @@ class Brain:
         These modules are passed to the optimizer by default if they have
         trainable parameters, and will have ``train()``/``eval()`` called on them.
     opt_class : torch.optim class
-        A torch optimizer constructor that has takes only the list of
+        A torch optimizer constructor that takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
@@ -756,6 +756,14 @@ class Brain:
 
         # Possibly make a DistributedSampler or a wrapper for some other sampler
         if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            # sort or not
+            if hasattr(self.hparams, "sorting"):
+                shuffle_ddp = (
+                    self.hparams.sorting == "random"
+                )  # False if 'ascending' or 'descending'
+            else:
+                shuffle_ddp = True
+
             drop_last = loader_kwargs.get("drop_last", False)
             # num_replicas arg is equal to world_size
             # and retrieved automatically within
@@ -774,7 +782,10 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=True, drop_last=drop_last
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle_ddp,
+                    drop_last=drop_last,
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -784,7 +795,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
-                    shuffle=True,
+                    shuffle=shuffle_ddp,
                 )
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
@@ -834,6 +845,16 @@ class Brain:
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        """Sets the gradients of all optimized ``torch.Tensor``s to zero
+        if ``set_to_none=False`` (default) or to None otherwise.
+
+        Setting gradients to None should save the memory, e.g.
+        during ``evaluate()`` and thus larger batch might be used.
+        """
+        if hasattr(self, "optimizer"):
+            self.optimizer.zero_grad(set_to_none)
+
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
 
@@ -882,7 +903,6 @@ class Brain:
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
@@ -895,6 +915,7 @@ class Brain:
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.scaler.update()
+                self.zero_grad()
                 self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
@@ -904,7 +925,7 @@ class Brain:
             if should_step:
                 if self.check_gradients(loss):
                     self.optimizer.step()
-                self.optimizer.zero_grad()
+                self.zero_grad()
                 self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
@@ -1002,6 +1023,7 @@ class Brain:
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
         self.modules.train()
+        self.zero_grad()
 
         # Reset nonfinite count to 0 each epoch
         self.nonfinite_count = 0
@@ -1057,6 +1079,7 @@ class Brain:
                     last_ckpt_time = time.time()
 
         # Run train "on_stage_end" on all processes
+        self.zero_grad(set_to_none=True)  # flush gradients
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1220,11 +1243,18 @@ class Brain:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(
-                        module,
-                        device_ids=[self.device],
-                        find_unused_parameters=self.find_unused_parameters,
-                    )
+                    if self.distributed_backend == "gloo":
+                        module = DDP(
+                            module,
+                            device_ids=None,
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
+                    else:
+                        module = DDP(
+                            module,
+                            device_ids=[self.device],
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
                     self.modules[name] = module
         else:
             # data_parallel_backend

@@ -215,6 +215,10 @@ class ASR_Brain(sb.Brain):
             )
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.adam_optimizer.zero_grad(set_to_none)
+
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
