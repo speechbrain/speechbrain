@@ -65,7 +65,7 @@ dynamic_batch_sampler:
     num_buckets: !ref <num_bucket>
     shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
-    max_batch_ex: -1
+    max_batch_ex: 128
 
 # stages related parameters
 lr_adam: 0.001
