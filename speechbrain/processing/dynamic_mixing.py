@@ -40,8 +40,10 @@ class DynamicMixingConfig:
     noise_min_loudness: float = -33.0  # dB
     noise_max_loudness: float = -43.0  # dB
     reverb: bool = False
-    reverb_sources: bool = False
+    reverb_sources: bool = True
     reverb_prob: float = 1.0
+    white_noise_add: bool = True
+    white_noise_std: float = 1e-7  # should be close to 0
     sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
@@ -371,6 +373,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             noise = noise[: mixture.size(0)]
             mixture += noise
 
+        # replace zeros with small gaussian noise
+        if self.config.white_noise_add:
+            mixture += torch.randn(mixture.shape) * self.config.white_noise_std
+            sources = [
+                src + torch.randn(mixture.shape) * self.config.white_noise_std
+                for src in sources
+            ]
+
         # normalize gain
         # this should be the final step
         mix_max_amp = mixture.abs().max().item()
@@ -379,7 +389,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             gain = self.config.audio_max_amp / mix_max_amp
 
         mixture = gain * mixture
-        sources = list(map(lambda src: gain * src, sources))
+        sources = [src * gain for src in sources]
         if noise is not None:
             noise = gain * noise
 
@@ -396,7 +406,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         mix, srcs, noise, rir, mix_info = self.generate()
 
         for i in range(3 - len(srcs)):
-            srcs.append(torch.zeros(mix.shape))
+            srcs.append(torch.randn(mix.shape) * self.config.white_noise_std)
 
         if idx is None:
             idx = uuid.uuid4()
@@ -418,11 +428,8 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
             "s1_sig": srcs[0],
             "s2_sig": srcs[1],
             "s3_sig": srcs[2],
-            "noise_sig": noise
-            if noise is not None
-            else torch.zeros(mix.shape),
-            "rir": rir if rir is not None
-            else torch.ones(1),
+            "noise_sig": noise if noise is not None else torch.zeros(mix.shape),
+            "rir": rir if rir is not None else torch.ones(1),
             "data": mix_info["data"],
         }
 
