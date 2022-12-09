@@ -1,3 +1,3 @@
 sample: example.mp3
-cls: EncoderASR
+cls: EncoderDecoderASR
 fnx: transcribe_batch
