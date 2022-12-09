@@ -19,6 +19,7 @@ import os
 import sys
 from tqdm import tqdm
 import yaml
+import numpy
 import torch  # noqa
 import importlib  # noqa
 import subprocess
@@ -80,12 +81,16 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         if os.path.exists(hparams):
             os.unlink(hparams)
         if "foreign" in values.keys():
-            os.unlink(custom)
+            if os.path.exists(custom):
+                os.unlink(custom)
 
     if run_opts is not None:
         kwargs["run_opts"] = run_opts
-
+    
+    print(f"\trepo: {repo}")
     if "foreign" not in values.keys():
+        print(f'\tspeechbrain.pretrained.{values["cls"]}')
+        print(f'\tobj.from_hparams({kwargs})')
         obj = eval(f'speechbrain.pretrained.{values["cls"]}')
         model = obj.from_hparams(**kwargs)
     else:
@@ -103,6 +108,8 @@ def get_prediction(repo, values, updates_dir=None):
         # yaml outputs in clean
         if isinstance(data, torch.Tensor):
             data = data.detach().cpu().numpy()
+            if data.ndim:
+                data = list(data)
         return data
 
     model = get_model(repo=repo, values=values, updates_dir=updates_dir)  # noqa
@@ -194,7 +201,7 @@ def gather_refactoring_results(
     repos = map(os.path.basename, glob(f"{updates_dir}/*"))
     for repo in repos:
         # skip if results are there
-        if repo not in results.keys():
+        if "after" not in results[repo].keys():
             # get values
             with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
                 values = load_hyperpyyaml(yaml_test)
