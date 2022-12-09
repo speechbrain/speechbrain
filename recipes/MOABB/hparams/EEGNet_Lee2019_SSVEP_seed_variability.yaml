@@ -1,0 +1,273 @@
+###################################################
+# Classification of imagined movements of Lee2019_SSVEP MOABB dataset using EEGNet.
+# EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
+# Lee2019_SSVEP from https://doi.org/10.1093/gigascience/giz002.
+#
+# Author
+# ------
+# Davide Borra, 2022
+# Mirco Ravanelli, 2022
+# Francesco Paissan, 2022
+###################################################
+seed: 1234
+__set_torchseed: !apply:torch.manual_seed [!ref <seed>]
+
+# DIRECTORIES
+data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
+output_folder: !ref results/MOABB/EEGNet_Lee2019_SSVEP/<seed>
+
+
+# DATASET HPARS
+# Defining the MOABB dataset.
+dataset: !new:moabb.datasets.Lee2019_SSVEP
+to_download: False
+to_prepare: False # set to True if you want to always prepare data
+# data preparation may be slow if the dataset contains many channels with long recordings
+# eventually, save the prepared dataset (save_prepared_dataset: True) and set to_prepare to False
+# to optionally load previously prepared data (cached dataset in pkl files)
+save_prepared_dataset: False # set to True if you want to save the prepared dataset as a pkl file to load and use afterwards
+
+data_iterator_name: !PLACEHOLDER
+target_subject_idx: !PLACEHOLDER
+target_session_idx: !PLACEHOLDER
+events_to_load: null # all events will be loaded
+original_sample_rate: 1000 # Original sampling rate provided by dataset authors
+sample_rate: 125 # Target sampling rate (Hz)
+fmin: 1 # band-pass filtering cut-off frequencies
+fmax: 40
+
+n_classes: 4
+
+# tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
+# trial begins (0 s), cue (2 s, 1.25 s long); each trial is 6 s long
+# dataset interval starts from 2
+# -->tmin tmax are referred to this start value (e.g., tmin=0.5 corresponds to 2.5 s)
+tmin: 0.
+tmax: 4. #4.
+n_steps_channel_selection: 5 # number of steps used when selecting adjacent channels from a seed channel (default at Cz)
+
+T: !apply:math.ceil
+    - !ref <sample_rate> * (<tmax> - <tmin>)
+C: 62
+n_train_examples: 100  # it will be replaced in the train script
+# We here specify how to perfom test:
+# - If test_with: 'last' we perform test with the latest model.
+# - if test_with: 'best, we perform test with the best model (according to the metric specified in test_key)
+# The variable avg_models can be used to average the parameters of the last (or best) N saved models before testing.
+# This can have a regularization effect. If avg_models: 1, the last (or best) model is used directly.
+test_with: 'last' # 'last' or 'best'
+test_key: "acc" # Possible opts: "loss", "f1", "auc", "acc"
+avg_models: 10 # checkpoints to average
+
+f1: !name:sklearn.metrics.f1_score
+    average: 'macro'
+acc: !name:sklearn.metrics.balanced_accuracy_score
+cm: !name:sklearn.metrics.confusion_matrix
+metrics:
+    f1: !ref <f1>
+    acc: !ref <acc>
+    cm: !ref <cm>
+
+# TRAINING HPARS
+number_of_epochs: 800 # number of training epochs
+#number_of_epochs_: 8.0 # number of training epochs
+#number_of_epochs: !ref <number_of_epochs_> * 100  # number of training epochs
+lr: 0.001
+# Learning rate scheduling (cyclic learning rate is used here)
+max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
+base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
+
+step_size_multiplier: 5 #from 2 to 8
+step_size: !apply:round
+  - !ref <step_size_multiplier> * <n_train_examples> / <batch_size>
+
+label_smoothing: 0.0
+
+loss: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
+    limit: !ref <number_of_epochs>
+batch_size_exponent: 5
+batch_size: !ref 2 ** <batch_size_exponent> #64
+valid_ratio: 0.2
+
+# DATA AUGMENTATION
+# cutcat
+cutcat: !new:speechbrain.processing.speech_augmentation.CutCat
+  min_num_segments: 2
+  max_num_segments: 5
+
+# random amplitude gain between 0.5-1.5 uV
+rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
+    amp_low: 0.5
+    amp_high: 1.5
+
+# random shifts between -300 ms to 300 ms
+min_shift: !apply:math.floor
+  - !ref 0 - <sample_rate> * 0.300
+max_shift: !apply:math.floor
+  - !ref 0 + <sample_rate> * 0.300
+
+time_shift: !new:speechbrain.processing.speech_augmentation.RandomShift
+    min_shift: !ref <min_shift>
+    max_shift: !ref <max_shift>
+    dim: 1
+
+# random zeroing portions of 50-300 ms of signals
+drop_length_low: !apply:math.floor
+    - !ref <sample_rate> * 0.050
+drop_length_high: !apply:math.floor
+    - !ref <sample_rate> * 0.300
+chunk_dropper: !new:speechbrain.processing.speech_augmentation.FastDropChunk
+    drop_length_low: !ref <drop_length_low>
+    drop_length_high: !ref <drop_length_high>
+    drop_count_low: 1
+    drop_count_high: 3
+    drop_start: 0
+
+pink_noise_funct: !name:speechbrain.processing.speech_augmentation.pink_noise_like
+    alpha_low: 0.5
+    alpha_high: 0.5
+    sample_rate: !ref <sample_rate>
+
+#muscular_noise_funct: !name:speechbrain.processing.speech_augmentation.muscolar_noise
+#    pink_alpha_low: 1.110
+#    pink_alpha_high: 1.432
+#    bb_offset_low: 3.072
+#    bb_offset_high: 5.686
+#    sample_rate: !ref <sample_rate>
+
+snr_pink_low: 0
+snr_pink_high: 15
+snr_white_low: 0
+snr_white_high: 15
+#snr_muscular_low: 0
+#snr_muscular_high: 10
+
+#n_augmentations: 5 # if 0, no augmentation
+repeat_augment: 1
+idx_combination_augmentations: 0 # idx of augmenter combination to test (0 no augm)
+add_noise_pink: !new:speechbrain.processing.speech_augmentation.AddNoise
+    snr_low: !ref <snr_pink_low>
+    snr_high: !ref <snr_pink_high>
+    noise_funct: !ref <pink_noise_funct>
+
+add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
+    snr_low: !ref <snr_white_low>
+    snr_high: !ref <snr_white_high>
+
+#add_muscular_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+#    snr_low: !ref <snr_muscular_low>
+#    snr_high: !ref <snr_muscular_high>
+#    noise_funct: !ref <muscular_noise_funct>
+
+augment_noise: !new:speechbrain.processing.augmentation.Augmenter
+    parallel_augment: False
+    concat_original: False
+    min_augmentations: 1 #2
+    max_augmentations: 2
+    repeat_augment: 1
+    shuffle_augmentations: True
+    add_noise_pink: !ref <add_noise_pink>
+    add_noise_white: !ref <add_noise_white>
+
+augment: !new:speechbrain.processing.augmentation.Augmenter
+    parallel_augment: True
+    concat_original: True
+    repeat_augment: !ref <repeat_augment>
+    shuffle_augmentations: False
+    idx_combination_augmentations: !ref <idx_combination_augmentations>
+    cutcat: !ref <cutcat>
+    rand_amp: !ref <rand_amp>
+    time_shift: !ref <time_shift>
+    augment_noise: !ref <augment_noise>
+#     chunk_dropper: !ref <chunk_dropper>
+#min_augmentations: !ref <n_augmentations>
+  #    max_augmentations: !ref <n_augmentations>
+#add_muscular_noise: !ref <add_muscular_noise>
+
+# DATA NORMALIZATION
+dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
+normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
+    dims: !ref <dims_to_normalize>
+
+# MODEL: BASELINE EEGNET
+input_shape: [null, !ref <T>, !ref <C>, null]
+#cnn_temporal_kernels_exponent: 3
+#cnn_temporal_kernels: !ref 2 ** <cnn_temporal_kernels_exponent> #8  # number of temporal filters in the temporal conv. layer
+cnn_temporal_kernels: 8
+cnn_temporal_kernelsize: 31 # kernel size of the 2d temporal convolution
+# kernel size learning temporal patterns within 100 ms, 150 ms,...,750 ms
+#cnn_temporal_kernelsize_: 10
+#cnn_temporal_kernelsize: !apply:round
+#  - !ref <cnn_temporal_kernelsize_> * <sample_rate> / (2 * 10)
+#cnn_temporal_kernelsize_s: 0.5
+#cnn_temporal_kernelsize: !apply:round
+#  - !ref <cnn_temporal_kernelsize_s> * <sample_rate>
+
+cnn_spatial_depth_multiplier: 2  # depth multiplier for the spatial depthwise conv. layer
+cnn_spatial_max_norm: 1.  # kernel max-norm constaint of the spatial depthwise conv. layer
+cnn_spatial_pool: 4
+#
+
+cnn_septemporal_depth_multiplier: 1  # depth multiplier for the separable temporal conv. layer
+cnn_septemporal_point_kernels_ratio_: 4
+cnn_septemporal_point_kernels_ratio: !ref <cnn_septemporal_point_kernels_ratio_> / 4
+## number of temporal filters in the separable temporal conv. layer
+cnn_septemporal_point_kernels_: !ref <cnn_temporal_kernels> * <cnn_spatial_depth_multiplier> * <cnn_septemporal_depth_multiplier>
+cnn_septemporal_point_kernels: !apply:math.ceil
+  - !ref <cnn_septemporal_point_kernels_ratio> * <cnn_septemporal_point_kernels_> + 1
+
+# kernel size learning temporal patterns within 100 ms, 150 ms,...,750 ms
+#cnn_septemporal_kernelsize_s: 0.5
+#cnn_septemporal_kernelsize: !apply:round
+#  - !ref <cnn_septemporal_kernelsize_s> * <sample_rate> / <cnn_spatial_pool>
+#cnn_septemporal_kernelsize_: 10
+#cnn_septemporal_kernelsize: !apply:round
+#  - !ref <cnn_septemporal_kernelsize_> * <sample_rate> / (2 * 10 * <cnn_spatial_pool>)
+cnn_septemporal_kernelsize_: 16 # @ 32 Hz
+max_cnn_spatial_pool: 4
+cnn_septemporal_kernelsize: !apply:round
+  - !ref <cnn_septemporal_kernelsize_> * <max_cnn_spatial_pool> / <cnn_spatial_pool>
+
+
+#cnn_septemporal_kernelsize_: 5
+#cnn_septemporal_kernelsize: !apply:round
+#  - !ref <cnn_septemporal_kernelsize_> * <sample_rate> / (10 * <cnn_spatial_pool>)
+#cnn_septemporal_kernelsize_: 62
+#cnn_septemporal_kernelsize: !apply:round
+#  - !ref <cnn_septemporal_kernelsize_> / <cnn_spatial_pool>
+#cnn_septemporal_kernelsize: 16
+
+cnn_septemporal_pool: 8
+cnn_pool_type: 'avg'
+
+dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
+
+dropout: 0.5  # dropout rate
+activation_type: 'elu'
+
+model: !new:speechbrain.lobes.models.EEGNet.EEGNet
+    input_shape: !ref <input_shape>
+    cnn_temporal_kernels: !ref <cnn_temporal_kernels>
+    cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
+    cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
+    cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
+    cnn_spatial_pool: [!ref <cnn_spatial_pool>, 1]
+    cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
+    cnn_septemporal_point_kernels: !ref <cnn_septemporal_point_kernels>
+    cnn_septemporal_kernelsize: [!ref <cnn_septemporal_kernelsize>, 1]
+    cnn_septemporal_pool: [!ref <cnn_septemporal_pool>, 1]
+    cnn_pool_type: !ref <cnn_pool_type>
+    activation_type: !ref <activation_type>
+    dense_max_norm: !ref <dense_max_norm>
+    dropout: !ref <dropout>
+    dense_n_neurons: !ref <n_classes>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
