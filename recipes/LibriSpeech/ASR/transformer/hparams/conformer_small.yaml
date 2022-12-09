@@ -91,7 +91,7 @@ nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 4
 d_ffn: 1024
-transformer_dropout: 0.0
+transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 

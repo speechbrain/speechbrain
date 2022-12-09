@@ -89,7 +89,7 @@ test_dataloader_opts:
 # Transformer
 d_model: 512
 nhead: 4
-num_encoder_layers: 8
+num_encoder_layers: 12
 num_decoder_layers: 6
 d_ffn: 2048
 transformer_dropout: 0.1

@@ -63,7 +63,7 @@ dynamic_batch_sampler:
     max_batch_len: 100000 # in terms of frames
     num_buckets: 200
     shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: descending
+    batch_ordering: random
     max_batch_ex: -1
 
 # stages related parameters
