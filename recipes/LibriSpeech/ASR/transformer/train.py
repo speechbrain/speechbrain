@@ -396,6 +396,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    print(hparams["train_csv"])
     # multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_librispeech,
