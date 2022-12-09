@@ -158,8 +158,11 @@ class Separation(sb.Brain):
         """Called from _fit_train"""
         if self.optimizer_step % self.hparams.logging_interval == 0:
             wandb.log(
-                {"train_sisnr": loss.detach().cpu().numpy()},
-                commit=True,
+                {
+                    "train/si-snr": loss.detach().cpu().numpy(),
+                    "epoch": self.hparams.epoch_counter.current,
+                    "batch": self.optimizer_step,
+                }, commit=True,
             )
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
@@ -176,6 +179,12 @@ class Separation(sb.Brain):
         # Compute/store important stats
         stage_stats = {"si-snr": stage_loss}
         if stage == sb.Stage.TRAIN:
+            wandb.log(
+                {
+                    "train/avg_si-snr": stage_loss,
+                    "epoch": epoch
+                }
+            )
             self.train_stats = stage_stats
 
         # Perform end-of-iteration things, like annealing, logging, etc.
@@ -198,20 +207,19 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             wandb.log(
-                {"lr": current_lr}, step=self.hparams.epoch_counter.current
+                {
+                    "valid/avg_si-snr": stage_loss,
+                    "valid/samples": self.valid_table,
+                    "epoch": epoch,
+                    "lr": current_lr,
+                }
             )
-            wandb.log({**stage_stats})
 
             self.checkpointer.save_and_keep_only(
                 meta={"si-snr": stage_stats["si-snr"]},
                 min_keys=["si-snr"],
             )
-
-            # log valid_table
-            wandb.log({f"valid_samples_e{epoch}": self.valid_table}, commit=True)
-            logger.info("Wandb: log valid table")
             self.valid_table = None
-
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -219,7 +227,11 @@ class Separation(sb.Brain):
             )
             if hasattr(self, "wandb_table") and self.wandb_table is not None:
                 wandb.log(
-                    {"test_samples": self.wandb_table}, step=epoch, commit=True
+                    {
+                        "test/avg_si-snr": stage_loss,
+                        "test/samples": self.wandb_table,
+                        "epoch": epoch,
+                    }
                 )
                 self.wandb_table = None
 
