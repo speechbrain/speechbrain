@@ -57,12 +57,12 @@ sorting: random
 num_workers: 4
 
 dynamic_batching: False
+max_batch_len: 15
 
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 100000 # in terms of frames
-    num_buckets: 200
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    max_batch_len: !ref <max_batch_len>
+    num_buckets: 50
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
     max_batch_ex: -1
 
