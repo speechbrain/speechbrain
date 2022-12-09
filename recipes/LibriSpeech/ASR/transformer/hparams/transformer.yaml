@@ -61,7 +61,7 @@ max_batch_len: 15
 
 dynamic_batch_sampler:
     max_batch_len: !ref <max_batch_len>
-    num_buckets: 50
+    num_buckets: 20
     shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
     max_batch_ex: -1
