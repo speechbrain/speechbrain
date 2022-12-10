@@ -1,76 +1,78 @@
 name: cl-env
 channels:
-  - conda-forge
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1
-  - _openmp_mutex=5.1
-  - ca-certificates=2022.12.7
-  - cffi=1.15.1
-  - gettext=0.21.0
-  - icu=58.2
-  - ld_impl_linux-64=2.38
-  - libblas=3.9.0
-  - libcblas=3.9.0
-  - libffi=3.4.2
-  - libflac=1.3.4
-  - libgcc-ng=11.2.0
-  - libgfortran-ng=12.2.0
-  - libgfortran5=12.2.0
-  - libgomp=11.2.0
-  - liblapack=3.9.0
-  - libogg=1.3.4
-  - libopenblas=0.3.20
-  - libopus=1.3.1
-  - libsndfile=1.0.31
-  - libstdcxx-ng=11.2.0
-  - libvorbis=1.3.7
-  - libxml2=2.9.14
-  - ncurses=6.3
-  - openssl=1.1.1s
-  - pip=22.2.2
-  - pycparser=2.21
-  - pysoundfile=0.11.0
-  - python=3.8.15
-  - python_abi=3.8
-  - readline=8.2
-  - setuptools=65.5.0
-  - sqlite=3.40.0
-  - tk=8.6.12
-  - wheel=0.37.1
-  - xz=5.2.8
-  - zlib=1.2.13
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - appdirs=1.4.4=pyhd3eb1b0_0
+  - attrs=22.1.0=py38h06a4308_0
+  - black=19.10b0=py_0
+  - bzip2=1.0.8=h7b6447c_0
+  - ca-certificates=2022.10.11=h06a4308_0
+  - click=8.0.4=py38h06a4308_0
+  - entrypoints=0.3=py38_0
+  - ffmpeg=4.2.2=h20bf706_0
+  - flake8=3.7.9=py38_0
+  - flit-core=3.6.0=pyhd3eb1b0_0
+  - freetype=2.12.1=h4a9f257_0
+  - gmp=6.2.1=h295c915_3
+  - gnutls=3.6.15=he1e5248_0
+  - lame=3.100=h7b6447c_0
+  - ld_impl_linux-64=2.38=h1181459_1
+  - libffi=3.4.2=h6a678d5_6
+  - libgcc-ng=11.2.0=h1234567_1
+  - libgomp=11.2.0=h1234567_1
+  - libidn2=2.3.2=h7f8727e_0
+  - libopus=1.3.1=h7b6447c_0
+  - libpng=1.6.37=hbc83047_0
+  - libstdcxx-ng=11.2.0=h1234567_1
+  - libtasn1=4.16.0=h27cfd23_0
+  - libunistring=0.9.10=h27cfd23_0
+  - libvpx=1.7.0=h439df22_0
+  - mccabe=0.6.1=py38h06a4308_2
+  - mypy_extensions=0.4.3=py38h06a4308_1
+  - ncurses=6.3=h5eee18b_3
+  - nettle=3.7.3=hbbd107a_1
+  - openh264=2.1.1=h4ff587b_0
+  - openssl=1.1.1s=h7f8727e_0
+  - pathspec=0.9.0=py38h06a4308_0
+  - pip=22.3.1=py38h06a4308_0
+  - pluggy=0.13.1=py38h06a4308_0
+  - py=1.11.0=pyhd3eb1b0_0
+  - pycodestyle=2.5.0=py38_0
+  - pyflakes=2.1.1=py38_0
+  - pyparsing=3.0.9=py38h06a4308_0
+  - pytest=5.4.1=py38_0
+  - python=3.8.15=h7a1cb2a_2
+  - readline=8.2=h5eee18b_0
+  - setuptools=65.5.0=py38h06a4308_0
+  - sqlite=3.40.0=h5082296_0
+  - tk=8.6.12=h1ccaba5_0
+  - toml=0.10.2=pyhd3eb1b0_0
+  - typed-ast=1.4.3=py38h7f8727e_1
+  - typing_extensions=4.4.0=py38h06a4308_0
+  - wcwidth=0.2.5=pyhd3eb1b0_0
+  - wheel=0.37.1=pyhd3eb1b0_0
+  - x264=1!157.20191217=h7b6447c_0
+  - xz=5.2.8=h5eee18b_0
+  - zlib=1.2.13=h5eee18b_0
   - pip:
-    - appdirs==1.4.4
-    - attrs==22.1.0
-    - bitsandbytes==0.35.4
-    - black==19.10b0
     - certifi==2022.12.7
     - charset-normalizer==2.1.1
-    - click==8.0.4
     - cmake==3.25.0
-    - entrypoints==0.3
     - filelock==3.8.2
-    - flake8==3.7.9
     - huggingface-hub==0.11.1
     - hyperpyyaml==1.1.0
     - idna==3.4
     - jinja2==3.1.2
     - joblib==1.2.0
     - markupsafe==2.1.1
-    - mccabe==0.6.1
     - more-itertools==9.0.0
     - mpmath==1.2.1
     - networkx==3.0rc1
     - numpy==1.24.0rc2
     - packaging==22.0
-    - pathspec==0.10.2
     - pillow==9.3.0
-    - pluggy==0.13.1
-    - py==1.11.0
-    - pycodestyle==2.5.0
-    - pyflakes==2.1.1
-    - pytest==5.4.1
     - pyyaml==6.0
     - regex==2022.10.31
     - requests==2.28.1
@@ -80,18 +82,13 @@ dependencies:
     - sentencepiece==0.1.97
     - sympy==1.11.1
     - tokenizers==0.13.2
-    - toml==0.10.2
     - --extra-index-url https://download.pytorch.org/whl/nightly/cu117
-    - torch==1.14.0.dev20221208+cu117
-    - torchaudio==0.14.0.dev20221208+cu117
+    - torch==2.0.0.dev20221209+cu117
+    - torchaudio==0.14.0.dev20221209+cu117
     - torchtriton==2.0.0+0d7e753227
-    - torchvision==0.15.0.dev20221208+cu117
+    - torchvision==0.15.0.dev20221209+cu117
     - tqdm==4.64.1
     - transformers==4.25.1
-    - typed-ast==1.5.4
-    - typing-extensions==4.4.0
     - urllib3==1.26.13
-    - wcwidth==0.2.5
-    - yamllint==1.23.0
     # Local SpeechBrain package
     - -e ../../../

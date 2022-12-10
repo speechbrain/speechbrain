@@ -16,8 +16,8 @@ output_dir: !ref results/ar/whisper/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 32
-valid_batch_size: 32
+train_batch_size: 24  # 1 when fine-tuning both encoder and decoder
+valid_batch_size: 40
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -41,6 +41,7 @@ freeze_encoder: True
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True
 gradient_checkpointing: False
+compile_model: True
 ckpt_interval_minutes: 600
 
 max_gen_tokens: 225
@@ -54,10 +55,6 @@ train_dataloader_kwargs:
     shuffle: True
 
 valid_dataloader_kwargs:
-    batch_size: !ref <valid_batch_size>
-    num_workers: !ref <valid_num_workers>
-
-test_dataloader_kwargs:
     batch_size: !ref <valid_batch_size>
     num_workers: !ref <valid_num_workers>
 
@@ -83,7 +80,7 @@ modules:
     whisper: !ref <whisper>
 
 # Optimizers
-opt_class: !name:bitsandbytes.optim.AdamW8bit
+opt_class: !name:torch.optim.SGD
     lr: !ref <lr>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

@@ -28,7 +28,7 @@ conda deactivate
 To permanently delete it, run:
 
 ```
-conda remove --n cl-env --all
+conda env remove -n cl-env
 ```
 
 ---------------------------------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ python common_voice_prepare.py -l <list-of-locales-to-download> -d data
 It is recommended to compress the downloaded datasets into `tar.gz` archives to store them more efficiently:
 
 ```
-tar -czvf common_voice_11_0.tar.gz data
+tar -czvf common_voice_11.tar.gz data
 rm -r data
 ```
 

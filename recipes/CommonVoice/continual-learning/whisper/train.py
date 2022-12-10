@@ -11,7 +11,7 @@ The following technical tricks were implemented to improve performance:
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - compile model with `torch.compile` from PyTorch 2.0 nightly
-- use 8-bit optimizer
+- use small memory footprint optimizers (e.g. SGD)
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
@@ -268,10 +268,11 @@ if __name__ == "__main__":
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Compile with PyTorch 2.0 nightly
-    torch.set_float32_matmul_precision("high")
-    hparams["whisper"].model = torch.compile(
-        hparams["whisper"].model, mode="max-autotune"
-    )
+    if hparams["compile_model"]:
+        torch.set_float32_matmul_precision("high")
+        hparams["whisper"].model = torch.compile(
+            hparams["whisper"].model, mode="max-autotune"
+        )
 
     # Trainer initialization
     asr_brain = ASR(
@@ -329,12 +330,11 @@ if __name__ == "__main__":
     )
 
     # Testing
-    hparams["test_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
     asr_brain.hparams.wer_file = os.path.join(
         hparams["output_dir"], "wer_test.txt"
     )
     asr_brain.evaluate(
         test_data,
         min_key="WER",
-        test_loader_kwargs=hparams["test_dataloader_kwargs"],
+        test_loader_kwargs=hparams["valid_dataloader_kwargs"],
     )
