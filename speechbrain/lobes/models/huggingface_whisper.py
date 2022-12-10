@@ -17,6 +17,7 @@ try:
     from transformers import WhisperModel
     from transformers import WhisperFeatureExtractor
     from transformers.models.whisper.tokenization_whisper import (
+        LANGUAGES,
         WhisperTokenizer,
     )
 except ImportError:
@@ -76,7 +77,12 @@ class HuggingFaceWhisper(nn.Module):
         self.tokenizer = None
         # Download the tokenizer only if we are going to use the Decoder.
         if not encoder_only:
-            self.tokenizer = WhisperTokenizer.from_pretrained(source)
+            self.tokenizer = WhisperTokenizer.from_pretrained(
+                source, language=None, task="transcribe", predict_timestamps=False
+            )
+            self.tokenizer.supported_languages = LANGUAGES
+            all_lang_tokens = [f"<|{l}|>" for l in LANGUAGES]
+            self._all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(all_lang_tokens)
 
         # Download the extractor from HuggingFace.
         feature_extractor = WhisperFeatureExtractor.from_pretrained(
@@ -106,6 +112,10 @@ class HuggingFaceWhisper(nn.Module):
                 )
                 for param in self.model.encoder.parameters():
                     param.requires_grad = False
+
+        # No tokens are forced as decoder outputs, no tokens are suppressed during generation
+        self.model.config.forced_language_id = None
+        self.model.config.suppress_tokens = []
 
     def forward(self, wav, decoder_input_ids=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
@@ -283,3 +293,67 @@ class HuggingFaceWhisper(nn.Module):
         ).to(audio_features.dtype)
 
         return logits, attn
+
+    @torch.no_grad()
+    def generate(
+        self, wav=None, audio_features=None, forced_decoder_locale=None, max_gen_tokens=445, strategy="greedy",
+    ):
+        if wav is None and audio_features is None:
+            raise ValueError("Either `wav` or `audio_features` argument should be given")
+        if audio_features is None:
+            audio_features = self.forward_encoder(wav)
+        batch_size = audio_features.shape[0]
+        (
+            startoftranscript_id,
+            transcribe_id,
+            notimestamps_id,
+        ) = self.tokenizer.prefix_tokens
+        pad_id = self.model.config.pad_token_id
+        endoftext_id = self.tokenizer.eos_token_id
+
+        hyps = torch.full(
+            (batch_size, max_gen_tokens + 4),
+            pad_id,
+            dtype=torch.long,
+            device=audio_features.device,
+        )
+        if forced_decoder_locale is None:
+            # Compute most likely language token IDs
+            hyps[:, 0] = startoftranscript_id
+            logits, _ = self.forward_decoder(audio_features, hyps[:, :1])
+            lang_mask = torch.zeros(logits.shape[-1], device=logits.device, dtype=torch.bool)
+            lang_mask[self._all_lang_tokens_ids] = True
+            logits[:, :, ~lang_mask] = -float("inf")
+            lang_tokens_ids = logits.argmax(dim=-1)[:, 0]
+        else:
+            if forced_decoder_locale not in LANGUAGES:
+                raise NotImplementedError(
+                    f"Unsupported language: {forced_decoder_locale}"
+                )
+            lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(
+                f"<|{forced_decoder_locale}|>"
+            )
+
+        # Prepare initial tokens in the right format
+        hyps[:, 0] = startoftranscript_id
+        hyps[:, 1] = lang_tokens_ids
+        hyps[:, 2] = transcribe_id
+        hyps[:, 3] = notimestamps_id
+
+        # Autoregressive loop
+        num_gen_tokens = 0
+        unfinished_mask = torch.ones(
+            len(hyps), dtype=torch.bool, device=audio_features.device
+        )
+        while True:
+            logits, _ = self.forward_decoder(
+                audio_features[unfinished_mask],
+                hyps[unfinished_mask, : num_gen_tokens + 4],
+            )
+            gen_tokens = logits.argmax(dim=-1)[:, -1]
+            hyps[unfinished_mask, num_gen_tokens + 4] = gen_tokens
+            unfinished_mask[unfinished_mask == True] = gen_tokens != endoftext_id
+            num_gen_tokens += 1
+            if (not unfinished_mask.any()) or (num_gen_tokens >= max_gen_tokens):
+                break
+        return hyps[:, 4:num_gen_tokens + 3]

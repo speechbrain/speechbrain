@@ -90,6 +90,7 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         Given object is modified in place.
     """
     del end_of_epoch  # Unused
+    device = "cpu"
     try:
         obj.load_state_dict(torch.load(path, map_location=device), strict=True)
     except TypeError:
@@ -140,6 +141,7 @@ def torch_parameter_transfer(obj, path, device):
     None
         The object is modified in place.
     """
+    device = "cpu"
     incompatible_keys = obj.load_state_dict(
         torch.load(path, map_location=device), strict=False
     )
