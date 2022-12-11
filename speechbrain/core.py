@@ -273,8 +273,8 @@ def parse_arguments(arg_list=None):
         "--tqdm_colored_bar",
         default=False,
         action="store_true",
-        help="Enable default color for tqdm progress-bar. If this is "
-        "false, a multi-colored progress-bar is used.",
+        help="Enable colored progress-bar in tqdm. If this is "
+        "false, tqdm shall use default colors.",
     )
 
     # Accept extra args to override yaml
