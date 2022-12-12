@@ -19,7 +19,6 @@ import os
 import sys
 from tqdm import tqdm
 import yaml
-import numpy
 import torch  # noqa
 import importlib  # noqa
 import subprocess
@@ -86,11 +85,11 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
 
     if run_opts is not None:
         kwargs["run_opts"] = run_opts
-    
+
     print(f"\trepo: {repo}")
     if "foreign" not in values.keys():
         print(f'\tspeechbrain.pretrained.{values["cls"]}')
-        print(f'\tobj.from_hparams({kwargs})')
+        print(f"\tobj.from_hparams({kwargs})")
         obj = eval(f'speechbrain.pretrained.{values["cls"]}')
         model = obj.from_hparams(**kwargs)
     else:
