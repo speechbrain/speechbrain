@@ -102,10 +102,10 @@ class RNN(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        padded_sequence_eval=True,
     ):
         super().__init__()
         self.reshape = False
+        self.padded_sequence_eval = False
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -215,11 +215,10 @@ class LSTM(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        padded_sequence_eval=True,
     ):
         super().__init__()
         self.reshape = False
-        self.padded_sequence_eval = padded_sequence_eval
+        self.padded_sequence_eval = False
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -328,11 +327,10 @@ class GRU(torch.nn.Module):
         dropout=0.0,
         re_init=True,
         bidirectional=False,
-        padded_sequence_eval=True,
     ):
         super().__init__()
         self.reshape = False
-        self.padded_sequence_eval = padded_sequence_eval
+        self.padded_sequence_eval = False
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
