@@ -233,7 +233,7 @@ class Separation(sb.Brain):
 
         with torch.no_grad():
             predictions, targets = self.compute_forward(mixture, targets, stage)
-            loss = self.compute_objectives(predictions, targets)
+            loss = self.compute_objectives(predictions, targets).mean()
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric.append(
