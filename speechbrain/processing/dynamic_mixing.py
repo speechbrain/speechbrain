@@ -43,7 +43,7 @@ class DynamicMixingConfig:
     reverb_sources: bool = True
     reverb_prob: float = 1.0
     white_noise_add: bool = True
-    white_noise_std: float = 1e-7  # should be close to 0
+    white_noise_std: float = 1e-4  # should be close to 0
     sample_rate: int = 16000
     min_source_len: int = 16000
     max_source_len: int = 320000
