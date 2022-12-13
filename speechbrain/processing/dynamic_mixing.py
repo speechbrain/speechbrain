@@ -283,7 +283,7 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                 [paddings[1] for _ in range(len(padded_sources))],
             )
             padded_sources.append(padded_tmp[0])
-        mixture, padded_source, noise, rir = self.__postprocess__(
+        mixture, padded_sources, noise, rir = self.__postprocess__(
             mixture, padded_sources, mix_info=mix_info
         )
 
