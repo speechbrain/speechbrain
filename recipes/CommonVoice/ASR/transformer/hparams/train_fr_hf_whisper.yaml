@@ -26,7 +26,7 @@ data_folder: !ref 'data/common_voice_10_0/<locale>'
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
-accented_letters: False
+accented_letters: True
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
