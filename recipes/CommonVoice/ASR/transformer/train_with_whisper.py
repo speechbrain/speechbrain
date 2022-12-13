@@ -53,7 +53,7 @@ class ASR(sb.Brain):
         # Forward encoder + decoder
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
-        log_probs = self.hparams.log_softmax(logits)
+        # log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
         if stage == sb.Stage.VALID:
@@ -61,18 +61,18 @@ class ASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
 
-        return log_probs, hyps, wav_lens
+        return logits, hyps, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
 
-        log_probs, hyps, wav_lens, = predictions
+        logits, hyps, wav_lens, = predictions
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens,
+            logits, tokens_eos, length=tokens_eos_lens,
         )
 
         if stage != sb.Stage.TRAIN:
