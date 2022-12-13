@@ -87,21 +87,21 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
     linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation: !new:torch.nn.LeakyReLU
     drop: !new:torch.nn.Dropout
         p: 0.15
     linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation2: !new:torch.nn.LeakyReLU
     drop2: !new:torch.nn.Dropout
         p: 0.15
     linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation3: !new:torch.nn.LeakyReLU
@@ -134,7 +134,6 @@ wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
     output_norm: !new:speechbrain.processing.features.InputNormalization
         norm_type: sentence
         dim: (-2, -1)
-
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead

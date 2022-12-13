@@ -80,16 +80,17 @@ class Separation(sb.Brain):
                     else:
                         mix = targets.sum(-1)
 
-                    noise = noise.to(self.device)
-                    len_noise = noise.shape[1]
-                    len_mix = mix.shape[1]
-                    min_len = min(len_noise, len_mix)
+                    if noise is not None:
+                        noise = noise.to(self.device)
+                        len_noise = noise.shape[1]
+                        len_mix = mix.shape[1]
+                        min_len = min(len_noise, len_mix)
 
-                    # add the noise
-                    mix = mix[:, :min_len] + noise[:, :min_len]
+                        # add the noise
+                        mix = mix[:, :min_len] + noise[:, :min_len]
 
-                    # fix the length of targets also
-                    targets = targets[:, :min_len, :]
+                        # fix the length of targets also
+                        targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -140,7 +141,9 @@ class Separation(sb.Brain):
         """Computes the si-snr loss"""
         predicted_wavs, predicted_specs = predictions
 
-        if self.use_freq_domain:
+        if (
+            self.use_freq_domain and predicted_specs is not None
+        ):  # see: sisnr_baseline
             target_specs = self.compute_feats(targets)
             return self.hparams.loss(target_specs, predicted_specs)
         else:
@@ -233,7 +236,7 @@ class Separation(sb.Brain):
 
         with torch.no_grad():
             predictions, targets = self.compute_forward(mixture, targets, stage)
-            loss = self.compute_objectives(predictions, targets)
+            loss = self.compute_objectives(predictions, targets).mean()
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric.append(
@@ -633,7 +636,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.WHAMandWHAMR.prepare_data import prepare_wham_whamr_csv
+    from prepare_data import prepare_wham_whamr_csv
 
     run_on_main(
         prepare_wham_whamr_csv,
@@ -648,8 +651,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
-        from recipes.WHAMandWHAMR.prepare_data import create_whamr_rir_csv
-        from recipes.WHAMandWHAMR.meta.create_whamr_rirs import create_rirs
+        from prepare_data import create_whamr_rir_csv
+        from create_whamr_rirs import create_rirs
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
@@ -689,9 +692,7 @@ if __name__ == "__main__":
             if not os.path.exists(
                 os.path.normpath(hparams["base_folder_dm"]) + "_" + dm_suffix
             ):
-                from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+                from preprocess_dynamic_mixing import resample_folder
 
                 print("Resampling the base folder")
                 run_on_main(

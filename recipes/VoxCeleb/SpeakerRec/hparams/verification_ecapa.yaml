@@ -31,6 +31,7 @@ pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+skip_prep: False
 
 batch_size: 8
 score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)

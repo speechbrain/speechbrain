@@ -1,0 +1,4 @@
+ln -s `realpath tests/samples/annotation/ASR_train.json` tests/samples/ASR/train.json
+ln -s `realpath tests/samples/annotation/ASR_dev.json` tests/samples/ASR/valid.json
+ln -s `realpath tests/samples/annotation/ASR_dev.json` tests/samples/ASR/test.json
+

@@ -192,6 +192,11 @@ class ASR(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.model_optimizer.zero_grad(set_to_none)
+
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.

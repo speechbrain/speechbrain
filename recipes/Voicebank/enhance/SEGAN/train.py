@@ -310,6 +310,10 @@ class SEBrain(sb.Brain):
                     "optimizer_d", self.optimizer_d
                 )
 
+    def zero_grad(self, set_to_none=False):
+        self.optimizer_d.zero_grad(set_to_none)
+        self.optimizer_g.zero_grad(set_to_none)
+
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch"""
         self.loss_metric_d1 = MetricStats(

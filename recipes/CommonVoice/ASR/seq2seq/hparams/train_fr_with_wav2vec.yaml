@@ -68,6 +68,8 @@ dnn_layers: 2
 dnn_neurons: 1024
 emb_size: 128
 dec_neurons: 1024
+dec_hidden_size: !ref <dec_neurons>
+dec_attn_dim: !ref <dec_neurons>
 freeze_wav2vec: False
 
 # Outputs
@@ -132,7 +134,6 @@ wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
         norm_type: sentence
         dim: (-2, -1)
 
-
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead
 # of a HuggingFace one. Here, we provide an URL that is obtained from the
@@ -151,12 +152,12 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dnn_neurons>
+    enc_dim: !ref <dec_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
+    hidden_size: !ref <dec_hidden_size>
+    attn_dim: !ref <dec_attn_dim>
     num_layers: 1
     scaling: 1.0
     channels: 10

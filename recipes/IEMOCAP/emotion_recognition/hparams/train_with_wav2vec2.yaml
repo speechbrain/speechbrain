@@ -17,7 +17,7 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the wav2vec2 model, you can change to benchmark diffrenet models
 # Important: we use wav2vec2 base and not the fine-tuned one with ASR task
 # This allow you to have ~4% improvment
-wav2vec2_hub: "facebook/wav2vec2-base"
+wav2vec2_hub: facebook/wav2vec2-base
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # different speakers for train, valid and test sets
@@ -29,6 +29,7 @@ test_spk_id: 1
 train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
+skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -87,7 +88,6 @@ wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
     output_norm: !new:speechbrain.processing.features.InputNormalization
         norm_type: sentence
         dim: (-2, -1)
-
 
 avg_pool: !new:speechbrain.nnet.pooling.StatisticsPooling
     return_std: False

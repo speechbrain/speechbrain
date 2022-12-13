@@ -1,0 +1,4 @@
+rm -r tests/samples/single-mic/train
+rm -r tests/samples/single-mic/dev
+rm -r tests/samples/single-mic/dev2
+rm -r tests/samples/single-mic/test

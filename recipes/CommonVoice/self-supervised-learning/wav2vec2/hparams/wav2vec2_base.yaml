@@ -115,7 +115,6 @@ wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
         norm_type: sentence
         dim: (-2, -1)
 
-
 modules:
     wav2vec2: !ref <wav2vec2>
 
