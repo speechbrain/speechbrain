@@ -295,12 +295,12 @@ def test():
 
     hparams["train_dataloader_kwargs"][
         "collate_fn"
-    ] = lambda examples, *args, **kwargs: PaddedBatch(
+    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
         examples, hparams, *args, **kwargs
     )
     hparams["valid_dataloader_kwargs"][
         "collate_fn"
-    ] = lambda examples, *args, **kwargs: PaddedBatch(
+    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
         examples, hparams, *args, **kwargs
     )
 
@@ -377,12 +377,12 @@ def train():
 
     hparams["train_dataloader_kwargs"][
         "collate_fn"
-    ] = lambda examples, *args, **kwargs: PaddedBatch(
+    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
         examples, hparams, *args, **kwargs
     )
     hparams["valid_dataloader_kwargs"][
         "collate_fn"
-    ] = lambda examples, *args, **kwargs: PaddedBatch(
+    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
         examples, hparams, *args, **kwargs
     )
 
