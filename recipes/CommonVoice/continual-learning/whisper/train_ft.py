@@ -235,7 +235,7 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_data
 
 
-if __name__ == "__main__":
+def test():
     # Command-line interface
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -325,7 +325,7 @@ if __name__ == "__main__":
         )
 
 
-if __name__ == "__main__":
+def train():
     # Command-line interface
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -491,3 +491,8 @@ if __name__ == "__main__":
             min_key="WER",
             test_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+
+
+if __name__ == "__main__":
+    test()
+    train()

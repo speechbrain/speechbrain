@@ -18,7 +18,7 @@ save_dir: !ref <output_dir>/save
 
 # Training parameters
 train_batch_size: 24  # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 40
+valid_batch_size: 32
 train_num_workers: 6
 valid_num_workers: 6
 
