@@ -22,7 +22,7 @@ normalized_transcripts: True
 
 # Data files
 locale: ar # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
-data_folder: !ref 'data/common_voice_10_0/<locale>' 
+data_folder: !ref 'data/common_voice_10_0_small/<locale>' 
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
@@ -44,6 +44,10 @@ lr_whisper: 0.00003
 sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
+
+ignore_index: -100  # For cross-entropy loss
+label_smoothing: 0
+
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -100,7 +104,9 @@ whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-nll_loss: !name:speechbrain.nnet.losses.nll_loss
+ce_loss: !new:torch.nn.CrossEntropyLoss
+    ignore_index: !ref <ignore_index>
+    label_smoothing: !ref <label_smoothing>
 
 modules:
     whisper: !ref <whisper>
