@@ -70,8 +70,8 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
-        loss = self.hparams.nll_loss(
-            logits, tokens_eos, length=tokens_eos_lens,
+        loss = self.hparams.ce_loss(
+            logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
 
         if stage != sb.Stage.TRAIN:
