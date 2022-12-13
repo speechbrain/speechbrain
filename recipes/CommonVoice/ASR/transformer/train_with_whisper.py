@@ -19,6 +19,7 @@ import os
 import sys
 import torch
 import logging
+import torchaudio
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
@@ -52,8 +53,6 @@ class ASR(sb.Brain):
 
         # Forward encoder + decoder
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
-
-        # log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
         if stage == sb.Stage.VALID:
@@ -197,8 +196,12 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
+        info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        resampled = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -268,6 +271,7 @@ if __name__ == "__main__":
     )
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
+    
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
     # we need to prepare the tokens for searchers
