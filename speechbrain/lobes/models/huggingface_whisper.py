@@ -18,6 +18,8 @@ try:
     from transformers import WhisperFeatureExtractor
     from transformers.models.whisper.tokenization_whisper import (
         LANGUAGES,
+        TASK_IDS,
+        TO_LANGUAGE_CODE,
         WhisperTokenizer,
     )
 except ImportError:
@@ -26,6 +28,42 @@ except ImportError:
     raise ImportError(MSG)
 
 logger = logging.getLogger(__name__)
+
+
+class CustomWhisperTokenizer(WhisperTokenizer):
+    # override
+    @property
+    def prefix_tokens(self):
+        all_special_ids = self.all_special_ids
+        bos_token_id = all_special_ids[-106]
+        translate_token_id = all_special_ids[-6]
+        transcribe_token_id = all_special_ids[-5]
+        notimestamps_token_id = all_special_ids[-1]
+        #langs = tuple(LANGUAGES.keys())
+
+        if self.language is not None:
+            self.language = self.language.lower()
+            if self.language in TO_LANGUAGE_CODE:
+                language_id = TO_LANGUAGE_CODE[self.language]
+            else:
+                raise ValueError(
+                    f"Unsupported language: {self.language}. Language should be in: {TO_LANGUAGE_CODE.keys()}"
+                )
+
+        if self.task is not None:
+            if self.task not in TASK_IDS:
+                raise ValueError(f"Unsupported task: {self.task}. Task should be in: {TASK_IDS}")
+
+        bos_sequence = [bos_token_id]
+        if self.language is not None:
+            # Need to replace with custom code because language ID is hardcoded...
+            #bos_sequence.append(bos_token_id + 1 + langs.index(language_id))
+            bos_sequence.append(self.encode(f"<|{language_id}|>", add_special_tokens=False)[0])
+        if self.task is not None:
+            bos_sequence.append(transcribe_token_id if self.task == "transcribe" else translate_token_id)
+        if not self.predict_timestamps:
+            bos_sequence.append(notimestamps_token_id)
+        return bos_sequence
 
 
 class HuggingFaceWhisper(nn.Module):
@@ -77,11 +115,14 @@ class HuggingFaceWhisper(nn.Module):
         self.tokenizer = None
         # Download the tokenizer only if we are going to use the Decoder.
         if not encoder_only:
-            self.tokenizer = WhisperTokenizer.from_pretrained(
+            self.tokenizer = CustomWhisperTokenizer.from_pretrained(
                 source, language=None, task="transcribe", predict_timestamps=False
             )
             self.tokenizer.supported_languages = LANGUAGES
-            all_lang_tokens = [f"<|{l}|>" for l in LANGUAGES]
+            self.tokenizer.to_language_codes = TO_LANGUAGE_CODE
+            # Add common language code aliases
+            self.tokenizer.supported_languages.update({"zh-CN": "chinese"})
+            all_lang_tokens = [f"<|{l}|>" for l in self.tokenizer.supported_languages]
             self._all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(all_lang_tokens)
 
         # Download the extractor from HuggingFace.
