@@ -235,6 +235,41 @@ class ASR(sb.core.Brain):
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
 
+    def fit_batch(self, batch):
+
+        should_step = self.step % self.grad_accumulation_factor == 0
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            with torch.cuda.amp.autocast():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                self.scaler.scale(
+                    loss / self.grad_accumulation_factor
+                ).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.zero_grad()
+                self.optimizer_step += 1
+                self.hparams.noam_annealing(self.optimizer)
+        else:
+            outputs = self.compute_forward(batch, sb, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.zero_grad()
+                self.optimizer_step += 1
+                self.hparams.noam_annealing(self.optimizer)
+
+        self.on_fit_batch_end(batch, outputs, loss, should_step)
+        return loss.detach().cpu()
+
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
