@@ -18,7 +18,6 @@ from speechbrain.nnet.normalization import LayerNorm
 
 class PositionalEmbedding(nn.Module):
     """Computation of the positional embeddings.
-
     Arguments
     ---------
     embed_dim: int
@@ -35,7 +34,6 @@ class PositionalEmbedding(nn.Module):
 
     def forward(self, seq_len, mask, dtype):
         """Computes the forward pass
-
         Arguments
         ---------
         seq_len: int
@@ -44,7 +42,6 @@ class PositionalEmbedding(nn.Module):
             mask applied to the positional embeddings
         dtype: str
             dtype of the embeddings
-
         Returns
         -------
         pos_emb: torch.Tensor
@@ -61,7 +58,6 @@ class PositionalEmbedding(nn.Module):
 
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
-
     Arguments
     ---------
     n_vocab: int
@@ -70,7 +66,6 @@ class EncoderPreNet(nn.Module):
         padding index
     out_channels: int
         the size of each embedding vector
-
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
@@ -92,12 +87,10 @@ class EncoderPreNet(nn.Module):
 
     def forward(self, x):
         """Computes the forward pass
-
         Arguments
         ---------
         x: torch.Tensor
             a (batch, tokens) input tensor
-
         Returns
         -------
         output: torch.Tensor
@@ -108,9 +101,95 @@ class EncoderPreNet(nn.Module):
         return x
 
 
+class PostNet(nn.Module):
+    """
+    FastSpeech2 Conv Postnet
+    Arguments
+    ---------
+    n_mel_channels: int
+       input feature dimension for convolution layers
+    postnet_embedding_dim: int
+       output feature dimension for convolution layers
+    postnet_kernel_size: int
+       postnet convolution kernal size
+    postnet_n_convolutions: int
+       number of convolution layers
+    postnet_dropout: float
+        dropout probability fot postnet
+    """
+    def __init__(
+        self,
+        n_mel_channels=80,
+        postnet_embedding_dim=512,
+        postnet_kernel_size=5,
+        postnet_n_convolutions=5,
+        postnet_dropout=0.5
+    ):
+        super(PostNet, self).__init__()
+        self.conv_pre = CNN.Conv1d(
+            in_channels=n_mel_channels,
+            out_channels=postnet_embedding_dim,
+            kernel_size=postnet_kernel_size,
+            padding="same",
+        )
+
+        self.convs_intermedite = nn.ModuleList()
+        for i in range(1, postnet_n_convolutions - 1):
+            self.convs_intermedite.append(
+                CNN.Conv1d(
+                    in_channels=postnet_embedding_dim,
+                    out_channels=postnet_embedding_dim,
+                    kernel_size=postnet_kernel_size,
+                    padding="same",
+                ),
+            )
+
+        self.conv_post = CNN.Conv1d(
+            in_channels=postnet_embedding_dim,
+            out_channels=n_mel_channels,
+            kernel_size=postnet_kernel_size,
+            padding="same",
+        )
+
+        self.tanh = nn.Tanh()
+        self.ln1 = nn.LayerNorm(postnet_embedding_dim)
+        self.ln2 = nn.LayerNorm(postnet_embedding_dim)
+        self.ln3 = nn.LayerNorm(n_mel_channels)
+        self.dropout1 = nn.Dropout(postnet_dropout)
+        self.dropout2 = nn.Dropout(postnet_dropout)
+        self.dropout3 = nn.Dropout(postnet_dropout)
+
+    def forward(self, x):
+        """Computes the forward pass
+        Arguments
+        ---------
+        x: torch.Tensor
+            a (batch, time_steps, features) input tensor
+        Returns
+        -------
+        output: torch.Tensor
+            the spectrogram predicted
+        """
+        x = self.conv_pre(x)
+        x = self.ln1(x).to(x.dtype)
+        x = self.tanh(x)
+        x = self.dropout1(x)
+        
+        for i in range(len(self.convs_intermedite)):
+            x = self.convs_intermedite[i](x)
+        x = self.ln2(x).to(x.dtype)
+        x = self.tanh(x)
+        x = self.dropout2(x)
+        
+        x = self.conv_post(x)
+        x = self.ln3(x).to(x.dtype)
+        x = self.dropout3(x)
+
+        return x
+
+
 class DurationPredictor(nn.Module):
     """Duration predictor layer
-
     Arguments
     ---------
     in_channels: int
@@ -119,7 +198,8 @@ class DurationPredictor(nn.Module):
        output feature dimension for convolution layers
     kernel_size: int
        duration predictor convolution kernal size
-
+    dropout: float
+       dropout probability, 0 by default
     Example
     -------
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
@@ -130,7 +210,7 @@ class DurationPredictor(nn.Module):
     torch.Size([3, 400, 1])
     """
 
-    def __init__(self, in_channels, out_channels, kernel_size, n_units=1):
+    def __init__(self, in_channels, out_channels, kernel_size, dropout=0.0, n_units=1):
         super().__init__()
         self.conv1 = CNN.Conv1d(
             in_channels=in_channels,
@@ -148,15 +228,15 @@ class DurationPredictor(nn.Module):
         self.ln1 = LayerNorm(out_channels)
         self.ln2 = LayerNorm(out_channels)
         self.relu = nn.ReLU()
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x):
         """Computes the forward pass
-
         Arguments
         ---------
         x: torch.Tensor
             a (batch, time_steps, features) input tensor
-
         Returns
         -------
         output: torch.Tensor
@@ -164,9 +244,12 @@ class DurationPredictor(nn.Module):
         """
         x = self.relu(self.conv1(x))
         x = self.ln1(x).to(x.dtype)
+        x = self.dropout1(x)
 
         x = self.relu(self.conv2(x))
         x = self.ln2(x).to(x.dtype)
+        x = self.dropout2(x)
+
         return self.linear(x)
 
 
@@ -178,7 +261,6 @@ class FastSpeech2(nn.Module):
     Simplified STRUCTURE: input->token embedding ->encoder ->duration predictor ->duration
     upsampler -> decoder -> output
     During training, teacher forcing is used (ground truth durations are used for upsampling)
-
     Arguments
     ---------
     #encoder parameters
@@ -200,6 +282,8 @@ class FastSpeech2(nn.Module):
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
         whether to use convolutional layers instead of feed forward network inside tranformer layer
+    ffn_cnn_kernel_size_list: list of int
+        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     #decoder parameters
     dec_num_layers: int
         number of transformer layers (TransformerEncoderLayer) in decoder
@@ -218,11 +302,21 @@ class FastSpeech2(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer,
+        whether to use convolutional layers instead of feed forward network inside tranformer layer.
+    ffn_cnn_kernel_size_list: list of int
+        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
         the number of symbols for the token embedding
     n_mels: int
         number of bins in mel spectrogram
+    postnet_embedding_dim: int
+       output feature dimension for convolution layers
+    postnet_kernel_size: int
+       postnet convolution kernal size
+    postnet_n_convolutions: int
+       number of convolution layers
+    postnet_dropout: float
+        dropout probability fot postnet
     padding_idx: int
         the index for padding
     dur_pred_kernel_size: int
@@ -231,7 +325,8 @@ class FastSpeech2(nn.Module):
         kernel size for pitch prediction.
     energy_pred_kernel_size: int
         kernel size for energy prediction.
-
+    variance_predictor_dropout: float
+        dropout probability for variance predictor (duration/pitch/energy)
     Example
     -------
     >>> import torch
@@ -253,12 +348,18 @@ class FastSpeech2(nn.Module):
     ...    dec_dropout=0.1,
     ...    normalize_before=False,
     ...    ffn_type='1dcnn',
+    ...    ffn_cnn_kernel_size_list=[9, 1],
     ...    n_char=40,
     ...    n_mels=80,
+    ...    postnet_embedding_dim=512,
+    ...    postnet_kernel_size=5,
+    ...    postnet_n_convolutions=5,
+    ...    postnet_dropout=0.5,
     ...    padding_idx=0,
     ...    dur_pred_kernel_size=3,
     ...    pitch_pred_kernel_size=3,
-    ...    energy_pred_kernel_size=3)
+    ...    energy_pred_kernel_size=3,
+    ...    variance_predictor_dropout=0.5)
     >>> inputs = torch.tensor([
     ...     [13, 12, 31, 14, 19],
     ...     [31, 16, 30, 31, 0],
@@ -273,7 +374,6 @@ class FastSpeech2(nn.Module):
     (torch.Size([2, 15, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape
     (torch.Size([2, 15, 1]), torch.Size([2, 15, 1]))
-
     """
 
     def __init__(
@@ -294,12 +394,18 @@ class FastSpeech2(nn.Module):
         dec_dropout,
         normalize_before,
         ffn_type,
+        ffn_cnn_kernel_size_list,
         n_char,
         n_mels,
+        postnet_embedding_dim,
+        postnet_kernel_size,
+        postnet_n_convolutions,
+        postnet_dropout,
         padding_idx,
         dur_pred_kernel_size,
         pitch_pred_kernel_size,
         energy_pred_kernel_size,
+        variance_predictor_dropout,
     ):
         super().__init__()
         self.enc_num_head = enc_num_head
@@ -319,29 +425,34 @@ class FastSpeech2(nn.Module):
             in_channels=enc_d_model,
             out_channels=enc_d_model,
             kernel_size=dur_pred_kernel_size,
+            dropout=variance_predictor_dropout,
         )
         self.pitchPred = DurationPredictor(
             in_channels=enc_d_model,
             out_channels=enc_d_model,
             kernel_size=dur_pred_kernel_size,
+            dropout=variance_predictor_dropout,
         )
         self.energyPred = DurationPredictor(
             in_channels=enc_d_model,
             out_channels=enc_d_model,
             kernel_size=dur_pred_kernel_size,
+            dropout=variance_predictor_dropout,
         )
-        self.pitchEmbed = nn.Conv1d(
+        self.pitchEmbed = CNN.Conv1d(
             in_channels=1,
             out_channels=enc_d_model,
             kernel_size=pitch_pred_kernel_size,
-            padding=(pitch_pred_kernel_size // 2),
+            padding="same",
+            skip_transpose=True,
         )
 
-        self.energyEmbed = nn.Conv1d(
+        self.energyEmbed = CNN.Conv1d(
             in_channels=1,
             out_channels=enc_d_model,
             kernel_size=energy_pred_kernel_size,
-            padding=(energy_pred_kernel_size // 2),
+            padding="same",
+            skip_transpose=True,
         )
         self.encoder = TransformerEncoder(
             num_layers=enc_num_layers,
@@ -354,6 +465,7 @@ class FastSpeech2(nn.Module):
             activation=nn.ReLU,
             normalize_before=normalize_before,
             ffn_type=ffn_type,
+            ffn_cnn_kernel_size_list=ffn_cnn_kernel_size_list,
         )
 
         self.decoder = TransformerEncoder(
@@ -367,22 +479,28 @@ class FastSpeech2(nn.Module):
             activation=nn.ReLU,
             normalize_before=normalize_before,
             ffn_type=ffn_type,
+            ffn_cnn_kernel_size_list=ffn_cnn_kernel_size_list,
         )
 
         self.linear = linear.Linear(n_neurons=n_mels, input_size=dec_d_model)
+        self.postnet = PostNet(
+            n_mel_channels=n_mels,
+            postnet_embedding_dim=postnet_embedding_dim,
+            postnet_kernel_size=postnet_kernel_size,
+            postnet_n_convolutions=postnet_n_convolutions,
+            postnet_dropout=postnet_dropout,
+        )
 
     def forward(
         self, tokens, durations=None, pitch=None, energy=None, pace=1.0
     ):
         """forward pass for training and inference
-
         Arguments
         ---------
         tokens: torch.tensor
             batch of input tokens
         durations: torch.tensor
             batch of durations for each token. If it is None, the model will infer on predicted durations
-
         Returns
         ---------
         mel_post: torch.Tensor
@@ -416,7 +534,7 @@ class FastSpeech2(nn.Module):
                 torch.exp(predict_durations) - 1, 0
             )
 
-        spec_feats = upsample(
+        spec_feats, mel_lens = upsample(
             token_feats,
             durations if durations is not None else dur_pred_reverse_log,
             pace=pace,
@@ -454,12 +572,12 @@ class FastSpeech2(nn.Module):
             spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
         )
         mel_post = self.linear(output_mel_feats) * srcmask_inverted
-        return mel_post, predict_durations, predict_pitch, predict_energy
+        postnet_output = self.postnet(mel_post) + mel_post
+        return mel_post, postnet_output, predict_durations, predict_pitch, predict_energy, torch.tensor(mel_lens)
 
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
     """upsample encoder ouput according to durations
-
     Arguments
     ---------
     feats: torch.tensor
@@ -470,7 +588,6 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
         scaling factor for durations
     padding_value: int
         padding index
-
     Returns
     ---------
     mel_post: torch.Tensor
@@ -478,14 +595,19 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     predict_durations: torch.Tensor
         predicted durations for each token
     """
-    return torch.nn.utils.rnn.pad_sequence(
-        [
-            torch.repeat_interleave(feats[i], (pace * durs[i]).long(), dim=0)
-            for i in range(len(durs))
-        ],
+    upsampled_mels = [
+        torch.repeat_interleave(feats[i], (pace * durs[i]).long(), dim=0)
+        for i in range(len(durs))
+    ]
+
+    mel_lens = [mel.shape[0] for mel in upsampled_mels]
+
+    padded_upsampled_mels = torch.nn.utils.rnn.pad_sequence(
+        upsampled_mels,
         batch_first=True,
         padding_value=padding_value,
     )
+    return padded_upsampled_mels, mel_lens
 
 
 class TextMelCollate:
@@ -507,7 +629,6 @@ class TextMelCollate:
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
-
         Arguments
         ---------
         batch: list
@@ -585,7 +706,6 @@ class TextMelCollate:
 
 class Loss(nn.Module):
     """Loss Computation
-
     Arguments
     ---------
     log_scale_durations: bool
@@ -598,6 +718,8 @@ class Loss(nn.Module):
        weight for the energy loss
     mel_loss_weight: int
        weight for the mel loss
+    postnet_mel_loss_weight: int
+       weight for the postnet mel loss
     """
 
     def __init__(
@@ -607,29 +729,30 @@ class Loss(nn.Module):
         pitch_loss_weight,
         energy_loss_weight,
         mel_loss_weight,
+        postnet_mel_loss_weight
     ):
         super().__init__()
 
         self.mel_loss = nn.L1Loss()
-        self.dur_loss = nn.L1Loss()
-        self.pitch_loss = nn.L1Loss()
-        self.energy_loss = nn.L1Loss()
+        self.postnet_mel_loss = nn.L1Loss()
+        self.dur_loss = nn.MSELoss()
+        self.pitch_loss = nn.MSELoss()
+        self.energy_loss = nn.MSELoss()
         self.log_scale_durations = log_scale_durations
         self.mel_loss_weight = mel_loss_weight
+        self.postnet_mel_loss_weight = postnet_mel_loss_weight
         self.duration_loss_weight = duration_loss_weight
         self.pitch_loss_weight = pitch_loss_weight
         self.energy_loss_weight = energy_loss_weight
 
     def forward(self, predictions, targets):
         """Computes the value of the loss function and updates stats
-
         Arguments
         ---------
         predictions: tuple
             model predictions
         targets: tuple
             ground truth data
-
         Returns
         -------
         loss: torch.Tensor
@@ -644,7 +767,14 @@ class Loss(nn.Module):
             phon_len,
         ) = targets
         assert len(mel_target.shape) == 3
-        mel_out, log_durations, predicted_pitch, predicted_energy = predictions
+        (
+            mel_out,
+            postnet_mel_out,
+            log_durations,
+            predicted_pitch,
+            predicted_energy,
+            mel_lens
+        ) = predictions
         predicted_pitch = predicted_pitch.squeeze()
         predicted_energy = predicted_energy.squeeze()
         target_energy = target_energy.squeeze()
@@ -659,6 +789,10 @@ class Loss(nn.Module):
                 mel_loss = self.mel_loss(
                     mel_out[i, : mel_length[i], :],
                     mel_target[i, : mel_length[i], :],
+                )
+                postnet_mel_loss = self.postnet_mel_loss(
+                    postnet_mel_out[i, :mel_length[i], :],
+                    mel_target[i, :mel_length[i], :],
                 )
                 dur_loss = self.dur_loss(
                     log_durations[i, : phon_len[i]],
@@ -677,6 +811,10 @@ class Loss(nn.Module):
                     mel_out[i, : mel_length[i], :],
                     mel_target[i, : mel_length[i], :],
                 )
+                postnet_mel_loss = postnet_mel_loss + self.postnet_mel_loss(
+                    postnet_mel_out[i, :mel_length[i], :],
+                    mel_target[i, :mel_length[i], :],
+                )
                 dur_loss = dur_loss + self.dur_loss(
                     log_durations[i, : phon_len[i]],
                     log_target_durations[i, : phon_len[i]].to(torch.float32),
@@ -690,15 +828,22 @@ class Loss(nn.Module):
                     target_energy[i, : mel_length[i]].to(torch.float32),
                 )
         mel_loss = torch.div(mel_loss, len(mel_target))
+        postnet_mel_loss = torch.div(postnet_mel_loss, len(mel_target))
         dur_loss = torch.div(dur_loss, len(mel_target))
         pitch_loss = torch.div(pitch_loss, len(mel_target))
         energy_loss = torch.div(energy_loss, len(mel_target))
-        return (
-            mel_loss * self.mel_loss_weight
-            + dur_loss * self.duration_loss_weight
-            + pitch_loss * self.pitch_loss_weight
-            + energy_loss * self.energy_loss_weight
-        )
+
+        total_loss = mel_loss*self.mel_loss_weight + postnet_mel_loss*self.postnet_mel_loss_weight + dur_loss*self.duration_loss_weight + pitch_loss*self.pitch_loss_weight + energy_loss*self.energy_loss_weight
+
+        loss = {
+            "total_loss": total_loss,
+            "mel_loss": mel_loss*self.mel_loss_weight,
+            "postnet_mel_loss": postnet_mel_loss*self.postnet_mel_loss_weight,
+            "dur_loss": dur_loss*self.duration_loss_weight,
+            "pitch_loss": pitch_loss*self.pitch_loss_weight,
+            "energy_loss": energy_loss*self.energy_loss_weight,
+        }
+        return loss
 
 
 def mel_spectogram(
@@ -718,7 +863,6 @@ def mel_spectogram(
     audio,
 ):
     """calculates MelSpectrogram for a raw audio signal
-
     Arguments
     ---------
     sample_rate : int

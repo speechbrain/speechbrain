@@ -16,8 +16,8 @@ train_log: !ref <output_folder>/train_log.txt
 epochs: 500 # Note: 100 epochs are enough for good quality
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
-progress_samples_min_run: 50
-progress_samples_interval: 25
+progress_samples_min_run: 10
+progress_samples_interval: 10
 progress_batch_sample_size: 4
 
 #################################
@@ -73,27 +73,37 @@ padding_idx: 0
 # Encoder parameters
 enc_num_layers: 4
 enc_num_head: 2
-enc_d_model: 384
+enc_d_model: 256
 enc_ffn_dim: 1024
-enc_k_dim: 384
-enc_v_dim: 384
-enc_dropout: 0.1
+enc_k_dim: 256
+enc_v_dim: 256
+enc_dropout: 0.2
 
 # Decoder parameters
 dec_num_layers: 4
 dec_num_head: 2
-dec_d_model: 384
+dec_d_model: 256
 dec_ffn_dim: 1024
-dec_k_dim: 384
-dec_v_dim: 384
-dec_dropout: 0.1
+dec_k_dim: 256
+dec_v_dim: 256
+dec_dropout: 0.2
+
+# Postnet parameters
+postnet_embedding_dim: 512
+postnet_kernel_size: 5
+postnet_n_convolutions: 5
+postnet_dropout: 0.5
 
 # common
 normalize_before: True
 ffn_type: 1dcnn #1dcnn or ffn
+ffn_cnn_kernel_size_list: [9, 1]
+
+# variance predictor
 dur_pred_kernel_size: 3
 pitch_pred_kernel_size: 3
 energy_pred_kernel_size: 3
+variance_predictor_dropout: 0.5
 
 #model
 model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2
@@ -113,12 +123,18 @@ model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2
     dec_dropout: !ref <dec_dropout>
     normalize_before: !ref <normalize_before>
     ffn_type: !ref <ffn_type>
+    ffn_cnn_kernel_size_list: !ref <ffn_cnn_kernel_size_list>
     n_char: !ref <n_symbols>
     n_mels: !ref <n_mel_channels>
+    postnet_embedding_dim: !ref <postnet_embedding_dim>
+    postnet_kernel_size: !ref <postnet_kernel_size>
+    postnet_n_convolutions: !ref <postnet_n_convolutions>
+    postnet_dropout: !ref <postnet_dropout>
     padding_idx: !ref <padding_idx>
     dur_pred_kernel_size: !ref <dur_pred_kernel_size>
     pitch_pred_kernel_size: !ref <pitch_pred_kernel_size>
     energy_pred_kernel_size: !ref <energy_pred_kernel_size>
+    variance_predictor_dropout: !ref <variance_predictor_dropout>
 
 mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
     sample_rate: !ref <sample_rate>
@@ -141,6 +157,7 @@ criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
     pitch_loss_weight: 1.0
     energy_loss_weight: 1.0
     mel_loss_weight: 1.0
+    postnet_mel_loss_weight: 1.0
 
 vocoder: "hifi-gan"
 pretrained_vocoder: True

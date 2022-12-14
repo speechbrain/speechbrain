@@ -5,7 +5,6 @@ synthesis' paper
  (https://arxiv.org/abs/2006.04558)
  To run this recipe, do the following:
  # python train.py hparams/train.yaml
-
  Authors
  * Sathvik Udupa 2022
  * Yingzhi Wang 2022
@@ -21,6 +20,7 @@ import speechbrain as sb
 from speechbrain.pretrained import HIFIGAN
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.data_utils import scalarize
 
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,9 @@ class FastSpeech2Brain(sb.Brain):
         x, y, metadata = self.batch_to_device(batch, return_metadata=True)
         self.last_batch = [x[0], y[-1], y[-2], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
-        return self.hparams.criterion(predictions, y)
+        loss = self.hparams.criterion(predictions, y)
+        self.last_loss_stats[stage] = scalarize(loss)
+        return loss["total_loss"]
 
     def _remember_sample(self, batch, predictions):
         """Remembers samples of spectrograms and the batch for logging purposes
@@ -106,17 +108,24 @@ class FastSpeech2Brain(sb.Brain):
             labels,
             wavs,
         ) = batch
-        mel_post, predict_durations, predict_pitch, predict_energy = predictions
+        (
+            mel_post,
+            postnet_mel_out,
+            predict_durations,
+            predict_pitch,
+            predict_energy,
+            predict_mel_lens,
+        ) = predictions
         self.hparams.progress_sample_logger.remember(
             target=self.process_mel(spectogram, mel_lengths),
-            output=self.process_mel(mel_post, mel_lengths),
+            output=self.process_mel(postnet_mel_out, mel_lengths),
             raw_batch=self.hparams.progress_sample_logger.get_batch_sample(
                 {
                     "tokens": tokens,
                     "input_lengths": input_lengths,
                     "mel_target": spectogram,
-                    "mel_out": mel_post,
-                    "mel_lengths": mel_lengths,
+                    "mel_out": postnet_mel_out,
+                    "mel_lengths": predict_mel_lens,
                     "durations": durations,
                     "predict_durations": predict_durations,
                     "labels": labels,
@@ -156,15 +165,6 @@ class FastSpeech2Brain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-        # Store the train loss until the validation stage.
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-        # Summarize the statistics from the stage for record-keeping.
-        else:
-            stats = {
-                "loss": stage_loss,
-            }
-
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
@@ -174,8 +174,8 @@ class FastSpeech2Brain(sb.Brain):
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
                 stats_meta={"Epoch": epoch, "lr": lr},
-                train_stats={"loss": self.train_loss},
-                valid_stats=stats,
+                train_stats=self.last_loss_stats[sb.Stage.TRAIN],
+                valid_stats=self.last_loss_stats[sb.Stage.VALID],
             )
             output_progress_sample = (
                 self.hparams.progress_samples
@@ -185,45 +185,52 @@ class FastSpeech2Brain(sb.Brain):
 
             if output_progress_sample:
                 logger.info("Saving predicted samples")
-                self.run_inference()
-
+                inference_mel, mel_lens = self.run_inference()
                 self.hparams.progress_sample_logger.save(epoch)
-                self.run_vocoder()
+                self.run_vocoder(inference_mel, mel_lens)
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+            self.checkpointer.save_and_keep_only(
+                meta=self.last_loss_stats[stage],
+                min_keys=["total_loss"],
+            )
         # We also write statistics about test data spectogramto stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stats,
+                test_stats=self.last_loss_stats[sb.Stage.TEST],
             )
 
-    def run_inference(self, index=0):
+    def run_inference(self):
         """Produces a sample in inference mode with predicted durations.
-        Arguments
-        ---------
-        index: int
-            batch index
         """
         if self.last_batch is None:
             return
-        tokens, input_lengths, *_ = self.last_batch
-        token = tokens[index][: input_lengths[index]]
-        mel_post, *_ = self.hparams.model(token.unsqueeze(0))
+        tokens, *_ = self.last_batch
+
+        _, postnet_mel_out, _, _, _, predict_mel_lens =  self.hparams.model(tokens)
         self.hparams.progress_sample_logger.remember(
-            infer_output=self.process_mel(mel_post, [len(mel_post[0])])
+            infer_output=self.process_mel(postnet_mel_out, [len(postnet_mel_out[0])])
         )
+        return postnet_mel_out, predict_mel_lens
 
-    def run_vocoder(self):
-        """Uses a pretrained vocoder  to generate audio from predicted mel
-        spectogram. By default, uses speechbrain hifigan."""
-
+    def run_vocoder(self, inference_mel, mel_lens):
+        """Uses a pretrained vocoder to generate audio from predicted mel
+        spectogram. By default, uses speechbrain hifigan.
+        Arguments
+        ---------
+        inference_mel: torch.Tensor
+            predicted mel from fastspeech2 inference
+        mel_lens: torch.Tensor
+            predicted mel lengths from fastspeech2 inference
+            used to mask the noise from padding
+        """
         if self.last_batch is None:
             return
-        _, _, mel_len, mel, _, wavs = self.last_batch
-        mel = mel[: self.hparams.progress_batch_sample_size]
-        mel_len = mel_len[0 : self.hparams.progress_batch_sample_size]
+        *_, wavs = self.last_batch
+
+        inference_mel = inference_mel[: self.hparams.progress_batch_sample_size]
+        mel_lens = mel_lens[0 : self.hparams.progress_batch_sample_size]
         assert (
             self.hparams.vocoder == "hifi-gan"
             and self.hparams.pretrained_vocoder is True
@@ -236,7 +243,7 @@ class FastSpeech2Brain(sb.Brain):
             savedir=self.hparams.vocoder_download_path,
         )
         waveforms = hifi_gan.decode_batch(
-            mel.transpose(2, 1), mel_len, self.hparams.hop_length
+            inference_mel.transpose(2, 1), mel_lens, self.hparams.hop_length
         )
         for idx, wav in enumerate(waveforms):
 
@@ -249,7 +256,6 @@ class FastSpeech2Brain(sb.Brain):
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
-
             Arguments
             ---------
             batch: tuple
