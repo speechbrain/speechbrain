@@ -12,6 +12,7 @@ Authors
 
 import os
 import torch
+import copy
 import logging
 import numpy as np
 import pickle
@@ -22,6 +23,7 @@ import torchaudio
 import json
 import re
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
+from typing import Union, List, Tuple
 
 check_torchaudio_backend()
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ def load_data_json(json_path, replacements={}):
     Arguments
     ----------
     json_path : str
-        Path to CSV file.
+        Path to JSON file.
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}.
         This is used to recursively format all string values in the data.
@@ -62,6 +64,28 @@ def load_data_json(json_path, replacements={}):
     """
     with open(json_path, "r") as f:
         out_json = json.load(f)
+    _recursive_format(out_json, replacements)
+    return out_json
+
+
+def load_data_dict(dict_obj, replacements={}):
+    """Loads data in ``dict`` object and recursively formats string values.
+
+    Arguments
+    ----------
+    dict_obj : dict
+        Dictinary object.
+    replacements : dict
+        (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}.
+        This is used to recursively format all string values in the data.
+
+    Returns
+    -------
+    dict
+        Data with replacements applied.
+
+    """
+    out_json = copy.deepcopy(dict_obj)
     _recursive_format(out_json, replacements)
     return out_json
 
@@ -376,7 +400,7 @@ def load_pickle(pickle_path):
     return out
 
 
-def to_floatTensor(x: (list, tuple, np.ndarray)):
+def to_floatTensor(x: Union[list, tuple, np.ndarray]):
     """
     Arguments
     ---------
@@ -396,7 +420,7 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
         return torch.tensor(x, dtype=torch.float)
 
 
-def to_doubleTensor(x: (list, tuple, np.ndarray)):
+def to_doubleTensor(x: Union[List[float], Tuple[float], np.ndarray]):
     """
     Arguments
     ---------
@@ -416,7 +440,7 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
         return torch.tensor(x, dtype=torch.double)
 
 
-def to_longTensor(x: (list, tuple, np.ndarray)):
+def to_longTensor(x: Union[List[float], Tuple[float], np.ndarray]):
     """
     Arguments
     ---------
