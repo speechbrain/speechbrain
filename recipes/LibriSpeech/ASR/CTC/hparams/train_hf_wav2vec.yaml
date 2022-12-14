@@ -39,6 +39,8 @@ sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
 
+# 1000 in the other yaml; but not used in this recipe
+warmup_steps: 0
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs

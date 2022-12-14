@@ -38,7 +38,7 @@ class SLU(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         #  encoder forward pass
-        wav2vec2_out = self.modules.wav2vec2(wavs)
+        wav2vec2_out = self.modules.wav2vec2(wavs, wav_lens)
 
         # SLU forward pass
         e_in = self.hparams.output_emb(tokens_bos)
@@ -351,7 +351,7 @@ if __name__ == "__main__":
 
     # freeze the feature extractor part when unfreezing
     if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:
-        hparams["wav2vec2"].model.feature_extractor._freeze_parameters()
+        hparams["w2v2"].model.feature_extractor._freeze_parameters()
 
     # Brain class initialization
     slu_brain = SLU(

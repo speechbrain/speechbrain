@@ -53,7 +53,7 @@ class ASR(sb.core.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
 
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
@@ -241,7 +241,7 @@ class ASR(sb.core.Brain):
 
     def zero_grad(self, set_to_none=False):
         self.model_optimizer.zero_grad(set_to_none)
-        if not self.hparams.wav2vec2.freeze:
+        if not self.hparams.w2v2.freeze:
             self.wav2vec_optimizer.zero_grad(set_to_none)
 
 

@@ -57,7 +57,7 @@ class ASR(sb.Brain):
                 "embeddings"
             ]
         else:  # HuggingFace pretrained model
-            feats = self.modules.wav2vec2(wavs)
+            feats = self.modules.wav2vec2(wavs, wav_lens)
 
         x = self.modules.enc(feats)
 

@@ -24,7 +24,7 @@ class EmoIdBrain(sb.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        outputs = self.modules.wav2vec2(wavs)
+        outputs = self.modules.wav2vec2(wavs, lens)
 
         # last dim will be used for AdaptativeAVG pool
         outputs = self.hparams.avg_pool(outputs, lens)

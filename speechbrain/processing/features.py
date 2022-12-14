@@ -1018,6 +1018,7 @@ class InputNormalization(torch.nn.Module):
             It is used to perform per-speaker normalization when
             norm_type='speaker'.
         """
+        # TODO if is tuple/list x=x[0]...
         N_batches = x.shape[0]
 
         current_means = []

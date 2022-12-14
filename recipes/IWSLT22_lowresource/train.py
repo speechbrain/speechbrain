@@ -25,7 +25,7 @@ class ST(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos  # translation
 
         # wav2vec module
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
 
         # dimensionality reduction
         src = self.modules.enc(feats)
@@ -411,7 +411,7 @@ if __name__ == "__main__":
     datasets, tokenizer = dataio_prepare(hparams)
 
     # Before training, we drop some of the wav2vec 2.0 Transformer Encoder layers
-    st_brain.modules.wav2vec2.model.encoder.layers = st_brain.modules.wav2vec2.model.encoder.layers[
+    st_brain.modules.wav2vec2.w2v2.model.encoder.layers = st_brain.modules.wav2vec2.w2v2.model.encoder.layers[
         : hparams["keep_n_layers"]
     ]
 

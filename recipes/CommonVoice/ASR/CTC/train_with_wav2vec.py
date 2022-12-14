@@ -51,7 +51,7 @@ class ASR(sb.core.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
@@ -205,7 +205,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
     def zero_grad(self, set_to_none=False):
-        if not self.hparams.wav2vec2.freeze:
+        if not self.hparams.w2v2.freeze:
             self.wav2vec_optimizer.zero_grad(set_to_none)
         self.model_optimizer.zero_grad(set_to_none)
 
