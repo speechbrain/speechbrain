@@ -47,6 +47,7 @@ def prepare_ljspeech(
     pitch_max_f0=2093,
     create_symbol_list=False,
     skip_prep=False,
+    use_custom_cleaner=False,
 ):
     """
     Prepares the csv files for the LJspeech datasets.
@@ -122,7 +123,7 @@ def prepare_ljspeech(
 
     # Download duration folder
     if duration_link is not None:
-        if not os.path.exists(duration_folder + "durations/LJ001-0001.npy"):
+        if not os.path.exists(os.path.join(duration_folder, "durations/LJ001-0001.npy")):
             logger.info("Downloading durations for fastspeech training")
             download_file(
                 duration_link, duration_folder + "/durations.zip", unpack=True,
@@ -155,6 +156,7 @@ def prepare_ljspeech(
             pitch_hop_length,
             pitch_min_f0,
             pitch_max_f0,
+            use_custom_cleaner,
         )
     if "valid" in splits:
         prepare_json(
@@ -169,6 +171,7 @@ def prepare_ljspeech(
             pitch_hop_length,
             pitch_min_f0,
             pitch_max_f0,
+            use_custom_cleaner,
         )
     if "test" in splits:
         prepare_json(
@@ -183,6 +186,7 @@ def prepare_ljspeech(
             pitch_hop_length,
             pitch_min_f0,
             pitch_max_f0,
+            use_custom_cleaner,
         )
     if create_symbol_list:
         create_symbol_file(save_folder, save_json_train)
@@ -306,6 +310,7 @@ def prepare_json(
     pitch_hop_length,
     pitch_min_f0,
     pitch_max_f0,
+    use_custom_cleaner=False,
 ):
     """
     Creates json file given a list of indexes.
@@ -348,6 +353,8 @@ def prepare_json(
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
         label = list(csv_reader)[index][2]
+        if use_custom_cleaner:
+            label = custom_clean(label)
         json_dict[id] = {
             "wav": wav,
             "label": label,
@@ -395,3 +402,36 @@ def create_symbol_file(save_folder, save_json_train):
             char_set.update(*line.lower())
         with open(lexicon_path, "w") as f:
             f.write("\t".join(char_set))
+
+def custom_clean(text):
+    import re
+    from unidecode import unidecode
+    _abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in [
+                    ('mrs', 'misess'),
+                    ('mr', 'mister'),
+                    ('dr', 'doctor'),
+                    ('st', 'saint'),
+                    ('co', 'company'),
+                    ('jr', 'junior'),
+                    ('maj', 'major'),
+                    ('gen', 'general'),
+                    ('drs', 'doctors'),
+                    ('rev', 'reverend'),
+                    ('lt', 'lieutenant'),
+                    ('hon', 'honorable'),
+                    ('sgt', 'sergeant'),
+                    ('capt', 'captain'),
+                    ('esq', 'esquire'),
+                    ('ltd', 'limited'),
+                    ('col', 'colonel'),
+                    ('ft', 'fort'),
+                    ]]
+    text = unidecode(text.lower())
+    text = re.sub("[:;]", " - ", text)
+    text = re.sub("[)(\[\]\"]", " ", text)
+    text = re.sub(' +', ' ', text)
+    for regex, replacement in _abbreviations:
+        text = re.sub(regex, replacement, text)
+    text = text.strip().strip().strip('-')
+    return text
+

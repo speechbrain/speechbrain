@@ -304,8 +304,9 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav, label, dur, pitch):
         durs = np.load(dur)
         durs_seq = torch.from_numpy(durs).int()
+        label = label.strip()
         text_seq = input_encoder.encode_sequence_torch(label.lower()).int()
-        assert len(text_seq) == len(durs)  # ensure every token has a duration
+        assert len(text_seq) == len(durs), f'{len(text_seq)}, {len(durs), len(label)}, ({label})'  # ensure every token has a duration
         audio = sb.dataio.dataio.read_audio(wav)
         mel, energy = hparams["mel_spectogram"](audio=audio)
         pitch = np.load(pitch)
@@ -359,6 +360,7 @@ def main():
             "pitch_max_f0": hparams["max_f0"],
             "skip_prep": hparams["skip_prep"],
             "create_symbol_list": True,
+            "use_custom_cleaner":True,
         },
     )
     datasets = dataio_prepare(hparams)

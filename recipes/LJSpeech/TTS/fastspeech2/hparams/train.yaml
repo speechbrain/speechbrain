@@ -23,8 +23,8 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
-duration_link: https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip?dl=1
+data_folder: #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
+duration_link: https://www.dropbox.com/s/s0yebx13pp10b0e/ljspeech_clean_DFA_durations.zip?dl=0 #https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip?dl=1  
 duration_folder: !ref <data_folder>
 pitch_folder: !ref <data_folder>/pitch
 
@@ -153,7 +153,7 @@ modules:
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     drop_last: False  #True #False
-    num_workers: 4
+    num_workers: 16
     shuffle: True
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
