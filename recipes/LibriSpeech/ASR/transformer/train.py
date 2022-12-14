@@ -256,7 +256,7 @@ class ASR(sb.core.Brain):
                 self.optimizer_step += 1
                 self.hparams.noam_annealing(self.optimizer)
         else:
-            outputs = self.compute_forward(batch, sb, sb.Stage.TRAIN)
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
