@@ -512,8 +512,8 @@ def run_recipe_tests(
         # Check return code
         if return_code != 0:
             print(
-                "\tERROR: Error in %s. Check %s and %s for more info."
-                % (recipe_id, stderr_file, stdout_file)
+                "\tERROR: Error in %s (%s). Check %s and %s for more info."
+                % (recipe_id, test_hparam[recipe_id], stderr_file, stdout_file)
             )
             check = False
 
