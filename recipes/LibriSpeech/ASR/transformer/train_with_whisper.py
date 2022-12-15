@@ -273,7 +273,7 @@ if __name__ == "__main__":
     )
 
     # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
+    tokenizer = hparams["whisper_tokenizer"]
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
     # we need to prepare the tokens for searchers

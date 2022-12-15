@@ -9,9 +9,11 @@ Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
 Authors
- * Titouan Parcollet 2021
+ * Titouan Parcollet 2021, 2022
  * Boumadane Abdelmoumene 2021
+ * Adel Moumen 2022
  * Andreas Nautsch 2022
+ * Luca Della Libera 2022
 """
 import os
 import torch
@@ -20,9 +22,7 @@ import pathlib
 import numpy as np
 from torch import nn
 from functools import partial
-
-# import torch.nn.functional as F
-from typing import Union, List, Callable
+from typing import Union, Callable
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
 
@@ -124,7 +124,8 @@ class HuggingFaceTransformer(nn.Module):
         override_hf_config_partial_fn: Union[Callable, None] = None,
         override_hf_model_partial_fn: Union[Callable, None] = None,
         freeze=True,
-        freeze_nested_models_their_calls: Union[List[str], str, None] = None,
+        freeze_model_fn: Union[Callable, None] = None,
+        freeze_params_fn: Union[Callable, None] = None,
         cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",
     ):
         super().__init__()
@@ -192,19 +193,15 @@ class HuggingFaceTransformer(nn.Module):
             logger.warning(
                 "speechbrain.lobes.models.HuggingFaceTransformer is frozen."
             )
-            self.model.eval()
-            for param in self.model.parameters():
-                param.requires_grad = False
+            if freeze_model_fn is not None:
+                freeze_model_fn(self.model)
+            else:
+                freeze_model(self.model)
         else:
             self.model.gradient_checkpointing_disable()  # Required by DDP
             self.model.train()
-            if freeze_nested_models_their_calls is not None:
-                if type(freeze_nested_models_their_calls) is not list:
-                    freeze_nested_models_their_calls = [
-                        freeze_nested_models_their_calls
-                    ]
-                for nested_freeze_call in freeze_nested_models_their_calls:
-                    eval(f"self.model.{nested_freeze_call}()")
+            if freeze_params_fn is not None:
+                freeze_params_fn(self.model)
 
     def _from_pretrained(
         self,
@@ -281,6 +278,66 @@ class HuggingFaceTransformer(nn.Module):
                 return self.forward_partial_fn(data=data)
 
         return self.forward_partial_fn(data=data)
+
+
+def freeze_model(model):
+    """
+    Freezes parameters of a model.
+
+    Arguments
+    ---------
+    model : from AutoModel.from_config
+        Valid HuggingFace transformers model object.
+    """
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad = False
+
+
+def freeze_model_but_train(model):
+    """
+    Freezes model but keeps it in training mode.
+    Note: we keep it to train to have dropout and LN computed adequaly.
+
+    Arguments
+    ---------
+    model : from AutoModel.from_config
+        Valid HuggingFace transformers model object.
+    """
+    model.train()
+    for param in model.parameters():
+        param.requires_grad = False
+
+
+def freeze_params_feature_extractor(model):
+    """
+    Freezes parameters of nested feature extractor.
+
+    Arguments
+    ---------
+    model : from AutoModel.from_config
+        Valid HuggingFace transformers model object.
+    """
+    logger.warning(
+        "speechbrain.lobes.models.transformer.HuggingFace - feature extractor is frozen."
+    )
+    model.feature_extractor._freeze_parameters()
+
+
+def freeze_params_encoder(model):
+    """
+    Freezes parameters of nested encoder.
+
+    Arguments
+    ---------
+    model : from AutoModel.from_config
+        Valid HuggingFace transformers model object.
+    """
+    logger.warning(
+        "speechbrain.lobes.models.transformer.HuggingFace - encoder is frozen."
+    )
+    for param in model.encoder.parameters():
+        param.requires_grad = False
 
 
 def model_set_spectral_augmentation(model, apply_spec_augment):
@@ -613,3 +670,177 @@ def forward_wav2vec2_pretraining(
     )
 
     return out, torch_mask_time_indices
+
+
+def forward_whisper(
+    model,
+    data,
+    encoder_only,
+    decoder_input_ids=None,
+    n_samples=480000,
+    n_fft=400,
+    hop_length=160,
+    mel_filters=80,
+    output_attentions=True,
+):
+    """Perform mel transformation and one step of the whisper (encoder-decoder).
+
+    Arguments
+    ---------
+    wav : torch.Tensor (signal)
+        A batch of audio signals to transform to features.
+    decoder_input_ids : torch.Tensor
+        This is necessary if we want to use the decoder.
+
+        A batch of decoder inputs tokens.
+        The first tokens need to dictacte the behavior of the decoder.
+        It needs to start with the bos_token, the language token,
+        the task token, and finally the timestamp token.
+
+        Please refer to the whisper paper for more details or go to the
+        seq2seq2.py file in SpeechBrain to see how to generate the tokens
+        with Greedy Search and/or Beam Search.
+    """
+    out_encoder = forward_mel_encoder(
+        model, data, n_samples, n_fft, hop_length, mel_filters
+    )
+    if encoder_only:
+        return out_encoder
+    logits, attn = forward_decoder(
+        model,
+        out_encoder,
+        decoder_input_ids=decoder_input_ids,
+        output_attentions=output_attentions,
+    )
+    return out_encoder, logits, attn
+
+
+def forward_mel_encoder(model, data, n_samples, n_fft, hop_length, mel_filters):
+    """Perform one step of the whisper encoder with Mel FBANKs as Input.
+
+    Arguments
+    ---------
+    wav : torch.Tensor (FBANKs)
+        A batch of Mel FBANK from HF to transform to features.
+    """
+
+    def _log_mel_spectrogram(audio):
+        """Compute the Mel spectrogram of a batch of input waveforms.
+
+        Reference: adapted from
+        https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L92
+
+        Arguments
+        ---------
+        audio : torch.Tensor
+            A batch of audio waveforms in 16 kHz.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor that contains the batch of Mel spectrograms.
+        """
+        window = torch.hann_window(n_fft, device=audio.device)
+        stft = torch.stft(
+            audio, n_fft, hop_length, window=window, return_complex=True,
+        )
+        magnitudes = stft[..., :-1].abs() ** 2
+
+        filters = mel_filters
+        mel_spec = filters @ magnitudes
+
+        log_spec = torch.clamp(mel_spec, min=1e-10).log10()
+        log_spec = torch.maximum(
+            log_spec,
+            (log_spec.flatten(start_dim=1).max(dim=-1)[0] - 8.0)[:, None, None],
+        )
+        log_spec = (log_spec + 4.0) / 4.0
+        return log_spec
+
+    def _pad_or_trim(array, axis=-1):
+        """Pad or trim the Mel spectrograms as expected by the encoder.
+
+        Reference: adapted from
+        https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L52
+
+        Arguments
+        ---------
+        array : torch.Tensor
+            A tensor that contains the batch of Mel spectrograms.
+        axis : int
+            The axis along which to pad.
+
+        Returns
+        -------
+        torch.Tensor
+            The padded tensor.
+        """
+        if array.shape[axis] > n_samples:
+            array = array.index_select(
+                dim=axis, index=torch.arange(n_samples, device=array.device),
+            )
+
+        if array.shape[axis] < n_samples:
+            pad_widths = [(0, 0)] * array.ndim
+            pad_widths[axis] = (
+                0,
+                n_samples - array.shape[axis],
+            )
+            array = nn.functional.pad(
+                array, [pad for sizes in pad_widths[::-1] for pad in sizes]
+            )
+
+        return array
+
+    def _get_mel(wav):
+        """Takes an input waveform and return its corresponding mel spectrogram
+        according to HuggingFace implementation. WARNING: it's slow! Better push this
+        in the DataLoader.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        """
+        mels = _pad_or_trim(wav)
+        mels = _log_mel_spectrogram(mels)
+        return mels
+
+    mel = _get_mel(data)
+    return model.model.encoder(mel).last_hidden_state
+
+
+def forward_decoder(model, data, decoder_input_ids, output_attentions=True):
+    """Perform one step of the whisper decoder.
+    Arguments
+    ---------
+    audio_features : torch.Tensor
+        A batch of audio features (mel + whisper encoding).
+    decoder_input_ids : torch.Tensor
+        A batch of decoder inputs tokens.
+        The first tokens need to dictacte the behavior of the decoder.
+        It needs to start with the bos_token, the language token,
+        the task token, and finally the timestamp token.
+
+        Please refer to the whisper paper for more details or go to the
+        seq2seq2.py file in SpeechBrain to see how to generate the tokens
+        with Greedy Search and/or Beam Search.
+    """
+    output_states = model.decoder(
+        encoder_hidden_states=data,
+        input_ids=decoder_input_ids,
+        output_attentions=output_attentions,
+    )
+
+    attn = output_states.attentions[-1]
+    attn = attn.view(attn.shape[0] * attn.shape[1], *attn.shape[2:])
+    output_states = output_states.last_hidden_state
+
+    logits = (
+        output_states
+        @ torch.transpose(
+            model.decoder.embed_tokens.weight.to(output_states.dtype), 0, 1,
+        )
+    ).to(data.dtype)
+
+    return logits, attn

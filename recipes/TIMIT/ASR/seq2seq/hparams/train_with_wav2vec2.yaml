@@ -83,7 +83,6 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 
 output_all_hiddens: False
 apply_spec_augment: False
-# freeze_nested_models_their_calls: "feature_extractor._freeze_parameters"
 
 w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
@@ -97,7 +96,6 @@ w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransform
         - !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
           apply_spec_augment: !ref <apply_spec_augment>
     freeze: !ref <freeze_wav2vec>
-    # freeze_nested_models_their_calls: !ref <freeze_nested_models_their_calls>  # freeze the feature extractor
     cache_dir: !ref <wav2vec2_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
 
 wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
