@@ -19,6 +19,7 @@ Authors
  * Samuele Cornell 2020
  * Mirko Bronzi 2020
  * Jianyuan Zhong 2020
+ * Martin Kocour 2022
 """
 
 import os
@@ -124,20 +125,13 @@ class Separation(sb.Brain):
         else:
             est_source = est_source[:, :T_origin, :]
 
-        if stage == sb.Stage.TEST:
-            if hasattr(self.hparams, "n_audio_to_save"):
-                if self.hparams.n_audio_to_save > 0:
-                    self.save_audio(batch.id[0], mix, targets, est_source)
-                    self.hparams.n_audio_to_save += -1
-            else:
-                self.save_audio(batch.id[0], mix, targets, est_source)
-
         return mix, est_source, targets
 
     def compute_objectives(self, outputs, batch, stage=sb.Stage.TRAIN):
         """Computes the si-snr loss"""
         _, est_source, targets = outputs
         loss = self.hparams.loss(targets, est_source)
+
         # hard threshold the easy dataitems
         if self.hparams.threshold_byloss and stage == sb.Stage.TRAIN:
             th = self.hparams.threshold
@@ -149,6 +143,9 @@ class Separation(sb.Brain):
 
         loss = loss.mean()
 
+        if stage == sb.Stage.TEST:
+            loss = torch.tensor(-1.0)
+
         if stage != sb.Stage.TRAIN:
             self.on_evaluate_batch_end(batch, outputs, loss, stage)
 
@@ -159,7 +156,7 @@ class Separation(sb.Brain):
         if self.optimizer_step % self.hparams.logging_interval == 0:
             wandb.log(
                 {
-                    "train/si-snr": loss.detach().cpu().numpy(),
+                    "train/loss": loss.detach().cpu().numpy(),
                     "epoch": self.hparams.epoch_counter.current,
                     "batch": self.optimizer_step,
                 }, commit=True,
@@ -167,11 +164,15 @@ class Separation(sb.Brain):
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
         mix, est_source, targets = outputs
-        if stage == sb.Stage.VALID:
-            self.valid_table = build_table(batch.id[0], mix, est_source, targets, loss, sr=self.hparams.sample_rate, table=self.valid_table)
+        if stage != sb.Stage.TRAIN:
+            self.valid_table = build_table(
+                batch.id[0],
+                mix, est_source, targets, loss,
+                sr=self.hparams.sample_rate, table=self.valid_table
+            )
 
     def on_stage_start(self, stage, epoch):
-        if stage == sb.Stage.VALID:
+        if stage != sb.Stage.TRAIN:
             self.valid_table = None
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -181,7 +182,7 @@ class Separation(sb.Brain):
         if stage == sb.Stage.TRAIN:
             wandb.log(
                 {
-                    "train/avg_si-snr": stage_loss,
+                    "train/avg_loss": stage_loss,
                     "epoch": epoch
                 }
             )
@@ -208,7 +209,7 @@ class Separation(sb.Brain):
             )
             wandb.log(
                 {
-                    "valid/avg_si-snr": stage_loss,
+                    "valid/avg_loss": stage_loss,
                     "valid/samples": self.valid_table,
                     "epoch": epoch,
                     "lr": current_lr,
@@ -225,15 +226,13 @@ class Separation(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            if hasattr(self, "wandb_table") and self.wandb_table is not None:
-                wandb.log(
-                    {
-                        "test/avg_si-snr": stage_loss,
-                        "test/samples": self.wandb_table,
-                        "epoch": epoch,
-                    }
-                )
-                self.wandb_table = None
+            wandb.log(
+                {
+                    "test/avg_loss": stage_loss,
+                    "test/samples": self.valid_table,
+                    "epoch": epoch,
+                }
+            )
 
     def add_speed_perturb(self, targets, targ_lens):
         """Adds speed perturbation and random_shift to the input signals"""
@@ -488,11 +487,11 @@ class LossException(Exception):
 
 
 def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
+    est_source = est_source / est_source.abs().max()
     signals = [
         x.detach().cpu() for x in
-        [mix, targets[:, :, 0], targets[:, :, 1], est_source[:, :, 0], est_source[:, :, 1]]
+        [mix, targets[0, :, 0], targets[0, :, 1], est_source[0, :, 0], est_source[0, :, 1]]
     ]
-    signals = [x / x.abs().max() for x in signals]
     audios = [
         wandb.Audio(x.squeeze().float().numpy(), sample_rate=sr)
         for x in signals
@@ -508,27 +507,24 @@ def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
 
 def dataio_prep(hparams):
     """Creates data processing pipeline"""
-    dm_config = hparams["dm_config"]
-    datasets = [
+    train_data = DynamicMixingDataset.from_didataset(
         DynamicItemDataset.from_csv(
-            hparams[key], output_keys=["id", "wav", "spk_id", "duration"]
-        )
-        for key in ["train_data"]
-        # for key in ["train_data", "valid_data"]
-    ]
-    dm_datasets = [
-        DynamicMixingDataset.from_didataset(
-            data,
-            dm_config,
-            "wav",
-            "spk_id",
-            noise_flist=hparams["noise_files"],
-            rir_flist=hparams["rir_files"],
-            replacements={"RIRS_NOISES": hparams["noises_root"]},
-            length=hparams["N_steps"],
-        )
-        for data in datasets
-    ]
+            hparams["train_data"],
+            output_keys=["id", "wav", "spk_id", "duration"],
+        ),
+        hparams["dm_config"],
+        "wav",
+        "spk_id",
+        noise_flist=hparams["noise_files"],
+        rir_flist=hparams["rir_files"],
+        replacements={"RIRS_NOISES": hparams["noises_root"]},
+        length=hparams["N_steps"],
+    )
+    valid_data = DynamicItemDataset.from_csv(hparams["valid_data"])
+    test_data = DynamicItemDataset.from_csv(
+        csv_path=hparams["test_data"],
+        replacements={"data_root": hparams["data_folder"]},
+    )
 
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides("mix_sig")
@@ -556,14 +552,21 @@ def dataio_prep(hparams):
             return torch.zeros(int(duration * hparams["sample_rate"]))
         return sb.dataio.dataio.read_audio(noise_wav)
 
-    valid_data = DynamicItemDataset.from_csv(hparams["valid_data"])
-    datasets = [valid_data]
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
-    sb.dataio.dataset.set_output_keys(datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"])
-    return (*dm_datasets, *datasets)
+    valid_data.add_dynamic_item(audio_pipeline_mix)
+    valid_data.add_dynamic_item(audio_pipeline_s1)
+    valid_data.add_dynamic_item(audio_pipeline_s2)
+    valid_data.add_dynamic_item(audio_pipeline_noise)
+    test_data.add_dynamic_item(audio_pipeline_mix)
+    for key in ["s1_sig", "s2_sig", "s3_sig", "noise_sig"]:
+        test_data.add_dynamic_item(
+            lambda dur: torch.zeros(int(dur * hparams["sample_rate"])),
+            takes="duration",
+            provides=key,
+        )
+
+    valid_data.set_output_keys(["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"])
+    test_data.set_output_keys(["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"])
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -590,6 +593,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     from recipes.LibriSpeech.librispeech_prepare import prepare_librispeech
     from recipes.LibriCSS.prepare_libridm import prepare_libridm
+    from recipes.LibriCSS.prepare_data import prepare_libricss
 
     run_on_main(
         prepare_librispeech,
@@ -610,7 +614,17 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-    train_data, valid_data = dataio_prep(hparams)
+    run_on_main(
+        prepare_libricss,
+        kwargs={
+            "datapath": hparams["data_folder"],
+            "savepath": hparams["save_folder"],
+            "partitions": ["utterances"],
+            "skip_prep": hparams["skip_prep"],
+            "fs": hparams["sample_rate"],
+        },
+    )
+    train_data, valid_data, test_data = dataio_prep(hparams)
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:
@@ -651,8 +665,11 @@ if __name__ == "__main__":
             valid_loader_kwargs=hparams["dataloader_opts"],
         )
 
-    #    # Eval
-    #    separator.evaluate(test_data, min_key="si-snr", test_loader_kwargs={"shuffle": True})
-    #    separator.save_results(test_data)
+    # Eval
+    separator.evaluate(
+        test_data,
+        min_key="si-snr",
+        test_loader_kwargs={"shuffle": True},
+    )
 
     wandb.finish()

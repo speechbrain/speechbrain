@@ -406,7 +406,15 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
         mix, srcs, noise, rir, mix_info = self.generate()
 
         for i in range(3 - len(srcs)):
-            srcs.append(torch.randn(mix.shape) * self.config.white_noise_std)
+            src = torch.ones(mix.shape)
+            if rir is not None and self.config.reverb_sources:
+                src = reverberate(src, rir)
+
+            if self.config.white_noise_add:
+                src += torch.randn(mix.shape) * self.config.white_noise_std
+
+            src = normalize(src, self.meter, self.config.audio_min_loudness, self.config.audio_max_amp)
+            srcs.append(src)
 
         if idx is None:
             idx = uuid.uuid4()
