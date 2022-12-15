@@ -11,7 +11,6 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER
 rir_folder: !ref <data_folder>
-skip_prep: False
 
 shards_url: /data/voxlingua107_shards
 train_meta: !ref <shards_url>/train/meta.json
