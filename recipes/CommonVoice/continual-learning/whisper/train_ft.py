@@ -413,9 +413,9 @@ def train():
         new_tokens = vocab[1:]
 
         # Add new language tokens
-        new_tokens += [f"<|{locale}|>"]
-        tokenizer.supported_languages.update({locale: locale})
-        tokenizer.to_language_codes.update({locale: locale})
+        new_tokens += [f"<|{locale.lower()}|>"]
+        tokenizer.supported_languages.update({locale.lower(): locale.lower()})
+        tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
 
         # Remove tokens that are already in Whisper tokenizer's vocabulary
         new_tokens = set(new_tokens) - set(tokenizer.get_vocab().keys())

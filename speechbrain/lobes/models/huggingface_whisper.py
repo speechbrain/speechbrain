@@ -120,10 +120,6 @@ class HuggingFaceWhisper(nn.Module):
             )
             self.tokenizer.supported_languages = LANGUAGES
             self.tokenizer.to_language_codes = TO_LANGUAGE_CODE
-            # Add common language code aliases
-            self.tokenizer.supported_languages.update({"zh-CN": "chinese"})
-            all_lang_tokens = [f"<|{l}|>" for l in self.tokenizer.supported_languages]
-            self._all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(all_lang_tokens)
 
         # Download the extractor from HuggingFace.
         feature_extractor = WhisperFeatureExtractor.from_pretrained(
@@ -360,19 +356,23 @@ class HuggingFaceWhisper(nn.Module):
         )
         if forced_decoder_locale is None:
             # Compute most likely language token IDs
+            all_lang_tokens = [f"<|{l}|>" for l in self.tokenizer.supported_languages]
+            all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(all_lang_tokens)
             hyps[:, 0] = startoftranscript_id
             logits, _ = self.forward_decoder(audio_features, hyps[:, :1])
             lang_mask = torch.zeros(logits.shape[-1], device=logits.device, dtype=torch.bool)
-            lang_mask[self._all_lang_tokens_ids] = True
+            lang_mask[all_lang_tokens_ids] = True
             logits[:, :, ~lang_mask] = -float("inf")
             lang_tokens_ids = logits.argmax(dim=-1)[:, 0]
         else:
-            if forced_decoder_locale not in LANGUAGES:
+            if forced_decoder_locale.lower() == "zh-cn":
+                forced_decoder_locale = "zh"
+            if forced_decoder_locale.lower() not in LANGUAGES:
                 raise NotImplementedError(
                     f"Unsupported language: {forced_decoder_locale}"
                 )
             lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(
-                f"<|{forced_decoder_locale}|>"
+                f"<|{forced_decoder_locale.lower()}|>"
             )
 
         # Prepare initial tokens in the right format
@@ -397,4 +397,5 @@ class HuggingFaceWhisper(nn.Module):
             num_gen_tokens += 1
             if (not unfinished_mask.any()) or (num_gen_tokens >= max_gen_tokens):
                 break
+        print(self.tokenizer.batch_decode(hyps[0]))
         return hyps[:, 4:num_gen_tokens + 3]

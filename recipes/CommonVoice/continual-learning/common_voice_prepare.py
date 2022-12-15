@@ -349,6 +349,14 @@ def preprocess_tsv_file(
             # Remove spaces at the beginning and the end of the sentence
             wrd = wrd.lstrip().rstrip()
 
+            # Remove too short sentences (or empty)
+            if len(wrd) < 3:
+                _LOGGER.log(
+                    logging.DEBUG,
+                    f"Sentence for row {i + 1} is too short, removing...",
+                )
+                continue
+
             num_clips += 1
             total_duration += float(duration)
             csv_writer.writerow([ID, mp3, wrd, locale, duration])
