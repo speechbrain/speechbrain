@@ -15,7 +15,7 @@ from speechbrain.processing.features import GlobalNorm
 class Autoencoder(nn.Module):
     """A standard interface for autoencoders"""
 
-    def encode(self, x):
+    def encode(self, x, length=None):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
         space
 
@@ -23,6 +23,9 @@ class Autoencoder(nn.Module):
         ---------
         x: torch.Tensor
             the original data representation
+
+        length: torch.Tensor
+            a tensor of relative lengths
 
         Returns
         -------
@@ -272,7 +275,7 @@ class NormalizingAutoencoder(Autoencoder):
         self.out_mask_value = out_mask_value
         self.latent_mask_value = latent_mask_value
 
-    def encode(self, x):
+    def encode(self, x, length=None):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
         space
 
@@ -286,8 +289,8 @@ class NormalizingAutoencoder(Autoencoder):
         latent: torch.Tensor
             the latent representation
         """
-        x = self.encoder(x)
-        x = self.norm(x)
+        x, _ = self.encoder(x)
+        x = self.norm(x, lengths=length)
         return x
 
     def decode(self, latent):
@@ -333,7 +336,7 @@ class NormalizingAutoencoder(Autoencoder):
             out_mask_value = self.out_mask_value
         if latent_mask_value is None:
             latent_mask_value = self.latent_mask_value
-        latent, _ = self.encoder(x)
+        latent = self.encode(x, length=length)
         if self.mask_latent and length is not None:
             latent = clean_padding(
                 latent, length, self.len_dim, latent_mask_value
