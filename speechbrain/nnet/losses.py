@@ -1356,8 +1356,8 @@ class VariationalAutoencoderLoss(nn.Module):
         length : torch.Tensor
             Length of each sample for computing true error with a mask.
 
-        reduce: bool
-            Whether or not to apply reduction
+        reduction: str
+            The type of reduction to apply
 
 
         Results
@@ -1378,8 +1378,8 @@ class VariationalAutoencoderLoss(nn.Module):
         if length is None:
             length = torch.ones(targets.size(0))
         rec_loss, dist_loss = self._compute_components(predictions, targets)
-        rec_loss = self._reduce_loss(rec_loss, length, reduction)
-        dist_loss = self._reduce_loss(dist_loss, length, reduction)
+        rec_loss = _reduce_autoencoder_loss(rec_loss, length, reduction)
+        dist_loss = _reduce_autoencoder_loss(dist_loss, length, reduction)
         weighted_dist_loss = self.dist_loss_weight * dist_loss
         loss = rec_loss + weighted_dist_loss
 
@@ -1397,19 +1397,90 @@ class VariationalAutoencoderLoss(nn.Module):
         )
         return rec_loss, dist_loss
 
-    def _reduce_loss(self, loss, length, reduction):
-        max_len = loss.size(1)
-        mask = length_to_mask(length * max_len, max_len)
-        mask = unsqueeze_as(mask, loss).expand_as(loss)
-        reduced_loss = reduce_loss(loss * mask, mask, reduction=reduction)
-        return reduced_loss
+    def _align_length_axis(self, tensor):
+        return tensor.moveaxis(self.len_dim, 1)
+
+class AutoencoderLoss(nn.Module):
+    def __init__(self, rec_loss=None, len_dim=1):
+        super().__init__()
+        self.rec_loss = rec_loss
+        self.len_dim = len_dim
+
+    def forward(self, predictions, targets, length=None, reduction="batchmean"):
+        """Computes the autoencoder loss
+        Arguments
+        ---------
+
+        predictions: speechbrain.nnet.autoencoder.AutoencoderOutput
+            the autoencoder output
+
+        targets: torch.Tensor
+            targets for the reconstruction loss
+
+        length : torch.Tensor
+            Length of each sample for computing true error with a mask.
+
+        """
+        rec, _ = predictions
+        rec_loss = self._align_length_axis(
+            self.rec_loss(targets, rec, reduction=None)
+        )
+        return _reduce_autoencoder_loss(rec_loss, length, reduction)
+
+    def details(self, predictions, targets, length=None, reduction="batchmean"):
+        """Gets detailed information about the loss (useful for plotting, logs,
+        etc.)
+
+        This is provided mainly to make the loss interchangeable with
+        more complex autoencoder loses, such as the VAE loss.
+
+        Arguments
+        ---------
+        predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
+            the variational autoencoder output (or a tuple of rec, mean, log_var)
+
+        targets: torch.Tensor
+            targets for the reconstruction loss
+
+        length : torch.Tensor
+            Length of each sample for computing true error with a mask.
+
+        reduction: str
+            The type of reduction to apply
+
+
+        Results
+        -------
+        details: VAELossDetails
+            a namedtuple with the following parameters
+            loss: torch.Tensor
+                the combined loss
+            rec_loss: torch.Tensor
+                the reconstruction loss
+        """
+        loss = self(predictions, targets, length, reduction)
+        return AutoencoderLossDetails(loss, loss)
 
     def _align_length_axis(self, tensor):
         return tensor.moveaxis(self.len_dim, 1)
 
 
+def _reduce_autoencoder_loss(loss, length, reduction):
+    max_len = loss.size(1)
+    mask = length_to_mask(length * max_len, max_len)
+    mask = unsqueeze_as(mask, loss).expand_as(loss)
+    reduced_loss = reduce_loss(loss * mask, mask, reduction=reduction)
+    return reduced_loss
+
+
 VariationalAutoencoderLossDetails = namedtuple(
-    "VAELossDetails", ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"]
+    "VariationalAutoencoderLossDetails",
+    ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"]
+)
+
+AutoencoderLossDetails = namedtuple(
+    "AutoencoderLossDetails",
+    ["loss", "rec_loss"]
 )
 
 

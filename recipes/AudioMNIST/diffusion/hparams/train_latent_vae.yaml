@@ -12,7 +12,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
 prepare_data_folder: ./audiomnist-prepare-data
-output_folder: !ref ./results/diffusion-latent/<seed>
+output_folder: !ref ./results/diffusion-latent-vae/<seed>
 save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
@@ -143,7 +143,7 @@ compute_features: !new:speechbrain.nnet.containers.Sequential
 min_level_norm: !new:custom_transforms.MinLevelNorm
     min_level_db: !ref <min_level_db>
 
-global_norm: !new:custom_transforms.GlobalNorm
+global_norm: !new:speechbrain.processing.features.GlobalNorm
     norm_mean: !ref <spec_norm_mean>
     norm_std: !ref <spec_norm_std>
 

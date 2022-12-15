@@ -43,6 +43,8 @@ from speechbrain.utils.checkpoints import (
     mark_as_transfer,
     register_checkpoint_hooks,
 )
+from speechbrain.dataio.dataio import length_to_mask
+
 
 logger = logging.getLogger(__name__)
 
@@ -1229,3 +1231,145 @@ class InputNormalization(torch.nn.Module):
         del end_of_epoch  # Unused here.
         stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)
+
+
+class GlobalNorm(torch.nn.Module):
+    """
+    A global normalization module - computes a single mean and standard deviation
+    for the entire batch across unmasked positions and uses it to normalize the
+    inputs to the desired mean and standard deviation
+
+    Arguments
+    ---------
+    norm_mean: float
+        the desired normalized mean
+    norm_std: float
+        the desired normalized standard deviation
+    update_steps: float
+        the number of steps over which statistics will be collected
+    length_dim: int
+        the dimension used to represent the length
+    mask_value: float
+        the value with which to fill masked positions
+        without a mask_value, the masked positions would be normalized,
+        which might not be desired
+    """
+
+    def __init__(
+        self,
+        norm_mean=0.0,
+        norm_std=1.0,
+        update_steps=None,
+        length_dim=2,
+        mask_value=0.0,
+    ):
+        super().__init__()
+
+        running_mean = torch.tensor(0.0)
+        running_std = torch.tensor(0.0)
+        weight = torch.tensor(0.0)
+        self.register_buffer("running_mean", running_mean)
+        self.register_buffer("running_std", running_std)
+        self.register_buffer("weight", weight)
+        self.norm_mean = norm_mean
+        self.norm_std = norm_std
+        self.mask_value = mask_value
+        self.step_count = 0
+        self.update_steps = update_steps
+        self.length_dim = length_dim
+        self.frozen = False
+
+    def forward(self, x, lengths=None, mask_value=None, skip_update=False):
+        """Normalizes the tensor provided
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor to normalize
+        lengths: torch.Tensor
+            a tensor of relative lengths (padding will not
+            count towards normalization)
+        mask_value: float
+            the value to use for masked positions
+        skip_update: false
+            whether to skip updates to the norm
+
+        Returns
+        -------
+        result: torch.Tensor
+            the normalized tensor
+        """
+        if lengths is None:
+            lengths = torch.ones(len(x))
+        if mask_value is None:
+            mask_value = self.mask_value
+
+        mask = self.get_mask(x, lengths)
+
+        if (
+            not skip_update
+            and not self.frozen
+            and (
+                self.update_steps is None or self.step_count < self.update_steps
+            )
+        ):
+            x_masked = x.masked_select(mask)
+            mean = x_masked.mean()
+            std = x_masked.std()
+            weight = lengths.sum()
+
+            # TODO: Numerical stability
+            new_weight = self.weight + weight
+            self.running_mean.data = (
+                self.weight * self.running_mean + weight * mean
+            ) / new_weight
+            self.running_std.data = (
+                self.weight * self.running_std + weight * std
+            ) / new_weight
+            self.weight.data = new_weight
+        x = self.normalize(x)
+        if not torch.is_tensor(mask_value):
+            mask_value = torch.tensor(mask_value, device=x.device)
+        mask_value_norm = self.normalize(mask_value)
+        x = x.masked_fill(~mask, mask_value_norm)
+        self.step_count += 1
+        return x
+
+    def normalize(self, x):
+        x = (x - self.running_mean) / self.running_std
+        x = (x * self.norm_std) + self.norm_mean
+        return x
+
+    def get_mask(self, x, lengths):
+        max_len = x.size(self.length_dim)
+        mask = length_to_mask(lengths * max_len, max_len)
+        for dim in range(1, x.dim()):
+            if dim != self.length_dim:
+                mask = mask.unsqueeze(dim)
+        mask = mask.expand_as(x).bool()
+        return mask
+
+    def denormalize(self, x):
+        """Reverses the normalization proces
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            a normalized tensor
+
+        Returns
+        -------
+        result: torch.Tensor
+            a denormalized version of x
+        """
+        x = (x - self.norm_mean) / self.norm_std
+        x = x * self.running_std + self.running_mean
+        return x
+
+    def freeze(self):
+        """Stops updates to the running mean/std"""
+        self.frozen = True
+
+    def unfreeze(self):
+        """Resumes updates to the running mean/std"""
+        self.frozen = False

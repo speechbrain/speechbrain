@@ -12,7 +12,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
 prepare_data_folder: ./audiomnist-prepare-data
-output_folder: !ref ./results/diffusion/unconditioned/<seed>
+output_folder: !ref ./results/diffusion-latent-ae/<seed>
 save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
@@ -23,41 +23,49 @@ skip_prepare: False
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-ckpt_interval_minutes: 30 # save checkpoint every N min
+ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Preparation Parameters
-data_prepare_norm: False
-data_prepare_trim: False
+data_prepare_norm: True
+data_prepare_trim: True
 data_prepare_trim_threshold: -30.
 data_prepare_sample_rate_src: 48000
 data_prepare_sample_rate_tgt: 16000
 
 # Training Parameters
-diffusion_mode: simple
-dataset: flexthink/audiomnist
+diffusion_mode: latent
 train_len: 28520
 sort: len
 batch_shuffle: True
 number_of_epochs: 20
 batch_size: 32
-lr: 0.00020
-max_grad_norm: 0.05
+lr: 0.0005
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
-lr_total_steps: !ref (<train_len> * <number_of_epochs>) // <batch_size>
+lr_total_steps: !ref <train_len> * <number_of_epochs>
 lr_decay_every: 1000
+lr_autoencoder: 0.001
+lr_autoencoder_warmup_steps: 500
+lr_autoencoder_cooldown_steps: 500
+lr_autoencoder_total_steps: !ref <train_len> * <number_of_epochs>
+lr_autoencoder_decay_every: 1000
+max_grad_norm: 0.05
 train_timesteps: 250
 adam_beta1: 0.95
 adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
 downsample_factor: 8
+latent_downsample_factor: 8
 enable_train_metrics: True
 enable_reference_samples: True
+enable_reconstruction_sample: True
 loss_l2_steps: 100000
-train_log_interval: 10
-train_diffusion_start_epoch: 1
-dropout: 0.0
+loss_laplacian_weight: 0.1
+autoencoder_rec_loss_l2_steps: 1000
+train_log_interval: 50
+train_diffusion_start_epoch: 2
+train_autoencoder_stop_epoch: 10
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000
@@ -69,7 +77,6 @@ tensorboard_logs: !ref <output_folder>/logs/
 rand_amplitude: True
 min_amp: 0.1
 max_amp: 0.4
-
 
 # Spectrogram Parameters
 spec_n_fft: 1024
@@ -84,28 +91,27 @@ spec_norm: "slaney"
 spec_mel_scale: "slaney"
 spec_norm_mean: 0.
 spec_norm_std: 0.5
-spec_sample_size: 80
+spec_sample_size: 16
 spec_sample_min: -4.7
 spec_sample_max: 3.0
 min_level_db: -80.0
 pad_level_db: -50.
 
 # Model Parameters
-model_channels: 128
+model_channels: 64
 model_norm_num_groups: 32
-model_num_res_blocks: 4
-diffusion_channels: 1
-
-# Conditioning
-emb_dim: !ref <model_channels> * 4
-digit_conditioned: False
-digit_sample_count: 3
-digit_count: 10
-digit_emb_dim: !ref <emb_dim>
-speaker_conditioned: False
-speaker_count: 60
-speaker_emb_dim: !ref <emb_dim>
-speaker_sample_count: 5
+model_num_res_blocks: 2
+model_dropout: 0.
+autoencoder_channels: 32
+autoencoder_norm_num_groups: 32
+autoencoder_num_res_blocks: 1
+autoencoder_encoder_out_channels: 32
+autoencoder_nom_num_groups: 32
+autoencoder_latent_channels: 2
+autoencoder_dropout: 0.1
+latent_mask_value: -3.
+autoencoder_use_fixup_norm: False
+diffusion_channels: !ref <autoencoder_latent_channels>
 
 
 # Vocoder Settings
@@ -113,11 +119,11 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
 eval_num_samples: 10
-samples_interval: 1
+samples_interval: 5
 eval_generate_audio: True
 eval_show_progress: True
-norm_out_sample: False
-eval_time_steps: 40
+norm_out_sample: True
+eval_time_steps: 6
 
 # Feature extraction
 compute_features: !new:speechbrain.nnet.containers.Sequential
@@ -142,53 +148,56 @@ global_norm: !new:speechbrain.processing.features.GlobalNorm
 
 dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
 
+compute_cost_autoencoder_rec: !new:speechbrain.nnet.schedulers.ScheduledLoss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+          steps: !ref <autoencoder_rec_loss_l2_steps>
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+
+compute_cost_autoencoder: !new:speechbrain.nnet.losses.AutoencoderLoss
+    rec_loss: !ref <compute_cost_autoencoder_rec>
+
+compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
+    len_dim: 2
+
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
         - loss_fn: !name:speechbrain.nnet.losses.mse_loss
           steps: !ref <loss_l2_steps>
         - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
-use_cond_emb:
-    speaker: !ref <speaker_conditioned>
-    digit: !ref <digit_conditioned>
-
-cond_emb:
-    speaker:
-        emb: !ref <emb_speaker>
-        emb_dim: !ref <speaker_emb_dim>
-        key: speaker_label
-        sample_count: !ref <speaker_sample_count>
-        count: !ref <speaker_count>
-    digit:
-        emb: !ref <emb_digit>
-        emb_dim: !ref <digit_emb_dim>
-        key: digit_label
-        sample_count: !ref <digit_sample_count>
-        count: !ref <digit_count>
 
 # To design a custom model, either just edit the simple CustomModel
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
 unet: !new:speechbrain.nnet.unet.UNetModel
-    in_channels: 1
+    in_channels: !ref <autoencoder_latent_channels>
     model_channels: !ref <model_channels>
-    out_channels: 1
+    norm_num_groups: !ref <model_norm_num_groups>
+    out_channels: !ref <autoencoder_latent_channels>
     num_res_blocks: !ref <model_num_res_blocks>
-    norm_num_groups: 32
-    attention_resolutions: [8]
-    cond_emb: !ref <cond_emb>
-    use_cond_emb: !ref <use_cond_emb>
-    dropout: !ref <dropout>
+    attention_resolutions: [1, 2]
+    channel_mult: [1, 2]
+    dropout: !ref <model_dropout>
+
+autoencoder: !new:speechbrain.nnet.unet.UNetNormalizingAutoencoder
+    in_channels: 1
+    channel_mult: [1, 2, 4]
+    model_channels: !ref <autoencoder_channels>
+    norm_num_groups: !ref <autoencoder_norm_num_groups>
+    encoder_num_res_blocks: !ref <autoencoder_num_res_blocks>
+    encoder_attention_resolutions: [1, 2, 4]
+    decoder_num_res_blocks: !ref <autoencoder_num_res_blocks>
+    decoder_attention_resolutions: [1, 2, 4]
+    encoder_out_channels: !ref <autoencoder_encoder_out_channels>
+    latent_channels: !ref <autoencoder_latent_channels>
+    resblock_updown: True
+    len_dim: 2
+    latent_mask_value: !ref <latent_mask_value>
+    dropout: !ref <autoencoder_dropout>
+    use_fixup_norm: !ref <autoencoder_use_fixup_norm>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
-
-emb_digit: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <digit_count>
-    embedding_dim: !ref <digit_emb_dim>
-
-emb_speaker: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <speaker_count>
-    embedding_dim: !ref <speaker_emb_dim>
 
 diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
     model: !ref <unet>
@@ -198,7 +207,15 @@ diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
     sample_min: !ref <spec_sample_min>
     sample_max: !ref <spec_sample_max>
 
+diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
+    autoencoder: !ref <autoencoder>
+    diffusion: !ref <diffusion>
+    latent_downsample_factor: !ref <latent_downsample_factor>
+    latent_pad_dim: [2, 3]
+
+
 diffusion_sample_channels: !ref <diffusion_channels>
+
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -214,14 +231,15 @@ vocoder: !name:speechbrain.pretrained.interfaces.HIFIGAN.from_hparams
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
     unet: !ref <unet>
+    autoencoder: !ref <autoencoder>
     diffusion: !ref <diffusion>
-    diffusion_sample: !ref <diffusion>
+    diffusion_latent: !ref <diffusion_latent>
+    diffusion_sample: !ref <diffusion_latent>
     compute_features: !ref <compute_features>
+    compute_cost_laplacian: !ref <compute_cost_laplacian>
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>
     global_norm: !ref <global_norm>
-    emb_digit: !ref <emb_digit>
-    emb_speaker: !ref <emb_speaker>
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -230,7 +248,15 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
+
+opt_class_autoencoder: !name:torch.optim.AdamW
+    lr: !ref <lr_autoencoder>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+    #capturable: True
+
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
@@ -242,6 +268,14 @@ lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
     total_steps: !ref <lr_total_steps>
     decay_every: !ref <lr_decay_every>
 
+lr_annealing_autoencoder: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
+    lr: !ref <lr_autoencoder>
+    warmup: !ref <lr_autoencoder_warmup_steps>
+    cooldown: !ref <lr_autoencoder_cooldown_steps>
+    total_steps: !ref <lr_autoencoder_total_steps>
+    decay_every: !ref <lr_autoencoder_decay_every>
+
+
 # This object is used for saving the state of training both so that it
 # can be resumed if it gets interrupted, and also so that the best checkpoint
 # can be later loaded for evaluation or inference.
@@ -249,8 +283,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         unet: !ref <unet>
+        autoencoder: !ref <autoencoder>
         counter: !ref <epoch_counter>
         lr_annealing: !ref <lr_annealing>
+        lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
         global_norm: !ref <global_norm>
-        emb_digit: !ref <emb_digit>
-        emb_speaker: !ref <emb_speaker>
