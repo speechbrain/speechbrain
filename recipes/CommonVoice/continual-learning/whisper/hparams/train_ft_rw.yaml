@@ -9,29 +9,29 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
 new_locales: [rw]
-old_locales: [en, zh-CN, de, es, ru, fr, pt, ko, ja, tr]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
 # Output directories
-output_dir: !ref results/multilingual/whisper_ft/<seed>
+output_dir: !ref results/whisper_ft/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
 train_batch_size: 24  # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 32
+valid_batch_size: 24
 train_num_workers: 6
 valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
-avoid_if_longer_than: 10  # Remove train utterances longer than 10s (open microphones)
+avoid_if_longer_than: 50  # Do not remove an utterance
 vocab_size: 1000  # Vocabulary size for BPE encoding of new locales
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
 
 num_epochs: 10
-lr: 0.0001
+lr: 0.001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
 
@@ -54,7 +54,6 @@ normalize_transcripts: True  # Normalize English text
 train_dataloader_kwargs:
     batch_size: !ref <train_batch_size>
     num_workers: !ref <train_num_workers>
-    shuffle: True
 
 valid_dataloader_kwargs:
     batch_size: !ref <valid_batch_size>

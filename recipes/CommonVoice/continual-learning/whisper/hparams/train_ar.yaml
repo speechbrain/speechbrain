@@ -45,14 +45,13 @@ compile_model: True
 ckpt_interval_minutes: 600
 
 max_gen_tokens: 225
-forced_decoder_locale: null
+forced_decoder_locale: ar
 normalize_transcripts: True  # Normalize English text
 
 # Dataloader options
 train_dataloader_kwargs:
     batch_size: !ref <train_batch_size>
     num_workers: !ref <train_num_workers>
-    shuffle: True
 
 valid_dataloader_kwargs:
     batch_size: !ref <valid_batch_size>

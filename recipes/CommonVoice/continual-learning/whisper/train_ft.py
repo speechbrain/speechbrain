@@ -178,12 +178,12 @@ def dataio_prepare(hparams, tokenizer):
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
         replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(sort_key="duration")
+    ).filtered_sorted(sort_key="duration", reverse=True)
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "test.csv"),
         replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(sort_key="duration")
+    ).filtered_sorted(sort_key="duration", reverse=True)
 
     datasets = [train_data, valid_data, test_data]
 
