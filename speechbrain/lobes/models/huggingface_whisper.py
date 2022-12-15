@@ -397,5 +397,4 @@ class HuggingFaceWhisper(nn.Module):
             num_gen_tokens += 1
             if (not unfinished_mask.any()) or (num_gen_tokens >= max_gen_tokens):
                 break
-        print(self.tokenizer.batch_decode(hyps[0]))
         return hyps[:, 4:num_gen_tokens + 3]

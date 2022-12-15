@@ -315,6 +315,18 @@ def test():
             },
         )
 
+        if locale == "en":
+            asr_brain.hparams.normalize_transcripts = True
+        else:
+            asr_brain.hparams.normalize_transcripts = False
+
+        if locale in ["zh-CN", "ja"]:
+            asr_brain.hparams.wer_computer = (
+                lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(split_tokens=True)
+            )
+        else:
+            asr_brain.hparams.wer_computer = sb.utils.metric_stats.ErrorRateStats
+
         # Set forced decoder locale
         asr_brain.hparams.forced_decoder_locale = locale
 
@@ -474,6 +486,18 @@ def train():
                 "download_dir": hparams["download_dir"],
             },
         )
+
+        if locale == "en":
+            asr_brain.hparams.normalize_transcripts = True
+        else:
+            asr_brain.hparams.normalize_transcripts = False
+
+        if locale in ["zh-CN", "ja"]:
+            asr_brain.hparams.wer_computer = (
+                lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(split_tokens=True)
+            )
+        else:
+            asr_brain.hparams.wer_computer = sb.utils.metric_stats.ErrorRateStats
 
         # Set forced decoder locale
         asr_brain.hparams.forced_decoder_locale = locale
