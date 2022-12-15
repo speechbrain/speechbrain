@@ -1053,7 +1053,7 @@ class SpeakerRecognition(EncoderClassifier):
         self.similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
 
     def verify_batch(
-        self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.25
+        self, wavs1, wavs2, wav1_lens=None, wav2_lens=None, threshold=0.5
     ):
         """Performs speaker verification with cosine distance.
 
