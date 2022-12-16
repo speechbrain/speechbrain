@@ -4,7 +4,7 @@
 The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
 
 The following technical tricks were implemented to improve performance:
-- use custom greedy decoding implementation (few times faster than built-in
+- use custom greedy decoding implementation (several times faster than built-in
   greedy searchers and supports decoding with predicted batch of languages)
 - apply the correct padding tokens directly in the dataloader
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
@@ -174,15 +174,16 @@ def dataio_prepare(hparams, tokenizer):
             f"`sorting` ({hparams['sorting']}) must be random, ascending or descending"
         )
 
+    # reverse=True to fail fast in case of out-of-memory error
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
         replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(sort_key="duration")
+    ).filtered_sorted(sort_key="duration", reverse=True)
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "test.csv"),
         replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(sort_key="duration")
+    ).filtered_sorted(sort_key="duration", reverse=True)
 
     datasets = [train_data, valid_data, test_data]
 
@@ -283,18 +284,13 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # We load the pretrained Whisper model
-    if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
-        hparams["pretrainer"].load_collected(asr_brain.device)
-
     # We dynamically add the tokenizer to our brain class
     # NB: This tokenizer corresponds to the one used for Whisper
     asr_brain.tokenizer = tokenizer
 
     class CustomPaddedBatch(PaddedBatch):
         def __init__(self, examples, *args, **kwargs):
-            for k in ["sig", "tokens_bos", "tokens_eos", "tokens"]:
+            for k in ["tokens_bos", "tokens_eos", "tokens"]:
                 max_len = max([len(x[k]) for x in examples])
                 pad_value = 0.0
                 if k in ["tokens_bos", "tokens"]:

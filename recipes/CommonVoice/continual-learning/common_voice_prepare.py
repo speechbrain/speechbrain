@@ -283,54 +283,6 @@ def preprocess_tsv_file(
             # Unicode normalization (default in Python 3)
             wrd = str(wrd)
 
-            # !! Language specific cleaning !!
-            # Important: feel free to specify the text
-            # normalization corresponding to your alphabet
-            if locale in ["en", "fr", "it", "rw", "ru"]:
-                wrd = re.sub(
-                    "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", wrd
-                ).upper()
-
-                if locale in ["en", "it", "rw"]:
-                    # Strip accents
-                    wrd = (
-                        unicodedata.normalize("NFD", wrd)
-                        .encode("ascii", "ignore")
-                        .decode("utf-8")
-                    )
-
-            if locale == "fr":
-                # Replace J'y D'hui etc. by J_ D_hui
-                wrd = wrd.replace("'", " ")
-                wrd = wrd.replace("’", " ")
-
-            elif locale in ["ar", "fa"]:
-                HAMZA = "\u0621"
-                ALEF_MADDA = "\u0622"
-                ALEF_HAMZA_ABOVE = "\u0623"
-                letters = (
-                    "ابپتةثجچحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
-                    + HAMZA
-                    + ALEF_MADDA
-                    + ALEF_HAMZA_ABOVE
-                )
-                wrd = re.sub("[^" + letters + " ]+", "", wrd)
-
-            elif locale == "ga-IE":
-                # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
-                def pfxuc(a: "str") -> "bool":
-                    return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
-
-                def galc(w: "str") -> "str":
-                    return (
-                        w.lower()
-                        if not pfxuc(w)
-                        else w[0] + "-" + w[1:].lower()
-                    )
-
-                wrd = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", wrd)
-                wrd = " ".join(map(galc, wrd.split(" ")))
-
             # Remove commas
             wrd = wrd.replace(",", " ")
 
@@ -349,8 +301,8 @@ def preprocess_tsv_file(
             # Remove spaces at the beginning and the end of the sentence
             wrd = wrd.lstrip().rstrip()
 
-            # Remove too short sentences (or empty)
-            if len(wrd) < 3:
+            # Remove empty sentences
+            if len(wrd) < 1:
                 _LOGGER.log(
                     logging.DEBUG,
                     f"Sentence for row {i + 1} is too short, removing...",

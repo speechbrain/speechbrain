@@ -16,8 +16,8 @@ output_dir: !ref results/ar/whisper/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 24  # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 40
+train_batch_size: 24 # 1 when fine-tuning both encoder and decoder
+valid_batch_size: 24
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -28,12 +28,12 @@ avoid_if_longer_than: 10  # Remove train utterances longer than 10s (open microp
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
 
-num_epochs: 10
+num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
 
-whisper_variant: openai/whisper-large-v2
+whisper_variant: openai/whisper-tiny
 encoder_only: False
 freeze: False
 freeze_encoder: True
@@ -44,7 +44,7 @@ gradient_checkpointing: False
 compile_model: True
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 225
+max_gen_tokens: 100
 forced_decoder_locale: ar
 normalize_transcripts: True  # Normalize English text
 

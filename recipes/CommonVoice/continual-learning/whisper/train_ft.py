@@ -4,7 +4,7 @@
 The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
 
 The following technical tricks were implemented to improve performance:
-- use custom greedy decoding implementation (few times faster than built-in
+- use custom greedy decoding implementation (several times faster than built-in
   greedy searchers and supports decoding with predicted batch of languages)
 - apply the correct padding tokens directly in the dataloader
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
@@ -16,7 +16,7 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train.py hparams/<config_file>.yaml
+> python train_ft.py hparams/<config_file>.yaml
 
 Authors
  * Luca Della Libera 2022
@@ -175,6 +175,7 @@ def dataio_prepare(hparams, tokenizer):
             f"`sorting` ({hparams['sorting']}) must be random, ascending or descending"
         )
 
+    # reverse=True to fail fast in case of out-of-memory error
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
         replacements={"data_root": hparams["download_dir"]},
@@ -237,7 +238,7 @@ def dataio_prepare(hparams, tokenizer):
 
 class CustomPaddedBatch(PaddedBatch):
     def __init__(self, examples, hparams, *args, **kwargs):
-        for k in ["sig", "tokens_bos", "tokens_eos", "tokens"]:
+        for k in ["tokens_bos", "tokens_eos", "tokens"]:
             max_len = max([len(x[k]) for x in examples])
             pad_value = 0.0
             if k in ["tokens_bos", "tokens"]:
@@ -315,12 +316,8 @@ def test():
             },
         )
 
-        if locale == "en":
-            asr_brain.hparams.normalize_transcripts = True
-        else:
-            asr_brain.hparams.normalize_transcripts = False
-
         if locale in ["zh-CN", "ja"]:
+            # Use CER instead of WER (spaces are not used)
             asr_brain.hparams.wer_computer = (
                 lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(split_tokens=True)
             )
@@ -424,7 +421,7 @@ def train():
         # Remove "<unk>" token
         new_tokens = vocab[1:]
 
-        # Add new language tokens
+        # Add new language token
         new_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -451,10 +448,10 @@ def train():
         for param in asr_brain.hparams.whisper.parameters():
             param.requires_grad = False
 
-        # Unfreeze only decoder embedding layer
+        # Unfreeze decoder
         for (
             param
-        ) in asr_brain.hparams.whisper.model.decoder.embed_tokens.parameters():
+        ) in asr_brain.hparams.whisper.model.decoder.parameters():
             param.requires_grad = True
 
         # Training
@@ -476,8 +473,8 @@ def train():
             test_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
 
-    # Test on old locales
-    for locale in hparams["old_locales"]:
+    # Test on old + new locales
+    for locale in hparams["old_locales"] + hparams["new_locales"]:
         # Multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_common_voice,
@@ -487,12 +484,8 @@ def train():
             },
         )
 
-        if locale == "en":
-            asr_brain.hparams.normalize_transcripts = True
-        else:
-            asr_brain.hparams.normalize_transcripts = False
-
         if locale in ["zh-CN", "ja"]:
+            # Use CER instead of WER (spaces are not used)
             asr_brain.hparams.wer_computer = (
                 lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(split_tokens=True)
             )
