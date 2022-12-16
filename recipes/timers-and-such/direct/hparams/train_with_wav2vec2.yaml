@@ -78,14 +78,11 @@ apply_spec_augment: False
 w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_folder>
-    forward_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
-          output_all_hiddens: !ref <output_all_hiddens>
-    modify_state_dict_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
-    override_hf_model_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
-          apply_spec_augment: !ref <apply_spec_augment>
+    forward_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
+        output_all_hiddens: !ref <output_all_hiddens>
+    modify_state_dict_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
+    override_hf_model_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
+        apply_spec_augment: !ref <apply_spec_augment>
     freeze: !ref <freeze_wav2vec>
     freeze_params_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_params_feature_extractor
     cache_dir: !ref <wav2vec2_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache

@@ -335,6 +335,11 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+    hparams["whisper"].forward_partial_fn.keywords["mel_filters"] = (
+        hparams["whisper"]
+        .forward_partial_fn.keywords["mel_filters"]
+        .to(asr_brain.device)
+    )
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():

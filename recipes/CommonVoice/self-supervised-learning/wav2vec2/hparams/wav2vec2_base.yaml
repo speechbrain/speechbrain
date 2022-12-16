@@ -97,12 +97,10 @@ wav2vec2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTrans
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_folder>
     for_pretraining_cls: !name:transformers.Wav2Vec2ForPreTraining
-    override_hf_config_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.transformer.HuggingFace.config_return_hidden_states
-    forward_partial_fn: !new:functools.partial
-        - !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2_pretraining
-          mask_prob: !ref <mask_prob>
-          mask_length: !ref <mask_length>
+    override_hf_config_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.config_return_hidden_states
+    forward_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2_pretraining
+        mask_prob: !ref <mask_prob>
+        mask_length: !ref <mask_length>
     freeze: False
     cache_dir: !ref <output_folder>/cache
 

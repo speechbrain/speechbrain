@@ -176,6 +176,8 @@ class HuggingFaceTransformer(nn.Module):
 
         # Set inner forward function
         if forward_partial_fn is not None:
+            # self.forward_partial_fn = forward_partial_fn
+            # self.forward_partial_fn.keywords["model"] = self.model
             # if forward_partial_fn is a partial, add model to the partial's keyword attributes
             if isinstance(forward_partial_fn, partial):
                 self.forward_partial_fn = forward_partial_fn
@@ -269,15 +271,16 @@ class HuggingFaceTransformer(nn.Module):
                 + "is useless for finetuning this HuggingFaceTransformer."
             )
 
-    def forward(self, data):
+    def forward(self, data, **kwargs):
         """Process data (token streams, wavs, ...). This function wraps weight-freezing.
         """
         # If we freeze, we simply remove all grads and features from the graph.
+        kwargs["data"] = data
         if self.freeze:
             with torch.no_grad():
-                return self.forward_partial_fn(data=data)
+                return self.forward_partial_fn(**kwargs)
 
-        return self.forward_partial_fn(data=data)
+        return self.forward_partial_fn(**kwargs)
 
 
 def freeze_model(model):
@@ -675,8 +678,7 @@ def forward_wav2vec2_pretraining(
 def forward_whisper(
     model,
     data,
-    encoder_only,
-    decoder_input_ids=None,
+    decoder_input_ids,
     n_samples=480000,
     n_fft=400,
     hop_length=160,
@@ -687,10 +689,22 @@ def forward_whisper(
 
     Arguments
     ---------
-    wav : torch.Tensor (signal)
+    model : transformers.AutoModel
+        A valid HuggingFace transformers model.
+    data : torch.Tensor (signal)
         A batch of audio signals to transform to features.
     decoder_input_ids : torch.Tensor
         This is necessary if we want to use the decoder.
+    n_samples : int
+        For width in padding/trimming audio signal before mel sepctrum.
+    n_fft : int
+        Size of Fourier transform.
+    hop_length : int
+        Size of sliding window shift.
+    mel_filters : torch.Tensor
+        Mel filterbanks as operand in matrix multiplication.
+    output_attentions : bool
+        Whether/not to return attention values as well.
 
         A batch of decoder inputs tokens.
         The first tokens need to dictacte the behavior of the decoder.
@@ -702,13 +716,18 @@ def forward_whisper(
         with Greedy Search and/or Beam Search.
     """
     out_encoder = forward_mel_encoder(
-        model, data, n_samples, n_fft, hop_length, mel_filters
+        model=model,
+        data=data,
+        n_samples=n_samples,
+        n_fft=n_fft,
+        hop_length=hop_length,
+        mel_filters=mel_filters,
     )
-    if encoder_only:
+    if decoder_input_ids is None:
         return out_encoder
     logits, attn = forward_decoder(
-        model,
-        out_encoder,
+        model=model,
+        data=out_encoder,
         decoder_input_ids=decoder_input_ids,
         output_attentions=output_attentions,
     )
@@ -720,8 +739,24 @@ def forward_mel_encoder(model, data, n_samples, n_fft, hop_length, mel_filters):
 
     Arguments
     ---------
-    wav : torch.Tensor (FBANKs)
+    model : transformers.AutoModel
+        A valid HuggingFace transformers model.
+    data : torch.Tensor (signal)
         A batch of Mel FBANK from HF to transform to features.
+    n_samples : int
+        For width in padding/trimming audio signal before mel sepctrum.
+    n_fft : int
+        Size of Fourier transform.
+    hop_length : int
+        Size of sliding window shift.
+    mel_filters : torch.Tensor
+        Mel filterbanks as operand in matrix multiplication.
+    output_attentions : bool
+
+    Returns
+    -------
+    torch.Tensor
+        A tensor containing Mel spectograms.
     """
 
     def _log_mel_spectrogram(audio):
@@ -807,13 +842,15 @@ def forward_mel_encoder(model, data, n_samples, n_fft, hop_length, mel_filters):
         return mels
 
     mel = _get_mel(data)
-    return model.model.encoder(mel).last_hidden_state
+    return model.encoder(mel).last_hidden_state
 
 
 def forward_decoder(model, data, decoder_input_ids, output_attentions=True):
     """Perform one step of the whisper decoder.
     Arguments
     ---------
+    model : transformers.AutoModel
+        A valid HuggingFace transformers model.
     audio_features : torch.Tensor
         A batch of audio features (mel + whisper encoding).
     decoder_input_ids : torch.Tensor
@@ -825,6 +862,9 @@ def forward_decoder(model, data, decoder_input_ids, output_attentions=True):
         Please refer to the whisper paper for more details or go to the
         seq2seq2.py file in SpeechBrain to see how to generate the tokens
         with Greedy Search and/or Beam Search.
+    output_attentions : bool
+        Whether/not to return attention values as well.
+
     """
     output_states = model.decoder(
         encoder_hidden_states=data,

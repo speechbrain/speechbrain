@@ -50,7 +50,9 @@ class ASR(sb.Brain):
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
         # Forward encoder + decoder
-        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+        enc_out, logits, _ = self.modules.whisper(
+            wavs, decoder_input_ids=bos_tokens
+        )
 
         log_probs = self.hparams.log_softmax(logits)
 
@@ -247,6 +249,10 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    hparams["whisper"].forward_decoder = lambda audio, mem: hparams[
+        "whisper_decoder"
+    ](data=audio, decoder_input_ids=mem)
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -299,6 +305,11 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
         opt_class=hparams["whisper_opt_class"],
+    )
+    hparams["whisper"].forward_partial_fn.keywords["mel_filters"] = (
+        hparams["whisper"]
+        .forward_partial_fn.keywords["mel_filters"]
+        .to(asr_brain.device)
     )
 
     # We load the pretrained whisper model
