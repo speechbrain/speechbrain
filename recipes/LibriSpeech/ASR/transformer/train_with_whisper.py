@@ -214,7 +214,8 @@ def dataio_prepare(hparams, tokenizer):
     )
     def text_pipeline(wrd):
         yield wrd
-        tokens_list = tokenizer.encode(wrd)
+        #carry on the whisper normalization for fintunning
+        tokens_list = tokenizer.encode(tokenizer._normalize(wrd))
         # avoid bos and eos tokens.
         tokens_list = tokens_list[1:-1]
         yield tokens_list
