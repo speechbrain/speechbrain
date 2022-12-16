@@ -1,16 +1,15 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
+"""Recipe for training a neural speech separation system on binaural wsjmix the
 dataset. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
-> python train.py hparams/sepformer.yaml
-> python train.py hparams/dualpath_rnn.yaml
-> python train.py hparams/convtasnet.yaml
+> python train.py hparams/convtasnet-parallel.yaml
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
-different architectures. The script supports both wsj2mix and
-wsj3mix.
+different architectures.
 
 
 Authors
@@ -66,6 +65,17 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     mix = targets.sum(-1)
+                    if "noise" in self.hparams.experiment_name:
+                        noise = noise.to(self.device)
+                        len_noise = noise.shape[1]
+                        len_mix = mix.shape[1]
+                        min_len = min(len_noise, len_mix)
+
+                        # add the noise
+                        mix = mix[:, :min_len] + noise[:, :min_len]
+
+                        # fix the length of targets also
+                        targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -192,10 +202,14 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
+        noise = None
+        if "noise" in self.hparams.experiment_name:
+            noise = batch.noise_sig[0]
+
         if self.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN
+                    mixture, targets, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, targets)
 
@@ -229,7 +243,7 @@ class Separation(sb.Brain):
                 loss.data = torch.tensor(0).to(self.device)
         else:
             predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN
+                mixture, targets, sb.Stage.TRAIN, noise
             )
             loss = self.compute_objectives(predictions, targets)
 
@@ -283,7 +297,7 @@ class Separation(sb.Brain):
             else:
                 self.save_audio(snt_id[0], mixture, targets, predictions)
 
-        return loss.detach()
+        return loss.mean().detach()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -624,6 +638,14 @@ def dataio_prep(hparams):
             s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             return s3_sig
 
+    if "noise" in hparams["experiment_name"]:
+
+        @sb.utils.data_pipeline.takes("noise_wav")
+        @sb.utils.data_pipeline.provides("noise_sig")
+        def audio_pipeline_noise(noise_wav):
+            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+            return noise_sig
+
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
@@ -631,6 +653,11 @@ def dataio_prep(hparams):
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
         sb.dataio.dataset.set_output_keys(
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
+        )
+    elif "noise" in hparams["experiment_name"]:
+        sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+        sb.dataio.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
         )
     else:
         sb.dataio.dataset.set_output_keys(
@@ -682,13 +709,30 @@ if __name__ == "__main__":
         )
         file.extractall(path=hparams["data_folder"])
 
+    sys.path.append(hparams["datasets_generation"])
+    if "noise" in hparams["experiment_name"]:
+        from create_wav_2speakers_noise import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(hparams["data_folder"], "noise")
+    elif "reverb" in hparams["experiment_name"]:
+        from create_wav_2speakers_reverb import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(hparams["data_folder"], "reverb")
+    elif hparams["num_spks"] == 2:
+        from create_wav_2speakers import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(
+            hparams["data_folder"], "2speakers"
+        )
+    else:
+        from create_wav_3speakers import create_binaural_wsj0mix
+
+        hparams["data_folder"] = os.path.join(
+            hparams["data_folder"], "3speakers"
+        )
+
     if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
         print("Generate Binaural WSJ0Mix dataset automatically")
-        sys.path.append(hparams["datasets_generation"])
-        if hparams["num_spks"] == 2:
-            from create_wav_2speakers import create_binaural_wsj0mix
-        else:
-            from create_wav_3speakers import create_binaural_wsj0mix
         run_on_main(
             create_binaural_wsj0mix,
             kwargs={
@@ -707,6 +751,7 @@ if __name__ == "__main__":
     run_on_main(
         prepare_binaural_wsj0mix,
         kwargs={
+            "experiment_name": hparams["experiment_name"],
             "datapath": hparams["data_folder"],
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],

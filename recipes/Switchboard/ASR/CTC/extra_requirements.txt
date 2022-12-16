@@ -1,0 +1,2 @@
+# For wav2vec recipe (HuggingFace)
+transformers

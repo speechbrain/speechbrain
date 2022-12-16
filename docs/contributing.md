@@ -50,7 +50,7 @@ These will automatically check the code when you commit and when you push.
 
 ## Python
 ### Version
-SpeechBrain targets Python >= 3.8.
+SpeechBrain targets Python >= 3.7.
 
 ### Formatting
 To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting  pull requests, please run the black formatter on your code.
