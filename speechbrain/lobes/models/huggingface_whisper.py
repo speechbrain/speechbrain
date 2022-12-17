@@ -34,12 +34,12 @@ class CustomWhisperTokenizer(WhisperTokenizer):
     # override
     @property
     def prefix_tokens(self):
-        all_special_ids = self.all_special_ids
-        bos_token_id = all_special_ids[-106]
-        translate_token_id = all_special_ids[-6]
-        transcribe_token_id = all_special_ids[-5]
-        notimestamps_token_id = all_special_ids[-1]
-        #langs = tuple(LANGUAGES.keys())
+        # all_special_ids = self.all_special_ids
+        bos_token_id = 50258  # all_special_ids[-106]
+        translate_token_id = 50358  # all_special_ids[-6]
+        transcribe_token_id = 50359  # all_special_ids[-5]
+        notimestamps_token_id = 50363  # all_special_ids[-1]
+        # langs = tuple(LANGUAGES.keys())
 
         if self.language is not None:
             self.language = self.language.lower()
@@ -52,15 +52,23 @@ class CustomWhisperTokenizer(WhisperTokenizer):
 
         if self.task is not None:
             if self.task not in TASK_IDS:
-                raise ValueError(f"Unsupported task: {self.task}. Task should be in: {TASK_IDS}")
+                raise ValueError(
+                    f"Unsupported task: {self.task}. Task should be in: {TASK_IDS}"
+                )
 
         bos_sequence = [bos_token_id]
         if self.language is not None:
             # Need to replace with custom code because language ID is hardcoded...
-            #bos_sequence.append(bos_token_id + 1 + langs.index(language_id))
-            bos_sequence.append(self.encode(f"<|{language_id}|>", add_special_tokens=False)[0])
+            # bos_sequence.append(bos_token_id + 1 + langs.index(language_id))
+            bos_sequence.append(
+                self.encode(f"<|{language_id}|>", add_special_tokens=False)[0]
+            )
         if self.task is not None:
-            bos_sequence.append(transcribe_token_id if self.task == "transcribe" else translate_token_id)
+            bos_sequence.append(
+                transcribe_token_id
+                if self.task == "transcribe"
+                else translate_token_id
+            )
         if not self.predict_timestamps:
             bos_sequence.append(notimestamps_token_id)
         return bos_sequence
@@ -116,7 +124,10 @@ class HuggingFaceWhisper(nn.Module):
         # Download the tokenizer only if we are going to use the Decoder.
         if not encoder_only:
             self.tokenizer = CustomWhisperTokenizer.from_pretrained(
-                source, language=None, task="transcribe", predict_timestamps=False
+                source,
+                language=None,
+                task="transcribe",
+                predict_timestamps=False,
             )
             self.tokenizer.supported_languages = LANGUAGES
             self.tokenizer.to_language_codes = TO_LANGUAGE_CODE
@@ -333,10 +344,17 @@ class HuggingFaceWhisper(nn.Module):
 
     @torch.no_grad()
     def generate(
-        self, wav=None, audio_features=None, forced_decoder_locale=None, max_gen_tokens=445, strategy="greedy",
+        self,
+        wav=None,
+        audio_features=None,
+        forced_decoder_locale=None,
+        max_gen_tokens=445,
+        strategy="greedy",
     ):
         if wav is None and audio_features is None:
-            raise ValueError("Either `wav` or `audio_features` argument should be given")
+            raise ValueError(
+                "Either `wav` or `audio_features` argument should be given"
+            )
         if audio_features is None:
             audio_features = self.forward_encoder(wav)
         batch_size = audio_features.shape[0]
@@ -356,11 +374,17 @@ class HuggingFaceWhisper(nn.Module):
         )
         if forced_decoder_locale is None:
             # Compute most likely language token IDs
-            all_lang_tokens = [f"<|{l}|>" for l in self.tokenizer.supported_languages]
-            all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(all_lang_tokens)
+            all_lang_tokens = [
+                f"<|{l}|>" for l in self.tokenizer.supported_languages
+            ]
+            all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(
+                all_lang_tokens
+            )
             hyps[:, 0] = startoftranscript_id
             logits, _ = self.forward_decoder(audio_features, hyps[:, :1])
-            lang_mask = torch.zeros(logits.shape[-1], device=logits.device, dtype=torch.bool)
+            lang_mask = torch.zeros(
+                logits.shape[-1], device=logits.device, dtype=torch.bool
+            )
             lang_mask[all_lang_tokens_ids] = True
             logits[:, :, ~lang_mask] = -float("inf")
             lang_tokens_ids = logits.argmax(dim=-1)[:, 0]
@@ -393,8 +417,12 @@ class HuggingFaceWhisper(nn.Module):
             )
             gen_tokens = logits.argmax(dim=-1)[:, -1]
             hyps[unfinished_mask, num_gen_tokens + 4] = gen_tokens
-            unfinished_mask[unfinished_mask == True] = gen_tokens != endoftext_id
+            unfinished_mask[unfinished_mask == True] = (
+                gen_tokens != endoftext_id
+            )
             num_gen_tokens += 1
-            if (not unfinished_mask.any()) or (num_gen_tokens >= max_gen_tokens):
+            if (not unfinished_mask.any()) or (
+                num_gen_tokens >= max_gen_tokens
+            ):
                 break
-        return hyps[:, 4:num_gen_tokens + 3]
+        return hyps[:, 4 : num_gen_tokens + 3]

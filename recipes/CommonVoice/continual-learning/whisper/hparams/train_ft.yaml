@@ -17,8 +17,8 @@ output_dir: !ref results/whisper_ft/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 64 #24  # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 64 #24
+train_batch_size: 128 #24  # 1 when fine-tuning both encoder and decoder
+valid_batch_size: 128 #24
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -41,7 +41,7 @@ freeze: False
 freeze_encoder: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
-auto_mix_prec: True
+auto_mix_prec: False  # True causes NaN in forward pass for Kinyarwanda, need to double check
 gradient_checkpointing: False
 compile_model: True
 ckpt_interval_minutes: 600
@@ -58,11 +58,6 @@ train_dataloader_kwargs:
 valid_dataloader_kwargs:
     batch_size: !ref <valid_batch_size>
     num_workers: !ref <valid_num_workers>
-
-# Augmentation
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 # Modules
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper

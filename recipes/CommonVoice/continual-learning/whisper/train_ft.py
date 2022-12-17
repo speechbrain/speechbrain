@@ -47,11 +47,6 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         bos_tokens, _ = batch.tokens_bos
 
-        if stage == sb.Stage.TRAIN:
-            # Add augmentation if specified
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
-
         # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
             enc_out, logits, _ = torch.utils.checkpoint.checkpoint(
@@ -105,6 +100,12 @@ class ASR(sb.Brain):
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
                 target_words = [text.split(" ") for text in target_words]
+
+            # When `ref_tokens` is an empty string add dummy space to avoid division by 0
+            for word in target_words:
+                for i, char in enumerate(word):
+                    if len(char) == 0:
+                        word[i] = " "
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
@@ -318,11 +319,13 @@ def test():
 
         if locale in ["zh-CN", "ja"]:
             # Use CER instead of WER (spaces are not used)
-            asr_brain.hparams.wer_computer = (
-                lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(split_tokens=True)
+            asr_brain.hparams.wer_computer = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
+                split_tokens=True
             )
         else:
-            asr_brain.hparams.wer_computer = sb.utils.metric_stats.ErrorRateStats
+            asr_brain.hparams.wer_computer = (
+                sb.utils.metric_stats.ErrorRateStats
+            )
 
         # Set forced decoder locale
         asr_brain.hparams.forced_decoder_locale = locale
@@ -407,8 +410,10 @@ def train():
         )
 
         # Fit sentence-piece tokenizer on new language
+        sp_dir = os.path.join(hparams["save_dir"], locale)
+        os.makedirs(sp_dir, exist_ok=True)
         sp = SentencePiece(
-            model_dir=hparams["save_dir"],
+            model_dir=sp_dir,
             vocab_size=hparams["vocab_size"],
             annotation_train=os.path.join(hparams["download_dir"], "train.csv"),
             annotation_read="wrd",
@@ -422,7 +427,8 @@ def train():
         new_tokens = vocab[1:]
 
         # Add new language token
-        new_tokens += [f"<|{locale.lower()}|>"]
+        tokenizer.add_tokens(f"<|{locale.lower()}|>")
+        tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
 
@@ -449,9 +455,7 @@ def train():
             param.requires_grad = False
 
         # Unfreeze decoder
-        for (
-            param
-        ) in asr_brain.hparams.whisper.model.decoder.parameters():
+        for param in asr_brain.hparams.whisper.model.decoder.parameters():
             param.requires_grad = True
 
         # Training
@@ -486,11 +490,13 @@ def train():
 
         if locale in ["zh-CN", "ja"]:
             # Use CER instead of WER (spaces are not used)
-            asr_brain.hparams.wer_computer = (
-                lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(split_tokens=True)
+            asr_brain.hparams.wer_computer = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
+                split_tokens=True
             )
         else:
-            asr_brain.hparams.wer_computer = sb.utils.metric_stats.ErrorRateStats
+            asr_brain.hparams.wer_computer = (
+                sb.utils.metric_stats.ErrorRateStats
+            )
 
         # Set forced decoder locale
         asr_brain.hparams.forced_decoder_locale = locale
