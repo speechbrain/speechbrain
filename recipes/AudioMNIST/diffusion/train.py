@@ -622,6 +622,38 @@ class DiffusionBrain(sb.Brain):
             spec_file_name = os.path.join(spec_sample_path, f"spec_{label}.png")
             self.save_spectrogram_sample(sample, spec_file_name)
 
+    def save_raw(self, spec, wav, spec_rec=None, wav_rec=None, path="."):
+        """Saves generated audio samples and spectrograms in
+        raw form, for further analysis
+        
+        Arguments
+        ---------
+        spec: torch.Tensor
+            generated spectrogram samples
+
+        wav: torch.Tensor
+            generated waveforms
+
+        path: str
+            the path
+        """
+        file_name = os.path.join(path, "raw.pt")
+        data =  {
+            "spec": spec,
+            "wav": wav,
+            "spec_rec": spec_rec,
+            "wav_rec": wav_rec
+        }
+        data = {
+            key: value
+            for key, value in data.items()
+            if value is not None
+        }
+        torch.save(
+            data,
+            file_name
+        )
+
     def save_spectrogram_sample(self, sample, file_name):
         """Saves a single spectrogram sample as an image
 
@@ -919,6 +951,13 @@ class DiffusionBrain(sb.Brain):
             )
             if wav_rec is not None:
                 self.save_audio(wav_rec, epoch_sample_path, folder="wav_rec")
+        self.save_raw(
+            spec=samples,
+            wav=wav,
+            spec_rec=samples_rec,
+            wav_rec=wav_rec,
+            path=epoch_sample_path
+        )
         if self.hparams.use_tensorboard:
             sample_mean_stats = self.sample_mean_metric.summarize()
             sample_std_stats = self.sample_std_metric.summarize()
