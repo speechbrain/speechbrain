@@ -531,25 +531,25 @@ def dataio_prep(hparams):
     def audio_pipeline_mix(mix_wav):
         return sb.dataio.dataio.read_audio(mix_wav)
 
-    @sb.utils.data_pipeline.takes("s1_wav", "duration")
+    @sb.utils.data_pipeline.takes("s1_wav", "num_samples")
     @sb.utils.data_pipeline.provides("s1_sig")
-    def audio_pipeline_s1(s1_wav, duration):
+    def audio_pipeline_s1(s1_wav, num_samples):
         if not s1_wav:
-            return torch.zeros(int(duration * hparams["sample_rate"]))
+            return torch.zeros(num_samples)
         return sb.dataio.dataio.read_audio(s1_wav)
 
-    @sb.utils.data_pipeline.takes("s2_wav", "duration")
+    @sb.utils.data_pipeline.takes("s2_wav", "num_samples")
     @sb.utils.data_pipeline.provides("s2_sig")
-    def audio_pipeline_s2(s2_wav, duration):
+    def audio_pipeline_s2(s2_wav, num_samples):
         if not s2_wav:
-            return torch.zeros(int(duration * hparams["sample_rate"]))
+            return torch.zeros(num_samples)
         return sb.dataio.dataio.read_audio(s2_wav)
 
-    @sb.utils.data_pipeline.takes("noise_wav", "duration")
+    @sb.utils.data_pipeline.takes("noise_wav", "num_samples")
     @sb.utils.data_pipeline.provides("noise_sig")
-    def audio_pipeline_noise(noise_wav, duration):
+    def audio_pipeline_noise(noise_wav, num_samples):
         if not noise_wav:
-            return torch.zeros(int(duration * hparams["sample_rate"]))
+            return torch.zeros(num_samples)
         return sb.dataio.dataio.read_audio(noise_wav)
 
     valid_data.add_dynamic_item(audio_pipeline_mix)
