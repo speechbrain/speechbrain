@@ -559,8 +559,8 @@ def dataio_prep(hparams):
     test_data.add_dynamic_item(audio_pipeline_mix)
     for key in ["s1_sig", "s2_sig", "s3_sig", "noise_sig"]:
         test_data.add_dynamic_item(
-            lambda dur: torch.zeros(int(dur * hparams["sample_rate"])),
-            takes="duration",
+            lambda num_samples: torch.zeros(int(num_samples)),
+            takes="num_samples",
             provides=key,
         )
 
