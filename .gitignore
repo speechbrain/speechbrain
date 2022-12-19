@@ -51,6 +51,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/tmp/
 
 # Translations
 *.mo
@@ -116,6 +117,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# PyCharm project settings
+.idea
 
 # Spyder project settings
 .spyderproject

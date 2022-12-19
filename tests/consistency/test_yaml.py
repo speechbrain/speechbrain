@@ -1,5 +1,5 @@
 import csv
-from speechbrain.utils.check_yaml import check_yaml_vs_script, check_module_vars
+from speechbrain.utils.check_yaml import check_yaml_vs_script
 
 
 def test_yaml_script_consistency(recipe_list="tests/recipes.csv"):
@@ -35,7 +35,7 @@ def test_yaml_script_consistency(recipe_list="tests/recipes.csv"):
                 check = False
 
             # Check module variables
-            if not (check_module_vars(row["Hparam_file"], row["Script_file"])):
-                check = False
+            # if not (check_module_vars(row["Hparam_file"], row["Script_file"])):
+            #    check = False
 
     assert check

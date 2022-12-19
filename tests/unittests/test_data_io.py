@@ -13,9 +13,25 @@ def test_read_audio(tmpdir, device):
     for i in range(3):
         start = torch.randint(0, 8000, (1,), device=device).item()
         stop = start + torch.randint(500, 1000, (1,), device=device).item()
-        wav_obj = {"wav": {"file": wavfile, "start": start, "stop": stop}}
-        loaded = read_audio(wav_obj["wav"]).to(device)
-        assert loaded.allclose(test_waveform[start:stop], atol=1e-4)
+
+        loaded_range = read_audio(
+            {"file": wavfile, "start": start, "stop": stop}
+        ).to(device)
+        assert loaded_range.allclose(test_waveform[start:stop], atol=1e-4)
+
+        loaded_omit_start = read_audio({"file": wavfile, "stop": stop}).to(
+            device
+        )
+        assert loaded_omit_start.allclose(test_waveform[:stop], atol=1e-4)
+
+        loaded_omit_stop = read_audio({"file": wavfile, "start": start}).to(
+            device
+        )
+        assert loaded_omit_stop.allclose(test_waveform[start:], atol=1e-4)
+
+        loaded_simple = read_audio(wavfile).to(device)
+        assert loaded_simple.allclose(test_waveform, atol=1e-4)
+
         # set to equal when switching to the sox_io backend
         # assert torch.all(torch.eq(loaded, test_waveform[0, start:stop]))
 

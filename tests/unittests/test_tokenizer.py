@@ -14,7 +14,7 @@ def test_tokenizer():
     dict_int2lab = {1: "HELLO", 2: "MORNING"}
 
     spm = SentencePiece(
-        os.path.abspath("tokenizer_data/"),
+        os.path.abspath("tests/tmp/tokenizer_data"),
         100,
         annotation_train=os.path.abspath(
             "tests/samples/annotation/tokenizer.csv"
@@ -55,7 +55,7 @@ def test_tokenizer():
     }
 
     spm = SentencePiece(
-        os.path.abspath("tokenizer_data/"),
+        os.path.abspath("tests/tmp/tokenizer_data"),
         100,
         annotation_train=os.path.abspath(
             "tests/sample/annotation/tokenzer.csv"

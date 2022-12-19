@@ -504,7 +504,7 @@ def remove_punctuation(text: str) -> str:
 
     # remove consecutive commas and spaces
     text = re.sub(r"\s+", " ", text)
-    text = re.sub(f"^\\s+", "", text)
+    text = re.sub(r"^\s+", "", text)
     text = re.sub(r"\s+$", "", text)
 
     return text

@@ -2,6 +2,7 @@
 
 Authors
  * Mirco Ravanelli 2022
+ * Andreas Nautsch 2022
 """
 import os
 import re
@@ -318,7 +319,7 @@ def run_recipe_tests(
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     run_opts="--device=cpu",
-    output_folder="tests/recipe_tests/",
+    output_folder="tests/tmp/recipes/",
     filters_fields=[],
     filters=[],
     do_checks=True,
@@ -429,9 +430,19 @@ def load_yaml_test(
     avoid_list=[
         "templates/hyperparameter_optimization_speaker_id/train.yaml",
         "templates/speaker_id/train.yaml",
+        # recipes creating errors if NVIDIA driver is not on one's system
+        "recipes/timers-and-such/multistage/hparams/train_LS_LM.yaml",
+        "recipes/timers-and-such/multistage/hparams/train_TAS_LM.yaml",
+        "recipes/timers-and-such/direct/hparams/train.yaml",
+        "recipes/timers-and-such/decoupled/hparams/train_LS_LM.yaml",
+        "recipes/timers-and-such/decoupled/hparams/train_TAS_LM.yaml",
+        "recipes/fluent-speech-commands/direct/hparams/train.yaml",
+        "recipes/CommonLanguage/lang_id/hparams/train_ecapa_tdnn.yaml",
+        "recipes/SLURP/direct/hparams/train.yaml",
     ],
-    data_folder="yaml_check_folder",
-    output_folder="yaml_check_folder",
+    rir_folder="tests/tmp/rir",
+    data_folder="tests/tmp/yaml",
+    output_folder="tests/tmp/yaml",
 ):
     """Tests if the yaml files can be loaded without errors.
 
@@ -453,6 +464,8 @@ def load_yaml_test(
         See above.
     avoid_list: list
         List of hparam file not to check.
+    rir_folder:
+        This overrides the rir_folder; rir_path, and openrir_folder usually specified in the hparam files.
     data_folder:
         This overrides the data_folder usually specified in the hparam files.
     output_folder:
@@ -470,19 +483,25 @@ def load_yaml_test(
     # Set data_foler and output folder
     data_folder = os.path.join(cwd, data_folder)
     output_folder = os.path.join(cwd, output_folder)
+    rir_folder = os.path.join(cwd, rir_folder)
 
     # Additional overrides
     add_overrides = {
         "manual_annot_folder": data_folder,
         "musan_folder": data_folder,
         "tea_models_dir": data_folder,
-        "rir_path": data_folder,
         "wsj_root": data_folder,
         "tokenizer_file": data_folder,
         "commonlanguage_folder": data_folder,
         "tea_infer_dir": data_folder,
         "original_data_folder": data_folder,
         "pretrain_st_dir": data_folder,
+        # RIR folder specifications -> all point to the same zip file: one download destination
+        "rir_path": rir_folder,
+        "rir_folder": rir_folder,
+        "openrir_folder": rir_folder,
+        "open_rir_folder": rir_folder,
+        "data_folder_rirs": rir_folder,
     }
 
     # Read the csv recipe file and detect which tests we have to run
@@ -523,10 +542,10 @@ def load_yaml_test(
         # Append additional overrides when needed
         with open(hparam_file) as f:
             for line in f:
-                for key in add_overrides.keys():
+                for key, value in add_overrides.items():
                     pattern = key + ":"
                     if pattern in line and line.find(pattern) == 0:
-                        overrides.update({key: data_folder})
+                        overrides.update({key: value})
 
         with open(hparam_file) as fin:
             try:

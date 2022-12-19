@@ -30,6 +30,7 @@ def fetch(
     overwrite=False,
     save_filename=None,
     use_auth_token=False,
+    revision=None,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -65,6 +66,10 @@ def fetch(
     use_auth_token : bool (default: False)
         If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because majority of models are public.
+    revision : str
+        The model revision corresponding to the HuggingFace Hub model revision.
+        This is particularly useful if you wish to pin your code to a particular
+        version of a model hosted at HuggingFace.
     Returns
     -------
     pathlib.Path
@@ -113,7 +118,10 @@ def fetch(
         logger.info(MSG)
         try:
             fetched_file = huggingface_hub.hf_hub_download(
-                repo_id=source, filename=filename, use_auth_token=use_auth_token
+                repo_id=source,
+                filename=filename,
+                use_auth_token=use_auth_token,
+                revision=revision,
             )
         except HTTPError as e:
             if "404 Client Error" in str(e):
