@@ -164,16 +164,18 @@ class Separation(sb.Brain):
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
         mix, est_source, targets = outputs
-        if stage != sb.Stage.TRAIN:
+        if stage != sb.Stage.TRAIN and self.audio_samples_counter > 0:
             self.valid_table = build_table(
                 batch.id[0],
                 mix, est_source, targets, loss,
                 sr=self.hparams.sample_rate, table=self.valid_table
             )
+            self.audio_samples_counter -= 1
 
     def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN:
             self.valid_table = None
+            self.audio_samples_counter = self.hparams['n_audio_to_save']
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
