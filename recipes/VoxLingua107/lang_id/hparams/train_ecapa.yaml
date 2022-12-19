@@ -10,7 +10,7 @@ output_folder: !ref results/epaca/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ./
-
+rir_folder: !ref <data_folder>
 
 shards_url: /data/voxlingua107_shards
 train_meta: !ref <shards_url>/train/meta.json
@@ -79,7 +79,7 @@ augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 
 
 add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 0.5
     noise_prob: 0.8

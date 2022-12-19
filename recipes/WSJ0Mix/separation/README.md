@@ -30,7 +30,9 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 # Results
 
-Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
+* You can listen to example results on the test set of WSJ0-2/3Mix with SepFormer through this [page](https://sourceseparationresearch.com/static/sepformer_example_results/sepformer_results.html).
+
+* Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
@@ -65,6 +67,8 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://drive.google.com/drive/folders/12_Df4zsRW18YvD4hPAJAT9y_mVWnNyBm?usp=sharing).
 * The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://drive.google.com/drive/folders/1Olq2077mXKqtqHluxECn1lMKIbo7xPFu?usp=sharing).
 * The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://drive.google.com/drive/folders/12HqVPpMXY-OOMsZ3xTAtkN7kk5TZ2YaL?usp=sharing).
+* The output folder (with logs and checkpoints) for Sepformer with conformer block as intra model (hparams/sepformer-conformerintra.yaml) can be found [here](https://drive.google.com/drive/folders/1NcB7pKj7qWzDaI3ScDOyQwJLvRdW9rfl).
+
 
 
 
