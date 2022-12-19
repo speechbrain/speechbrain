@@ -12,6 +12,8 @@ import torch
 import math
 from packaging import version
 
+if version.parse(torch.__version__) > version.parse("1.6.0"):
+    import torch.fft as fft
 
 def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
     """Compute amplitude of a batch of waveforms.
@@ -243,9 +245,11 @@ def convolve1d(
 
         # Multiply in frequency domain to convolve in time domain
         if version.parse(torch.__version__) > version.parse("1.6.0"):
-            import torch.fft as fft
-
-            result = fft.rfft(waveform) * fft.rfft(kernel)
+            # import torch.fft as fft
+            
+            wav_fft = fft.rfft(waveform)
+            kernel_fft = fft.rfft(kernel)
+            result = wav_fft * kernel_fft
             convolved = fft.irfft(result, n=waveform.size(-1))
         else:
             f_signal = torch.rfft(waveform, 1)
@@ -332,12 +336,20 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     # rir_waveform[mask] = -rir_waveform[mask]
 
     # Use FFT to compute convolution, because of long reverberation filter
-    waveforms = convolve1d(
-        waveform=waveforms,
-        kernel=rir_waveform,
-        use_fft=True,
-        rotation_index=direct_index,
-    )
+    try:
+        waveforms = convolve1d(
+            waveform=waveforms,
+            kernel=rir_waveform,
+            use_fft=True,
+            rotation_index=direct_index,
+        )
+    except:
+        waveforms = convolve1d(
+            waveform=waveforms,
+            kernel=rir_waveform,
+            use_fft=False,
+            rotation_index=direct_index,
+        )
 
     # Rescale to the peak amplitude of the clean waveform
     waveforms = rescale(

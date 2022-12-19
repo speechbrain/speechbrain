@@ -468,8 +468,13 @@ class Conv1d(nn.Module):
         # Time padding
         padding = get_padding_elem(L_in, stride, kernel_size, dilation)
 
-        # Applying padding
-        x = F.pad(x, padding, mode=self.padding_mode)
+        try:
+            # Applying padding
+            x = F.pad(x, padding, mode=self.padding_mode)
+        except RuntimeError as e:
+            print(padding)
+            print(x.shape)
+            raise e
 
         return x
 
