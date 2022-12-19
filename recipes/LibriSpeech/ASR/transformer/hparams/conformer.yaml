@@ -59,7 +59,7 @@ num_workers: 4
 # This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 600
+max_batch_len: 400
 num_bucket: 200
 
 dynamic_batch_sampler:

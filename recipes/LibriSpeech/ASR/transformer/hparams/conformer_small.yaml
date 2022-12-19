@@ -63,15 +63,18 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
-dynamic_batching: False
+# This setup works well for V100 32GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_len: 600
+num_bucket: 200
 
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 100000 # in terms of frames
-    num_buckets: 200
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    max_batch_len: !ref <max_batch_len>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
-    max_batch_ex: -1
+    max_batch_ex: 128
 
 # Dataloader options
 train_dataloader_opts:
@@ -230,7 +233,6 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
-#    model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
