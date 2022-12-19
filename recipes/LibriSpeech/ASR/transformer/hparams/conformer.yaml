@@ -227,7 +227,6 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
-    #model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
