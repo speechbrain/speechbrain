@@ -514,6 +514,7 @@ def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
 
 
 def default_target(hparams, num_samples):
+    num_samples = int(num_samples)
     if hparams["default_target"] == "sin":
         n = torch.arange(num_samples)
         return torch.sin(2 * torch.pi / hparams["sample_rate"] * n)
@@ -522,8 +523,10 @@ def default_target(hparams, num_samples):
         return torch.cos(2 * torch.pi / hparams["sample_rate"] * n)
     elif hparams["default_target"] == "ones":
         return torch.ones(num_samples)
-    else:
+    elif hparams["default_target"] == "zeros":
         return torch.zeros(num_samples)
+    else:
+        raise ValueError("Unknown value " + hparams["default_target"])
 
 
 def dataio_prep(hparams):
