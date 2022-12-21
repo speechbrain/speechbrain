@@ -66,7 +66,8 @@ autoencoder_rec_loss_l2_steps: 1000
 train_log_interval: 50
 train_diffusion_start_epoch: 2
 train_autoencoder_stop_epoch: 10
-recompute_latent_mask_steps: 20
+latent_mask_recompute_steps: 20
+latent_mask_offset: 3
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000
@@ -251,14 +252,14 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 
 # This function manages learning rate annealing over the epochs.

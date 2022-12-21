@@ -146,12 +146,12 @@ class DiffusionBrain(sb.Brain):
                 fake_feats,
                 length=length
             )
-            latent_mask_value = latent.mean().item()
+            latent_mask_value = latent[:, :, :self.hparams.latent_mask_offset, :].mean().item()
             return latent_mask_value
         
     def get_latent_mask_value(self, mask_value):
         """Returns the latent mask value, recomputing it if necessary"""
-        if not self.latent_mask_value or self.step < self.hparams.recompute_latent_mask_steps:
+        if not self.latent_mask_value or self.step < self.hparams.latent_mask_recompute_steps:
             self.latent_mask_value = self.compute_latent_mask_value(mask_value)
         return self.latent_mask_value
 
