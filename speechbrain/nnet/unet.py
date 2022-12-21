@@ -1365,14 +1365,14 @@ class DownsamplingPadding(nn.Module):
             dims = DEFAULT_PADDING_DIMS
         self.dims = dims
 
-    def forward(self, x, lens=None):
+    def forward(self, x, length=None):
         """Applies the padding
 
         Arguments
         ---------
         x: torch.Tensor
             the sample
-        lens: torch.Tensor
+        length: torch.Tensor
             the length tensor
 
         Returns
@@ -1382,14 +1382,15 @@ class DownsamplingPadding(nn.Module):
         lens: torch.Tensor
             the new, adjusted lengths, if applicable
         """
+        updated_length = length
         for dim in self.dims:
             # TODO: Consider expanding pad_divisible to support multiple dimensions
-            x, lens_pad = pad_divisible(
-                x, lens, self.factor, len_dim=self.len_dim
+            x, length_pad = pad_divisible(
+                x, length, self.factor, len_dim=self.len_dim
             )
             if dim == self.len_dim:
-                lens = lens_pad
-        return x, lens_pad
+                updated_length = length_pad
+        return x, updated_length
 
 
 # TODO: Get rid of all hard-coded constants
@@ -1483,8 +1484,6 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             downsampling_padding = 2 ** len(channel_mult)            
         encoder_pad = DownsamplingPadding(downsampling_padding)
 
-        encoder = nn.Sequential(encoder_unet, encoder_pad)
-
         decoder = DecoderUNetModel(
             in_channels=latent_channels,
             out_channels=in_channels,
@@ -1512,8 +1511,9 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             for _ in range(2)
         ]
         super().__init__(
-            encoder=encoder,
+            encoder=encoder_unet,
             decoder=decoder,
+            latent_padding=encoder_pad,
             mean=mean,
             log_var=log_var,
             len_dim=len_dim,
@@ -1607,10 +1607,6 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
             out_kernel_size=out_kernel_size,
             use_fixup_init=use_fixup_norm,
         )
-        if downsampling_padding is None:
-            downsampling_padding = 2 ** len(channel_mult)            
-        
-        encoder_pad = DownsamplingPadding(downsampling_padding)
 
         encoder = nn.Sequential(
             encoder_unet,
@@ -1619,9 +1615,12 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
                 in_channels=encoder_out_channels,
                 out_channels=latent_channels,
                 kernel_size=1,
-            ),
-            encoder_pad
-        )
+            )
+        )        
+        if downsampling_padding is None:
+            downsampling_padding = 2 ** len(channel_mult)            
+        
+        encoder_pad = DownsamplingPadding(downsampling_padding)
 
         decoder = DecoderUNetModel(
             in_channels=latent_channels,
@@ -1642,6 +1641,7 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
         )
         super().__init__(
             encoder=encoder,
+            latent_padding=encoder_pad,
             decoder=decoder,
             len_dim=len_dim,
             out_mask_value=out_mask_value,

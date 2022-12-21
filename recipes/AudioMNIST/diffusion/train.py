@@ -418,10 +418,14 @@ class DiffusionBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions
+        preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions        
         if self.train_diffusion:
+            # NOTE: Padding of the latent space can affect the lengths
+            lens_diffusion = (
+                autoencoder_out.latent_length if self.diffusion_mode == DiffusionMode.LATENT 
+                else lens)
             loss = self.hparams.compute_cost(
-                channels_last(preds), channels_last(noise), length=lens
+                channels_last(preds), channels_last(noise), length=lens_diffusion
             )
         else:
             loss = torch.tensor(0.0, device=self.device)

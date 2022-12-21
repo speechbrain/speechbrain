@@ -1421,9 +1421,8 @@ class AutoencoderLoss(nn.Module):
             Length of each sample for computing true error with a mask.
 
         """
-        rec, _ = predictions
         rec_loss = self._align_length_axis(
-            self.rec_loss(targets, rec, reduction=None)
+            self.rec_loss(targets, predictions.rec, reduction=None)
         )
         return _reduce_autoencoder_loss(rec_loss, length, reduction)
 
