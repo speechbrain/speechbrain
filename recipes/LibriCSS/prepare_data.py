@@ -60,6 +60,7 @@ def create_libricss_csv(
 
         csv_columns = [
             "ID",
+            "duration",
             "num_samples",
             "overlap_ratio",
             "silence",
@@ -79,6 +80,7 @@ def create_libricss_csv(
 
                 row = {
                     "ID": mix_id,
+                    "duration": mix_info.num_frames / fs,
                     "num_samples": mix_info.num_frames,
                     "overlap_ratio": m.group(1),
                     "silence": m.group(2),

@@ -28,6 +28,7 @@ def prepare_libridm(librispeech_path, openrir_path, savepath, skip_prep=False):
     csv_columns = [
         "ID",
         "duration",
+        "num_samples",
         "mix_wav",
         "s1_wav",
         "s2_wav",
@@ -116,6 +117,7 @@ def save_data(writer, savepath, mix_id, mixture, src1, src2, noise):
     row = {
         "ID": mix_id,
         "duration": mixture.size(0) / 16000,
+        "num_samples": mixture.size(0),
         "mix_wav": os.path.join(savepath, "audio", mix_id + ".wav"),
         "s1_wav": None,
         "s2_wav": None,

@@ -35,10 +35,10 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import logging
-from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.processing.dynamic_mixing import DynamicMixingDataset
 from speechbrain.processing.signal_processing import reverberate
+from speechbrain.dataio.dataio import read_audio
 
 import wandb
 
@@ -46,11 +46,6 @@ import wandb
 # Define training procedure
 class Separation(sb.Brain):
     def fit_batch(self, batch):
-        if not isinstance(batch, PaddedBatch):
-            for key in batch:
-                if isinstance(batch[key], torch.Tensor):
-                    batch[key] = batch[key].squeeze(0)
-            batch = PaddedBatch([batch])
         try:
             return super().fit_batch(batch)
         except LossException as e:
@@ -66,7 +61,6 @@ class Separation(sb.Brain):
         """Forward computations from the mixture to the separated signals."""
         # Unpacking batch list
         mix = batch.mix_sig
-        noise = batch.noise_sig
         targets = [batch.s1_sig, batch.s2_sig]
 
         if self.hparams.num_spks == 3:
@@ -84,14 +78,12 @@ class Separation(sb.Brain):
 
         # Add speech distortions
         if stage == sb.Stage.TRAIN:
+            noise = batch.noise_sig
             with torch.no_grad():
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
                     mix = targets.sum(-1)
-                    if (
-                        not self.hparams.dm_config.reverb_sources
-                        and batch.rir is not None
-                    ):
+                    if not self.hparams.dm_config.reverb_sources:
                         # targets are clear, we need to manually reverberate the mixture
                         mix = reverberate(mix, batch.rir)
                     mix += noise
@@ -159,35 +151,35 @@ class Separation(sb.Brain):
                     "train/loss": loss.detach().cpu().numpy(),
                     "epoch": self.hparams.epoch_counter.current,
                     "batch": self.optimizer_step,
-                }, commit=True,
+                },
+                commit=True,
             )
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
         mix, est_source, targets = outputs
-        if stage != sb.Stage.TRAIN and self.audio_samples_counter > 0:
+        if stage != sb.Stage.TRAIN and self.max_audio_samples > 0:
             self.valid_table = build_table(
                 batch.id[0],
-                mix, est_source, targets, loss,
-                sr=self.hparams.sample_rate, table=self.valid_table
+                mix,
+                est_source,
+                targets,
+                loss,
+                sr=self.hparams.sample_rate,
+                table=self.valid_table,
             )
-            self.audio_samples_counter -= 1
+            self.max_audio_samples -= 1
 
     def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN:
             self.valid_table = None
-            self.audio_samples_counter = self.hparams['n_audio_to_save']
+            self.max_audio_samples = self.hparams.n_audio_to_save
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         # Compute/store important stats
         stage_stats = {"si-snr": stage_loss}
         if stage == sb.Stage.TRAIN:
-            wandb.log(
-                {
-                    "train/avg_loss": stage_loss,
-                    "epoch": epoch
-                }
-            )
+            wandb.log({"train/avg_loss": stage_loss, "epoch": epoch})
             self.train_stats = stage_stats
 
         # Perform end-of-iteration things, like annealing, logging, etc.
@@ -491,8 +483,14 @@ class LossException(Exception):
 def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
     est_source = est_source / est_source.abs().max()
     signals = [
-        x.detach().cpu() for x in
-        [mix, targets[0, :, 0], targets[0, :, 1], est_source[0, :, 0], est_source[0, :, 1]]
+        x.detach().cpu()
+        for x in [
+            mix,
+            targets[0, :, 0],
+            targets[0, :, 1],
+            est_source[0, :, 0],
+            est_source[0, :, 1],
+        ]
     ]
     audios = [
         wandb.Audio(x.squeeze().float().numpy(), sample_rate=sr)
@@ -500,11 +498,32 @@ def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
     ]
     if table is None:
         table = wandb.Table(
-            columns=["id", "SI-SNR", "mix", "target1", "target2", "est_source1", "est_source2"]
+            columns=[
+                "id",
+                "SI-SNR",
+                "mix",
+                "target1",
+                "target2",
+                "est_source1",
+                "est_source2",
+            ]
         )
     data = [mix_id, -loss] + audios
     table.add_data(*data)
     return table
+
+
+def default_target(hparams, num_samples):
+    if hparams["default_target"] == "sin":
+        n = torch.arange(num_samples)
+        return torch.sin(2 * torch.pi / hparams["sample_rate"] * n)
+    elif hparams["default_target"] == "cos":
+        n = torch.arange(num_samples)
+        return torch.cos(2 * torch.pi / hparams["sample_rate"] * n)
+    elif hparams["default_target"] == "ones":
+        return torch.ones(num_samples)
+    else:
+        return torch.zeros(num_samples)
 
 
 def dataio_prep(hparams):
@@ -528,46 +547,65 @@ def dataio_prep(hparams):
         replacements={"data_root": hparams["data_folder"]},
     )
 
+    def target_pipeline(sources, idx, num_samples):
+        if len(sources) > idx:
+            return sources[idx]
+        else:
+            return default_target(hparams, num_samples)
+
+    # TRAIN
+    train_data.add_dynamic_item(len, takes="mixture", provides="num_samples")
+    train_data.add_dynamic_item(len, takes="sources", provides="num_spkrs")
+    train_data.add_dynamic_item(lambda mixture: mixture, takes="mixture", provides="mix_sig")
+    train_data.add_dynamic_item(
+        lambda noise, num_samples: noise if noise is not None else torch.zeros(num_samples),
+        takes=["noise", "num_samples"], provides="noise_sig",
+    )
+    train_data.add_dynamic_item(
+        lambda rir: rir if rir is not None else torch.ones(1),
+        takes="rir", provides="rir_sig",
+    )
+    for idx, sig in enumerate(["s1_sig", "s2_sig"]):
+        train_data.add_dynamic_item(
+            lambda sources, num_samples: target_pipeline(sources, idx, num_samples),
+            takes=["sources", "num_samples"],
+            provides=sig,
+        )
+
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides("mix_sig")
     def audio_pipeline_mix(mix_wav):
-        return sb.dataio.dataio.read_audio(mix_wav)
+        return read_audio(mix_wav)
 
-    @sb.utils.data_pipeline.takes("s1_wav", "num_samples")
-    @sb.utils.data_pipeline.provides("s1_sig")
-    def audio_pipeline_s1(s1_wav, num_samples):
-        if not s1_wav:
-            return torch.zeros(num_samples)
-        return sb.dataio.dataio.read_audio(s1_wav)
-
-    @sb.utils.data_pipeline.takes("s2_wav", "num_samples")
-    @sb.utils.data_pipeline.provides("s2_sig")
-    def audio_pipeline_s2(s2_wav, num_samples):
-        if not s2_wav:
-            return torch.zeros(num_samples)
-        return sb.dataio.dataio.read_audio(s2_wav)
-
-    @sb.utils.data_pipeline.takes("noise_wav", "num_samples")
-    @sb.utils.data_pipeline.provides("noise_sig")
-    def audio_pipeline_noise(noise_wav, num_samples):
-        if not noise_wav:
-            return torch.zeros(num_samples)
-        return sb.dataio.dataio.read_audio(noise_wav)
-
+    # DEV
     valid_data.add_dynamic_item(audio_pipeline_mix)
-    valid_data.add_dynamic_item(audio_pipeline_s1)
-    valid_data.add_dynamic_item(audio_pipeline_s2)
-    valid_data.add_dynamic_item(audio_pipeline_noise)
-    test_data.add_dynamic_item(audio_pipeline_mix)
-    for key in ["s1_sig", "s2_sig", "s3_sig", "noise_sig"]:
-        test_data.add_dynamic_item(
-            lambda num_samples: torch.zeros(int(num_samples)),
-            takes="num_samples",
-            provides=key,
-        )
+    valid_data.add_dynamic_item(len, takes="mix_sig", provides="num_samples")
+    valid_data.add_dynamic_item(
+        lambda wav, num_samples: read_audio(wav) if wav else default_target(hparams, num_samples),
+        takes=["s1_wav", "num_samples"],
+        provides="s1_sig",
+    )
+    valid_data.add_dynamic_item(
+        lambda wav, num_samples: read_audio(wav) if wav else default_target(hparams, num_samples),
+        takes=["s2_wav", "num_samples"],
+        provides="s2_sig",
+    )
 
-    valid_data.set_output_keys(["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"])
-    test_data.set_output_keys(["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"])
+    # TEST
+    test_data.add_dynamic_item(audio_pipeline_mix)
+    test_data.add_dynamic_item(len, takes="mix_sig", provides="num_samples")
+    test_data.add_dynamic_item(
+        lambda num_samples: [default_target(hparams, num_samples) for _ in range(2)],
+        takes="num_samples",
+        provides=["s1_sig", "s2_sig"],
+    )
+
+    train_data.set_output_keys(
+        ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig", "rir_sig", "num_spkrs"]
+    )
+    sb.dataio.dataset.set_output_keys(
+        [valid_data, test_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
+    )
     return train_data, valid_data, test_data
 
 

@@ -7,6 +7,7 @@ Authors
 """
 
 from speechbrain.processing.signal_processing import reverberate
+from speechbrain.utils.data_pipeline import DataPipeline
 
 import torch
 import torchaudio
@@ -159,6 +160,17 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
 
         self.length = length
         self.dataset = None  # used for inner database
+        self.pipeline = DataPipeline(
+            [
+                "id",
+                "mixture",
+                "sources",
+                "noise",
+                "rir",
+                "original_data",
+                "mix_info",
+            ]
+        )
 
     @classmethod
     def from_didataset(
@@ -193,17 +205,14 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     def set_dataset(self, dataset):
         self.dataset = dataset
 
-    def generate(self):
-        """Generate new audio mixture
+    def add_dynamic_item(self, func, takes=None, provides=None):
+        self.pipeline.add_dynamic_item(func, takes, provides)
 
-        Returns:
-          - mixture
-          - mixed spkrs
-          - used overlap ratios
-          - padded sources
-          - noise
-          - data
-        """
+    def set_output_keys(self, keys):
+        self.pipeline.set_output_keys(keys)
+
+    def generate(self):
+        """Generate new audio mixture"""
 
         mix_info = {
             "num_spkrs": 0,
@@ -405,19 +414,9 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         mix, srcs, noise, rir, mix_info = self.generate()
 
-        for i in range(3 - len(srcs)):
-            src = torch.ones(mix.shape)
-            if rir is not None and self.config.reverb_sources:
-                src = reverberate(src, rir)
-
-            if self.config.white_noise_add:
-                src += torch.randn(mix.shape) * self.config.white_noise_std
-
-            src = normalize(src, self.meter, self.config.audio_min_loudness, self.config.audio_max_amp)
-            srcs.append(src)
-
         if idx is None:
             idx = uuid.uuid4()
+
         mix_id = (
             str(idx)
             + "_"
@@ -428,20 +427,26 @@ class DynamicMixingDataset(torch.utils.data.Dataset):
                     lambda x: f"{x[0]:.2f}", mix_info["overlap_ratios_paddings"]
                 )
             )
+            + ("_rir" + mix_info["rir"])
+            if mix_info["rir"]
+            else "" + ("_noise" + mix_info["noise"])
+            if mix_info["noise"]
+            else ""
         )
-        # "id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig", "rir"
+
+        original_data = mix_info["data"]
+        del mix_info["data"]
+
         dct = {
             "id": mix_id,
-            "mix_sig": mix,
-            "s1_sig": srcs[0],
-            "s2_sig": srcs[1],
-            "s3_sig": srcs[2],
-            "noise_sig": noise if noise is not None else torch.zeros(mix.shape),
-            "rir": rir if rir is not None else torch.ones(1),
-            "data": mix_info["data"],
+            "mixture": mix,
+            "sources": srcs,
+            "noise": noise,
+            "rir": rir,
+            "original_data": original_data,
+            "mix_info": mix_info,
         }
-
-        return dct
+        return self.pipeline(dct)
 
 
 def normalize(audio, meter, loudness=-25, max_amp=0.9):

@@ -56,6 +56,7 @@ limit_training_signal_len: True
 # the signal length of training sequences
 min_training_len: 8000 # 0.5s
 max_training_len: 128000 # 8s
+default_target: "zeros" # zeros, ones, sin, cos
 
 
 # Dynamic Mixing
@@ -122,6 +123,7 @@ kernel_stride: 8
 dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 0
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
 
 
 # Specifying the network
