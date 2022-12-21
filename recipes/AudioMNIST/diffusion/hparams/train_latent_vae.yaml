@@ -66,6 +66,7 @@ autoencoder_rec_loss_l2_steps: 1000
 train_log_interval: 50
 train_diffusion_start_epoch: 2
 train_autoencoder_stop_epoch: 10
+recompute_latent_mask_steps: 20
 overfit_test: False
 overfit_test_sample_count: 1
 overfit_test_epoch_data_count: 1000
@@ -92,6 +93,7 @@ spec_mel_scale: "slaney"
 spec_norm_mean: 0.
 spec_norm_std: 0.5
 spec_sample_size: 16
+spec_min_sample_size: 10
 spec_sample_min: -4.7
 spec_sample_max: 3.0
 min_level_db: -80.0

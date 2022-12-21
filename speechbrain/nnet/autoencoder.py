@@ -344,7 +344,8 @@ class NormalizingAutoencoder(Autoencoder):
         x_rec = self.decode(latent)
         x_rec = trim_as(x_rec, x)
         if self.mask_out and length is not None:
-            x_rec = clean_padding(x_rec, length, self.len_dim, out_mask_value)
+            x_rec = clean_padding(
+                x_rec, length, self.len_dim, out_mask_value)
 
         return AutoencoderOutput(x_rec, latent)
 

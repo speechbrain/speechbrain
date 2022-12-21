@@ -110,11 +110,13 @@ class DiffusionBrain(sb.Brain):
             mask_value = self.modules.global_norm.normalize(
                 self.mask_value_norm
             )
+            latent_mask_value = self.get_latent_mask_value(mask_value)
             (
                 train_sample_diffusion,
                 autoencoder_out,
             ) = self.modules.diffusion_latent.train_sample_latent(
-                feats, length=lens, out_mask_value=mask_value, cond_emb=cond_emb
+                feats, length=lens, out_mask_value=mask_value, cond_emb=cond_emb,
+                latent_mask_value=latent_mask_value
             )
             pred, noise, noisy_sample = train_sample_diffusion
         else:
@@ -127,6 +129,31 @@ class DiffusionBrain(sb.Brain):
         return DiffusionPredictions(
             pred, noise, noisy_sample, feats, lens, autoencoder_out
         )
+
+    def compute_latent_mask_value(self, mask_value):
+        """Computes the value with which to mask the latent
+        space. The core idea is that masked space should
+        not produce any sound"""
+        with torch.no_grad():
+            fake_feats = torch.ones(
+                1,
+                1,
+                self.hparams.spec_min_sample_size,
+                self.hparams.spec_n_mels            
+            ).to(self.device) * mask_value
+            length = torch.tensor([1.]).to(self.device)
+            latent = self.modules.autoencoder.encode(
+                fake_feats,
+                length=length
+            )
+            latent_mask_value = latent.mean().item()
+            return latent_mask_value
+        
+    def get_latent_mask_value(self, mask_value):
+        """Returns the latent mask value, recomputing it if necessary"""
+        if not self.latent_mask_value or self.step < self.hparams.recompute_latent_mask_steps:
+            self.latent_mask_value = self.compute_latent_mask_value(mask_value)
+        return self.latent_mask_value
 
     def compute_cond_emb(self, labels):
         """Computes conditioning embeddings for a set
@@ -832,6 +859,7 @@ class DiffusionBrain(sb.Brain):
         self.is_conditioned = hasattr(self.hparams, "use_cond_emb") and any(
             self.hparams.use_cond_emb.values()
         )
+        self.latent_mask_value = None
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
