@@ -56,7 +56,7 @@ class Separation(sb.Brain):
                 batch.mix_sig[0].shape,
                 batch.id[0],
             )
-            return torch.zeros(1).detach().cpu()
+            return e.loss.detach().cpu()
 
     def compute_forward(self, batch, stage=sb.Stage.TRAIN):
         """Forward computations from the mixture to the separated signals."""
@@ -138,7 +138,14 @@ class Separation(sb.Brain):
             if loss_to_keep.nelement() > 0:
                 loss = loss_to_keep
             else:
-                raise LossException(f"Loss {loss} is too small")
+                wandb.log(
+                    {
+                        "train/loss": loss.mean().detach().cpu().numpy(),
+                        "epoch": self.hparams.epoch_counter.current,
+                        "batch": self.optimizer_step,
+                    }
+                )
+                raise LossException(f"Loss {loss} is too small", loss.mean())
 
         loss = loss.mean()
 
@@ -484,7 +491,9 @@ class Separation(sb.Brain):
 
 
 class LossException(Exception):
-    pass
+    def __init__(self, message, loss):
+        super(LossException, self).__init__(message)
+        self.loss = loss
 
 
 def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
