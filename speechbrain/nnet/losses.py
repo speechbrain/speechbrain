@@ -887,6 +887,32 @@ def get_mask(source, source_lengths):
     return mask.transpose(-2, 1)
 
 
+def inactive_spkr_loss(mix, est_sources, tau=1e-2, eps=1e-8):
+    # loss = 10 * log10(sum_k(||x_hat_k||^2) + tau * ||y||^2)
+    x_energy = torch.sum(est_sources ** 2, dim=(1, 2)) # sum_k(||x_hat||^2) [B]
+    y_energy = torch.sum(mix ** 2, dim=-1) # ||y||^2 [B]
+    loss = 10 * torch.log10(x_energy + tau * y_energy + eps)
+    return loss
+
+
+class CompoundLoss(nn.Module):
+    def __init__(self, f_loss1, f_loss2, weight=1.0):
+        super(CompoundLoss, self).__init__()
+        self.loss1 = f_loss1
+        self.loss2 = f_loss2
+        self.weight = weight
+
+    def forward(self, mix, est_sources, targets, mix_n_sources):
+        if est_sources.size(-1) == mix_n_sources:
+            return self.loss1(targets, est_sources)
+        elif mix_n_sources == 0:
+            return self.loss2(mix, est_sources)
+        else:
+            loss1 = self.loss1(targets[:, :, :mix_n_sources], est_sources[:, :, :mix_n_sources])
+            loss2 = self.loss2(mix, est_sources[:, :, mix_n_sources:])
+            return loss1 + self.weight * loss2
+
+
 class AngularMargin(nn.Module):
     """
     An implementation of Angular Margin (AM) proposed in the following

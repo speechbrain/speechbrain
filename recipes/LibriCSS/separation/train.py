@@ -39,6 +39,7 @@ from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.processing.dynamic_mixing import DynamicMixingDataset
 from speechbrain.processing.signal_processing import reverberate
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.nnet.losses import CompoundLoss
 
 import wandb
 
@@ -121,8 +122,14 @@ class Separation(sb.Brain):
 
     def compute_objectives(self, outputs, batch, stage=sb.Stage.TRAIN):
         """Computes the si-snr loss"""
-        _, est_source, targets = outputs
-        loss = self.hparams.loss(targets, est_source)
+        mix, est_source, targets = outputs
+        if isinstance(self.hparams.loss, CompoundLoss):
+            mix_n_sources = est_source.size(-1)
+            if stage == sb.Stage.TRAIN:
+                mix_n_sources = batch.num_spkrs
+            loss = self.hparams.loss(mix, est_source, targets, mix_n_sources)
+        else:
+            loss = self.hparams.loss(targets, est_source)
 
         # hard threshold the easy dataitems
         if self.hparams.threshold_byloss and stage == sb.Stage.TRAIN:
