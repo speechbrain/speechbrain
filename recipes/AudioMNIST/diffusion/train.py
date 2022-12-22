@@ -488,9 +488,10 @@ class DiffusionBrain(sb.Brain):
 
         wav = None
         if self.hparams.eval_generate_audio:
-            wav = self.generate_audio(samples)
+            samples_denorm = self.denormalize(samples)
+            wav = self.generate_audio(samples_denorm)
 
-        return labels, samples, wav
+        return labels, samples, samples_denorm, wav
 
     def generate_spectrograms(self):
         """Generates sample spectrograms"""
@@ -653,31 +654,22 @@ class DiffusionBrain(sb.Brain):
             spec_file_name = os.path.join(spec_sample_path, f"spec_{label}.png")
             self.save_spectrogram_sample(sample, spec_file_name)
 
-    def save_raw(self, spec, wav, spec_rec=None, wav_rec=None, path="."):
+    def save_raw(self, path=".", **kwargs):
         """Saves generated audio samples and spectrograms in
-        raw form, for further analysis
+        raw form, for further analysis.
+
+        This method accepts keywords arguments, and each argument
+        becomes a key in the dictionary to be saved.
         
         Arguments
         ---------
-        spec: torch.Tensor
-            generated spectrogram samples
-
-        wav: torch.Tensor
-            generated waveforms
-
         path: str
             the path
         """
         file_name = os.path.join(path, "raw.pt")
-        data =  {
-            "spec": spec,
-            "wav": wav,
-            "spec_rec": spec_rec,
-            "wav_rec": wav_rec
-        }
         data = {
             key: value
-            for key, value in data.items()
+            for key, value in kwargs.items()
             if value is not None
         }
         torch.save(
@@ -700,6 +692,28 @@ class DiffusionBrain(sb.Brain):
         if fig is not None:
             fig.savefig(file_name)
 
+    def denormalize(self, samples):
+        """Undoes the normalization performed on spectrograms
+        
+        Arguments
+        ---------
+        samples: torch.Tensor
+            normalized samples
+        
+        Returns
+        -------
+        result: torch.Tensor
+            denormalized samples"""
+        if not torch.is_tensor(samples):
+            samples = torch.stack(samples)
+        samples = samples[:, :, :, : self.hparams.spec_n_mels]
+        samples = self.modules.min_level_norm.denormalize(samples)
+        samples = AF.DB_to_amplitude(
+            samples, ref=self.hparams.spec_ref, power=1.0
+        )
+        samples = self.modules.dynamic_range_compression(samples)
+        return samples
+
     def generate_audio(self, samples):
         """Generates audio from spectrogram samples using a vocoder
 
@@ -714,15 +728,7 @@ class DiffusionBrain(sb.Brain):
             generated audio for the samples (vocoder output)
         """
         vocoder_in = samples
-        if not torch.is_tensor(vocoder_in):
-            vocoder_in = torch.stack(vocoder_in)
-        vocoder_in = vocoder_in[:, :, :, : self.hparams.spec_n_mels]
         vocoder_in = vocoder_in.transpose(-1, -2)
-        vocoder_in = self.modules.min_level_norm.denormalize(vocoder_in)
-        vocoder_in = AF.DB_to_amplitude(
-            vocoder_in, ref=self.hparams.spec_ref, power=1.0
-        )
-        vocoder_in = self.modules.dynamic_range_compression(vocoder_in)
         vocoder_in = vocoder_in.squeeze(1)
         return self.vocoder(vocoder_in)
 
@@ -916,9 +922,14 @@ class DiffusionBrain(sb.Brain):
             and epoch is not None
             and epoch % self.hparams.samples_interval == 0
         ):
-            labels, samples, wav = self.generate_samples()
+            labels, samples, samples_denorm, wav = self.generate_samples()
             samples_rec, wav_rec = None, None
-            data = {"labels": labels, "samples": samples, "wav": wav}
+            data = {
+                "labels": labels,
+                "samples": samples,
+                "samples_denorm": samples_denorm,
+                "wav": wav
+            }
             if self.diffusion_mode == DiffusionMode.LATENT:
                 samples_rec, wav_rec = self.generate_rec_samples()
                 data["samples_rec"] = samples_rec
@@ -936,7 +947,8 @@ class DiffusionBrain(sb.Brain):
         """
         feats, lens = self.prepare_features(batch, sb.Stage.VALID)
         feats = self.modules.global_norm.denormalize(feats)
-        wav = self.generate_audio(feats)
+        feats_denorm = self.denormalize(feats)
+        wav = self.generate_audio(feats_denorm)
         self.log_samples(
             spectrogram_samples=feats,
             wav_samples=wav,
@@ -965,9 +977,9 @@ class DiffusionBrain(sb.Brain):
 
         """
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
-        samples, wav, labels, samples_rec, wav_rec = [
+        samples, samples_denorm, wav, labels, samples_rec, wav_rec = [
             data.get(key)
-            for key in ["samples", "wav", "labels", "samples_rec", "wav_rec"]
+            for key in ["samples", "samples_denorm", "wav", "labels", "samples_rec", "wav_rec"]
         ]
         if not torch.is_tensor(samples):
             samples = torch.stack(samples)
@@ -983,8 +995,10 @@ class DiffusionBrain(sb.Brain):
             )
             if wav_rec is not None:
                 self.save_audio(wav_rec, epoch_sample_path, folder="wav_rec")
+        
         self.save_raw(
             spec=samples,
+            spec_denorm=samples_denorm,
             wav=wav,
             spec_rec=samples_rec,
             wav_rec=wav_rec,
