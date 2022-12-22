@@ -394,7 +394,7 @@ def dataio_prepare(hparams):
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["max_batch_len_val"],
             num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
             shuffle=dynamic_hparams["shuffle_ex"],
@@ -480,6 +480,7 @@ if __name__ == "__main__":
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
+
     if valid_bsampler is not None:
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
