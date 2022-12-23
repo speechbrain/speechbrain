@@ -565,6 +565,8 @@ def dataio_prep(hparams):
         csv_path=hparams["test_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
+    if hparams["overfitting_test"]:
+        train_data = debug_dataset(hparams)
 
     def target_pipeline(sources, idx, num_samples):
         if len(sources) > idx:
@@ -625,7 +627,40 @@ def dataio_prep(hparams):
     sb.dataio.dataset.set_output_keys(
         [valid_data, test_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
+    if hparams["overfitting_test"]:
+        import copy
+        valid_data = copy.deepcopy(train_data)
     return train_data, valid_data, test_data
+
+
+def debug_dataset(hparams):
+    import copy
+    data = {}
+    for n_srcs in [0, 1, 2]:
+        for ovlp in [-0.5, 0.5, 1.0]:
+            dm_config = copy.deepcopy(hparams["dm_config"])
+            dm_config.num_spkrs = [n_srcs]
+            dm_config.num_spkrs_prob = [1.0]
+            dm_config.overlap_ratio = [ovlp]
+            dm_config.overlap_prob = [1.0]
+            dm_data = DynamicMixingDataset.from_didataset(
+                DynamicItemDataset.from_csv(
+                    hparams["train_data"],
+                    output_keys=["id", "wav", "spk_id", "duration"],
+                ),
+                dm_config,
+                "wav",
+                "spk_id",
+                noise_flist=hparams["noise_files"],
+                rir_flist=hparams["rir_files"],
+                replacements={"RIRS_NOISES": hparams["noises_root"]},
+                length=2,
+            )
+            dm_data.set_output_keys(["mixture", "sources", "noise", "rir", "original_data", "mix_info"])
+            for i in range(len(dm_data)):
+                data[f"libridm_{n_srcs}spkrs_{ovlp}ovlp_id{i}"] = dm_data[i]
+
+    return DynamicItemDataset(data)
 
 
 if __name__ == "__main__":

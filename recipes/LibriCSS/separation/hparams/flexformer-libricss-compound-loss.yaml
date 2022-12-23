@@ -31,6 +31,7 @@ test_data:
     libricss: !ref <save_folder>/libricss_utterances.csv
     ami: !ref <save_folder>/ami_samples.csv
 skip_prep: True
+overfitting_test: False
 
 ckpt_interval_minutes: 60
 
