@@ -67,7 +67,7 @@ n_mels: 80
 # This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 600
+max_batch_len: 900
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
