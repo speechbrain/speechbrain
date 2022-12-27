@@ -182,7 +182,7 @@ enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
 
 # For MTL CTC over the encoder
 proj_ctc: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <d_model>
+   input_size: !ref <joint_dim>
    n_neurons: !ref <output_neurons>
 
 # Define some projection layers to make sure that enc and dec
