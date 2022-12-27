@@ -281,7 +281,7 @@ Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
 
 opt_class: !name:torch.optim.AdamW
    lr: !ref <lr>
-   rho: 0.95
+   betas: (0.9, 0.98)
    eps: 1.e-8
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
