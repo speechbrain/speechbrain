@@ -98,7 +98,7 @@ dynamic_batch_sampler:
 # Model parameters
 # Transformer
 d_model: 144
-joint_dim: 144
+joint_dim: 512
 nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 0
@@ -181,9 +181,21 @@ enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
    transformer: !ref <Transformer>
 
 # For MTL CTC over the encoder
-enc_lin: !new:speechbrain.nnet.linear.Linear
+proj_ctc: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <d_model>
+   n_neurons: !ref <output_neurons>
+
+# Define some projection layers to make sure that enc and dec
+# output dim are the same before joining
+proj_enc: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <d_model>
    n_neurons: !ref <joint_dim>
+   bias: False
+
+proj_dec: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dec_dim>
+   n_neurons: !ref <joint_dim>
+   bias: False
 
 # Uncomment for MTL with CTC
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
@@ -252,13 +264,15 @@ modules:
    normalize: !ref <normalize>
    augmentation: !ref <augmentation>
    lm_model: !ref <lm_model>
-   enc_lin: !ref <enc_lin>
+   proj_ctc: !ref <proj_ctc>
+   proj_dec: !ref <proj_enc>
+   proj_enc: !ref <proj_dec>
    dec_lin: !ref <dec_lin>
 
 # for MTL
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
-   - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
+   - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <proj_enc>, !ref <proj_dec>, !ref <proj_ctc>, !ref <transducer_lin>]
 
 # Tokenizer initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor

@@ -77,8 +77,11 @@ class ASR(sb.Brain):
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
+        x = self.modules.proj_enc(x)
+
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
+        h = self.modules.proj_dec(h)
 
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
@@ -99,7 +102,7 @@ class ASR(sb.Brain):
             ):
                 return_CTC = True
                 # Output layer for ctc log-probabilities
-                out_ctc = self.modules.enc_lin(x)
+                out_ctc = self.modules.proj_ctc(x)
                 p_ctc = self.hparams.log_softmax(out_ctc)
             if (
                 hasattr(self.hparams, "ce_cost")
