@@ -76,7 +76,7 @@ class ASR(sb.Brain):
                 feats = self.hparams.augmentation(feats)
 
         src = self.modules.CNN(feats)
-        x, _ = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
+        x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
 
