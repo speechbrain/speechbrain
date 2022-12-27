@@ -161,7 +161,6 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    residuals: (False, False)
 
 enc: !new:speechbrain.lobes.models.transformer.Conformer.ConformerEncoder
-   input_size: 640
    d_model: !ref <d_model>
    num_layers: !ref <num_encoder_layers>
    nhead: !ref <nhead>
