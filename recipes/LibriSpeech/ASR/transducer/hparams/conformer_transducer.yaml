@@ -228,6 +228,7 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
 # for MTL
 # update model if any HEAD module is added
 modules:
+   CNN: !ref <CNN>
    enc: !ref <enc>
    emb: !ref <emb>
    dec: !ref <dec>
@@ -243,7 +244,7 @@ modules:
 # for MTL
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
-   - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
+   - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <transducer_lin>]
 
 # Tokenizer initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor

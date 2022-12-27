@@ -267,7 +267,7 @@ class ASR(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
 
-            lr = self.hparams.noam_annealing.current_lr
+            lr = self.hparams.lr_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
 
