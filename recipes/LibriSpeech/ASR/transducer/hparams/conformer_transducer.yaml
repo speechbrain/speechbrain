@@ -141,6 +141,15 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
    freq_mask_width: 30
    time_mask_width: 40
 
+# Uncomment if interested in env corruption
+# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+#   openrir_folder: !ref <data_folder_rirs>
+#   babble_prob: 0.0
+#   reverb_prob: 0.0
+#   noise_prob: 1.0
+#   noise_snr_low: 0
+#   noise_snr_high: 15
+
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
    num_blocks: 2
