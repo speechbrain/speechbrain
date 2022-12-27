@@ -210,7 +210,7 @@ class TransformerASR(TransformerInterface):
 
         return encoder_out, decoder_out
 
-    def make_masks(self, src, tgt, wav_len=None, pad_idx=0):
+    def make_masks(self, src, tgt=None, wav_len=None, pad_idx=0):
         """This method generates the masks for training the transformer model.
 
         Arguments
@@ -218,7 +218,7 @@ class TransformerASR(TransformerInterface):
         src : tensor
             The sequence to the encoder (required).
         tgt : tensor
-            The sequence to the decoder (required).
+            The sequence to the decoder.
         pad_idx : int
             The index for <pad> token (default=0).
         """
@@ -227,10 +227,16 @@ class TransformerASR(TransformerInterface):
             abs_len = torch.round(wav_len * src.shape[1])
             src_key_padding_mask = ~length_to_mask(abs_len).bool()
 
-        tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
-
         src_mask = None
-        tgt_mask = get_lookahead_mask(tgt)
+
+        # If no decoder in the transformer...
+        if tgt is not None:
+            tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
+            tgt_mask = get_lookahead_mask(tgt)
+        else:
+            tgt_key_padding_mask = None
+            tgt_mask = None
+
         return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
     @torch.no_grad()
@@ -276,7 +282,7 @@ class TransformerASR(TransformerInterface):
         )
         return prediction, multihead_attns[-1]
 
-    def encode(self, src, wav_len=None):
+    def encode(self, src, wav_len=None, pad_idx=0):
         """
         Encoder forward pass
 
@@ -292,13 +298,9 @@ class TransformerASR(TransformerInterface):
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
 
-        src_key_padding_mask = None
-        if wav_len is not None:
-            abs_len = torch.floor(wav_len * src.shape[1])
-            src_key_padding_mask = (
-                torch.arange(src.shape[1])[None, :].to(abs_len)
-                > abs_len[:, None]
-            )
+        (src_key_padding_mask, _, src_mask, _,) = self.make_masks(
+            src, None, wav_len, pad_idx=pad_idx
+        )
 
         src = self.custom_src_module(src)
         if self.attention_type == "RelPosMHAXL":
