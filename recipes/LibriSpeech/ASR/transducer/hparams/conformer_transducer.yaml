@@ -67,7 +67,7 @@ loss_reduction: 'batchmean'
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
-n_mels: 40
+n_mels: 80
 
 # Dataloader options
 train_dataloader_opts:
