@@ -40,7 +40,7 @@ test_csv:
    - !ref <output_folder>/test-other.csv
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-number_of_epochs: 30
+number_of_epochs: 60
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
@@ -55,7 +55,7 @@ batch_size_valid: 4
 lr: 0.001
 
 # MTL for encoder with CTC (uncomment enc_lin layer)
-number_of_ctc_epochs: 5
+number_of_ctc_epochs: 60
 ctc_weight: 0.3
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
