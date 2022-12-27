@@ -234,7 +234,7 @@ class ASR(sb.Brain):
                 self.scaler.update()
                 self.zero_grad()
                 self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
+                self.hparams.lr_annealing(self.optimizer)
         else:
             outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
@@ -245,7 +245,7 @@ class ASR(sb.Brain):
                     self.optimizer.step()
                 self.zero_grad()
                 self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
+                self.hparams.lr_annealing(self.optimizer)
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
