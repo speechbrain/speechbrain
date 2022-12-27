@@ -244,7 +244,6 @@ modules:
    Tjoint: !ref <Tjoint>
    transducer_lin: !ref <transducer_lin>
    normalize: !ref <normalize>
-   env_corrupt: !ref <env_corrupt>
    augmentation: !ref <augmentation>
    lm_model: !ref <lm_model>
    enc_lin: !ref <enc_lin>
