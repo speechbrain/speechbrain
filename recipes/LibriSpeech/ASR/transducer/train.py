@@ -68,13 +68,14 @@ class ASR(sb.Brain):
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
                 feats = self.hparams.augmentation(feats)
 
-        src = self.modules.CNN(feats.detach())
+        src = self.modules.CNN(feats)
         x, _ = self.modules.enc(
             src, tokens_with_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
