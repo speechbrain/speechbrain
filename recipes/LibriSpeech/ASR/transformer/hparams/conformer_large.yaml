@@ -161,13 +161,49 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM 
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
-ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <d_model>
-    n_neurons: !ref <output_neurons>
+ctc_lin: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <d_model>]
+    linear1: !name:speechbrain.nnet.linear.Linear
+        n_neurons: 1024
+        bias: True
+    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation: !new:torch.nn.LeakyReLU
+    drop: !new:torch.nn.Dropout
+        p: 0.15
+    linear2: !name:speechbrain.nnet.linear.Linear
+        n_neurons: 1024
+        bias: True
+    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation2: !new:torch.nn.LeakyReLU
+    drop2: !new:torch.nn.Dropout
+        p: 0.15
+    linear3: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <output_neurons>
+        bias: True
+    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation3: !new:torch.nn.LeakyReLU
 
-seq_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <d_model>
-    n_neurons: !ref <output_neurons>
+seq_lin: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <d_model>]
+    linear1: !name:speechbrain.nnet.linear.Linear
+        n_neurons: 1024
+        bias: True
+    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation: !new:torch.nn.LeakyReLU
+    drop: !new:torch.nn.Dropout
+        p: 0.15
+    linear2: !name:speechbrain.nnet.linear.Linear
+        n_neurons: 1024
+        bias: True
+    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation2: !new:torch.nn.LeakyReLU
+    drop2: !new:torch.nn.Dropout
+        p: 0.15
+    linear3: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <output_neurons>
+        bias: True
+    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation3: !new:torch.nn.LeakyReLU
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -184,7 +220,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # define two optimizers here for two-stage training
-Adam: !name:torch.optim.Adam
+Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
