@@ -52,6 +52,19 @@ class ASR(sb.Brain):
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
         # Add env corruption if specified
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.modules, "env_corrupt"):
+                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
+                wavs = torch.cat([wavs, wavs_noise], dim=0)
+                wav_lens = torch.cat([wav_lens, wav_lens])
+                batch.sig = wavs, wav_lens
+                tokens_with_bos = torch.cat(
+                    [tokens_with_bos, tokens_with_bos], dim=0
+                )
+                token_with_bos_lens = torch.cat(
+                    [token_with_bos_lens, token_with_bos_lens]
+                )
+                batch.tokens_bos = tokens_with_bos, token_with_bos_lens
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
@@ -63,9 +76,7 @@ class ASR(sb.Brain):
                 feats = self.hparams.augmentation(feats)
 
         src = self.modules.CNN(feats)
-        x, _ = self.modules.enc(
-            src, tokens_with_bos, wav_lens, pad_idx=self.hparams.pad_index
-        )
+        x, _ = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
 
