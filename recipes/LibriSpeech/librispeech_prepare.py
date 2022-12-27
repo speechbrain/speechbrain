@@ -14,6 +14,7 @@ import random
 from collections import Counter
 import logging
 import torchaudio
+from tqdm.contrib import tzip
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.dataio.dataio import (
     load_pkl,
@@ -296,7 +297,8 @@ def create_csv(
 
     snt_cnt = 0
     # Processing all the wav files in wav_lst
-    for wav_file in wav_lst:
+    for wav_file in tzip(wav_lst):
+        wav_file = wav_file[0]
 
         snt_id = wav_file.split("/")[-1].replace(".flac", "")
         spk_id = "-".join(snt_id.split("-")[0:2])
