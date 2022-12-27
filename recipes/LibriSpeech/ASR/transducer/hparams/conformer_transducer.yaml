@@ -265,8 +265,8 @@ modules:
    augmentation: !ref <augmentation>
    lm_model: !ref <lm_model>
    proj_ctc: !ref <proj_ctc>
-   proj_dec: !ref <proj_enc>
-   proj_enc: !ref <proj_dec>
+   proj_dec: !ref <proj_dec>
+   proj_enc: !ref <proj_enc>
    dec_lin: !ref <dec_lin>
 
 # for MTL
