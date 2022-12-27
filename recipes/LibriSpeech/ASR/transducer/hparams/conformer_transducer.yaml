@@ -106,7 +106,7 @@ d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
-dec_dim: 1024
+dec_dim: 512
 
 # Decoding parameters
 blank_index: 0
