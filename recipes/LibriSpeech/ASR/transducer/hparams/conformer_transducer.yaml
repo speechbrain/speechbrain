@@ -278,7 +278,7 @@ model: !new:torch.nn.ModuleList
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-   decode_network_lst: [!ref <emb>, !ref <dec>]
+   decode_network_lst: [!ref <emb>, !ref <dec>, !ref <proj_dec>]
    tjoint: !ref <Tjoint>
    classifier_network: [!ref <transducer_lin>]
    blank_id: !ref <blank_index>
@@ -286,7 +286,7 @@ Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
    nbest: 1
 
 Beamsearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
-   decode_network_lst: [!ref <emb>, !ref <dec>]
+   decode_network_lst: [!ref <emb>, !ref <dec>, !ref <proj_dec>]
    tjoint: !ref <Tjoint>
    classifier_network: [!ref <transducer_lin>]
    blank_id: !ref <blank_index>
