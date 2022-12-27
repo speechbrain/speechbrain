@@ -98,6 +98,7 @@ dynamic_batch_sampler:
 # Model parameters
 # Transformer
 d_model: 144
+joint_dim: 144
 nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 0
@@ -105,7 +106,6 @@ d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
-joint_dim: 1024
 dec_dim: 1024
 
 # Decoding parameters
