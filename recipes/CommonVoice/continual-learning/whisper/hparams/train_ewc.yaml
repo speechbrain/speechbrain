@@ -8,15 +8,16 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-locales: [ar]
+new_locales: [kab, lg, mhr, ug, ckb]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
 # Output directories
-output_dir: !ref results/ar/whisper/<seed>
+output_dir: !ref results/whisper_ewc/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 128 #24 # 1 when fine-tuning both encoder and decoder
+train_batch_size: 128 #24  # 1 when fine-tuning both encoder and decoder
 valid_batch_size: 128 #24
 train_num_workers: 6
 valid_num_workers: 6
@@ -24,6 +25,7 @@ valid_num_workers: 6
 sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
+vocab_size: 100  # Vocabulary size for BPE encoding of each new locale
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
@@ -32,6 +34,7 @@ num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
+ewc_lambda: 0.4
 
 whisper_variant: openai/whisper-tiny
 encoder_only: False
@@ -39,14 +42,14 @@ freeze: False
 freeze_encoder: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
-auto_mix_prec: True
+auto_mix_prec: True  # True causes NaN in forward pass for Kinyarwanda, need to double check
 gradient_checkpointing: False
 compile_model: True
 ckpt_interval_minutes: 600
 
 max_gen_tokens: 100
-forced_decoder_locale: ar
-normalize_transcripts: True  # Normalize English text
+forced_decoder_locale: null  # Set dynamically
+normalize_transcripts: True
 
 # Dataloader options
 train_dataloader_kwargs:
@@ -56,11 +59,6 @@ train_dataloader_kwargs:
 valid_dataloader_kwargs:
     batch_size: !ref <valid_batch_size>
     num_workers: !ref <valid_num_workers>
-
-# Augmentation
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 # Modules
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper

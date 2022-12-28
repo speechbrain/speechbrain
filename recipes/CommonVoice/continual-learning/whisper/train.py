@@ -178,12 +178,20 @@ def dataio_prepare(hparams, tokenizer):
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
         replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(sort_key="duration", reverse=True)
+    ).filtered_sorted(
+        sort_key="duration",
+        reverse=True,
+        key_max_value={"duration": hparams["avoid_if_longer_than"]},
+    )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=os.path.join(hparams["download_dir"], "test.csv"),
         replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(sort_key="duration", reverse=True)
+    ).filtered_sorted(
+        sort_key="duration",
+        reverse=True,
+        key_max_value={"duration": hparams["avoid_if_longer_than"]},
+    )
 
     datasets = [train_data, valid_data, test_data]
 
@@ -233,6 +241,23 @@ def dataio_prepare(hparams, tokenizer):
     )
 
     return train_data, valid_data, test_data
+
+
+class CustomPaddedBatch(PaddedBatch):
+    def __init__(self, examples, hparams, *args, **kwargs):
+        for k in ["tokens_bos", "tokens_eos", "tokens"]:
+            max_len = max([len(x[k]) for x in examples])
+            pad_value = 0.0
+            if k in ["tokens_bos", "tokens"]:
+                pad_value = hparams["whisper"].tokenizer.pad_token_id
+            elif k == "tokens_eos":
+                pad_value = hparams["ignore_index"]
+            for example in examples:
+                x = example[k]
+                example[k] = torch.nn.functional.pad(
+                    x, [0, max_len - len(x)], value=pad_value
+                )
+        super().__init__(examples, *args, **kwargs)
 
 
 if __name__ == "__main__":
@@ -288,24 +313,12 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for Whisper
     asr_brain.tokenizer = tokenizer
 
-    class CustomPaddedBatch(PaddedBatch):
-        def __init__(self, examples, *args, **kwargs):
-            for k in ["tokens_bos", "tokens_eos", "tokens"]:
-                max_len = max([len(x[k]) for x in examples])
-                pad_value = 0.0
-                if k in ["tokens_bos", "tokens"]:
-                    pad_value = hparams["whisper"].tokenizer.pad_token_id
-                elif k == "tokens_eos":
-                    pad_value = hparams["ignore_index"]
-                for example in examples:
-                    x = example[k]
-                    example[k] = torch.nn.functional.pad(
-                        x, [0, max_len - len(x)], value=pad_value
-                    )
-            super().__init__(examples, *args, **kwargs)
-
     # Training
-    hparams["train_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
+    hparams["train_dataloader_kwargs"][
+        "collate_fn"
+    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
+        examples, hparams, *args, **kwargs
+    )
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
@@ -315,7 +328,11 @@ if __name__ == "__main__":
     )
 
     # Validation
-    hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
+    hparams["valid_dataloader_kwargs"][
+        "collate_fn"
+    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
+        examples, hparams, *args, **kwargs
+    )
     asr_brain.hparams.wer_file = os.path.join(
         hparams["output_dir"], "wer_valid.txt"
     )

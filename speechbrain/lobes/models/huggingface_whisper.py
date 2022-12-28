@@ -1,8 +1,6 @@
 """This lobe enables the integration of huggingface pretrained whisper model.
-
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
-
 Authors
  * Adel Moumen 2022
  * Titouan Parcollet 2022
@@ -80,10 +78,8 @@ class HuggingFaceWhisper(nn.Module):
         https://cdn.openai.com/papers/whisper.pdf
     Transformer from HuggingFace needs to be installed:
     https://huggingface.co/transformers/installation.html
-
     Some part of the code also cis adapted from the official OpenAI repository:
     https://github.com/openai/whisper
-
     The model can be finetuned. It will download automatically the model from
     HuggingFace or use a local path.
     Arguments
@@ -161,25 +157,18 @@ class HuggingFaceWhisper(nn.Module):
                 for param in self.model.encoder.parameters():
                     param.requires_grad = False
 
-        # No tokens are forced as decoder outputs, no tokens are suppressed during generation
-        self.model.config.forced_language_id = None
-        self.model.config.suppress_tokens = []
-
     def forward(self, wav, decoder_input_ids=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
-
         Arguments
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         decoder_input_ids : torch.Tensor
             This is necessary if we want to use the decoder.
-
             A batch of decoder inputs tokens.
             The first tokens need to dictacte the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
-
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
@@ -234,15 +223,12 @@ class HuggingFaceWhisper(nn.Module):
 
     def _log_mel_spectrogram(self, audio):
         """Compute the Mel spectrogram of a batch of input waveforms.
-
         Reference: adapted from
         https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L92
-
         Arguments
         ---------
         audio : torch.Tensor
             A batch of audio waveforms in 16 kHz.
-
         Returns
         -------
         torch.Tensor
@@ -271,17 +257,14 @@ class HuggingFaceWhisper(nn.Module):
 
     def _pad_or_trim(self, array, axis=-1):
         """Pad or trim the Mel spectrograms as expected by the encoder.
-
         Reference: adapted from
         https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L52
-
         Arguments
         ---------
         array : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         axis : int
             The axis along which to pad.
-
         Returns
         -------
         torch.Tensor
@@ -316,7 +299,6 @@ class HuggingFaceWhisper(nn.Module):
             The first tokens need to dictacte the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
-
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
@@ -415,6 +397,12 @@ class HuggingFaceWhisper(nn.Module):
                 audio_features[unfinished_mask],
                 hyps[unfinished_mask, : num_gen_tokens + 4],
             )
+            # Prepare suppress mask
+            suppress_mask = torch.ones(
+                logits.shape[-1], device=audio_features.device, dtype=torch.bool
+            )
+            suppress_mask[self.model.config.suppress_tokens] = False
+            logits[:, :, ~suppress_mask] = -float("inf")
             gen_tokens = logits.argmax(dim=-1)[:, -1]
             hyps[unfinished_mask, num_gen_tokens + 4] = gen_tokens
             unfinished_mask[unfinished_mask == True] = (

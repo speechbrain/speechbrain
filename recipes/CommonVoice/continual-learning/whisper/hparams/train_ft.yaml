@@ -8,7 +8,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-new_locales: [rw]
+new_locales: [kab, lg, mhr, ug, ckb]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
@@ -24,8 +24,8 @@ valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
-avoid_if_longer_than: 50  # Do not remove any utterance
-vocab_size: 500  # Vocabulary size for BPE encoding of each new locale
+avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
+vocab_size: 100  # Vocabulary size for BPE encoding of each new locale
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
@@ -41,7 +41,7 @@ freeze: False
 freeze_encoder: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
-auto_mix_prec: False  # True causes NaN in forward pass for Kinyarwanda, need to double check
+auto_mix_prec: True  # True causes NaN in forward pass for Kinyarwanda, need to double check
 gradient_checkpointing: False
 compile_model: True
 ckpt_interval_minutes: 600

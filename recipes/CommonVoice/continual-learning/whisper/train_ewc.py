@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice.
-The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice in a continual learning fashion via
+elastic weight consolidation. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -20,6 +20,7 @@ To run this recipe, do the following:
 
 Authors
  * Luca Della Libera 2022
+ * Pooneh Mousavi 2022
 """
 
 import os
@@ -72,6 +73,24 @@ class ASR(sb.Brain):
         loss = self.hparams.ce_loss(
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
+
+        if hasattr(self.hparams, "all_ewc_params"):
+            for name, param in self.modules.whisper.named_parameters():
+                if not param.requires_grad:
+                    continue
+                for (old_param, fisher) in self.hparams.all_ewc_params:
+                    if "embed_tokens.weight" in name:
+                        diff = param.shape[0] - old_param[name].shape[0]
+                        old_param[name] = torch.nn.functional.pad(
+                            old_param[name], [0, 0, 0, diff]
+                        )
+                        fisher[name] = torch.nn.functional.pad(
+                            fisher[name], [0, 0, 0, diff]
+                        )
+                    loss += (
+                        fisher[name].to(self.device)
+                        * (old_param[name].to(self.device) - param) ** 2
+                    ).sum() * self.hparams.ewc_lambda
 
         if stage != sb.Stage.TRAIN:
             tokens, _ = batch.tokens
@@ -168,6 +187,19 @@ class CustomPaddedBatch(PaddedBatch):
         super().__init__(examples, *args, **kwargs)
 
 
+class EWCParamsComputer(ASR):
+    def zero_grad(self, set_to_none=False):
+        pass
+
+    def fit_batch(self, batch):
+        outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        with self.no_sync(False):
+            (loss / self.grad_accumulation_factor).backward()
+        self.on_fit_batch_end(batch, outputs, loss, True)
+        return loss.detach().cpu()
+
+
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -260,6 +292,56 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_data
 
 
+def compute_ewc_params(hparams, run_opts, locales):
+    tokenizer = hparams["whisper"].tokenizer
+    max_grad_norm = hparams.get("max_grad_norm", 5.0)
+    grad_accumulation_factor = hparams.get("grad_accumulation_factor", 1)
+    auto_mix_prec = hparams.get("auto_mix_prec", False)
+    hparams["max_grad_norm"] = float("inf")
+    hparams["auto_mix_prec"] = False
+    hparams["grad_accumulation_factor"] = 1
+
+    # Multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_common_voice,
+        kwargs={"locales": locales, "download_dir": hparams["download_dir"],},
+    )
+
+    # Here we create the datasets objects as well as tokenization and encoding
+    train_data, _, _ = dataio_prepare(hparams, tokenizer)
+
+    # Trainer initialization
+    asr_brain = EWCParamsComputer(
+        modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+    )
+
+    # We dynamically add the tokenizer to our brain class
+    # NB: This tokenizer corresponds to the one used for Whisper
+    asr_brain.tokenizer = tokenizer
+
+    # Training (no parameter update)
+    asr_brain.fit(
+        range(1),
+        train_data,
+        train_loader_kwargs=hparams["train_dataloader_kwargs"],
+    )
+
+    params, fisher = {}, {}
+    with torch.no_grad():
+        for name, param in hparams["whisper"].named_parameters():
+            if not param.requires_grad:
+                continue
+            params[name] = param.clone().cpu()
+            fisher[name] = (param.grad.clone() ** 2).cpu()
+    hparams["whisper"].zero_grad(set_to_none=True)
+
+    hparams["max_grad_norm"] = max_grad_norm
+    hparams["auto_mix_prec"] = auto_mix_prec
+    hparams["grad_accumulation_factor"] = grad_accumulation_factor
+
+    return params, fisher
+
+
 def train(hparams, run_opts):
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
@@ -269,7 +351,25 @@ def train(hparams, run_opts):
         param.requires_grad = True
 
     # Train on new locales
+    all_ewc_params = []
     for i, locale in enumerate(hparams["new_locales"]):
+        # Remove old EWC parameters
+        hparams.pop("all_ewc_params", None)
+
+        # Compute new EWC parameters
+        if i == 0:
+            ewc_params = compute_ewc_params(
+                hparams, run_opts, hparams["old_locales"]
+            )
+        else:
+            ewc_params = compute_ewc_params(
+                hparams, run_opts, [hparams["new_locales"][i - 1]]
+            )
+
+        all_ewc_params.append(ewc_params)
+
+        hparams["all_ewc_params"] = all_ewc_params
+
         # Multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_common_voice,
