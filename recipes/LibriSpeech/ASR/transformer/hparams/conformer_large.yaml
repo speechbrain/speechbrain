@@ -56,7 +56,7 @@ num_workers: 4
 
 # stages related parameters
 # stage_one_epochs: 90
-lr_adam: 0.001
+lr_adam: 0.0005
 # lr_sgd: 0.000025
 
 # Feature parameters
@@ -93,7 +93,7 @@ test_dataloader_opts:
 
 ####################### Model parameters ###########################
 # Transformer
-d_model: 144
+d_model: 512
 nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 6
@@ -161,49 +161,13 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM 
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
-ctc_lin: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <d_model>]
-    linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
-        bias: True
-    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation: !new:torch.nn.LeakyReLU
-    drop: !new:torch.nn.Dropout
-        p: 0.15
-    linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
-        bias: True
-    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation2: !new:torch.nn.LeakyReLU
-    drop2: !new:torch.nn.Dropout
-        p: 0.15
-    linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <output_neurons>
-        bias: True
-    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation3: !new:torch.nn.LeakyReLU
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
 
-seq_lin: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <d_model>]
-    linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
-        bias: True
-    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation: !new:torch.nn.LeakyReLU
-    drop: !new:torch.nn.Dropout
-        p: 0.15
-    linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
-        bias: True
-    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation2: !new:torch.nn.LeakyReLU
-    drop2: !new:torch.nn.Dropout
-        p: 0.15
-    linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: !ref <output_neurons>
-        bias: True
-    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
-    activation3: !new:torch.nn.LeakyReLU
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -223,7 +187,6 @@ model: !new:torch.nn.ModuleList
 Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
-    eps: 0.000000001
 
 #SGD: !name:torch.optim.SGD
 #    lr: !ref <lr_sgd>
