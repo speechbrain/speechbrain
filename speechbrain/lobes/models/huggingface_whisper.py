@@ -141,7 +141,7 @@ class HuggingFaceWhisper(nn.Module):
 
                 if self.output_all_hiddens:
                     logits, attn = self.forward_decoder(
-                        out_encoder[-1, ...], decoder_input_ids
+                        out_encoder[-1], decoder_input_ids
                     )
                 else:
                     logits, attn = self.forward_decoder(
@@ -178,6 +178,14 @@ class HuggingFaceWhisper(nn.Module):
             return self._get_encoder_states(wav)
 
     def _get_encoder_states(self, wav):
+        """Takes an input waveform and return its corresponding encoder states.
+        Returns the last hidden state of the encoder or all hidden states if
+        output_all_hiddens is True.
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        """
         mel = self._get_mel(wav)
         if self.output_all_hiddens:
             states = self.model.encoder(mel, output_hidden_states=True)
