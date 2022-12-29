@@ -25,7 +25,7 @@ valid_num_workers: 6
 sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
-vocab_size: 100  # Vocabulary size for BPE encoding of each new locale
+vocab_size: 200  # Vocabulary size for BPE encoding of each new locale
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0

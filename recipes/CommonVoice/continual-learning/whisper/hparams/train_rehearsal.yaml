@@ -1,7 +1,7 @@
 # ############################################################################
 # Model: Whisper (encoder-decoder) + cross-entropy loss
 # Augmentation: SpecAugment
-# Authors: Luca Della Libera 2022, Pooneh Mousavi 2022
+# Authors: Luca Della Libera 2022
 # ############################################################################
 
 seed: 1986
@@ -13,7 +13,7 @@ old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
 # Output directories
-output_dir: !ref results/whisper_ewc/<seed>
+output_dir: !ref results/whisper_rehearsal/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
@@ -34,7 +34,7 @@ num_epochs: 50
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-ewc_lambda: 0.4
+rehearsal_ratio: 0.4
 
 whisper_variant: openai/whisper-tiny
 encoder_only: False
