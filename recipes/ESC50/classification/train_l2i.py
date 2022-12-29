@@ -55,7 +55,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         # some might be negative, relevance of component
         r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()
         # define selected components by thresholding
-        L = torch.arange(r_c_x.shape[0])[r_c_x > 0.2].tolist()
+        L = torch.arange(r_c_x.shape[0]).to(r_c_x.device)[r_c_x > 0.2].tolist()
 
         # get the log power spectra, this is needed as NMF is trained on log-power spectra
         X_stft_power_log = (
@@ -113,7 +113,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                     f"audios_from_interpretation",
                     f"original_tc_{current_class_name}_pc_{predicted_class_name}.wav",
                 ),
-                wavs[0].unsqueeze(0),
+                wavs[0].unsqueeze(0).cpu(),
                 self.hparams.sample_rate,
             )
 
@@ -123,7 +123,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                     f"audios_from_interpretation",
                     f"interpretation_tc_{current_class_name}_pc_{predicted_class_name}.wav",
                 ),
-                x_int_sb,
+                x_int_sb.cpu(),
                 self.hparams.sample_rate,
             )
 
@@ -178,25 +178,25 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         torchaudio.save(
             os.path.join(out_folder, "mixture.wav"),
-            mix,
+            mix.cpu(),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
             os.path.join(out_folder, "source.wav"),
-            s1.unsqueeze(0),
+            s1.unsqueeze(0).cpu(),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
             os.path.join(out_folder, "noise.wav"),
-            s2.unsqueeze(0),
+            s2.unsqueeze(0).cpu(),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
             os.path.join(out_folder, "interpretation.wav"),
-            x_int_sb,
+            x_int_sb.cpu(),
             self.hparams.sample_rate,
         )
 
@@ -298,7 +298,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         def compute_fidelity(theta_out, predictions):
             """ Computes top-`k` fidelity of interpreter. """
             predictions = F.softmax(predictions, dim=1)
-            theta_out = F.softmax(theta_out, dim=1)
+            # theta_out = F.softmax(theta_out, dim=1)
 
             pred_cl = torch.argmax(predictions, dim=1)
             k_top = torch.topk(theta_out, k=self.hparams.k_fidelity, dim=1)[1]

@@ -190,11 +190,11 @@ class Theta(nn.Module):
         super().__init__()
 
         # This linear layer collapses the time axis using "attention" based pooling
-        self.hard_att = nn.Linear(T, 1)
+        self.hard_att = nn.Linear(T, 1, bias=False)
 
         # The Linear layer for classification
         self.classifier = nn.Sequential(
-            nn.Linear(n_comp, num_classes), nn.Softmax(dim=1)
+            nn.Linear(n_comp, num_classes, bias=False), nn.Softmax(dim=1)
         )
 
     def forward(self, H):
