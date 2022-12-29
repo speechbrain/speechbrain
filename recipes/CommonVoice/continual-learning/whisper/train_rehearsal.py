@@ -16,7 +16,7 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_ft.py hparams/<config_file>.yaml
+> python train_rehearsal.py hparams/<config_file>.yaml
 
 Authors
  * Luca Della Libera 2022
