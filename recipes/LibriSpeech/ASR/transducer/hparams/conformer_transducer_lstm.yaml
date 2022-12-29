@@ -53,6 +53,7 @@ num_workers: 4
 sorting: random
 batch_size_valid: 4
 lr: 0.001
+weight_decay: 0.01
 
 # MTL for encoder with CTC (uncomment enc_lin layer)
 number_of_ctc_epochs: 60
@@ -301,6 +302,7 @@ opt_class: !name:torch.optim.AdamW
    lr: !ref <lr>
    betas: (0.9, 0.98)
    eps: 1.e-8
+   weight_decay: !ref <weight_decay>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
