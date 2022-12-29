@@ -14,7 +14,6 @@ import os
 import re
 import shutil
 import tarfile
-import unicodedata
 from typing import Sequence
 
 import requests
@@ -51,7 +50,7 @@ _SPLITS = ["train", "dev", "test"]
 def prepare_common_voice(
     locales: "Sequence[str]" = ("en",),
     download_dir: "str" = "data",
-    version: "str" = "11.0-2022-09-21",
+    version: "str" = "12.0-2022-12-07",
 ) -> "None":
     """Prepare the data manifest CSV files for Common Voice dataset
     (see https://commonvoice.mozilla.org/en/datasets).

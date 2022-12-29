@@ -294,6 +294,9 @@ def train(hparams, run_opts):
         # Get sentence-piece tokenizer vocabulary
         vocab = [sp.sp.id_to_piece(id) for id in range(sp.sp.get_piece_size())]
 
+        # Removing leading "▁" character
+        vocab = [wrd[1:] if wrd.startswith("▁") else wrd for wrd in vocab]
+
         # Remove "<unk>" token
         new_tokens = vocab[1:]
 
@@ -344,6 +347,11 @@ def train(hparams, run_opts):
                 k: old_train_data.data[k] for k in selected_keys
             }
             train_data.data.update(old_train_data.data)
+
+        # Shuffle all data
+        all_keys = list(train_data.data.keys())
+        random.shuffle(all_keys)
+        train_data.data = {k: train_data.data[k] for k in all_keys}
         train_data.data_ids = list(train_data.data.keys())
 
         # Trainer initialization
@@ -447,6 +455,7 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    random.seed(hparams["seed"])
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -473,7 +482,7 @@ if __name__ == "__main__":
         examples, hparams, *args, **kwargs
     )
 
-    # test(hparams, run_opts, hparams["old_locales"], "wer_test_before.txt")
+    test(hparams, run_opts, hparams["old_locales"], "wer_test_before.txt")
     train(hparams, run_opts)
     test(
         hparams,

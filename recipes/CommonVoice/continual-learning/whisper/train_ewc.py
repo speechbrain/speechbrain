@@ -393,6 +393,9 @@ def train(hparams, run_opts):
         # Get sentence-piece tokenizer vocabulary
         vocab = [sp.sp.id_to_piece(id) for id in range(sp.sp.get_piece_size())]
 
+        # Removing leading "▁" character
+        vocab = [wrd[1:] if wrd.startswith("▁") else wrd for wrd in vocab]
+
         # Remove "<unk>" token
         new_tokens = vocab[1:]
 
