@@ -30,7 +30,7 @@ vocab_size: 200  # Vocabulary size for BPE encoding of each new locale
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
 
-num_epochs: 50
+num_epochs: 10
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
@@ -39,7 +39,7 @@ rehearsal_ratio: 0.4
 whisper_variant: openai/whisper-tiny
 encoder_only: False
 freeze: False
-freeze_encoder: True
+freeze_encoder: False
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True  # True causes NaN in forward pass for Kinyarwanda, need to double check
