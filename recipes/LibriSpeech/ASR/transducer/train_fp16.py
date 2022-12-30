@@ -80,14 +80,17 @@ class ASR(sb.Brain):
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
         x = self.modules.proj_enc(x)
 
-        e_in = self.modules.emb(tokens_with_bos)
+        with torch.cuda.amp.autocast(dtype=torch.float32):
+            e_in = self.modules.emb(tokens_with_bos)
+
         h, _ = self.modules.dec(e_in)
         h = self.modules.proj_dec(h)
 
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
         # add timeseq_dim to the decoder tensor: [B,U,H_dec] => [B,1,U,H_dec]
-        joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
+        with torch.cuda.amp.autocast(dtype=torch.float32):
+            joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
 
         # Output layer for transducer log-probabilities
         logits_transducer = self.modules.transducer_lin(joint)
@@ -223,6 +226,7 @@ class ASR(sb.Brain):
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            with torch.cuda.amp.autocast(dtype=torch.float32):
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
