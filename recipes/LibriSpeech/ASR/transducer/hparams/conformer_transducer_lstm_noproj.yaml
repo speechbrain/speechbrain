@@ -159,7 +159,7 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
    num_blocks: 2
-   num_layers_per_block: 2
+   num_layers_per_block: 1
    out_channels: (128, 64)
    kernel_sizes: (3, 3)
    strides: (2, 2)
