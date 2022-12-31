@@ -99,7 +99,7 @@ dynamic_batch_sampler:
 # Model parameters
 # Transformer
 d_model: 512
-joint_dim: 768
+joint_dim: 512
 nhead: 8
 num_encoder_layers: 12
 num_decoder_layers: 0
