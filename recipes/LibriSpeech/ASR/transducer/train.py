@@ -33,6 +33,7 @@ Authors
 import os
 import sys
 import torch
+from torch.nn import GELU
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -77,11 +78,11 @@ class ASR(sb.Brain):
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
-        # x = self.modules.proj_enc(x)
+        x = GELU()(self.modules.proj_enc(x))
 
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
-        # h = self.modules.proj_dec(h)
+        h = GELU()(self.modules.proj_dec(h))
 
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
