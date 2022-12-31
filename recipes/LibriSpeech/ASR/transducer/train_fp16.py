@@ -67,21 +67,19 @@ class ASR(sb.Brain):
                 batch.tokens_bos = tokens_with_bos, token_with_bos_lens
 
         # Forward pass (force full precision for features and norm)
-        with torch.cuda.amp.autocast(dtype=torch.float32):
-            feats = self.hparams.compute_features(wavs)
-            current_epoch = self.hparams.epoch_counter.current
-            feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
+        feats = self.hparams.compute_features(wavs)
+        current_epoch = self.hparams.epoch_counter.current
+        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
-            if stage == sb.Stage.TRAIN:
-                if hasattr(self.hparams, "augmentation"):
-                    feats = self.hparams.augmentation(feats)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "augmentation"):
+                feats = self.hparams.augmentation(feats)
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
         x = self.modules.proj_enc(x)
 
-        with torch.cuda.amp.autocast(dtype=torch.float32):
-            e_in = self.modules.emb(tokens_with_bos)
+        e_in = self.modules.emb(tokens_with_bos)
 
         h, _ = self.modules.dec(e_in)
         h = self.modules.proj_dec(h)
