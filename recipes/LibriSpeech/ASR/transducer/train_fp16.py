@@ -87,8 +87,7 @@ class ASR(sb.Brain):
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
         # add timeseq_dim to the decoder tensor: [B,U,H_dec] => [B,1,U,H_dec]
-        with torch.cuda.amp.autocast(dtype=torch.float32):
-            joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
+        joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
 
         # Output layer for transducer log-probabilities
         logits_transducer = self.modules.transducer_lin(joint)
