@@ -215,7 +215,6 @@ dec: !new:speechbrain.nnet.RNN.LSTM
    input_shape: [null, null, !ref <output_neurons> - 1]
    hidden_size: !ref <dec_dim>
    num_layers: 1
-   dropout: 0.1
    re_init: True
 
 # For MTL with LM over the decoder
