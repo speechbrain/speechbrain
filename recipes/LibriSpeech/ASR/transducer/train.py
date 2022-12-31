@@ -77,11 +77,11 @@ class ASR(sb.Brain):
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
-        x = self.modules.proj_enc(x)
+        # x = self.modules.proj_enc(x)
 
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
-        h = self.modules.proj_dec(h)
+        # h = self.modules.proj_dec(h)
 
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
@@ -369,9 +369,9 @@ def dataio_prepare(hparams):
         yield wrd
         tokens_list = tokenizer.encode_as_ids(wrd)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["blank_index"]] + (tokens_list))
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["blank_index"]])
+        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
