@@ -52,7 +52,7 @@ grad_accumulation_factor: 1
 num_workers: 4
 sorting: random
 batch_size_valid: 4
-lr: 0.001
+lr: 0.0008
 
 # MTL for encoder with CTC (uncomment enc_lin layer)
 number_of_ctc_epochs: 60
@@ -80,10 +80,10 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <batch_size_valid>
 
-# This setup works well for V100 32GB GPU, adapts it to your needs.
+# This setup works well for 24GB GPU with fp16, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 900
+max_batch_len: 260
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -98,7 +98,7 @@ dynamic_batch_sampler:
 # Model parameters
 # Transformer
 d_model: 144
-joint_dim: 512
+joint_dim: 768
 nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 0
@@ -106,7 +106,7 @@ d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
-dec_dim: 512
+dec_dim: 1024
 
 # Decoding parameters
 blank_index: 0
@@ -190,12 +190,12 @@ proj_ctc: !new:speechbrain.nnet.linear.Linear
 proj_enc: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <d_model>
    n_neurons: !ref <joint_dim>
-   bias: False
+   bias: True
 
 proj_dec: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dec_dim>
    n_neurons: !ref <joint_dim>
-   bias: False
+   bias: True
 
 # Uncomment for MTL with CTC
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
@@ -207,7 +207,7 @@ emb: !new:speechbrain.nnet.embedding.Embedding
    consider_as_one_hot: True
    blank_id: !ref <blank_index>
 
-dec: !new:speechbrain.nnet.RNN.GRU
+dec: !new:speechbrain.nnet.RNN.LSTM
    input_shape: [null, null, !ref <output_neurons> - 1]
    hidden_size: !ref <dec_dim>
    num_layers: 1
