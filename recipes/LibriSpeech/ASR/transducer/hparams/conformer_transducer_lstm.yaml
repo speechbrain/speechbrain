@@ -100,7 +100,7 @@ dynamic_batch_sampler:
 # Transformer
 d_model: 512
 joint_dim: 768
-nhead: 4
+nhead: 6
 num_encoder_layers: 12
 num_decoder_layers: 0
 d_ffn: 2048
@@ -145,13 +145,13 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
    time_mask_width: 40
 
 # Uncomment if interested in env corruption
-# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#   openrir_folder: !ref <data_folder_rirs>
-#   babble_prob: 0.0
-#   reverb_prob: 0.0
-#   noise_prob: 1.0
-#   noise_snr_low: 0
-#   noise_snr_high: 15
+env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
+   openrir_folder: !ref <data_folder_rirs>
+   babble_prob: 0.0
+   reverb_prob: 0.0
+   noise_prob: 1.0
+   noise_snr_low: 0
+   noise_snr_high: 15
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
@@ -191,12 +191,10 @@ proj_ctc: !new:speechbrain.nnet.linear.Linear
 proj_enc: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <d_model>
    n_neurons: !ref <joint_dim>
-   bias: False
 
 proj_dec: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dec_dim>
    n_neurons: !ref <joint_dim>
-   bias: False
 
 # Uncomment for MTL with CTC
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
