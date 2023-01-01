@@ -111,6 +111,8 @@ dec_dim: 1024
 
 # Decoding parameters
 blank_index: 0
+bos_index: 0
+eos_index: 0
 pad_index: 0
 beam_size: 4
 nbest: 1
