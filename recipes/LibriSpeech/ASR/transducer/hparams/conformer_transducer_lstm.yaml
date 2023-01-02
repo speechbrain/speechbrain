@@ -52,7 +52,7 @@ grad_accumulation_factor: 1
 num_workers: 4
 sorting: random
 batch_size_valid: 4
-lr: 0.0005
+lr: 0.0003
 weight_decay: 0.01
 
 # MTL for encoder with CTC (uncomment enc_lin layer)
@@ -306,7 +306,7 @@ opt_class: !name:torch.optim.AdamW
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
-   n_warmup_steps: 25000
+   n_warmup_steps: 20000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
