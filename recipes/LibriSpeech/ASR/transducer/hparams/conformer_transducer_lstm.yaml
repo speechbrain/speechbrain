@@ -52,7 +52,7 @@ grad_accumulation_factor: 1
 num_workers: 4
 sorting: random
 batch_size_valid: 4
-lr: 0.001
+lr: 0.0005
 weight_decay: 0.01
 
 # MTL for encoder with CTC (uncomment enc_lin layer)
@@ -100,7 +100,7 @@ dynamic_batch_sampler:
 # Transformer
 d_model: 512
 joint_dim: 768
-nhead: 6
+nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 0
 d_ffn: 2048
