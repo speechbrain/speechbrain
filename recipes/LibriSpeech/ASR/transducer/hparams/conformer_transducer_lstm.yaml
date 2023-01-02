@@ -306,7 +306,7 @@ opt_class: !name:torch.optim.AdamW
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
-   n_warmup_steps: 25000
+   n_warmup_steps: 20000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
