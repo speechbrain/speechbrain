@@ -97,6 +97,11 @@ class EnhanceGanBrain(sb.Brain):
             self.modules.discriminator.parameters()
         )
 
+    def zero_grad(self, set_to_none=False):
+        """Sets the gradients of all optimized `torch.Tensor`s to zero."""
+        self.g_optimizer.zero_grad(set_to_none)
+        self.d_optimizer.zero_grad(set_to_none)
+
 
 def data_prep(data_folder):
     "Creates the datasets and their data processing pipelines."

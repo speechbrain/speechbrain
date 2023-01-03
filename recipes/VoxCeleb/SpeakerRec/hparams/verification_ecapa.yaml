@@ -9,7 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
-output_folder: results/voxceleb1_2/speaker_verification_ecapa_big
+output_folder: results/voxceleb1_2/speaker_verification_ecapa_big_vox2only
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
