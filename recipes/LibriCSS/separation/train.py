@@ -228,7 +228,6 @@ class Separation(sb.Brain):
                 meta={"si-snr": stage_stats["si-snr"]},
                 min_keys=["si-snr"],
             )
-            self.valid_table = None
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -568,16 +567,24 @@ def dataio_prep(hparams):
     if hparams["overfitting_test"]:
         train_data = debug_dataset(hparams)
 
-    def target_pipeline(sources, idx, num_samples):
-        if len(sources) > idx:
-            return sources[idx]
-        else:
-            return default_target(hparams, num_samples)
+    @sb.utils.data_pipeline.takes("sources", "num_samples")
+    @sb.utils.data_pipeline.provides("s1_sig", "s2_sig")
+    def target_pipeline(sources, num_samples):
+        targets = sources[:] # copy
+        for i in range(2 - len(sources)):
+            targets.append(default_target(hparams, num_samples))
+        return tuple(targets[:2])
+
+    @sb.utils.data_pipeline.takes("mix_wav")
+    @sb.utils.data_pipeline.provides("mix_sig")
+    def audio_pipeline_mix(mix_wav):
+        return read_audio(mix_wav)
 
     # TRAIN
+    train_data.add_dynamic_item(lambda mixture: mixture, takes="mixture", provides="mix_sig")
+    train_data.add_dynamic_item(target_pipeline)
     train_data.add_dynamic_item(len, takes="mixture", provides="num_samples")
     train_data.add_dynamic_item(len, takes="sources", provides="num_spkrs")
-    train_data.add_dynamic_item(lambda mixture: mixture, takes="mixture", provides="mix_sig")
     train_data.add_dynamic_item(
         lambda noise, num_samples: noise if noise is not None else torch.zeros(num_samples),
         takes=["noise", "num_samples"], provides="noise_sig",
@@ -586,17 +593,6 @@ def dataio_prep(hparams):
         lambda rir: rir if rir is not None else torch.ones(1),
         takes="rir", provides="rir_sig",
     )
-    for idx, sig in enumerate(["s1_sig", "s2_sig"]):
-        train_data.add_dynamic_item(
-            lambda sources, num_samples: target_pipeline(sources, idx, num_samples),
-            takes=["sources", "num_samples"],
-            provides=sig,
-        )
-
-    @sb.utils.data_pipeline.takes("mix_wav")
-    @sb.utils.data_pipeline.provides("mix_sig")
-    def audio_pipeline_mix(mix_wav):
-        return read_audio(mix_wav)
 
     # DEV
     valid_data.add_dynamic_item(audio_pipeline_mix)
@@ -731,7 +727,7 @@ if __name__ == "__main__":
         project="SepFormer",
         entity="mato1102",
         config=hparams,
-        resume=True,
+        resume=False,
         name=hparams["experiment_name"],
     )
 
