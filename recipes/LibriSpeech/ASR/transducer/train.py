@@ -96,11 +96,11 @@ class ASR(sb.Brain):
             p_ctc = None
             p_ce = None
 
-            if self.hparams["ctc_weight"] > 0.0:
+            if self.hparams.ctc_weight > 0.0:
                 # Output layer for ctc log-probabilities
                 out_ctc = self.modules.proj_ctc(x)
                 p_ctc = self.hparams.log_softmax(out_ctc)
-            if self.hparams["ce_weight"] > 0.0:
+            if self.hparams.ce_weight > 0.0:
                 # Output layer for ctc log-probabilities
                 p_ce = self.modules.dec_lin(h)
                 p_ce = self.hparams.log_softmax(p_ce)
