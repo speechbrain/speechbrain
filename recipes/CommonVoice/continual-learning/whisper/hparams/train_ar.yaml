@@ -17,7 +17,7 @@ save_dir: !ref <output_dir>/save
 
 # Training parameters
 train_batch_size: 128 #24 # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 128 #24
+valid_batch_size: 152 #24
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -46,7 +46,7 @@ ckpt_interval_minutes: 600
 
 max_gen_tokens: 100
 forced_decoder_locale: ar
-normalize_transcripts: True  # Normalize English text
+normalize_transcripts: True
 
 # Dataloader options
 train_dataloader_kwargs:
@@ -79,7 +79,7 @@ modules:
     whisper: !ref <whisper>
 
 # Optimizers
-opt_class: !name:torch.optim.SGD
+opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

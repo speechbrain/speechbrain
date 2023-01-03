@@ -11,7 +11,6 @@ The following technical tricks were implemented to improve performance:
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - compile model with `torch.compile` from PyTorch 2.0 nightly
-- use small memory footprint optimizers (e.g. SGD)
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
@@ -342,13 +341,64 @@ def compute_ewc_params(hparams, run_opts, locales):
     return params, fisher
 
 
-def train(hparams, run_opts):
+def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
 
-    # Unfreeze decoder
-    for param in hparams["whisper"].model.decoder.parameters():
-        param.requires_grad = True
+    # Test on old + new locales
+    for locale in locales:
+        # Multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_common_voice,
+            kwargs={
+                "locales": [locale],
+                "download_dir": hparams["download_dir"],
+            },
+        )
+
+        if locale in ["zh-CN", "ja"]:
+            # Use CER instead of WER (spaces are not used)
+            hparams[
+                "wer_computer"
+            ] = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
+                split_tokens=True
+            )
+        else:
+            hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
+
+        # Set forced decoder locale
+        hparams["forced_decoder_locale"] = locale
+
+        # Here we create the datasets objects as well as tokenization and encoding
+        _, _, test_data = dataio_prepare(hparams, tokenizer)
+
+        # Trainer initialization
+        asr_brain = ASR(
+            modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+        )
+
+        # We dynamically add the tokenizer to our brain class
+        # NB: This tokenizer corresponds to the one used for Whisper
+        asr_brain.tokenizer = tokenizer
+
+        # Testing
+        locale_dir = os.path.join(hparams["output_dir"], locale)
+        os.makedirs(locale_dir, exist_ok=True)
+        asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        asr_brain.evaluate(
+            test_data,
+            min_key="WER",
+            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+        )
+
+
+def train(hparams, run_opts):
+    test(
+        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    )
+
+    # Defining tokenizer and loading it
+    tokenizer = hparams["whisper"].tokenizer
 
     # Train on new locales
     all_ewc_params = []
@@ -393,7 +443,7 @@ def train(hparams, run_opts):
         # Get sentence-piece tokenizer vocabulary
         vocab = [sp.sp.id_to_piece(id) for id in range(sp.sp.get_piece_size())]
 
-        # Removing leading "▁" character
+        # Remove leading "▁" character
         vocab = [wrd[1:] if wrd.startswith("▁") else wrd for wrd in vocab]
 
         # Remove "<unk>" token
@@ -417,10 +467,6 @@ def train(hparams, run_opts):
             + len(new_tokens)
             + 1
         )
-
-        # Unfreeze decoder
-        for param in hparams["whisper"].model.decoder.parameters():
-            param.requires_grad = True
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
@@ -455,67 +501,11 @@ def train(hparams, run_opts):
         )
 
         # Testing
-        locale_dir = os.path.join(hparams["output_dir"], locale)
-        os.makedirs(locale_dir, exist_ok=True)
-        asr_brain.hparams.wer_file = os.path.join(locale_dir, "wer_test.txt")
-        asr_brain.evaluate(
-            test_data,
-            min_key="WER",
-            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
-
-
-def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
-    # Test on old + new locales
-    for locale in locales:
-        # Multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_common_voice,
-            kwargs={
-                "locales": [locale],
-                "download_dir": hparams["download_dir"],
-            },
-        )
-
-        if locale in ["zh-CN", "ja"]:
-            # Use CER instead of WER (spaces are not used)
-            hparams[
-                "wer_computer"
-            ] = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
-                split_tokens=True
-            )
-        else:
-            hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
-
-        # Set forced decoder locale
-        hparams["forced_decoder_locale"] = locale
-
-        # Here we create the datasets objects as well as tokenization and encoding
-        _, _, test_data = dataio_prepare(hparams, tokenizer)
-
-        # Trainer initialization
-        # checkpoint_dir = os.path.join(hparams["save_dir"], locale)
-        # os.makedirs(checkpoint_dir, exist_ok=True)
-        # hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
-        asr_brain = ASR(
-            modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
-        )
-
-        # We dynamically add the tokenizer to our brain class
-        # NB: This tokenizer corresponds to the one used for Whisper
-        asr_brain.tokenizer = tokenizer
-
-        # Testing
-        locale_dir = os.path.join(hparams["output_dir"], locale)
-        os.makedirs(locale_dir, exist_ok=True)
-        asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
-        asr_brain.evaluate(
-            test_data,
-            min_key="WER",
-            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+        test(
+            hparams,
+            run_opts,
+            hparams["old_locales"] + hparams["new_locales"][: i + 1],
+            f"wer_test_after_{locale}.txt",
         )
 
 
@@ -529,6 +519,7 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    print(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -555,11 +546,5 @@ if __name__ == "__main__":
         examples, hparams, *args, **kwargs
     )
 
-    test(hparams, run_opts, hparams["old_locales"], "wer_test_before.txt")
+    # Train
     train(hparams, run_opts)
-    test(
-        hparams,
-        run_opts,
-        hparams["old_locales"] + hparams["new_locales"],
-        "wer_test_after.txt",
-    )

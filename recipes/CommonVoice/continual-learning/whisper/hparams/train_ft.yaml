@@ -8,7 +8,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-new_locales: [kab, lg, mhr, ug, ckb]
+new_locales: [rw, eo, kab, lg, mhr]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
@@ -18,19 +18,19 @@ save_dir: !ref <output_dir>/save
 
 # Training parameters
 train_batch_size: 128 #24  # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 128 #24
+valid_batch_size: 152 #24
 train_num_workers: 6
 valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
-vocab_size: 200  # Vocabulary size for BPE encoding of each new locale
+vocab_size: 250  # Vocabulary size for BPE encoding of each new locale
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
 
-num_epochs: 10
+num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
@@ -38,10 +38,10 @@ annealing_factor: 0.8
 whisper_variant: openai/whisper-tiny
 encoder_only: False
 freeze: False
-freeze_encoder: False
+freeze_encoder: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
-auto_mix_prec: True  # True causes NaN in forward pass for Kinyarwanda, need to double check
+auto_mix_prec: False  # True causes NaN in forward pass for Kinyarwanda, need to double check
 gradient_checkpointing: False
 compile_model: True
 ckpt_interval_minutes: 600
@@ -76,7 +76,7 @@ modules:
     whisper: !ref <whisper>
 
 # Optimizers
-opt_class: !name:torch.optim.SGD
+opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

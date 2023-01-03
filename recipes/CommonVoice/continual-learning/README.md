@@ -42,7 +42,7 @@ source activate cl-env
 python train.py hparams/train_ar.yaml
 ```
 
-**NOTE**: you can download Common Voice 11.0 beforehand, (requires ~600 GB of free space) and store them for later use.
+**NOTE**: you can download Common Voice 12.0 beforehand, (requires ~600 GB of free space) and store them for later use.
 To do so, navigate to `<path-to-repository>/recipes/CommonVoice/continual-learning`, open a terminal and run:
 
 ```
@@ -53,7 +53,7 @@ python common_voice_prepare.py -l <list-of-locales-to-download> -d data
 It is recommended to compress the downloaded datasets into `tar.gz` archives to store them more efficiently:
 
 ```
-tar -czvf common_voice_11.tar.gz data
+tar -czvf common_voice_12.tar.gz data
 rm -r data
 ```
 

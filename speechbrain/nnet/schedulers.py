@@ -190,8 +190,8 @@ class LinearScheduler:
         current_epoch : int
             Number of times the dataset has been iterated.
         """
-        old_index = max(0, current_epoch - 1)
-        index = min(current_epoch, len(self.value_at_epoch) - 1)
+        old_index = int(max(0, current_epoch - 1))
+        index = int(min(current_epoch, len(self.value_at_epoch) - 1))
         return self.value_at_epoch[old_index], self.value_at_epoch[index]
 
 
