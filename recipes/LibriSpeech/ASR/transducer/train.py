@@ -33,7 +33,6 @@ Authors
 import os
 import sys
 import torch
-from torch.nn import LeakyReLU
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -78,11 +77,11 @@ class ASR(sb.Brain):
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
-        x = LeakyReLU()(self.modules.proj_enc(x))
+        x = self.modules.proj_enc(x)
 
         e_in = self.modules.emb(tokens_with_bos)
         h, _ = self.modules.dec(e_in)
-        h = LeakyReLU()(self.modules.proj_dec(h))
+        h = self.modules.proj_dec(h)
 
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
@@ -94,33 +93,19 @@ class ASR(sb.Brain):
 
         # Compute outputs
         if stage == sb.Stage.TRAIN:
-            return_CTC = False
-            return_CE = False
-            current_epoch = self.hparams.epoch_counter.current
-            if (
-                hasattr(self.hparams, "ctc_cost")
-                and current_epoch <= self.hparams.number_of_ctc_epochs
-            ):
-                return_CTC = True
+            p_ctc = None
+            p_ce = None
+
+            if self.hparams["ctc_weight"] > 0.0:
                 # Output layer for ctc log-probabilities
                 out_ctc = self.modules.proj_ctc(x)
                 p_ctc = self.hparams.log_softmax(out_ctc)
-            if (
-                hasattr(self.hparams, "ce_cost")
-                and current_epoch <= self.hparams.number_of_ce_epochs
-            ):
-                return_CE = True
+            if self.hparams["ce_weight"] > 0.0:
                 # Output layer for ctc log-probabilities
                 p_ce = self.modules.dec_lin(h)
                 p_ce = self.hparams.log_softmax(p_ce)
-            if return_CE and return_CTC:
-                return p_ctc, p_ce, logits_transducer, wav_lens
-            elif return_CTC:
-                return p_ctc, logits_transducer, wav_lens
-            elif return_CE:
-                return p_ce, logits_transducer, wav_lens
-            else:
-                return logits_transducer, wav_lens
+
+            return p_ctc, p_ce, logits_transducer, wav_lens
 
         elif stage == sb.Stage.VALID:
             best_hyps, scores, _, _ = self.hparams.Greedysearcher(x)
@@ -138,9 +123,10 @@ class ASR(sb.Brain):
         """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
 
         ids = batch.id
-        current_epoch = self.hparams.epoch_counter.current
         tokens, token_lens = batch.tokens
         tokens_eos, token_eos_lens = batch.tokens_eos
+        p_ctc, p_ce, logits_transducer, wav_lens = predictions
+
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
             token_eos_lens = torch.cat([token_eos_lens, token_eos_lens], dim=0)
@@ -148,56 +134,25 @@ class ASR(sb.Brain):
             token_lens = torch.cat([token_lens, token_lens], dim=0)
 
         if stage == sb.Stage.TRAIN:
-            if len(predictions) == 4:
-                p_ctc, p_ce, logits_transducer, wav_lens = predictions
+            CTC_loss = 0.0
+            CE_loss = 0.0
+            if p_ctc is not None:
                 CTC_loss = self.hparams.ctc_cost(
                     p_ctc, tokens, wav_lens, token_lens
                 )
+            if p_ce is not None:
                 CE_loss = self.hparams.ce_cost(
                     p_ce, tokens_eos, length=token_eos_lens
                 )
-                loss_transducer = self.hparams.transducer_cost(
-                    logits_transducer, tokens, wav_lens, token_lens
-                )
-                loss = (
-                    self.hparams.ctc_weight * CTC_loss
-                    + self.hparams.ce_weight * CE_loss
-                    + (1 - (self.hparams.ctc_weight + self.hparams.ce_weight))
-                    * loss_transducer
-                )
-            elif len(predictions) == 3:
-                # one of the 2 heads (CTC or CE) is still computed
-                # CTC alive
-                if current_epoch <= self.hparams.number_of_ctc_epochs:
-                    p_ctc, logits_transducer, wav_lens = predictions
-                    CTC_loss = self.hparams.ctc_cost(
-                        p_ctc, tokens, wav_lens, token_lens
-                    )
-                    loss_transducer = self.hparams.transducer_cost(
-                        logits_transducer, tokens, wav_lens, token_lens
-                    )
-                    loss = (
-                        self.hparams.ctc_weight * CTC_loss
-                        + (1 - self.hparams.ctc_weight) * loss_transducer
-                    )
-                # CE for decoder alive
-                else:
-                    p_ce, logits_transducer, wav_lens = predictions
-                    CE_loss = self.hparams.ce_cost(
-                        p_ce, tokens_eos, length=token_eos_lens
-                    )
-                    loss_transducer = self.hparams.transducer_cost(
-                        logits_transducer, tokens, wav_lens, token_lens
-                    )
-                    loss = (
-                        self.hparams.ce_weight * CE_loss
-                        + (1 - self.hparams.ctc_weight) * loss_transducer
-                    )
-            else:
-                logits_transducer, wav_lens = predictions
-                loss = self.hparams.transducer_cost(
-                    logits_transducer, tokens, wav_lens, token_lens
-                )
+            loss_transducer = self.hparams.transducer_cost(
+                logits_transducer, tokens, wav_lens, token_lens
+            )
+            loss = (
+                self.hparams.ctc_weight * CTC_loss
+                + self.hparams.ce_weight * CE_loss
+                + (1 - (self.hparams.ctc_weight + self.hparams.ce_weight))
+                * loss_transducer
+            )
         else:
             logits_transducer, wav_lens, predicted_tokens = predictions
             loss = self.hparams.transducer_cost(

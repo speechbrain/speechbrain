@@ -1,17 +1,17 @@
 # ############################################################################
 # Model: E2E ASR with transformer and transducer
-# Encoder: Small conformer
-# Decoder: GRU + beamsearch + RNNLM
+# Encoder: Conformer
+# Decoder: LSTM + beamsearch + RNNLM
 # Tokens: BPE with unigram
-# losses: Transducer
-# Training: Librispeech 100960h
+# losses: Transducer + CTC + CE
+# Training: Librispeech 960h
 # Authors:  Titouan Parcollet 2022, Abdel HEBA, Mirco Ravanelli, Sung-Lin Yeh 2020
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer_transducer/<seed>
+output_folder: !ref results/conformer_transducer_large/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -40,29 +40,28 @@ test_csv:
    - !ref <output_folder>/test-other.csv
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-number_of_epochs: 60
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-batch_size: 8
-grad_accumulation_factor: 1
+number_of_epochs: 40
+warmup_steps: 25000
 num_workers: 4
-sorting: random
 batch_size_valid: 4
-lr: 0.0008
-
-# MTL for encoder with CTC (uncomment enc_lin layer)
-number_of_ctc_epochs: 60
-ctc_weight: 0.3
+lr: 0.0005
+weight_decay: 0.01
+number_of_ctc_epochs: 40
+ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
+ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 
-# MTL for decoder with CE (uncomment dec_lin layer)
-#number_of_ce_epochs: 2
-#ce_weight: 0.33
+# Used if and only if dynamic batching is set to False
+batch_size: 8
+grad_accumulation_factor: 1
+sorting: random
 
 # Feature parameters
 sample_rate: 16000
@@ -80,10 +79,10 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <batch_size_valid>
 
-# This setup works well for 24GB GPU with fp16, adapts it to your needs.
+# This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 260
+max_batch_len: 900
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -97,12 +96,12 @@ dynamic_batch_sampler:
 
 # Model parameters
 # Transformer
-d_model: 144
+d_model: 512
 joint_dim: 768
 nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 0
-d_ffn: 1024
+d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
@@ -113,7 +112,7 @@ blank_index: 0
 bos_index: 0
 eos_index: 0
 pad_index: 0
-beam_size: 4
+beam_size: 10
 nbest: 1
 # by default {state,expand}_beam = 2.3 as mention in paper
 # https://arxiv.org/abs/1904.02619
@@ -158,13 +157,13 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
    num_blocks: 2
    num_layers_per_block: 1
-   out_channels: (64, 32)
+   out_channels: (128, 64)
    kernel_sizes: (3, 3)
    strides: (2, 2)
    residuals: (False, False)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-   input_size: 640
+   input_size: 1280
    tgt_vocab: !ref <output_neurons>
    d_model: !ref <d_model>
    nhead: !ref <nhead>
@@ -192,12 +191,12 @@ proj_ctc: !new:speechbrain.nnet.linear.Linear
 proj_enc: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <d_model>
    n_neurons: !ref <joint_dim>
-   bias: True
+   bias: False
 
 proj_dec: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dec_dim>
    n_neurons: !ref <joint_dim>
-   bias: True
+   bias: False
 
 # Uncomment for MTL with CTC
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
@@ -303,10 +302,11 @@ opt_class: !name:torch.optim.AdamW
    lr: !ref <lr>
    betas: (0.9, 0.98)
    eps: 1.e-8
+   weight_decay: !ref <weight_decay>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
-   n_warmup_steps: 25000
+   n_warmup_steps: !ref <warmup_steps>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
