@@ -239,6 +239,11 @@ class ASR(sb.core.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        self.model_optimizer.zero_grad(set_to_none)
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer.zero_grad(set_to_none)
+
 
 # Define custom data procedure
 def dataio_prepare(hparams, tokenizer):

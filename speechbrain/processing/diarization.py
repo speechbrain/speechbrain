@@ -1,7 +1,7 @@
 """
 This script contains basic functions used for speaker diarization.
-This script has an optional dependency on open source sklearn library.
-A few sklearn functions are modified in this script as per requirement.
+This script has an optional dependency on open source scikit-learn (sklearn) library.
+A few scikit-learn functions are modified in this script as per requirement.
 
 Reference
 ---------
@@ -39,15 +39,15 @@ try:
     from sklearn.cluster import SpectralClustering
     from sklearn.cluster._kmeans import k_means
 except ImportError:
-    err_msg = "The optional dependency sklearn is used in this module\n"
-    err_msg += "Cannot import sklearn. \n"
+    err_msg = "The optional dependency scikit-learn (sklearn) is used in this module\n"
+    err_msg += "Cannot import scikit-learn. \n"
     err_msg += "Please follow the below instructions\n"
     err_msg += "=============================\n"
     err_msg += "Using pip:\n"
-    err_msg += "pip install sklearn\n"
+    err_msg += "pip install scikit-learn\n"
     err_msg += "================================ \n"
     err_msg += "Using conda:\n"
-    err_msg += "conda install sklearn"
+    err_msg += "conda install scikit-learn"
     raise ImportError(err_msg)
 
 

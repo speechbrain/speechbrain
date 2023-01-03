@@ -34,11 +34,11 @@ train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-    - !ref <data_folder>/test-clean.csv
-    - !ref <data_folder>/test-other.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -47,23 +47,29 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 60
-batch_size: 32 # This works for 1x GPU with 40GB
+number_of_epochs: 100
+batch_size: 32 # This works for 1x GPU with 40GB with no dynamic batching
 ctc_weight: 0.3
-grad_accumulation_factor: 2
+grad_accumulation_factor: 1
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
+num_workers: 4
 
-dynamic_batching: False
+# This setup works well for V100 32GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_len: 600
+max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
 
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 100000 # in terms of frames
-    num_buckets: 200
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: descending
-    max_batch_ex: -1
+    max_batch_len: !ref <max_batch_len>
+    max_batch_len_val: !ref <max_batch_len_val>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+    max_batch_ex: 128
 
 # stages related parameters
 lr_adam: 0.001
@@ -77,7 +83,7 @@ n_mels: 80
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
-    num_workers: 12
+    num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
     batch_size: 1
@@ -223,7 +229,6 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
-    #model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
