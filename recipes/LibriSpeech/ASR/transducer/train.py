@@ -125,7 +125,12 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens, token_lens = batch.tokens
         tokens_eos, token_eos_lens = batch.tokens_eos
-        p_ctc, p_ce, logits_transducer, wav_lens = predictions
+
+        # Train returns 4 elements vs 3 for val and test
+        if len(predictions) == 4:
+            p_ctc, p_ce, logits_transducer, wav_lens = predictions
+        else:
+            logits_transducer, wav_lens, predicted_tokens = predictions
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
@@ -154,7 +159,6 @@ class ASR(sb.Brain):
                 * loss_transducer
             )
         else:
-            logits_transducer, wav_lens, predicted_tokens = predictions
             loss = self.hparams.transducer_cost(
                 logits_transducer, tokens, wav_lens, token_lens
             )
