@@ -124,7 +124,7 @@ class VariationalAutoencoder(Autoencoder):
         self.latent_mask_value = latent_mask_value
         self.latent_stochastic = latent_stochastic
 
-    def encode(self, x):
+    def encode(self, x, length=None):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
         space
 
@@ -207,14 +207,15 @@ class VariationalAutoencoder(Autoencoder):
         if latent_mask_value is None:
             latent_mask_value = self.latent_mask_value
         encoder_out = self.encoder(x)
-        if self.latent_padding is not None:
-            latent, latent_length = self.latent_padding(
-                latent, length=length)
-        else:
-            latent_length = length
+
         mean = self.mean(encoder_out)
         log_var = self.log_var(encoder_out)
         latent_sample = self.reparameterize(mean, log_var)
+        if self.latent_padding is not None:
+            latent_sample, latent_length = self.latent_padding(
+                latent_sample, length=length)
+        else:
+            latent_length = length        
         if self.mask_latent and length is not None:
             latent_sample = clean_padding(
                 latent_sample, latent_length, self.len_dim, latent_mask_value
@@ -223,7 +224,12 @@ class VariationalAutoencoder(Autoencoder):
         x_rec = trim_as(x_rec, x)
         if self.mask_out and length is not None:
             x_rec = clean_padding(x_rec, length, self.len_dim, out_mask_value)
-        latent = latent_sample if self.latent_stochastic else mean
+        
+        if self.latent_stochastic:
+            latent = latent_sample
+        else:
+            latent, latent_length = self.latent_padding(
+                mean, length=length)
 
         return VariationalAutoencoderOutput(x_rec, latent, mean, log_var, latent_sample, latent_length)
 

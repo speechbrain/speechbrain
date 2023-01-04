@@ -56,7 +56,7 @@ adam_beta2: 0.999
 adam_weight_decay: 0.000001
 adam_epsilon: 0.00000001
 downsample_factor: 8
-latent_downsample_factor: 8
+latent_downsample_factor: 4
 enable_train_metrics: True
 enable_reference_samples: True
 enable_reconstruction_sample: True
@@ -93,7 +93,7 @@ spec_norm: "slaney"
 spec_mel_scale: "slaney"
 spec_norm_mean: 0.
 spec_norm_std: 0.5
-spec_sample_size: 40
+spec_sample_size: 20
 spec_min_sample_size: 10
 spec_sample_min: -4.7
 spec_sample_max: 3.0
@@ -116,6 +116,15 @@ autoencoder_dropout: 0.1
 latent_mask_value: -3.
 autoencoder_use_fixup_norm: False
 diffusion_channels: !ref <autoencoder_latent_channels>
+done_cnn_blocks: 1
+done_cnn_kernelsize: 3
+done_cnn_channels: [32]
+done_rnn_layers: 1
+done_rnn_neurons: 32
+done_dnn_blocks: 1
+done_dnn_neurons: 1
+done_threshold: 0.5
+
 
 
 # Vocoder Settings
@@ -163,6 +172,8 @@ compute_cost_autoencoder: !new:speechbrain.nnet.losses.AutoencoderLoss
 
 compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
     len_dim: 2
+
+compute_cost_done: !name:speechbrain.nnet.losses.mse_loss
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
@@ -220,6 +231,16 @@ diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
 
 diffusion_sample_channels: !ref <diffusion_channels>
 
+done_detector: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_size: !ref <spec_n_mels>
+    cnn_blocks: !ref <done_cnn_blocks>
+    cnn_kernelsize: !ref <done_cnn_kernelsize>
+    cnn_channels: !ref <done_cnn_channels>
+    rnn_layers: !ref <done_rnn_layers>
+    rnn_neurons: !ref <done_rnn_neurons>
+    dnn_blocks: !ref <done_dnn_blocks>
+    dnn_neurons: !ref <done_dnn_neurons>
+    
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -244,6 +265,7 @@ modules:
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>
     global_norm: !ref <global_norm>
+    done_detector: !ref <done_detector>
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -292,3 +314,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         lr_annealing: !ref <lr_annealing>
         lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
         global_norm: !ref <global_norm>
+        done_detector: !ref <done_detector>

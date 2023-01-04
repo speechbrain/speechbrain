@@ -116,6 +116,14 @@ autoencoder_dropout: 0.1
 latent_mask_value: -3.
 autoencoder_use_fixup_norm: False
 diffusion_channels: !ref <autoencoder_latent_channels>
+done_cnn_blocks: 1
+done_cnn_kernelsize: 3
+done_cnn_channels: [32]
+done_rnn_layers: 1
+done_rnn_neurons: 32
+done_dnn_blocks: 1
+done_dnn_neurons: 1
+done_threshold: 0.5
 
 
 # Vocoder Settings
@@ -165,6 +173,8 @@ compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLos
 
 compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
     len_dim: 2
+
+compute_cost_done: !name:speechbrain.nnet.losses.mse_loss
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
@@ -222,6 +232,16 @@ diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
 
 diffusion_sample_channels: !ref <diffusion_channels>
 
+done_detector: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_size: !ref <spec_n_mels>
+    cnn_blocks: !ref <done_cnn_blocks>
+    cnn_kernelsize: !ref <done_cnn_kernelsize>
+    cnn_channels: !ref <done_cnn_channels>
+    rnn_layers: !ref <done_rnn_layers>
+    rnn_neurons: !ref <done_rnn_neurons>
+    dnn_blocks: !ref <done_dnn_blocks>
+    dnn_neurons: !ref <done_dnn_neurons>
+
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -246,6 +266,7 @@ modules:
     dynamic_range_compression: !ref <dynamic_range_compression>
     min_level_norm: !ref <min_level_norm>
     global_norm: !ref <global_norm>
+    done_detector: !ref <done_detector>
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
@@ -254,14 +275,14 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 
 # This function manages learning rate annealing over the epochs.
@@ -295,3 +316,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         lr_annealing_autoencoder: !ref <lr_annealing_autoencoder>
         compute_cost_autoencoder_rec: !ref <compute_cost_autoencoder_rec>
         global_norm: !ref <global_norm>
+        done_detector: !ref <done_detector>
+

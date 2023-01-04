@@ -39,7 +39,16 @@ class DiffusionMode(Enum):
 
 DiffusionPredictions = namedtuple(
     "DiffusionPredictions",
-    ["pred", "noise", "noisy_sample", "feats", "lens", "autoencoder_output"],
+    [
+        "pred",
+        "noise",
+        "noisy_sample",
+        "feats",
+        "lens",
+        "autoencoder_output",
+        "done_pred",
+        "done"
+    ],
 )
 
 
@@ -99,7 +108,7 @@ class DiffusionBrain(sb.Brain):
         batch = batch.to(self.device)
 
         # Compute features, embeddings, and predictions
-        feats, lens = self.prepare_features(batch, stage)
+        feats, lens, done = self.prepare_features(batch, stage)
 
         autoencoder_out = None
         cond_emb = None
@@ -124,10 +133,21 @@ class DiffusionBrain(sb.Brain):
                 feats, lens=lens, cond_emb=cond_emb
             )
 
+        done_pred = None
+        if self.use_done_detector:
+            done_pred = self.modules.done_detector(feats.squeeze(1))
+
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
         return DiffusionPredictions(
-            pred, noise, noisy_sample, feats, lens, autoencoder_out
+            pred,
+            noise,
+            noisy_sample,
+            feats,
+            lens,
+            autoencoder_out,
+            done_pred,
+            done
         )
 
     def compute_latent_mask_value(self, mask_value):
@@ -361,6 +381,19 @@ class DiffusionBrain(sb.Brain):
             An input batch
         stage : sb.Stage
             The current stage of training.
+
+        Returns
+        -------
+        feats: torch.Tensor
+            features (normalized spectrograms)
+        
+        lens: torch.Tensor
+            item lengths
+        
+        done: torch.Tensor
+            a tensor indicating whether the sequence/spectrogram
+            is finished
+
         """
         wavs, lens = batch.sig
 
@@ -398,7 +431,29 @@ class DiffusionBrain(sb.Brain):
                 batch.file_name, feats_raw, mask=mask
             )
 
-        return feats, lens
+        # Generate the "done" indicator
+        done = self.generate_done(feats, lens)
+
+        return feats, lens, done
+
+    def generate_done(self, feats, lens):
+        """Generates a "done" indicattor
+
+        feats: torch.Tensor
+            the feature/spectrogram tensor
+        
+        lens: torch.Tensor
+            a tensor of lengths
+
+        Arguments
+        ---------
+        done: torch.Tensor
+            a tensor of "done" indicators
+        """
+        max_len = feats.size(2)
+        done = 1. - length_to_mask(lens * max_len, max_len)
+        done = done.unsqueeze(-1)
+        return done
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -418,7 +473,7 @@ class DiffusionBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        preds, noise, noisy_sample, feats, lens, autoencoder_out = predictions        
+        preds, noise, noisy_sample, feats, lens, autoencoder_out, done_pred, done = predictions        
         if self.train_diffusion:
             # NOTE: Padding of the latent space can affect the lengths
             lens_diffusion = (
@@ -434,6 +489,19 @@ class DiffusionBrain(sb.Brain):
         self.loss_metric.append(
             batch.file_name, preds, noise, lens, reduction="batch"
         )
+
+        if self.use_done_detector:
+            loss_done = self.hparams.compute_cost_done(
+                done_pred.squeeze(-1),
+                done.squeeze(-1)
+            )
+            self.done_loss_metric.append(
+                batch.file_name,
+                done_pred.squeeze(-1),
+                done.squeeze(-1),
+                reduction="batch"
+            )
+            loss += loss_done
 
         loss_autoencoder = None
         if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
@@ -492,6 +560,45 @@ class DiffusionBrain(sb.Brain):
             wav = self.generate_audio(samples_denorm)
 
         return labels, samples, samples_denorm, wav
+
+    def cut_samples(self, samples, wav):
+        """Uses the done predictor to "chop" a batch of samples
+        according to when it believes generation to be finished
+        at a given state
+
+        Arguments
+        ---------
+        samples: torch.Tensor
+            a tensor of samples
+        
+        wav: torch.Tensor
+            a tensor of generated audio (optional)
+
+        Returns
+        -------
+        done_pred: torch.Tensor
+            the raw output of the "done" predictor
+        samples_cut: list
+            a list of samples
+        
+        """
+        done_in = samples.squeeze(1)[:, :, :self.hparams.spec_n_mels]
+        done_pred = self.modules.done_detector(done_in)
+        lens_pred = (done_pred.squeeze() > self.hparams.done_threshold).int().argmax(dim=-1)
+        # NOTE: A poorly trained "done detector" may not cross the threshold
+        # at all - in this case the sample will not be "cut"
+        lens_pred[lens_pred == 0] = samples.size(2)
+        samples_cut = [
+            sample[:, :length, :]
+            for sample, length in zip(samples, lens_pred)
+        ]
+        wav_lens_pred = (
+            lens_pred / samples.size(2) * wav.size(-1)).int()
+        wav_cut = [
+            sample[:length]
+            for sample, length in zip(wav, wav_lens_pred)
+        ]
+        return samples_cut, wav_cut
 
     def generate_spectrograms(self):
         """Generates sample spectrograms"""
@@ -809,7 +916,10 @@ class DiffusionBrain(sb.Brain):
 
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
-            metric=sb.nnet.losses.mse_loss
+            metric=self.hparams.compute_cost
+        )
+        self.done_loss_metric = sb.utils.metric_stats.MetricStats(
+            metric=self.hparams.compute_cost_done
         )
 
         self.mask_value_norm = self.modules.min_level_norm(
@@ -870,6 +980,7 @@ class DiffusionBrain(sb.Brain):
             self.hparams.use_cond_emb.values()
         )
         self.latent_mask_value = None
+        self.use_done_detector = "done_detector" in self.modules
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -934,8 +1045,12 @@ class DiffusionBrain(sb.Brain):
                 samples_rec, wav_rec = self.generate_rec_samples()
                 data["samples_rec"] = samples_rec
                 data["wav_rec"] = wav_rec
+            if self.use_done_detector:
+                samples_cut, wav_cut = self.cut_samples(samples, wav)
+                data["samples_cut"] = samples_cut
+                data["wav_cut"] = wav_cut
             self.log_epoch(data, epoch, stage)
-
+        
     def generate_reference_samples(self, batch):
         """Generate an audio sample from one of the spectrograms
         using the same normalization techniques
@@ -945,7 +1060,7 @@ class DiffusionBrain(sb.Brain):
         batch: speechbrain.dataio.batch.PaddedBatch
             a batch of audio
         """
-        feats, lens = self.prepare_features(batch, sb.Stage.VALID)
+        feats, lens, _ = self.prepare_features(batch, sb.Stage.VALID)
         feats = self.modules.global_norm.denormalize(feats)
         feats_denorm = self.denormalize(feats)
         wav = self.generate_audio(feats_denorm)
@@ -1023,7 +1138,10 @@ class DiffusionBrain(sb.Brain):
             self.hparams.tensorboard_train_logger.log_stats(
                 stats_meta={"step": self.step}, **stats_args
             )
-            self.log_samples(spectrogram_samples=samples, wav_samples=wav)
+            samples_log = data.get("samples_cut", samples)
+            wav_log = data.get("wav_log", wav)
+            self.log_samples(
+                spectrogram_samples=samples_log, wav_samples=wav_log)
             if self.diffusion_mode == DiffusionMode.LATENT:
                 self.log_samples(
                     spectrogram_samples=samples_rec,
@@ -1059,7 +1177,7 @@ class DiffusionBrain(sb.Brain):
             key_prefix = ""
         if lens is None:
             lens = torch.ones(
-                len(spectrogram_samples), device=spectrogram_samples.device
+                len(spectrogram_samples), device=self.device
             )
         if self.hparams.use_tensorboard:
             for sample in spectrogram_samples:
