@@ -125,7 +125,7 @@ class Separation(sb.Brain):
         mix, est_source, targets = outputs
         if isinstance(self.hparams.loss, CompoundLoss):
             mix_n_sources = est_source.size(-1)
-            if stage == sb.Stage.TRAIN:
+            if hasattr(batch, "num_spkrs"):
                 mix_n_sources = batch.num_spkrs
             loss = self.hparams.loss(mix, est_source, targets, mix_n_sources)
         else:
