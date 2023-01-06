@@ -83,10 +83,10 @@ dependencies:
     - sympy==1.11.1
     - tokenizers==0.13.2
     - --extra-index-url https://download.pytorch.org/whl/nightly/cu117
-    - torch==2.0.0.dev20221209+cu117
-    - torchaudio==0.14.0.dev20221209+cu117
+    - torch==2.0.0.dev20230103+cu117
+    - torchaudio==2.0.0.dev20230103+cu117
     - torchtriton==2.0.0+0d7e753227
-    - torchvision==0.15.0.dev20221209+cu117
+    - torchvision==0.15.0.dev20230103+cu117
     - tqdm==4.64.1
     - transformers==4.25.1
     - urllib3==1.26.13

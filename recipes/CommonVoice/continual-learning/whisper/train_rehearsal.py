@@ -369,6 +369,9 @@ def train(hparams, run_opts):
             + 1
         )
 
+        # Log total number of tokens
+        print(f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}")
+
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
@@ -418,6 +421,7 @@ def train(hparams, run_opts):
 
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
+        hparams["epoch_counter"].current = 0
         asr_brain.fit(
             hparams["epoch_counter"],
             train_data,
