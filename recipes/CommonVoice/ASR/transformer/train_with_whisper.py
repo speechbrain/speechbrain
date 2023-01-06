@@ -58,7 +58,7 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID:
             hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
 
         return logits, hyps, wav_lens
 
