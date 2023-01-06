@@ -69,6 +69,7 @@ class DiffusionBrain(sb.Brain):
             modules, opt_class, hparams, run_opts, checkpointer, profiler
         )
         self.diffusion_mode = DiffusionMode(self.hparams.diffusion_mode)
+        self.use_done_detector = "done_detector" in self.modules        
 
     def init_optimizers(self):
         """Initializes the diffusion model optimizer - and the
@@ -77,7 +78,12 @@ class DiffusionBrain(sb.Brain):
             self.optimizer = self.opt_class(self.modules.unet.parameters())
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
+        
+        if self.use_done_detector:
+            self.optimizer_done = self.hparams.opt_class_done(self.modules.done_detector.parameters())
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer_done", self.optimizer)
+            
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(
                 self.modules.autoencoder.parameters()
@@ -224,7 +230,7 @@ class DiffusionBrain(sb.Brain):
 
         should_step = self.step % self.grad_accumulation_factor == 0
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss, loss_autoencoder = self.compute_objectives(
+        loss, loss_autoencoder, loss_done = self.compute_objectives(
             outputs, batch, sb.Stage.TRAIN
         )
         if self.train_diffusion:
@@ -232,10 +238,24 @@ class DiffusionBrain(sb.Brain):
                 (loss / self.grad_accumulation_factor).backward(
                     retain_graph=True
                 )
+        # Done loss - iffapplicable
+        if self.use_done_detector:
+            with self.no_sync(not should_step):
+                (loss_done / self.grad_accumulation_factor).backward(
+                    retain_graph=True
+                )               
+
         if should_step:
             if self.train_diffusion and self.check_gradients(loss):
                 self.optimizer.step()
             self.optimizer.zero_grad()
+
+            if self.use_done_detector:
+                self.optimizer_done.step()
+                self.optimizer_done.zero_grad()
+                
+
+
         # Latent diffusion: Step through the autoencoder
         if self.diffusion_mode == DiffusionMode.LATENT and loss_autoencoder is not None:
             with self.no_sync(not should_step):
@@ -287,7 +307,7 @@ class DiffusionBrain(sb.Brain):
         """
 
         out = self.compute_forward(batch, stage=stage)
-        loss, autoencoder_loss = self.compute_objectives(
+        loss, autoencoder_loss, done_loss = self.compute_objectives(
             out, batch, stage=stage
         )
         return loss.detach().cpu()
@@ -301,6 +321,11 @@ class DiffusionBrain(sb.Brain):
         stats.update(
             self.extract_dist_stats(self.data_dist_stats_metric, prefix="data")
         )
+        if self.use_done_detector:
+            stats["done_loss"] = self.done_loss_metric.summarize(
+                field="average"
+            )
+                    
         if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
@@ -501,7 +526,6 @@ class DiffusionBrain(sb.Brain):
                 done.squeeze(-1),
                 reduction="batch"
             )
-            loss += loss_done
 
         loss_autoencoder = None
         if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
@@ -546,7 +570,7 @@ class DiffusionBrain(sb.Brain):
                 batch.file_name, autoencoder_out.latent, mask=latent_mask
             )
 
-        return loss, loss_autoencoder
+        return loss, loss_autoencoder, loss_done
 
     def generate_samples(self):
         """Generates spectrogram and (optionally) audio samples using the

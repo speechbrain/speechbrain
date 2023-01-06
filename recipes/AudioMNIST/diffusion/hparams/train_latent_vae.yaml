@@ -116,13 +116,13 @@ autoencoder_dropout: 0.1
 latent_mask_value: -3.
 autoencoder_use_fixup_norm: False
 diffusion_channels: !ref <autoencoder_latent_channels>
-done_cnn_blocks: 1
+done_cnn_blocks: 2
 done_cnn_kernelsize: 3
-done_cnn_channels: [32]
-done_rnn_layers: 1
+done_cnn_channels: [32, 32]
+done_rnn_layers: 2
 done_rnn_neurons: 32
 done_dnn_blocks: 1
-done_dnn_neurons: 1
+done_dnn_neurons: 32
 done_threshold: 0.5
 
 
@@ -232,16 +232,21 @@ diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
 
 diffusion_sample_channels: !ref <diffusion_channels>
 
-done_detector: !new:speechbrain.lobes.models.CRDNN.CRDNN
-    input_size: !ref <spec_n_mels>
-    cnn_blocks: !ref <done_cnn_blocks>
-    cnn_kernelsize: !ref <done_cnn_kernelsize>
-    cnn_channels: !ref <done_cnn_channels>
-    rnn_layers: !ref <done_rnn_layers>
-    rnn_neurons: !ref <done_rnn_neurons>
-    dnn_blocks: !ref <done_dnn_blocks>
-    dnn_neurons: !ref <done_dnn_neurons>
-
+done_detector: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <spec_n_mels>]
+    crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
+        input_size: !ref <spec_n_mels>
+        cnn_blocks: !ref <done_cnn_blocks>
+        cnn_kernelsize: !ref <done_cnn_kernelsize>
+        cnn_channels: !ref <done_cnn_channels>
+        rnn_layers: !ref <done_rnn_layers>
+        rnn_neurons: !ref <done_rnn_neurons>
+        dnn_blocks: !ref <done_dnn_blocks>
+        dnn_neurons: !ref <done_dnn_neurons>
+    out: !new:torch.nn.Linear
+        in_features: !ref <done_dnn_neurons>
+        out_features: 1
+    act: !new:torch.nn.Sigmoid
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -275,14 +280,21 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
+
+opt_class_done: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+    capturable: True    
 
 
 # This function manages learning rate annealing over the epochs.
