@@ -7,21 +7,21 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/train_whisper/<seed>>/<locale>
+output_folder: !ref results/train_whisper/<seed>/<locale>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
-language: arabic #Language for whsiper tokenizer. It should be compatible with <locale> 
+language: german #Language for whsiper tokenizer. It should be compatible with <locale> 
 
 # Normalize the english inputs with
 # the same normalization done in the paper
 normalized_transcripts: True
 
 # Data files
-locale: ar # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
+locale: de # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
 data_folder: !ref 'data/common_voice_10_0_small/<locale>' 
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
