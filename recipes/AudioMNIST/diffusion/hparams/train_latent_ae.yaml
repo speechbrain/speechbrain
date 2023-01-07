@@ -35,7 +35,7 @@ data_prepare_sample_rate_tgt: 16000
 # Training Parameters
 diffusion_mode: latent
 train_len: 28520
-sort: len
+sort: null
 batch_shuffle: True
 number_of_epochs: 20
 batch_size: 32

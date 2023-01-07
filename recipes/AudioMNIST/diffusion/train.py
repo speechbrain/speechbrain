@@ -476,7 +476,8 @@ class DiffusionBrain(sb.Brain):
             a tensor of "done" indicators
         """
         max_len = feats.size(2)
-        done = 1. - length_to_mask(lens * max_len, max_len)
+        # NOTE: Adjust to output the last "1" at the last input - the padding will be masked out
+        done = 1. - length_to_mask(lens * max_len - 1, max_len)
         done = done.unsqueeze(-1)
         return done
 
@@ -518,7 +519,8 @@ class DiffusionBrain(sb.Brain):
         if self.use_done_detector:
             loss_done = self.hparams.compute_cost_done(
                 done_pred.squeeze(-1),
-                done.squeeze(-1)
+                done.squeeze(-1),
+                length=lens
             )
             self.done_loss_metric.append(
                 batch.file_name,
