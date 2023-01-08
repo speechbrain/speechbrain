@@ -8,7 +8,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-new_locales: [rw, eo, kab, lg, mhr, ug, ckb, ab, fy-NL, ga-IE]
+new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
@@ -30,7 +30,7 @@ vocab_size: 250  # Vocabulary size for BPE encoding of each new locale
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
 
-num_epochs: 3
+num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8

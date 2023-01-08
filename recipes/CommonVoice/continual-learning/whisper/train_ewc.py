@@ -523,7 +523,6 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    print(hparams)
 
     # Create experiment directory
     sb.create_experiment_directory(
