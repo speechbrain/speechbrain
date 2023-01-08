@@ -261,7 +261,7 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزژشصضطظعغفقكلمنهويىءآأؤإئ"
+                "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
@@ -270,12 +270,12 @@ def create_csv(
         elif language== "fa":
             HAMZA = "\u0621"
             ALEF_MADDA = "\u0622"
-            # ALEF_HAMZA_ABOVE = "\u0623"
+            ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ءآابپتةثجچحخدذرزژشصضطظعغفقكگلمنهویى"
+               "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
                 + HAMZA
                 + ALEF_MADDA
-                # + ALEF_HAMZA_ABOVE
+                + ALEF_HAMZA_ABOVE
             )
             words = re.sub("[^" + letters + " ]+", "", words).upper()
         elif language == "ga-IE":
@@ -306,8 +306,12 @@ def create_csv(
         chars = " ".join([char for char in chars][:])
 
         # Remove too short sentences (or empty):
-        if len(words.split(" ")) < 3:
-            continue
+        if language in ['ja', 'ch']:
+            if len(chars) < 3:
+                continue
+        else:
+            if len(words.split(" ")) < 3:
+                continue
 
         # Composition of the csv_line
         csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
