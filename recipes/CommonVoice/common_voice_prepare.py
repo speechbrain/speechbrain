@@ -288,6 +288,10 @@ def create_csv(
 
             words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
             words = " ".join(map(galc, words.split(" ")))
+        elif language == "es":
+            # Fix the following error in dataset large:
+            # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
+            words = words.replace("$", "s")
 
         # Remove accents if specified
         if not accented_letters:
