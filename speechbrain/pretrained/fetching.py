@@ -3,13 +3,17 @@
 Authors:
  * Aku Rouhe 2021
  * Samuele Cornell 2021
+ * Andreas Nautsch 2022, 2023
 """
 import urllib.request
 import urllib.error
 import pathlib
 import logging
+from enum import Enum
 import huggingface_hub
+from typing import Union
 from requests.exceptions import HTTPError
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,17 @@ def _missing_ok_unlink(path):
         pass
 
 
+class FetchFrom(Enum):
+    """Designator where to fetch models/audios from.
+
+    Note: HuggingFace repository sources and local folder sources may be confused if their source type is undefined.
+    """
+
+    LOCAL = 1
+    HUGGING_FACE = 2
+    ONLINE = 3
+
+
 def fetch(
     filename,
     source,
@@ -31,6 +46,8 @@ def fetch(
     save_filename=None,
     use_auth_token=False,
     revision=None,
+    cache_dir: Union[str, pathlib.Path, None] = None,
+    fetch_from: Union[FetchFrom, None] = None,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -70,6 +87,11 @@ def fetch(
         The model revision corresponding to the HuggingFace Hub model revision.
         This is particularly useful if you wish to pin your code to a particular
         version of a model hosted at HuggingFace.
+    cache_dir: str or Path (default: None)
+        Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
+    fetch_from: FetchFrom (default: None)
+        Restriction to interpreting source - benefit: no online search if source is known to be local (path mis/match).
+
     Returns
     -------
     pathlib.Path
@@ -85,12 +107,20 @@ def fetch(
     savedir = pathlib.Path(savedir)
     savedir.mkdir(parents=True, exist_ok=True)
     sourcefile = f"{source}/{filename}"
+    if pathlib.Path(source).is_dir() or fetch_from is FetchFrom.LOCAL:
+        # Interpret source as local directory path & return it as destination
+        sourcepath = pathlib.Path(sourcefile).absolute()
+        MSG = f"Destination {filename}: local file in {str(sourcepath)}."
+        logger.info(MSG)
+        return sourcepath
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
         MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}."
         logger.info(MSG)
         return destination
-    if str(source).startswith("http:") or str(source).startswith("https:"):
+    if (
+        str(source).startswith("http:") or str(source).startswith("https:")
+    ) or fetch_from is FetchFrom.ONLINE:
         # Interpret source as web address.
         MSG = (
             f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."
@@ -98,30 +128,34 @@ def fetch(
         logger.info(MSG)
         # Download
         try:
-            urllib.request.urlretrieve(sourcefile, destination)
+            run_on_main(urllib.request.urlretrieve(sourcefile, destination))
         except urllib.error.URLError:
             raise ValueError(
                 f"Interpreted {source} as web address, but could not download."
             )
-    elif pathlib.Path(source).is_dir():
-        # Interpret source as local directory path
-        # Just symlink
-        sourcepath = pathlib.Path(sourcefile).absolute()
-        MSG = f"Fetch {filename}: Linking to local file in {str(sourcepath)}."
-        logger.info(MSG)
-        _missing_ok_unlink(destination)
-        destination.symlink_to(sourcepath)
-    else:
+    else:  # FetchFrom.HUGGING_FACE check is spared (no other option right now)
         # Interpret source as huggingface hub ID
         # Use huggingface hub's fancy cached download.
         MSG = f"Fetch {filename}: Delegating to Huggingface hub, source {str(source)}."
         logger.info(MSG)
         try:
+            # First one downloads
+            run_on_main(
+                huggingface_hub.hf_hub_download(
+                    repo_id=source,
+                    filename=filename,
+                    use_auth_token=use_auth_token,
+                    revision=revision,
+                    cache_dir=cache_dir,
+                )
+            )
+            # Second one gets the fetched_file
             fetched_file = huggingface_hub.hf_hub_download(
                 repo_id=source,
                 filename=filename,
                 use_auth_token=use_auth_token,
                 revision=revision,
+                cache_dir=cache_dir,
             )
         except HTTPError as e:
             if "404 Client Error" in str(e):

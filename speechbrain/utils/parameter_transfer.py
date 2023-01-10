@@ -8,8 +8,8 @@ Authors
 """
 import logging
 import pathlib
-
-from speechbrain.pretrained.fetching import fetch
+from typing import Union
+from speechbrain.pretrained.fetching import fetch, FetchFrom
 from speechbrain.utils.checkpoints import (
     DEFAULT_LOAD_HOOKS,
     DEFAULT_TRANSFER_HOOKS,
@@ -155,7 +155,9 @@ class Pretrainer:
             # Interpret as path to file in current directory.
             return "./", path
 
-    def collect_files(self, default_source=None):
+    def collect_files(
+        self, default_source=None, fetch_from: Union[FetchFrom, None] = None,
+    ):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -172,6 +174,8 @@ class Pretrainer:
             This is used for each loadable which doesn't have a path already
             specified. If the loadable has key "asr", then the file to look for is
             default_source/asr.ckpt
+        fetch_from: FetchFrom (default: None)
+            Restriction to interpreting source - benefit: no online search if source is known to be local (path mis/match).
 
         Returns
         -------
@@ -207,6 +211,7 @@ class Pretrainer:
                 save_filename=save_filename,
                 use_auth_token=False,
                 revision=None,
+                fetch_from=fetch_from,
             )
             loadable_paths[name] = path
         return loadable_paths
