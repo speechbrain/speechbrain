@@ -63,6 +63,11 @@ class FairseqWav2Vec2(nn.Module):
         dropout rates. This is useful if the wav2vec2 model has been trained
         without dropout and one wants to reactivate it for downstream task
         fine-tuning (better performance observed).
+    layer_drop : float (default: None)
+        If different from None (0.0 to 1.0), it will override the given fairseq
+        layer_drop rate. This is useful if the wav2vec2 model has been trained
+        without layer_drop and one wants to reactivate it for downstream task
+        fine-tuning.
 
     Example
     -------
@@ -113,8 +118,6 @@ class FairseqWav2Vec2(nn.Module):
             [save_path], arg_overrides=overrides
         )
 
-        print(cfg)
-
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
         # If the information isn't contained in the checkpoint IT HAS TO BE GIVEN
@@ -135,8 +138,6 @@ class FairseqWav2Vec2(nn.Module):
         self.output_norm = output_norm
         self.freeze_feature_extractor = freeze_feature_extractor
 
-        print(self.model)
-
         if self.freeze:
             logger.warning(
                 "speechbrain.lobes.models.fairseq_wav2vec - wav2vec 2.0 is frozen."
@@ -147,12 +148,11 @@ class FairseqWav2Vec2(nn.Module):
                 param.requires_grad = False
         else:
             self.model.train()
-            for param in self.model.parameters():
-                param.requires_grad = True
             if self.freeze_feature_extractor:
                 logger.warning(
                     "speechbrain.lobes.models.fairseq_wav2vec - wav2vec 2.0 feature extractor is frozen."
                 )
+                self.model.feature_extractor.eval()
                 for param in self.model.feature_extractor.parameters():
                     param.requires_grad = False
 
@@ -173,8 +173,9 @@ class FairseqWav2Vec2(nn.Module):
             A batch of audio signals to transform to features.
         """
 
-        # If we freeze, we simply remove all grads and features from the graph.
         padding_mask = self.make_masks(wav, wav_len=wav_lens)
+
+        # If we freeze, we simply remove all grads and features from the graph.
         if self.freeze:
             with torch.no_grad():
                 return self.extract_features(wav, padding_mask)
@@ -215,13 +216,13 @@ class FairseqWav2Vec2(nn.Module):
         self.model.final_proj = None
 
     def make_masks(self, src, wav_len=None, pad_idx=0):
-        """This method generates the masks for training the transformer model.
+        """This method generates the padding masks.
         Arguments
         ---------
         src : tensor
             The sequence to the encoder (required).
-        tgt : tensor
-            The sequence to the decoder (required).
+        wav_len : tensor
+            The relative length of the wav given in SpeechBrain format.
         pad_idx : int
             The index for <pad> token (default=0).
         """

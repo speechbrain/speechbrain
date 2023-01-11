@@ -154,6 +154,7 @@ class HuggingFaceWav2Vec2(nn.Module):
                 logger.warning(
                     "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 feature extractor is frozen."
                 )
+                self.model.feature_extractor.eval()
                 self.model.feature_extractor._freeze_parameters()
         self.output_all_hiddens = output_all_hiddens
 
@@ -311,13 +312,13 @@ class HuggingFaceWav2Vec2(nn.Module):
         return out
 
     def make_masks(self, src, wav_len=None, pad_idx=0):
-        """This method generates the masks for training the transformer model.
+        """This method generates the padding masks.
         Arguments
         ---------
         src : tensor
             The sequence to the encoder (required).
-        tgt : tensor
-            The sequence to the decoder (required).
+        wav_len : tensor
+            The relative length of the wav given in SpeechBrain format.
         pad_idx : int
             The index for <pad> token (default=0).
         """
