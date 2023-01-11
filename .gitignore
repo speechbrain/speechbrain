@@ -142,6 +142,9 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
+# Audio folders
+**/audio_cache/
+
 # Pretrained & models folders
 **/model_checkpoints/
 **/pretrained_model_checkpoints/
