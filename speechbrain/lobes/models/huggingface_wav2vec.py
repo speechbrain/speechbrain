@@ -134,10 +134,6 @@ class HuggingFaceWav2Vec2(nn.Module):
         )
 
         self.model.config.apply_spec_augment = apply_spec_augment
-        # self.model.config.layer_norm_first = True
-        # self.model.config.do_stable_layer_norm = False
-
-        print(self.model)
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
         self.normalize_wav = self.feature_extractor.do_normalize
@@ -273,8 +269,9 @@ class HuggingFaceWav2Vec2(nn.Module):
             A batch of audio signals to transform to features.
         """
 
-        # If we freeze, we simply remove all grads and features from the graph.
         padding_mask = self.make_masks(wav, wav_len=wav_lens)
+
+        # If we freeze, we simply remove all grads from the graph.
         if self.freeze:
             with torch.no_grad():
                 return self.extract_features(wav, padding_mask)
@@ -295,7 +292,9 @@ class HuggingFaceWav2Vec2(nn.Module):
 
         # Extract wav2vec output
         out = self.model(
-            wav, attention_mask=padding_masks, output_hidden_states=False
+            wav,
+            attention_mask=padding_masks,
+            output_hidden_states=self.output_all_hidden,
         )
 
         if self.output_all_hiddens:
