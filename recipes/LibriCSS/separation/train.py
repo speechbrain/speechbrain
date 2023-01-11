@@ -168,12 +168,12 @@ class Separation(sb.Brain):
                 },
                 commit=True,
             )
-        if self.hparams.overfitting_test:
+        if self.debug:
             self.on_evaluate_batch_end(batch, outputs, loss, sb.Stage.TRAIN)
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
         mix, est_source, targets = outputs
-        if (stage != sb.Stage.TRAIN or self.hparams.overfitting_test) and self.max_audio_samples > 0:
+        if (stage != sb.Stage.TRAIN or self.debug) and self.max_audio_samples > 0:
             self.samples_table = build_table(
                 batch.id[0],
                 mix,
@@ -186,7 +186,7 @@ class Separation(sb.Brain):
             self.max_audio_samples -= 1
 
     def on_stage_start(self, stage, epoch):
-        if stage != sb.Stage.TRAIN or self.hparams.overfitting_test:
+        if stage != sb.Stage.TRAIN or self.debug:
             self.samples_table = None
             self.max_audio_samples = self.hparams.n_audio_to_save
 
@@ -552,7 +552,7 @@ def default_target(hparams, num_samples):
         raise ValueError("Unknown value " + hparams["default_target"])
 
 
-def dataio_prep(hparams):
+def dataio_prep(hparams, debug=False):
     """Creates data processing pipeline"""
     train_data = DynamicMixingDataset.from_didataset(
         DynamicItemDataset.from_csv(
@@ -572,7 +572,7 @@ def dataio_prep(hparams):
         csv_path=hparams["test_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
-    if hparams["overfitting_test"]:
+    if debug:
         train_data = debug_dataset(hparams)
 
     @sb.utils.data_pipeline.takes("sources", "num_samples")
@@ -631,10 +631,9 @@ def dataio_prep(hparams):
     sb.dataio.dataset.set_output_keys(
         [valid_data, test_data], ["id", "mix_sig", "s1_sig", "s2_sig"]
     )
-    if hparams["overfitting_test"]:
+    if debug:
         import copy
         valid_data = copy.deepcopy(train_data)
-        test_data = copy.deepcopy(test_data)
     return train_data, valid_data, test_data
 
 
@@ -682,7 +681,7 @@ if __name__ == "__main__":
     # Logger info
     logger = logging.getLogger(__name__)
 
-    if hparams["overfitting_test"]:
+    if run_opts["debug"]:
         hparams["experiment_name"] += "__test"
         hparams["n_audio_to_save"] = 1000
 
@@ -728,7 +727,7 @@ if __name__ == "__main__":
             "fs": hparams["sample_rate"],
         },
     )
-    train_data, valid_data, test_data = dataio_prep(hparams)
+    train_data, valid_data, test_data = dataio_prep(hparams, run_opts["debug"])
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:

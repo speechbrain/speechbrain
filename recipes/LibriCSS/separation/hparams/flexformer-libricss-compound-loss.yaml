@@ -27,12 +27,8 @@ train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
 train_data: !ref <save_folder>/train-clean-360.csv
 valid_data: !ref <save_folder>/libridm.csv
-test_data:
-    libricss: !ref <save_folder>/libricss_utterances.csv
-    ami: !ref <save_folder>/ami_samples.csv
+test_data: !ref <save_folder>/libricss_utterances.csv
 skip_prep: True
-overfitting_test: False
-
 ckpt_interval_minutes: 60
 
 # Experiment params
