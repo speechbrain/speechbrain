@@ -155,7 +155,8 @@ class HuggingFaceWav2Vec2(nn.Module):
                     "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 feature extractor is frozen."
                 )
                 self.model.feature_extractor.eval()
-                self.model.feature_extractor._freeze_parameters()
+                for param in self.model.feature_extractor.parameters():
+                    param.requires_grad = False
         self.output_all_hiddens = output_all_hiddens
 
     def _from_pretrained(self, source, config, model, save_path):
