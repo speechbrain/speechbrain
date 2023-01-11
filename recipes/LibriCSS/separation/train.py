@@ -168,24 +168,26 @@ class Separation(sb.Brain):
                 },
                 commit=True,
             )
+        if self.hparams.overfitting_test:
+            self.on_evaluate_batch_end(batch, outputs, loss, sb.Stage.TRAIN)
 
     def on_evaluate_batch_end(self, batch, outputs, loss, stage):
         mix, est_source, targets = outputs
-        if stage != sb.Stage.TRAIN and self.max_audio_samples > 0:
-            self.valid_table = build_table(
+        if (stage != sb.Stage.TRAIN or self.hparams.overfitting_test) and self.max_audio_samples > 0:
+            self.samples_table = build_table(
                 batch.id[0],
                 mix,
                 est_source,
                 targets,
                 loss,
                 sr=self.hparams.sample_rate,
-                table=self.valid_table,
+                table=self.samples_table,
             )
             self.max_audio_samples -= 1
 
     def on_stage_start(self, stage, epoch):
-        if stage != sb.Stage.TRAIN:
-            self.valid_table = None
+        if stage != sb.Stage.TRAIN or self.hparams.overfitting_test:
+            self.samples_table = None
             self.max_audio_samples = self.hparams.n_audio_to_save
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -193,7 +195,13 @@ class Separation(sb.Brain):
         # Compute/store important stats
         stage_stats = {"si-snr": stage_loss}
         if stage == sb.Stage.TRAIN:
-            wandb.log({"train/avg_loss": stage_loss, "epoch": epoch})
+            wandb.log(
+                {
+                    "train/avg_loss": stage_loss,
+                    "train/samples": self.samples_table,
+                    "epoch": epoch
+                }
+            )
             self.train_stats = stage_stats
 
         # Perform end-of-iteration things, like annealing, logging, etc.
@@ -218,7 +226,7 @@ class Separation(sb.Brain):
             wandb.log(
                 {
                     "valid/avg_loss": stage_loss,
-                    "valid/samples": self.valid_table,
+                    "valid/samples": self.samples_table,
                     "epoch": epoch,
                     "lr": current_lr,
                 }
@@ -236,7 +244,7 @@ class Separation(sb.Brain):
             wandb.log(
                 {
                     "test/avg_loss": stage_loss,
-                    "test/samples": self.valid_table,
+                    "test/samples": self.samples_table,
                     "epoch": epoch,
                 }
             )
@@ -728,7 +736,7 @@ if __name__ == "__main__":
         entity="mato1102",
         config=hparams,
         resume=False,
-        name=hparams["experiment_name"],
+        name=hparams["experiment_name"] + ("__test" if hparams["overfitting_test"] else ""),
     )
 
     # Brain class initialization
