@@ -295,7 +295,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         out = self.model(
             wav,
             attention_mask=padding_masks,
-            output_hidden_states=self.output_all_hidden,
+            output_hidden_states=self.output_all_hiddens,
         )
 
         if self.output_all_hiddens:

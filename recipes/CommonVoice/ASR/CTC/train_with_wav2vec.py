@@ -90,10 +90,7 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         if self.auto_mix_prec:
 
-            if (
-                not self.hparams.wav2vec2.freeze
-                or not self.hparams.wav2vec2.freeze_feature_extractor
-            ):
+            if not self.hparams.wav2vec2.freeze:
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
@@ -102,22 +99,18 @@ class ASR(sb.core.Brain):
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
             self.scaler.scale(loss).backward()
-            if (
-                not self.hparams.wav2vec2.freeze
-                or not self.hparams.wav2vec2.freeze_feature_extractor
-            ):
+            if not self.hparams.wav2vec2.freeze:
                 self.scaler.unscale_(self.wav2vec_optimizer)
             self.scaler.unscale_(self.model_optimizer)
 
             if self.check_gradients(loss):
-                if (
-                    not self.hparams.wav2vec2.freeze
-                    or not self.hparams.wav2vec2.freeze_feature_extractor
-                ):
-                    self.scaler.step(self.wav2vec_optimizer)
+                if not self.hparams.wav2vec2.freeze:
+                    if self.optimizer_step >= self.hparams.warmup_steps:
+                        self.scaler.step(self.wav2vec_optimizer)
                 self.scaler.step(self.model_optimizer)
 
             self.scaler.update()
+            self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
@@ -125,19 +118,16 @@ class ASR(sb.core.Brain):
             loss.backward()
 
             if self.check_gradients(loss):
-                if (
-                    not self.hparams.wav2vec2.freeze
-                    or not self.hparams.wav2vec2.freeze_feature_extractor
-                ):
-                    self.wav2vec_optimizer.step()
+                if not self.hparams.wav2vec2.freeze:
+                    if self.optimizer_step >= self.hparams.warmup_steps:
+                        self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            if (
-                not self.hparams.wav2vec2.freeze
-                or not self.hparams.wav2vec2.freeze_feature_extractor
-            ):
+            if not self.hparams.wav2vec2.freeze:
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
+
+            self.optimizer_step += 1
 
         return loss.detach()
 
