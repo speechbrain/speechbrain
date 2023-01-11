@@ -640,9 +640,10 @@ def dataio_prep(hparams):
 def debug_dataset(hparams):
     import copy
     data = {}
-    for n_srcs in [0, 1, 2]:
-        for ovlp in [-0.5, 0.5, 1.0]:
-            dm_config = copy.deepcopy(hparams["dm_config"])
+    orig_dm_config = hparams["dm_config"]
+    for n_srcs in orig_dm_config.num_spkrs:
+        for ovlp in orig_dm_config.overlap_ratio:
+            dm_config = copy.deepcopy(orig_dm_config)
             dm_config.num_spkrs = [n_srcs]
             dm_config.num_spkrs_prob = [1.0]
             dm_config.overlap_ratio = [ovlp]
