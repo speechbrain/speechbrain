@@ -51,7 +51,7 @@ class ASR(sb.core.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
@@ -90,7 +90,10 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         if self.auto_mix_prec:
 
-            if not self.hparams.wav2vec2.freeze:
+            if (
+                not self.hparams.wav2vec2.freeze
+                or not self.hparams.wav2vec2.freeze_feature_extractor
+            ):
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
@@ -99,12 +102,18 @@ class ASR(sb.core.Brain):
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
             self.scaler.scale(loss).backward()
-            if not self.hparams.wav2vec2.freeze:
+            if (
+                not self.hparams.wav2vec2.freeze
+                or not self.hparams.wav2vec2.freeze_feature_extractor
+            ):
                 self.scaler.unscale_(self.wav2vec_optimizer)
             self.scaler.unscale_(self.model_optimizer)
 
             if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
+                if (
+                    not self.hparams.wav2vec2.freeze
+                    or not self.hparams.wav2vec2.freeze_feature_extractor
+                ):
                     self.scaler.step(self.wav2vec_optimizer)
                 self.scaler.step(self.model_optimizer)
 
@@ -116,11 +125,17 @@ class ASR(sb.core.Brain):
             loss.backward()
 
             if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
+                if (
+                    not self.hparams.wav2vec2.freeze
+                    or not self.hparams.wav2vec2.freeze_feature_extractor
+                ):
                     self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
-            if not self.hparams.wav2vec2.freeze:
+            if (
+                not self.hparams.wav2vec2.freeze
+                or not self.hparams.wav2vec2.freeze_feature_extractor
+            ):
                 self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
 
