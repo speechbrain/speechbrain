@@ -188,7 +188,7 @@ class Separation(sb.Brain):
     def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN or self.hparams.overfitting_test:
             self.samples_table = None
-            self.max_audio_samples = self.hparams.n_audio_to_save if not hparams.overfitting_test else 50
+            self.max_audio_samples = self.hparams.n_audio_to_save if not self.hparams.overfitting_test else 50
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
