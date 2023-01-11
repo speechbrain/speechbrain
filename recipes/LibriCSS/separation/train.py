@@ -684,6 +684,7 @@ if __name__ == "__main__":
     if run_opts["debug"]:
         hparams["experiment_name"] += "__test"
         hparams["n_audio_to_save"] = 1000
+        hparams["N_epochs"] = run_opts["debug_epochs"]
 
     # Create experiment directory
     sb.create_experiment_directory(
