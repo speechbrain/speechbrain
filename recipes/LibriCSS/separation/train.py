@@ -188,7 +188,7 @@ class Separation(sb.Brain):
     def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN or self.hparams.overfitting_test:
             self.samples_table = None
-            self.max_audio_samples = self.hparams.n_audio_to_save if not self.hparams.overfitting_test else 50
+            self.max_audio_samples = self.hparams.n_audio_to_save
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -634,6 +634,7 @@ def dataio_prep(hparams):
     if hparams["overfitting_test"]:
         import copy
         valid_data = copy.deepcopy(train_data)
+        test_data = copy.deepcopy(test_data)
     return train_data, valid_data, test_data
 
 
@@ -680,6 +681,10 @@ if __name__ == "__main__":
 
     # Logger info
     logger = logging.getLogger(__name__)
+
+    if hparams["overfitting_test"]:
+        hparams["experiment_name"] += "__test"
+        hparams["n_audio_to_save"] = 1000
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -737,7 +742,7 @@ if __name__ == "__main__":
         entity="mato1102",
         config=hparams,
         resume=False,
-        name=hparams["experiment_name"] + ("__test" if hparams["overfitting_test"] else ""),
+        name=hparams["experiment_name"],
     )
 
     # Brain class initialization
