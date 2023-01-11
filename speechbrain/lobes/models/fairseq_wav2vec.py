@@ -10,9 +10,11 @@ Authors
 """
 
 import torch
+import logging
 import torch.nn.functional as F
 from torch import nn
 from speechbrain.utils.data_utils import download_file
+from speechbrain.dataio.dataio import length_to_mask
 
 # We check if fairseq is installed.
 try:
@@ -22,12 +24,14 @@ except ImportError:
     MSG += "E.G. run: pip install fairseq"
     raise ImportError(MSG)
 
+logger = logging.getLogger(__name__)
+
 
 class FairseqWav2Vec2(nn.Module):
     """This lobe enables the integration of fairseq pretrained wav2vec2.0 models.
 
     Source paper: https://arxiv.org/abs/2006.11477
-    FairSeq >= 1.0.0 needs to be installed:
+    FairSeq >= 0.10.0 needs to be installed:
     https://fairseq.readthedocs.io/en/latest/
 
     The model can be used as a fixed features extractor or can be finetuned. It
@@ -76,10 +80,12 @@ class FairseqWav2Vec2(nn.Module):
         pretrained_path,
         save_path,
         input_norm=None,
-        output_norm=True,
-        freeze=True,
+        output_norm=False,
+        freeze=False,
+        freeze_feature_extractor=False,
         pretrain=True,
         dropout=None,
+        layer_drop=None,
     ):
         super().__init__()
 
@@ -89,17 +95,15 @@ class FairseqWav2Vec2(nn.Module):
         # During pretraining dropout might be set to 0. However, we might want
         # to apply dropout when fine-tuning on a downstream task. Hence we need
         # to modify the fairseq cfg to activate dropout (if requested).
+        overrides = {}
         if not freeze and dropout is not None:
-            overrides = {
-                "model": {
-                    "dropout": dropout,
-                    "encoder_layerdrop": dropout,
-                    "dropout_input": dropout,
-                    "attention_dropout": dropout,
-                }
-            }
-        else:
-            overrides = {}
+            overrides["model"] = {}
+            if dropout is not None:
+                overrides["model"]["dropout"] = dropout
+                overrides["model"]["dropout_input"] = dropout
+                overrides["model"]["attention_dropout"] = dropout
+            if layer_drop is not None:
+                overrides["model"]["layer_drop"] = layer_drop
 
         (
             model,
@@ -108,6 +112,8 @@ class FairseqWav2Vec2(nn.Module):
         ) = fairseq.checkpoint_utils.load_model_ensemble_and_task(
             [save_path], arg_overrides=overrides
         )
+
+        print(cfg)
 
         # wav2vec pretrained models may need the input waveform to be normalized
         # Hence, we check if the model has be trained with or without it.
@@ -127,16 +133,28 @@ class FairseqWav2Vec2(nn.Module):
         self.model = model
         self.freeze = freeze
         self.output_norm = output_norm
+        self.freeze_feature_extractor = freeze_feature_extractor
+
+        print(self.model)
 
         if self.freeze:
+            logger.warning(
+                "speechbrain.lobes.models.fairseq_wav2vec - wav2vec 2.0 is frozen."
+            )
             self.model.eval()
             # Freeze parameters
-            for param in model.parameters():
+            for param in self.model.parameters():
                 param.requires_grad = False
         else:
             self.model.train()
-            for param in model.parameters():
+            for param in self.model.parameters():
                 param.requires_grad = True
+            if self.freeze_feature_extractor:
+                logger.warning(
+                    "speechbrain.lobes.models.fairseq_wav2vec - wav2vec 2.0 feature extractor is frozen."
+                )
+                for param in self.model.feature_extractor.parameters():
+                    param.requires_grad = False
 
         # Randomly initialized layers if pretrain is False
         if not (pretrain):
@@ -146,7 +164,7 @@ class FairseqWav2Vec2(nn.Module):
         # we remove some modules that are unnecessary.
         self.remove_pretraining_modules()
 
-    def forward(self, wav):
+    def forward(self, wav, wav_lens):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -156,24 +174,27 @@ class FairseqWav2Vec2(nn.Module):
         """
 
         # If we freeze, we simply remove all grads and features from the graph.
+        padding_mask = self.make_masks(wav, wav_len=wav_lens)
         if self.freeze:
             with torch.no_grad():
-                return self.extract_features(wav).detach()
+                return self.extract_features(wav, padding_mask)
 
-        return self.extract_features(wav)
+        return self.extract_features(wav, padding_mask)
 
-    def extract_features(self, wav):
+    def extract_features(self, wav, padding_mask=None):
         """Extracts the wav2vect embeddings"""
         # We normalize the input signal if needed.
         if self.normalize:
-            wav = F.layer_norm(wav, wav.shape)
+            wav = F.layer_norm(wav, wav.shape[1:])
 
         # Extract wav2vec output
-        out = self.model.extract_features(wav, padding_mask=None, mask=False)[0]
+        out = self.model.extract_features(
+            wav, padding_mask=padding_mask, mask=False
+        )["x"]
 
         # We normalize the output if required
         if self.output_norm:
-            out = F.layer_norm(out, out.shape)
+            out = F.layer_norm(out, out.shape[1:])
 
         return out
 
@@ -192,6 +213,24 @@ class FairseqWav2Vec2(nn.Module):
         self.model.project_q = None
         self.model.target_glu = None
         self.model.final_proj = None
+
+    def make_masks(self, src, wav_len=None, pad_idx=0):
+        """This method generates the masks for training the transformer model.
+        Arguments
+        ---------
+        src : tensor
+            The sequence to the encoder (required).
+        tgt : tensor
+            The sequence to the decoder (required).
+        pad_idx : int
+            The index for <pad> token (default=0).
+        """
+        src_key_padding_mask = None
+        if wav_len is not None:
+            abs_len = torch.round(wav_len * src.shape[1])
+            src_key_padding_mask = ~length_to_mask(abs_len).bool()
+
+        return src_key_padding_mask
 
 
 class FairseqWav2Vec1(nn.Module):

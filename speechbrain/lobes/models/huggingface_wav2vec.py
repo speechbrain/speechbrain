@@ -20,6 +20,7 @@ import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
+from speechbrain.dataio.dataio import length_to_mask
 
 # We check if transformers is installed.
 try:
@@ -102,8 +103,8 @@ class HuggingFaceWav2Vec2(nn.Module):
         self,
         source,
         save_path,
-        output_norm=True,
-        freeze=True,
+        output_norm=False,
+        freeze=False,
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=False,
@@ -132,8 +133,11 @@ class HuggingFaceWav2Vec2(nn.Module):
             source, config=config, model=model, save_path=save_path
         )
 
-        # set apply_spec_augment
         self.model.config.apply_spec_augment = apply_spec_augment
+        # self.model.config.layer_norm_first = True
+        # self.model.config.do_stable_layer_norm = False
+
+        print(self.model)
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
         self.normalize_wav = self.feature_extractor.do_normalize
@@ -151,6 +155,9 @@ class HuggingFaceWav2Vec2(nn.Module):
         else:
             self.model.train()
             if self.freeze_feature_extractor:
+                logger.warning(
+                    "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 feature extractor is frozen."
+                )
                 self.model.feature_extractor._freeze_parameters()
         self.output_all_hiddens = output_all_hiddens
 
@@ -257,7 +264,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
 
-    def forward(self, wav):
+    def forward(self, wav, wav_lens):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -267,13 +274,14 @@ class HuggingFaceWav2Vec2(nn.Module):
         """
 
         # If we freeze, we simply remove all grads and features from the graph.
+        padding_mask = self.make_masks(wav, wav_len=wav_lens)
         if self.freeze:
             with torch.no_grad():
-                return self.extract_features(wav).detach()
+                return self.extract_features(wav, padding_mask)
 
-        return self.extract_features(wav)
+        return self.extract_features(wav, padding_mask)
 
-    def extract_features(self, wav):
+    def extract_features(self, wav, padding_masks):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -283,10 +291,12 @@ class HuggingFaceWav2Vec2(nn.Module):
         """
 
         if self.normalize_wav:
-            wav = F.layer_norm(wav, wav.shape)
+            wav = F.layer_norm(wav, wav.shape[1:])
 
         # Extract wav2vec output
-        out = self.model(wav, output_hidden_states=True)
+        out = self.model(
+            wav, attention_mask=padding_masks, output_hidden_states=False
+        )
 
         if self.output_all_hiddens:
             out = torch.stack(list(out.hidden_states), dim=0)
@@ -297,9 +307,27 @@ class HuggingFaceWav2Vec2(nn.Module):
 
         # We normalize the output if required
         if self.output_norm:
-            out = F.layer_norm(out, norm_shape)
+            out = F.layer_norm(out, norm_shape[1:])
 
         return out
+
+    def make_masks(self, src, wav_len=None, pad_idx=0):
+        """This method generates the masks for training the transformer model.
+        Arguments
+        ---------
+        src : tensor
+            The sequence to the encoder (required).
+        tgt : tensor
+            The sequence to the decoder (required).
+        pad_idx : int
+            The index for <pad> token (default=0).
+        """
+        src_key_padding_mask = None
+        if wav_len is not None:
+            abs_len = torch.round(wav_len * src.shape[1])
+            src_key_padding_mask = length_to_mask(abs_len).bool()
+
+        return src_key_padding_mask
 
 
 class HuggingFaceWav2Vec2Pretrain(nn.Module):
