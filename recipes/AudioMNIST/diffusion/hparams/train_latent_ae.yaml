@@ -172,7 +172,7 @@ compute_cost_autoencoder: !new:speechbrain.nnet.losses.AutoencoderLoss
 compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
     len_dim: 2
 
-compute_cost_done: !name:speechbrain.nnet.losses.mse_loss
+compute_cost_done: !name:speechbrain.nnet.losses.distance_diff_loss
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
@@ -245,7 +245,10 @@ done_detector: !new:speechbrain.nnet.containers.Sequential
     out: !new:torch.nn.Linear
         in_features: !ref <done_dnn_neurons>
         out_features: 1
-    act: !new:torch.nn.Sigmoid    
+    act: !new:speechbrain.nnet.activations.Softmax
+        apply_log: False
+        dim: 1
+        reshape: False
 
 # The first object passed to the Brain class is this "Epoch Counter"
 # which is saved by the Checkpointer so that training can be resumed
@@ -279,21 +282,21 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 opt_class_done: !name:torch.optim.AdamW
     lr: !ref <lr>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
+    #capturable: True
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases

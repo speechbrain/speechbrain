@@ -21,6 +21,8 @@ class Softmax(torch.nn.Module):
         Whether to apply the log function before softmax.
     dim : int
         If the dimension where softmax is applied.
+    reshape: bool
+        whether to apply reshaping (true by default)
 
     Example
     -------
@@ -31,13 +33,15 @@ class Softmax(torch.nn.Module):
     torch.Size([10, 50, 40])
     """
 
-    def __init__(self, apply_log=False, dim=-1):
+    def __init__(self, apply_log=False, dim=-1, reshape=True):
         super().__init__()
 
         if apply_log:
             self.act = torch.nn.LogSoftmax(dim=dim)
         else:
             self.act = torch.nn.Softmax(dim=dim)
+        
+        self.reshape = reshape
 
     def forward(self, x):
         """Returns the softmax of the input tensor.
@@ -50,20 +54,22 @@ class Softmax(torch.nn.Module):
         # Reshaping the tensors
         dims = x.shape
 
-        if len(dims) == 3:
-            x = x.reshape(dims[0] * dims[1], dims[2])
+        if self.reshape:
+            if len(dims) == 3:
+                x = x.reshape(dims[0] * dims[1], dims[2])
 
-        if len(dims) == 4:
-            x = x.reshape(dims[0] * dims[1], dims[2], dims[3])
+            if len(dims) == 4:
+                x = x.reshape(dims[0] * dims[1], dims[2], dims[3])
 
         x_act = self.act(x)
 
         # Retrieving the original shape format
-        if len(dims) == 3:
-            x_act = x_act.reshape(dims[0], dims[1], dims[2])
+        if self.reshape:
+            if len(dims) == 3:
+                x_act = x_act.reshape(dims[0], dims[1], dims[2])
 
-        if len(dims) == 4:
-            x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
+            if len(dims) == 4:
+                x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
 
         return x_act
 

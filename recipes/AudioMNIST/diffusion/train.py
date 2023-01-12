@@ -46,8 +46,7 @@ DiffusionPredictions = namedtuple(
         "feats",
         "lens",
         "autoencoder_output",
-        "done_pred",
-        "done"
+        "done_pred"
     ],
 )
 
@@ -114,7 +113,7 @@ class DiffusionBrain(sb.Brain):
         batch = batch.to(self.device)
 
         # Compute features, embeddings, and predictions
-        feats, lens, done = self.prepare_features(batch, stage)
+        feats, lens = self.prepare_features(batch, stage)
 
         autoencoder_out = None
         cond_emb = None
@@ -152,8 +151,7 @@ class DiffusionBrain(sb.Brain):
             feats,
             lens,
             autoencoder_out,
-            done_pred,
-            done
+            done_pred
         )
 
     def compute_latent_mask_value(self, mask_value):
@@ -456,30 +454,7 @@ class DiffusionBrain(sb.Brain):
                 batch.file_name, feats_raw, mask=mask
             )
 
-        # Generate the "done" indicator
-        done = self.generate_done(feats, lens)
-
-        return feats, lens, done
-
-    def generate_done(self, feats, lens):
-        """Generates a "done" indicattor
-
-        feats: torch.Tensor
-            the feature/spectrogram tensor
-        
-        lens: torch.Tensor
-            a tensor of lengths
-
-        Arguments
-        ---------
-        done: torch.Tensor
-            a tensor of "done" indicators
-        """
-        max_len = feats.size(2)
-        # NOTE: Adjust to output the last "1" at the last input - the padding will be masked out
-        done = 1. - length_to_mask(lens * max_len - 1, max_len)
-        done = done.unsqueeze(-1)
-        return done
+        return feats, lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -499,7 +474,7 @@ class DiffusionBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        preds, noise, noisy_sample, feats, lens, autoencoder_out, done_pred, done = predictions        
+        preds, noise, noisy_sample, feats, lens, autoencoder_out, done_pred = predictions        
         if self.train_diffusion:
             # NOTE: Padding of the latent space can affect the lengths
             lens_diffusion = (
@@ -517,15 +492,16 @@ class DiffusionBrain(sb.Brain):
         )
 
         if self.use_done_detector:
+            max_len = feats.size(2)
+            lens_target = (lens * max_len).int() - 1
             loss_done = self.hparams.compute_cost_done(
                 done_pred.squeeze(-1),
-                done.squeeze(-1),
-                length=lens
+                lens_target,
             )
             self.done_loss_metric.append(
                 batch.file_name,
                 done_pred.squeeze(-1),
-                done.squeeze(-1),
+                lens_target,
                 reduction="batch"
             )
 
@@ -1086,7 +1062,7 @@ class DiffusionBrain(sb.Brain):
         batch: speechbrain.dataio.batch.PaddedBatch
             a batch of audio
         """
-        feats, lens, _ = self.prepare_features(batch, sb.Stage.VALID)
+        feats, lens = self.prepare_features(batch, sb.Stage.VALID)
         feats = self.modules.global_norm.denormalize(feats)
         feats_denorm = self.denormalize(feats)
         wav = self.generate_audio(feats_denorm)

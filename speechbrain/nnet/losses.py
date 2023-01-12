@@ -596,6 +596,92 @@ def kldiv_loss(
         return nll_loss(log_probabilities, targets, length, reduction=reduction)
 
 
+def distance_diff_loss(
+    predictions,
+    targets,
+    length=None,
+    beta=0.25,
+    max_weight=100.,
+    reduction="mean"
+):
+    """A loss function that can be used in cases where a model outputs
+    an arbitrary probability distribution for a discrete variable on 
+    an interval scale, such as the length of a sequence, and the ground
+    truth is the precise values of the variable from a data sample.
+
+    The loss is defined as 
+    loss_i = p_i * exp(beta * |i - y|) - 1.
+
+    The loss can also be used where outputs aren't probabilities, so long
+    as high values close to the ground truth position and low values away
+    from it are desired
+    
+    Arguments
+    ---------
+    predictions: torch.Tensor
+        a (batch x max_len) tensor in which each element is a probability,
+        weight or some other value at that position
+        
+    targets: torch.Tensor
+        a 1-D tensor in which each elemnent is thr ground truth
+    
+    length: torch.Tensor
+        lengths (for masking in padded batches)
+        
+    beta: torch.Tensor
+        a hyperparameter controlling the penalties. With a higher beta,
+        penalties will increase faster
+    
+    max_weight: torch.Tensor
+        the maximum distance weight (for numerical stability in long sequences)
+
+    reduction : str
+        Options are 'mean', 'batch', 'batchmean', 'sum'.
+        See pytorch for 'mean', 'sum'. The 'batch' option returns
+        one loss per item in the batch, 'batchmean' returns sum / batch size.
+    """
+    return compute_masked_loss(
+        functools.partial(
+            _distance_diff_loss, beta=beta, max_weight=max_weight),
+        predictions=predictions,
+        targets=targets,
+        length=length,
+        reduction=reduction,
+        mask_shape="loss"
+    )
+
+def _distance_diff_loss(predictions, targets, beta, max_weight):
+    """Computes the raw (unreduced) distance difference loss
+    
+    Arguments
+    ---------
+    predictions: torch.Tensor
+        a (batch x max_len) tensor in which each element is a probability,
+        weight or some other value at that position
+        
+    targets: torch.Tensor
+        a 1-D tensor in which each elemnent is thr ground truth
+
+    max_weight: torch.Tensor
+        the maximum distance weight (for numerical stability in long sequences)
+
+    beta: torch.Tensor
+        a hyperparameter controlling the penalties. With a higher beta,
+        penalties will increase faster
+
+
+    """
+    batch_size, max_len = predictions.shape
+    pos_range = (
+        torch.arange(max_len)
+        .unsqueeze(0)
+        .repeat(batch_size, 1)
+    )
+    diff_range = (pos_range - targets.unsqueeze(-1)).abs()
+    loss_weights = ((beta * diff_range).exp() - 1.).clamp(max=max_weight)
+    return (loss_weights * predictions).unsqueeze(-1)
+
+
 def truncate(predictions, targets, allowed_len_diff=3):
     """Ensure that predictions and targets are the same length.
 
@@ -628,6 +714,7 @@ def compute_masked_loss(
     targets,
     length=None,
     label_smoothing=0.0,
+    mask_shape="targets",
     reduction="mean",
 ):
     """Compute the true average loss of a set of waveforms of unequal length.
@@ -652,21 +739,40 @@ def compute_masked_loss(
         One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
         single value and 'batch' returns one per item in the batch and
         'batchmean' is sum / batch_size and 'none' returns all.
-    """
-    mask = compute_length_mask(targets, length)
+    """        
 
     # Compute, then reduce loss
-    loss = loss_fn(predictions, targets) * mask
+    loss = loss_fn(predictions, targets)
+
+    if mask_shape == "targets":
+        mask_data = targets
+    elif mask_shape == "predictions":
+        mask_data = predictions
+    elif mask_shape == "loss":
+        mask_data = loss
+    else:
+        raise ValueError(f"Invalid mask_shape value {mask_shape}")
+
+    mask = compute_length_mask(mask_data, length)
+
+    loss *= mask
     return reduce_loss(
         loss, mask, reduction, label_smoothing, predictions, targets
     )
 
 
-def compute_length_mask(data, length=None):
+def compute_length_mask(data, length=None, len_dim=1):
+    """Computes a length mask for the specified data shape
+    Arguments
+    ---------
+    data: torch.tensor
+        the data shape
+    len_dim: int
+        the length dimension (defaults to 1)"""
     mask = torch.ones_like(data)
     if length is not None:
         length_mask = length_to_mask(
-            length * data.shape[1], max_len=data.shape[1],
+            length * data.shape[len_dim], max_len=data.shape[len_dim],
         )
 
         # Handle any dimensionality of input

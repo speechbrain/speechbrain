@@ -174,7 +174,7 @@ compute_cost_autoencoder: !new:speechbrain.nnet.losses.VariationalAutoencoderLos
 compute_cost_laplacian: !new:speechbrain.nnet.losses.LaplacianVarianceLoss
     len_dim: 2
 
-compute_cost_done: !name:speechbrain.nnet.losses.mse_loss
+compute_cost_done: !name:speechbrain.nnet.losses.distance_diff_loss
 
 compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
