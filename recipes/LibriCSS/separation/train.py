@@ -186,9 +186,8 @@ class Separation(sb.Brain):
             self.max_audio_samples -= 1
 
     def on_stage_start(self, stage, epoch):
-        if stage != sb.Stage.TRAIN or self.debug:
-            self.samples_table = None
-            self.max_audio_samples = self.hparams.n_audio_to_save
+        self.samples_table = None
+        self.max_audio_samples = self.hparams.n_audio_to_save
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -672,19 +671,21 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+    if run_opts["debug"]:
+        overrides["N_epochs"] = run_opts["debug_epochs"]
+        overrides["n_audio_to_save"] = 1000  # save all
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin, overrides)
+        hparams["experiment_name"] += "__test"
+    else:
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
     logger = logging.getLogger(__name__)
-
-    if run_opts["debug"]:
-        hparams["experiment_name"] += "__test"
-        hparams["n_audio_to_save"] = 1000
-        hparams["N_epochs"] = run_opts["debug_epochs"]
 
     # Create experiment directory
     sb.create_experiment_directory(
