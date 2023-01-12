@@ -12,9 +12,11 @@ import torch
 import logging
 import speechbrain as sb
 from copy import deepcopy
+from functools import partial
 from tqdm.contrib import tqdm
 from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.nnet.losses import nll_loss
 from speechbrain.pretrained import EncoderDecoderASR
 from speechbrain.pretrained.fetching import FetchFrom
 from speechbrain.utils.distributed import run_on_main
@@ -48,25 +50,42 @@ def lm_compute_forward(self, batch, stage):
     # Running the encoder (prevent propagation to feature extraction)
     encoded_signal = self.modules.encoder(feats.detach())
 
-    # Embed tokens and pass tokens & encoded signal to decoder
+    # Embed tokens and pass tokens & encoded signal to decoderi
+    """
     embedded_tokens = self.modules.embedding(tokens_bos)
     decoder_outputs, _ = self.modules.decoder(
         embedded_tokens, encoded_signal, self.feat_lens
     )
+    """
 
-    # Output layer for seq2seq log-probabilities
-    predictions = {}
-    if self.is_ctc_active(stage):
-        ctc_logits = self.modules.ctc_lin(encoded_signal)
-        predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
-        # TODO check if ctc_lin isn't triggered twice ... if so, freeze & unfreeze it's parameters?
-    (
-        predictions["tokens"],
-        _,
-        predictions["seq_logprobs"],
-    ) = self.hparams.train_valid_test_search(encoded_signal, self.feat_lens)
+    # Output layer
+    pred = {}
+    pred["tokens"], _, pred["logp"] = self.hparams.train_valid_test_search(
+        encoded_signal, self.feat_lens
+    )
+    pred["logp"], _ = batch_pad_right(pred["logp"])
 
-    return predictions
+    return pred
+
+
+def lm_compute_objectives(self, predictions, batch, stage):
+    batch = batch.to(self.device)
+    # Compute sequence loss against targets with EOS
+    tokens_eos, tokens_lens = self.prepare_tokens(stage, batch.tokens_eos)
+    loss = nll_loss(predictions["logp"], tokens_eos, length=tokens_lens)
+    if stage != sb.Stage.TRAIN:
+        # Converted predicted tokens from indexes to words
+        predicted_words = [
+            self.hparams.tokenizer.decode_ids(prediction).split(" ")
+            for prediction in predictions["tokens"]
+        ]
+        target_words = [words.split(" ") for words in batch.words]
+
+        # Monitor word error rate and character error rated at valid and test time.
+        self.wer_metric.append(batch.id, predicted_words, target_words)
+        self.cer_metric.append(batch.id, predicted_words, target_words)
+
+    return loss
 
 
 if __name__ == "__main__":
@@ -98,7 +117,7 @@ if __name__ == "__main__":
             datasets["train"],
             dynamic_hparams["max_batch_len"],
             num_buckets=dynamic_hparams["num_buckets"],
-            length_func=lambda x: x["duration"],
+            length_func=lambda x: x["length"],
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
         ),
@@ -109,7 +128,7 @@ if __name__ == "__main__":
             datasets["valid"],
             dynamic_hparams["max_batch_len"],
             num_buckets=dynamic_hparams["num_buckets"],
-            length_func=lambda x: x["duration"],
+            length_func=lambda x: x["length"],
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
         ),
@@ -122,7 +141,7 @@ if __name__ == "__main__":
     # * the tokenizer from URL - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/resolve/main/...
     run_on_main(
         hparams["pretrainer_tokenizer"].collect_files,
-        kwargs={"fetch_from": FetchFrom.LOCAL},
+        kwargs={"fetch_from": FetchFrom.ONLINE},
     )
     run_on_main(
         hparams["pretrainer_LM"].collect_files,
@@ -130,7 +149,7 @@ if __name__ == "__main__":
     )
     run_on_main(
         hparams["pretrainer_ASR"].collect_files,
-        kwargs={"fetch_from": FetchFrom.ONLINE},
+        kwargs={"fetch_from": FetchFrom.LOCAL},
     )
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
@@ -145,9 +164,17 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Substitute: compute_forward & ensure return_log_probs for train_valid_test_search decoder
-    setattr(asr_brain, "compute_forward", lm_compute_forward)
+    # Monkey patching: compute_forward & ensure return_log_probs for train_valid_test_search decoder
+    setattr(
+        asr_brain, "compute_forward", partial(lm_compute_forward, asr_brain)
+    )
+    setattr(
+        asr_brain,
+        "compute_objectives",
+        partial(lm_compute_objectives, asr_brain),
+    )
     asr_brain.hparams.train_valid_test_search.return_log_probs = True
+    # Seriously, create your own class & prepare a YAML that works right away :)
 
     # Freeze all but LM
     for mod in [

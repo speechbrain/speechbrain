@@ -13,7 +13,6 @@ from enum import Enum
 import huggingface_hub
 from typing import Union
 from requests.exceptions import HTTPError
-from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +106,9 @@ def fetch(
     savedir = pathlib.Path(savedir)
     savedir.mkdir(parents=True, exist_ok=True)
     sourcefile = f"{source}/{filename}"
-    if pathlib.Path(source).is_dir() or fetch_from is FetchFrom.LOCAL:
+    if (pathlib.Path(source).is_dir() or fetch_from is FetchFrom.LOCAL) and (
+        fetch_from is not FetchFrom.HUGGING_FACE
+    ):
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
         MSG = f"Destination {filename}: local file in {str(sourcepath)}."
@@ -128,7 +129,7 @@ def fetch(
         logger.info(MSG)
         # Download
         try:
-            run_on_main(urllib.request.urlretrieve(sourcefile, destination))
+            urllib.request.urlretrieve(sourcefile, destination)
         except urllib.error.URLError:
             raise ValueError(
                 f"Interpreted {source} as web address, but could not download."
@@ -139,17 +140,6 @@ def fetch(
         MSG = f"Fetch {filename}: Delegating to Huggingface hub, source {str(source)}."
         logger.info(MSG)
         try:
-            # First one downloads
-            run_on_main(
-                huggingface_hub.hf_hub_download(
-                    repo_id=source,
-                    filename=filename,
-                    use_auth_token=use_auth_token,
-                    revision=revision,
-                    cache_dir=cache_dir,
-                )
-            )
-            # Second one gets the fetched_file
             fetched_file = huggingface_hub.hf_hub_download(
                 repo_id=source,
                 filename=filename,

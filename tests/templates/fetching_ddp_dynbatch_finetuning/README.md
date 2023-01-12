@@ -20,5 +20,12 @@ Essentially, this template is a continuation of the ASR speech recognition templ
 # How to run
 
 ```shell
-python -m torch.distributed.launch --nproc_per_node=2 finetune_LM.py fixed_ASR.yaml --distributed_launch --distributed_backend='nccl'
+PYTHONPATH=../../.. python -m torch.distributed.launch --nproc_per_node=2 finetune_LM.py fixed_ASR.yaml --distributed_launch --distributed_backend='nccl'
 ```
+
+---
+
+# Note
+
+This study uses a data loader which handles local audio files by their local folders. If you wish to fetch remote audios, please keep track of the folder structure.
+

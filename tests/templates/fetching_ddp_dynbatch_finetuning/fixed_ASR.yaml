@@ -34,7 +34,7 @@ test_annotation: ../../../templates/speech_recognition/test.json
 
 # Training parameters
 number_of_epochs: 2
-number_of_ctc_epochs: 1
+number_of_ctc_epochs: 0
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
@@ -82,24 +82,26 @@ env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: 0
     noise_snr_high: 15
 
-# Adds speech change + time and frequency dropouts (time-domain implementation).
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
 # Loads the ASR brain for training/fine-tuning mode
 params: !include:ASR.yaml
-normalize: !ref <params.normalize>
-compute_features: !ref <params.compute_features>
-encoder: !ref <params.encoder>
-embedding: !ref <params.embedding>
-decoder: !ref <params.decoder>
-ctc_lin: !ref <params.ctc_lin>
-seq_lin: !ref <params.seq_lin>
-log_softmax: !ref <params.log_softmax>
-lm_model: !ref <params.lm_model>
-tokenizer: !ref <params.tokenizer>
-test_search: !ref <params.test_search>
+normalize: !ref <params[normalize]>
+compute_features: !ref <params[compute_features]>
+encoder: !ref <params[encoder]>
+embedding: !ref <params[embedding]>
+decoder: !ref <params[decoder]>
+ctc_lin: !ref <params[ctc_lin]>
+seq_lin: !ref <params[seq_lin]>
+log_softmax: !ref <params[log_softmax]>
+lm_model: !ref <params[lm_model]>
+tokenizer: !ref <params[tokenizer]>
+test_search: !ref <params[test_search]>
+bos_index: !ref <params[bos_index]>
+eos_index: !ref <params[eos_index]>
+
+# Adds speech change + time and frequency dropouts (time-domain implementation).
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <params[sample_rate]>
+    speeds: [95, 100, 105]
 
 # Objects in "modules" dict will have their parameters moved to the correct
 # device, as well as having train()/eval() called on them by the Brain class
@@ -123,7 +125,7 @@ model: !new:torch.nn.ModuleList
 
 # Cost definition for the CTC part.
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
+    blank_index: !ref <params[blank_index]>
 
 train_valid_test_search: !ref <test_search>
 
@@ -171,7 +173,7 @@ pretrainer_ASR: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
         model: !ref <model>
     paths:
-        model: !ref <pretrained_path_ASR>/asr.ckpt
+        model: !ref <pretrained_path_ASR>/model.ckpt
 
 pretrainer_LM: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

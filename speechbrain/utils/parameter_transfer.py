@@ -71,6 +71,7 @@ class Pretrainer:
         self.conditions = {}
         if conditions is not None:
             self.add_conditions(conditions)
+        self.is_local = []
 
     def set_collect_in(self, path):
         """Change the collecting path"""
@@ -214,6 +215,8 @@ class Pretrainer:
                 fetch_from=fetch_from,
             )
             loadable_paths[name] = path
+            if fetch_from is FetchFrom.LOCAL:
+                self.is_local.append(name)
         return loadable_paths
 
     def is_loadable(self, name):
@@ -256,6 +259,11 @@ class Pretrainer:
                 continue
             filename = name + PARAMFILE_EXT
             paramfiles[name] = self.collect_in / filename
+            if name in self.is_local:
+                logger.info(
+                    f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
+                )
+                paramfiles[name] = self.paths[name]
         self._call_load_hooks(paramfiles, device)
 
     def _call_load_hooks(self, paramfiles, device=None):
