@@ -522,7 +522,7 @@ def build_table(mix_id, mix, est_source, targets, loss, sr=16000, table=None):
         table = wandb.Table(
             columns=[
                 "id",
-                "SI-SNR",
+                "-loss",
                 "mix",
                 "target1",
                 "target2",
@@ -672,8 +672,9 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     if run_opts["debug"]:
-        overrides["N_epochs"] = run_opts["debug_epochs"]
-        overrides["n_audio_to_save"] = 1000  # save all
+        args = ['--N_epochs', str(run_opts['debug_epochs'])]
+        args += ['--n_audio_to_save', str(1000)]
+        overrides += '\n' + sb.core._convert_to_yaml(args)
         with open(hparams_file) as fin:
             hparams = load_hyperpyyaml(fin, overrides)
         hparams["experiment_name"] += "__test"
