@@ -676,7 +676,7 @@ def _distance_diff_loss(predictions, targets, beta, max_weight):
         torch.arange(max_len)
         .unsqueeze(0)
         .repeat(batch_size, 1)
-    )
+    ).to(predictions.device)
     diff_range = (pos_range - targets.unsqueeze(-1)).abs()
     loss_weights = ((beta * diff_range).exp() - 1.).clamp(max=max_weight)
     return (loss_weights * predictions).unsqueeze(-1)
