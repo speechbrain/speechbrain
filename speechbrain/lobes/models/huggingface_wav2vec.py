@@ -392,13 +392,15 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
 
-    def forward(self, wav):
+    def forward(self, wav, wav_lens):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+        wav_len : tensor
+            The relative length of the wav given in SpeechBrain format.
         """
         batch_size, raw_sequence_length = wav.shape
 
@@ -418,6 +420,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         torch_mask_time_indices = torch.tensor(
             mask_time_indices, device=wav.device, dtype=torch.long,
         )
+        padding_mask = self.make_masks(wav, wav_len=wav_lens)
 
         # 2. Sample the negative samples from the entire sequence.
         # Fairseq does it only on the masked indices, but this only work if you
@@ -441,6 +444,25 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
                 wav,
                 mask_time_indices=torch_mask_time_indices,
                 sampled_negative_indices=negative_sample_indices,
+                attention_mask=padding_mask,
             ),
             torch_mask_time_indices,
         )
+
+    def make_padding_masks(self, src, wav_len=None, pad_idx=0):
+        """This method generates the padding masks.
+        Arguments
+        ---------
+        src : tensor
+            The sequence to the encoder (required).
+        wav_len : tensor
+            The relative length of the wav given in SpeechBrain format.
+        pad_idx : int
+            The index for <pad> token (default=0).
+        """
+        src_key_padding_mask = None
+        if wav_len is not None:
+            abs_len = torch.round(wav_len * src.shape[1])
+            src_key_padding_mask = length_to_mask(abs_len).bool()
+
+        return src_key_padding_mask
