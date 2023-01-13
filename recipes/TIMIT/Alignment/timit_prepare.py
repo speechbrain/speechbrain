@@ -1,1 +1,0 @@
-../timit_prepare.py

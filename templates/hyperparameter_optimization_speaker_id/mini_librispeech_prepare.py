@@ -1,1 +1,0 @@
-../speaker_id/mini_librispeech_prepare.py

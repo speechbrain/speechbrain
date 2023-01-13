@@ -1,3 +1,0 @@
-mir-eval==0.6
-pyloudnorm
-

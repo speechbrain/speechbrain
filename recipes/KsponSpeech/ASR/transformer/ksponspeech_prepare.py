@@ -1,1 +1,0 @@
-../../ksponspeech_prepare.py
