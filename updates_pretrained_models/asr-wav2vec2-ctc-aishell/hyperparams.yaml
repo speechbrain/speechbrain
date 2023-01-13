@@ -9,6 +9,7 @@
 # ############################################################################
 
 wav2vec2_hub: TencentGameMate/chinese-wav2vec2-large
+wav2vec2_folder: model_checkpoints
 sample_rate: 16000
 
 wav2vec_output_dim: 1024
@@ -17,7 +18,7 @@ freeze_wav2vec: False
 dropout: 0.15
 
 tokenizer: !apply:transformers.BertTokenizer.from_pretrained
-   pretrained_model_name_or_path: bert-base-chinese
+    pretrained_model_name_or_path: bert-base-chinese
 
 output_neurons: 21128
 
@@ -26,52 +27,68 @@ output_neurons: 21128
 blank_index: 0
 
 enc: !new:speechbrain.nnet.containers.Sequential
-   input_shape: [null, null, !ref <wav2vec_output_dim>]
-   linear1: !name:speechbrain.nnet.linear.Linear
-      n_neurons: !ref <dnn_neurons>
-      bias: True
-   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
-   activation: !new:torch.nn.LeakyReLU
-   drop: !new:torch.nn.Dropout
-      p: !ref <dropout>
-   linear2: !name:speechbrain.nnet.linear.Linear
-      n_neurons: !ref <dnn_neurons>
-      bias: True
-   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
-   activation2: !new:torch.nn.LeakyReLU
-   drop2: !new:torch.nn.Dropout
-      p: !ref <dropout>
-   linear3: !name:speechbrain.nnet.linear.Linear
-      n_neurons: !ref <dnn_neurons>
-      bias: True
-   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
-   activation3: !new:torch.nn.LeakyReLU
+    input_shape: [null, null, !ref <wav2vec_output_dim>]
+    linear1: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <dnn_neurons>
+        bias: True
+    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation: !new:torch.nn.LeakyReLU
+    drop: !new:torch.nn.Dropout
+        p: !ref <dropout>
+    linear2: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <dnn_neurons>
+        bias: True
+    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation2: !new:torch.nn.LeakyReLU
+    drop2: !new:torch.nn.Dropout
+        p: !ref <dropout>
+    linear3: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <dnn_neurons>
+        bias: True
+    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
-   source: !ref <wav2vec2_hub>
-   output_norm: True
-   freeze: !ref <freeze_wav2vec>
-   save_path: model_checkpoints
+w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
+    source: !ref <wav2vec2_hub>
+    save_path: !ref <wav2vec2_folder>
+    forward_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
+    modify_state_dict_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
+    override_hf_model_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
+          apply_spec_augment: False
+    freeze: True
+    cache_dir: !ref <wav2vec2_folder>
+
+wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    w2v2_in: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: -1
+    w2v2: !ref <w2v2>
+    w2v2_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: (-2, -1)
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <dnn_neurons>
-   n_neurons: !ref <output_neurons>
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
-   apply_log: True
+    apply_log: True
 
 decoder: !name:speechbrain.decoders.ctc_greedy_decode
-   blank_id: !ref <blank_index>
+    blank_id: !ref <blank_index>
 
 model: !new:torch.nn.ModuleList
-   - [!ref <enc>, !ref <ctc_lin>]
+    - [!ref <enc>, !ref <ctc_lin>]
 
 modules:
-   wav2vec2: !ref <wav2vec2>
-   enc: !ref <enc>
-   ctc_lin: !ref <ctc_lin>
+    wav2vec2: !ref <wav2vec2>
+    enc: !ref <enc>
+    ctc_lin: !ref <ctc_lin>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-   loadables:
-      wav2vec2: !ref <wav2vec2>
-      model: !ref <model>
+    loadables:
+        wav2vec2: !ref <w2v2>
+        model: !ref <model>

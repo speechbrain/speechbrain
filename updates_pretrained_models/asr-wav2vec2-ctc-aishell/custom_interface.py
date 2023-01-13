@@ -50,7 +50,7 @@ class CustomEncoderDecoderASR(Pretrained):
         predicted_words = self.transcribe_batch(batch, rel_length)
         return predicted_words[0]
 
-    def encode_batch(self, wavs):
+    def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states
         The waveforms should already be in the model's desired format.
         You can call:
@@ -73,7 +73,7 @@ class CustomEncoderDecoderASR(Pretrained):
         """
         wavs = wavs.float()
         wavs = wavs.to(self.device)
-        outputs = self.mods.wav2vec2(wavs)
+        outputs = self.mods.wav2vec2(wavs, wav_lens)
         outputs = self.mods.enc(outputs)
         outputs = self.mods.ctc_lin(outputs)
         return outputs
@@ -103,7 +103,7 @@ class CustomEncoderDecoderASR(Pretrained):
         """
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
-            encoder_out = self.encode_batch(wavs)
+            encoder_out = self.encode_batch(wavs, wav_lens)
             p_ctc = self.hparams.log_softmax(encoder_out)
             sequences = self.hparams.decoder(p_ctc, wav_lens)
             predicted_words_list = []

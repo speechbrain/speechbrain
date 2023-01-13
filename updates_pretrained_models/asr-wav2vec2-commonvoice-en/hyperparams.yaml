@@ -6,6 +6,7 @@
 
 sample_rate: 16000
 wav2vec2_hub: facebook/wav2vec2-large-lv60
+wav2vec2_folder: model_checkpoints
 
 # BPE parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -41,11 +42,27 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     dnn_blocks: !ref <dnn_layers>
     dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
     source: !ref <wav2vec2_hub>
-    output_norm: True
+    save_path: !ref <wav2vec2_folder>
+    forward_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
+    modify_state_dict_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
+    override_hf_model_partial_fn: !new:functools.partial
+        - !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
+          apply_spec_augment: False
     freeze: True
-    save_path: model_checkpoints
+    cache_dir: !ref <wav2vec2_folder>
+
+wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    w2v2_in: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: -1
+    w2v2: !ref <w2v2>
+    w2v2_norm: !new:speechbrain.processing.features.InputNormalization
+        norm_type: sentence
+        dim: (-2, -1)
 
 emb: !new:speechbrain.nnet.embedding.Embedding
     num_embeddings: !ref <output_neurons>
@@ -113,6 +130,6 @@ modules:
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
-        wav2vec2: !ref <wav2vec2>
+        wav2vec2: !ref <w2v2>
         asr: !ref <asr_model>
         tokenizer: !ref <tokenizer>
