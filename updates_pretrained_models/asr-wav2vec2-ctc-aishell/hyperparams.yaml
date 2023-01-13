@@ -1,0 +1,77 @@
+# ############################################################################
+# Model: CTC-wav2vec2
+# Encoder: wav2vec2
+# Decoder: -
+# Tokens: Char
+# losses: CTC
+# Training: AISHELL-1
+# Authors:  Yingzhi WANG 2022
+# ############################################################################
+
+wav2vec2_hub: TencentGameMate/chinese-wav2vec2-large
+sample_rate: 16000
+
+wav2vec_output_dim: 1024
+dnn_neurons: 1024
+freeze_wav2vec: False
+dropout: 0.15
+
+tokenizer: !apply:transformers.BertTokenizer.from_pretrained
+   pretrained_model_name_or_path: bert-base-chinese
+
+output_neurons: 21128
+
+# Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
+blank_index: 0
+
+enc: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation: !new:torch.nn.LeakyReLU
+   drop: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !new:torch.nn.LeakyReLU
+   drop2: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !new:torch.nn.LeakyReLU
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: model_checkpoints
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <output_neurons>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+decoder: !name:speechbrain.decoders.ctc_greedy_decode
+   blank_id: !ref <blank_index>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <enc>, !ref <ctc_lin>]
+
+modules:
+   wav2vec2: !ref <wav2vec2>
+   enc: !ref <enc>
+   ctc_lin: !ref <ctc_lin>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+   loadables:
+      wav2vec2: !ref <wav2vec2>
+      model: !ref <model>

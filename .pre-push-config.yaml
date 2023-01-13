@@ -1,0 +1,10 @@
+repos:
+    - repo: local
+      hooks:
+          - id: linters
+            name: linters
+            entry: tests/.run-linters.sh
+            language: script
+            pass_filenames: False
+            always_run: True
+            require_serial: False

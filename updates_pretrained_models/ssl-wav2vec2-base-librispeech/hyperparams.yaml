@@ -1,0 +1,40 @@
+# ################################
+# Model: wav2vec2
+# Authors: Rudolf A. Braun 2022, Titouan Parcollet 2022
+# ################################
+
+sample_rate: 16000
+
+# standard parameters for the BASE model
+latent_extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
+    out_channels: [512, 512, 512, 512, 512, 512, 512]
+
+# standard parameters for the BASE model
+latent_encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
+    d_model: 768
+    num_layers: 12
+    nhead: 8
+    d_ffn: 3072
+    dropout: 0.1
+    layerdrop_prob: 0.0
+    normalize_before: True
+    activation: !name:torch.nn.GELU
+
+# standard parameters for the BASE model
+encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
+    in_dim: 512
+    embedding_dim: 768
+    latent_encoder: !ref <latent_encoder>
+    dropout_encoder_input: 0.1
+
+encoder: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    latent_extractor: !ref <latent_extractor>
+    encoder_wrapper: !ref <encoder_wrapper>
+
+modules:
+    encoder: !ref <encoder>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        latent_encoder: !ref <encoder_wrapper>
+        latent_extractor: !ref <latent_extractor>

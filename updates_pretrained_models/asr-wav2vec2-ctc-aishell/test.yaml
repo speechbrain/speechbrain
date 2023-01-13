@@ -1,0 +1,4 @@
+sample: example.wav
+cls: CustomEncoderDecoderASR
+fnx: transcribe_batch
+foreign: custom_interface.py

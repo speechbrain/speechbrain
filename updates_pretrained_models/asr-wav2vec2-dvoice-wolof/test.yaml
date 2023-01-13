@@ -1,0 +1,3 @@
+sample: example_wolof.wav
+cls: EncoderASR
+fnx: transcribe_batch

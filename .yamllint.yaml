@@ -1,0 +1,15 @@
+extends: default
+
+rules:
+  document-start:
+    present: False
+  truthy:
+    allowed-values:
+      - 'True'
+      - 'False'
+    level: error
+  comments: disable
+  comments-indentation: disable
+  line-length:
+    level: warning
+    allow-non-breakable-inline-mappings: True
