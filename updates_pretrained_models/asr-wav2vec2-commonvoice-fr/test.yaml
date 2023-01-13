@@ -5,7 +5,22 @@ dataset: CommonVoice_FR
 recipe_yaml: recipes/CommonVoice/ASR/CTC/hparams/train_fr_with_wav2vec.yaml
 overrides:
   output_folder: !ref tests/tmp/<dataset>
-dataio: from recipes.CommonVoice.ASR.CTC.train_with_wav2vec import dataio_prepare
+dataio: |
+    from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
+    run_on_main(
+        prepare_common_voice,
+            kwargs={
+                "data_folder": recipe_hparams["data_folder"],
+                "save_folder": recipe_hparams["save_folder"],
+                "train_tsv_file": recipe_hparams["train_tsv_file"],
+                "dev_tsv_file": recipe_hparams["dev_tsv_file"],
+                "test_tsv_file": recipe_hparams["test_tsv_file"],
+                "accented_letters": recipe_hparams["accented_letters"],
+                "language": recipe_hparams["language"],
+                "skip_prep": recipe_hparams["skip_prep"],
+            },
+        )
+    from recipes.CommonVoice.ASR.CTC.train_with_wav2vec import dataio_prepare
 test_datasets: dataio_prepare(recipe_hparams, model.tokenizer)[2]
 test_loader: test_dataloader_options
 performance:
@@ -15,4 +30,6 @@ performance:
   WER:
     handler: error_rate_computer
     field: error_rate
-predicted: predictions[0]
+predicted: "[wrd.split(' ') for wrd in predictions[0]]"
+targeted: "[wrd.split(' ') for wrd in batch.wrd]"
+append: ids, predicted, targeted
