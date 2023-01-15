@@ -36,7 +36,7 @@ class ASR_Brain(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Model computations
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
         x = self.modules.enc_lin(x)
 

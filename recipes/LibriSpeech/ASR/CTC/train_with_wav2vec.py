@@ -57,7 +57,7 @@ class ASR(sb.Brain):
                 "embeddings"
             ]
         else:  # HuggingFace pretrained model
-            feats = self.modules.wav2vec2(wavs)
+            feats = self.modules.wav2vec2(wavs, wav_lens)
 
         x = self.modules.enc(feats)
 
@@ -106,7 +106,8 @@ class ASR(sb.Brain):
             self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                with self.no_sync():
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
@@ -123,7 +124,8 @@ class ASR(sb.Brain):
                 self.scaler.update()
                 self.optimizer_step += 1
         else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            with self.no_sync():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
