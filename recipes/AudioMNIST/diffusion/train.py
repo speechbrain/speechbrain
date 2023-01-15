@@ -152,7 +152,10 @@ class DiffusionBrain(sb.Brain):
             feats_done, lens_done = self.prepare_features_done(
                 batch, feats, lens
             )
-            pred_done = self.modules.done_detector(feats_done.squeeze(1))
+            pred_done = self.modules.done_detector(
+                feats_done.squeeze(1),
+                lens_done
+            )
 
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling

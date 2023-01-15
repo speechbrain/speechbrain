@@ -233,21 +233,23 @@ diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
 diffusion_sample_channels: !ref <diffusion_channels>
 
 
-done_detector: !new:speechbrain.nnet.containers.Sequential
-    input_shape: [null, null, !ref <spec_n_mels>]
-    crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
-        input_size: !ref <spec_n_mels>
-        cnn_blocks: !ref <done_cnn_blocks>
-        cnn_kernelsize: !ref <done_cnn_kernelsize>
-        cnn_channels: !ref <done_cnn_channels>
-        rnn_layers: !ref <done_rnn_layers>
-        rnn_neurons: !ref <done_rnn_neurons>
-        dnn_blocks: !ref <done_dnn_blocks>
-        dnn_neurons: !ref <done_dnn_neurons>
-    out: !new:torch.nn.Linear
-        in_features: !ref <done_dnn_neurons>
-        out_features: 1
-    act: !new:speechbrain.nnet.activations.Softmax
+done_detector: !new:custom_model.DoneDetector
+    model: !new:speechbrain.nnet.containers.Sequential
+        input_shape: [null, null, !ref <spec_n_mels>]
+        crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
+            input_size: !ref <spec_n_mels>
+            cnn_blocks: !ref <done_cnn_blocks>
+            cnn_kernelsize: !ref <done_cnn_kernelsize>
+            cnn_channels: !ref <done_cnn_channels>
+            rnn_layers: !ref <done_rnn_layers>
+            rnn_neurons: !ref <done_rnn_neurons>
+            dnn_blocks: !ref <done_dnn_blocks>
+            dnn_neurons: !ref <done_dnn_neurons>
+        out: !new:torch.nn.Linear
+            in_features: !ref <done_dnn_neurons>
+            out_features: 1
+        act: !new:torch.nn.Sigmoid
+    out: !new:speechbrain.nnet.activations.Softmax
         apply_log: False
         dim: 1
         reshape: False
