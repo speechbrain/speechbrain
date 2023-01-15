@@ -38,6 +38,6 @@ class DoneDetector(nn.Module):
         if length is not None:
             max_len = feats.size(1)
             mask = length_to_mask(length=length * max_len, max_len=max_len)
-            out *= mask.unsqueeze(-1)
+            out = out * mask.unsqueeze(-1)
         out = self.out(out)
         return out
