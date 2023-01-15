@@ -799,9 +799,9 @@ def concat_padded_features(
     out: torch.Tensor
         a concatenated tensor
     """
-    item_lengths = torch.tensor([item.size(dim) for item in feats])
-    lens = torch.concat([len_rel.unsqueeze(0) for len_rel in lens])
     first_item = feats[0]
+    item_lengths = torch.tensor([item.size(dim) for item in feats]).to(first_item.device)
+    lens = torch.concat([len_rel.unsqueeze(0) for len_rel in lens])
     lens_abs = (lens * item_lengths.unsqueeze(-1)).int()
 
     feats_slice_start = _offset_to_tensor(feats_slice_start, lens_abs)
@@ -892,7 +892,7 @@ def _lens_to_boundaries(
         length dimension
      """
     batch_size = lengths.size(-1)
-    batch_padding = torch.zeros((1, batch_size)).int()
+    batch_padding = torch.zeros((1, batch_size)).int().to(lengths.device)
 
     if slice_start is None:
         start_offset = torch.tensor(0).to(lengths.device)
@@ -990,7 +990,7 @@ def length_range(feats, len_dim):
         a tensor matching the shape of feats with an 0 to max-length range along
         the length dimension repeated across other dimensions"""
     max_len = feats.size(len_dim)
-    feats_range = torch.arange(max_len)
+    feats_range = torch.arange(max_len).to(feats.device)
     out = unsqueeze_1d(feats_range, feats.dim(), len_dim)
     repeat_dim = [
         feats_size // out_size
