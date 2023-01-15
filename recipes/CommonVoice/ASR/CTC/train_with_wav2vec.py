@@ -90,9 +90,12 @@ class ASR(sb.core.Brain):
         """Train the parameters given a single batch in input"""
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
+        # TOFIX: CTC fine-tuning currently is unstable
+        # This is certainly due to CTC being done in fp16 instead of fp32
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                with self.no_sync():
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
@@ -112,8 +115,13 @@ class ASR(sb.core.Brain):
                 self.zero_grad()
                 self.optimizer_step += 1
         else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            # This is mandatory because HF models have a weird behavior with DDP
+            # on the forward pass
+            with self.no_sync():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:

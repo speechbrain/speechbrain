@@ -262,32 +262,36 @@ class HuggingFaceWav2Vec2(nn.Module):
         err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
 
-    def forward(self, wav, wav_lens):
+    def forward(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+        wav_len : tensor
+            The relative length of the wav given in SpeechBrain format.
         """
-
-        padding_mask = self.make_masks(wav, wav_len=wav_lens)
 
         # If we freeze, we simply remove all grads from the graph.
         if self.freeze:
             with torch.no_grad():
-                return self.extract_features(wav, padding_mask)
+                return self.extract_features(wav, wav_lens)
 
-        return self.extract_features(wav, padding_mask)
+        return self.extract_features(wav, wav_lens)
 
-    def extract_features(self, wav, padding_masks):
+    def extract_features(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+        wav_len : tensor
+            The relative length of the wav given in SpeechBrain format.
         """
+
+        padding_mask = self.make_masks(wav, wav_len=wav_lens)
 
         if self.normalize_wav:
             wav = F.layer_norm(wav, wav.shape[1:])
@@ -295,7 +299,7 @@ class HuggingFaceWav2Vec2(nn.Module):
         # Extract wav2vec output
         out = self.model(
             wav,
-            attention_mask=padding_masks,
+            attention_mask=padding_mask,
             output_hidden_states=self.output_all_hiddens,
         )
 
