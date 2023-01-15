@@ -99,6 +99,9 @@ spec_sample_min: -4.7
 spec_sample_max: 3.0
 min_level_db: -80.0
 pad_level_db: -50.
+done_random_start_offset: 0.
+done_random_end_offset: .5
+
 
 # Model Parameters
 model_channels: 64

@@ -17,6 +17,7 @@ import torch
 import tqdm
 import pathlib
 import speechbrain as sb
+from numbers import Number
 
 
 def undo_padding(batch, lengths):
@@ -756,3 +757,243 @@ def batch_shuffle(items, batch_size):
     else:
         result = [items[idx] for idx in batch_idx]
     return result
+
+
+import torch
+from numbers import Number
+
+
+def concat_padded_features(
+    feats, lens, dim=1, feats_slice_start=None, feats_slice_end=None
+):
+    """Concatenates multiple padded feature tensors into a single
+    padded tensor in a vectorized manner without including the 
+    padding in the final tensor, adding padding only at the end.
+    The function supports optional relative sicing of the tensors.
+
+    One possible use case is to concatenate batches of spectrograms
+    or audio.
+    
+    Arguments
+    ---------
+    feats: list
+        a list of padded tesnors
+    
+    lens: list
+        a list of length tensors
+
+    feats_slice_start: list
+        offsets, relative to the beginning of the sequence, for each
+        of the tensors being concatenated. This is useful if only
+        a subsequence of some slices is included
+
+    feats_slice_end: list
+        offsets, relative to the end of the sequence, for each
+        of the tensors being concatenated. This is useful if only
+        a subsequence of some slices is included
+        
+
+
+    Returns
+    -------
+    out: torch.Tensor
+        a concatenated tensor
+    """
+    item_lengths = torch.tensor([item.size(dim) for item in feats])
+    lens = torch.concat([len_rel.unsqueeze(0) for len_rel in lens])
+    first_item = feats[0]
+    lens_abs = (lens * item_lengths.unsqueeze(-1)).int()
+
+    feats_slice_start = _offset_to_tensor(feats_slice_start, lens_abs)
+    feats_slice_end = _offset_to_tensor(feats_slice_end, lens_abs)
+
+    out_start, out_end = _lens_to_boundaries(
+        lens_abs, feats_slice_start, feats_slice_end, cumulative=True
+    )
+    in_start, in_end = _lens_to_boundaries(
+        lens_abs, feats_slice_start, feats_slice_end, cumulative=False
+    )
+    total_length = out_end.max().int().item()
+
+    out_shape = list(first_item.shape)
+    out_shape[dim] = total_length
+    out = torch.zeros(out_shape).to(first_item.device)
+    for item, item_in_start, item_in_end, item_out_start, item_out_end in zip(
+        feats, in_start, in_end, out_start, out_end
+    ):
+        in_mask = _boundaries_to_mask(item, item_in_start, item_in_end, dim)
+        out_mask = _boundaries_to_mask(out, item_out_start, item_out_end, dim)
+        out[out_mask] = item[in_mask]
+
+    out_lens = out_end[-1, :].float() / total_length
+
+    return out, out_lens
+
+
+def _offset_to_tensor(offset, lengths):
+    """Converts a variety of offset representations to a component x batch tensor,
+    used by concat_padded_features. offset can be a tensor, a list of tensors (where
+    each element is a tensor of relative offsets similar to lengths), a list of floats
+    (in which case all batch elements are presumed to have the same offset)
+    
+    Arguments
+    ---------
+    offset: list|torch.Tensor
+        a list or tensor of offsets
+        
+    lengths: torch.Tensor
+        a length tensor
+        
+    Returns
+    -------
+    result: torch.Tensor
+        a tensor of offsets
+    """
+    if offset is None:
+        result = None
+    elif torch.is_tensor(offset):
+        result = offset
+    elif isinstance(offset, Number):
+        result = torch.ones_like(lengths) * offset
+    elif isinstance(offset, list):
+        if isinstance(offset[0], Number):
+            result = torch.tensor(offset).unsqueeze(-1).to(lengths.device)
+        else:
+            result = torch.concat([item.unsqueeze(0) for item in offset])
+    else:
+        raise ValueError(
+            "The offset must be a number, a tensor or a list of tensors"
+        )
+    return result
+
+
+def _lens_to_boundaries(
+    lengths, slice_start=None, slice_end=None, cumulative=True
+):
+    """Converts a tensor of lengths to a tensor of start and end
+    boundaries, used for concat_padded_features
+    
+    
+    Arguments
+    ---------
+    lengths: torch.Tensor
+        a (component x batch) tensor of absolute lengths
+
+    slice_start: torch.Tensor
+        a (component x batch) tensor of relative start offsets
+    
+    slice_end: torch.Tensor
+        a (component x batch) tensor of relative end offsets
+    
+    cumultative: True
+        if true, the start of a given component is assumed to
+        be at the end of the previous component.
+        if false, all components start at the beginning of the
+        length dimension
+     """
+    batch_size = lengths.size(-1)
+    batch_padding = torch.zeros((1, batch_size)).int()
+
+    if slice_start is None:
+        start_offset = torch.tensor(0).to(lengths.device)
+    else:
+        start_offset = (lengths * slice_start).floor().int()
+
+    if slice_end is None:
+        end_offset = torch.tensor(0).to(lengths.device)
+    else:
+        end_offset = (lengths * slice_end).floor().int()
+
+    if cumulative:
+        effective_lengths = lengths - start_offset - end_offset
+        effective_lengths_zpad = torch.concat(
+            [batch_padding, effective_lengths], dim=0
+        )
+
+        start = effective_lengths_zpad.cumsum(dim=0)[:-1, :]
+    else:
+        start = torch.zeros(*lengths.shape).to(lengths.device)
+    start += start_offset
+    end = start + lengths - end_offset
+    return start, end
+
+
+def _boundaries_to_mask(target, start, end, len_dim=1):
+    """For a given features tensor and tensors of start and end indexes,
+    computes the corresponding Boolean mask
+    
+    Arguments
+    ---------
+    target: torch.Tensor
+        the target tensor
+        
+    start: torch.Tensor
+        the tensor indicating the starting positions along the length
+        dimension within each batch
+    end: torch.Tensor
+        the tensor indicating the final positions within each batch
+    
+    len_dim: int
+        the dimension used as the length
+        
+    Returns
+    -------
+    mask: torch.Tensor
+        a Boolean mask of the same shape as target"""
+    out_range = length_range(target, len_dim)
+    feats_dim = target.dim()
+    item_start = unsqueeze_1d(start, feats_dim, 0)
+    item_end = unsqueeze_1d(end, feats_dim, 0)
+    mask = (item_start <= out_range) & (out_range < item_end)
+    return mask
+
+
+def unsqueeze_1d(value, dim, value_dim):
+    """Unsqueezes a 1-D tensor to the specified number of
+    dimension preserving one dimension and creating "dummy" dimensions
+    elsewhere
+    
+    Arguments
+    ---------
+    value: torch.Tensor
+        A 1-D tensor
+    dim: int
+        the number of dimension
+    value_dim: int
+        the dimension that the value tensor represents
+        
+        
+    Returns
+    -------
+    result: torch.Tensor
+        a dim-dimensional tensor
+    """
+    unsqueeze_dim = [None] * dim
+    unsqueeze_dim[value_dim] = ...
+    return value[unsqueeze_dim]
+
+
+def length_range(feats, len_dim):
+    """Creates a tensor with a range in a single dimension to one matching the shape
+    of a its tensor
+    
+    Arguments
+    ---------
+    feats: torch.Tensor
+        a features tensor of arbitrary shape
+    len_dim: torch.Tensor
+        the dimension used as length
+        
+    Returns
+    -------
+    result: torch.Tensor
+        a tensor matching the shape of feats with an 0 to max-length range along
+        the length dimension repeated across other dimensions"""
+    max_len = feats.size(len_dim)
+    feats_range = torch.arange(max_len)
+    out = unsqueeze_1d(feats_range, feats.dim(), len_dim)
+    repeat_dim = [
+        feats_size // out_size
+        for feats_size, out_size in zip(feats.shape, out.shape)
+    ]
+    return out.repeat(*repeat_dim)

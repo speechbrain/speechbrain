@@ -46,7 +46,9 @@ DiffusionPredictions = namedtuple(
         "feats",
         "lens",
         "autoencoder_output",
-        "done_pred"
+        "feats_done",
+        "lens_done",
+        "pred_done",
     ],
 )
 
@@ -68,7 +70,7 @@ class DiffusionBrain(sb.Brain):
             modules, opt_class, hparams, run_opts, checkpointer, profiler
         )
         self.diffusion_mode = DiffusionMode(self.hparams.diffusion_mode)
-        self.use_done_detector = "done_detector" in self.modules        
+        self.use_done_detector = "done_detector" in self.modules
 
     def init_optimizers(self):
         """Initializes the diffusion model optimizer - and the
@@ -77,12 +79,16 @@ class DiffusionBrain(sb.Brain):
             self.optimizer = self.opt_class(self.modules.unet.parameters())
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
-        
+
         if self.use_done_detector:
-            self.optimizer_done = self.hparams.opt_class_done(self.modules.done_detector.parameters())
+            self.optimizer_done = self.hparams.opt_class_done(
+                self.modules.done_detector.parameters()
+            )
             if self.checkpointer is not None:
-                self.checkpointer.add_recoverable("optimizer_done", self.optimizer)
-            
+                self.checkpointer.add_recoverable(
+                    "optimizer_done", self.optimizer
+                )
+
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(
                 self.modules.autoencoder.parameters()
@@ -129,8 +135,11 @@ class DiffusionBrain(sb.Brain):
                 train_sample_diffusion,
                 autoencoder_out,
             ) = self.modules.diffusion_latent.train_sample_latent(
-                feats, length=lens, out_mask_value=mask_value, cond_emb=cond_emb,
-                latent_mask_value=latent_mask_value
+                feats,
+                length=lens,
+                out_mask_value=mask_value,
+                cond_emb=cond_emb,
+                latent_mask_value=latent_mask_value,
             )
             pred, noise, noisy_sample = train_sample_diffusion
         else:
@@ -138,9 +147,12 @@ class DiffusionBrain(sb.Brain):
                 feats, lens=lens, cond_emb=cond_emb
             )
 
-        done_pred = None
+        pred_done, feats_done, lens_done = None, None, None
         if self.use_done_detector:
-            done_pred = self.modules.done_detector(feats.squeeze(1))
+            feats_done, lens_done = self.prepare_features_done(
+                batch, feats, lens
+            )
+            pred_done = self.modules.done_detector(feats_done.squeeze(1))
 
         # NOTE: lens can change because of the additional padding needed to account
         # NOTE: for downsampling
@@ -151,7 +163,9 @@ class DiffusionBrain(sb.Brain):
             feats,
             lens,
             autoencoder_out,
-            done_pred
+            feats_done,
+            lens_done,
+            pred_done,
         )
 
     def compute_latent_mask_value(self, mask_value):
@@ -159,23 +173,28 @@ class DiffusionBrain(sb.Brain):
         space. The core idea is that masked space should
         not produce any sound"""
         with torch.no_grad():
-            fake_feats = torch.ones(
-                1,
-                1,
-                self.hparams.spec_min_sample_size,
-                self.hparams.spec_n_mels            
-            ).to(self.device) * mask_value
-            length = torch.tensor([1.]).to(self.device)
-            latent = self.modules.autoencoder.encode(
-                fake_feats,
-                length=length
+            fake_feats = (
+                torch.ones(
+                    1,
+                    1,
+                    self.hparams.spec_min_sample_size,
+                    self.hparams.spec_n_mels,
+                ).to(self.device)
+                * mask_value
             )
-            latent_mask_value = latent[:, :, :self.hparams.latent_mask_offset, :].mean().item()
+            length = torch.tensor([1.0]).to(self.device)
+            latent = self.modules.autoencoder.encode(fake_feats, length=length)
+            latent_mask_value = (
+                latent[:, :, : self.hparams.latent_mask_offset, :].mean().item()
+            )
             return latent_mask_value
-        
+
     def get_latent_mask_value(self, mask_value):
         """Returns the latent mask value, recomputing it if necessary"""
-        if not self.latent_mask_value or self.step < self.hparams.latent_mask_recompute_steps:
+        if (
+            not self.latent_mask_value
+            or self.step < self.hparams.latent_mask_recompute_steps
+        ):
             self.latent_mask_value = self.compute_latent_mask_value(mask_value)
         return self.latent_mask_value
 
@@ -241,7 +260,7 @@ class DiffusionBrain(sb.Brain):
             with self.no_sync(not should_step):
                 (loss_done / self.grad_accumulation_factor).backward(
                     retain_graph=True
-                )               
+                )
 
         if should_step:
             if self.train_diffusion and self.check_gradients(loss):
@@ -251,17 +270,16 @@ class DiffusionBrain(sb.Brain):
             if self.use_done_detector:
                 self.optimizer_done.step()
                 self.optimizer_done.zero_grad()
-                
-
 
         # Latent diffusion: Step through the autoencoder
-        if self.diffusion_mode == DiffusionMode.LATENT and loss_autoencoder is not None:
+        if (
+            self.diffusion_mode == DiffusionMode.LATENT
+            and loss_autoencoder is not None
+        ):
             with self.no_sync(not should_step):
-                (
-                    loss_autoencoder / self.grad_accumulation_factor
-                ).backward()
+                (loss_autoencoder / self.grad_accumulation_factor).backward()
             if should_step and self.check_gradients(loss_autoencoder):
-                self.autoencoder_optimizer.step()            
+                self.autoencoder_optimizer.step()
             self.autoencoder_optimizer.zero_grad()
 
             self.optimizer_step += 1
@@ -323,8 +341,11 @@ class DiffusionBrain(sb.Brain):
             stats["done_loss"] = self.done_loss_metric.summarize(
                 field="average"
             )
-                    
-        if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
+
+        if (
+            self.diffusion_mode == DiffusionMode.LATENT
+            and self.train_autoencoder
+        ):
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
             )
@@ -420,6 +441,23 @@ class DiffusionBrain(sb.Brain):
         """
         wavs, lens = batch.sig
 
+        feats, feats_raw, lens = self.sig_to_feats(wavs, lens)
+
+        # Compute metrics
+        if self.hparams.enable_train_metrics:
+            max_len = feats.size(2)
+            mask = length_to_mask(lens * max_len, max_len)[
+                :, None, :, None
+            ].bool()
+            self.data_dist_stats_metric.append(
+                batch.file_name, feats_raw, mask=mask
+            )
+
+        feats_done = None
+
+        return feats, lens
+
+    def sig_to_feats(self, wavs, lens):
         # Compute features
         feats = self.modules.compute_features(wavs)
         feats = feats.transpose(-1, -2)
@@ -443,18 +481,41 @@ class DiffusionBrain(sb.Brain):
         feats = self.modules.global_norm(
             feats_raw, lens, mask_value=self.mask_value_norm
         )
+        return feats, feats_raw, lens
 
-        # Compute metrics
-        if self.hparams.enable_train_metrics:
-            max_len = feats.size(2)
-            mask = length_to_mask(lens * max_len, max_len)[
-                :, None, :, None
-            ].bool()
-            self.data_dist_stats_metric.append(
-                batch.file_name, feats_raw, mask=mask
-            )
+    def prepare_features_done(self, batch, feats, lens):
+        """Prepares features for the done detector (a concatenation of one sample
+        and a random sample)
 
-        return feats, lens
+        Arguments
+        ---------
+        batch: PaddedBatch
+            a single batch of data
+        feats: torch.Tensor
+            spectrogram features
+        lens: torch.Tensor
+            feature lengths
+        
+        Returns
+        -------
+        feats_done: torch.Tensor
+            features for the done detector (a concatenation)
+        lens: torch.Tensor
+            relative lengths of these features
+        
+        """
+        wavs_random, lens_random = batch.sig_random
+        feats_random, _, lens_random = self.sig_to_feats(
+            wavs_random, lens_random
+        )
+        feats_done, lens_done = data_utils.concat_padded_features(
+            feats=[feats, feats_random],
+            lens=[lens, lens_random],
+            feats_slice_start=[0.0, self.hparams.done_random_start_offset],
+            feats_slice_end=[0.0, self.hparams.done_random_end_offset],
+            dim=2,
+        )
+        return feats_done, lens_done
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -474,14 +535,28 @@ class DiffusionBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
 
-        preds, noise, noisy_sample, feats, lens, autoencoder_out, done_pred = predictions        
+        (
+            preds,
+            noise,
+            noisy_sample,
+            feats,
+            lens,
+            autoencoder_out,
+            feats_done,
+            lens_done,
+            pred_done,
+        ) = predictions
         if self.train_diffusion:
             # NOTE: Padding of the latent space can affect the lengths
             lens_diffusion = (
-                autoencoder_out.latent_length if self.diffusion_mode == DiffusionMode.LATENT 
-                else lens)
+                autoencoder_out.latent_length
+                if self.diffusion_mode == DiffusionMode.LATENT
+                else lens
+            )
             loss = self.hparams.compute_cost(
-                channels_last(preds), channels_last(noise), length=lens_diffusion
+                channels_last(preds),
+                channels_last(noise),
+                length=lens_diffusion,
             )
         else:
             loss = torch.tensor(0.0, device=self.device)
@@ -495,18 +570,21 @@ class DiffusionBrain(sb.Brain):
             max_len = feats.size(2)
             lens_target = (lens * max_len).int() - 1
             loss_done = self.hparams.compute_cost_done(
-                done_pred.squeeze(-1),
-                lens_target,
+                pred_done.squeeze(-1), lens_target, length=lens_done
             )
             self.done_loss_metric.append(
                 batch.file_name,
-                done_pred.squeeze(-1),
+                pred_done.squeeze(-1),
                 lens_target,
-                reduction="batch"
+                length=lens_done,
+                reduction="batch",
             )
 
         loss_autoencoder = None
-        if self.diffusion_mode == DiffusionMode.LATENT and self.train_autoencoder:
+        if (
+            self.diffusion_mode == DiffusionMode.LATENT
+            and self.train_autoencoder
+        ):
             loss_autoencoder = self.hparams.compute_cost_autoencoder(
                 autoencoder_out, feats, length=lens
             )
@@ -584,21 +662,22 @@ class DiffusionBrain(sb.Brain):
             a list of samples
         
         """
-        done_in = samples.squeeze(1)[:, :, :self.hparams.spec_n_mels]
+        done_in = samples.squeeze(1)[:, :, : self.hparams.spec_n_mels]
         done_pred = self.modules.done_detector(done_in)
-        lens_pred = (done_pred.squeeze() > self.hparams.done_threshold).int().argmax(dim=-1)
+        lens_pred = (
+            (done_pred.squeeze() > self.hparams.done_threshold)
+            .int()
+            .argmax(dim=-1)
+        )
         # NOTE: A poorly trained "done detector" may not cross the threshold
         # at all - in this case the sample will not be "cut"
         lens_pred[lens_pred == 0] = samples.size(2)
         samples_cut = [
-            sample[:, :length, :]
-            for sample, length in zip(samples, lens_pred)
+            sample[:, :length, :] for sample, length in zip(samples, lens_pred)
         ]
-        wav_lens_pred = (
-            lens_pred / samples.size(2) * wav.size(-1)).int()
+        wav_lens_pred = (lens_pred / samples.size(2) * wav.size(-1)).int()
         wav_cut = [
-            sample[:length]
-            for sample, length in zip(wav, wav_lens_pred)
+            sample[:length] for sample, length in zip(wav, wav_lens_pred)
         ]
         return samples_cut, wav_cut
 
@@ -777,14 +856,9 @@ class DiffusionBrain(sb.Brain):
         """
         file_name = os.path.join(path, "raw.pt")
         data = {
-            key: value
-            for key, value in kwargs.items()
-            if value is not None
+            key: value for key, value in kwargs.items() if value is not None
         }
-        torch.save(
-            data,
-            file_name
-        )
+        torch.save(data, file_name)
 
     def save_spectrogram_sample(self, sample, file_name):
         """Saves a single spectrogram sample as an image
@@ -912,7 +986,7 @@ class DiffusionBrain(sb.Brain):
         )
         self.train_autoencoder = (
             (epoch is not None)
-            and (self.diffusion_mode == DiffusionMode.LATENT) 
+            and (self.diffusion_mode == DiffusionMode.LATENT)
             and (epoch <= self.hparams.train_autoencoder_stop_epoch)
         )
 
@@ -1041,7 +1115,7 @@ class DiffusionBrain(sb.Brain):
                 "labels": labels,
                 "samples": samples,
                 "samples_denorm": samples_denorm,
-                "wav": wav
+                "wav": wav,
             }
             if self.diffusion_mode == DiffusionMode.LATENT:
                 samples_rec, wav_rec = self.generate_rec_samples()
@@ -1052,7 +1126,7 @@ class DiffusionBrain(sb.Brain):
                 data["samples_cut"] = samples_cut
                 data["wav_cut"] = wav_cut
             self.log_epoch(data, epoch, stage)
-        
+
     def generate_reference_samples(self, batch):
         """Generate an audio sample from one of the spectrograms
         using the same normalization techniques
@@ -1096,7 +1170,14 @@ class DiffusionBrain(sb.Brain):
         epoch_sample_path = os.path.join(self.hparams.sample_folder, str(epoch))
         samples, samples_denorm, wav, labels, samples_rec, wav_rec = [
             data.get(key)
-            for key in ["samples", "samples_denorm", "wav", "labels", "samples_rec", "wav_rec"]
+            for key in [
+                "samples",
+                "samples_denorm",
+                "wav",
+                "labels",
+                "samples_rec",
+                "wav_rec",
+            ]
         ]
         if not torch.is_tensor(samples):
             samples = torch.stack(samples)
@@ -1112,14 +1193,14 @@ class DiffusionBrain(sb.Brain):
             )
             if wav_rec is not None:
                 self.save_audio(wav_rec, epoch_sample_path, folder="wav_rec")
-        
+
         self.save_raw(
             spec=samples,
             spec_denorm=samples_denorm,
             wav=wav,
             spec_rec=samples_rec,
             wav_rec=wav_rec,
-            path=epoch_sample_path
+            path=epoch_sample_path,
         )
         if self.hparams.use_tensorboard:
             sample_mean_stats = self.sample_mean_metric.summarize()
@@ -1143,7 +1224,8 @@ class DiffusionBrain(sb.Brain):
             samples_log = data.get("samples_cut", samples)
             wav_log = data.get("wav_log", wav)
             self.log_samples(
-                spectrogram_samples=samples_log, wav_samples=wav_log)
+                spectrogram_samples=samples_log, wav_samples=wav_log
+            )
             if self.diffusion_mode == DiffusionMode.LATENT:
                 self.log_samples(
                     spectrogram_samples=samples_rec,
@@ -1178,9 +1260,7 @@ class DiffusionBrain(sb.Brain):
         if key_prefix is None:
             key_prefix = ""
         if lens is None:
-            lens = torch.ones(
-                len(spectrogram_samples), device=self.device
-            )
+            lens = torch.ones(len(spectrogram_samples), device=self.device)
         if self.hparams.use_tensorboard:
             for sample in spectrogram_samples:
                 self.hparams.tensorboard_train_logger.log_figure(
@@ -1202,8 +1282,10 @@ class DiffusionBrain(sb.Brain):
 
 DATASET_SPLITS = ["train", "valid", "test"]
 
+
 def channels_last(feats):
     return feats.transpose(1, -1)
+
 
 def apply_sort(hparams, dataset):
     if hparams["sort"]:
@@ -1252,18 +1334,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         """Load the signal, and output it"""
-        if not os.path.isabs(wav):
-            wav = os.path.join(hparams["data_save_folder"], wav)
-        sig = sb.dataio.dataio.read_audio(wav)
-
-        # To Support random amplitude
-        if hparams["rand_amplitude"]:
-            rand_amp = (hparams["max_amp"] - hparams["min_amp"]) * torch.rand(
-                1
-            ) + hparams["min_amp"]
-            sig = sig / sig.abs().max()
-            sig = sig * rand_amp
-        return sig
+        return read_audio(wav, hparams)
 
     @sb.utils.data_pipeline.takes("digit", "speaker_id")
     @sb.utils.data_pipeline.provides("digit_label", "speaker_label")
@@ -1277,12 +1348,17 @@ def dataio_prep(hparams):
     dataset_splits = load_dataset(hparams)
     dataset_splits_values = dataset_splits.values()
 
+    output_keys = ["file_name", "sig", "digit_label", "speaker_label"]
+    if "done_detector" in hparams:
+        output_keys += ["file_name_random", "sig_random"]
+
     sb.dataio.dataset.set_output_keys(
-        dataset_splits_values,
-        ["file_name", "sig", "digit_label", "speaker_label"],
+        dataset_splits_values, output_keys,
     )
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, audio_pipeline)
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, labels_pipeline)
+    for dataset_split in dataset_splits_values:
+        enhance_with_random(dataset_split, hparams)
 
     train_split = dataset_splits["train"]
     data_count = None
@@ -1294,6 +1370,44 @@ def dataio_prep(hparams):
     dataset_splits["train"] = train_split
 
     return dataset_splits
+
+
+def read_audio(wav, hparams):
+    """Reads an audio file, applying random amplitude
+    
+    Arguments
+    ---------
+    wav: str
+        the file name (absolute or relative)
+    hparams: dict
+        hyperparameters
+    """
+    if not os.path.isabs(wav):
+        wav = os.path.join(hparams["data_save_folder"], wav)
+    sig = sb.dataio.dataio.read_audio(wav)
+
+    # To Support random amplitude
+    if hparams["rand_amplitude"]:
+        rand_amp = (hparams["max_amp"] - hparams["min_amp"]) * torch.rand(
+            1
+        ) + hparams["min_amp"]
+        sig = sig / sig.abs().max()
+        sig = sig * rand_amp
+    return sig
+
+
+def enhance_with_random(dataset, hparams):
+    item_count = len(dataset)
+
+    @sb.utils.data_pipeline.provides("file_name_random", "sig_random")
+    def extra_random_sample():
+        idx = torch.randint(item_count, (1,)).item()
+        data_id = dataset.data_ids[idx]
+        data_item = dataset.data[data_id]
+        wav_random = data_item["file_name"]
+        return wav_random, read_audio(wav_random, hparams)
+
+    dataset.add_dynamic_item(extra_random_sample)
 
 
 def non_batch_dims(sample):
