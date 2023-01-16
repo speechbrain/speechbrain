@@ -15,6 +15,7 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
 language: italian #Language for whsiper tokenizer. It should be compatible with <locale> 
+test_only: False
 
 # Normalize the english inputs with
 # the same normalization done in the paper

@@ -53,6 +53,8 @@ label_smoothing: 0
 # With DDP batch_size is multiplied by N jobs
 batch_size: 12
 test_batch_size: 8
+test_only: False
+
 
 # These values are only used for the searchers.
 # They needs to be hardcoded and should not be changed with Whisper.

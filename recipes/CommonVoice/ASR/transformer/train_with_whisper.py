@@ -307,15 +307,15 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
-
-    # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["train_loader_kwargs"],
-        valid_loader_kwargs=hparams["valid_loader_kwargs"],
-    )
+    if hparams['test_only'] == False:
+        # Training
+        asr_brain.fit(
+            asr_brain.hparams.epoch_counter,
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["train_loader_kwargs"],
+            valid_loader_kwargs=hparams["valid_loader_kwargs"],
+        )
 
     # Testing
     asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
