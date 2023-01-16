@@ -411,7 +411,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
 
         sequence_length = self.model._get_feat_extract_output_lengths(
             raw_sequence_length
-        )
+        ).item()
 
         # 1. Compute the indices that will be masked
         mask_time_indices = _compute_mask_indices(
