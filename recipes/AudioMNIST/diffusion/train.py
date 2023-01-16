@@ -1180,12 +1180,14 @@ class DiffusionBrain(sb.Brain):
         ]
         if not torch.is_tensor(samples):
             samples = torch.stack(samples)
-        self.save_spectrograms(samples, epoch_sample_path, labels=labels)
+        samples_log = data.get("samples_cut", samples)
+        wav_log = data.get("wav_cut", wav)
+        self.save_spectrograms(samples_log, epoch_sample_path, labels=labels)
         sample_ids = torch.arange(1, len(samples) + 1)
         for metric in self.sample_metrics:
             metric.append(sample_ids, samples)
         if wav is not None:
-            self.save_audio(wav, epoch_sample_path, labels=labels)
+            self.save_audio(wav_log, epoch_sample_path, labels=labels)
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.save_spectrograms(
                 samples_rec, epoch_sample_path, folder="spec_rec"
@@ -1220,8 +1222,6 @@ class DiffusionBrain(sb.Brain):
             self.hparams.tensorboard_train_logger.log_stats(
                 stats_meta={"step": self.step}, **stats_args
             )
-            samples_log = data.get("samples_cut", samples)
-            wav_log = data.get("wav_log", wav)
             self.log_samples(
                 spectrogram_samples=samples_log, wav_samples=wav_log
             )
@@ -1266,7 +1266,9 @@ class DiffusionBrain(sb.Brain):
                     f"{key_prefix}spectrogram", sample
                 )
             if wav_samples is not None:
-                max_len = wav_samples.size(-1)
+                max_len = max(
+                    sample.size(-1) for sample in wav_samples
+                )
                 lens_full = (lens * max_len).int()
                 for wav_sample, sample_len in zip(wav_samples, lens_full):
                     self.tb_writer.add_audio(
