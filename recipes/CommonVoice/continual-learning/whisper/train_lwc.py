@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a Whisper-based ASR system with Common Voice in a continual learning fashion via
-elastic weight consolidation. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+learning without forgetting. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,7 +15,7 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_ewc.py hparams/<config_file>.yaml
+> python train_lwf.py hparams/<config_file>.yaml
 
 Authors
  * Pooneh Mousavi 2022
@@ -80,7 +80,12 @@ class ASR(sb.Brain):
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
         if stage == sb.Stage.TRAIN:
+            # Temperature of the new softmax proposed in 'Distillation of Knowledge'
             T=hparams['lwc_T']
+            # Used to balance the new class loss1 and the old class loss2
+            # Loss1 is the cross entropy between output of the new task and label
+            # Loss2 is the cross entropy between output of the old task and output of the old model
+            # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax. 
             outputs_S = F.softmax(logits.flatten(end_dim=-2)[:,:self.old_features]/T,dim=1)
             outputs_T = F.softmax(soft_logits.flatten(end_dim=-2)/T,dim=1)
             # Cross entropy between output of the old task and output of the old model

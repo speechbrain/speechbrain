@@ -10,7 +10,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Data preparation
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
-download_dir: data/common_voice_10_0
+download_dir: data
 
 # Output directories
 output_dir: !ref results/whisper_lwf/<seed>
@@ -34,8 +34,8 @@ num_epochs: 1
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-lwc_alpha: 0.01
-lwc_T: 2
+lwf_alpha: 0.01
+lwf_T: 2
 
 whisper_variant: openai/whisper-tiny
 encoder_only: False
