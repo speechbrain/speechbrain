@@ -580,7 +580,7 @@ class DiffusionBrain(sb.Brain):
                 pred_done.squeeze(-1),
                 lens_target,
                 length=lens_done,
-                reduction="batch",
+                reduction="batch",  
             )
 
         loss_autoencoder = None
@@ -667,11 +667,7 @@ class DiffusionBrain(sb.Brain):
         """
         done_in = samples.squeeze(1)[:, :, : self.hparams.spec_n_mels]
         done_pred = self.modules.done_detector(done_in)
-        lens_pred = (
-            (done_pred.squeeze() > self.hparams.done_threshold)
-            .int()
-            .argmax(dim=-1)
-        )
+        lens_pred = done_pred.squeeze().argmax(dim=-1)
         # NOTE: A poorly trained "done detector" may not cross the threshold
         # at all - in this case the sample will not be "cut"
         lens_pred[lens_pred == 0] = samples.size(2)

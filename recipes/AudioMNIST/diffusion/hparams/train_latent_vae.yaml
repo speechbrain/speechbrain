@@ -126,7 +126,6 @@ done_rnn_layers: 2
 done_rnn_neurons: 32
 done_dnn_blocks: 1
 done_dnn_neurons: 32
-done_threshold: 0.5
 
 
 # Vocoder Settings

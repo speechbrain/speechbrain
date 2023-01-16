@@ -125,8 +125,6 @@ done_rnn_layers: 2
 done_rnn_neurons: 32
 done_dnn_blocks: 1
 done_dnn_neurons: 32
-done_threshold: 0.5
-
 
 # Vocoder Settings
 vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
@@ -286,21 +284,21 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
 
 opt_class_autoencoder: !name:torch.optim.AdamW
     lr: !ref <lr_autoencoder>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
 
 opt_class_done: !name:torch.optim.AdamW
     lr: !ref <lr>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    #capturable: True
+    capturable: True
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
