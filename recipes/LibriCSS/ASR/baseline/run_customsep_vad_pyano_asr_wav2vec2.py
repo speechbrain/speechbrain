@@ -108,7 +108,7 @@ def apply_pipeline(sep_model, vad_model, asr_model, wav_file, tmp_dir=".", tmp_n
     return ctm_results
 
 
-def process_streams(output_streams, boundaries, wav_len):
+def process_streams(output_streams, wav_len):
     first_ests, _, _ = output_streams[0]
     recordings = torch.zeros(first_ests.shape)
     for est_srcs, start_n, end_n in output_streams:
