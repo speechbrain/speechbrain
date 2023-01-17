@@ -116,13 +116,11 @@ if __name__ == "__main__":
     for mod in [
         "encoder",
         "embedding",
-        # "decoder",
-    ]:  # ctc_lin & seq_lin are part of the asr_model, but cheap to train
+    ]:  # decoder, ctc_lin & seq_lin are for fine-tuning
         for param in getattr(asr_brain.modules, mod).parameters():
             param.requires_grad = False
 
     # Fine-tuning
-    """
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         datasets["train"],
@@ -137,7 +135,6 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
-    """
 
     # Save so it can be found as pre-trained model source
     if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
@@ -168,7 +165,6 @@ if __name__ == "__main__":
         fetch_from=FetchFrom.LOCAL,
         run_opts=deepcopy(run_opts),
     )
-    print(f"dev: {pretrained_asr.device}")
 
     # Re:testing w/ previous dataloader
     test_set = test_datasets
@@ -176,6 +172,8 @@ if __name__ == "__main__":
         isinstance(test_set, DataLoader)
         or isinstance(test_set, LoopedLoader)
     ):
+        if "ckpt_prefix" in test_loader_kwargs:
+            del test_loader_kwargs["ckpt_prefix"]
         test_set = make_dataloader(test_set, **test_loader_kwargs)
 
     with torch.no_grad():
