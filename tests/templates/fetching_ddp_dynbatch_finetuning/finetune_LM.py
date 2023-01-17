@@ -7,6 +7,7 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
+import os
 import sys
 import torch
 import logging
@@ -16,7 +17,6 @@ from functools import partial
 from tqdm.contrib import tqdm
 from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.nnet.losses import nll_loss
 from speechbrain.pretrained import EncoderDecoderASR
 from speechbrain.pretrained.fetching import FetchFrom
 from speechbrain.utils.distributed import run_on_main
@@ -29,63 +29,9 @@ from ASR_template_train import ASR, dataio_prepare
 logger = logging.getLogger(__name__)
 
 
-def eval_reporting(set_k, reports):
+def eval_reporting(reports):
     for log_metric, specs in reports.items():
-        logger.log_stats(
-            stats_meta={"set": set_k, "metric": log_metric},
-            test_stats=specs["tracker"].summarize(specs["field"]),
-        )
-
-
-def lm_compute_forward(self, batch, stage):
-    """From templates/speech_recognition/ASR/train.py:compute_forward
-
-    Uses lm_model & S2SRNNBeamSearchLM directly.
-    """
-    # We first move the batch to the appropriate device.
-    batch = batch.to(self.device)
-    feats, self.feat_lens = self.prepare_features(stage, batch.sig)
-    tokens_bos, _ = self.prepare_tokens(stage, batch.tokens_bos)
-
-    # Running the encoder (prevent propagation to feature extraction)
-    encoded_signal = self.modules.encoder(feats.detach())
-
-    # Embed tokens and pass tokens & encoded signal to decoderi
-    """
-    embedded_tokens = self.modules.embedding(tokens_bos)
-    decoder_outputs, _ = self.modules.decoder(
-        embedded_tokens, encoded_signal, self.feat_lens
-    )
-    """
-
-    # Output layer
-    pred = {}
-    pred["tokens"], _, pred["logp"] = self.hparams.train_valid_test_search(
-        encoded_signal, self.feat_lens
-    )
-    pred["logp"], _ = batch_pad_right(pred["logp"])
-
-    return pred
-
-
-def lm_compute_objectives(self, predictions, batch, stage):
-    batch = batch.to(self.device)
-    # Compute sequence loss against targets with EOS
-    tokens_eos, tokens_lens = self.prepare_tokens(stage, batch.tokens_eos)
-    loss = nll_loss(predictions["logp"], tokens_eos, length=tokens_lens)
-    if stage != sb.Stage.TRAIN:
-        # Converted predicted tokens from indexes to words
-        predicted_words = [
-            self.hparams.tokenizer.decode_ids(prediction).split(" ")
-            for prediction in predictions["tokens"]
-        ]
-        target_words = [words.split(" ") for words in batch.words]
-
-        # Monitor word error rate and character error rated at valid and test time.
-        self.wer_metric.append(batch.id, predicted_words, target_words)
-        self.cer_metric.append(batch.id, predicted_words, target_words)
-
-    return loss
+        logger.info(f'{log_metric}: {specs["tracker"].summarize(specs["field"])}')
 
 
 if __name__ == "__main__":
@@ -160,32 +106,23 @@ if __name__ == "__main__":
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
-        run_opts=run_opts,
+        run_opts=deepcopy(run_opts),
         checkpointer=hparams["checkpointer"],
     )
-
-    # Monkey patching: compute_forward & ensure return_log_probs for train_valid_test_search decoder
-    setattr(
-        asr_brain, "compute_forward", partial(lm_compute_forward, asr_brain)
-    )
-    setattr(
-        asr_brain,
-        "compute_objectives",
-        partial(lm_compute_objectives, asr_brain),
-    )
-    asr_brain.hparams.train_valid_test_search.return_log_probs = True
-    # Seriously, create your own class & prepare a YAML that works right away :)
+    asr_brain.hparams.valid_search = asr_brain.hparams.valid_search.to(asr_brain.device)
+    asr_brain.hparams.test_search = asr_brain.hparams.test_search.to(asr_brain.device)
 
     # Freeze all but LM
     for mod in [
         "encoder",
         "embedding",
-        "decoder",
+        # "decoder",
     ]:  # ctc_lin & seq_lin are part of the asr_model, but cheap to train
         for param in getattr(asr_brain.modules, mod).parameters():
             param.requires_grad = False
 
     # Fine-tuning
+    """
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         datasets["train"],
@@ -200,17 +137,22 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
+    """
+
+    # Save so it can be found as pre-trained model source
+    if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
+        asr_brain.checkpointer.save_checkpoint(name="latest")
 
     # Clean-up memory (for using EncoderDecoderASR interface only) but preserve testing-relevant objects
     test_datasets = deepcopy(datasets["test"])
     reporting = {
         "WER": {
             "field": "error_rate",
-            "tracker": deepcopy(hparams["error_rate_computer"]),
+            "tracker": deepcopy(hparams["error_rate_computer"]()),
         },
         "CER": {
             "field": "error_rate",
-            "tracker": deepcopy(hparams["cer_computer"]),
+            "tracker": deepcopy(hparams["cer_computer"]()),
         },
     }
     test_loader_kwargs = deepcopy(hparams["test_dataloader_opts"])
@@ -218,42 +160,48 @@ if __name__ == "__main__":
 
     # Pre-trained interface
     pretrained_asr = EncoderDecoderASR.from_hparams(
-        source="pretrained.yaml",
-        savedir="pretrained_models",
-        run_opts={"device": run_opts["device"]},
+        # source="speechbrain/asr-crdnn-rnnlm-librispeech",
+        # fetch_from=FetchFrom.HUGGING_FACE,
+        source="source_pretrained",
+        savedir="source_pretrained",
+        hparams_file="pretrained.yaml",
+        fetch_from=FetchFrom.LOCAL,
+        run_opts=deepcopy(run_opts),
     )
+    print(f"dev: {pretrained_asr.device}")
 
-    # Re:testing
-    for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        test_set = test_datasets[k]
-        if not (
-            isinstance(test_set, DataLoader)
-            or isinstance(test_set, LoopedLoader)
-        ):
-            test_set = make_dataloader(test_set, **test_loader_kwargs)
+    # Re:testing w/ previous dataloader
+    test_set = test_datasets
+    if not (
+        isinstance(test_set, DataLoader)
+        or isinstance(test_set, LoopedLoader)
+    ):
+        test_set = make_dataloader(test_set, **test_loader_kwargs)
 
-        with torch.no_grad():
-            for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
-                batch = batch.to(pretrained_asr.device)
-                # instead of using batch.sig, we desire to see pretrained_asr.load_audio in action
-                wavs = []
-                for audio in batch.wav:
-                    wavs.append(pretrained_asr.load_audio(path=audio))
-                wavs, wav_lens = batch_pad_right(wavs)
-                wavs, wav_lens = (
-                    wavs.to(pretrained_asr.device),
-                    wav_lens.to(pretrained_asr.device),
+    with torch.no_grad():
+        for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
+            # instead of using batch.sig, we desire to see pretrained_asr.load_audio in action
+            # wavs = []
+            #for audio in batch.wavs:
+            #    wavs.append(pretrained_asr.load_audio(path=audio))
+            # wavs, wav_lens = batch_pad_right(wavs)
+            # predictions = pretrained_asr.transcribe_batch(wavs, wav_lens)
+            # wavs, wav_lens = batch.sig
+            # wav_lens = wav_lens.to(pretrained_asr.device)
+            #enc = pretrained_asr.encode_batch(wavs, wav_lens)
+            #predictions = pretrained_asr.mods.decoder(enc, wav_lens)
+            batch = batch.to(pretrained_asr.device)
+            predictions = pretrained_asr.transcribe_batch(*batch.sig)
+            predicted = [wrd.split(" ") for wrd in predictions[0]]
+            targeted = [wrd.split(" ") for wrd in batch.words]
+            ids = batch.id
+            for metric in reporting.keys():
+                reporting[metric]["tracker"].append(
+                    ids=ids, predict=predicted, target=targeted
                 )
-                predictions = pretrained_asr.classify_batch(wavs, wav_lens)
-                predicted = [wrd.split(" ") for wrd in predictions[0]]
-                targeted = [wrd.split(" ") for wrd in batch.wrd]
-                ids = batch.id
-                for metric in reporting.keys():
-                    reporting[metric]["tracker"].append(
-                        ids=ids, predict=predicted, target=targeted
-                    )
 
-            # Reporting summary on main process
-            run_on_main(
-                eval_reporting, kwargs={"set_k": k, "reports": reporting}
-            )
+        # Reporting summary on main process
+        run_on_main(
+            eval_reporting, kwargs={"reports": reporting}
+        )
+

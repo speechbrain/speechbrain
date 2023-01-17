@@ -106,9 +106,7 @@ def fetch(
     savedir = pathlib.Path(savedir)
     savedir.mkdir(parents=True, exist_ok=True)
     sourcefile = f"{source}/{filename}"
-    if (pathlib.Path(source).is_dir() or fetch_from is FetchFrom.LOCAL) and (
-        fetch_from is not FetchFrom.HUGGING_FACE
-    ):
+    if pathlib.Path(source).is_dir() and fetch_from not in [FetchFrom.HUGGING_FACE, FetchFrom.ONLINE]:
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
         MSG = f"Destination {filename}: local file in {str(sourcepath)}."
@@ -147,6 +145,7 @@ def fetch(
                 revision=revision,
                 cache_dir=cache_dir,
             )
+            print(f'HF fetch: {fetched_file}')
         except HTTPError as e:
             if "404 Client Error" in str(e):
                 raise ValueError("File not found on HF hub")

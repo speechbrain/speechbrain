@@ -34,31 +34,32 @@ test_annotation: ../../../templates/speech_recognition/test.json
 
 # Training parameters
 number_of_epochs: 2
-number_of_ctc_epochs: 0
+number_of_ctc_epochs: 1
 batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
 ckpt_interval_minutes: 15 # save checkpoint every N min
 label_smoothing: 0.1
+num_workers: 4
 
 # Dataloader options
 train_dataloader_opts:
     # batch_size: !ref <batch_size>
-    num_workers: 6
+    num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
     # batch_size: !ref <batch_size>
-    num_workers: 6
+    num_workers: !ref <num_workers>
 
 test_dataloader_opts:
     batch_size: !ref <batch_size>
-    num_workers: 6
+    num_workers: !ref <num_workers>
 
 # Using Dynamic Batching to optimise your GPU utilization and decrease your training time.
 # dynamic_batching: True
 dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
-max_batch_size: 64 # Max number of samples per batch, per gpu.
+max_batch_size: !ref <batch_size> # Max number of samples per batch, per gpu.
 dynamic_batch_sampler:
     max_batch_len: !ref <dyn_batch_len>
     max_batch_ex: !ref <max_batch_size>
@@ -127,7 +128,9 @@ model: !new:torch.nn.ModuleList
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <params[blank_index]>
 
-train_valid_test_search: !ref <test_search>
+# train_search: !copy <test_search>
+valid_search: !copy <test_search>
+# test_search: !ref <test_search>
 
 # This function manages learning rate annealing over the epochs.
 # We here use the NewBoB algorithm, that anneals the learning rate if

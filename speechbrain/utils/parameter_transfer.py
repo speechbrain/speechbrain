@@ -216,6 +216,8 @@ class Pretrainer:
             )
             loadable_paths[name] = path
             if fetch_from is FetchFrom.LOCAL:
+                logger.info(f"Set local path in self.paths[{name}] = {path}")
+                self.paths[name] = path
                 self.is_local.append(name)
         return loadable_paths
 
