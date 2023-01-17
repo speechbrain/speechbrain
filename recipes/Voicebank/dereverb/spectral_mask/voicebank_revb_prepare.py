@@ -175,7 +175,6 @@ def prepare_voicebank(
     >>> save_folder = 'exp/Voicebank_exp'
     >>> prepare_voicebank(data_folder, save_folder)
     """
-
     if skip_prep:
         return
 

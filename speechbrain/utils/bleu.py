@@ -1,3 +1,9 @@
+"""Library for computing the BLEU score
+
+Authors
+ * Mirco Ravanelli 2021
+"""
+
 from speechbrain.utils.metric_stats import MetricStats
 
 
@@ -96,7 +102,7 @@ class BLEUStats(MetricStats):
             import sacrebleu
         except ImportError:
             print(
-                "Please install sacrebleu (https://github.com/mjpost/sacreble) in order to use the BLEU metric"
+                "Please install sacrebleu (https://pypi.org/project/sacrebleu/) in order to use the BLEU metric"
             )
 
         scores = sacrebleu.corpus_bleu(self.predicts, self.targets)

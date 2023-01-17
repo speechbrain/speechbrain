@@ -21,7 +21,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | Language | CommonVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
 | French | 2020-12-11 | train_fr.yaml | No | 5.22 | 13.92 | 6.43 | 15.99 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) | [model](https://drive.google.com/drive/folders/1GShpLaX9AOLklwBAOLB9B9lLTn0HsWwS?usp=sharing) | 2xV100 16GB |
-| French | 2020-12-11 | train_fr_with_wav2vec.yaml | No | 6.13 | 11.82 | 9.78 | 13.34 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-fr) | [model](https://drive.google.com/drive/folders/1tjz6IZmVRkuRE97E7h1cXFoGTer7pT73?usp=sharing) | 2xV100 32GB |
+| French | 2020-12-11 | train_fr_with_wav2vec.yaml | No | 6.13 | 11.82 | 9.78 | 13.34 | Not Avail. | 2xV100 32GB |
 | Kinyarwanda | 2020-12-11 | train_rw.yaml | No | 7.30 | 21.36 | 9.55 | 24.27 | Not Avail. | [model](https://drive.google.com/drive/folders/122efLUMYoc1LGoK7O6LIWkSklmjKVGxM?usp=sharing) | 2xV100 32GB |
 | Kinyarwanda | 2020-12-11 | train_rw_with_wav2vec.yaml | No | 5.08 | 15.88 | 8.33 | 18.91 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) | [model](https://drive.google.com/drive/folders/1ceHxyNojY0wXmXyPoyn9xUiH_5B5qgE4?usp=sharing) | 2xV100 16GB |
 | English | 2020-12-11 | train_en.yaml | No | 8.66 | 20.16 | 12.93 | 24.89 | Not Avail. | [model](https://drive.google.com/drive/folders/1FAKRhfu_1gLnkshYGKp-6G9ZVMIUlv9n?usp=sharing) | 2xV100 16GB |
@@ -29,6 +29,8 @@ Here is a list of the different languages that we tested within the CommonVoice 
 | Italian | 2020-12-11 | train_it.yaml | No | 5.14 | 15.59 | 15.40 | 16.61 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-it) | [model](https://drive.google.com/drive/folders/1asxPsY1EBGHIpIFhBtUi9oiyR6C7gC0g?usp=sharing) | 2xV100 16GB |
 | Italian | 2020-12-11 | train_it_with_wav2vec.yaml | No | 3.11 | 8.30 | 5.75 | 9.86 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) | [model](https://drive.google.com/drive/folders/1LKA50Qsr1fM1E3t4PHMWUjlBMS2QGFHj?usp=sharing) | 2xV100 16GB |
 | German | 2021-10-28 | train_de.yaml | No | 4.32 | 13.99 | 4.93 | 15.37 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-de) | -- | 1x V100 16GB |
+
+The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/11NMzY0zV-NqJmPMyZfC3RtT64bYe-G_O?usp=sharing).
 
 ## How to simply use pretrained models to transcribe my audio file?
 

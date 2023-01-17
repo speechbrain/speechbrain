@@ -17,6 +17,8 @@ python train.py hparams/train.yaml
 |:--------:|:----------------:|:-----------:|:--------:|:-------------:|:-----------:|
 | 21-02-09 | train.yaml       | `clean_wav` | 10.12    | Not Available | 1xV100 32GB |
 
+You can find the output folders with the training logs and checkpoints [here](https://drive.google.com/drive/folders/1diFVwth-MKKeNPJFwRdU9ItiFrupddKk?usp=sharing)
+
 ## Training Time
 
 About 4 mins for each epoch with a TESLA V100.

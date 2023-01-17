@@ -489,6 +489,10 @@ class MetricGanBrain(sb.Brain):
             self.checkpointer.add_recoverable("g_opt", self.g_optimizer)
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        self.g_optimizer.zero_grad(set_to_none)
+        self.d_optimizer.zero_grad(set_to_none)
+
 
 # Define audio piplines
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
@@ -511,9 +515,14 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],

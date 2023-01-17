@@ -1,0 +1,212 @@
+# ############################################################################
+# Model: Language model with a transformer neural network (TRANSFORMERLM)
+# Training: LibriG2P
+# Authors:  Ju-Chieh Chou 2020, Jianyuan Zhong 2021, Mirco Ravanelli 2021
+#           Artem Ploujnikov 2021
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 2602
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/TRANSFORMERLM/
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# If you plan to train a system on an HPC cluster with a big dataset,
+# we strongly suggest doing the following:
+# 1- Compress the dataset in a single tar or zip file.
+# 2- Copy your dataset locally (i.e., the local disk of the computing node).
+# 3- Uncompress the dataset in the local folder.
+# 4- Set lm_{train,valid,test}_data with the local path.
+# Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
+# It allows you to read the data much faster without slowing down the shared filesystem.
+data_folder: null
+
+dataset: flexthink/librig2p-nostress-space
+train_data: !ref <data_folder>/sentence_train.json
+valid_data: !ref <data_folder>/sentence_valid.json
+test_data: !ref <data_folder>/sentence_test.json
+data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
+sorting: random
+origins: "*"
+phonemes_count: 43
+
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Tokenizer model (you must use the same tokenizer for LM and ASR training)
+tokenizer_file: <output_folder>/save/phoneme_tokenizer.model
+
+# Training parameters
+number_of_epochs: 20
+batch_size: 80
+lr: 0.001
+accu_steps: 1 # Gradient accumulation to simulate large batch training
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+# Model parameters
+
+emb_dim: 256 # dimension of the embeddings
+transformer_num_heads: 4
+enc_num_layers: 3
+dec_num_layers: 3
+transformer_d_ffn: 2048
+dropout: 0.1
+
+# Outputs
+output_neurons: !ref <phonemes_count> # index(blank/eos/bos) = 0
+bos_index: 1
+eos_index: 2
+blank_index: 3
+
+graphemes:
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
+
+phonemes:
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
+
+
+grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined..
+model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
+    vocab: !ref <phonemes_count>
+    d_model: !ref <emb_dim>
+    nhead: !ref <transformer_num_heads>
+    num_encoder_layers: !ref <enc_num_layers>
+    num_decoder_layers: !ref <dec_num_layers>
+    d_ffn: !ref <transformer_d_ffn>
+    dropout: !ref <dropout>
+    activation: !name:torch.nn.GELU
+    decoder_use_memory: True
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+
+# Cost function used for training the model
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+# This function manages learning rate annealing over the epochs.
+# We here use the NewBoB algorithm, that anneals the learning rate if
+# the improvements over two consecutive epochs is less than the defined
+# threshold.
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    model: !ref <model>
+
+# Tokenizer initialization
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>

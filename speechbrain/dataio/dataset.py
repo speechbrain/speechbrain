@@ -300,6 +300,7 @@ class DynamicItemDataset(Dataset):
         """Returns a list of data ids, fulfilling the sorting and filtering."""
 
         def combined_filter(computed):
+            """Applies filter."""
             for key, limit in key_min_value.items():
                 # NOTE: docstring promises >= so using that.
                 # Mathematically could also use < for nicer syntax, but
@@ -371,6 +372,7 @@ class DynamicItemDataset(Dataset):
         """Loading a prepared huggingface dataset"""
         # define an unbound method to generate puesdo keys
         def keys(self):
+            "Returns the keys."
             return [i for i in range(dataset.__len__())]
 
         # bind this method to arrow dataset

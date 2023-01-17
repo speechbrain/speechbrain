@@ -9,6 +9,7 @@ Use the `download_vctk` function in `voicebank_prepare.py` to download the datas
 and resample it to 16000 Hz. To run an experiment, execute the following command in
 the current folder:
 
+
 ```bash
 python train.py hparams/train_dnsmos.yaml --data_folder /path/to/data_folder
 ```

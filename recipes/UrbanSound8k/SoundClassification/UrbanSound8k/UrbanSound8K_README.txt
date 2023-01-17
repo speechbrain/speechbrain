@@ -8,7 +8,6 @@ Justin Salamon*^, Christopher Jacoby* and Juan Pablo Bello*
 * Music and Audio Research Lab (MARL), New York University, USA
 ^ Center for Urban Science and Progress (CUSP), New York University, USA
 http://serv.cusp.nyu.edu/projects/urbansounddataset
-http://marl.smusic.nyu.edu/
 http://cusp.nyu.edu/
 
 Version 1.0

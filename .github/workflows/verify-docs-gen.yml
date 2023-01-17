@@ -1,0 +1,26 @@
+name: Verify docs generation
+
+# Runs on pushes to master and all pull requests
+on:    # yamllint disable-line rule:truthy
+    push:
+        branches: [main, develop]
+    pull_request:
+
+jobs:
+    docs:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Setup Python 3.8
+              uses: actions/setup-python@v2
+              with:
+                  python-version: '3.8'
+            - name: Full dependencies
+              run: |
+                  pip install -r requirements.txt
+                  pip install --editable .
+                  pip install -r docs/docs-requirements.txt
+            - name: Generate docs
+              run: |
+                  cd docs
+                  make html

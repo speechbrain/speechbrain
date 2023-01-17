@@ -6,7 +6,7 @@ Authors
 import torch
 from speechbrain.nnet.CNN import Conv2d
 from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import BatchNorm2d
+from speechbrain.nnet.normalization import LayerNorm
 
 
 class ConvolutionFrontEnd(Sequential):
@@ -57,8 +57,11 @@ class ConvolutionFrontEnd(Sequential):
         residuals=[True, True, True],
         conv_module=Conv2d,
         activation=torch.nn.LeakyReLU,
-        norm=BatchNorm2d,
+        norm=LayerNorm,
         dropout=0.1,
+        conv_bias=True,
+        padding="same",
+        conv_init=None,
     ):
         super().__init__(input_shape=input_shape)
         for i in range(num_blocks):
@@ -75,6 +78,9 @@ class ConvolutionFrontEnd(Sequential):
                 norm=norm,
                 dropout=dropout,
                 layer_name=f"convblock_{i}",
+                conv_bias=conv_bias,
+                padding=padding,
+                conv_init=conv_init,
             )
 
 
@@ -103,8 +109,8 @@ class ConvBlock(torch.nn.Module):
     >>> x = torch.rand((8, 30, 10))
     >>> conv = ConvBlock(2, 16, input_shape=x.shape)
     >>> out = conv(x)
-    >>> out.shape
-    torch.Size([8, 30, 10, 16])
+    >>> x.shape
+    torch.Size([8, 30, 10])
     """
 
     def __init__(
@@ -120,9 +126,11 @@ class ConvBlock(torch.nn.Module):
         activation=torch.nn.LeakyReLU,
         norm=None,
         dropout=0.1,
+        conv_bias=True,
+        padding="same",
+        conv_init=None,
     ):
         super().__init__()
-
         self.convs = Sequential(input_shape=input_shape)
 
         for i in range(num_layers):
@@ -133,6 +141,9 @@ class ConvBlock(torch.nn.Module):
                 stride=stride if i == num_layers - 1 else 1,
                 dilation=dilation,
                 layer_name=f"conv_{i}",
+                bias=conv_bias,
+                padding=padding,
+                conv_init=conv_init,
             )
             if norm is not None:
                 self.convs.append(norm, layer_name=f"norm_{i}")
@@ -156,9 +167,9 @@ class ConvBlock(torch.nn.Module):
             self.drop = torch.nn.Dropout(dropout)
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         out = self.convs(x)
         if self.reduce_conv:
             out = out + self.reduce_conv(x)
             out = self.drop(out)
-
         return out

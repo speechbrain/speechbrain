@@ -63,7 +63,6 @@ number_of_epochs: 50
 valid_search_eopch: 10
 batch_size: 8 # this works for 2 GPUs with 11GB
 gradient_accumulation: 8
-gradient_clipping: 5.0
 loss_reduction: batchmean
 sorting: random
 
@@ -125,7 +124,6 @@ label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -181,6 +179,7 @@ modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
+    asr_seq_lin: !ref <asr_seq_lin>
     ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList

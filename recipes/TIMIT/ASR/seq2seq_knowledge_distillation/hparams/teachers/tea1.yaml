@@ -48,7 +48,7 @@ eos_index: !ref <output_neurons> - 1
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
-eos_threshold: 1.5
+# eos_threshold: 1.5
 
 # Dataloader options
 train_dataloader_opts:

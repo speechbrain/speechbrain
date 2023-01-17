@@ -156,12 +156,14 @@ class GeneratorDynamicItem(DynamicItem):
         return out
 
     def next_takes(self):
+        """The next argkeys to provide to this, when called."""
         if not self.current_generator:
             return self.takes
         else:
             return []
 
     def next_provides(self):
+        """The next keys that this provides, when called."""
         keys = self.provides[self.num_provided_items]
         # Support multiple yielded values like:
         # @yields("wav_read", ["left_ch", "right_ch"])
@@ -171,6 +173,9 @@ class GeneratorDynamicItem(DynamicItem):
             return keys
 
     def provided_in_order(self):
+        """Assuming that this may need to be called multiple times; which keys
+        does it provide at that call. Returns a list, with len equal to the
+        number of times that this may be called."""
         in_order = []
         for keys in self.provides:
             # Support multiple yielded values like:
@@ -182,6 +187,8 @@ class GeneratorDynamicItem(DynamicItem):
         return in_order
 
     def reset(self):
+        """Signals that this will not be called any more times on this pipeline
+        call."""
         if self.current_generator is not None:
             self.current_generator.close()
         self.current_generator = None
@@ -213,6 +220,7 @@ def takes(*argkeys):
     """
 
     def decorator(obj):
+        """Decorator definition."""
         if isinstance(obj, DynamicItem):
             if obj.takes:
                 raise ValueError("Can't overwrite DynamicItem.takes")
@@ -267,6 +275,7 @@ def provides(*output_keys):
     """
 
     def decorator(obj):
+        """Decorator definition."""
         if isinstance(obj, DynamicItem):
             if obj.provides:
                 raise ValueError("Can't overwrite DynamicItem provides-list.")

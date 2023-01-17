@@ -25,11 +25,10 @@ number_of_epochs: 30
 ctc_epochs: 0
 batch_size: 8
 lr: 0.0001
-token_type: unigram
+# token_type: unigram
 target_type: words
 checkpoint_avg: 5  # average this many checkpoints for eval
 sorting: ascending
-character_coverage: 1.0
 eval_max_key: null
 eval_min_key: null
 train_loader_options:
@@ -50,9 +49,7 @@ ctc_weight: 1.0
 ctc_type: joint  # null, clean, joint
 seq_weight: 1.0
 seq_type: joint  # null, clean, joint
-alignment_weight: 0.0
 label_smoothing: 0.1
-mask_weight: 0.7
 
 # Here, the pretrained models are downloaded from the speechbrain
 # HuggingFace repository. However, a local path pointing to a directory with
@@ -76,7 +73,6 @@ output_neurons: 1000
 blank_index: 0
 bos_index: 0
 eos_index: 0
-unk_index: 0
 
 # Decoding params
 min_decode_ratio: 0.0
@@ -92,13 +88,6 @@ temperature_lm: 1.25
 
 enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
-
-enhance_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        enhance_model: !ref <enhance_model[enhance_model]>
-    paths:
-        enhance_model: !ref <pretrained_enhance_path>/enhance_model.ckpt
 
 normalizer: !new:speechbrain.processing.features.InputNormalization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
@@ -119,11 +108,13 @@ model: !new:torch.nn.ModuleList
 asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
+        enhance_model: !ref <enhance_model[enhance_model]>
         normalizer: !ref <normalizer>
         tokenizer: !ref <tokenizer>
         asr_model: !ref <model>
         lm: !ref <asr_model[lm_model]>
     paths:
+        enhance_model: !ref <pretrained_enhance_path>/enhance_model.ckpt
         normalizer: !ref <pretrained_asr_path>/normalizer.ckpt
         tokenizer: !ref <pretrained_asr_path>/tokenizer.ckpt
         asr_model: !ref <pretrained_asr_path>/asr.ckpt
@@ -138,18 +129,8 @@ compute_stft: !new:speechbrain.processing.features.STFT
     win_length: !ref <win_length>
     hop_length: !ref <hop_length>
 
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
-
 spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
     power: 0.5
-
-resynth: !name:speechbrain.processing.signal_processing.resynthesize
-    stft: !ref <compute_stft>
-    istft: !ref <compute_istft>
 
 env_corr: !new:speechbrain.lobes.augment.EnvCorrupt
     openrir_folder: !ref <data_folder_rirs>
@@ -182,9 +163,6 @@ beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
     temperature: !ref <temperature>
     temperature_lm: !ref <temperature_lm>
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
-
 opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
     weight_decay: 0.00005
@@ -215,16 +193,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
         normalizer: !ref <normalizer>
 
-pretrain_checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: pretrain
-    recoverables:
-        model: !ref <model>
-        normalizer: !ref <normalizer>
-
 enhance_loss: !name:speechbrain.nnet.losses.mse_loss
 mimic_loss: !name:speechbrain.nnet.losses.mse_loss
-ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
 seq_loss: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: !ref <label_smoothing>
 

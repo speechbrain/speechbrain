@@ -19,11 +19,11 @@ handled by the WebDataset library.
 
 You have two options how to download and prepare the VoxLingua107 dataset for training the model:
 
-  - Download the VoxLingua107 language-specific zips from http://bark.phon.ioc.ee/voxlingua107/ and convert them
+  - Download the VoxLingua107 language-specific zips from http://bark.phon.ioc.ee/voxlingua107 and convert them
     to WebDataset format. This is the most flexible option, as it allows selecting a subset of VoxLingua107 languages,
     or adding new languages. It will require around 2.2 TB disk space.
 
-  - Download the pre-compiled WebDataset shards from http://bark.phon.ioc.ee/voxlingua107/. It will require around 1.4T of disk space.
+  - Download the pre-compiled WebDataset shards from http://bark.phon.ioc.ee/voxlingua107. It will require around 1.4T of disk space.
 
 
 ### 1st option: download the VoxLingua107 zips and create the Webdataset shards

@@ -3,10 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-SpeechBrain
-=======================================
-
-.. image:: images/logo_noname_rounded_big.png
+.. image:: images/speechbrain-logo.svg
   :width: 400
   :align: center
 
@@ -17,7 +14,7 @@ please refer to the official `Github <https://github.com/speechbrain/speechbrain
 or the official `Website <https://speechbrain.github.io>`
 
 
-Licence
+License
 --------
 
 SpeechBrain is released under the Apache license, version 2.0. The Apache license is a popular BSD-like license.
@@ -38,7 +35,7 @@ Referencing SpeechBrain
       eprint={2106.04624},
       archivePrefix={arXiv},
       primaryClass={eess.AS}
-}
+  }
 
 
 .. toctree::

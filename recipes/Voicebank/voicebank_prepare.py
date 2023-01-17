@@ -408,7 +408,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
         filename = os.path.join(tmp_dir, url.split("/")[-1])
         zip_files.append(filename)
         if not os.path.isfile(filename):
-            logger.info("Downloading " + url)
+            print("Downloading " + url)
             with urllib.request.urlopen(url) as response:
                 with open(filename, "wb") as tmp_file:
                     logger.info("... to " + tmp_file.name)

@@ -1,0 +1,122 @@
+# ################################
+# Model: wav2vec2 BASE (pretraining)
+# Authors: Titouan Parcollet 2021, Yan Gao 2021
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/wav2vec2_pretraining/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the HuggingFace model we want to pretrain (BASE here)
+wav2vec2_hub: facebook/wav2vec2-base
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+train_tsv_file: !ref <data_folder>/validated.tsv  # Standard CommonVoice .tsv files
+dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
+language: en # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+train_csv: !ref <save_folder>/train.csv
+valid_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
+skip_prep: False
+
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
+avoid_if_shorter_than: 1.0
+
+# Training parameters
+# Parameters are corresponding the the ones reported in the official wav2vec2
+# paper (for the masking).
+mask_length: 10
+mask_prob: 0.65
+# freeze_wav2vec: False
+
+number_of_epochs: 100
+lr_adam: 2.0 # This will get reduced by the training scheduler
+weight_decay: 0.01
+d_model: 768  # Needed by the scheduler. 768 is for the BASE w2v2
+sorting: ascending
+auto_mix_prec: False
+sample_rate: 16000
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 12 per GPU to fit 32GB of VRAM
+# IMPORTANT: To train w2v2 model, we recommand to have the effective batch_size
+# higher than 100 (batch_size * nb_gpu * gradient_accumulation)
+# Examples are:
+# 32 Tesla V100 32GB — 12 * 32 * 1
+# 4 Tesla V100 32GB — 12 * 4 * {6-8}
+batch_size: 12
+test_batch_size: 8
+gradient_accumulation: 8
+num_workers: 4
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: !ref <num_workers>
+
+# IMPORTANT 2: We encourage you to use dynamic batching by setting it to True
+# Instead of the default setting. While the recipe will work directly by setting
+# it to True, you will first need to read the tutorial on dynamic batching to
+# properly adapt the hyperparameters to your GPU memory! Using Dynamic Batching
+# will drastically optimise your GPU utilization and decrease your training time.
+# Be careful to also adjust the gradient accumulation when using dynamic batching.
+# This setup will work with 32GB GPUs.
+# Dynamic Batching parameters, if used are:
+dynamic_batching: False
+dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
+max_batch_size: 64 # Max number of samples per batch, per gpu.
+dynamic_batch_sampler:
+    max_batch_len: !ref <dyn_batch_len>
+    max_batch_ex: !ref <max_batch_size>
+    shuffle_ex: True
+    batch_ordering: !ref <sorting>
+    num_buckets: 30
+
+#
+# Functions and classes
+#
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2Pretrain
+    source: !ref <wav2vec2_hub>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    mask_prob: !ref <mask_prob>
+    mask_length: !ref <mask_length>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+
+opt_class: !name:torch.optim.AdamW
+    lr: 0 # Will be changed by the scheduler, but we start at 0!
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+    weight_decay: !ref <weight_decay>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr_adam>
+    n_warmup_steps: 25000
+    model_size: !ref <d_model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        wav2vec2: !ref <wav2vec2>
+        scheduler: !ref <noam_annealing>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

@@ -28,8 +28,7 @@ number_of_epochs: 10
 batch_size: 128
 lr: 0.0003
 device: 'cuda:0'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 dataloader_opts:

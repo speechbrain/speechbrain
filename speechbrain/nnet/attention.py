@@ -329,7 +329,7 @@ class RelPosEncXL(nn.Module):
         Parameters
         ----------
         x : torch.Tensor
-        input tensor with shape seq_len, batch_size, embed_dim
+        input tensor with shape batch_size, seq_len, embed_dim
         Returns
         -------
         pos_emb : torch.Tensor
@@ -342,7 +342,9 @@ class RelPosEncXL(nn.Module):
             pe_past = tot_pe[0]
             pe_future = tot_pe[1]
             positions = (
-                torch.arange(0, seq_len, dtype=x.dtype).to(x).unsqueeze(-1)
+                torch.arange(0, seq_len, dtype=x.dtype, device=x.device)
+                .to(x)
+                .unsqueeze(-1)
             )
             sinusoids = torch.sin(positions * self.inv_freq)
             pe_past[:, 0::2] = sinusoids
@@ -464,23 +466,21 @@ class RelPosMHAXL(nn.Module):
         torch.nn.init.xavier_uniform_(self.pos_bias_v)
 
     def rel_shift(self, x):
+        """Relative shift implementation."""
         # batch, head, time1, 2*time1-1.
 
-        zero_pad = torch.zeros(
-            (*x.size()[:3], 1), device=x.device, dtype=x.dtype
-        )
-        x_padded = torch.cat([zero_pad, x], dim=-1)
-
-        x_padded = x_padded.view(*x.size()[:2], x.size(3) + 1, x.size(2))
-        x = x_padded[:, :, 1:].view_as(x)[
-            :, :, :, : x.size(-1) // 2 + 1
-        ]  # only keep the positions from 0 to time2
+        b, h, qlen, pos_len = x.size()  # (b, h, t1, t2)
+        # need to add a column of zeros on the left side of last dimension to perform the relative shifting
+        x = torch.nn.functional.pad(x, pad=(1, 0))  # (b, h, t1, t2+1)
+        x = x.view(b, h, -1, qlen)  # (b, h, t2+1, t1)
+        # need to drop the first row
+        x = x[:, :, 1:].view(b, h, qlen, pos_len)  # (b, h, t1, t2)
 
         if self.mask_pos_future:
             ones = torch.ones((x.size(2), x.size(3)), device=x.device)
             x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :]
 
-        return x
+        return x[..., : pos_len // 2 + 1]
 
     def forward(
         self,
@@ -828,6 +828,7 @@ class PositionalwiseFeedForward(nn.Module):
         )
 
     def forward(self, x):
+        """Applies PositionalwiseFeedForward to the input tensor x."""
         # give a tensor of shap (time, batch, fea)
         x = x.permute(1, 0, 2)
         x = self.ffn(x)

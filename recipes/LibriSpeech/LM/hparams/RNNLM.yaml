@@ -55,7 +55,7 @@ dnn_neurons: 512
 
 # Outputs
 output_neurons: 1000 # index(blank/eos/bos) = 0
-blank_index: 0
+# blank_index: 0
 bos_index: 0
 eos_index: 0
 

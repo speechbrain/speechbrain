@@ -10,7 +10,7 @@ import csv
 
 
 def prepare_wham_whamr_csv(
-    datapath, savepath, skip_prep=False, fs=8000,
+    datapath, savepath, skip_prep=False, fs=8000, task="separation"
 ):
     """
     Prepares the csv files for wham or whamr dataset
@@ -28,11 +28,18 @@ def prepare_wham_whamr_csv(
     if "wham_original" in datapath:
         # if we want to train a model on the original wham dataset
         create_wham_whamr_csv(
-            datapath, savepath, fs, savename="whamorg_", add_reverb=False
+            datapath,
+            savepath,
+            fs,
+            savename="whamorg_",
+            add_reverb=False,
+            task=task,
         )
     elif "whamr" in datapath:
         # if we want to train a model on the whamr dataset
-        create_wham_whamr_csv(datapath, savepath, fs)
+        create_wham_whamr_csv(
+            datapath, savepath, fs, add_reverb=True, task=task
+        )
     else:
         raise ValueError("Unsupported Dataset")
 
@@ -45,6 +52,8 @@ def create_wham_whamr_csv(
     savename="whamr_",
     set_types=["tr", "cv", "tt"],
     add_reverb=True,
+    task="separation",
+    dereverberate=True,
 ):
     """
     This function creates the csv files to get the speechbrain data loaders for the whamr dataset.
@@ -64,16 +73,24 @@ def create_wham_whamr_csv(
     else:
         raise ValueError("Unsupported sampling rate")
 
-    if add_reverb:
-        mix_both = "mix_both_reverb/"
-        s1 = "s1_anechoic/"
-        s2 = "s2_anechoic/"
-    else:
-        mix_both = "mix_both/"
-        s1 = "s1/"
-        s2 = "s2/"
-
     for set_type in set_types:
+        if add_reverb:
+            mix_both = (
+                "mix_both_reverb/"
+                if task == "separation"
+                else "mix_single_reverb/"
+            )
+            if dereverberate and (set_type != "tr"):
+                s1 = "s1_reverb/"
+                s2 = "s2_reverb/"
+            else:
+                s1 = "s1_anechoic/"
+                s2 = "s2_anechoic/"
+        else:
+            mix_both = "mix_both/" if task == "separation" else "mix_single/"
+            s1 = "s1/"
+            s2 = "s2/"
+
         mix_path = os.path.join(
             datapath, "wav{}".format(sample_rate), version, set_type, mix_both,
         )

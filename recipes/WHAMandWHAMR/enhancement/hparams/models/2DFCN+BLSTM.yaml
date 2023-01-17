@@ -1,0 +1,62 @@
+# ################################
+# Model: 2DFCN+BLSTM SE baseline
+# Authors: Szu-Wei, Fu 2020
+# ################################
+
+# Neural parameters
+kernel_size: (9,9)
+base_channels: 64
+
+N_fft: !PLACEHOLDER
+
+model: !new:speechbrain.nnet.containers.Sequential
+    input_shape: [null, null, !ref <N_fft> // 2 + 1]
+    conv1: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN1: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act1: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv2: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN2: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act2: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv3: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN3: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act3: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv4: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: !ref <base_channels>
+        kernel_size: !ref <kernel_size>
+    BN4: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: !ref <base_channels>
+    act4: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    conv5: !name:speechbrain.nnet.CNN.Conv2d
+        out_channels: 1
+        kernel_size: !ref <kernel_size>
+    BN5: !new:speechbrain.nnet.normalization.BatchNorm2d
+        input_size: 1
+    act5: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    lstm: !name:speechbrain.nnet.RNN.LSTM
+        hidden_size: 200
+        num_layers: 2
+        dropout: 0
+        bidirectional: True
+    linear1: !name:speechbrain.nnet.linear.Linear
+        n_neurons: 300
+        bias: True
+    act6: !new:torch.nn.LeakyReLU
+        negative_slope: 0.01
+    linear2: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <N_fft> // 2 + 1
+        bias: True
+    act7: !new:torch.nn.Sigmoid

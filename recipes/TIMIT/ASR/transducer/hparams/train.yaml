@@ -22,6 +22,7 @@ train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/dev.json
 test_annotation: !ref <data_folder>/test.json
 skip_prep: False # Skip data preparation
+uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
 # Training parameters
 number_of_epochs: 50
@@ -46,7 +47,7 @@ rnn_neurons: 512
 rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 512
-emb_size: 128
+# emb_size: 128
 dec_neurons: 128
 
 # Outputs
@@ -145,10 +146,11 @@ output: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
     bias: False
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
+# log_softmax: !new:speechbrain.nnet.activations.Softmax
+#    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
+    use_torchaudio: True
     blank_index: !ref <blank_index>
 
 model: !new:torch.nn.ModuleList [[
@@ -214,6 +216,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 transducer_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.transducer_loss
+        use_torchaudio: True
         blank_index: !ref <blank_index>
         reduction: none
 

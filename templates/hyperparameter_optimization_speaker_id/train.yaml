@@ -19,7 +19,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
 # It allows you to read the data much faster without slowing down the shared filesystem.
 
-trial_id: null
+# trial_id: null
 data_folder: ./data
 output_folder: !ref ./results/speaker_id/<seed>
 save_folder: !ref <output_folder>/save

@@ -9,6 +9,7 @@ You can download LibriSpeech at http://www.openslr.org/12
 python train.py train/1K_unigram_subword_bpe.yaml
 python train.py train/5K_unigram_subword_bpe.yaml
 
+The pretrained tokenizers are available [here](https://drive.google.com/drive/folders/1NcsYx5ER-Zlv7bRxtwBrefuYxaEO4nY3?usp=sharing).
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

@@ -10,7 +10,7 @@ output_folder: !ref results/epaca/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: ./
-
+rir_folder: !ref <data_folder>
 
 shards_url: /data/voxlingua107_shards
 train_meta: !ref <shards_url>/train/meta.json
@@ -27,13 +27,8 @@ ckpt_interval_minutes: 5
 number_of_epochs: 40
 lr: 0.001
 lr_final: 0.0001
-base_lr: 0.00000001
-max_lr: !ref <lr>
-step_size: 65000
 sample_rate: 16000
 sentence_len: 3 # seconds
-shuffle: False
-random_chunk: True
 
 # Feature parameters
 n_mels: 60
@@ -84,7 +79,7 @@ augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 
 
 add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder>
+    openrir_folder: !ref <rir_folder>
     openrir_max_noise_len: 3.0  # seconds
     reverb_prob: 0.5
     noise_prob: 0.8
@@ -116,7 +111,7 @@ modules:
     mean_var_norm: !ref <mean_var_norm>
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
-compute_error: !name:speechbrain.nnet.losses.classification_error
+# compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

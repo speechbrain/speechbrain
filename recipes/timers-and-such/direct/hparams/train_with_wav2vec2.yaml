@@ -43,10 +43,7 @@ lr_wav2vec2: 0.00001
 #freeze all wav2vec2
 freeze_wav2vec: False
 
-#set to true to freeze the CONV part of the wav2vec2 model
-freeze_wav2vec_conv: True
-
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: ascending
 
 # Model parameters

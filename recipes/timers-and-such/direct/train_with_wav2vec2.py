@@ -41,7 +41,7 @@ class SLU(sb.Brain):
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
         # wav2vec forward pass
-        wav2vec2_out = self.modules.wav2vec2(wavs)
+        wav2vec2_out = self.modules.wav2vec2(wavs, wav_lens)
         # SLU forward pass
         encoder_out = self.hparams.slu_enc(wav2vec2_out)
         e_in = self.hparams.output_emb(tokens_bos)
@@ -195,6 +195,10 @@ class SLU(sb.Brain):
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec2_optimizer.zero_grad(set_to_none)
+        self.optimizer.zero_grad(set_to_none)
+
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
@@ -317,7 +321,7 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

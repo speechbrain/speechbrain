@@ -51,6 +51,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/tmp/
 
 # Translations
 *.mo
@@ -117,6 +118,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# PyCharm project settings
+.idea
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -138,8 +142,16 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
+# Pretrained & models folders
+**/model_checkpoints/
+**/pretrained_model_checkpoints/
+**/pretrained_models/
+
 # Results folders
 **/results/
+
+# Log folders
+**/log/
 
 # Mac OS
 .DS_Store

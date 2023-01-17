@@ -90,6 +90,7 @@ class EnhancementGenerator(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, lengths):
+        """ Processes the input tensor x and returns an output tensor."""
         out, _ = self.blstm(x, lengths=lengths)
 
         out = self.linear1(out)
@@ -163,7 +164,7 @@ class MetricDiscriminator(nn.Module):
         self.Linear3 = xavier_init_layer(in_size=lin_dim2, out_size=1)
 
     def forward(self, x):
-
+        """ Processes the input tensor x and returns an output tensor."""
         out = self.conv1(x)
         out = self.activation(out)
 

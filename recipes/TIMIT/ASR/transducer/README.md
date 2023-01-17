@@ -4,7 +4,10 @@ TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC9
 
 
 # Extra-Dependencies
-Before running this recipe, make sure numba is installed. Otherwise, run:
+This recipe support two implementation of Transducer loss, see `use_torchaudio` arg in Yaml file:
+1- Transducer loss from torchaudio (if torchaudio version >= 0.10.0) (Default)
+2- Speechbrain Implementation using Numba lib. (this allow you to have a direct access in python to the Transducer loss implementation)
+Note: Before running this recipe, make sure numba is installed. Otherwise, run:
 ```
 pip install numba
 ```
@@ -21,6 +24,8 @@ python train.py hparams/train.yaml
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
 | 2021-02-06 | train.yaml |  13.11 | 14.12 | https://drive.google.com/drive/folders/1g3T6zK2o9XTEa_GTw0aoAkRqhg1_BVQ3?usp=sharing | 1xRTX6000 24GB |
 | 21-04-16 | train_wav2vec2.yaml |  7.97 | 8.91 | https://drive.google.com/drive/folders/1z8Ox3q2ntnnnh3PPk_eOcKhGeFgVeRcD?usp=sharing | 1xRTX6000 24Gb |
+
+The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://drive.google.com/drive/folders/1ZcME-Wf4stlzW3j_iJ3zGDCkSy1V_Wjs?usp=sharing).
 
 # Training Time
 About 2 min and 40 sec for each epoch with a  RTX 6000.

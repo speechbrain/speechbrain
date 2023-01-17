@@ -18,7 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <output_folder>/train-type=decoupled.csv
 csv_dev_real: !ref <output_folder>/dev-real-type=decoupled.csv
@@ -35,11 +35,11 @@ test_on_all_real: False
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 # Model params
-sample_rate: 16000
+# sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 num_asr_tokens: 1000

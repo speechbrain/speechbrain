@@ -1,0 +1,2 @@
+mir-eval==0.6
+pyroomacoustics==0.3.1

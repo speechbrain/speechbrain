@@ -27,6 +27,8 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 
 # Brain class for speech enhancement training
 class SEBrain(sb.Brain):
+    """Class that manages the training loop. See speechbrain.core.Brain."""
+
     def compute_forward(self, batch, stage):
         """Apply masking to convert from noisy waveforms to enhanced signals.
 
@@ -230,10 +232,15 @@ def dataio_prep(hparams):
 
     # Define datasets sorted by ascending lengths for efficiency
     datasets = {}
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
     hparams["dataloader_options"]["shuffle"] = False
-    for dataset in ["train", "valid", "test"]:
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],

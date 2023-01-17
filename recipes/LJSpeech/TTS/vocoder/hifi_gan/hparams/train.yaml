@@ -1,0 +1,185 @@
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref ./results/hifi_gan/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+progress_sample_path: !ref <output_folder>/samples
+epochs: 500
+keep_checkpoint_interval: 50
+use_tensorboard: False
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+
+splits: ["train", "valid"]
+split_ratio: [90, 10]
+################################
+# Audio Parameters             #
+################################
+skip_prep: False
+
+segment_size: 8192
+sample_rate: 22050
+hop_length: 256
+win_length: 1024
+n_mel_channels: 80
+n_fft: 1024
+mel_fmin: 0.0
+mel_fmax: 8000
+mel_normalized: False
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate: 0.0002
+weight_decay: 0.9999
+adam_b1: 0.8
+adam_b2: 0.99
+batch_size: 32 #minimum 2
+
+train_dataloader_opts:
+  batch_size: !ref <batch_size>
+  drop_last: False
+  num_workers: 8
+
+valid_dataloader_opts:
+  batch_size: 1
+  num_workers: 8
+
+test_dataloader_opts:
+  batch_size: 1
+  num_workers: 8
+################################
+# Model Parameters and model   #
+################################
+
+# generator params
+in_channels: 80
+out_channels: 1
+
+###########################################################################################################################################################
+# version | resblock_type | upsample_kernel_sizes | upsample_factors | resblock_kernel_sizes | upsample_initial_channel | resblock_dilation_sizes
+#    1    |      "1"      |      [16,16,4,4]      |    [8, 8, 2, 2]  |     [3, 7, 11]        |           512            | [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+#    2    |      "1"      |      [16,16,4,4]      |    [8, 8, 2, 2]  |     [3, 7, 11]        |           128            | [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+#    3    |      "2"      |       [16,16,8]       |      [8,8,4]     |       [3,5,7]         |           256            |     [[1,2], [2,6], [3,12]]
+###########################################################################################################################################################
+resblock_type: "1"
+resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+resblock_kernel_sizes: [3, 7, 11]
+upsample_kernel_sizes: [16, 16, 4, 4]
+upsample_initial_channel: 512
+upsample_factors: [8, 8, 2, 2]
+
+inference_padding: 5
+cond_channels: 0
+conv_post_bias: True
+
+mel_spectogram: !name:speechbrain.lobes.models.HifiGAN.mel_spectogram
+  sample_rate: !ref <sample_rate>
+  hop_length: !ref <hop_length>
+  win_length: !ref <win_length>
+  n_fft: !ref <n_fft>
+  n_mels: !ref <n_mel_channels>
+  f_min: !ref <mel_fmin>
+  f_max: !ref <mel_fmax>
+  power: !ref <power>
+  normalized: !ref <mel_normalized>
+  norm: !ref <norm>
+  mel_scale: !ref <mel_scale>
+  compression: !ref <dynamic_range_compression>
+
+generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
+  in_channels: !ref <in_channels>
+  out_channels: !ref <out_channels>
+  resblock_type: !ref <resblock_type>
+  resblock_dilation_sizes: !ref <resblock_dilation_sizes>
+  resblock_kernel_sizes: !ref <resblock_kernel_sizes>
+  upsample_kernel_sizes: !ref <upsample_kernel_sizes>
+  upsample_initial_channel: !ref <upsample_initial_channel>
+  upsample_factors: !ref <upsample_factors>
+  inference_padding: !ref <inference_padding>
+  cond_channels: !ref <cond_channels>
+  conv_post_bias: !ref <conv_post_bias>
+
+discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
+
+modules:
+  generator: !ref <generator>
+  discriminator: !ref <discriminator>
+
+#generator loss
+stft_loss: null
+mseg_loss: !new:speechbrain.lobes.models.HifiGAN.MSEGLoss
+feat_match_loss: !new:speechbrain.lobes.models.HifiGAN.MelganFeatureLoss
+l1_spec_loss: !new:speechbrain.lobes.models.HifiGAN.L1SpecLoss
+  sample_rate: !ref <sample_rate>
+  hop_length: !ref <hop_length>
+  win_length: !ref <win_length>
+  n_mel_channels: !ref <n_mel_channels>
+  n_fft: !ref <n_fft>
+  n_stft: !ref <n_fft> // 2 + 1
+  mel_fmin: !ref <mel_fmin>
+  mel_fmax: null
+  mel_normalized: !ref <mel_normalized>
+  power: !ref <power>
+  dynamic_range_compression: !ref <dynamic_range_compression>
+
+generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
+  stft_loss: !ref <stft_loss>
+  stft_loss_weight: 0
+  mseg_loss: !ref <mseg_loss>
+  mseg_loss_weight: 1
+  feat_match_loss: !ref <feat_match_loss>
+  feat_match_loss_weight: 10
+  l1_spec_loss: !ref  <l1_spec_loss>
+  l1_spec_loss_weight: 45
+
+#discriminator loss
+msed_loss: !new:speechbrain.lobes.models.HifiGAN.MSEDLoss
+
+discriminator_loss: !new:speechbrain.lobes.models.HifiGAN.DiscriminatorLoss
+  msed_loss: !ref <msed_loss>
+
+#optimizer
+opt_class_generator: !name:torch.optim.AdamW
+  lr: !ref <learning_rate>
+  betas: [!ref <adam_b1>, !ref <adam_b2>]
+
+opt_class_discriminator: !name:torch.optim.AdamW
+  lr: !ref <learning_rate>
+  betas: [!ref <adam_b1>, !ref <adam_b2>]
+
+sch_class_generator: !name:torch.optim.lr_scheduler.ExponentialLR
+  gamma: !ref <weight_decay>
+  last_epoch: -1
+
+sch_class_discriminator: !name:torch.optim.lr_scheduler.ExponentialLR
+  gamma: !ref <weight_decay>
+  last_epoch: -1
+
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    generator: !ref <generator>
+    discriminator: !ref <discriminator>
+    counter: !ref <epoch_counter>

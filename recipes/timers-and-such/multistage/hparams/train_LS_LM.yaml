@@ -35,7 +35,7 @@ test_on_all_real: False
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 # Model params

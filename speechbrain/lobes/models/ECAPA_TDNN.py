@@ -16,11 +16,15 @@ from speechbrain.nnet.linear import Linear
 
 # Skip transpose as much as possible for efficiency
 class Conv1d(_Conv1d):
+    """1D convolution. Skip transpose is used to improve efficiency."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(skip_transpose=True, *args, **kwargs)
 
 
 class BatchNorm1d(_BatchNorm1d):
+    """1D batch normalization. Skip transpose is used to improve efficiency."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(skip_transpose=True, *args, **kwargs)
 
@@ -73,6 +77,7 @@ class TDNNBlock(nn.Module):
         self.norm = BatchNorm1d(input_size=out_channels)
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         return self.norm(self.activation(self.conv(x)))
 
 
@@ -125,6 +130,7 @@ class Res2NetBlock(torch.nn.Module):
         self.scale = scale
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         y = []
         for i, x_i in enumerate(torch.chunk(x, self.scale, dim=1)):
             if i == 0:
@@ -173,6 +179,7 @@ class SEBlock(nn.Module):
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, lengths=None):
+        """ Processes the input tensor x and returns an output tensor."""
         L = x.shape[-1]
         if lengths is not None:
             mask = length_to_mask(lengths * L, max_len=L, device=x.device)
@@ -346,6 +353,7 @@ class SERes2NetBlock(nn.Module):
             )
 
     def forward(self, x, lengths=None):
+        """ Processes the input tensor x and returns an output tensor."""
         residual = x
         if self.shortcut:
             residual = self.shortcut(x)

@@ -147,7 +147,7 @@ modules:
 
 # Cost + optimization
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
-compute_error: !name:speechbrain.nnet.losses.classification_error
+# compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

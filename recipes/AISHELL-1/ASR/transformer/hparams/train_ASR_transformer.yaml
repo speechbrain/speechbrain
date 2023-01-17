@@ -31,9 +31,20 @@ number_of_epochs: 50
 batch_size: 8
 ctc_weight: 0.3
 gradient_accumulation: 4
-gradient_clipping: 5.0
 loss_reduction: 'batchmean'
 sorting: random
+
+dynamic_batching: False
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 15 # in terms of "duration" in annotations by default, second here
+    left_bucket_len: 200 # old implementation attributs
+    multiplier: 1.1 # old implementation attributs
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+    batch_ordering: ascending
+
+num_workers: 6
 
 # stages related parameters
 stage_one_epochs: 40
@@ -66,7 +77,6 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -74,7 +84,6 @@ label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0

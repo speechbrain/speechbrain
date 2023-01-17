@@ -48,6 +48,15 @@ batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
+dynamic_batching: False
+
+# dynamic batching parameters, if used
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 20000 # in terms of frames
+   shuffle_ex: True
+   batch_ordering: random
+   num_buckets: 20
 
 # Feature parameters
 sample_rate: 16000
@@ -87,10 +96,8 @@ emb_size: 1024
 dec_neurons: 1024
 output_neurons: 5000  # Number of tokens (same as LM)
 blank_index: 0
-pad_index: -1
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0

@@ -7,8 +7,8 @@ seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1_2  # use vox 1, vox2, or vox1+vox2 datasets
-output_folder: results/voxceleb1/speaker_verification_plda_xvectors
+data_folder: !PLACEHOLDER
+output_folder: results/voxceleb1_2/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
 device: 'cuda:0'
 
@@ -65,10 +65,6 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
 
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
-
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
     rank_f: 100
     nb_iter: 10
@@ -78,7 +74,5 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         embedding_model: !ref <embedding_model>
-        mean_var_norm_emb: !ref <mean_var_norm_emb>
     paths:
         embedding_model: !ref <pretrain_path>/embedding_model.ckpt
-        mean_var_norm_emb: !ref <pretrain_path>/mean_var_norm_emb.ckpt

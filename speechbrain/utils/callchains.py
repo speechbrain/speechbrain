@@ -78,4 +78,4 @@ class LengthsCapableChain:
         if self.funcs:
             return f"{clsname}:\n" + "\n".join(str(f) for f in self.funcs)
         else:
-            return "Empty {clsname}"
+            return f"Empty {clsname}"

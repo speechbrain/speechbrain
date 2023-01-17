@@ -25,7 +25,7 @@ on GitHub under your own account.
     (This creates a copy of SpeechBrain under your account, and GitHub
     knows where it came from, and we typically call this "upstream".)
 2. Clone your own speechbrain repository.
-    `git clone https://github.com/<your-account>/speechbrain`
+    `git clone https://github.com/ <your-account> /speechbrain`
     (This downloads the git repository to your machine, git knows where
     it came from, and calls it "origin".)
 3. Create a branch for each specific feature you are developing.
@@ -50,7 +50,7 @@ These will automatically check the code when you commit and when you push.
 
 ## Python
 ### Version
-SpeechBrain targets Python >= 3.8.
+SpeechBrain targets Python >= 3.7.
 
 ### Formatting
 To settle code formatting, SpeechBrain adopts the [black](https://black.readthedocs.io/en/stable/) code formatter. Before submitting  pull requests, please run the black formatter on your code.

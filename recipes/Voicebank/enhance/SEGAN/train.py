@@ -310,6 +310,10 @@ class SEBrain(sb.Brain):
                     "optimizer_d", self.optimizer_d
                 )
 
+    def zero_grad(self, set_to_none=False):
+        self.optimizer_d.zero_grad(set_to_none)
+        self.optimizer_g.zero_grad(set_to_none)
+
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch"""
         self.loss_metric_d1 = MetricStats(
@@ -409,9 +413,14 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],

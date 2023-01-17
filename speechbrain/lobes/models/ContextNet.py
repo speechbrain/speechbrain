@@ -184,7 +184,7 @@ class SEmodule(torch.nn.Module):
         )
 
     def forward(self, x):
-
+        """ Processes the input tensor x and returns an output tensor."""
         bz, t, chn = x.shape
 
         x = self.conv(x)
@@ -282,6 +282,7 @@ class ContextNetBlock(torch.nn.Module):
         self._reset_params()
 
     def forward(self, x):
+        """ Processes the input tensor x and returns an output tensor."""
         out = self.Convs(x)
         out = self.SE(out)
         if self.reduced_cov:

@@ -10,7 +10,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
-wer_file: !ref <output_folder>/wer.txt
+# wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 

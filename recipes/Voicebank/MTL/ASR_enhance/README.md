@@ -1,7 +1,8 @@
 # Voicebank Multi-Task (Enhancement and ASR) Recipe
 
 This recipe combines enhancement and ASR to improve performance on both tasks.
-The technique we use in this recipe is called _mimic loss_ [1, 2, 3] and
+The technique we use in this recipe is a perceptual loss with a speech
+recognizer, which we have called _mimic loss_ [1, 2, 3] and
 is performed in three main stages:
 
 1. Pretrain an acoustic model as a perceptual model of speech, used to
@@ -45,33 +46,32 @@ WER results are generated over 3 runs.
 The last 5 epochs are combined so no validation
 data is used to choose checkpoints.
 
-All but the last results are generated using the very efficient
-CNN + Transformer model. The last results are generated with CRDNN
-which is slower, but a bit better.
+Results generated using updated Wide ResNet from [2, 3]. Additions
+include:
 
-| Input | Mask Loss     | PESQ | eSTOI | dev WER | tst WER  |
-|-------|---------------|:----:|:-----:|:-------:|:--------:|
-| Clean | (clean phase) | 4.50 | 100.  | 1.44    | 2.29     |
-| Clean | (noisy phase) | 3.85 | 94.6  | 1.26    | 2.45     |
-| Noisy | -             | 1.97 | 78.7  | 4.19    | 3.46     |
-| *Joint Training*                                          |
-| Noisy | MSE           | 2.45 | 83.3  | 3.40    | 3.12     |
-| Noisy | MSE + mimic   | 2.58 | 83.5  | 3.50    | 3.32     |
-| *Frozen Mask Training*                                    |
-| Noisy | MSE           | 2.72 | 84.8  | 3.48    | 3.12     |
-| Noisy | MSE + mimic   | 2.87 | 85.2  | 3.20    | 2.96     |
-| *CRDNN model*                                             |
-| Noisy | MSE           | 2.74 | 85.4  | -       | -        |
-| Noisy | MSE + mimic   | 2.99 | 86.4  | -       | -        |
+1. Squeeze-and-excitation blocks
+2. Spectral approximation algorithm on complex spectrogram
+3. 2d batch normalization
+4. GELU activations
+
+| Input | Mask Loss       | PESQ | COVL | dev WER | tst WER  |
+|-------|-----------------|:----:|:----:|:-------:|:--------:|
+| Clean | -               | 4.50 | 100. | 1.44    | 2.29     |
+| Noisy | -               | 1.97 | 78.7 | 4.19    | 3.46     |
+| *Joint Training*                                           |
+| Noisy | L1 Spec. Mag.   | 2.46 | 3.32 | 3.12    | 3.77     |
+| Noisy | + L1 Perceptual | 2.44 | 3.29 | 3.57    | 3.58     |
+| *Frozen Mask Training*                                     |
+| Noisy | L1 Spec. Mag.   | 2.99 | 3.69 | 2.88    | 3.25     |
+| Noisy | + L1 Perceptual | 3.05 | 3.74 | 2.89    | 2.80     |
 
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace:
-- https://huggingface.co/speechbrain/metricgan-plus-voicebank
-- https://huggingface.co/speechbrain/mtl-mimic-voicebank
+https://huggingface.co/speechbrain/mtl-mimic-voicebank
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/1IV3ohFracK0zLH-ZGb3LTas-l3ZDFDPW?usp=sharing
+https://drive.google.com/drive/folders/1vSpQ5UREiBbTxNUjJjEpSYO8rLTPvQW_?usp=sharing
 
 
 ## References

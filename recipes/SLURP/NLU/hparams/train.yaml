@@ -18,7 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 # Data files
 # The SLURP dataset will be automatically downloaded in the specified data_folder
 data_folder: !PLACEHOLDER # e.g, /localscratch/SLURP
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <output_folder>/train-type=decoupled.csv
 csv_valid: !ref <output_folder>/devel-type=decoupled.csv
@@ -31,11 +31,11 @@ skip_prep: False
 number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 # Model parameters
-sample_rate: 16000
+# sample_rate: 1600
 emb_size: 128
 dec_neurons: 512
 output_neurons: 58 # index(eos/bos) = 0
@@ -147,9 +147,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+#    sample_rate: !ref <sample_rate>
+#    speeds: [95, 100, 105]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
