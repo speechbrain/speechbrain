@@ -53,10 +53,15 @@ class ASR(sb.Brain):
         else:
             enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
         
+        #  generating soft labels for  new data using old model . It will be used for calculating the lwf loss function.
         soft_logits=None
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
-                _, soft_logits, _ = self.old_model(wavs, bos_tokens)
+                # for teacher forcing the new added tokens should be replaced with <UNKONW> token
+                old_bos_tokens=bos_tokens.detach().clone()
+                mask= sum(old_bos_tokens.flatten()==i for i in self.new_tokens).bool()
+                old_bos_tokens.flatten()[mask==True]=self.tokenizer.unk_token_id
+                _, soft_logits, _ = self.old_model(wavs, old_bos_tokens)
 
 
         hyps = None
@@ -81,7 +86,7 @@ class ASR(sb.Brain):
         )
         if stage == sb.Stage.TRAIN:
             # Temperature of the new softmax proposed in 'Distillation of Knowledge'
-            T=hparams['lwc_T']
+            T=hparams['lwf_T']
             # Used to balance the new class loss1 and the old class loss2
             # Loss1 is the cross entropy between output of the new task and label
             # Loss2 is the cross entropy between output of the old task and output of the old model
@@ -92,7 +97,7 @@ class ASR(sb.Brain):
             loss2 = outputs_T.mul(-1*torch.log(outputs_S))
             loss2 = loss2.sum(1)
             loss2 = loss2.mean()*T*T
-            loss = loss*hparams['lwc_alpha']+loss2*(1-hparams['lwc_alpha'])
+            loss = loss*hparams['lwf_alpha']+loss2*(1-hparams['lwf_alpha'])
             
 
         if stage != sb.Stage.TRAIN:
@@ -265,6 +270,12 @@ def dataio_prepare(hparams, tokenizer):
         tokens_list = tokens_list[: hparams["max_target_length"] - 1]
         tokens_bos = torch.LongTensor([bos_index] + tokens_list)
         yield tokens_bos
+
+        # old_tokens_list = old_tokenizer.encode(wrd)
+        # # old_tokens_list = old_tokens_list[: hparams["max_target_length"] - 1]
+        # old_tokens_bos = torch.LongTensor([bos_index] + old_tokens_list)
+        # yield old_tokens_bos
+
         tokens_eos = torch.LongTensor(tokens_list + [eos_index])
         yield tokens_eos
         # Remove leading special tokens
@@ -276,7 +287,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "tokens_bos" ,  "tokens_eos", "tokens"],
     )
 
     return train_data, valid_data, test_data
@@ -423,6 +434,8 @@ def train(hparams, run_opts):
         asr_brain.tokenizer = tokenizer
         asr_brain.old_model=old_model
         asr_brain.old_features=old_features
+        asr_brain.new_tokens= set(tokenizer.convert_tokens_to_ids(new_tokens))
+   
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
