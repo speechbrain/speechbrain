@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
 
-# ################################
-# Authors : Gaelle Laperriere
-# ################################
-
-import sys
-import torch
-import logging
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.batch import PaddedBatch
-from speechbrain.utils.distributed import run_on_main
-from parseXMLtoSB import prepare_media
-
 """
 Recipe for training a sequence-to-sequence SLU system with Media.
 The system employs a wav2vec model and a decoder.
@@ -28,7 +15,19 @@ The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders,
 training tasks (Media , PortMedia), and many other possible variations.
+
+Authors
+ * Gaelle Laperriere
 """
+
+import sys
+import torch
+import logging
+import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.distributed import run_on_main
+from parseXMLtoSB import prepare_media
 
 logger = logging.getLogger(__name__)
 
