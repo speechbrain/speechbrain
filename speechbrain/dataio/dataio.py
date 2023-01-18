@@ -1057,9 +1057,9 @@ def split_word(sequences, space="_"):
 
     Arguments
     ---------
-    sequences : list
+    sequences: list
         Each item contains a list, and this list contains a words sequence.
-    space : string
+    space: string
         The token represents space. Default: _
 
     Returns
@@ -1080,19 +1080,21 @@ def split_word(sequences, space="_"):
     return results
 
 
-def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
+def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
     """keep the semantic concepts and values for evaluation.
 
     Arguments
     ---------
-    sequences : list
+    sequences: list
         Each item contains a list, and this list contains a character sequence.
-    keep_values : bool
+    keep_values: bool
         If True, keep the values. If not don't.
-    tag_in : char
+    tag_in: char
         Indicates the start of the concept.
-    tag_out : char
+    tag_out: char
         Indicates the end of the concept.
+    space: string
+        The token represents space. Default: _
 
     Returns
     -------
@@ -1101,7 +1103,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
     Example
     -------
     >>> sequences = [['<reponse>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<reponse>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
-    >>> results = extract_concepts_values(sequences, True, '<', '>')
+    >>> results = extract_concepts_values(sequences, True, '<', '>', '_')
     >>> results
     [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], ['']]
     """
@@ -1110,7 +1112,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out):
         # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
         sequence = "".join(sequence)
         # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
-        sequence = sequence.split("_")
+        sequence = sequence.split(space)
         processed_sequence = []
         value = (
             []
