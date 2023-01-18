@@ -480,9 +480,9 @@ def wer_details_by_utterance(
         table = op_table(ref_tokens, hyp_tokens)
         ops = count_ops(table)
         if ref_tokens[0] == "" and hyp_tokens[0] == "":
-            a = 0
+            num_ref_tokens = 0
         else:
-            a = len(ref_tokens)
+            num_ref_tokens = len(ref_tokens)
         # Update the utterance-level details if we got this far:
         utterance_details.update(
             {
@@ -491,7 +491,7 @@ def wer_details_by_utterance(
                 if len(hyp_tokens) == 0
                 else False,  # This also works for e.g. torch tensors
                 "num_edits": sum(ops.values()),
-                "num_ref_tokens": a,
+                "num_ref_tokens": num_ref_tokens,
                 "WER": 100.0 * sum(ops.values()) / len(ref_tokens),
                 "insertions": ops["insertions"],
                 "deletions": ops["deletions"],
@@ -561,11 +561,11 @@ def wer_summary(details_by_utterance):
         if dets["hyp_absent"]:
             num_absent_sents += 1
     if num_scored_tokens != 0:
-        wer_w = 100.0 * num_edits / num_scored_tokens
+        WER = 100.0 * num_edits / num_scored_tokens
     else:
-        wer_w = 0.0
+        WER = 0.0
     wer_details = {
-        "WER": wer_w,
+        "WER": WER,
         "SER": 100.0 * num_erraneous_sents / num_scored_sents,
         "num_edits": num_edits,
         "num_scored_tokens": num_scored_tokens,
