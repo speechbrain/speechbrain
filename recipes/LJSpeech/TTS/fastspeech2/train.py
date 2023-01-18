@@ -8,6 +8,7 @@ synthesis' paper
  Authors
  * Sathvik Udupa 2022
  * Yingzhi Wang 2022
+ * Pradnya Kandarkar 2023
 """
 
 import os
@@ -191,8 +192,7 @@ class FastSpeech2Brain(sb.Brain):
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(
-                meta=self.last_loss_stats[stage],
-                min_keys=["total_loss"],
+                meta=self.last_loss_stats[stage], min_keys=["total_loss"],
             )
         # We also write statistics about test data spectogramto stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -202,15 +202,18 @@ class FastSpeech2Brain(sb.Brain):
             )
 
     def run_inference(self):
-        """Produces a sample in inference mode with predicted durations.
-        """
+        """Produces a sample in inference mode with predicted durations."""
         if self.last_batch is None:
             return
         tokens, *_ = self.last_batch
 
-        _, postnet_mel_out, _, _, _, predict_mel_lens =  self.hparams.model(tokens)
+        _, postnet_mel_out, _, _, _, predict_mel_lens = self.hparams.model(
+            tokens
+        )
         self.hparams.progress_sample_logger.remember(
-            infer_output=self.process_mel(postnet_mel_out, [len(postnet_mel_out[0])])
+            infer_output=self.process_mel(
+                postnet_mel_out, [len(postnet_mel_out[0])]
+            )
         )
         return postnet_mel_out, predict_mel_lens
 
@@ -256,15 +259,15 @@ class FastSpeech2Brain(sb.Brain):
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
-            Arguments
-            ---------
-            batch: tuple
-                the batch to use
-            Returns
-            -------
-            batch: tuple
-                the batch on the correct device
-            """
+        Arguments
+        ---------
+        batch: tuple
+            the batch to use
+        Returns
+        -------
+        batch: tuple
+            the batch on the correct device
+        """
 
         (
             text_padded,
@@ -295,26 +298,39 @@ class FastSpeech2Brain(sb.Brain):
 
 
 def dataio_prepare(hparams):
-    # read saved lexicon
-    with open(os.path.join(hparams["save_folder"], "lexicon"), "r") as f:
-        lexicon = f.read().split("\t")
+
+    # Load lexicon
+    lexicon = hparams["lexicon"]
     input_encoder = hparams.get("input_encoder")
 
     # add a dummy symbol for idx 0 - used for padding.
     lexicon = ["@@"] + lexicon
     input_encoder.update_from_iterable(lexicon, sequence_input=False)
-    # load audio, text and durations on the fly; encode audio and text.
 
-    @sb.utils.data_pipeline.takes("wav", "label", "durations", "pitch")
+    # load audio, text and durations on the fly; encode audio and text.
+    @sb.utils.data_pipeline.takes(
+        "wav", "label_phoneme", "durations", "pitch", "start", "end"
+    )
     @sb.utils.data_pipeline.provides("mel_text_pair")
-    def audio_pipeline(wav, label, dur, pitch):
+    def audio_pipeline(wav, label_phoneme, dur, pitch, start, end):
+
         durs = np.load(dur)
         durs_seq = torch.from_numpy(durs).int()
-        label = label.strip()
-        text_seq = input_encoder.encode_sequence_torch(label.lower()).int()
-        assert len(text_seq) == len(durs), f'{len(text_seq)}, {len(durs), len(label)}, ({label})'  # ensure every token has a duration
-        audio = sb.dataio.dataio.read_audio(wav)
+        label_phoneme = label_phoneme.strip()
+        text_seq = input_encoder.encode_sequence_torch(
+            label_phoneme.split()
+        ).int()
+        assert len(text_seq) == len(
+            durs
+        ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
+        audio, fs = torchaudio.load(wav)
+
+        audio = audio.squeeze()
+        audio = audio[int(fs * start) : int(fs * end)]
+
         mel, energy = hparams["mel_spectogram"](audio=audio)
+        mel = mel[:, : sum(durs)]
+        energy = energy[: sum(durs)]
         pitch = np.load(pitch)
         pitch = torch.from_numpy(pitch)
         pitch = pitch[: mel.shape[-1]]
@@ -355,20 +371,17 @@ def main():
             "save_folder": hparams["save_folder"],
             "splits": hparams["splits"],
             "split_ratio": hparams["split_ratio"],
+            "model_name": hparams["model"].__class__.__name__,
             "seed": hparams["seed"],
-            "duration_link": hparams["duration_link"],
-            "duration_folder": hparams["duration_folder"],
-            "compute_pitch": True,
-            "pitch_folder": hparams["pitch_folder"],
             "pitch_n_fft": hparams["n_fft"],
             "pitch_hop_length": hparams["hop_length"],
             "pitch_min_f0": hparams["min_f0"],
             "pitch_max_f0": hparams["max_f0"],
             "skip_prep": hparams["skip_prep"],
-            "create_symbol_list": True,
-            "use_custom_cleaner":True,
+            "use_custom_cleaner": True,
         },
     )
+
     datasets = dataio_prepare(hparams)
 
     # Brain class initialization

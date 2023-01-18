@@ -1,8 +1,8 @@
 ############################################################################
 # Model: FastSpeech2
-# Tokens: Raw characters (English text)
+# Tokens: Phonemes (ARPABET)
 # Training: LJSpeech
-# Authors: Sathvik Udupa
+# Authors: Sathvik Udupa, Pradnya Kandarkar
 # ############################################################################
 
 ###################################
@@ -24,9 +24,6 @@ progress_batch_sample_size: 4
 # Data files and pre-processing #
 #################################
 data_folder: #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
-duration_link: https://www.dropbox.com/s/s0yebx13pp10b0e/ljspeech_clean_DFA_durations.zip?dl=0 #https://www.dropbox.com/s/byyjcmmzxbbco39/ljspeech_DFA_durations.zip?dl=1  
-duration_folder: !ref <data_folder>
-pitch_folder: !ref <data_folder>/pitch
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
@@ -40,7 +37,7 @@ skip_prep: False
 ################################
 # Audio Parameters             #
 ################################
-sample_rate: 22050
+sample_rate: 16000
 hop_length: 256
 win_length: null
 n_mel_channels: 80
@@ -62,12 +59,56 @@ max_f0: 2093 #(torchaudio pyin values)
 learning_rate: 0.0001
 weight_decay: 0.000000001
 max_grad_norm: 1.0
-batch_size: 32 #minimum 2
+batch_size: 64 #minimum 2
 betas: [0.98, 0.99]
+
 ################################
 # Model Parameters and model   #
 ################################
-n_symbols: 62 #fixed deppending on symbols in textToSequence
+# Input parameters
+lexicon:
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - spn
+
+n_symbols: 41 #fixed deppending on symbols in the lexicon +1 for a dummy symbol used for padding
 padding_idx: 0
 
 # Encoder parameters
@@ -161,7 +202,7 @@ criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
 
 vocoder: "hifi-gan"
 pretrained_vocoder: True
-vocoder_source: speechbrain/tts-hifigan-ljspeech
+vocoder_source: speechbrain/tts-hifigan-libritts-16kHz
 vocoder_download_path: tmpdir_vocoder
 
 modules:
@@ -179,7 +220,6 @@ valid_dataloader_opts:
     num_workers: 4
     shuffle: False
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
-
 
 #optimizer
 opt_class: !name:torch.optim.Adam
@@ -202,7 +242,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
-
 
 progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
     output_path: !ref <progress_sample_path>

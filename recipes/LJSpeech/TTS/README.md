@@ -20,6 +20,10 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 
 # FastSpeech2
 The subfolder "fastspeech2" contains the recipe for training the non-autoregressive transformer based TTS model [FastSpeech2](https://arxiv.org/abs/2006.04558).
+
+Training FastSpeech2 requires phoneme alignments. The LJSpeech phoneme alignments can be downloaded from here: [LJSpeech.zip](https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4)
+Extract the phoneme alignments in the ```--data_folder=/your_folder/LJSpeech-1.1```. As a result, the phoneme alignments should be stored at this location: ```/your_folder/LJSpeech-1.1/TextGrid```.
+
 To run this recipe, go into the "fastspeech2" folder and run:
 
 ```

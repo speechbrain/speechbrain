@@ -5,6 +5,7 @@ Download: https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2
 Authors
  * Yingzhi WANG 2022
  * Sathvik Udupa 2022
+ * Pradnya Kandarkar 2023
 """
 
 import os
@@ -15,8 +16,12 @@ import logging
 import torchaudio
 import numpy as np
 from tqdm import tqdm
-from speechbrain.utils.data_utils import download_file
-from speechbrain.dataio.dataio import load_pkl, save_pkl, load_data_json
+from speechbrain.dataio.dataio import load_pkl, save_pkl
+import tgt
+from speechbrain.pretrained import GraphemeToPhoneme
+import re
+from unidecode import unidecode
+
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
@@ -36,18 +41,15 @@ def prepare_ljspeech(
     save_folder,
     splits=["train", "valid"],
     split_ratio=[90, 10],
+    model_name=None,
     seed=1234,
-    duration_link=None,
-    duration_folder=None,
-    compute_pitch=False,
-    pitch_folder=".",
     pitch_n_fft=1024,
     pitch_hop_length=256,
     pitch_min_f0=65,
     pitch_max_f0=2093,
-    create_symbol_list=False,
     skip_prep=False,
     use_custom_cleaner=False,
+    device="cpu",
 ):
     """
     Prepares the csv files for the LJspeech datasets.
@@ -55,33 +57,35 @@ def prepare_ljspeech(
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the original LJspeech dataset is stored.
+        Path to the folder where the original LJspeech dataset is stored
     save_folder : str
-        The directory where to store the csv files.
+        The directory where to store the csv/json files
     splits : list
-        List of splits to prepare.
+        List of dataset splits to prepare
     split_ratio : list
-        Proportion for train and validation splits.
+        Proportion for dataset splits
+    model_name : str
+        Model name (used to prepare additional model specific data)
     seed : int
         Random seed
-    duration_link: link
-        URL where to download the duration links (needed by fastspeech2).
-    duration_folder: path
-        Folder where to store the durations downloaded from duration_link.
-    compute_pitch: bool
-        If True, it computes the pitch (needed by fastspeech2)
-    pitch_folder:
-        Folder where to store the pitch of each audio.
-    pitch_n_fft: int
-        Number of fft points for pitch computation.
-    pitch_hop_length: int
-        Hop length for pitch computation.
-    pitch_min_f0: int
-        Minimum f0 for pitch compuation.
-    pitch_max_f0:
-        Max f0 for pitch computation.
-    skip_prep: Bool
-            If True, skip preparation.
+    pitch_n_fft : int
+        Number of fft points for pitch computation
+    pitch_hop_length : int
+        Hop length for pitch computation
+    pitch_min_f0 : int
+        Minimum f0 for pitch compuation
+    pitch_max_f0 : int
+        Max f0 for pitch computation
+    skip_prep : bool
+        If True, skip preparation
+    use_custom_cleaner : bool
+        If True, uses custom cleaner defined for this recipe
+    device : str
+        Device for to be used for computation (used as required)
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -93,12 +97,13 @@ def prepare_ljspeech(
     >>> seed = 1234
     >>> prepare_ljspeech(data_folder, save_folder, splits, split_ratio, seed)
     """
-    # setting seeds for reproducible code.
+    # Sets seeds for reproducible code
     random.seed(seed)
 
     if skip_prep:
         return
-    # Create configuration for easily skipping data_preparation stage
+
+    # Creating configuration for easily skipping data_preparation stage
     conf = {
         "data_folder": data_folder,
         "splits": splits,
@@ -108,9 +113,6 @@ def prepare_ljspeech(
     }
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-    if compute_pitch:
-        if not os.path.exists(pitch_folder):
-            os.makedirs(pitch_folder)
 
     # Setting ouput files
     meta_csv = os.path.join(data_folder, METADATA_CSV)
@@ -121,14 +123,25 @@ def prepare_ljspeech(
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)
 
-    # Download duration folder
-    if duration_link is not None:
-        if not os.path.exists(os.path.join(duration_folder, "durations/LJ001-0001.npy")):
-            logger.info("Downloading durations for fastspeech training")
-            download_file(
-                duration_link, duration_folder + "/durations.zip", unpack=True,
-            )
-        duration_folder = duration_folder + "/durations"
+    # Setting up additional folders required for FastSpeech2
+    phoneme_alignments_folder = None
+    duration_folder = None
+    pitch_folder = None
+    if model_name == "FastSpeech2":
+        # This step requires phoneme alignements to be present in the data_folder
+        # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
+        phoneme_alignments_folder = os.path.join(
+            data_folder, "TextGrid", "LJSpeech"
+        )
+
+        duration_folder = os.path.join(data_folder, "durations")
+        if not os.path.exists(duration_folder):
+            os.makedirs(duration_folder)
+
+        pitch_folder = os.path.join(data_folder, "pitch")
+        if not os.path.exists(pitch_folder):
+            os.makedirs(pitch_folder)
+
     # Check if this phase is already done (if so, skip it)
     if skip(splits, save_folder, conf):
         logger.info("Skipping preparation, completed in previous run.")
@@ -138,58 +151,62 @@ def prepare_ljspeech(
     assert os.path.exists(meta_csv), "metadata.csv does not exist"
     assert os.path.exists(wavs_folder), "wavs/ folder does not exist"
 
+    # Prepare data splits
     msg = "Creating json file for ljspeech Dataset.."
     logger.info(msg)
-
     data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
 
     if "train" in splits:
         prepare_json(
+            model_name,
             data_split["train"],
             save_json_train,
             wavs_folder,
             meta_csv,
+            phoneme_alignments_folder,
             duration_folder,
-            compute_pitch,
             pitch_folder,
             pitch_n_fft,
             pitch_hop_length,
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            device,
         )
     if "valid" in splits:
         prepare_json(
+            model_name,
             data_split["valid"],
             save_json_valid,
             wavs_folder,
             meta_csv,
+            phoneme_alignments_folder,
             duration_folder,
-            compute_pitch,
             pitch_folder,
             pitch_n_fft,
             pitch_hop_length,
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            device,
         )
     if "test" in splits:
         prepare_json(
+            model_name,
             data_split["test"],
             save_json_test,
             wavs_folder,
             meta_csv,
+            phoneme_alignments_folder,
             duration_folder,
-            compute_pitch,
             pitch_folder,
             pitch_n_fft,
             pitch_hop_length,
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            device,
         )
-    if create_symbol_list:
-        create_symbol_file(save_folder, save_json_train)
     save_pkl(conf, save_opt)
 
 
@@ -299,78 +316,127 @@ def split_sets(data_folder, splits, split_ratio):
 
 
 def prepare_json(
+    model_name,
     seg_lst,
     json_file,
     wavs_folder,
     csv_reader,
+    phoneme_alignments_folder,
     durations_folder,
-    compute_pitch,
     pitch_folder,
     pitch_n_fft,
     pitch_hop_length,
     pitch_min_f0,
     pitch_max_f0,
     use_custom_cleaner=False,
+    device="cpu",
 ):
     """
     Creates json file given a list of indexes.
 
     Arguments
     ---------
-    seg_list : list
-        The list of json indexes of a given data split.
+    model_name : str
+        Model name (used to prepare additional model specific data)
+    seg_lst : list
+        The list of json indexes of a given data split
     json_file : str
         Output json path
     wavs_folder : str
         LJspeech wavs folder
     csv_reader : _csv.reader
         LJspeech metadata
-    duration_folder: path
-        Folder where to store the durations downloaded from duration_link.
-    compute_pitch: bool
-        If True, it computes the pitch (needed by fastspeech2)
-    pitch_folder:
-        Folder where to store the pitch of each audio.
-    pitch_n_fft: int
-        Number of fft points for pitch computation.
-    pitch_hop_length: int
-        Hop length for pitch computation.
-    pitch_min_f0: int
-        Minimum f0 for pitch compuation.
-    pitch_max_f0:
-        Max f0 for pitch computation.
+    phoneme_alignments_folder : path
+        Path where the phoneme alignments are stored
+    durations_folder : path
+        Folder where to store the duration values of each audio
+    pitch_folder : path
+        Folder where to store the pitch of each audio
+    pitch_n_fft : int
+        Number of fft points for pitch computation
+    pitch_hop_length : int
+        Hop length for pitch computation
+    pitch_min_f0 : int
+        Minimum f0 for pitch compuation
+    pitch_max_f0 : int
+        Max f0 for pitch computation
+    use_custom_cleaner : bool
+        If True, uses custom cleaner defined for this recipe
+    device : str
+        Device for to be used for computation (used as required)
 
     Returns
     -------
     None
     """
 
-    print("preparing %s..." % (json_file))
-    if compute_pitch:
-        print("Computing pitch as well. This takes several minutes...")
+    logger.info(f"preparing {json_file}.")
+    if model_name == "Tacotron2":
+        logger.info(
+            "Computing phonemes for LJSpeech labels using SpeechBrain G2P. This may take a while."
+        )
+        g2p = GraphemeToPhoneme.from_hparams(
+            "speechbrain/soundchoice-g2p", run_opts={"device": device}
+        )
+    if model_name == "FastSpeech2":
+        logger.info(
+            "Computing pitch as required for FastSpeech2. This may take a while."
+        )
+
     json_dict = {}
     for index in tqdm(seg_lst):
+
+        # Common data preparation
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
         label = list(csv_reader)[index][2]
         if use_custom_cleaner:
             label = custom_clean(label)
+
         json_dict[id] = {
+            "uttid": id,
             "wav": wav,
             "label": label,
             "segment": True if "train" in json_file else False,
         }
-        if durations_folder is not None:
-            duration_path = os.path.join(durations_folder, id + ".npy")
-            json_dict[id].update({"durations": duration_path})
 
-        # Pitch Computation
-        if compute_pitch:
+        # Tacotron2 specific data preparation
+        if model_name == "Tacotron2":
+            # Computes phoneme labels using SpeechBrain G2P for Tacotron2
+            label_phoneme_list = g2p(label)
+            label_phoneme = " ".join(label_phoneme_list)
+            json_dict[id].update({"label_phoneme": label_phoneme})
+
+        # FastSpeech2 specific data preparation
+        if model_name == "FastSpeech2":
+
+            audio, fs = torchaudio.load(wav)
+
+            # Parses phoneme alignments
+            textgrid_path = os.path.join(
+                phoneme_alignments_folder, f"{id}.TextGrid"
+            )
+            textgrid = tgt.io.read_textgrid(textgrid_path)
+            phonemes, duration, start, end = get_alignment(
+                textgrid.get_tier_by_name("phones"), fs, pitch_hop_length
+            )
+
+            # Gets label phonemes
+            label_phoneme = " ".join(phonemes)
+            if start >= end:
+                print(f"Skipping {id}")
+                continue
+
+            # Saves durations
+            duration_file_path = os.path.join(durations_folder, f"{id}.npy")
+            np.save(duration_file_path, duration)
+
+            # Computes pitch
+            audio = audio[:, int(fs * start) : int(fs * end)]
             pitch_file = wav.replace(".wav", ".npy").replace(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-                audio, fs = torchaudio.load(wav)
                 pitch = torchaudio.functional.compute_kaldi_pitch(
                     waveform=audio,
                     sample_rate=fs,
@@ -379,7 +445,14 @@ def prepare_json(
                     min_f0=pitch_min_f0,
                     max_f0=pitch_max_f0,
                 )[0, :, 0]
+                pitch = pitch[: sum(duration)]
                 np.save(pitch_file, pitch)
+
+            # Updates data for the utterance
+            json_dict[id].update({"label_phoneme": label_phoneme})
+            json_dict[id].update({"start": start})
+            json_dict[id].update({"end": end})
+            json_dict[id].update({"durations": duration_file_path})
             json_dict[id].update({"pitch": pitch_file})
 
     # Writing the dictionary to the json file
@@ -389,49 +462,115 @@ def prepare_json(
     logger.info(f"{json_file} successfully created!")
 
 
-def create_symbol_file(save_folder, save_json_train):
-    lexicon_path = os.path.join(save_folder, "lexicon")
-    if os.path.exists(lexicon_path):
-        logger.info("Symbols file present")
-    else:
-        logger.info("Symbols file not present, creating from training data.")
-        data = load_data_json(save_json_train)
-        char_set = set()
-        for id in data:
-            line = data[id]["label"]
-            char_set.update(*line.lower())
-        with open(lexicon_path, "w") as f:
-            f.write("\t".join(char_set))
+def get_alignment(tier, sampling_rate, hop_length):
+    """
+    Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
+    This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
+
+    Arguments
+    ---------
+    tier : tgt.core.IntervalTier
+        For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
+    sampling_rate : int
+        Sample rate if audio signal
+    hop_length : int
+        Hop length for duration computation
+
+
+    Returns
+    -------
+    (phones, durations, start_time, end_time) : tuple
+        The phonemes, durations, start time, and end time for an utterance
+    """
+
+    sil_phones = ["sil", "sp", "spn", ""]
+
+    phonemes = []
+    durations = []
+    start_time = 0
+    end_time = 0
+    end_idx = 0
+
+    for t in tier._objects:
+        s, e, p = t.start_time, t.end_time, t.text
+
+        # Trims leading silences
+        if phonemes == []:
+            if p in sil_phones:
+                continue
+            else:
+                start_time = s
+
+        if p not in sil_phones:
+            # For ordinary phones
+            # Removes stress indicators
+            if p[-1].isdigit():
+                phonemes.append(p[:-1])
+            else:
+                phonemes.append(p)
+            end_time = e
+            end_idx = len(phonemes)
+        else:
+            # Uses a unique token for all silent phones
+            phonemes.append("spn")
+
+        durations.append(
+            int(
+                np.round(e * sampling_rate / hop_length)
+                - np.round(s * sampling_rate / hop_length)
+            )
+        )
+
+    # Trims tailing silences
+    phonemes = phonemes[:end_idx]
+    durations = durations[:end_idx]
+
+    return phonemes, durations, start_time, end_time
+
 
 def custom_clean(text):
-    import re
-    from unidecode import unidecode
-    _abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in [
-                    ('mrs', 'misess'),
-                    ('mr', 'mister'),
-                    ('dr', 'doctor'),
-                    ('st', 'saint'),
-                    ('co', 'company'),
-                    ('jr', 'junior'),
-                    ('maj', 'major'),
-                    ('gen', 'general'),
-                    ('drs', 'doctors'),
-                    ('rev', 'reverend'),
-                    ('lt', 'lieutenant'),
-                    ('hon', 'honorable'),
-                    ('sgt', 'sergeant'),
-                    ('capt', 'captain'),
-                    ('esq', 'esquire'),
-                    ('ltd', 'limited'),
-                    ('col', 'colonel'),
-                    ('ft', 'fort'),
-                    ]]
+    """
+    Uses custom criteria to clean text.
+
+    Arguments
+    ---------
+    text : str
+        Input text to be cleaned
+
+    Returns
+    -------
+    text : str
+        Cleaned text
+    """
+
+    _abbreviations = [
+        (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
+        for x in [
+            ("mrs", "misess"),
+            ("mr", "mister"),
+            ("dr", "doctor"),
+            ("st", "saint"),
+            ("co", "company"),
+            ("jr", "junior"),
+            ("maj", "major"),
+            ("gen", "general"),
+            ("drs", "doctors"),
+            ("rev", "reverend"),
+            ("lt", "lieutenant"),
+            ("hon", "honorable"),
+            ("sgt", "sergeant"),
+            ("capt", "captain"),
+            ("esq", "esquire"),
+            ("ltd", "limited"),
+            ("col", "colonel"),
+            ("ft", "fort"),
+        ]
+    ]
     text = unidecode(text.lower())
     text = re.sub("[:;]", " - ", text)
     text = re.sub("[)(\[\]\"]", " ", text)
-    text = re.sub(' +', ' ', text)
+    text = re.sub(" +", " ", text)
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
-    text = text.strip().strip().strip('-')
+    text = text.strip().strip().strip("-")
     return text
-

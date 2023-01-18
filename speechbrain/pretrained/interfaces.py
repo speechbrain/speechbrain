@@ -1341,7 +1341,7 @@ class VAD(Pretrained):
         -------
         vad_th: torch.tensor
             Tensor containing 1 for speech regions and 0 for non-speech regions.
-       """
+        """
         vad_activation = (vad_prob >= activation_th).int()
         vad_deactivation = (vad_prob >= deactivation_th).int()
         vad_th = vad_activation + vad_deactivation
@@ -1381,7 +1381,7 @@ class VAD(Pretrained):
             in even positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).
-       """
+        """
         # Shifting frame-levels binary decision by 1
         # This allows detecting changes in speech/non-speech activities
         prob_th_shifted = torch.roll(prob_th, dims=1, shifts=1)
@@ -2584,8 +2584,7 @@ class WaveformEnhancement(Pretrained):
 
 
 class SNREstimator(Pretrained):
-    """A "ready-to-use" SNR estimator.
-    """
+    """A "ready-to-use" SNR estimator."""
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
     HPARAMS_NEEDED = ["stat_pooling", "snrmax", "snrmin"]
@@ -2703,8 +2702,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction
-        """
+        """Encodes raw text into a tensor with a customer text-to-equence fuction"""
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -2753,15 +2751,13 @@ class Tacotron2(Pretrained):
         return self.encode_batch(texts)
 
 
-class Fastspeech2(Pretrained):
+class FastSpeech2(Pretrained):
     """
     A ready-to-use wrapper for Fastspeech2 (text -> mel_spec).
-
     Arguments
     ---------
     hparams
         Hyperparameters (from HyperPyYAML)
-
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
@@ -2788,101 +2784,80 @@ class Fastspeech2(Pretrained):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        lexicon = [
-            "t",
-            "?",
-            "q",
-            "j",
-            "g",
-            "p",
-            "x",
-            "(",
-            "é",
-            "e",
-            "z",
-            ",",
-            "o",
-            "a",
-            "m",
-            "n",
-            "u",
-            "d",
-            ":",
-            "w",
-            "à",
-            "“",
-            ".",
-            "”",
-            "’",
-            "[",
-            "v",
-            "h",
-            " ",
-            "ê",
-            "b",
-            "'",
-            '"',
-            "f",
-            "â",
-            "!",
-            ";",
-            "l",
-            "r",
-            "è",
-            "i",
-            "]",
-            "s",
-            "k",
-            "y",
-            ")",
-            "c",
-            "ü",
-            "-",
-        ]
+        lexicon = self.hparams.lexicon
         lexicon = ["@@"] + lexicon
         self.input_encoder = self.hparams.input_encoder
         self.input_encoder.update_from_iterable(lexicon, sequence_input=False)
+        self.input_encoder.add_unk()
+        self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
 
-    def encode_batch(self, texts):
+    def encode_batch(self, texts, pace=1.1):
         """Computes mel-spectrogram for a list of texts
-
-        Texts must be sorted in decreasing order on their lengths
 
         Arguments
         ---------
-        text: List[str]
+        texts : List[str]
             texts to be encoded into spectrogram
+        pace : float
+            pace for the speech synthesis
 
         Returns
         -------
         tensors of output spectrograms, output lengths and alignments
         """
+
+        # Converts texts to their respective phoneme sequences
+        phoneme_seqs = list()
+        for text in texts:
+            phoneme_seq = self.g2p(text)
+            phoneme_seq = " ".join(phoneme_seq)
+            phoneme_seqs.append(phoneme_seq)
+
+        # Sorts phoneme sequences in descending order of length
+        phoneme_seqs = sorted(phoneme_seqs, key=lambda x: (-len(x), x))
+
         with torch.no_grad():
             inputs = [
                 {
-                    "text_sequences": self.input_encoder.encode_sequence_torch(
-                        item.lower()
+                    "phoneme_sequences": self.input_encoder.encode_sequence_torch(
+                        item.split()
                     ).int()
                 }
-                for item in texts
+                for item in phoneme_seqs
             ]
-            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
-            mel_outputs, durations, pitch, energy = self.hparams.model(
-                inputs.text_sequences.data
+            inputs = speechbrain.dataio.batch.PaddedBatch(inputs).to(
+                self.device
+            )
+            mel_outputs, _, durations, pitch, energy, _ = self.hparams.model(
+                inputs.phoneme_sequences.data, pace=pace
             )
 
-            # Transpose to make in compliant with HiFI GAN expected format
+            # Transposes to make in compliant with HiFI GAN expected format
             mel_outputs = mel_outputs.transpose(-1, 1)
 
         return mel_outputs, durations, pitch, energy
 
-    def encode_text(self, text):
-        """Runs inference for a single text str"""
-        return self.encode_batch([text])
+    def encode_text(self, text, pace=1.1):
+        """Runs inference for a single text str
+        Arguments
+        ---------
+        text : str
+            text to be encoded into spectrogram
+        pace : float
+            pace for the speech synthesis
+        """
+        return self.encode_batch([text], pace=pace)
 
-    def forward(self, texts):
-        "Encodes the input texts."
-        return self.encode_batch(texts)
+    def forward(self, texts, pace=1.1):
+        """Encodes the input texts.
+        Arguments
+        ---------
+        texts : List[str]
+            texts to be encoded into spectrogram
+        pace : float
+            pace for the speech synthesis
+        """
+        return self.encode_batch(texts, pace=pace)
 
 
 class HIFIGAN(Pretrained):
