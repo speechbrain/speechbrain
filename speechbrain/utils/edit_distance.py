@@ -479,6 +479,7 @@ def wer_details_by_utterance(
         # Compute edits for this utterance
         table = op_table(ref_tokens, hyp_tokens)
         ops = count_ops(table)
+        # Take into account "" outputs as empty
         if ref_tokens[0] == "" and hyp_tokens[0] == "":
             num_ref_tokens = 0
         else:
