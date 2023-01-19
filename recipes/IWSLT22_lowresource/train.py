@@ -25,7 +25,7 @@ class ST(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos  # translation
 
         # wav2vec module
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
 
         # dimensionality reduction
         src = self.modules.enc(feats)
@@ -96,6 +96,11 @@ class ST(sb.core.Brain):
         self.adam_optimizer = self.hparams.adam_opt_class(
             self.hparams.model.parameters()
         )
+
+    def zero_grad(self, set_to_none=False):
+        if not self.hparams.wav2vec2_frozen:
+            self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.adam_optimizer.zero_grad(set_to_none)
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""

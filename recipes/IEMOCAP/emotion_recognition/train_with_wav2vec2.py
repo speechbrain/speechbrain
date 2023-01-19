@@ -24,7 +24,7 @@ class EmoIdBrain(sb.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        outputs = self.modules.wav2vec2(wavs)
+        outputs = self.modules.wav2vec2(wavs, lens)
 
         # last dim will be used for AdaptativeAVG pool
         outputs = self.hparams.avg_pool(outputs, lens)
@@ -151,6 +151,10 @@ class EmoIdBrain(sb.Brain):
                 "wav2vec2_opt", self.wav2vec2_optimizer
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec2_optimizer.zero_grad(set_to_none)
+        self.optimizer.zero_grad(set_to_none)
 
 
 def dataio_prep(hparams):
