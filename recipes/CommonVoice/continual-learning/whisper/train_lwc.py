@@ -97,7 +97,7 @@ class ASR(sb.Brain):
             loss2 = outputs_T.mul(-1*torch.log(outputs_S))
             loss2 = loss2.sum(1)
             loss2 = loss2.mean()*T*T
-            loss = loss*hparams['lwf_alpha']+loss2*(1-hparams['lwf_alpha'])
+            loss = loss+loss2*hparams['lwf_alpha']
             
 
         if stage != sb.Stage.TRAIN:
