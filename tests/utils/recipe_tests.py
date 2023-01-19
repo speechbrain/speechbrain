@@ -2,13 +2,14 @@
 
 Authors
  * Mirco Ravanelli 2022
- * Andreas Nautsch 2022
+ * Andreas Nautsch 2022, 2023
 """
 import os
 import re
 import csv
 import sys
 import pydoc
+from time import time
 import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
 
@@ -502,7 +503,10 @@ def run_recipe_tests(
             cmd += " --debug --debug_persistently"
 
         # Running the test
+        time_start = time()
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
+        test_duration = time() - time_start
+        print("\t... %.2fs" % test_duration)
 
         # Tear down
         td_script = os.path.join(os.path.dirname(setup_script), "tear_down")

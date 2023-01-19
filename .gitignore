@@ -52,7 +52,6 @@ coverage.xml
 .pytest_cache/
 cover/
 tests/tmp/
-tests/samples/separation_processed_16k/
 
 # Translations
 *.mo
