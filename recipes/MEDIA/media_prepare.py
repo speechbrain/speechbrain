@@ -153,6 +153,8 @@ def parse(
 ):
     """
     Parse data for the train, dev and test csv files of the Media dataset.
+    Files are stored in MEDIA1FR_00/MEDIA1FR/DATA/. 
+    They are the original xml files used by the community for train, dev and test.
 
     Arguments
     ---------
@@ -220,6 +222,10 @@ def parse_test2(
 ):
     """
     Prepares the data for the csv files of the Media dataset.
+    Files are stored in /E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/.
+    They are xml files made after the first dataset release, and have never been used before this recipe. 
+    We made the decision to make a new corpus from them, named "test2". 
+    This new corpus can be used as a second inference corpus, as the original test. 
 
     Arguments
     ---------
