@@ -18,7 +18,6 @@ import numpy as np
 from tqdm import tqdm
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 import tgt
-from speechbrain.pretrained import GraphemeToPhoneme
 import re
 from unidecode import unidecode
 
@@ -81,7 +80,7 @@ def prepare_ljspeech(
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
     device : str
-        Device for to be used for computation (used as required)
+        Device to be used for computation (used as required)
 
     Returns
     -------
@@ -363,7 +362,7 @@ def prepare_json(
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
     device : str
-        Device for to be used for computation (used as required)
+        Device to be used for computation (used as required)
 
     Returns
     -------
@@ -371,13 +370,6 @@ def prepare_json(
     """
 
     logger.info(f"preparing {json_file}.")
-    if model_name == "Tacotron2":
-        logger.info(
-            "Computing phonemes for LJSpeech labels using SpeechBrain G2P. This may take a while."
-        )
-        g2p = GraphemeToPhoneme.from_hparams(
-            "speechbrain/soundchoice-g2p", run_opts={"device": device}
-        )
     if model_name == "FastSpeech2":
         logger.info(
             "Computing pitch as required for FastSpeech2. This may take a while."
@@ -399,13 +391,6 @@ def prepare_json(
             "label": label,
             "segment": True if "train" in json_file else False,
         }
-
-        # Tacotron2 specific data preparation
-        if model_name == "Tacotron2":
-            # Computes phoneme labels using SpeechBrain G2P for Tacotron2
-            label_phoneme_list = g2p(label)
-            label_phoneme = " ".join(label_phoneme_list)
-            json_dict[id].update({"label_phoneme": label_phoneme})
 
         # FastSpeech2 specific data preparation
         if model_name == "FastSpeech2":
