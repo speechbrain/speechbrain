@@ -559,10 +559,6 @@ if __name__ == "__main__":  # noqa: C901
 
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
-    # dev_meta_file = os.path.join(
-    #     params["meta_data_dir"],
-    #     "ami_dev." + params["mic_type"] + ".subsegs.json",
-    # )
     dev_meta_file = params["dev_meta_file"]
     with open(dev_meta_file, "r") as f:
         meta_dev = json.load(f)

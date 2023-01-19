@@ -3,7 +3,9 @@ This folder contains the scripts to train a seq2seq CNN-RNN-based system using L
 You can download LibriSpeech at http://www.openslr.org/12
 
 # How to run
+```shell
 python train.py hparams/file.yaml
+```
 
 # Results
 

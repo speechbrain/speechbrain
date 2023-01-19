@@ -1,16 +1,18 @@
 # Guiding contributors, reviewers & maintainers through the complexity of SpeechBrain testing.
 
-SpeechBrain is a multi-platform ecosystem.
-Functionality (to be ensured through testing continuity) is provided by python code and yaml hparams (in scripts, recipes & tutorials).
-To improve upon its quality, continuously and throughout, github workflows as of PRs are underlying CI/CD cycles.
-Yet, contributions to the SpeechBrain community might easily derail what has been put into place beforehand—legacy is at threat.
-Demonstrating no harm done, is a task with tricky bits & pieces.
+SpeechBrain is the name of a speech technology toolkit. It is written in Python and uses an extended YAML (HyperPyYAML) for hyperparameters in recipes, as well as some tutorials and scripts. SpeechBrain (the toolkit) is continuously updated and improved by the SpeechBrain community and the SpeechBrain core team, working together on GitHub. New versions of SpeechBrain (the toolkit) are continuously published by the core team on platforms like PyPI.
 
-The following ideographics illustrate the different complexity landscapes at work when it comes to testing SpeechBrain for what it is:
-conversational AI, scalable to incubate services and educate researchers, alike.
-For testing, the challenge rests in the community-driven approach: how to integrate (potentially legacy-breaking) refactorings without loosing hold on prior achievements, such that continuity of purpose is preserved (regardless of change encountered).
+If we take a step back, SpeechBrain also refers to a wider ecosystem, which has spread to many different platforms: there's documentation on readthedocs, tutorials on Colab, models on HuggingFace, et cetera. Another important part of SpeechBrain are the recipes. The main GitHub repository houses a set of recipes, which has built up over time.
 
-by Andreas Nautsch, 2022
+As SpeechBrain (all of it) is improved and changed, ideally the old, existing parts should continue to work well. However, in reality, changes will break old parts.
+
+The purpose of tests is to ensure that things work, or that at least we know what breaks: for example, SpeechBrain (the toolkit) has unittests which test specific bits of code in the core library. But since SpeechBrain (the ecosystem) is quite wide and spread out, there should also be other types of tests which ensure that the different platforms cooperate and the recipes keep working.
+
+Demonstrating that no harm is done by some given change is a big challenge. Ideally, tests will help in integrating (potentially legacy-breaking) changes without losing the existing achievements.
+
+The following graphics illustrate the different complexities at work when it comes to testing in SpeechBrain.
+
+by Andreas Nautsch, Aku Rouhe, 2022
 
 ## Functionality provided on multiple platforms, in the SpeechBrain ecosystem.
 

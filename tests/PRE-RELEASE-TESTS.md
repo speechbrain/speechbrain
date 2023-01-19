@@ -37,7 +37,7 @@ tests/.run-load-yaml-tests.sh
 ```
 tests/.run-recipe-tests.sh
 ```
-10. Make sure all Huggingface repos are working
+10. Make sure all HuggingFace repos are working
 ```
 tests/.run-HF-checks.sh
 ```

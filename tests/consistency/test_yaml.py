@@ -1,3 +1,8 @@
+"""Consistency check between yaml files and script files.
+
+Authors
+ * Mirco Ravanelli 2022
+"""
 import os
 import csv
 from tests.utils.check_yaml import check_yaml_vs_script

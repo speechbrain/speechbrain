@@ -6,11 +6,6 @@ then, manual editing might change YAMLs and/or code; another test runs to compar
 The goal is to identify to which extent changes break existing functionality.
 Then, larger changes to code base can be rolled out more assured.
 
-Tested with dependencies:
-pip install huggingface_hub==0.10.1 datasets==2.6.1 transformers==4.23.1
-
-dependencies as of: Oct 11, 2022; Oct 14, 2022; Oct 11, 2022.
-
 Authors
  * Andreas Nautsch, 2022
 """
@@ -310,7 +305,6 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = speechbrain.parse_arguments(
         sys.argv[1:]
     )
-    # speechbrain.utils.distributed.ddp_init_group(run_opts)
 
     with open(hparams_file) as fin:
         dataset_overrides = load_hyperpyyaml(fin, overrides)

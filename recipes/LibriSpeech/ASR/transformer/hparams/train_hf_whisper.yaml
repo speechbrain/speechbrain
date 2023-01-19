@@ -88,7 +88,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
-    save_path: !ref <whisper_folder>/whisper_checkpoint
+    save_path: !ref <whisper_folder>
     encoder_only: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
