@@ -224,6 +224,7 @@ def parse_test2(
     Prepares the data for the csv files of the Media dataset.
     Files are stored in /E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/.
     They are xml files made after the first dataset release, and have never been used before this recipe. 
+    These xml files are structured differently from the original ones, explaining special functions for the test2. 
     We made the decision to make a new corpus from them, named "test2". 
     This new corpus can be used as a second inference corpus, as the original test. 
 
