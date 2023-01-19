@@ -5,6 +5,7 @@ Author:
     Sung-Lin Yeh 2020
 """
 import torch
+from functools import partial
 
 
 class TransducerBeamSearcher(torch.nn.Module):
@@ -276,15 +277,17 @@ class TransducerBeamSearcher(torch.nn.Module):
                     # Add norm score
                     a_best_hyp = max(
                         process_hyps,
-                        key=lambda x: x["logp_score"] / len(x["prediction"]),
+                        # key=lambda x: x["logp_score"] / len(x["prediction"]),
+                        key=partial(get_transducer_key),
                     )
 
                     # Break if best_hyp in A is worse by more than state_beam than best_hyp in B
                     if len(beam_hyps) > 0:
                         b_best_hyp = max(
                             beam_hyps,
-                            key=lambda x: x["logp_score"]
-                            / len(x["prediction"]),
+                            key=partial(get_transducer_key),
+                            #key=lambda x: x["logp_score"]
+                            #/ len(x["prediction"]),
                         )
                         a_best_prob = a_best_hyp["logp_score"]
                         b_best_prob = b_best_hyp["logp_score"]
@@ -526,3 +529,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         for layer in classifier_network:
             out = layer(out)
         return out
+
+def get_transducer_key(x):
+    return x["logp_score"] / len(x["prediction"]),
+    

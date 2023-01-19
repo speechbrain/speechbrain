@@ -117,7 +117,10 @@ class ASR(sb.Brain):
                     self.scaler.unscale_(self.wav2vec_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
+                    if hasattr(self.hparams, "warmup_steps"):
+                        if self.optimizer_step > self.hparams.warmup_steps:
+                            self.scaler.step(self.wav2vec_optimizer)
+                    else:
                         self.scaler.step(self.wav2vec_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
@@ -128,7 +131,10 @@ class ASR(sb.Brain):
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
+                    if hasattr(self.hparams, "warmup_steps"):
+                        if self.optimizer_step > self.hparams.warmup_steps:
+                            self.wav2vec_optimizer.step()
+                    else:
                         self.wav2vec_optimizer.step()
                     self.model_optimizer.step()
                 self.wav2vec_optimizer.zero_grad()
