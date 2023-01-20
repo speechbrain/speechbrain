@@ -5,10 +5,9 @@ This recipe take the whisper encoder-decoder to fine-tune on the NLL.
 
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml
- Note: When using whisper large model, to improve memory usage during model recovery especiall. you could use (see https://github.com/speechbrain/speechbrain/pull/1743)
+ Note: When using whisper large model, to improve memory usage during model recovery. you could use (see https://github.com/speechbrain/speechbrain/pull/1743)
 Authors
  * Pooneh Mousavi 2022
-
 """
 
 import os

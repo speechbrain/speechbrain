@@ -8,7 +8,7 @@ python train.py hparams/{hparam_file}.py
 
 python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml e.g. train_<locale>_hf_whisper
 
-Note: When using whisper large model, to improve memory usage during model recovery especiall. you could use (see https://github.com/speechbrain/speechbrain/pull/1743)
+Note: When using whisper large model, to improve memory usage during model recovery. You could use (see https://github.com/speechbrain/speechbrain/pull/1743)
 
 # Data preparation
 It is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Hence, audio files are downsampled on the fly within the dataio function of the training script.
