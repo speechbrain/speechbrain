@@ -259,6 +259,38 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_data
 
 
+class ProgressiveEmbedding(torch.nn.Module):
+    def __init__(self, base_embedding, num_extra_embeddings, num_linear=2):
+        super().__init__()
+        self.base_embedding = base_embedding
+        self.num_extra_embeddings = num_extra_embeddings
+        self.num_linear = num_linear
+        self.embedding_dim = embedding_dim = base_embedding.embedding_dim
+        self.num_embeddings = base_embedding.num_embeddings + num_extra_embeddings
+        self.padding_idx = base_embedding.padding_idx
+        self.linears = []
+        for _ in range(num_linear):
+            self.linears += [torch.nn.Linear(embedding_dim, embedding_dim), torch.nn.GELU()]
+        self.linears += [torch.nn.LayerNorm(embedding_dim)]
+        self.linears = torch.nn.Sequential(*self.linears)
+        self.new_weight = torch.nn.Parameter(torch.empty((num_extra_embeddings, embedding_dim), device=base_embedding.weight.device))
+        torch.nn.init.normal_(self.new_weight)
+
+    @property
+    def weight(self):
+        return torch.cat([self.base_embedding.weight, self.new_weight])
+
+    def forward(self, input):
+        output = torch.nn.functional.embedding(
+            input, self.weight, self.padding_idx,
+        )
+        num_old_embeddings = self.base_embedding.num_embeddings
+        new_tokens_mask = input >= num_old_embeddings
+        new_tokens_output = self.linears(output[new_tokens_mask])
+        output[new_tokens_mask] = new_tokens_output
+        return output
+
+
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
@@ -361,11 +393,15 @@ def train(hparams, run_opts):
         # Add the tokens to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
-        # Add new random embeddings to Whisper for the new tokens
-        hparams["whisper"].model.resize_token_embeddings(
-            hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
-            + len(new_tokens)
-            + 1
+        # Freeze the whole model to avoid forgetting
+        for param in hparams["whisper"].model.parameters():
+            param.requires_grad_(False)
+
+        # Add new random embeddings and linear layers to Whisper for the new tokens
+        hparams["whisper"].model.decoder.embed_tokens = ProgressiveEmbedding(
+            hparams["whisper"].model.decoder.embed_tokens,
+            len(new_tokens) + 1,
+            num_linear=hparams["num_linear"],
         )
 
         # Log total number of tokens
@@ -381,6 +417,7 @@ def train(hparams, run_opts):
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
         os.makedirs(checkpoint_dir, exist_ok=True)
         hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
+        """
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
@@ -403,7 +440,7 @@ def train(hparams, run_opts):
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
-
+        """
         # Testing
         test(
             hparams,
@@ -451,3 +488,35 @@ if __name__ == "__main__":
 
     # Train
     train(hparams, run_opts)
+"""
+
+
+from speechbrain.lobes.models.huggingface_whisper import HuggingFaceWhisper
+
+
+if __name__ == "__main__":
+    model_hub = "openai/whisper-tiny"
+    save_path = "savedir"
+    sampling_rate = 16000
+    model = HuggingFaceWhisper(model_hub, save_path, sampling_rate).to("cuda")
+
+    for param in model.model.parameters():
+        param.requires_grad_(False)
+
+    torch.manual_seed(0)
+    # Add new random embeddings and linear layers to Whisper for the new tokens
+
+    model.model.decoder.embed_tokens = ProgressiveEmbedding(
+        model.model.decoder.embed_tokens,
+        500,
+        num_linear=5,
+    )
+
+    torch.manual_seed(0)
+    model.to("cuda")
+    tokens = torch.tensor([[52000]], device="cuda")
+    inputs = torch.randn([1, 93680], device="cuda")
+    outputs = model(inputs, tokens)
+    #outputs[1].sum().backward()
+    print(outputs[1])
+"""

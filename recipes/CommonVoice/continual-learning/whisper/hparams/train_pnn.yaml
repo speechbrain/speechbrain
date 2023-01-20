@@ -8,8 +8,8 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
-old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
+new_locales: [or, ga-IE] #[rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
+old_locales: [fi] #[en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 
 # Output directories
@@ -17,8 +17,8 @@ output_dir: !ref results/whisper_pnn/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 128 #24  # 1 when fine-tuning both encoder and decoder
-valid_batch_size: 152 #24
+train_batch_size: 20 #128 #24  # 1 when fine-tuning both encoder and decoder
+valid_batch_size: 30 #152 #24
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -34,6 +34,7 @@ num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
+num_linear: 5
 
 whisper_variant: openai/whisper-tiny
 encoder_only: False

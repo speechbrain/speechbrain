@@ -226,7 +226,7 @@ def merge_tsv_files(
     _LOGGER.log(logging.INFO, f"Writing output TSV file ({output_tsv_file})...")
     os.makedirs(os.path.dirname(output_tsv_file), exist_ok=True)
     with open(output_tsv_file, "w") as fw:
-        tsv_writer = csv.writer(fw, delimiter="\t", quoting=csv.QUOTE_NONE,escapechar='\\')
+        tsv_writer = csv.writer(fw, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\")
         write_header = True
         for input_tsv_file in input_tsv_files:
             _LOGGER.log(

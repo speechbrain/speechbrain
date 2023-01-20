@@ -36,9 +36,6 @@ from speechbrain.utils.distributed import run_on_main
 from common_voice_prepare import prepare_common_voice
 
 
-__all__ = []
-
-
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
