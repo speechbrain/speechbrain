@@ -15,14 +15,15 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
 language: french #Language for whsiper tokenizer. It should be compatible with <locale> 
+test_only: True # Set it to True if you only want to  do the evaluation
 
 # Normalize the english inputs with
 # the same normalization done in the paper
-normalized_transcripts: True
+normalized_transcripts: True 
 
 # Data files
 locale: fr # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
-data_folder: !ref 'data/common_voice_10_0/<locale>' 
+data_folder: !ref 'data/common_voice_10_0_small/<locale>' 
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
@@ -53,7 +54,7 @@ label_smoothing: 0
 # With DDP batch_size is multiplied by N jobs
 batch_size: 12
 test_batch_size: 8
-test_only: False
+
 
 
 # These values are only used for the searchers.

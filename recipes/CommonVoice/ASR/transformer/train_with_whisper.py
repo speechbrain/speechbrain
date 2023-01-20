@@ -3,15 +3,11 @@
 The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
 This recipe take the whisper encoder-decoder to fine-tune on the NLL.
 
-If you want to only use the whisper encoder system, please refer to the recipe
-speechbrain/recipes/CommonVoice/ASR/CTC/train_with_whisper.py
-
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml
 
 Authors
  * Pooneh Mousavi 2022
- * Luca Della Libera 2022
 
 """
 

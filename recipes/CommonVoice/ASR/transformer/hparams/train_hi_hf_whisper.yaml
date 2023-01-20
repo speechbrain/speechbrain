@@ -15,7 +15,7 @@ train_log: !ref <output_folder>/train_log.txt
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
 language: hindi   #Language for whsiper tokenizer. It should be compatible with <locale> 
-test_only: False
+test_only: False # Set it to True if you only want to  do the evaluation
 
 # Normalize the english inputs with
 # the same normalization done in the paper
