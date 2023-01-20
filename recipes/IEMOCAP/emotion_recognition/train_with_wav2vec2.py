@@ -256,7 +256,7 @@ if __name__ == "__main__":
                 "save_json_train": hparams["train_annotation"],
                 "save_json_valid": hparams["valid_annotation"],
                 "save_json_test": hparams["test_annotation"],
-                "split_ratio": [80, 10, 10],
+                "split_ratio": hparams["split_ratio"],
                 "different_speakers": hparams["different_speakers"],
                 "test_spk_id": hparams["test_spk_id"],
                 "seed": hparams["seed"],
