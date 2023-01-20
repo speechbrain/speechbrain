@@ -240,7 +240,7 @@ if __name__ == "__main__":
         save_folder=params["save_folder"],
         verification_pairs_file=veri_file_path,
         splits=["train", "dev", "test"],
-        split_ratio=[90, 10],
+        split_ratio=params["split_ratio"],
         seg_dur=3.0,
         skip_prep=params["skip_prep"],
         source=params["voxceleb_source"]

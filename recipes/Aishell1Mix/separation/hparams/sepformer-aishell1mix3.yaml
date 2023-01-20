@@ -15,13 +15,13 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # this is the storage folder for the whole needed dataset e.g. /yourpath
 # it should contain at least 250G space for aishell1, wham_noise and aishell1mix.
 num_spks: 3
-dataset_folder: !PLACEHOLDER
-data_folder: !ref <dataset_folder>/aishell1mix/Aishell1Mix<num_spks>
+data_folder: !PLACEHOLDER
+data_folder_nspks: !ref <data_folder>/aishell1mix/Aishell1Mix<num_spks>
 data_freqs: ['8k'] # or if you want the whole dataset ['8k','16k']
 data_modes: ['min'] # or if you want the whole dataset ['min', 'max']
 
 # this is the base folder for dynamic mixing, usually not changed.
-base_folder_dm: !ref <data_folder>/data_aishell/wav/train
+base_folder_dm: !ref <data_folder_nspks>/data_aishell/wav/train
 
 experiment_name: sepformer-aishell1mix3
 output_folder: !ref results/<experiment_name>/<seed>

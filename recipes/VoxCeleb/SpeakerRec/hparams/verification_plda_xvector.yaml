@@ -29,6 +29,8 @@ pretrain_path: speechbrain/spkrec-xvect-voxceleb
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+split_ratio: [90, 10]
+seg_dur: 3
 skip_prep: False
 
 batch_size: 128
@@ -61,7 +63,7 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
     tdnn_blocks: 5
-    tdnn_channels: [!ref <emb_dim>, !ref <emb_dim>, !ref <emb_dim>, !ref <emb_dim>, 1500]
+    tdnn_channels: [512, 512, 512, 512, 1500]
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
