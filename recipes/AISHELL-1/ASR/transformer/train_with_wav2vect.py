@@ -33,7 +33,7 @@ class ASR(sb.core.Brain):
                 tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
 
         # compute features
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         current_epoch = self.hparams.epoch_counter.current
 
         if stage == sb.Stage.TRAIN:

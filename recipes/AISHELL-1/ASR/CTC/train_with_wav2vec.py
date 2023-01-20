@@ -43,7 +43,7 @@ class ASR(sb.Brain):
                 wav_lens = torch.cat([wav_lens, wav_lens])
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "SpecAugment"):

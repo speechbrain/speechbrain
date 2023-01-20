@@ -25,7 +25,7 @@ class ST(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos  # translation
 
         # wav2vec module
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
 
         # dimensionality reduction
         src = self.modules.enc(feats)

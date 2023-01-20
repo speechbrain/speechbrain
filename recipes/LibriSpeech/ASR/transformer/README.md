@@ -18,17 +18,9 @@ installed in your environment (see extra-requirements.txt)**
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 24-03-22 | transformer.yaml | 2.26 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1sM3_PksmGQZMxXPibp7W7mQfPXFdHqc5?usp=sharing) | 1xA100 40GB |
+| 24-03-22 | transformer.yaml | 2.27 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1Nv1OLbHLqVeShyZ8LY9gjhYGE1DBFzFf?usp=sharing) | 4xV100 32GB |
+| 24-03-22 | conformer_small.yaml | 2.49 (**only 13.3M parameters**) | [HuggingFace](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1I4qntoodHCcj1JNbDrfwFHYcLyu1S5-l?usp=sharing) | 1xV100 32GB |
 | 06-12-23 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
-
-# PreTrained Model + Easy-Inference
-You can find the pre-trained model with an easy-inference function on HuggingFace:
-- https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
-- https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech
-- https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
-
-You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/15uUZ21HYnw4KyOPW3tx8bLrS9RoBZfS7?usp=sharing
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
