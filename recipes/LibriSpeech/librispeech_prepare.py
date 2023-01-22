@@ -22,6 +22,7 @@ from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     merge_csvs,
+    merge_jsons
 )
 
 logger = logging.getLogger(__name__)
@@ -173,10 +174,16 @@ def prepare_librispeech(
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
-        merge_files = [split_libri + ".csv" for split_libri in merge_lst]
-        merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
-        )
+        merge_files = [split_libri + ".json" for split_libri in merge_lst]
+        if mode == LibriSpeechMode.ALIGNMENT:
+            merge_jsons(
+                data_folder=save_folder, json_lst=merge_files, merged_json=merge_name,
+            )
+        else:
+            merge_files = [split_libri + ".csv" for split_libri in merge_lst]
+            merge_csvs(
+                data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+            )
 
     # Create lexicon.csv and oov.csv
     if create_lexicon:
@@ -461,17 +468,18 @@ def create_alignment_json(
     data = {}
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
+        alignment_file_name = alignments_dict.get(wav_file)
+        if alignment_file_name and os.path.isfile(alignment_file_name):
+            alignment_data = parse_alignments(alignment_file_name)
+        else:
+            logger.warn("No alignments found for %s, skipping", wav_file)
+            continue
+
         record = get_file_record(wav_file, text_dict)
         record_dict = record._asdict()
         record_dict["wav"] = wav_file
         record_dict["char"] = record.wrd
         del record_dict["wav_file"]
-        alignment_file_name = alignments_dict.get(wav_file)
-        if alignment_file_name and os.path.isfile(alignment_file_name):
-            alignment_data = parse_alignments(alignment_file_name)
-        else:
-            alignment_data = {}
-            logger.warn("No alignments found for %s", wav_file)
         record_dict.update(alignment_data)
         data[record.snt_id] = record_dict
         snt_cnt = snt_cnt + 1
@@ -591,7 +599,8 @@ def parse_alignments(file_name):
     text_grid = textgrids.TextGrid()
     text_grid.read(file_name)
     word_intervals = [
-        word.upper() for word in text_grid.interval_tier_to_array("words")
+        {**word, "label": word["label"].upper()} 
+        for word in text_grid.interval_tier_to_array("words")
     ]
     phn_intervals = text_grid.interval_tier_to_array("phones")
     details = {}

@@ -165,7 +165,7 @@ class CurriculumSpeechDataset(DynamicItemDataset):
         ):
             idx = self.data_id_indices[data_id]
             # wrd_count
-            yield self.sample_word_counts[idx]
+            yield self.sample_word_counts[idx].item()
             sample_start_idx = self.sample_start_idx[idx]
             sample_end_idx = self.sample_end_idx[idx]
             sig = sb.dataio.dataio.read_audio(wav)
@@ -211,6 +211,7 @@ class CurriculumSpeechDataset(DynamicItemDataset):
             from_dataset=self.base_dataset, data_ids=sample_data_ids
         )
 
+PIPELINE_WRAPPER_ATTRS = {"pipeline", "key_map"}
 
 class PipelineWrapper:
     """A pipeline wrapper that makes it possible to replace
@@ -262,6 +263,26 @@ class PipelineWrapper:
         """
         keys_r = {self.key_map.get(key, key) for key in keys}
         self.pipeline.set_output_keys(keys_r)
+
+    def __getattr__(self, name):
+        """Delegates attribute calls to the underlying pipeline
+        
+        Arguments
+        ---------
+        name: str
+            the attribute name
+
+        Returns
+        -------
+        value: object
+            the attribute value
+        """
+        if name in PIPELINE_WRAPPER_ATTRS:
+            if name not in self.__dict__:
+                raise AttributeError()
+            return self.__dict__[name]
+
+        return getattr(self.pipeline, name)
 
 
 def time_to_index(times, sample_rate):
