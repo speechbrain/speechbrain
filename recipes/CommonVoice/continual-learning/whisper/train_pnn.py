@@ -304,7 +304,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
                 "max_duration": hparams["max_duration"],
-                "shuffle": hparams["shuffle"],
             },
         )
 
@@ -361,7 +360,6 @@ def train(hparams, run_opts):
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
                 "max_duration": hparams["max_duration"],
-                "shuffle": hparams["shuffle"],
             },
         )
 

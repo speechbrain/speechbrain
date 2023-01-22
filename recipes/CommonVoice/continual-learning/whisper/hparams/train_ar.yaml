@@ -11,7 +11,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 locales: [ar]
 download_dir: data
 max_duration: null  # 3600 * 10
-shuffle: False
 
 # Output directories
 output_dir: !ref results/ar/whisper/<seed>
