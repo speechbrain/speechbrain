@@ -11,6 +11,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data/common_voice_10_0
+max_duration: null  # 3600 * 10
+shuffle: False
 
 # Output directories
 output_dir: !ref results/whisper_lwf/<seed>

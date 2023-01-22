@@ -254,7 +254,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens", "duration"],
     )
 
     return train_data, valid_data, test_data
@@ -272,6 +272,8 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
+                "max_duration": hparams["max_duration"],
+                "shuffle": hparams["shuffle"],
             },
         )
 
@@ -327,6 +329,8 @@ def train(hparams, run_opts):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
+                "max_duration": hparams["max_duration"],
+                "shuffle": hparams["shuffle"],
             },
         )
 
@@ -377,30 +381,20 @@ def train(hparams, run_opts):
 
         # Here we create the datasets objects as well as tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        duration = sum(v["duration"] for v in train_data.values())
 
         # Get train data from previous tasks
-        for old_locale in hparams["old_locales"] + hparams["new_locales"][:i]:
-            run_on_main(
-                prepare_common_voice,
-                kwargs={
-                    "locales": [old_locale],
-                    "download_dir": hparams["download_dir"],
-                },
-            )
-            old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
-            selected_keys = random.sample(
-                list(old_train_data.data.keys()),
-                round(hparams["rehearsal_ratio"] * len(old_train_data)),
-            )
-            old_train_data.data = {
-                k: old_train_data.data[k] for k in selected_keys
-            }
-            train_data.data.update(old_train_data.data)
-
-        # Shuffle all data
-        all_keys = list(train_data.data.keys())
-        random.shuffle(all_keys)
-        train_data.data = {k: train_data.data[k] for k in all_keys}
+        run_on_main(
+            prepare_common_voice,
+            kwargs={
+                "locales": hparams["old_locales"] + hparams["new_locales"][:i],
+                "download_dir": hparams["download_dir"],
+                "max_duration": duration * hparams["rehearsal_ratio"],
+                "shuffle": True,
+            },
+        )
+        old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
+        train_data.data.update(old_train_data.data)
         train_data.data_ids = list(train_data.data.keys())
 
         # Trainer initialization
