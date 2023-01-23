@@ -58,6 +58,10 @@ def prepare_media(
 
     if skip_prep:
         return
+    
+    os.makedirs(save_folder)
+    os.makedirs(save_folder + "/wav")
+    os.makedirs(save_folder + "/csv")
 
     if task == "slu":
         logger.info("Processing SLU " + method + " Media Dataset")
