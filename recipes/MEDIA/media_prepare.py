@@ -67,9 +67,9 @@ def prepare_media(
         os.makedirs(save_folder + "/csv")
 
     if skip(
-        save_solder + "/csv/train.csv",
-        save_solder + "/csv/dev.csv",
-        save_solder + "/csv/test.csv",
+        save_folder + "/csv/train.csv",
+        save_folder + "/csv/dev.csv",
+        save_folder + "/csv/test.csv",
     ):
         logger.info("Csv files already exist, skipping data preparation!")
         return
