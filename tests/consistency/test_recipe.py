@@ -8,6 +8,9 @@ import csv
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
 
+__skip_list = ["README.md", "setup"]
+
+
 def test_recipe_list(
     search_folder="recipes",
     hparam_ext=[".yaml"],
@@ -49,7 +52,7 @@ def test_recipe_list(
     all_diffs_zero = True
     all_with_flags = True
     for recipe_csvfile in os.listdir(recipe_folder):
-        if recipe_csvfile == "setup":
+        if recipe_csvfile in __skip_list:
             continue
         dataset = os.path.splitext(recipe_csvfile)[0]
         hparam_lst = get_all_files(
@@ -104,7 +107,7 @@ def test_recipe_files(
     check = True
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
-        if recipe_csvfile == "setup":
+        if recipe_csvfile in __skip_list:
             continue
         for field in fields:
             lst = get_list_from_csv(
@@ -147,7 +150,7 @@ def test_mandatory_files(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
-        if recipe_csvfile == "setup":
+        if recipe_csvfile in __skip_list:
             continue
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
@@ -189,7 +192,7 @@ def test_README_links(
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
-        if recipe_csvfile == "setup":
+        if recipe_csvfile in __skip_list:
             continue
         with open(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
