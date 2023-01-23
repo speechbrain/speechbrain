@@ -61,7 +61,6 @@ sorting: ascending
 
 # Model parameters:
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
 cnn_blocks: 1
 rnn_layers: 1
 dnn_blocks: 1
@@ -151,8 +150,6 @@ ctc_computer: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.ctc_loss
         blank_index: !ref <blank_index>
         reduction: batch
-
-error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
