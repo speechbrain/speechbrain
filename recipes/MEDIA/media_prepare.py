@@ -209,9 +209,9 @@ def parse_test2(
     concepts_relax,
 ):
     """
+    This function prepares the data for the test2 csv files of the Media dataset.
     "Laperrière et al. The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools, LREC 2022" (https://aclanthology.org/2022.lrec-1.171) made the decision to make a new corpus named "test2".
     These xml files are structured differently from the original ones, explaining special functions for the test2.
-    This function prepares the data for the test2 csv files of the Media dataset.
     They are xml files made after the first dataset release, and have never been used before this recipe.
     This new corpus can be used as a second inference corpus, as the original test.
     Files are stored in /E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/.
