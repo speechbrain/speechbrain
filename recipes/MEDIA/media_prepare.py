@@ -152,7 +152,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the MEDIA data preparation has been already done.
     If the preparation has been done, we can skip it.
-    
+
     Returns
     -------
     bool
