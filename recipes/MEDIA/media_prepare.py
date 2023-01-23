@@ -153,7 +153,7 @@ def parse(
 ):
     """
     Parse data for the train, dev and test csv files of the Media dataset.
-    Files are stored in MEDIA1FR_00/MEDIA1FR/DATA/. 
+    Files are stored in MEDIA1FR_00/MEDIA1FR/DATA/.
     They are the original xml files used by the community for train, dev and test.
 
     Arguments
@@ -223,10 +223,10 @@ def parse_test2(
     """
     Prepares the data for the csv files of the Media dataset.
     Files are stored in /E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/.
-    They are xml files made after the first dataset release, and have never been used before this recipe. 
-    These xml files are structured differently from the original ones, explaining special functions for the test2. 
-    We made the decision to make a new corpus from them, named "test2". 
-    This new corpus can be used as a second inference corpus, as the original test. 
+    They are xml files made after the first dataset release, and have never been used before this recipe.
+    These xml files are structured differently from the original ones, explaining special functions for the test2.
+    We made the decision to make a new corpus from them, named "test2".
+    This new corpus can be used as a second inference corpus, as the original test.
 
     Arguments
     ---------
@@ -435,48 +435,44 @@ def parse_sentences(
                         ):
                             sentences, has_speech, sync_waiting, concept_open = process_text_node(
                                 node,
-                                task,
+                                sentences,
+                                sync_waiting,
+                                has_speech,
                                 concept,
                                 concept_open,
-                                sentences,
+                                task,
+                                n,
                                 time_end,
-                                has_speech,
-                                sync_waiting,
                             )
 
                         # Check Sync times
                         if node.nodeName == "Sync":
                             sentences, has_speech, sync_waiting, time, n = process_sync_node(
                                 node,
-                                has_speech,
                                 sentences,
-                                task,
+                                sync_waiting,
+                                has_speech,
                                 concept_open,
-                                time_end,
+                                task,
                                 n,
+                                time,
+                                time_end,
                             )
 
                 if task == "slu":
-                    # Prevent adding a closing concept
-                    # If Sync followed by SemFin generate a new segment without speech yet
-                    if concept_open:
-                        sentences[n][0] += "> "
-                        sentences[n][1] += "> _ "
-                    concept = "null"  # Indicate there is no currently open concept
-                    concept_open = False
-                    if sync_waiting:
-                        sentences[n][3] = time
-                        sentences.append(["", "", time, time_end])
-                        has_speech = False
-                        sync_waiting = False
-                        n += 1
+                    sentences, concept, concept_open, has_speech, sync_waiting, n = process_semfin_node(
+                        sentences,
+                        sync_waiting,
+                        has_speech,
+                        concept,
+                        concept_open,
+                        n,
+                        time,
+                        time_end,
+                    )
 
-    for n in range(len(sentences)):
-        if sentences[n][0] != "":
-            sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
-            sentences[n][1] = sentences[n][1][:-3]  # Remove last ' _ '
-        else:
-            del sentences[n]  # Usefull for last appended segment
+
+    sentences = clean_last_sentence(sentences, n)
 
     return sentences
 
@@ -541,61 +537,57 @@ def parse_sentences_test2(
         ):
             sentences, has_speech, sync_waiting, concept_open = process_text_node(
                 node,
-                task,
+                sentences,
+                sync_waiting,
+                has_speech,
                 concept,
                 concept_open,
-                sentences,
+                task,
+                n,
                 time_end,
-                has_speech,
-                sync_waiting,
             )
 
         # Save audio segment
         if task == "slu" and node.nodeName == "SemFin":
-            # Prevent adding a closing concept
-            # If Sync followed by SemFin generate a new segment without speech yet
-            if concept_open:
-                sentences[n][0] += "> "
-                sentences[n][1] += "> _ "
-            concept = "null"  # Indicate there is no currently open concept
-            concept_open = False
-            if sync_waiting:
-                sentences[n][3] = time
-                sentences.append(["", "", time, time_end])
-                has_speech = False
-                sync_waiting = False
-                n += 1
+            sentences, concept, concept_open, has_speech, sync_waiting, n = process_semfin_node(
+                sentences,
+                sync_waiting,
+                has_speech,
+                concept,
+                concept_open,
+                n,
+                time,
+                time_end,
+            )
 
         if node.nodeName == "Sync":
             sentences, has_speech, sync_waiting, time, n = process_sync_node(
                 node,
-                has_speech,
                 sentences,
-                task,
+                sync_waiting,
+                has_speech,
                 concept_open,
-                time_end,
+                task,
                 n,
+                time,
+                time_end,
             )
 
-    for n in range(len(sentences)):
-        if sentences[n][0] != "":
-            sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
-            sentences[n][1] = sentences[n][1][:-3]  # Remove last ' _ '
-        else:
-            del sentences[n]  # Usefull for last appended segment
+    sentences = clean_last_sentence(sentences, n)
 
     return sentences
 
 
 def process_text_node(
     node,
-    task,
+    sentences,
+    sync_waiting,
+    has_speech,
     concept,
     concept_open,
-    sentences,
+    task,
+    n,
     time_end,
-    has_speech,
-    sync_waiting,
 ):
     # Add a new concept, when speech following
     if task == "slu" and concept != "null" and not concept_open:
@@ -615,12 +607,14 @@ def process_text_node(
 
 def process_sync_node(
     node,
-    has_speech,
     sentences,
-    task,
+    sync_waiting,
+    has_speech,
     concept_open,
-    time_end,
+    task,
     n,
+    time,
+    time_end,
 ):
     # If the segment has no speech yet
     if not (has_speech):
@@ -638,6 +632,45 @@ def process_sync_node(
         time = node.getAttribute("time")
     return sentences, has_speech, sync_waiting, time, n
 
+
+def process_semfin_node(
+    sentences,
+    sync_waiting,
+    has_speech,
+    concept,
+    concept_open,
+    n,
+    time,
+    time_end,
+):
+    # Prevent adding a closing concept
+    # If Sync followed by SemFin generate a new segment without speech yet
+    if concept_open:
+        sentences[n][0] += "> "
+        sentences[n][1] += "> _ "
+    concept = "null"  # Indicate there is no currently open concept
+    concept_open = False
+    if sync_waiting:
+        sentences[n][3] = time
+        sentences.append(["", "", time, time_end])
+        has_speech = False
+        sync_waiting = False
+        n += 1
+    return sentences, concept, concept_open, has_speech, sync_waiting, n
+
+
+def clean_last_sentence(
+    sentences,
+    n,
+):
+    for n in range(len(sentences)):
+        if sentences[n][0] != "":
+            sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
+            sentences[n][1] = sentences[n][1][:-3]  # Remove last ' _ '
+        else:
+            del sentences[n]  # Usefull for last appended segment
+    return sentences
+    
 
 def normalize_sentence(sentence):
     # Apostrophes
