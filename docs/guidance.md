@@ -41,7 +41,6 @@ by Andreas Nautsch, Aku Rouhe, 2022
                    (checkpoints)             (results)            (code snippets)
 ```
 Each platform/functionality has their own dependencies (which can break) and interfaces (which are specific and can change).
-<br/>[[link list]](Multiplatform.md)
 
 ## How is functionality provided?
 
@@ -74,7 +73,6 @@ While one cannot control others (dependencies), CI/CD workflows are periodic act
 Multi-platform checks, for it goes beyond this repo, is on a hybrid (partly irregular periodicity), i.e., before a future SpeechBrain release.
 
 _Naturally, writing style (linters checks) is a part of functionality._
-<br/>[[Up for a config rabbit hole?]](Approaches.md)
 
 ## How is the SpeechBrain community improving quality, continuously?
 
@@ -112,7 +110,6 @@ git add ...
 
 To guide the lifecycle of a PR within the SpeechBrain lifecycle—as contributor and as reviewer—can be demanding to being exhausted.
 Test automation (e.g., through github and offline workflows) simplify discussions to the points that are of debate, actually.
-<br/>[[PyTest for testing coverage]](PyCoverage.md)
 
 ## The location of a change foreshadows its integrative complexity.
 
@@ -188,10 +185,6 @@ Changes can be internal to a function &/or alter the function signature:
 Legacy-breaking changes will impact the outline of all recipes:
 <br/>how will all work after a change—, and after the next major refactoring (after that first one)?
 
-[[Details to the above]](PR_cycle.md)
-<br/> [[Recipes: tests for data flow with minimal examples]](Recipes.md) <= for contributing a recipe
-<br/> [[What work should remain before a future release]](Maintainer.md)
-
 ## Branch topology: release <- CI/CD <- ecosystem-spanning refactorings.
 ```
     release | main             | business
@@ -215,6 +208,3 @@ Keep in mind, the SpeechBrain community is in-flux, so is a constellation of mai
 
 _Note: github workflows take the definition of a PR, what is specified within its branch. We might update our procedures on the `develop` branch (e.g., to meet dependency updates).
 Consequentially, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._
-
-[[A guided strategy to refactor w/o loosing hold to past achievements]](Refactoring.md)
-<br/> [[There's more to be done]](Future.md)
