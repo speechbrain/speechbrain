@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Data preparation.
 Download: See README.md
@@ -44,6 +42,7 @@ def prepare_media(
     skip_wav: bool, optional
         Skip the wav files storing if already done before.
     method: str, optional
+        Used only for 'slu' task. 
         Either 'full' or 'relax'.
         'full' Keep specifiers in concepts.
         'relax' Remove specifiers from concepts.
@@ -174,10 +173,6 @@ def parse(
         Either 'asr' or 'slu'.
     corpus: str
         'train', 'dev' or 'test'.
-
-    Returns
-    -------
-    None
     """
 
     for dialogue in tqdm(root.getElementsByTagName("dialogue")):
@@ -205,9 +200,7 @@ def parse(
                     corpus,
                 )
 
-    return None
-
-
+                
 def parse_test2(
     root,
     channels,
@@ -250,10 +243,6 @@ def parse_test2(
         Concepts in method full.
     concepts_relax: list of str
         Concepts equivalent in method relax.
-
-    Returns
-    -------
-    None
     """
 
     speaker_id, speaker_name = get_speaker_test2(root)
@@ -290,8 +279,6 @@ def parse_test2(
                 "test2",
             )
 
-    return None
-
 
 def append_data(
     wav_folder,
@@ -318,10 +305,6 @@ def append_data(
         Sentences previously parsed.
     corpus: str
         Either 'train', 'dev', 'test', or 'test2'.
-
-    Returns
-    -------
-    None
     """
 
     data = []
@@ -371,8 +354,6 @@ def append_data(
         writer = csv.writer(SB_file, delimiter=",")
         writer.writerows(data)
         SB_file.close()
-
-    return None
 
 
 def parse_sentences(
@@ -472,7 +453,7 @@ def parse_sentences(
                     )
 
 
-    sentences = clean_last_sentence(sentences, n)
+    sentences = clean_last_sentence(sentences)
 
     return sentences
 
@@ -491,7 +472,7 @@ def parse_sentences_test2(
 
     Arguments:
     -------
-    nodes: list of Document
+    turn: list of Document
         All the xml following nodes present in the turn.
     time_beg: str
         Time (s) at the beginning of the turn.
@@ -573,22 +554,12 @@ def parse_sentences_test2(
                 time_end,
             )
 
-    sentences = clean_last_sentence(sentences, n)
+    sentences = clean_last_sentence(sentences)
 
     return sentences
 
 
-def process_text_node(
-    node,
-    sentences,
-    sync_waiting,
-    has_speech,
-    concept,
-    concept_open,
-    task,
-    n,
-    time_end,
-):
+def process_text_node(node, sentences, sync_waiting, has_speech, concept, concept_open, task, n, time_end):
     # Add a new concept, when speech following
     if task == "slu" and concept != "null" and not concept_open:
         sentences[n][0] += "<" + concept + "> "
@@ -605,17 +576,7 @@ def process_text_node(
     return sentences, has_speech, sync_waiting, concept_open
 
 
-def process_sync_node(
-    node,
-    sentences,
-    sync_waiting,
-    has_speech,
-    concept_open,
-    task,
-    n,
-    time,
-    time_end,
-):
+def process_sync_node(node, sentences, sync_waiting, has_speech, concept_open, task, n, time, time_end):
     # If the segment has no speech yet
     if not (has_speech):
         # Change time_beg for the last segment
@@ -633,16 +594,7 @@ def process_sync_node(
     return sentences, has_speech, sync_waiting, time, n
 
 
-def process_semfin_node(
-    sentences,
-    sync_waiting,
-    has_speech,
-    concept,
-    concept_open,
-    n,
-    time,
-    time_end,
-):
+def process_semfin_node(sentences, sync_waiting, has_speech, concept, concept_open, n, time, time_end):
     # Prevent adding a closing concept
     # If Sync followed by SemFin generate a new segment without speech yet
     if concept_open:
@@ -659,10 +611,7 @@ def process_semfin_node(
     return sentences, concept, concept_open, has_speech, sync_waiting, n
 
 
-def clean_last_sentence(
-    sentences,
-    n,
-):
+def clean_last_sentence(sentences):
     for n in range(len(sentences)):
         if sentences[n][0] != "":
             sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
@@ -688,8 +637,6 @@ def normalize_sentence(sentence):
     sentence = re.sub(r"^'", "", sentence)
     sentence = re.sub(r"\(.*?\)", "*", sentence)  # Replace (...) with *
     sentence = re.sub(r"[^\w\s'-><_]", "", sentence)  # Punct. except '-><_
-    # Case
-    # sentence = sentence.lower()  # Lowercase letters
     # Numbers correction
     sentence = sentence.replace("dix-", "dix ")
     sentence = sentence.replace("vingt-", "vingt ")
@@ -728,7 +675,6 @@ def write_first_row(folder):
             ]
         )
         SB_file.close()
-    return None
 
 
 def split_audio_channels(path, filename, channel, folder):
@@ -746,10 +692,6 @@ def split_audio_channels(path, filename, channel, folder):
         "R" or "L" following the channel of the speaker in the stereo wav file.
     folder: str
         Path where the wavs will be stored.
-
-    Returns
-    -------
-    None
     """
 
     channel_int = "1"
@@ -783,7 +725,6 @@ def split_audio_channels(path, filename, channel, folder):
         + ".wav 2>/dev/null"
     )
     os.system("rm " + folder + "/" + channel + filename + "_8khz.wav")
-    return None
 
 
 def get_root(path, id):
