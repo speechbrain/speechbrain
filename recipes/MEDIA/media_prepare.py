@@ -59,12 +59,26 @@ def prepare_media(
     if skip_prep:
         return
 
-    os.makedirs(save_folder)
-    os.makedirs(save_folder + "/wav")
-    os.makedirs(save_folder + "/csv")
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+    if not os.path.exists(save_folder + "/wav"):
+        os.makedirs(save_folder + "/wav")
+    if not os.path.exists(save_folder + "/csv"):
+        os.makedirs(save_folder + "/csv")
+
+    if skip(
+        save_solder + "/csv/train.csv",
+        save_solder + "/csv/dev.csv",
+        save_solder + "/csv/test.csv",
+    ):
+        logger.info("Csv files already exist, skipping data preparation!")
+        return
 
     if task == "slu":
-        logger.info("Processing SLU " + method + " Media Dataset")
+        if method == "relax" or method == "full":
+            logger.info("Processing SLU " + method + " Media Dataset")
+        else:
+            raise ValueError("Parameter method must be 'full' or 'relax'")
     elif task == "asr":
         logger.info("Processing ASR Media Dataset")
     else:
@@ -132,6 +146,31 @@ def prepare_media(
             concepts_full,
             concepts_relax,
         )
+
+
+def skip(save_csv_train, save_csv_dev, save_csv_test):
+    """
+    Detects if the MEDIA data preparation has been already done.
+    If the preparation has been done, we can skip it.
+    
+    Returns
+    -------
+    bool
+        if True, the preparation phase can be skipped.
+        if False, it must be done.
+    """
+
+    # Checking folders and save options
+    skip = False
+
+    if (
+        os.path.isfile(save_csv_train)
+        and os.path.isfile(save_csv_dev)
+        and os.path.isfile(save_csv_test)
+    ):
+        skip = True
+
+    return skip
 
 
 def parse(
