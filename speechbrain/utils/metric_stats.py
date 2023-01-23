@@ -314,10 +314,10 @@ class ErrorRateStats(MetricStats):
 
         if self.extract_concepts_values:
             predict = extract_concepts_values(
-                predict, self.keep_values, self.tag_in, self.tag_out, space=self.space_token)
+                predict, self.keep_values, self.tag_in, self.tag_out, space=self.space_token
             )
             target = extract_concepts_values(
-                target, self.keep_values, self.tag_in, self.tag_out, space=self.space_token)
+                target, self.keep_values, self.tag_in, self.tag_out, space=self.space_token
             )
 
         scores = wer_details_for_batch(ids, target, predict, True)
