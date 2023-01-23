@@ -1,0 +1,107 @@
+# ############################################################################
+# Model: Whisper (encoder-decoder) + cross-entropy loss
+# Augmentation: SpecAugment
+# Authors: Luca Della Libera 2022
+# ############################################################################
+
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data preparation
+new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
+download_dir: data
+
+# Output directories
+output_dir: !ref results/whisper_rehearsal/<seed>
+save_dir: !ref <output_dir>/save
+
+# Training parameters
+train_batch_size: 128 #24  # 1 when fine-tuning both encoder and decoder
+valid_batch_size: 152 #24
+train_num_workers: 6
+valid_num_workers: 6
+
+sample_rate: 16000
+sorting: ascending
+avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
+vocab_size: 250  # Vocabulary size for BPE encoding of each new locale
+
+ignore_index: -100  # For cross-entropy loss
+label_smoothing: 0
+
+num_epochs: 5
+lr: 0.0001
+improvement_threshold: 0.0025
+annealing_factor: 0.8
+rehearsal_ratio: 0.4
+
+whisper_variant: openai/whisper-tiny
+encoder_only: False
+freeze: False
+freeze_encoder: True
+
+max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
+auto_mix_prec: False  # True causes NaN in forward pass for Kinyarwanda, need to double check
+gradient_checkpointing: False
+compile_model: True
+ckpt_interval_minutes: 600
+
+max_gen_tokens: 100
+forced_decoder_locale: null  # Set dynamically
+normalize_transcripts: True
+
+# Dataloader options
+train_dataloader_kwargs:
+    batch_size: !ref <train_batch_size>
+    num_workers: !ref <train_num_workers>
+
+valid_dataloader_kwargs:
+    batch_size: !ref <valid_batch_size>
+    num_workers: !ref <valid_num_workers>
+
+# Modules
+whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+    source: !ref <whisper_variant>
+    save_path: !ref <save_dir>/checkpoint
+    sampling_rate: !ref <sample_rate>
+    encoder_only: !ref <encoder_only>
+    freeze: !ref <freeze>
+    freeze_encoder: !ref <freeze_encoder>
+
+ce_loss: !new:torch.nn.CrossEntropyLoss
+    ignore_index: !ref <ignore_index>
+    label_smoothing: !ref <label_smoothing>
+
+modules:
+    whisper: !ref <whisper>
+
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: 0
+
+# Performance metrics
+wer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_dir>
+    recoverables:
+        model: !ref <whisper>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_dir>/train_log.txt
