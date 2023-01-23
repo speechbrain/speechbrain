@@ -2797,7 +2797,7 @@ class FastSpeech2(Pretrained):
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> fastspeech2 = Fastspeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts)
+    >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts)
     >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",

@@ -117,13 +117,14 @@ class PostNet(nn.Module):
     postnet_dropout: float
         dropout probability fot postnet
     """
+
     def __init__(
         self,
         n_mel_channels=80,
         postnet_embedding_dim=512,
         postnet_kernel_size=5,
         postnet_n_convolutions=5,
-        postnet_dropout=0.5
+        postnet_dropout=0.5,
     ):
         super(PostNet, self).__init__()
         self.conv_pre = CNN.Conv1d(
@@ -174,13 +175,13 @@ class PostNet(nn.Module):
         x = self.ln1(x).to(x.dtype)
         x = self.tanh(x)
         x = self.dropout1(x)
-        
+
         for i in range(len(self.convs_intermedite)):
             x = self.convs_intermedite[i](x)
         x = self.ln2(x).to(x.dtype)
         x = self.tanh(x)
         x = self.dropout2(x)
-        
+
         x = self.conv_post(x)
         x = self.ln3(x).to(x.dtype)
         x = self.dropout3(x)
@@ -210,7 +211,9 @@ class DurationPredictor(nn.Module):
     torch.Size([3, 400, 1])
     """
 
-    def __init__(self, in_channels, out_channels, kernel_size, dropout=0.0, n_units=1):
+    def __init__(
+        self, in_channels, out_channels, kernel_size, dropout=0.0, n_units=1
+    ):
         super().__init__()
         self.conv1 = CNN.Conv1d(
             in_channels=in_channels,
@@ -369,7 +372,7 @@ class FastSpeech2(nn.Module):
     ...     [2, 4, 1, 5, 3],
     ...     [1, 2, 4, 3, 0],
     ... ])
-    >>> mel_post, predict_durations, predict_pitch, predict_energy = model(inputs, durations=durations)
+    >>> mel_post, postnet_output, predict_durations, predict_pitch, predict_energy, mel_lens = model(inputs, durations=durations)
     >>> mel_post.shape, predict_durations.shape
     (torch.Size([2, 15, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape
@@ -573,7 +576,14 @@ class FastSpeech2(nn.Module):
         )
         mel_post = self.linear(output_mel_feats) * srcmask_inverted
         postnet_output = self.postnet(mel_post) + mel_post
-        return mel_post, postnet_output, predict_durations, predict_pitch, predict_energy, torch.tensor(mel_lens)
+        return (
+            mel_post,
+            postnet_output,
+            predict_durations,
+            predict_pitch,
+            predict_energy,
+            torch.tensor(mel_lens),
+        )
 
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
@@ -603,9 +613,7 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     mel_lens = [mel.shape[0] for mel in upsampled_mels]
 
     padded_upsampled_mels = torch.nn.utils.rnn.pad_sequence(
-        upsampled_mels,
-        batch_first=True,
-        padding_value=padding_value,
+        upsampled_mels, batch_first=True, padding_value=padding_value,
     )
     return padded_upsampled_mels, mel_lens
 
@@ -675,7 +683,6 @@ class TextMelCollate:
         output_lengths = torch.LongTensor(len(batch))
         labels, wavs = [], []
         for i in range(len(ids_sorted_decreasing)):
-
             idx = ids_sorted_decreasing[i]
             mel = batch[idx][2]
             pitch = batch[idx][3]
@@ -729,7 +736,7 @@ class Loss(nn.Module):
         pitch_loss_weight,
         energy_loss_weight,
         mel_loss_weight,
-        postnet_mel_loss_weight
+        postnet_mel_loss_weight,
     ):
         super().__init__()
 
@@ -773,7 +780,7 @@ class Loss(nn.Module):
             log_durations,
             predicted_pitch,
             predicted_energy,
-            mel_lens
+            mel_lens,
         ) = predictions
         predicted_pitch = predicted_pitch.squeeze()
         predicted_energy = predicted_energy.squeeze()
@@ -791,8 +798,8 @@ class Loss(nn.Module):
                     mel_target[i, : mel_length[i], :],
                 )
                 postnet_mel_loss = self.postnet_mel_loss(
-                    postnet_mel_out[i, :mel_length[i], :],
-                    mel_target[i, :mel_length[i], :],
+                    postnet_mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
                 )
                 dur_loss = self.dur_loss(
                     log_durations[i, : phon_len[i]],
@@ -812,8 +819,8 @@ class Loss(nn.Module):
                     mel_target[i, : mel_length[i], :],
                 )
                 postnet_mel_loss = postnet_mel_loss + self.postnet_mel_loss(
-                    postnet_mel_out[i, :mel_length[i], :],
-                    mel_target[i, :mel_length[i], :],
+                    postnet_mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
                 )
                 dur_loss = dur_loss + self.dur_loss(
                     log_durations[i, : phon_len[i]],
@@ -833,15 +840,21 @@ class Loss(nn.Module):
         pitch_loss = torch.div(pitch_loss, len(mel_target))
         energy_loss = torch.div(energy_loss, len(mel_target))
 
-        total_loss = mel_loss*self.mel_loss_weight + postnet_mel_loss*self.postnet_mel_loss_weight + dur_loss*self.duration_loss_weight + pitch_loss*self.pitch_loss_weight + energy_loss*self.energy_loss_weight
+        total_loss = (
+            mel_loss * self.mel_loss_weight
+            + postnet_mel_loss * self.postnet_mel_loss_weight
+            + dur_loss * self.duration_loss_weight
+            + pitch_loss * self.pitch_loss_weight
+            + energy_loss * self.energy_loss_weight
+        )
 
         loss = {
             "total_loss": total_loss,
-            "mel_loss": mel_loss*self.mel_loss_weight,
-            "postnet_mel_loss": postnet_mel_loss*self.postnet_mel_loss_weight,
-            "dur_loss": dur_loss*self.duration_loss_weight,
-            "pitch_loss": pitch_loss*self.pitch_loss_weight,
-            "energy_loss": energy_loss*self.energy_loss_weight,
+            "mel_loss": mel_loss * self.mel_loss_weight,
+            "postnet_mel_loss": postnet_mel_loss * self.postnet_mel_loss_weight,
+            "dur_loss": dur_loss * self.duration_loss_weight,
+            "pitch_loss": pitch_loss * self.pitch_loss_weight,
+            "energy_loss": energy_loss * self.energy_loss_weight,
         }
         return loss
 
