@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 def prepare_media(
     data_folder,
-    wav_folder,
-    csv_folder,
+    save_folder,
     skip_wav=True,
     method='slu',
     task='full',
@@ -30,15 +29,17 @@ def prepare_media(
 ):
     """
     Prepares the csv files for the MEDIA dataset.
+    Both following repositories are nesseray for transcriptions
+    and annotations (S0272) and audio (E0024). 
+    https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/
+    https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/
 
     Arguments
     ---------
     data_folder: str
         Path where folders S0272 and E0024 are stored.
-    wav_folder: str
-        Path where the wavs will be stored.
-    csv_folder: str
-        Path where the csv will be stored.
+    save_folder: str
+        Path where the csvs and preprocessed wavs will be stored.
     skip_wav: bool, optional
         Skip the wav files storing if already done before.
     method: str, optional
@@ -81,7 +82,7 @@ def prepare_media(
         "./concepts_full_relax.csv"
     )
 
-    write_first_row(csv_folder)
+    write_first_row(save_folder)
 
     # Wavs.
     if not (skip_wav):
@@ -89,7 +90,7 @@ def prepare_media(
         for wav_path in tqdm(wav_paths):
             filename = wav_path.split("/")[-1][:-4]
             channel = get_channel(filename, channels, filenames)
-            split_audio_channels(wav_path, filename, channel, wav_folder)
+            split_audio_channels(wav_path, filename, channel, save_folder)
 
     # Train, Dev, Test.
     for xml in xmls:
@@ -109,8 +110,7 @@ def prepare_media(
             root,
             channels,
             filenames,
-            wav_folder,
-            csv_folder,
+            save_folder,
             method,
             task,
             xmls[xml],
@@ -130,8 +130,7 @@ def prepare_media(
             root,
             channels,
             filenames,
-            wav_folder,
-            csv_folder,
+            save_folder,
             method,
             task,
             filename,
@@ -144,8 +143,7 @@ def parse(
     root,
     channels,
     filenames,
-    wav_folder,
-    csv_folder,
+    save_folder,
     method,
     task,
     corpus,
@@ -163,10 +161,8 @@ def parse(
         Channels (Right / Left) of the stereo recording to keep.
     filenames: list of str
         Linked IDs of the recordings, for the channels to keep.
-    wav_folder: str
-        Path where the wavs will be stored.
-    csv_folder: str
-        Path where the csvs will be stored.
+    save_folder: str
+        Path where the csvs and preprocessed wavs will be stored.
     method: str
         Either 'full' or 'relax'.
     task: str
@@ -192,7 +188,7 @@ def parse(
                 )
 
                 append_data(
-                    wav_folder,
+                    save_folder,
                     channel,
                     filename,
                     speaker_name,
@@ -205,8 +201,7 @@ def parse_test2(
     root,
     channels,
     filenames,
-    wav_folder,
-    csv_folder,
+    save_folder,
     method,
     task,
     filename,
@@ -214,12 +209,12 @@ def parse_test2(
     concepts_relax,
 ):
     """
-    Prepares the data for the csv files of the Media dataset.
-    Files are stored in /E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/.
-    They are xml files made after the first dataset release, and have never been used before this recipe.
+    "Laperrière et al. The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools, LREC 2022" (https://aclanthology.org/2022.lrec-1.171) made the decision to make a new corpus named "test2".
     These xml files are structured differently from the original ones, explaining special functions for the test2.
-    We made the decision to make a new corpus from them, named "test2".
+    This function prepares the data for the test2 csv files of the Media dataset.
+    They are xml files made after the first dataset release, and have never been used before this recipe.
     This new corpus can be used as a second inference corpus, as the original test.
+    Files are stored in /E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/.
 
     Arguments
     ---------
@@ -229,10 +224,8 @@ def parse_test2(
         Channels (Right / Left) of the stereo recording to keep.
     filenames: list of str
         Linked IDs of the recordings, for the channels to keep.
-    wav_folder: str
-        Path where the wavs will be stored.
-    csv_folder: str
-        Path where the csvs will be stored.
+    save_folder: str
+        Path where the csvs and preprocessed wavs will be stored.
     method: str
         Either 'full' or 'relax'.
     task: str
@@ -271,7 +264,7 @@ def parse_test2(
                 sentences[len(sentences) - 1][3] = "321.000"
 
             append_data(
-                wav_folder,
+                save_folder,
                 channel,
                 filename,
                 speaker_name,
@@ -281,7 +274,7 @@ def parse_test2(
 
 
 def append_data(
-    wav_folder,
+    save_folder,
     channel,
     filename,
     speaker_name,
@@ -293,8 +286,8 @@ def append_data(
 
     Arguments
     ---------
-    wav_folder: str
-        Path where the wavs will be stored.
+    save_folder: str
+        Path where the csvs and preprocessed wavs will be stored.
     channel: str
         Channel (Right / Left) of the stereo recording to keep.
     filename: str
@@ -311,13 +304,13 @@ def append_data(
 
     # Retrieve other necessary information
     out = subprocess.Popen(
-        ["soxi","-D",wav_folder + "/" + channel + filename + ".wav"],
+        ["soxi","-D",save_folder + "/wav/" + channel + filename + ".wav"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
     stdout, stderr = out.communicate()
     wav_duration = str("%.2f" % float(stdout))
-    wav = wav_folder + "/" + channel + filename + ".wav"
+    wav = save_folder + "/wav/" + channel + filename + ".wav"
     IDs = get_IDs(speaker_name, sentences, channel, filename)
 
     # Append data list
@@ -349,7 +342,7 @@ def append_data(
 
     # Write data
     if data is not None:
-        path = csv_folder + "/" + corpus + ".csv"
+        path = save_folder + "/csv/" + corpus + ".csv"
         SB_file = open(path, "a")
         writer = csv.writer(SB_file, delimiter=",")
         writer.writerows(data)
@@ -654,9 +647,9 @@ def normalize_sentence(sentence):
     return sentence
 
 
-def write_first_row(folder):
+def write_first_row(save_folder):
     for corpus in ["train", "dev", "test", "test2"]:
-        SB_file = open(folder + "/" + corpus + ".csv", "w")
+        SB_file = open(save_folder + "/csv/" + corpus + ".csv", "w")
         writer = csv.writer(SB_file, delimiter=",")
         writer.writerow(
             [
@@ -677,7 +670,7 @@ def write_first_row(folder):
         SB_file.close()
 
 
-def split_audio_channels(path, filename, channel, folder):
+def split_audio_channels(path, filename, channel, save_folder):
     """
     Split the stereo wav Media files from the dowloaded dataset.
     Keep only the speaker channel.
@@ -690,8 +683,8 @@ def split_audio_channels(path, filename, channel, folder):
         Name of the Media recording.
     channel: str
         "R" or "L" following the channel of the speaker in the stereo wav file.
-    folder: str
-        Path where the wavs will be stored.
+    save_folder: str
+        Path where the csvs and preprocessed wavs will be stored.
     """
 
     channel_int = "1"
@@ -704,8 +697,8 @@ def split_audio_channels(path, filename, channel, folder):
         "sox "
         + path
         + " "
-        + folder
-        + "/"
+        + save_folder
+        + "/wav/"
         + channel
         + filename
         + "_8khz.wav remix "
@@ -713,18 +706,18 @@ def split_audio_channels(path, filename, channel, folder):
     )
     os.system(
         "sox -G "
-        + folder
-        + "/"
+        + save_folder
+        + "/wav/"
         + channel
         + filename
         + "_8khz.wav -r 16000 "
-        + folder
-        + "/"
+        + save_folder
+        + "/wav/"
         + channel
         + filename
         + ".wav 2>/dev/null"
     )
-    os.system("rm " + folder + "/" + channel + filename + "_8khz.wav")
+    os.system("rm " + save_folder + "/wav/" + channel + filename + "_8khz.wav")
 
 
 def get_root(path, id):
