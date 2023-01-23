@@ -162,5 +162,5 @@ recipe0160,SLU,MEDIA,recipes/MEDIA/SLU/seq2seq/train.py,recipes/MEDIA/SLU/seq2se
 recipe0161,SLU,MEDIA,recipes/MEDIA/SLU/seq2seq/train.py,recipes/MEDIA/SLU/seq2seq/hparams/train_relax.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/SLU/seq2seq/README.md,,,,
 recipe0162,SLU,MEDIA,recipes/MEDIA/SLU/seq2seq/train_with_wav2vec.py,recipes/MEDIA/SLU/seq2seq/hparams/train_with_wav2vec_full.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/SLU/seq2seq/README.md,,,,
 recipe0163,SLU,MEDIA,recipes/MEDIA/SLU/seq2seq/train_with_wav2vec.py,recipes/MEDIA/SLU/seq2seq/hparams/train_with_wav2vec_relax.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/SLU/seq2seq/README.md,,,,
-recipe0164,ASR,MEDIA,recipes/MEDIA/ASR/seq2seq/train.py,recipes/MEDIA/SLU/seq2seq/hparams/train.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/ASR/seq2seq/README.md,,,,
-recipe0165,ASR,MEDIA,recipes/MEDIA/ASR/seq2seq/train_with_wav2vec.py,recipes/MEDIA/SLU/seq2seq/hparams/train_with_wav2vec.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/ASR/seq2seq/README.md,,,,
+recipe0164,ASR,MEDIA,recipes/MEDIA/ASR/seq2seq/train.py,recipes/MEDIA/ASR/seq2seq/hparams/train.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/ASR/seq2seq/README.md,,,,
+recipe0165,ASR,MEDIA,recipes/MEDIA/ASR/seq2seq/train_with_wav2vec.py,recipes/MEDIA/ASR/seq2seq/hparams/train_with_wav2vec.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/ASR/seq2seq/README.md,,,,
