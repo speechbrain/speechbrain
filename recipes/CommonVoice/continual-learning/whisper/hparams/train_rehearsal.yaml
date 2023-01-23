@@ -11,6 +11,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
+max_duration: null  # 3600 * 10
 
 # Output directories
 output_dir: !ref results/whisper_rehearsal/<seed>
@@ -34,7 +35,7 @@ num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-rehearsal_ratio: 0.4
+rehearsal_ratio: 0.1
 
 whisper_variant: openai/whisper-tiny
 encoder_only: False

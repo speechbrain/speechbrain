@@ -281,6 +281,7 @@ if __name__ == "__main__":
         kwargs={
             "locales": hparams["locales"],
             "download_dir": hparams["download_dir"],
+            "max_duration": hparams["max_duration"],
         },
     )
 

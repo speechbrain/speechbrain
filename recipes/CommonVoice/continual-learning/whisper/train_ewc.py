@@ -303,7 +303,11 @@ def compute_ewc_params(hparams, run_opts, locales):
     # Multi-gpu (ddp) save data preparation
     run_on_main(
         prepare_common_voice,
-        kwargs={"locales": locales, "download_dir": hparams["download_dir"],},
+        kwargs={
+            "locales": locales,
+            "download_dir": hparams["download_dir"],
+            "max_duration": hparams["max_duration"],
+        },
     )
 
     # Here we create the datasets objects as well as tokenization and encoding
@@ -353,6 +357,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
+                "max_duration": hparams["max_duration"],
             },
         )
 
@@ -426,6 +431,7 @@ def train(hparams, run_opts):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
+                "max_duration": hparams["max_duration"],
             },
         )
 

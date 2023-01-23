@@ -11,10 +11,11 @@ import argparse
 import csv
 import logging
 import os
+import random
 import re
 import shutil
 import tarfile
-from typing import Sequence
+from typing import Optional, Sequence
 
 import requests
 import torchaudio
@@ -46,11 +47,21 @@ _URL_TEMPLATE = (
 
 _SPLITS = ["train", "dev", "test"]
 
+# Random indices are not generated on the fly but statically read from a predefined
+# file to avoid reproducibility issues on different platforms and/or Python versions
+with open(os.path.join(os.path.dirname(__file__), "random_idxes.txt")) as f:
+    _RANDOM_IDXES = [int(line) for line in f]
+
+# Default seed
+random.seed(0)
+
 
 def prepare_common_voice(
     locales: "Sequence[str]" = ("en",),
     download_dir: "str" = "data",
     version: "str" = "12.0-2022-12-07",
+    max_duration: "Optional[float]" = None,
+    shuffle: "bool" = False,
 ) -> "None":
     """Prepare the data manifest CSV files for Common Voice dataset
     (see https://commonvoice.mozilla.org/en/datasets).
@@ -63,6 +74,13 @@ def prepare_common_voice(
         The path to the dataset download directory.
     version:
         The dataset version.
+    max_duration:
+        The maximum total duration in seconds to
+        sample from each locale.
+        Default to ``float("inf")``.
+    shuffle:
+        True to shuffle the data, False otherwise.
+        Used only if `max_duration` is less than infinity.
 
     Raises
     ------
@@ -106,6 +124,8 @@ def prepare_common_voice(
                 for locale in locales
             ],
             os.path.join(download_dir, f"{split}.tsv"),
+            max_duration,
+            shuffle,
         )
 
     _LOGGER.log(
@@ -207,7 +227,10 @@ def download_locale(
 
 
 def merge_tsv_files(
-    input_tsv_files: "Sequence[str]", output_tsv_file: "str",
+    input_tsv_files: "Sequence[str]",
+    output_tsv_file: "str",
+    max_duration: "Optional[float]" = None,
+    shuffle: "bool" = False,
 ) -> "None":
     """Merge input TSV files into a single output TSV file.
 
@@ -217,16 +240,34 @@ def merge_tsv_files(
         The paths to the input TSV files.
     output_tsv_file:
         The path to the output TSV file.
+    max_duration:
+        The maximum total duration in seconds to
+        sample from each TSV file.
+        Default to ``float("inf")``.
+    shuffle:
+        True to shuffle the data, False otherwise.
+        Used only if `max_duration` is less than infinity.
+
+    Raises
+    ------
+    IndexError
+        If `max_duration` is less than infinity and the
+        number of rows in any of the TSV files is larger
+        than the maximum allowed (2000000).
 
     Examples
     --------
     >>> merge_tsv_files(["data/en/test.tsv", "data/it/test.tsv"], "data/test.tsv")
 
     """
+    if max_duration is None:
+        max_duration = float("inf")
     _LOGGER.log(logging.INFO, f"Writing output TSV file ({output_tsv_file})...")
     os.makedirs(os.path.dirname(output_tsv_file), exist_ok=True)
     with open(output_tsv_file, "w") as fw:
-        tsv_writer = csv.writer(fw, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\")
+        tsv_writer = csv.writer(
+            fw, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\"
+        )
         write_header = True
         for input_tsv_file in input_tsv_files:
             _LOGGER.log(
@@ -238,8 +279,40 @@ def merge_tsv_files(
                 if write_header:
                     tsv_writer.writerow(header)
                     write_header = False
-                for row in tsv_reader:
-                    tsv_writer.writerow(row)
+                if max_duration == float("inf"):
+                    for row in tsv_reader:
+                        tsv_writer.writerow(row)
+                    continue
+                rows = list(tsv_reader)
+
+            # Add rows until `max_duration` is reached
+            random_idxes = (
+                random.sample(_RANDOM_IDXES, len(_RANDOM_IDXES))
+                if shuffle
+                else _RANDOM_IDXES
+            )
+            duration, i, num_added_rows = 0.0, 0, 0
+            while duration <= max_duration and num_added_rows < len(rows):
+                try:
+                    idx = random_idxes[i]
+                except IndexError:
+                    raise IndexError(
+                        f"The number of rows ({len(rows) + 1}) in {input_tsv_file} "
+                        f"must be in the integer interval [1, {len(random_idxes) + 1}]"
+                    )
+                i += 1
+                try:
+                    row = rows[idx]
+                except IndexError:
+                    continue
+                duration += float(row[10])
+                num_added_rows += 1
+                tsv_writer.writerow(row)
+            _LOGGER.log(
+                logging.INFO, f"Total duration (s): {duration}",
+            )
+            _LOGGER.log(logging.INFO, f"Added {num_added_rows} rows")
+
     _LOGGER.log(logging.INFO, "Done!")
 
 
@@ -248,9 +321,8 @@ def merge_tsv_files(
 def preprocess_tsv_file(
     input_tsv_file: "str", output_csv_file: "str",
 ) -> "None":
-    """Apply standard Common Voice preprocessing (e.g. rename columns, remove unused columns,
-    strip accents for some locales, remove commas, remove short sentences etc.) to each row
-    of an input TSV file.
+    """Apply minimal Common Voice preprocessing (e.g. rename columns, remove unused columns,
+    remove commas, special characters and empty sentences etc.) to each row of an input TSV file.
 
     Parameters
     ----------
@@ -276,7 +348,7 @@ def preprocess_tsv_file(
         csv_writer.writerow(["ID", "mp3", "wrd", "locale", "duration"])
         for i, row in enumerate(tsv_reader):
             mp3, wrd, locale, duration = row[1], row[2], row[8], row[10]
-            ID = os.path.splitext(mp3)[0]
+            id_ = os.path.splitext(mp3)[0]
             mp3 = os.path.join("$data_root", locale, "clips", mp3)
 
             # Unicode normalization (default in Python 3)
@@ -310,7 +382,7 @@ def preprocess_tsv_file(
 
             num_clips += 1
             total_duration += float(duration)
-            csv_writer.writerow([ID, mp3, wrd, locale, duration])
+            csv_writer.writerow([id_, mp3, wrd, locale, duration])
 
     with open(f"{output_csv_file}.stats", "w") as fw:
         fw.write(f"Number of samples: {num_clips}\n")
@@ -332,11 +404,28 @@ if __name__ == "__main__":
         "-d",
         "--download_dir",
         default="data",
-        help="path to dataset download directory.",
+        help="path to dataset download directory",
     )
     parser.add_argument(
         "-v", "--version", default="11.0-2022-09-21", help="dataset version",
     )
+    parser.add_argument(
+        "-m",
+        "--max_duration",
+        help="maximum total duration in seconds to sample from each locale",
+    )
+    parser.add_argument(
+        "-s",
+        "--shuffle",
+        action="store_true",
+        help="shuffle the data when `max_duration` is less than infinity",
+    )
 
     args = parser.parse_args()
-    prepare_common_voice(args.locales, args.download_dir, args.version)
+    prepare_common_voice(
+        args.locales,
+        args.download_dir,
+        args.version,
+        args.max_duration,
+        args.shuffle,
+    )
