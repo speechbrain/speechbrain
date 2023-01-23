@@ -23,14 +23,14 @@ def prepare_media(
     data_folder,
     save_folder,
     skip_wav=True,
-    method='slu',
-    task='full',
+    method="slu",
+    task="full",
     skip_prep=False,
 ):
     """
     Prepares the csv files for the MEDIA dataset.
     Both following repositories are nesseray for transcriptions
-    and annotations (S0272) and audio (E0024). 
+    and annotations (S0272) and audio (E0024).
     https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/
     https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/
 
@@ -43,7 +43,7 @@ def prepare_media(
     skip_wav: bool, optional
         Skip the wav files storing if already done before.
     method: str, optional
-        Used only for 'slu' task. 
+        Used only for 'slu' task.
         Either 'full' or 'relax'.
         'full' Keep specifiers in concepts.
         'relax' Remove specifiers from concepts.
@@ -101,19 +101,10 @@ def prepare_media(
             + str(len(xmls))
         )
         root = get_root(
-            data_folder
-            + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/"
-            + xml,
-            0,
+            data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml, 0,
         )
         parse(
-            root,
-            channels,
-            filenames,
-            save_folder,
-            method,
-            task,
-            xmls[xml],
+            root, channels, filenames, save_folder, method, task, xmls[xml],
         )
 
     # Test2.
@@ -140,13 +131,7 @@ def prepare_media(
 
 
 def parse(
-    root,
-    channels,
-    filenames,
-    save_folder,
-    method,
-    task,
-    corpus,
+    root, channels, filenames, save_folder, method, task, corpus,
 ):
     """
     Parse data for the train, dev and test csv files of the Media dataset.
@@ -184,7 +169,7 @@ def parse(
                 time_end = turn.getAttribute("endTime")
 
                 sentences = parse_sentences(
-                        turn, time_beg, time_end, method, task
+                    turn, time_beg, time_end, method, task
                 )
 
                 append_data(
@@ -196,7 +181,7 @@ def parse(
                     corpus,
                 )
 
-                
+
 def parse_test2(
     root,
     channels,
@@ -274,12 +259,7 @@ def parse_test2(
 
 
 def append_data(
-    save_folder,
-    channel,
-    filename,
-    speaker_name,
-    sentences,
-    corpus,
+    save_folder, channel, filename, speaker_name, sentences, corpus,
 ):
     """
     Make the csv corpora using data retrieved previously for one Media file.
@@ -304,7 +284,7 @@ def append_data(
 
     # Retrieve other necessary information
     out = subprocess.Popen(
-        ["soxi","-D",save_folder + "/wav/" + channel + filename + ".wav"],
+        ["soxi", "-D",save_folder + "/wav/" + channel + filename + ".wav"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
@@ -349,13 +329,7 @@ def append_data(
         SB_file.close()
 
 
-def parse_sentences(
-    turn,
-    time_beg,
-    time_end,
-    method,
-    task
-):
+def parse_sentences(turn, time_beg, time_end, method, task):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
@@ -407,7 +381,12 @@ def parse_sentences(
                             and node.data.replace("\n", "").replace(" ", "")
                             != ""
                         ):
-                            sentences, has_speech, sync_waiting, concept_open = process_text_node(
+                            (
+                                sentences, 
+                                has_speech, 
+                                sync_waiting, 
+                                concept_open,
+                            ) = process_text_node(
                                 node,
                                 sentences,
                                 sync_waiting,
@@ -421,7 +400,13 @@ def parse_sentences(
 
                         # Check Sync times
                         if node.nodeName == "Sync":
-                            sentences, has_speech, sync_waiting, time, n = process_sync_node(
+                            (
+                                sentences, 
+                                has_speech, 
+                                sync_waiting, 
+                                time, 
+                                n,
+                            ) = process_sync_node(
                                 node,
                                 sentences,
                                 sync_waiting,
@@ -434,7 +419,14 @@ def parse_sentences(
                             )
 
                 if task == "slu":
-                    sentences, concept, concept_open, has_speech, sync_waiting, n = process_semfin_node(
+                    (
+                        sentences, 
+                        concept, 
+                        concept_open, 
+                        has_speech, 
+                        sync_waiting, 
+                        n,
+                    ) = process_semfin_node(
                         sentences,
                         sync_waiting,
                         has_speech,
@@ -452,13 +444,7 @@ def parse_sentences(
 
 
 def parse_sentences_test2(
-    turn,
-    time_beg,
-    time_end,
-    method,
-    concepts_full,
-    concepts_relax,
-    task,
+    turn, time_beg, time_end, method, concepts_full, concepts_relax, task,
 ):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
@@ -509,7 +495,12 @@ def parse_sentences_test2(
             node.nodeType == node.TEXT_NODE
             and node.data.replace("\n", "") != ""
         ):
-            sentences, has_speech, sync_waiting, concept_open = process_text_node(
+            (
+                sentences, 
+                has_speech, 
+                sync_waiting, 
+                concept_open,
+            ) = process_text_node(
                 node,
                 sentences,
                 sync_waiting,
@@ -523,7 +514,14 @@ def parse_sentences_test2(
 
         # Save audio segment
         if task == "slu" and node.nodeName == "SemFin":
-            sentences, concept, concept_open, has_speech, sync_waiting, n = process_semfin_node(
+            (
+                sentences, 
+                concept, 
+                concept_open, 
+                has_speech, 
+                sync_waiting, 
+                n,
+            ) = process_semfin_node(
                 sentences,
                 sync_waiting,
                 has_speech,
@@ -535,7 +533,13 @@ def parse_sentences_test2(
             )
 
         if node.nodeName == "Sync":
-            sentences, has_speech, sync_waiting, time, n = process_sync_node(
+            (
+                sentences, 
+                has_speech, 
+                sync_waiting, 
+                time, 
+                n
+            ) = process_sync_node(
                 node,
                 sentences,
                 sync_waiting,
@@ -552,7 +556,17 @@ def parse_sentences_test2(
     return sentences
 
 
-def process_text_node(node, sentences, sync_waiting, has_speech, concept, concept_open, task, n, time_end):
+def process_text_node(
+    node, 
+    sentences, 
+    sync_waiting, 
+    has_speech, 
+    concept, 
+    concept_open, 
+    task, 
+    n, 
+    time_end,
+):
     # Add a new concept, when speech following
     if task == "slu" and concept != "null" and not concept_open:
         sentences[n][0] += "<" + concept + "> "
@@ -560,16 +574,24 @@ def process_text_node(node, sentences, sync_waiting, has_speech, concept, concep
         concept_open = True
     sentence = normalize_sentence(node.data)
     sentences[n][0] += sentence + " "
-    sentences[n][1] += (
-        " ".join(list(sentence.replace(" ", "_"))) + " _ "
-    )
+    sentences[n][1] += (" ".join(list(sentence.replace(" ", "_"))) + " _ ")
     sentences[n][3] = time_end
     has_speech = True
     sync_waiting = False
     return sentences, has_speech, sync_waiting, concept_open
 
 
-def process_sync_node(node, sentences, sync_waiting, has_speech, concept_open, task, n, time, time_end):
+def process_sync_node(
+    node, 
+    sentences, 
+    sync_waiting, 
+    has_speech, 
+    concept_open, 
+    task, 
+    n, 
+    time, 
+    time_end,
+):
     # If the segment has no speech yet
     if not (has_speech):
         # Change time_beg for the last segment
@@ -587,7 +609,16 @@ def process_sync_node(node, sentences, sync_waiting, has_speech, concept_open, t
     return sentences, has_speech, sync_waiting, time, n
 
 
-def process_semfin_node(sentences, sync_waiting, has_speech, concept, concept_open, n, time, time_end):
+def process_semfin_node(
+    sentences, 
+    sync_waiting, 
+    has_speech, 
+    concept, 
+    concept_open, 
+    n, 
+    time, 
+    time_end,
+):
     # Prevent adding a closing concept
     # If Sync followed by SemFin generate a new segment without speech yet
     if concept_open:
@@ -612,7 +643,7 @@ def clean_last_sentence(sentences):
         else:
             del sentences[n]  # Usefull for last appended segment
     return sentences
-    
+
 
 def normalize_sentence(sentence):
     # Apostrophes
