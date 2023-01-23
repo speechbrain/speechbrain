@@ -437,9 +437,7 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                         time_end,
                     )
 
-
     sentences = clean_last_sentence(sentences)
-
     return sentences
 
 
