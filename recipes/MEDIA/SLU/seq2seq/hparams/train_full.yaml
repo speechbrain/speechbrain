@@ -17,8 +17,6 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 original_data_folder: !PLACEHOLDER # Path of folders S0272 and E0024.
-wav_folder: !PLACEHOLDER # Path where the wavs will be stored.
-csv_folder: !PLACEHOLDER # Path where the csvs will be stored.
 skip_wav: False # Skip the wav files storing if already done before.
 method: full # Remove or keep specifiers in concepts. Method used by default.
 task: slu # Parse SLU or ASR data.
