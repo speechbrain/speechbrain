@@ -11,14 +11,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
-max_duration: null  # 3600 * 10
+max_durations: null  # 3600 * 10
 
 # Output directories
 output_dir: !ref results/whisper_rehearsal/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 128 #24  # 1 when fine-tuning both encoder and decoder
+train_batch_size: 96 #24  # 1 when fine-tuning both encoder and decoder
 valid_batch_size: 152 #24
 train_num_workers: 6
 valid_num_workers: 6

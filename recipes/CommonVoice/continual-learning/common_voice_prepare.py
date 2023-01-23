@@ -60,8 +60,7 @@ def prepare_common_voice(
     locales: "Sequence[str]" = ("en",),
     download_dir: "str" = "data",
     version: "str" = "12.0-2022-12-07",
-    max_duration: "Optional[float]" = None,
-    shuffle: "bool" = False,
+    max_durations: "Optional[Sequence[float]]" = None,
 ) -> "None":
     """Prepare the data manifest CSV files for Common Voice dataset
     (see https://commonvoice.mozilla.org/en/datasets).
@@ -74,18 +73,15 @@ def prepare_common_voice(
         The path to the dataset download directory.
     version:
         The dataset version.
-    max_duration:
-        The maximum total duration in seconds to
-        sample from each locale.
-        Default to ``float("inf")``.
-    shuffle:
-        True to shuffle the data, False otherwise.
-        Used only if `max_duration` is less than infinity.
+    max_durations:
+        The maximum total durations in seconds to sample from
+        each locale for train, dev and test splits, respectively.
+        Default to infinity.
 
     Raises
     ------
     ValueError
-        If `locales` is empty.
+        If an invalid argument value is given.
 
     Examples
     --------
@@ -94,6 +90,12 @@ def prepare_common_voice(
     """
     if not locales:
         raise ValueError(f"`locales` ({locales}) must be non-empty")
+    if max_durations is None:
+        max_durations = [None, None, None]
+    if len(max_durations) != 3:
+        raise ValueError(
+            f"`len(max_durations)` ({len(max_durations)}) must be equal to 3"
+        )
 
     for locale in locales:
         _LOGGER.log(
@@ -117,7 +119,7 @@ def prepare_common_voice(
         "----------------------------------------------------------------------",
     )
     _LOGGER.log(logging.INFO, f"Merging TSV files...")
-    for split in _SPLITS:
+    for split, max_duration in zip(_SPLITS, max_durations):
         merge_tsv_files(
             [
                 os.path.join(download_dir, locale, f"{split}.tsv")
@@ -125,7 +127,6 @@ def prepare_common_voice(
             ],
             os.path.join(download_dir, f"{split}.tsv"),
             max_duration,
-            shuffle,
         )
 
     _LOGGER.log(
@@ -243,7 +244,7 @@ def merge_tsv_files(
     max_duration:
         The maximum total duration in seconds to
         sample from each TSV file.
-        Default to ``float("inf")``.
+        Default to infinity.
     shuffle:
         True to shuffle the data, False otherwise.
         Used only if `max_duration` is less than infinity.
@@ -411,21 +412,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-m",
-        "--max_duration",
-        help="maximum total duration in seconds to sample from each locale",
-    )
-    parser.add_argument(
-        "-s",
-        "--shuffle",
-        action="store_true",
-        help="shuffle the data when `max_duration` is less than infinity",
+        "--max_durations",
+        help="maximum total durations in seconds to sample from each "
+        "locale for train, dev and test splits, respectively."
+        "Default to infinity",
     )
 
     args = parser.parse_args()
     prepare_common_voice(
-        args.locales,
-        args.download_dir,
-        args.version,
-        args.max_duration,
-        args.shuffle,
+        args.locales, args.download_dir, args.version, args.max_durations,
     )

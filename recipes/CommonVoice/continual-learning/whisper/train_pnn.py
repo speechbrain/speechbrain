@@ -303,7 +303,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
-                "max_duration": hparams["max_duration"],
+                "max_durations": hparams["max_durations"],
             },
         )
 
@@ -351,6 +351,9 @@ def train(hparams, run_opts):
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
 
+    # Define dictionary to store active tokens for each locale
+    tokenizer.active_tokens = {}
+
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
         # Multi-gpu (ddp) save data preparation
@@ -359,7 +362,7 @@ def train(hparams, run_opts):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
-                "max_duration": hparams["max_duration"],
+                "max_durations": hparams["max_durations"],
             },
         )
 
@@ -394,6 +397,12 @@ def train(hparams, run_opts):
 
         # Add the tokens to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
+
+        # Compute active tokens
+        import pdb
+        pdb.set_trace()
+        active_tokens = tokenizer.encode([f"<|{locale.lower()}|>"] + vocab[1:], add_special_tokens=False)
+        tokenizer.active_tokens[locale] = active_tokens
 
         # Freeze the whole model to avoid forgetting
         for param in hparams["whisper"].model.parameters():
