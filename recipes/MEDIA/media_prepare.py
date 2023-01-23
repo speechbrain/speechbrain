@@ -284,7 +284,7 @@ def append_data(
 
     # Retrieve other necessary information
     out = subprocess.Popen(
-        ["soxi", "-D",save_folder + "/wav/" + channel + filename + ".wav"],
+        ["soxi", "-D", save_folder + "/wav/" + channel + filename + ".wav"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
@@ -382,9 +382,9 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                             != ""
                         ):
                             (
-                                sentences, 
-                                has_speech, 
-                                sync_waiting, 
+                                sentences,
+                                has_speech,
+                                sync_waiting,
                                 concept_open,
                             ) = process_text_node(
                                 node,
@@ -401,10 +401,10 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                         # Check Sync times
                         if node.nodeName == "Sync":
                             (
-                                sentences, 
-                                has_speech, 
-                                sync_waiting, 
-                                time, 
+                                sentences,
+                                has_speech,
+                                sync_waiting,
+                                time,
                                 n,
                             ) = process_sync_node(
                                 node,
@@ -420,11 +420,11 @@ def parse_sentences(turn, time_beg, time_end, method, task):
 
                 if task == "slu":
                     (
-                        sentences, 
-                        concept, 
-                        concept_open, 
-                        has_speech, 
-                        sync_waiting, 
+                        sentences,
+                        concept,
+                        concept_open,
+                        has_speech,
+                        sync_waiting,
                         n,
                     ) = process_semfin_node(
                         sentences,
@@ -496,9 +496,9 @@ def parse_sentences_test2(
             and node.data.replace("\n", "") != ""
         ):
             (
-                sentences, 
-                has_speech, 
-                sync_waiting, 
+                sentences,
+                has_speech,
+                sync_waiting,
                 concept_open,
             ) = process_text_node(
                 node,
@@ -515,11 +515,11 @@ def parse_sentences_test2(
         # Save audio segment
         if task == "slu" and node.nodeName == "SemFin":
             (
-                sentences, 
-                concept, 
-                concept_open, 
-                has_speech, 
-                sync_waiting, 
+                sentences,
+                concept,
+                concept_open,
+                has_speech,
+                sync_waiting,
                 n,
             ) = process_semfin_node(
                 sentences,
@@ -533,13 +533,7 @@ def parse_sentences_test2(
             )
 
         if node.nodeName == "Sync":
-            (
-                sentences, 
-                has_speech, 
-                sync_waiting, 
-                time, 
-                n
-            ) = process_sync_node(
+            sentences, has_speech, sync_waiting, time, n = process_sync_node(
                 node,
                 sentences,
                 sync_waiting,
@@ -557,14 +551,14 @@ def parse_sentences_test2(
 
 
 def process_text_node(
-    node, 
-    sentences, 
-    sync_waiting, 
-    has_speech, 
-    concept, 
-    concept_open, 
-    task, 
-    n, 
+    node,
+    sentences,
+    sync_waiting,
+    has_speech,
+    concept,
+    concept_open,
+    task,
+    n,
     time_end,
 ):
     # Add a new concept, when speech following
@@ -574,7 +568,7 @@ def process_text_node(
         concept_open = True
     sentence = normalize_sentence(node.data)
     sentences[n][0] += sentence + " "
-    sentences[n][1] += (" ".join(list(sentence.replace(" ", "_"))) + " _ ")
+    sentences[n][1] += " ".join(list(sentence.replace(" ", "_"))) + " _ "
     sentences[n][3] = time_end
     has_speech = True
     sync_waiting = False
@@ -582,14 +576,14 @@ def process_text_node(
 
 
 def process_sync_node(
-    node, 
-    sentences, 
-    sync_waiting, 
-    has_speech, 
-    concept_open, 
-    task, 
-    n, 
-    time, 
+    node,
+    sentences,
+    sync_waiting,
+    has_speech,
+    concept_open,
+    task,
+    n,
+    time,
     time_end,
 ):
     # If the segment has no speech yet
@@ -610,13 +604,13 @@ def process_sync_node(
 
 
 def process_semfin_node(
-    sentences, 
-    sync_waiting, 
-    has_speech, 
-    concept, 
-    concept_open, 
-    n, 
-    time, 
+    sentences,
+    sync_waiting,
+    has_speech,
+    concept,
+    concept_open,
+    n,
+    time,
     time_end,
 ):
     # Prevent adding a closing concept
