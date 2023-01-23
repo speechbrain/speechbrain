@@ -337,8 +337,7 @@ if __name__ == "__main__":
         prepare_media,
         kwargs={
             "data_folder": hparams["original_data_folder"],
-            "wav_folder": hparams["wav_folder"],
-            "csv_folder": hparams["csv_folder"],
+            "save_folder": hparams["save_folder"],
             "skip_wav": hparams["skip_wav"],
             "method": hparams["method"],
             "task": hparams["task"],
