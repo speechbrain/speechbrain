@@ -7,7 +7,7 @@ The goal is to identify to which extent changes break existing functionality.
 Then, larger changes to code base can be rolled out more assured.
 
 Authors
- * Andreas Nautsch, 2022
+ * Andreas Nautsch, 2022, 2023
 """
 
 import os
@@ -29,14 +29,36 @@ from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
 def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
+    """Initialises a PR branch to: https://github.com/speechbrain/speechbrain/tree/hf-interface-testing
+
+    Skip if the path as of `new_interfaces_local_dir` exists (e.g. by DIY init instead of via this script).
+
+    Parameters
+    ----------
+    new_interfaces_git: str
+        Your git repo (or default: `https://github.com/speechbrain/speechbrain`);
+        can be specified in tests/utils/overrides.yaml
+    new_interfaces_branch: str
+        Default is `hf-interface-testing` (a git branch); can be specified in tests/utils/overrides.yaml
+    new_interfaces_local_dir: str
+        Default is `tests/tmp/hf_interfaces` (a local path); can be specified in tests/utils/overrides.yaml
+
+    Returns
+    -------
+    str
+        Local path of `updates_pretrained_models` where the update HF yaml/interface files can be found.
+    """
     # set up git etc
     if not os.path.exists(new_interfaces_local_dir):
-        # note: not checking for anything
+        # note: not checking for anything, whether it exists or not - or if there is a previous one already
+        # clone repo with PR on updates_pretrained_models into local folder
         cmd_out_clone = subprocess.run(
             ["git", "clone", new_interfaces_git, new_interfaces_local_dir],
             capture_output=True,
         )
         print(f"\tgit clone log: {cmd_out_clone}")
+
+        # cd into that local folder, switch branch to the one containing updates_pretrained_models & cd back
         cwd = os.getcwd()
         os.chdir(new_interfaces_local_dir)
         cmd_out_co = subprocess.run(
@@ -45,11 +67,30 @@ def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
         print(f"\tgit checkout log: {cmd_out_co}")
         os.chdir(cwd)
 
+    # return the valid local path with updates_pretrained_models
     updates_dir = f"{new_interfaces_local_dir}/updates_pretrained_models"
     return updates_dir
 
 
 def get_model(repo, values, updates_dir=None, run_opts=None):
+    """Fetches a pretrained model with the option the re-specify its hyperparameters & interface.
+
+    Parameters
+    ----------
+    repo: str
+        Source of pretrained model (assuming its within the HF speechbrain collection).
+    values: dict
+        Interface specification.
+        Example: speechbrain:hf-interface-testing/updates_pretrained_models/ssl-wav2vec2-base-librispeech/test.yaml
+    updates_dir: str
+        Local folder with yaml:interface updates; None (default) = take original yaml/interface specification.
+    run_opts: dict
+        Run options, such as device
+
+    Returns
+    -------
+    A pretrained model with a speechbrain.pretrained.interface or a custom interface.
+    """
     # get the pretrained class; model & predictions
     kwargs = {
         "source": f"speechbrain/{repo}",
@@ -58,8 +99,11 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
 
     # adjust symlinks
     hparams = f"pretrained_models/{repo}/hyperparams.yaml"
-    if "foreign" in values.keys():
+    if (
+        "foreign" in values.keys()
+    ):  # it's a custom model which has its own Python filename
         custom = f'pretrained_models/{repo}/{values["foreign"]}'
+    # prepare model loading: is it the old -or- the new yaml/interface?
     if updates_dir is not None:
         # testing the refactoring; assuming all model data has been loaded already
         kwargs["source"] = f"{updates_dir}/{repo}"
@@ -82,6 +126,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         kwargs["run_opts"] = run_opts
 
     print(f"\trepo: {repo}")
+    # load pretrained model either via specified pretrained class or custom interface
     if "foreign" not in values.keys():
         print(f'\tspeechbrain.pretrained.{values["cls"]}')
         print(f"\tobj.from_hparams({kwargs})")
@@ -96,31 +141,40 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
 
 
 def get_prediction(repo, values, updates_dir=None):
-    # updates_dir controls whether/not we are in the refactored results (None: expected results; before refactoring)
+    """Gets the prediction for one predefined audio example, pattern: {repo}/{values["sample"]} (see HF model card).
+
+    Parameters
+    ----------
+    repo: str
+        Source of pretrained model (assuming its within the HF speechbrain collection).
+    values: dict
+        Interface specification.
+        Examples: speechbrain:hf-interface-testing/updates_pretrained_models/ssl-wav2vec2-base-librispeech/test.yaml
+                  speechbrain:hf-interface-testing/updates_pretrained_models/asr-wav2vec2-librispeech/test.yaml
+    updates_dir: str
+        Controls whether/not we are in the refactored results (None: expected results; before refactoring).
+
+    Returns
+    -------
+    Cleaned-up prediction results for yaml output (result logging & comparison through yaml de/serialization).
+    """
 
     def sanitize(data):
-        # yaml outputs in clean
+        # cleanup data for yaml output (w/o this, yaml will make attempts to save torch/numpy arrays in their format)
         if isinstance(data, torch.Tensor):
             data = data.detach().cpu().numpy()
             if data.ndim:
                 data = list(data)
         return data
 
+    # get the pretrained model (before/after yaml/interface update)
     model = get_model(repo=repo, values=values, updates_dir=updates_dir)  # noqa
 
     try:
-        if values["prediction"] is None:
-            # simulate batch from single file
-            prediction = eval(
-                f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}", savedir="pretrained_models/{repo}").unsqueeze(0), torch.tensor([1.0]))'
-            )
-        else:
-            # load audio from remote to local repo folder
-            eval(
-                f'model.load_audio("{repo}/{values["sample"]}", savedir="pretrained_models/{repo}")'
-            )
-            # run a single file interface call
-            prediction = eval(values["prediction"])
+        # simulate batch from single file
+        prediction = eval(
+            f'model.{values["fnx"]}(model.load_audio("{repo}/{values["sample"]}", savedir="pretrained_models/{repo}").unsqueeze(0), torch.tensor([1.0]))'
+        )
 
     except Exception:
         # use an example audio if no audio can be loaded
@@ -141,10 +195,17 @@ def gather_expected_results(
     new_interfaces_local_dir="tests/tmp/hf_interfaces",
     yaml_path="tests/tmp/refactoring_results.yaml",
 ):
-    """Before refactoring HF YAMLs and/or code (regarding wav2vec2), gather prediction results.
+    """Before refactoring HF YAMLs and/or code, gather prediction results.
 
     Parameters
     ----------
+    new_interfaces_git: str
+        Your git repo (or default: `https://github.com/speechbrain/speechbrain`);
+        can be specified in tests/utils/overrides.yaml
+    new_interfaces_branch: str
+        Default is `hf-interface-testing` (a git branch); can be specified in tests/utils/overrides.yaml
+    new_interfaces_local_dir: str
+        Default is `tests/tmp/hf_interfaces` (a local path); can be specified in tests/utils/overrides.yaml
     yaml_path : str
         Path where to store/load refactoring testing results for later comparison.
 
@@ -183,6 +244,20 @@ def gather_refactoring_results(
     new_interfaces_local_dir="tests/tmp/hf_interfaces",
     yaml_path="tests/tmp/refactoring_results.yaml",
 ):
+    """After refactoring HF YAMLs and/or code, gather prediction results.
+
+    Parameters
+    ----------
+    new_interfaces_git: str
+        Your git repo (or default: `https://github.com/speechbrain/speechbrain`);
+        can be specified in tests/utils/overrides.yaml
+    new_interfaces_branch: str
+        Default is `hf-interface-testing` (a git branch); can be specified in tests/utils/overrides.yaml
+    new_interfaces_local_dir: str
+        Default is `tests/tmp/hf_interfaces` (a local path); can be specified in tests/utils/overrides.yaml
+    yaml_path: str
+        Path where to store/load refactoring testing results for later comparison.
+    """
     # expected results need to exist
     if os.path.exists(yaml_path):
         with open(yaml_path) as yaml_in:
@@ -220,6 +295,28 @@ def gather_refactoring_results(
 def test_performance(
     repo, values, run_opts, updates_dir=None, recipe_overrides={}
 ):
+    """
+
+    Parameters
+    ----------
+    repo: str
+        Source of pretrained model (assuming its within the HF speechbrain collection).
+    values: dict
+        Interface specification.
+        Examples: speechbrain:hf-interface-testing/updates_pretrained_models/ssl-wav2vec2-base-librispeech/test.yaml
+                  speechbrain:hf-interface-testing/updates_pretrained_models/asr-wav2vec2-librispeech/test.yaml
+    run_opts: dict
+        Run options, such as device
+    updates_dir: str
+        Controls whether/not we are in the refactored results (None: expected results; before refactoring).
+    recipe_overrides: dict
+        Recipe YAMLs contain placeholders and flags which need to be overwritten (e.g. data_folder & skip_prep).
+        See: overrides.yaml
+
+    Returns
+    -------
+    Dict for export to yaml with performance statistics, as specified in the test.yaml files.
+    """
     # Dataset depending file structure
     tmp_dir = f'tests/tmp/{values["dataset"]}'
     speechbrain.create_experiment_directory(experiment_directory=tmp_dir)
@@ -300,7 +397,7 @@ def test_performance(
 
 
 # run first w/ "--after=False" on latest develop, then checkout the refactoring branch and run w/ "--after=True"
-# PYTHONPATH=`realpath .` python tests/integration/HuggingFace_transformers/refactoring_checks.py tests/integration/HuggingFace_transformers/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --after=False
+# PYTHONPATH=`realpath .` python tests/utils/refactoring_checks.py tests/utils/overrides.yaml --LibriSpeech_data="" --CommonVoice_EN_data="" --CommonVoice_FR_data="" --IEMOCAP_data="" --after=False
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = speechbrain.parse_arguments(
         sys.argv[1:]
