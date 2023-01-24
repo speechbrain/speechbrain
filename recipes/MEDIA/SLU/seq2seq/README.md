@@ -3,6 +3,8 @@ This folder contains scripts necessary to run an SLU experiment with the Media F
 
 This recipe has been implemented following the paper of G. Laperrière, V. Pelloin, A. Caubriere, S. Mdhaffar, N. Camelin, S. Ghannay, B. Jabaian, Y. Estève, [The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools](https://aclanthology.org/2022.lrec-1.171).
 
+Some results presented here are also part of the paper of G. Laperrière, V. Pelloin, M. Rouvier, T. Stafylakis, Y. Estève [On the Use of Semantically-Aligned Speech Representations for Spoken Language Understanding](https://arxiv.org/abs/2210.05291).
+
 # How to run
 Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml file.
 
