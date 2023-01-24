@@ -2797,23 +2797,23 @@ class FastSpeech2(Pretrained):
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts)
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")
+    >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts)   # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")   # doctest: +SKIP
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
     ...   "How much wood would a woodchuck chuck?",
     ...   "Never odd or even"
     ... ]
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_batch(items)
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_batch(items) # doctest: +SKIP
     >>>
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-16kHz", savedir=tmpdir_vocoder)
     >>> # Running the TTS
-    >>> mel_output, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")
+    >>> mel_output, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")    # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_output)
+    >>> waveforms = hifi_gan.decode_batch(mel_output)   # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["model", "input_encoder"]
