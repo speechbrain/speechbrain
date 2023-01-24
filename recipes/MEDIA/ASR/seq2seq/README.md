@@ -17,7 +17,7 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 # Results
 
 | Media Release | hyperparams file | Test ChER | Test WER | Wav2Vec |
-|:-------------:|:-------------------------:|:----:|:----:|:----:|:------------------------------------:|
+|:-------------:|:-------------------------:|:----:|:----:|:------------------------------------:|
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
