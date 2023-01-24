@@ -20,6 +20,7 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 |:-------------:|:-------------------------:|:----:|:----:|:------------------------------------:|
 | 2008-03-27 | train.yaml | 48.4 | 51.0 | None |
 | 2008-03-27 | train_with_wav2vec.yaml | 7.1 | 13.5 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) |
+| 2008-03-27 | train_with_wav2vec.yaml | 5.6 | 13.0 | [[wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m) |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
