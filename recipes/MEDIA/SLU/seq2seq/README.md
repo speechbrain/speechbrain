@@ -27,7 +27,7 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 | 2008-03-27 | train_with_wav2vec_full.yaml | 5.8 | 20.4 | 31.2 | [wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m) |
 | 2008-03-27 | train_with_wav2vec_full.yaml | 5.1 | 19.3 | 29.8 | [SAMU-XLSR](https://arxiv.org/pdf/2205.08180.pdf) |
 
-The CVER is the one implemented in SpeechBrain for this recipe. It is strict (yield an error for a single false character), without the human rules added generally for MEDIA. Find more in the article linked above, as it correspond to u-CVER.
+The CVER is the one implemented in SpeechBrain for this recipe. It is strict (yield an error for a single false character), without the human rules added generally for MEDIA. Find more in the article linked above, as it corresponds to u-CVER.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
