@@ -1,31 +1,14 @@
 # Media data preparation.
+The `media_prepare.py` script allows to prepare the Media French dataset for experiments. You need both [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/) and [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) to run the script.
 
-### Contributors :
-- Gaëlle Laperrière, Avignon University, LIA
-- Yannick Estève, Avignon University, LIA
-- Bassam Jabaian, Avignon University, LIA
-- Sahar Ghannay, Paris-Saclay University, CNRS, LISN
-- Antoine Caubrière, Avignon University, LIA
-- Valentin Pelloin, Le Mans University, LIUM
-- Nathalie Camelin, Le Mans University, LIUM
+The recipes have been implemented following the paper of G. Laperrière, V. Pelloin, A. Caubriere, S. Mdhaffar, N. Camelin, S. Ghannay, B. Jabaian, Y. Estève, [The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools](https://aclanthology.org/2022.lrec-1.171).
 
-The `parseXMLtoSB.py` script allows to prepare the Media French dataset for experiments. You need both [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/) and [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) to run the script.
-
-# How to run
-```
-python parseXMLtoSB.py [-w] [-r | -f] (-s | -a) data_folder wav_folder csv_folder
-```
-With :
-- `data_folder` : Path where folders S0272 and E0024 are stored.
-- `wav_folder` : Path where the wavs will be stored.
-- `csv_folder` : Path where the csv will be stored.
-- `-w` / `--skip_wav` : Skip the wav files storing if already done before.
-- `-r` / `--relax` or `-f` / `--full` (by default) : Remove (relax) or keep (full) specifiers in concepts.
-- `-s` / `--slu` or `-a` / `--asr` : Choose the task.
+**The results obtained with the different models can be found in the corresponding sub-directories!**
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
+- HuggingFace: https://huggingface.co/speechbrain/
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
