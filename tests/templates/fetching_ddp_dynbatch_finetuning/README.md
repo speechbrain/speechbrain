@@ -20,7 +20,7 @@ Essentially, this template is a continuation of the ASR speech recognition templ
 # How to run
 
 ```shell
-PYTHONPATH=../../.. python -m torch.distributed.launch --nproc_per_node=2 finetune_LM.py fixed_ASR.yaml --distributed_launch --distributed_backend='nccl'
+CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. python3 -m torch.distributed.launch --nproc_per_node=2 finetune.py finetune.yaml --distributed_launch --distributed_backend='nccl'
 ```
 
 ---

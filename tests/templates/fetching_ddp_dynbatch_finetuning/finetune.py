@@ -37,12 +37,12 @@ def eval_reporting(reports):
 if __name__ == "__main__":
     # CLI parsing
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    print(hparams_file)
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
 
     # DDP init
     sb.utils.distributed.ddp_init_group(run_opts)
+
+    with open(hparams_file) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -82,9 +82,9 @@ if __name__ == "__main__":
     }
 
     # We download:
-    # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
-    # * the pretrained LM from HuggingFace - HF: speechbrain/asr-crdnn-rnnlm-librispeech
     # * the tokenizer from URL - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/resolve/main/...
+    # * the pretrained LM from HuggingFace - HF: speechbrain/asr-crdnn-rnnlm-librispeech
+    # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
     run_on_main(
         hparams["pretrainer_tokenizer"].collect_files,
         kwargs={"fetch_from": FetchFrom.ONLINE},
@@ -93,12 +93,10 @@ if __name__ == "__main__":
         hparams["pretrainer_LM"].collect_files,
         kwargs={"fetch_from": FetchFrom.HUGGING_FACE},
     )
-    run_on_main(
-        hparams["pretrainer_ASR"].collect_files,
-        kwargs={"fetch_from": FetchFrom.LOCAL},
-    )
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
+    # LOCAL fetching takes sources directly from their location
+    hparams["pretrainer_ASR"].collect_files(fetch_from=FetchFrom.LOCAL)
     hparams["pretrainer_ASR"].load_collected(run_opts["device"])
 
     # Trainer initialization
@@ -130,7 +128,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    test_stats = asr_brain.evaluate(
+    asr_brain.evaluate(
         test_set=datasets["test"],
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
@@ -138,7 +136,7 @@ if __name__ == "__main__":
 
     # Save so it can be found as pre-trained model source
     if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
-        asr_brain.checkpointer.save_checkpoint(name="latest")
+        run_on_main(asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"})
 
     # Clean-up memory (for using EncoderDecoderASR interface only) but preserve testing-relevant objects
     test_datasets = deepcopy(datasets["test"])
