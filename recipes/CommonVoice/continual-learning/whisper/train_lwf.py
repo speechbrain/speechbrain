@@ -354,9 +354,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # test(
-    #     hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
-    # )
+    test(
+        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    )
 
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
