@@ -59,7 +59,7 @@ class ASR(sb.Brain):
             with torch.no_grad():
                 # for teacher forcing the new added tokens should be replaced with <UNKONW> token
                 old_bos_tokens=bos_tokens.detach().clone()
-                mask= sum(old_bos_tokens.flatten()==i for i in self.new_tokens).bool()
+                mask= sum(old_bos_tokens.flatten()==i for i in self.masked_tokens).bool()
                 old_bos_tokens.flatten()[mask==True]=self.tokenizer.unk_token_id
                 _, soft_logits, _ = self.old_model(wavs, old_bos_tokens)
 
@@ -91,12 +91,19 @@ class ASR(sb.Brain):
             # Loss1 is the cross entropy between output of the new task and label
             # Loss2 is the cross entropy between output of the old task and output of the old model
             # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax. 
-            outputs_S = F.softmax(logits.flatten(end_dim=-2)[:,:self.old_features]/T,dim=1)
+            outputs_S = F.softmax(logits.flatten(end_dim=-2)[:,:self.old_features]/T,dim=1)        
             outputs_T = F.softmax(soft_logits.flatten(end_dim=-2)/T,dim=1)
+
+
+            # set padded values to zero
+            mask= (tokens_eos.flatten()== hparams["ignore_index"]).bool()
+            outputs_T[mask==True]=0
+
             # Cross entropy between output of the old task and output of the old model
             loss2 = outputs_T.mul(-1*torch.log(outputs_S))
             loss2 = loss2.sum(1)
             loss2 = loss2.mean()*T*T
+            
             loss = loss+loss2*hparams['lwf_alpha']
             
 
@@ -347,9 +354,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    test(
-        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
-    )
+    # test(
+    #     hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    # )
 
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
@@ -436,7 +443,9 @@ def train(hparams, run_opts):
         asr_brain.tokenizer = tokenizer
         asr_brain.old_model=old_model
         asr_brain.old_features=old_features
-        asr_brain.new_tokens= set(tokenizer.convert_tokens_to_ids(new_tokens))
+        masked_tokens=tokenizer.convert_tokens_to_ids(new_tokens)
+        masked_tokens.append(tokenizer.convert_tokens_to_ids(f"<|{locale.lower()}|>"))
+        asr_brain.masked_tokens= set(masked_tokens)
    
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
