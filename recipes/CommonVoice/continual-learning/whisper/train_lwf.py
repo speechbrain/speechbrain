@@ -90,7 +90,7 @@ class ASR(sb.Brain):
             # Used to balance the new class loss1 and the old class loss2
             # Loss1 is the cross entropy between output of the new task and label
             # Loss2 is the cross entropy between output of the old task and output of the old model
-            # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax. 
+            # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax.
             outputs_S = F.softmax(logits.flatten(end_dim=-2)[:,:self.old_features]/T,dim=1)
             outputs_T = F.softmax(soft_logits.flatten(end_dim=-2)/T,dim=1)
             # Cross entropy between output of the old task and output of the old model
@@ -306,7 +306,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
-                "max_duration": hparams["max_duration"],
+                "max_durations": hparams["max_durations"],
             },
         )
 

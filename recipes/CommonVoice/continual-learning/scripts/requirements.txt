@@ -1,3 +1,3 @@
-matplotlib
-plotly
-seaborn
+matplotlib==3.6.2
+plotly==5.11.0
+seaborn==0.12.2
