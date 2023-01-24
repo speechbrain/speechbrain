@@ -1,6 +1,10 @@
 """
 Data preparation.
-Download: See README.md
+Download:
+https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/
+https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/
+https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+See README.md for more info
 
 Author
 ------
@@ -53,7 +57,6 @@ def prepare_media(
         'asr' Parse ASR data.
     skip_prep: bool, optional
         If True, skip data preparation.
-
     """
 
     if skip_prep:
@@ -480,7 +483,7 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                         time_end,
                     )
 
-    sentences = clean_last_sentence(sentences)
+    sentences = clean_last_char(sentences)
     return sentences
 
 
@@ -586,7 +589,7 @@ def parse_sentences_test2(
                 time_end,
             )
 
-    sentences = clean_last_sentence(sentences)
+    sentences = clean_last_char(sentences)
 
     return sentences
 
@@ -602,6 +605,44 @@ def process_text_node(
     n,
     time_end,
 ):
+    """
+    Parse text nodes from the xml files of MEDIA.
+
+    Arguments
+    ---------
+    node: Node
+        Node of the xml file.
+    sentences: dictionnary of str
+        All sentences being extracted from the turn.
+    sync_waiting: bool
+        Used to keep track of sync nodes, to cut blank audio signal.
+        True if a sync node has been processed without text in it.
+        False if no sync nodes have been processed, or text has been parsed after one.
+    has_speech: bool
+        Used to keep track of the existency of speech in the turn's sentence.
+        True if speech is present in the turn.
+        False if no speech is present yet in the turn.
+    concept: str
+        Concept of the node being processed.
+        Will be "null" if no concept is linked to this node.
+    concept_open: bool
+        Used to know if a concept has been used but not its closing tag ">".
+        True if closing tag not seen yet and concept has been used.
+        False if clossing tag put or concept not used.
+    task: str, optional
+        Either 'slu' or 'asr'.
+        'slu' Parse SLU data.
+        'asr' Parse ASR data.
+    n: int
+        Used to keep track of the number of sentences in the turn.
+    time_end: str
+        Last time given by the turn, after last speech.
+
+    Returns
+    -------
+    dictionnary of str, bool, bool, bool
+    """
+
     # Add a new concept, when speech following
     if task == "slu" and concept != "null" and not concept_open:
         sentences[n][0] += "<" + concept + "> "
@@ -627,6 +668,43 @@ def process_sync_node(
     time,
     time_end,
 ):
+    """
+    Parse sync nodes from the xml files of MEDIA.
+
+    Arguments
+    ---------
+    node: Node
+        Node of the xml file.
+    sentences: dictionnary of str
+        All sentences being extracted from the turn.
+    sync_waiting: bool
+        Used to keep track of sync nodes, to cut blank audio signal.
+        True if a sync node has been processed without text in it.
+        False if no sync nodes have been processed, or text has been parsed after one.
+    has_speech: bool
+        Used to keep track of the existency of speech in the turn's sentence.
+        True if speech is present in the turn.
+        False if no speech is present yet in the turn.
+    concept_open: bool
+        Used to know if a concept has been used but not its closing tag ">".
+        True if closing tag not seen yet and concept has been used.
+        False if clossing tag put or concept not used.
+    task: str, optional
+        Either 'slu' or 'asr'.
+        'slu' Parse SLU data.
+        'asr' Parse ASR data.
+    n: int
+        Used to keep track of the number of sentences in the turn.
+    time: str
+        Current time given by the sync node.
+    time_end: str
+        Last time given by the turn, after last speech.
+
+    Returns
+    -------
+    dictionnary of str, bool, bool, str, int
+    """
+
     # If the segment has no speech yet
     if not (has_speech):
         # Change time_beg for the last segment
@@ -654,6 +732,44 @@ def process_semfin_node(
     time,
     time_end,
 ):
+    """
+    Parse SemFin nodes from the xml files of MEDIA.
+
+    Arguments
+    ---------
+    sentences: dictionnary of str
+        All sentences being extracted from the turn.
+    sync_waiting: bool
+        Used to keep track of sync nodes, to cut blank audio signal.
+        True if a sync node has been processed without text in it.
+        False if no sync nodes have been processed, or text has been parsed after one.
+    has_speech: bool
+        Used to keep track of the existency of speech in the turn's sentence.
+        True if speech is present in the turn.
+        False if no speech is present yet in the turn.
+    concept: str
+        Concept of the node being processed.
+        Will be "null" if no concept is linked to this node.
+    concept_open: bool
+        Used to know if a concept has been used but not its closing tag ">".
+        True if closing tag not seen yet and concept has been used.
+        False if clossing tag put or concept not used.
+    task: str, optional
+        Either 'slu' or 'asr'.
+        'slu' Parse SLU data.
+        'asr' Parse ASR data.
+    n: int
+        Used to keep track of the number of sentences in the turn.
+    time: str
+        Current time given by the sync node.
+    time_end: str
+        Last time given by the turn, after last speech.
+
+    Returns
+    -------
+    dictionnary of str, str, bool, bool, bool, int
+    """
+
     # Prevent adding a closing concept
     # If Sync followed by SemFin generate a new segment without speech yet
     if concept_open:
@@ -670,7 +786,20 @@ def process_semfin_node(
     return sentences, concept, concept_open, has_speech, sync_waiting, n
 
 
-def clean_last_sentence(sentences):
+def clean_last_char(sentences):
+    """
+    Clean the sentences by deleting their last characters.
+
+    Arguments
+    ---------
+    sentences: dictionnary of str
+        All sentences being extracted from the turn.
+
+    Returns
+    -------
+    dictionnary of str
+    """
+
     for n in range(len(sentences)):
         if sentences[n][0] != "":
             sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
@@ -681,6 +810,19 @@ def clean_last_sentence(sentences):
 
 
 def normalize_sentence(sentence):
+    """
+    Normalize and correct a sentence of the turn.
+
+    Arguments
+    ---------
+    sentence: str
+        A sentence being extracted from the turn.
+
+    Returns
+    -------
+    str
+    """
+
     # Apostrophes
     sentence = sentence.replace(" '", "'")  # Join apostrophe to previous word
     sentence = sentence.replace("'", "' ")  # Detach apostrophe to next word
@@ -714,6 +856,15 @@ def normalize_sentence(sentence):
 
 
 def write_first_row(save_folder):
+    """
+    Write the first row of the csv files.
+
+    Arguments
+    ---------
+    save_folder: str
+        Path where the csvs and preprocessed wavs will be stored.
+    """
+
     for corpus in ["train", "dev", "test", "test2"]:
         SB_file = open(save_folder + "/csv/" + corpus + ".csv", "w")
         writer = csv.writer(SB_file, delimiter=",")
@@ -787,6 +938,21 @@ def split_audio_channels(path, filename, channel, save_folder):
 
 
 def get_root(path, id):
+    """
+    Get the root of an xml file.
+
+    Arguments
+    ---------
+    path: str
+        The path of the xml file.
+    id: int
+        id of the node to extract, different considering the xml format.
+
+    Returns
+    -------
+    Node
+    """
+
     with open(path, "rb") as f:
         text = f.read()
         text2 = text.decode("ISO-8859-1")
@@ -796,12 +962,38 @@ def get_root(path, id):
 
 
 def get_speaker(dialogue):
+    """
+    Get the name of the speaker of a dialogue.
+
+    Arguments
+    ---------
+    dialogue: Node
+        The node where the speaker information is stored.
+
+    Returns
+    -------
+    str
+    """
+
     speaker = dialogue.getAttribute("nameSpk")
     speaker = normalize_speaker(speaker)
     return speaker
 
 
 def get_speaker_test2(root):
+    """
+    Get the name of the speaker of a whole xml file, for the test2 xml structure.
+
+    Arguments
+    ---------
+    root: Node
+        The node where the speaker information is stored.
+
+    Returns
+    -------
+    str, str
+    """
+
     for speaker in root.getElementsByTagName("Speaker"):
         if speaker.getAttribute("name")[0] == "s":
             speaker_id = speaker.getAttribute("id")
@@ -811,6 +1003,19 @@ def get_speaker_test2(root):
 
 
 def normalize_speaker(speaker):
+    """
+    Normalize and correct the speaker name.
+
+    Arguments
+    ---------
+    speaker: str
+        Initial name of the speaker as given by the xml file.
+
+    Returns
+    -------
+    str
+    """
+
     speaker = speaker.replace("-", "_")
     speaker = speaker.replace("#", "_")
     speaker = speaker.replace("__", "_1_")
@@ -835,6 +1040,20 @@ def normalize_speaker(speaker):
 
 
 def get_channels(path):
+    """
+    Get the channels (Right / Left) from the stereo audio files where the speaker (not the WoZ) speak.
+
+    Arguments
+    ---------
+    path: str
+        Path of the channels csv file given with this recipe.
+        Can be dowloaded from https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+
+    Returns
+    -------
+    list of str, list of str
+    """
+
     channels = []
     filenames = []
     with open(path) as file:
@@ -846,11 +1065,42 @@ def get_channels(path):
 
 
 def get_channel(filename, channels, filenames):
+    """
+    Get the channel (Right / Left) of a transcription linked audio.
+
+    Arguments
+    ---------
+    filename: str
+        Name of the Media recording.
+    channels: list of str
+        Channels (Right / Left) of the stereo recording to keep.
+    filenames: list of str
+        Linked IDs of the recordings, for the channels to keep.
+
+    Returns
+    -------
+    str
+    """
+
     channel = channels[filenames.index(filename)]
     return channel
 
 
 def get_concepts_full_relax(path):
+    """
+    Put the corresponding MEDIA relax concepts from their full version in lists from the concepts csv file.
+
+    Arguments
+    ---------
+    path: str
+        Path of the channels csv file given with this recipe.
+        Can be dowloaded from https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+
+    Returns
+    -------
+    list of str, list of str
+    """
+
     concepts_full = []
     concepts_relax = []
     with open(path) as file:
@@ -862,6 +1112,23 @@ def get_concepts_full_relax(path):
 
 
 def get_concept_relax(concept, concepts_full, concepts_relax):
+    """
+    Get the corresponding MEDIA relax concept from its full version.
+
+    Arguments
+    ---------
+    concept: str
+        Concept of the node being processed.
+    concepts_full: list of str
+        Concepts in method full.
+    concepts_relax: list of str
+        Concepts equivalent in method relax.
+
+    Returns
+    -------
+    str
+    """
+
     for c in concepts_full:
         if (c[-1] == "*" and concept[: len(c) - 1] == c[:-1]) or concept == c:
             return concepts_relax[concepts_full.index(c)]
@@ -869,6 +1136,19 @@ def get_concept_relax(concept, concepts_full, concepts_relax):
 
 
 def get_unused_dialogs(data_folder):
+    """
+    Get the dialogs to be process for the test2 new corpus.
+
+    Arguments
+    ---------
+    data_folder: str
+        Path where folders S0272 and E0024 are stored.
+
+    Returns
+    -------
+    list of str
+    """
+
     # Used dialogs
     proc = subprocess.Popen(
         "egrep -a '<dialogue' "
@@ -895,6 +1175,25 @@ def get_unused_dialogs(data_folder):
 
 
 def get_IDs(speaker_name, sentences, channel, filename):
+    """
+    Get the usual IDs used with MEDIA to put in the new SpeechBrain csv.
+
+    Arguments
+    ---------
+    speaker_name: str
+        Speaker name of the turn, already normalized.
+    sentences: dictionnary of str
+        All sentences being extracted from the turn.
+    channel: str
+        "R" or "L" following the channel of the speaker in the stereo wav file.
+    filename: str
+        Name of the Media recording.
+
+    Returns
+    -------
+    list of str
+    """
+
     IDs = []
     for sentence in sentences:
         IDs.append(
