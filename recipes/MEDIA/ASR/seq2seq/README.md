@@ -1,21 +1,14 @@
 # Media ASR with CTC + Seq2Seq models +/- Wav2Vec 2.0.
-
-### Contributors :
-- Gaëlle Laperrière, Avignon University, LIA
-- Yannick Estève, Avignon University, LIA
-- Bassam Jabaian, Avignon University, LIA
-- Sahar Ghannay, Paris-Saclay University, CNRS, LISN
-- Salima Mdhaffar, Avignon University, LIA
-- Antoine Caubrière, Avignon University, LIA
-
 This folder contains scripts necessary to run an ASR experiment with the Media French dataset: [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/), [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) both needed for the task.
+
+This recipe has been implemented following the paper of G. Laperrière, V. Pelloin, A. Caubriere, S. Mdhaffar, N. Camelin, S. Ghannay, B. Jabaian, Y. Estève, [The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools](https://aclanthology.org/2022.lrec-1.171).
 
 # How to run
 Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml file.
 
 ```bash
 python train.py hparams/{hparam_file}.yaml
-python train_with_wav2vec.py hparams/{hparam_file}.yaml
+python train_with_wav2vec.py hparams/{hparam_file}_with_wav2vec.yaml
 ```
 
 # Data preparation
@@ -23,16 +16,13 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 # Results
 
-| Media Release | hyperparams file | Dev ChER | Dev CER | Dev CVER | Test ChER | Test CER | Test CVER | Wav2Vec |
-|:-------------:|:-------------------------:|:----:|:----:|:----:|:----:|:----:|:----:|:------------------------------------:|
-
-## How to simply use pretrained models?
-
-SpeechBrain provides a simple interface to make SLU for audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories (see the results table above) corresponding to our different models for Media.
+| Media Release | hyperparams file | Test ChER | Test CER | Test CVER | Wav2Vec |
+|:-------------:|:-------------------------:|:----:|:----:|:----:|:------------------------------------:|
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
+- HuggingFace: https://huggingface.co/speechbrain/
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
