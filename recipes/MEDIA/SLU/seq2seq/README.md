@@ -17,7 +17,7 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 # Results
 
 | Media Release | hyperparams file | Test ChER | Test CER | Test CVER | Wav2Vec |
-|:-------------:|:-------------------------:|:----:|:----:|:----:|:----:|:----:|:----:|:------------------------------------:|
+|:-------------:|:-------------------------:|:----:|:----:|:----:|:------------------------------------:|
 | 2008-03-27 | train_full.yaml | 53.98 | 75.03 | 82.07 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) |
 | 2008-03-27 | train_relax.yaml | 53.29 | 73.32 | 80.99 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) |
 | 2008-03-27 | train_with_wav2vec_full.yaml | 7.90 | 27.42 | 30.59 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) |
