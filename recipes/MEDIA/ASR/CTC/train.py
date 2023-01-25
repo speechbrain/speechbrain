@@ -6,7 +6,7 @@ Recipe for training a CTC based ASR system with Media.
 To run this recipe, do the following:
 > python train.py hparams/train.yaml
 
-With the default hyperparameters, the system employs a VanillaNN decoder.
+With the default hyperparameters, the system employs a VanillaNN encoder.
 
 The neural network is trained on greedy CTC.
 
