@@ -23,7 +23,7 @@ import re
 logger = logging.getLogger(__name__)
 
 
-def media_prepare(
+def prepare_media(
     data_folder,
     save_folder,
     skip_wav=True,
