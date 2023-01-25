@@ -34,8 +34,13 @@ logger = logging.getLogger(__name__)
 
 # Define training procedure.
 class SLU(sb.core.Brain):
-    def compute_forward(self, wavs, wav_lens, stage):
+    def compute_forward(self, batch, stage):
         """Forward computations from waveform to output probabilities."""
+
+        # Get data.
+        batch = batch.to(self.device)
+        wavs, wav_lens = batch.sig
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Forward pass.
         feats = self.modules.wav2vec(wavs)
@@ -48,8 +53,13 @@ class SLU(sb.core.Brain):
 
         return p_ctc, wav_lens
 
-    def compute_objectives(self, predictions, ids, chars, char_lens, stage):
+    def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC) given predictions and targets."""
+
+        # Get data.
+        batch = batch.to(self.device)
+        chars, char_lens = batch.char_encoded
+        ids = batch.id
 
         # Get predictions & loss.
         p_ctc, wav_lens = predictions
@@ -102,55 +112,6 @@ class SLU(sb.core.Brain):
                 "optimizer_wav2vec", self.optimizer_wav2vec
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
-        # Get data.
-        batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
-        chars, char_lens = batch.char_encoded
-        ids = batch.id
-
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
-        stage = sb.Stage.TRAIN
-
-        # Train.
-        predictions = self.compute_forward(wavs, wav_lens, stage)
-        loss = self.compute_objectives(
-            predictions, ids, chars, char_lens, stage
-        )
-
-        # Propagate loss.
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer_wav2vec.step()
-            self.optimizer.step()
-        self.optimizer_wav2vec.zero_grad()
-        self.optimizer.zero_grad()
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-
-        # Get data.
-        batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
-        chars, char_lens = batch.char_encoded
-        ids = batch.id
-
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
-        # Evaluate.
-        predictions = self.compute_forward(wavs, wav_lens, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(
-                predictions, ids, chars, char_lens, stage
-            )
-
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
