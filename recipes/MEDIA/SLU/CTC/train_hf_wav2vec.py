@@ -7,7 +7,7 @@ The system employs a wav2vec2 model and a decoder.
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
 
-With the default hyperparameters, the system employs a VanillaNN decoder.
+With the default hyperparameters, the system employs a VanillaNN encoder.
 
 The neural network is trained on greedy CTC.
 
