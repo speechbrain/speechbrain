@@ -10,7 +10,7 @@ Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml f
 
 ```bash
 python train.py hparams/{hparam_file}.yaml
-python train_with_wav2vec.py hparams/{hparam_file}_with_wav2vec.yaml
+python train_hf_wav2vec.py hparams/{hparam_file}.yaml
 ```
 
 # Data preparation
