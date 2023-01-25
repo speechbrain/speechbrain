@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Recipe for training a sequence-to-sequence SLU system with Media.
+Recipe for training a CTC based SLU system with Media.
 The system employs a wav2vec model and a decoder.
 
 To run this recipe, do the following:
