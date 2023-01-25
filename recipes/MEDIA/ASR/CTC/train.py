@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 class ASR(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from waveform to output probabilities."""
+
         # Get data.
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
@@ -54,6 +55,7 @@ class ASR(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC) given predictions and targets."""
+
         # Get data.
         batch = batch.to(self.device)
         chars, char_lens = batch.char_encoded
