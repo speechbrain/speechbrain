@@ -215,7 +215,10 @@ class Pretrainer:
                 fetch_from=fetch_from,
             )
             loadable_paths[name] = path
-            if fetch_from is FetchFrom.LOCAL or str(path) == str(source) + "/" + filename:
+            if (
+                fetch_from is FetchFrom.LOCAL
+                or str(path) == str(source) + "/" + filename
+            ):
                 logger.info(f"Set local path in self.paths[{name}] = {path}")
                 self.paths[name] = str(path)
                 self.is_local.append(name)
