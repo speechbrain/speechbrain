@@ -117,7 +117,7 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <dec>, !ref <output_lin>]
 
-model_wav2vec: !new:torch.nn.ModuleList
+model_wav2vec2: !new:torch.nn.ModuleList
     - [!ref <wav2vec2>]
 
 opt_class: !name:torch.optim.Adadelta
