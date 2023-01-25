@@ -90,7 +90,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     freeze: !ref <freeze>
     save_path: !ref <save_folder>/wav2vec.pt
 
-dec: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     input_shape: [null, null, !ref <feats_dim>]
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_blocks>
@@ -109,11 +109,11 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 
 modules:
     wav2vec: !ref <wav2vec2>
-    dec: !ref <dec>
+    enc: !ref <enc>
     output_lin: !ref <output_lin>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <dec>, !ref <output_lin>]
+    - [!ref <enc>, !ref <output_lin>]
 
 model_wav2vec2: !new:torch.nn.ModuleList
     - [!ref <wav2vec2>]
