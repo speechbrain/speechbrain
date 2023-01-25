@@ -102,7 +102,7 @@ class SLU(sb.core.Brain):
 
         # Join optimizers.
         self.optimizer_wav2vec = self.hparams.opt_class_wav2vec(
-            self.hparams.model_wav2vec.parameters()
+            self.hparams.model_wav2vec2.parameters()
         )
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
