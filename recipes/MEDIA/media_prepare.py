@@ -4,7 +4,7 @@ Download:
 https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/
 https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/
 https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
-See README.md for more info
+See README.md for more info.
 
 Author
 ------
