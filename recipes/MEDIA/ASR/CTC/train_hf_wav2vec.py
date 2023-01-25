@@ -2,7 +2,7 @@
 
 """
 Recipe for training a CTC based SLU system with Media.
-The system employs a wav2vec model and a decoder.
+The system employs a wav2vec2 model and a decoder.
 
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
@@ -43,7 +43,7 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Forward pass.
-        feats = self.modules.wav2vec(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
 
         x = self.modules.dec(feats)
 
