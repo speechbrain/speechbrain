@@ -101,7 +101,7 @@ output_lin: !new:speechbrain.nnet.linear.Linear
     n_neurons: !ref <output_neurons>
     bias: True
 
-softmax: !new:speechbrain.nnet.activations.Softmax
+log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
