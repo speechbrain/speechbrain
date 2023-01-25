@@ -228,7 +228,7 @@ if __name__ == "__main__":
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
 
-    # Save so it can be found as pre-trained model source
+    # Save, so it can be found as pre-trained model source
     if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
         run_on_main(
             asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"}
@@ -267,6 +267,15 @@ if __name__ == "__main__":
         },
     )
 
+    # Test w/ DDP
+    run_on_main(
+        eval_test_batch_from_scratch,
+        kwargs={
+            "encoder_decoder_asr": pretrained_asr,
+            "test_set": deepcopy(test_datasets),
+        },
+    )
+
     # Test on both nodes w/ pretrained HF model; ensure first it's fetched
     repo = "speechbrain/asr-crdnn-rnnlm-librispeech"
     run_on_main(
@@ -285,11 +294,7 @@ if __name__ == "__main__":
         run_opts=deepcopy(run_opts),
     )
 
-    # Test w/ DDP
-    run_on_main(
-        eval_test_batch_from_scratch,
-        kwargs={
-            "encoder_decoder_asr": pretrained_hf_asr,
-            "test_set": deepcopy(test_datasets),
-        },
+    # From HF model card
+    pretrained_hf_asr.transcribe_file(
+        "speechbrain/asr-crdnn-rnnlm-librispeech/example.wav"
     )
