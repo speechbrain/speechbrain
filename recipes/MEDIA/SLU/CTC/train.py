@@ -87,16 +87,6 @@ class SLU(sb.core.Brain):
 
         return loss
 
-    def init_optimizers(self):
-        """Initializes the model optimizer"""
-
-        # Join optimizers.
-        self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
-
-        # Add opitmizers to checkpoint recoverables.
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable("optimizer", self.optimizer)
-
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
 
