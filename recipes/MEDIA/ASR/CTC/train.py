@@ -26,7 +26,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
-from parseXMLtoSB import prepare_media
+from media_prepare import media_prepare
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +265,7 @@ if __name__ == "__main__":
 
     # Due to DDP, we do the preparation ONLY on the main python process
     run_on_main(
-        prepare_media,
+        media_prepare,
         kwargs={
             "data_folder": hparams["original_data_folder"],
             "save_folder": hparams["save_folder"],
