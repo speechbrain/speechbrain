@@ -1,7 +1,7 @@
 # ################################
 # Model: CRDNN + DNN + CTC + Softmax
 # Authors:
-# Gaelle Laperriere
+# Gaelle Laperriere 2023
 # ################################
 
 # ------ Paths and parameters
