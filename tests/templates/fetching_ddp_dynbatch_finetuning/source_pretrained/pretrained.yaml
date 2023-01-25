@@ -46,4 +46,3 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         asr: !ref <asr_model>
         lm: !ref <lm_model>
         tokenizer: !ref <tokenizer>
-
