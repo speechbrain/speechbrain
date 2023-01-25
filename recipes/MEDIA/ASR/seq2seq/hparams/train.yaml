@@ -1,6 +1,7 @@
 # ################################
 # Model: CRDNN + DNN + CTC + Softmax
-# Authors modifier: Gaelle Laperriere
+# Authors:
+# Gaelle Laperriere
 # ################################
 
 # ------ Paths and parameters
