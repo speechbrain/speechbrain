@@ -26,7 +26,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
-from media_prepare import media_prepare
+from media_prepare import prepare_media
 
 logger = logging.getLogger(__name__)
 
