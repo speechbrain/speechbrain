@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Recipe for training a whisper-based ASR system with CommonVoice.
 The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
-This recipe take the whisper encoder-decoder to fine-tune on the NLL.
+This recipe take the whisper encoder-decoder to fine-tune on.
 
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml
- Note: When using whisper large model, to improve memory usage during model recovery. you could use (see https://github.com/speechbrain/speechbrain/pull/1743)
-Authors
+
  * Pooneh Mousavi 2022
 """
 
@@ -20,6 +19,9 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
+from transformers.models.whisper.tokenization_whisper import (
+        LANGUAGES,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -266,8 +268,9 @@ if __name__ == "__main__":
     )
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
+    language= LANGUAGES[hparams["locale"]]
     
-    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
+    tokenizer.set_prefix_tokens(language, "transcribe", False)
 
     # we need to prepare the tokens for searchers
     hparams["valid_greedy_searcher"].set_decoder_input_tokens(
@@ -302,7 +305,7 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
-    if hparams['test_only'] == False:
+    if hparams['test_only'] is not False:
         # Training
         asr_brain.fit(
             asr_brain.hparams.epoch_counter,
@@ -319,4 +322,12 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_loader_kwargs"],
     )
+
+    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_valid.txt"
+    asr_brain.evaluate(
+        valid_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["test_loader_kwargs"],
+    )
+
 
