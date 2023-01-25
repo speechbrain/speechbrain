@@ -18,14 +18,14 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 # Results
 
-| Media Release | hyperparams file | Test ChER | Test CER | Test CVER | Wav2Vec |
-|:-------------:|:-------------------------:|:----:|:----:|:----:|:------------------------------------:|
-| 2008-03-27 | train_relax.yaml | 53.2 | 73.3 | 80.9 | None |
-| 2008-03-27 | train_with_wav2vec_relax.yaml | 7.9 | 21.8 | 34.1 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) |
-| 2008-03-27 | train_full.yaml | 53.9 | 75.0 | 82.0 | None |
-| 2008-03-27 | train_with_wav2vec_full.yaml | 8.2 | 26.1 | 37.5 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) |
-| 2008-03-27 | see [paper](https://arxiv.org/abs/2210.05291) for modifications | 5.8 | 20.4 | 31.2 | [wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m) |
-| 2008-03-27 | see [paper](https://arxiv.org/abs/2210.05291) for modifications | 5.1 | 19.3 | 29.8 | [SAMU-XLSR](https://arxiv.org/pdf/2205.08180.pdf) |
+| Media Release | hyperparams | Test ChER | Test CER | Test CVER | Wav2Vec | Training time | Model link |
+|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+| 2008-03-27 | train_relax.yaml | 53.2 | 73.3 | 80.9 | None | | [here](https://drive.google.com/drive/folders/1cZRRQ3Cc_ucXXlwYSJqB7pOl6KwZdo84?usp=share_link) |
+| 2008-03-27 | train_with_wav2vec_relax.yaml | 7.9 | 21.8 | 34.1 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | | [here](https://drive.google.com/drive/folders/1ALtwmk3VUUM0XRToecQp1DKAh9FsGqMA?usp=sharing) |
+| 2008-03-27 | train_full.yaml | 53.9 | 75.0 | 82.0 | None | | [here](https://drive.google.com/drive/folders/1cOdRqE_d1lCPJXnshxw20BGnaT4_i_RB?usp=sharing) |
+| 2008-03-27 | train_with_wav2vec_full.yaml | 8.2 | 26.1 | 37.5 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | | [here](https://drive.google.com/drive/folders/1cZRRQ3Cc_ucXXlwYSJqB7pOl6KwZdo84?usp=share_link) |
+| 2008-03-27 | see [paper](https://arxiv.org/abs/2210.05291) for modifications | 5.8 | 20.4 | 31.2 | [wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m) | | |
+| 2008-03-27 | see [paper](https://arxiv.org/abs/2210.05291) for modifications | 5.1 | 19.3 | 29.8 | [SAMU-XLSR](https://arxiv.org/pdf/2205.08180.pdf) | | |
 
 The CVER is the one implemented in SpeechBrain for this recipe. It is strict (yield an error for a single false character), without the human rules added generally for MEDIA. Find more in the article linked above, as it corresponds to u-CVER.
 
