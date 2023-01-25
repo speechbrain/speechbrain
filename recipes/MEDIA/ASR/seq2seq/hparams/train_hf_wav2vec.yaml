@@ -19,7 +19,7 @@ original_data_folder: !PLACEHOLDER # Path of folders S0272 and E0024.
 skip_wav: False # Skip the wav files storing if already done before.
 method: Null # Remove or keep specifiers in concepts. Method used by default.
 task: asr # Parse SLU or ASR data.
-skip_prep: True # Skip data preparation to csv because already done.
+skip_prep: False # Skip data preparation to csv because already done.
 
 # See https://github.com/pytorch/fairseq/blob/main/examples/wav2vec/README.md
 # for Wav2Vec models and https://huggingface.co/LeBenchmark for French ones.
