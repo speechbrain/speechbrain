@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Recipe for training a sequence-to-sequence ASR system with Media.
+Recipe for training a CTC based ASR system with Media.
 
 To run this recipe, do the following:
 > python train.py hparams/train.yaml
