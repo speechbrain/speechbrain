@@ -132,10 +132,10 @@ def dataio_prepare(hparams):
     It also defines the data processing pipeline through user-defined functions."""
 
     # 1. Define datasets:
-    data_folder = hparams["data_folder"]
+    csv_folder = hparams["save_folder"] + "csv/"
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"], replacements={"data_root": csv_folder},
     )
 
     # We sort training data to speed up training and get better results.
@@ -168,13 +168,13 @@ def dataio_prepare(hparams):
 
     # We also sort the validation data so it is faster to validate.
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder}
+        csv_path=hparams["csv_valid"], replacements={"data_root": csv_folder}
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration", reverse=True)
 
     # We also sort the test data so it is faster to validate.
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test"], replacements={"data_root": data_folder}
+        csv_path=hparams["csv_test"], replacements={"data_root": csv_folder}
     )
     test_data = test_data.filtered_sorted(sort_key="duration", reverse=True)
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
     run_on_main(
         media_prepare,
         kwargs={
-            "data_folder": hparams["original_data_folder"],
+            "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
             "skip_wav": hparams["skip_wav"],
             "method": hparams["method"],
