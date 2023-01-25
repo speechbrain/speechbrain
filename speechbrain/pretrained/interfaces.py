@@ -127,7 +127,10 @@ def foreign_class(
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
-    run_on_main(pretrainer.collect_files, kwargs={"default_source": source, "fetch_from": fetch_from})
+    run_on_main(
+        pretrainer.collect_files,
+        kwargs={"default_source": source, "fetch_from": fetch_from},
+    )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
@@ -264,7 +267,9 @@ class Pretrained(torch.nn.Module):
         """
         source, fl = split_path(path)
         kwargs = copy(kwargs)  # shallow copy of references only
-        channels_first = kwargs.pop("channels_first", False)  # False as default value: SB consistent tensor format
+        channels_first = kwargs.pop(
+            "channels_first", False
+        )  # False as default value: SB consistent tensor format
         if kwargs:
             fetch_kwargs = dict()
             for key in [
@@ -280,7 +285,9 @@ class Pretrained(torch.nn.Module):
             path = fetch(fl, source=source, savedir=savedir, **fetch_kwargs)
         else:
             path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=channels_first, **kwargs)
+        signal, sr = torchaudio.load(
+            str(path), channels_first=channels_first, **kwargs
+        )
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
@@ -429,7 +436,10 @@ class Pretrained(torch.nn.Module):
         pretrainer = hparams["pretrainer"]
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
-        run_on_main(pretrainer.collect_files, kwargs={"default_source": source, "fetch_from": fetch_from})
+        run_on_main(
+            pretrainer.collect_files,
+            kwargs={"default_source": source, "fetch_from": fetch_from},
+        )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
             # run_opts={"device": ...}

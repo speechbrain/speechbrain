@@ -22,7 +22,10 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
-from speechbrain.dataio.dataio import read_audio, read_audio_multichannel  # noqa
+from speechbrain.dataio.dataio import (
+    read_audio,
+    # read_audio_multichannel,
+)
 from ASR_template_train import ASR, dataio_prepare
 
 
@@ -30,14 +33,31 @@ logger = logging.getLogger(__name__)
 
 
 def eval_reporting(reports):
+    """Performance logging independent of who logs what.
+
+    Parameters
+    ----------
+    reports: dict
+        Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
+    """
     for log_metric, specs in reports.items():
-        logger.info(f'{log_metric}: {specs["tracker"].summarize(specs["field"])}')
+        logger.info(
+            f'{log_metric}: {specs["tracker"].summarize(specs["field"])}'
+        )
 
 
 def eval_test_use_recipe_dataio(encoder_decoder_asr, test_set):
+    """Bypassing speechbrain.pretrained.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
+
+    Parameters
+    ----------
+    encoder_decoder_asr: speechbrain.pretrained.EncoderDecoderASR
+        Pretrained interface (other interfaces will require other functions to be called; this is an example).
+    test_set: dict
+        Data loader options for testing.
+    """
     if not (
-        isinstance(test_set, DataLoader)
-        or isinstance(test_set, LoopedLoader)
+        isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)
     ):
         if "ckpt_prefix" in test_loader_kwargs:
             del test_loader_kwargs["ckpt_prefix"]
@@ -62,9 +82,17 @@ def eval_test_use_recipe_dataio(encoder_decoder_asr, test_set):
 
 
 def eval_test_batch_from_scratch(encoder_decoder_asr, test_set):
+    """Relies only on batched audio paths to create batches using the pretrained interface only.
+
+    Parameters
+    ----------
+    encoder_decoder_asr: speechbrain.pretrained.EncoderDecoderASR
+        Pretrained interface (other interfaces will require other functions to be called; this is an example).
+    test_set: dict
+        Data loader options for testing.
+    """
     if not (
-        isinstance(test_set, DataLoader)
-        or isinstance(test_set, LoopedLoader)
+        isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)
     ):
         if "ckpt_prefix" in test_loader_kwargs:
             del test_loader_kwargs["ckpt_prefix"]
@@ -169,8 +197,12 @@ if __name__ == "__main__":
         run_opts=deepcopy(run_opts),
         checkpointer=hparams["checkpointer"],
     )
-    asr_brain.hparams.valid_search = asr_brain.hparams.valid_search.to(asr_brain.device)
-    asr_brain.hparams.test_search = asr_brain.hparams.test_search.to(asr_brain.device)
+    asr_brain.hparams.valid_search = asr_brain.hparams.valid_search.to(
+        asr_brain.device
+    )
+    asr_brain.hparams.test_search = asr_brain.hparams.test_search.to(
+        asr_brain.device
+    )
 
     # Freeze all but LM
     for mod in [
@@ -198,7 +230,9 @@ if __name__ == "__main__":
 
     # Save so it can be found as pre-trained model source
     if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
-        run_on_main(asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"})
+        run_on_main(
+            asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"}
+        )
 
     # Clean-up memory (for using EncoderDecoderASR interface only) but preserve testing-relevant objects
     test_datasets = deepcopy(datasets["test"])
@@ -225,18 +259,24 @@ if __name__ == "__main__":
     )
 
     # Re:testing w/ previous dataloader
-    run_on_main(eval_test_use_recipe_dataio, kwargs={
-        "encoder_decoder_asr": pretrained_asr,
-        "test_set": deepcopy(test_datasets)
-    })
+    run_on_main(
+        eval_test_use_recipe_dataio,
+        kwargs={
+            "encoder_decoder_asr": pretrained_asr,
+            "test_set": deepcopy(test_datasets),
+        },
+    )
 
     # Test on both nodes w/ pretrained HF model; ensure first it's fetched
     repo = "speechbrain/asr-crdnn-rnnlm-librispeech"
-    run_on_main(EncoderDecoderASR.from_hparams, kwargs={
-        "source": repo,  # to default save_dir: pretrained_models/...
-        "fetch_from": FetchFrom.HUGGING_FACE,  # needs to be here only bc speechbrain/asr-crdnn-rnnlm-librispeech exists
-        "download_only": True
-    })
+    run_on_main(
+        EncoderDecoderASR.from_hparams,
+        kwargs={
+            "source": repo,  # to default save_dir: pretrained_models/...
+            "fetch_from": FetchFrom.HUGGING_FACE,  # needs to be here only bc speechbrain/asr-crdnn-rnnlm-librispeech exists
+            "download_only": True,
+        },
+    )
 
     # Instantiate pretrained HF model
     pretrained_hf_asr = EncoderDecoderASR.from_hparams(
@@ -246,7 +286,10 @@ if __name__ == "__main__":
     )
 
     # Test w/ DDP
-    run_on_main(eval_test_batch_from_scratch, kwargs={
-        "encoder_decoder_asr": pretrained_hf_asr,
-        "test_set": deepcopy(test_datasets)
-    })
+    run_on_main(
+        eval_test_batch_from_scratch,
+        kwargs={
+            "encoder_decoder_asr": pretrained_hf_asr,
+            "test_set": deepcopy(test_datasets),
+        },
+    )
