@@ -13,7 +13,7 @@ The neural network is trained on greedy CTC.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
-different encoders, decoders, training tasks (Media , PortMedia), 
+different encoders, decoders, training tasks (Media , PortMedia),
 and many other possible variations.
 
 Authors
