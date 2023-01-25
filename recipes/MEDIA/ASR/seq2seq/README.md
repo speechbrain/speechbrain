@@ -7,8 +7,8 @@ This recipe has been implemented following the paper of G. Laperrière, V. Pello
 Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml file.
 
 ```bash
-python train.py hparams/{hparam_file}.yaml
-python train_with_wav2vec.py hparams/{hparam_file}_with_wav2vec.yaml
+python train.py hparams/train.yaml
+python train_hf_wav2vec.py hparams/train_hf_wav2vec.yaml
 ```
 
 # Data preparation
