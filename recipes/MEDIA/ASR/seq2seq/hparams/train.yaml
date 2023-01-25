@@ -21,7 +21,7 @@ task: asr # Parse SLU or ASR data.
 skip_prep: True # Skip data preparation to csv because already done.
 
 # Data files:
-data_folder: !PLACEHOLDER
+data_folder: !ref <save_folder>/csv
 csv_train: !ref <data_folder>/train.csv
 csv_valid: !ref <data_folder>/dev.csv
 csv_test: !ref <data_folder>/test.csv
