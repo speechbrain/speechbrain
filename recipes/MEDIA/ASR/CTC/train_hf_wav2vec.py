@@ -158,7 +158,7 @@ def dataio_prepare(hparams):
     It also defines the data processing pipeline through user-defined functions."""
 
     # 1. Define datasets:
-    csv_folder = hparams["save_folder"] + "csv/"
+    csv_folder = hparams["save_folder"] + "/csv"
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["csv_train"], replacements={"data_root": csv_folder},
