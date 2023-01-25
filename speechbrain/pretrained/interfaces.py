@@ -263,8 +263,9 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
+        kwargs = copy(kwargs)  # shallow copy of references only
+        channels_first = kwargs.pop("channels_first", False)  # False as default value: SB consistent tensor format
         if kwargs:
-            kwargs = copy(kwargs)  # shallow copy of references only
             fetch_kwargs = dict()
             for key in [
                 "overwrite",
@@ -279,7 +280,7 @@ class Pretrained(torch.nn.Module):
             path = fetch(fl, source=source, savedir=savedir, **fetch_kwargs)
         else:
             path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=False, **kwargs)
+        signal, sr = torchaudio.load(str(path), channels_first=channels_first, **kwargs)
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):

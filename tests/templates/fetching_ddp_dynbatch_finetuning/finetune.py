@@ -13,7 +13,6 @@ import torch
 import logging
 import speechbrain as sb
 from copy import deepcopy
-from functools import partial
 from tqdm.contrib import tqdm
 from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
@@ -23,6 +22,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
+from speechbrain.dataio.dataio import read_audio, read_audio_multichannel  # noqa
 from ASR_template_train import ASR, dataio_prepare
 
 
@@ -32,6 +32,68 @@ logger = logging.getLogger(__name__)
 def eval_reporting(reports):
     for log_metric, specs in reports.items():
         logger.info(f'{log_metric}: {specs["tracker"].summarize(specs["field"])}')
+
+
+def eval_test_use_recipe_dataio(encoder_decoder_asr, test_set):
+    if not (
+        isinstance(test_set, DataLoader)
+        or isinstance(test_set, LoopedLoader)
+    ):
+        if "ckpt_prefix" in test_loader_kwargs:
+            del test_loader_kwargs["ckpt_prefix"]
+        test_set = make_dataloader(test_set, **test_loader_kwargs)
+
+    with torch.no_grad():
+        for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
+            batch = batch.to(encoder_decoder_asr.device)
+            predictions = encoder_decoder_asr.transcribe_batch(*batch.sig)
+
+            # prepare for metric reporting
+            predicted = [wrd.split(" ") for wrd in predictions[0]]
+            targeted = [wrd.split(" ") for wrd in batch.words]
+            ids = batch.id
+            for metric in reporting.keys():
+                reporting[metric]["tracker"].append(
+                    ids=ids, predict=predicted, target=targeted
+                )
+
+        # Report summary
+        eval_reporting(reports=reporting)
+
+
+def eval_test_batch_from_scratch(encoder_decoder_asr, test_set):
+    if not (
+        isinstance(test_set, DataLoader)
+        or isinstance(test_set, LoopedLoader)
+    ):
+        if "ckpt_prefix" in test_loader_kwargs:
+            del test_loader_kwargs["ckpt_prefix"]
+        test_set = make_dataloader(test_set, **test_loader_kwargs)
+
+    with torch.no_grad():
+        for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
+            # instead of using batch.sig, we desire to see pretrained_hf_asr.load_audio in action
+            wavs = []
+            for audio_path in batch.wavs:  # get the paths only
+                wavs.append(encoder_decoder_asr.load_audio(path=audio_path))
+                loaded = read_audio(audio_path)
+                wavs.append(loaded)
+            wavs, wav_lens = batch_pad_right(wavs)
+            wav_lens = wav_lens.to(encoder_decoder_asr.device)
+            enc = encoder_decoder_asr.encode_batch(wavs, wav_lens)
+            predictions = encoder_decoder_asr.mods.decoder(enc, wav_lens)
+
+            # prepare for metric reporting
+            predicted = [wrd.split(" ") for wrd in predictions[0]]
+            targeted = [wrd.split(" ") for wrd in batch.words]
+            ids = batch.id
+            for metric in reporting.keys():
+                reporting[metric]["tracker"].append(
+                    ids=ids, predict=predicted, target=targeted
+                )
+
+        # Report summary
+        eval_reporting(reports=reporting)
 
 
 if __name__ == "__main__":
@@ -155,8 +217,6 @@ if __name__ == "__main__":
 
     # Pre-trained interface
     pretrained_asr = EncoderDecoderASR.from_hparams(
-        # source="speechbrain/asr-crdnn-rnnlm-librispeech",
-        # fetch_from=FetchFrom.HUGGING_FACE,
         source="source_pretrained",
         savedir="source_pretrained",
         hparams_file="pretrained.yaml",
@@ -165,39 +225,28 @@ if __name__ == "__main__":
     )
 
     # Re:testing w/ previous dataloader
-    test_set = test_datasets
-    if not (
-        isinstance(test_set, DataLoader)
-        or isinstance(test_set, LoopedLoader)
-    ):
-        if "ckpt_prefix" in test_loader_kwargs:
-            del test_loader_kwargs["ckpt_prefix"]
-        test_set = make_dataloader(test_set, **test_loader_kwargs)
+    run_on_main(eval_test_use_recipe_dataio, kwargs={
+        "encoder_decoder_asr": pretrained_asr,
+        "test_set": deepcopy(test_datasets)
+    })
 
-    with torch.no_grad():
-        for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
-            # instead of using batch.sig, we desire to see pretrained_asr.load_audio in action
-            # wavs = []
-            #for audio in batch.wavs:
-            #    wavs.append(pretrained_asr.load_audio(path=audio))
-            # wavs, wav_lens = batch_pad_right(wavs)
-            # predictions = pretrained_asr.transcribe_batch(wavs, wav_lens)
-            # wavs, wav_lens = batch.sig
-            # wav_lens = wav_lens.to(pretrained_asr.device)
-            #enc = pretrained_asr.encode_batch(wavs, wav_lens)
-            #predictions = pretrained_asr.mods.decoder(enc, wav_lens)
-            batch = batch.to(pretrained_asr.device)
-            predictions = pretrained_asr.transcribe_batch(*batch.sig)
-            predicted = [wrd.split(" ") for wrd in predictions[0]]
-            targeted = [wrd.split(" ") for wrd in batch.words]
-            ids = batch.id
-            for metric in reporting.keys():
-                reporting[metric]["tracker"].append(
-                    ids=ids, predict=predicted, target=targeted
-                )
+    # Test on both nodes w/ pretrained HF model; ensure first it's fetched
+    repo = "speechbrain/asr-crdnn-rnnlm-librispeech"
+    run_on_main(EncoderDecoderASR.from_hparams, kwargs={
+        "source": repo,  # to default save_dir: pretrained_models/...
+        "fetch_from": FetchFrom.HUGGING_FACE,  # needs to be here only bc speechbrain/asr-crdnn-rnnlm-librispeech exists
+        "download_only": True
+    })
 
-        # Reporting summary on main process
-        run_on_main(
-            eval_reporting, kwargs={"reports": reporting}
-        )
+    # Instantiate pretrained HF model
+    pretrained_hf_asr = EncoderDecoderASR.from_hparams(
+        source=repo,
+        fetch_from=FetchFrom.HUGGING_FACE,
+        run_opts=deepcopy(run_opts),
+    )
 
+    # Test w/ DDP
+    run_on_main(eval_test_batch_from_scratch, kwargs={
+        "encoder_decoder_asr": pretrained_hf_asr,
+        "test_set": deepcopy(test_datasets)
+    })
