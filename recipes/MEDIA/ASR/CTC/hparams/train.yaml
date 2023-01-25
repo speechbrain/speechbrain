@@ -64,7 +64,7 @@ activation: !name:torch.nn.LeakyReLU
 cnn_blocks: 1
 rnn_layers: 1
 dnn_blocks: 1
-dec_dnn_blocks: 3
+enc_dnn_blocks: 3
 rnn_neurons: 512
 dnn_neurons: 512
 
@@ -98,10 +98,10 @@ dnn: !new:speechbrain.lobes.models.CRDNN.CRDNN
     rnn_neurons: !ref <rnn_neurons>
     dnn_neurons: !ref <dnn_neurons>
 
-dec: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     input_shape: [null, null, !ref <dnn_neurons>]
     activation: !ref <activation>
-    dnn_blocks: !ref <dec_dnn_blocks>
+    dnn_blocks: !ref <enc_dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
 
 output_lin: !new:speechbrain.nnet.linear.Linear
@@ -117,12 +117,12 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 
 modules:
     dnn: !ref <dnn>
-    dec: !ref <dec>
+    enc: !ref <enc>
     output_lin: !ref <output_lin>
     normalize: !ref <normalize>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <dnn>, !ref <dec>, !ref <output_lin>]
+    - [!ref <dnn>, !ref <enc>, !ref <output_lin>]
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
