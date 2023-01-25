@@ -49,7 +49,7 @@ class ASR(sb.core.Brain):
         return p_ctc, wav_lens
 
     def compute_objectives(self, predictions, ids, chars, char_lens, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
+        """Computes the loss (CTC) given predictions and targets."""
 
         # Get predictions & loss.
         p_ctc, wav_lens = predictions
