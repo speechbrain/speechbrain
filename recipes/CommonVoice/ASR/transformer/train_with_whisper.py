@@ -305,7 +305,7 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
-    if hparams['test_only'] is not False:
+    if hparams['test_only'] is  False:
         # Training
         asr_brain.fit(
             asr_brain.hparams.epoch_counter,
