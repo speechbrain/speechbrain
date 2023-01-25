@@ -15,7 +15,7 @@ ctc_file_test: !ref <output_folder>/ctc_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-original_data_folder: !PLACEHOLDER # Path of folders S0272 and E0024.
+original_data_folder: !PLACEHOLDER # Path of folders S0272 and E0024, to process ELRA original xml datasets.
 skip_wav: False # Skip the wav files storing if already done before.
 method: Null # Remove or keep specifiers in concepts. Method used by default.
 task: asr # Parse SLU or ASR data.
