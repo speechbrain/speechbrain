@@ -36,13 +36,14 @@ test_batch_size: 2
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 90.0
 avoid_if_smaller_than: 0.0
+num_workers: 3
 dataloader_options:
     batch_size: !ref <batch_size>
-    num_workers: 3
+    num_workers: !ref <num_workers>
     shuffle: True
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
-    num_workers: 3
+    num_workers: !ref <num_workers>
 
 # Feature parameters:
 sample_rate: 16000
