@@ -86,7 +86,7 @@ output_neurons: 187
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec_url>
     output_norm: True
     freeze: !ref <freeze>
@@ -110,7 +110,7 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 modules:
-    wav2vec: !ref <wav2vec>
+    wav2vec: !ref <wav2vec2>
     dec: !ref <dec>
     output_lin: !ref <output_lin>
 
@@ -118,7 +118,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <dec>, !ref <output_lin>]
 
 model_wav2vec: !new:torch.nn.ModuleList
-    - [!ref <wav2vec>]
+    - [!ref <wav2vec2>]
 
 opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
@@ -144,7 +144,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
-        wav2vec: !ref <wav2vec>
+        wav2vec: !ref <wav2vec2>
         lr_annealing: !ref <lr_annealing>
         lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
         counter: !ref <epoch_counter>
