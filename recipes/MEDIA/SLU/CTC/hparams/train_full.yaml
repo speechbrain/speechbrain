@@ -17,17 +17,16 @@ cver_file_test: !ref <output_folder>/cver_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-original_data_folder: !PLACEHOLDER # Path of folders S0272 and E0024, to process ELRA original xml datasets.
+data_folder: !PLACEHOLDER # Path of folders S0272 and E0024, to process ELRA original xml datasets.
 skip_wav: False # Skip the wav files storing if already done before.
 method: full # Remove or keep specifiers in concepts. Method used by default.
 task: slu # Parse SLU or ASR data.
 skip_prep: False # Skip data preparation to csv because already done.
 
 # Data files:
-data_folder: !ref <save_folder>/csv
-csv_train: !ref <data_folder>/train.csv
-csv_valid: !ref <data_folder>/dev.csv
-csv_test: !ref <data_folder>/test.csv
+csv_train: !ref <save_folder>/csv/train.csv
+csv_valid: !ref <save_folder>/csv/dev.csv
+csv_test: !ref <save_folder>/csv/test.csv
 
 # Data parameters:
 # With data_parallel batch_size is split into N jobs.
