@@ -3,8 +3,6 @@ This folder contains scripts necessary to run an SLU experiment with the Media F
 
 This recipe has been implemented following the paper of G. Laperrière, V. Pelloin, A. Caubriere, S. Mdhaffar, N. Camelin, S. Ghannay, B. Jabaian, Y. Estève, [The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools](https://aclanthology.org/2022.lrec-1.171).
 
-Some results presented here are also part of the paper of G. Laperrière, V. Pelloin, M. Rouvier, T. Stafylakis, Y. Estève [On the Use of Semantically-Aligned Speech Representations for Spoken Language Understanding](https://arxiv.org/abs/2210.05291).
-
 # How to run
 Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml file.
 
@@ -24,8 +22,6 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 | 2008-03-27 | train_with_wav2vec_relax.yaml | 7.9 | 21.8 | 34.1 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | | [here](https://drive.google.com/drive/folders/1ALtwmk3VUUM0XRToecQp1DKAh9FsGqMA?usp=sharing) |
 | 2008-03-27 | train_full.yaml | 53.9 | 75.0 | 82.0 | None | | [here](https://drive.google.com/drive/folders/1cOdRqE_d1lCPJXnshxw20BGnaT4_i_RB?usp=sharing) |
 | 2008-03-27 | train_with_wav2vec_full.yaml | 8.2 | 26.1 | 37.5 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | | [here](https://drive.google.com/drive/folders/1cZRRQ3Cc_ucXXlwYSJqB7pOl6KwZdo84?usp=share_link) |
-| 2008-03-27 | see [paper](https://arxiv.org/abs/2210.05291) for modifications | 5.8 | 20.4 | 31.2 | [wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m) | | |
-| 2008-03-27 | see [paper](https://arxiv.org/abs/2210.05291) for modifications | 5.1 | 19.3 | 29.8 | [SAMU-XLSR](https://arxiv.org/pdf/2205.08180.pdf) | | |
 
 The CVER is the one implemented in SpeechBrain for this recipe. It is strict (yield an error for a single false character), without the human rules added generally for MEDIA. Find more in the article linked above, as it corresponds to u-CVER.
 
