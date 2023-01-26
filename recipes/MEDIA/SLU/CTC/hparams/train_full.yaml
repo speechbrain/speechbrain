@@ -62,6 +62,7 @@ sorting: ascending
 
 # Model parameters:
 activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
 cnn_blocks: 1
 rnn_layers: 1
 dnn_blocks: 1
