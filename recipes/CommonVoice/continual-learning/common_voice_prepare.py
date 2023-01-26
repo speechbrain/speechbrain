@@ -45,6 +45,9 @@ _URL_TEMPLATE = (
     "/cv-corpus-$version/cv-corpus-$version-$locale.tar.gz"
 )
 
+
+
+
 _SPLITS = ["train", "dev", "test"]
 
 # Random indices are not generated on the fly but statically read from a predefined
@@ -353,7 +356,7 @@ def preprocess_tsv_file(
             mp3 = os.path.join("$data_root", locale, "clips", mp3)
 
             # Unicode normalization (default in Python 3)
-            wrd = str(wrd)
+            wrd = unicode_normalisation(wrd)
 
             # Remove commas
             wrd = wrd.replace(",", " ")
@@ -391,6 +394,13 @@ def preprocess_tsv_file(
 
     _LOGGER.log(logging.INFO, "Done!")
 
+def unicode_normalisation(text):
+
+    try:
+        text = unicode(text, "utf-8")
+    except NameError:  # unicode is a default on python 3
+        pass
+    return str(text)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare Common Voice dataset")
