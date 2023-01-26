@@ -7,7 +7,6 @@ This recipe has been implemented following the paper of G. Laperrière, V. Pello
 Do not forget to process the dataset and change the `!PLACEHOLDER` in the yaml file.
 
 ```bash
-python train.py hparams/train.yaml
 python train_hf_wav2vec.py hparams/train_hf_wav2vec.yaml
 ```
 
@@ -18,7 +17,6 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 | Media Release | hyperparams | Test ChER | Test WER | Wav2Vec | Training time | Model link |
 |:------:|:------:|:------:|:------:|:------:|:------:|:------:|
-| 2008-03-27 | train.yaml | 48.4 | 51.0 | None | | [here](https://drive.google.com/drive/folders/12sWWa5Xn0gwOe4iZM7Rf7dNEInA36A9C?usp=sharing) |
 | 2008-03-27 | train_with_wav2vec.yaml | 7.1 | 13.5 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | | [here](https://drive.google.com/drive/folders/1qJUKxsTKrYwzKz0LHzq67M4G06Mj-9fl?usp=sharing) |
 
 # **About SpeechBrain**
