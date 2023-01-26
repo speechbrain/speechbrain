@@ -45,7 +45,7 @@ class ASR(sb.core.Brain):
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         x_enc = self.modules.dnn(feats.detach())
-        x = self.modules.dec(x_enc)
+        x = self.modules.enc(x_enc)
 
         # Output layer for seq2seq log-probabilities.
         logits = self.modules.output_lin(x)
