@@ -45,7 +45,7 @@ class SLU(sb.core.Brain):
         # Forward pass.
         feats = self.modules.wav2vec2(wavs, wav_lens)
 
-        x = self.modules.dec(feats)
+        x = self.modules.enc(feats)
 
         # Output layer for seq2seq log-probabilities.
         logits = self.modules.output_lin(x)
