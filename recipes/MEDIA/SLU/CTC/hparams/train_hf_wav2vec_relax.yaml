@@ -78,7 +78,7 @@ freeze: False
 blank_index: 0
 
 # Outputs:
-output_neurons: 159
+output_neurons: 141
 
 # ------ Functions and classes
 
