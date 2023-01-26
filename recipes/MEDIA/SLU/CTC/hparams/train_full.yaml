@@ -73,7 +73,7 @@ dnn_neurons: 512
 blank_index: 0
 
 # Outputs:
-output_neurons: 187
+output_neurons: 212
 
 # ------ Functions and classes
 
