@@ -109,7 +109,7 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
 modules:
-    wav2vec: !ref <wav2vec2>
+    wav2vec2: !ref <wav2vec2>
     enc: !ref <enc>
     output_lin: !ref <output_lin>
 
@@ -143,7 +143,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
-        wav2vec: !ref <wav2vec2>
+        wav2vec2: !ref <wav2vec2>
         lr_annealing: !ref <lr_annealing>
         lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
         counter: !ref <epoch_counter>
