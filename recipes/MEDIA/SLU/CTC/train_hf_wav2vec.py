@@ -313,7 +313,7 @@ if __name__ == "__main__":
 
     # Due to DDP, we do the preparation ONLY on the main python process
     run_on_main(
-        media_prepare,
+        prepare_media,
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
