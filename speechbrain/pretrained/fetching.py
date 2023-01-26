@@ -148,7 +148,7 @@ def fetch(
                 revision=revision,
                 cache_dir=cache_dir,
             )
-            print(f"HF fetch: {fetched_file}")
+            logger.info(f"HF fetch: {fetched_file}")
         except HTTPError as e:
             if "404 Client Error" in str(e):
                 raise ValueError("File not found on HF hub")
