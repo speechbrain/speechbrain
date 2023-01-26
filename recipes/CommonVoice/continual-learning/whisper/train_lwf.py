@@ -102,7 +102,8 @@ class ASR(sb.Brain):
             # Cross entropy between output of the old task and output of the old model
             loss2 = outputs_T.mul(-1*torch.log(outputs_S))
             loss2 = loss2.sum(1)
-            loss2 = loss2.mean()*T*T
+            num_tokens= torch.sum((mask == False).int()).item()
+            loss2 = (loss2.sum()/num_tokens)*T*T
             
             loss = loss+loss2*hparams['lwf_alpha']
             
@@ -354,9 +355,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    test(
-        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
-    )
+    # test(
+    #     hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    # )
 
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
@@ -446,6 +447,7 @@ def train(hparams, run_opts):
         masked_tokens=tokenizer.convert_tokens_to_ids(new_tokens)
         masked_tokens.append(tokenizer.convert_tokens_to_ids(f"<|{locale.lower()}|>"))
         asr_brain.masked_tokens= set(masked_tokens)
+
    
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
@@ -457,6 +459,9 @@ def train(hparams, run_opts):
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+
+        del asr_brain.old_model
+        torch.cuda.empty_cache()
 
         # Testing
         test(
