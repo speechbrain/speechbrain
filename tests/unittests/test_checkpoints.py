@@ -118,9 +118,8 @@ def test_recovery_custom_io(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path, end_of_epoch, device):
+        def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
-            del device
             with open(path) as fi:
                 self.param = int(fi.read())
 
@@ -296,7 +295,7 @@ def test_checkpoint_hook_register(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path, end_of_epoch, device):
+        def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
             with open(path) as fi:
                 self.param = int(fi.read())
@@ -320,7 +319,7 @@ def test_checkpoint_hook_register(tmpdir):
                     fo.write(str(self.param))
 
             @mark_as_loader
-            def load(self, path, end_of_epoch):  # MISSING device
+            def load(self, path, end_of_epoch):
                 del end_of_epoch  # Unused
                 with open(path) as fi:
                     self.param = int(fi.read())
@@ -336,7 +335,7 @@ def test_checkpoint_hook_register(tmpdir):
                 with open(path, "w") as fo:
                     fo.write(str(self.param))
 
-            def load(self, path, end_of_epoch, device):
+            def load(self, path, end_of_epoch):
                 del end_of_epoch  # Unused
                 with open(path) as fi:
                     self.param = int(fi.read())

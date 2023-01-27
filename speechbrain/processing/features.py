@@ -1043,11 +1043,13 @@ class InputNormalization(torch.nn.Module):
                             self.weight = self.avg_factor
 
                         self.spk_dict_mean[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_mean[spk_id]
+                            (1 - self.weight)
+                            * self.spk_dict_mean[spk_id].to(current_mean)
                             + self.weight * current_mean
                         )
                         self.spk_dict_std[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_std[spk_id]
+                            (1 - self.weight)
+                            * self.spk_dict_std[spk_id].to(current_std)
                             + self.weight * current_std
                         )
 
@@ -1085,13 +1087,13 @@ class InputNormalization(torch.nn.Module):
                         else:
                             self.weight = self.avg_factor
 
-                        self.glob_mean = (
-                            1 - self.weight
-                        ) * self.glob_mean + self.weight * current_mean
+                        self.glob_mean = (1 - self.weight) * self.glob_mean.to(
+                            current_mean
+                        ) + self.weight * current_mean
 
-                        self.glob_std = (
-                            1 - self.weight
-                        ) * self.glob_std + self.weight * current_std
+                        self.glob_std = (1 - self.weight) * self.glob_std.to(
+                            current_std
+                        ) + self.weight * current_std
 
                     self.glob_mean.detach()
                     self.glob_std.detach()
@@ -1154,22 +1156,22 @@ class InputNormalization(torch.nn.Module):
             self.glob_mean = state["glob_mean"]
             self.glob_std = state["glob_std"]
         else:
-            self.glob_mean = state["glob_mean"].to(self.device_inp)
-            self.glob_std = state["glob_std"].to(self.device_inp)
+            self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
+            self.glob_std = state["glob_std"]  # .to(self.device_inp)
 
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}
         for spk in state["spk_dict_mean"]:
-            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk].to(
-                self.device_inp
-            )
+            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk]  # .to(
+            #    self.device_inp
+            # )
 
         # Loading the spk_dict_std in the right device
         self.spk_dict_std = {}
         for spk in state["spk_dict_std"]:
-            self.spk_dict_std[spk] = state["spk_dict_std"][spk].to(
-                self.device_inp
-            )
+            self.spk_dict_std[spk] = state["spk_dict_std"][spk]  # .to(
+            #    self.device_inp
+            # )
 
         self.spk_dict_count = state["spk_dict_count"]
 
