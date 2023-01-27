@@ -513,18 +513,9 @@ if __name__ == "__main__":
         "-n",
         "--new_locales",
         nargs="+",
-        default=(
-            "rw",
-            "eo",
-            "kab",
-            "lg",
-            "mhr",
-            "ckb",
-            "ab",
-            "kmr",
-            "fy-NL",
-            "ia",
-        ),
+        # fmt: off
+        default=("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
+        # fmt: on
         help="new locales",
     )
     parser.add_argument(
