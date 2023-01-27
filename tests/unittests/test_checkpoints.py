@@ -319,8 +319,7 @@ def test_checkpoint_hook_register(tmpdir):
                     fo.write(str(self.param))
 
             @mark_as_loader
-            def load(self, path, end_of_epoch):
-                del end_of_epoch  # Unused
+            def load(self, path):  # MISSING end_of_epoch
                 with open(path) as fi:
                     self.param = int(fi.read())
 
