@@ -1180,9 +1180,7 @@ def average_checkpoints(
     """
     device = "cpu"
     parameter_iterator = (
-        parameter_loader(
-            ckpt.paramfiles[recoverable_name], map_location=device
-        )
+        parameter_loader(ckpt.paramfiles[recoverable_name], map_location=device)
         for ckpt in checkpoint_list
     )
     return averager(parameter_iterator)
