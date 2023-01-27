@@ -1156,8 +1156,8 @@ class InputNormalization(torch.nn.Module):
             self.glob_mean = state["glob_mean"]
             self.glob_std = state["glob_std"]
         else:
-            self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
-            self.glob_std = state["glob_std"]  # .to(self.device_inp)
+            self.glob_mean = state["glob_mean"].to(self.device_inp)
+            self.glob_std = state["glob_std"].to(self.device_inp)
 
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}

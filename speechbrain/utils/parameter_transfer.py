@@ -302,7 +302,7 @@ class Pretrainer:
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]
-        self._call_load_hooks(paramfiles, device)
+        self._call_load_hooks(paramfiles)
 
     def _call_load_hooks(self, paramfiles):
         # This internal function finds the correct hook to call for every
