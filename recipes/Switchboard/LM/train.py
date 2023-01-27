@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # We download the tokenizer and pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in tokenizer_file of the hparams YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     lm_brain = LM(
         modules=hparams["modules"],

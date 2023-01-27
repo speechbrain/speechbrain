@@ -613,7 +613,7 @@ class CategoricalEncoder:
         logger.debug(f"Loaded categorical encoding from {path}")
 
     @mark_as_loader
-    def load_if_possible(self, path, end_of_epoch=False, device=None):
+    def load_if_possible(self, path, end_of_epoch=False):
         """Loads if possible, returns a bool indicating if loaded or not.
 
         Arguments
@@ -644,7 +644,6 @@ class CategoricalEncoder:
         ['a', 'b', 'c', 'd']
         """
         del end_of_epoch  # Unused here.
-        del device  # Unused here.
 
         try:
             self.load(path)

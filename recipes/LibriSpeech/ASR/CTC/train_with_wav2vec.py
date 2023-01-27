@@ -411,7 +411,7 @@ if __name__ == "__main__":
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
-        hparams["pretrainer"].load_collected(asr_brain.device)
+        hparams["pretrainer"].load_collected()
 
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
