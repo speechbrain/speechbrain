@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice in a continual learning fashion via
-progressive neural networks. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice
+in a continual learning fashion via progressive neural networks (https://arxiv.org/abs/1612.00796).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,12 +15,13 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/<config_file>.yaml
+> python train_pnn.py hparams/train_pnn.yaml
 
 Authors
  * Luca Della Libera 2022
 """
 
+import copy
 import os
 import pathlib
 import sys
@@ -28,6 +29,7 @@ import sys
 import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
+from transformers.models.whisper.modeling_whisper import WhisperDecoderLayer
 
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
@@ -146,7 +148,7 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
 
@@ -259,38 +261,6 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_data
 
 
-class ProgressiveEmbedding(torch.nn.Module):
-    def __init__(self, base_embedding, num_extra_embeddings, num_linear=2):
-        super().__init__()
-        self.base_embedding = base_embedding
-        self.num_extra_embeddings = num_extra_embeddings
-        self.num_linear = num_linear
-        self.embedding_dim = embedding_dim = base_embedding.embedding_dim
-        self.num_embeddings = base_embedding.num_embeddings + num_extra_embeddings
-        self.padding_idx = base_embedding.padding_idx
-        self.linears = []
-        for _ in range(num_linear):
-            self.linears += [torch.nn.Linear(embedding_dim, embedding_dim), torch.nn.GELU()]
-        self.linears += [torch.nn.LayerNorm(embedding_dim)]
-        self.linears = torch.nn.Sequential(*self.linears)
-        self.new_weight = torch.nn.Parameter(torch.empty((num_extra_embeddings, embedding_dim), device=base_embedding.weight.device))
-        torch.nn.init.normal_(self.new_weight)
-
-    @property
-    def weight(self):
-        return torch.cat([self.base_embedding.weight, self.new_weight])
-
-    def forward(self, input):
-        output = torch.nn.functional.embedding(
-            input, self.weight, self.padding_idx,
-        )
-        num_old_embeddings = self.base_embedding.num_embeddings
-        new_tokens_mask = input >= num_old_embeddings
-        new_tokens_output = self.linears(output[new_tokens_mask])
-        output[new_tokens_mask] = new_tokens_output
-        return output
-
-
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
@@ -323,6 +293,14 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
+        # Retrieve corresponding embedding layer and decoder layers
+        hparams["whisper"].model.decoder.embed_tokens = hparams[
+            "whisper"
+        ].embed_tokens_backup[locale]
+        hparams["whisper"].model.decoder.layers = hparams[
+            "whisper"
+        ].decoder_layers_backup[locale]
+
         # Trainer initialization
         asr_brain = ASR(
             modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
@@ -344,15 +322,23 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    test(
-        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
-    )
-
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
 
-    # Define dictionary to store active tokens for each locale
-    tokenizer.active_tokens = {}
+    # Store embedding layer for each locale
+    hparams["whisper"].embed_tokens_backup = torch.nn.ModuleDict()
+    hparams["whisper"].decoder_layers_backup = torch.nn.ModuleDict()
+    for locale in hparams["old_locales"]:
+        hparams["whisper"].embed_tokens_backup[locale] = hparams[
+            "whisper"
+        ].model.decoder.embed_tokens
+        hparams["whisper"].decoder_layers_backup[locale] = hparams[
+            "whisper"
+        ].model.decoder.layers
+
+    test(
+        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    )
 
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
@@ -398,25 +384,53 @@ def train(hparams, run_opts):
         # Add the tokens to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
-        # Compute active tokens
-        import pdb
-        pdb.set_trace()
-        active_tokens = tokenizer.encode([f"<|{locale.lower()}|>"] + vocab[1:], add_special_tokens=False)
-        tokenizer.active_tokens[locale] = active_tokens
-
         # Freeze the whole model to avoid forgetting
         for param in hparams["whisper"].model.parameters():
             param.requires_grad_(False)
 
-        # Add new random embeddings and linear layers to Whisper for the new tokens
-        hparams["whisper"].model.decoder.embed_tokens = ProgressiveEmbedding(
-            hparams["whisper"].model.decoder.embed_tokens,
-            len(new_tokens) + 1,
-            num_linear=hparams["num_linear"],
+        # Add new random embeddings to Whisper for the new tokens
+        hparams["whisper"].model.decoder.embed_tokens = copy.deepcopy(
+            hparams["whisper"].model.decoder.embed_tokens
         )
+        hparams["whisper"].model.resize_token_embeddings(
+            hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
+            + len(new_tokens)
+            + 1
+        )
+        hparams["whisper"].embed_tokens_backup[locale] = hparams[
+            "whisper"
+        ].model.decoder.embed_tokens
+
+        # Update suppress tokens
+        """
+        suppress_tokens_backup = hparams["whisper"].model.config.suppress_tokens
+        hparams["whisper"].model.config.suppress_tokens = list(
+            set(range(hparams["whisper"].model.decoder.embed_tokens.weight.shape[0])) -
+            set(tokenizer.convert_tokens_to_ids(list(new_tokens) + tokenizer._additional_special_tokens))
+        )
+        hparams["whisper"].model.config.suppress_tokens += suppress_tokens_backup
+        hparams["whisper"].model.config.suppress_tokens = list(set(hparams["whisper"].model.config.suppress_tokens))
+        """
+
+        # Add new decoding layers
+        hparams["whisper"].model.decoder.layers = copy.deepcopy(
+            hparams["whisper"].model.decoder.layers
+        )
+        hparams["whisper"].model.decoder.layers += [
+            WhisperDecoderLayer(hparams["whisper"].model.config)
+            for _ in range(hparams["num_new_decoder_layers"])
+        ]
+        hparams["whisper"].decoder_layers_backup[locale] = hparams[
+            "whisper"
+        ].model.decoder.layers
+
+        # Unfreeze embedding layer
+        hparams["whisper"].model.decoder.embed_tokens.weight.requires_grad_()
 
         # Log total number of tokens
-        print(f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}")
+        print(
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+        )
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
@@ -428,7 +442,7 @@ def train(hparams, run_opts):
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
         os.makedirs(checkpoint_dir, exist_ok=True)
         hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
-        """
+
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
@@ -451,7 +465,7 @@ def train(hparams, run_opts):
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
-        """
+
         # Testing
         test(
             hparams,
@@ -499,35 +513,3 @@ if __name__ == "__main__":
 
     # Train
     train(hparams, run_opts)
-"""
-
-
-from speechbrain.lobes.models.huggingface_whisper import HuggingFaceWhisper
-
-
-if __name__ == "__main__":
-    model_hub = "openai/whisper-tiny"
-    save_path = "savedir"
-    sampling_rate = 16000
-    model = HuggingFaceWhisper(model_hub, save_path, sampling_rate).to("cuda")
-
-    for param in model.model.parameters():
-        param.requires_grad_(False)
-
-    torch.manual_seed(0)
-    # Add new random embeddings and linear layers to Whisper for the new tokens
-
-    model.model.decoder.embed_tokens = ProgressiveEmbedding(
-        model.model.decoder.embed_tokens,
-        500,
-        num_linear=5,
-    )
-
-    torch.manual_seed(0)
-    model.to("cuda")
-    tokens = torch.tensor([[52000]], device="cuda")
-    inputs = torch.randn([1, 93680], device="cuda")
-    outputs = model(inputs, tokens)
-    #outputs[1].sum().backward()
-    print(outputs[1])
-"""

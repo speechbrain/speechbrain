@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice.
-The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice.
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,7 +14,7 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_ft.py hparams/<config_file>.yaml
+> python train_ft.py hparams/train_ft.yaml
 
 Authors
  * Luca Della Libera 2022
@@ -146,7 +145,7 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
 
@@ -371,7 +370,9 @@ def train(hparams, run_opts):
         )
 
         # Log total number of tokens
-        print(f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}")
+        print(
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+        )
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale

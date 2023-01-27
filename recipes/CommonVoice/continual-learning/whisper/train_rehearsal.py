@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice in a continual learning fashion via
-rehearsal. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice
+in a continual learning fashion via rehearsal (https://arxiv.org/abs/1811.11682).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,7 +15,7 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_rehearsal.py hparams/<config_file>.yaml
+> python train_rehearsal.py hparams/train_rehearsal.yaml
 
 Authors
  * Luca Della Libera 2022
@@ -147,7 +147,7 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
 
@@ -254,7 +254,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens", "duration"],
+        datasets,
+        ["id", "sig", "tokens_bos", "tokens_eos", "tokens", "duration"],
     )
 
     return train_data, valid_data, test_data
@@ -372,7 +373,9 @@ def train(hparams, run_opts):
         )
 
         # Log total number of tokens
-        print(f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}")
+        print(
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+        )
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
@@ -388,12 +391,17 @@ def train(hparams, run_opts):
                 kwargs={
                     "locales": [old_locale],
                     "download_dir": hparams["download_dir"],
+                    "max_durations": hparams["max_durations"],
                 },
             )
             old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
             selected_keys = random.sample(
                 list(old_train_data.data.keys()),
-                round(min(length * hparams["rehearsal_ratio"], len(old_train_data))),
+                round(
+                    min(
+                        length * hparams["rehearsal_ratio"], len(old_train_data)
+                    )
+                ),
             )
             old_train_data.data = {
                 k: old_train_data.data[k] for k in selected_keys

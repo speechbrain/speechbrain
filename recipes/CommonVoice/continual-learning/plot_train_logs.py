@@ -53,7 +53,7 @@ def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
 
     """
     metrics = defaultdict(list)
-    with open(train_log_file) as f:
+    with open(train_log_file, encoding="utf-8") as f:
         for line in f:
             line = line.strip().replace(" - ", ", ")
             if not line:
@@ -149,9 +149,13 @@ def plot_wer(
         for i, new_locale in enumerate([None] + list(new_locales)):
             if new_locale is not None:
                 locales += [new_locale]
+            current_wers = wers[j : j + len(locales)]
+            if len(locales) != len(current_wers):
+                # Less languages than expected
+                break
             plt.plot(
                 range(len(locales)),
-                wers[j : j + len(locales)],
+                current_wers,
                 label=new_locale if new_locale is not None else "base",
                 marker=".",
                 markersize=7,
@@ -176,10 +180,14 @@ def plot_wer(
     for i, new_locale in enumerate([None] + list(new_locales)):
         if new_locale is not None:
             locales += [new_locale]
+        current_wers = wers[j : j + len(locales)]
+        if len(locales) != len(current_wers):
+            # Less languages than expected
+            break
         fig.add_trace(
             go.Scatter(
                 x=list(range(len(locales))),
-                y=wers[j : j + len(locales)],
+                y=current_wers,
                 marker={"size": 7},
                 mode="lines+markers",
                 name=new_locale if new_locale is not None else "base",
@@ -300,6 +308,9 @@ def plot_cl_metrics(
         idx = 0
         for k in range(num_tasks):
             for j in range(k + 1):
+                if idx > len(wers) - 1:
+                    # Less languages than expected
+                    break
                 if j == 0:
                     A[k, j] = (
                         1 - wers[idx : idx + len(old_locales)].mean() / 100
@@ -327,7 +338,9 @@ def plot_cl_metrics(
 
     # Save performance metrics
     model = os.path.basename(output_dir).replace(".txt", "")
-    with open(os.path.join(output_dir, f"{model}_metrics.csv"), "w") as f:
+    with open(
+        os.path.join(output_dir, f"{model}_metrics.csv"), "w", encoding="utf-8"
+    ) as f:
         csv_writer = csv.writer(f)
         csv_writer.writerow(["name", "metric", "base"] + list(new_locales))
         for name, avg_A, avg_F in zip(all_wers.keys(), avg_As, avg_As):
@@ -348,7 +361,7 @@ def plot_cl_metrics(
         if len(all_wers) > 10:
             plt.legend(loc="upper left", ncols=2)
         plt.grid()
-        plt.title("whisper-" + model)
+        plt.title(model)
         plt.xlim(-0.25, len(new_locales) + 0.25)
         plt.ylim(0)
         plt.xticks(range(num_tasks), ["base"] + list(new_locales))
@@ -375,7 +388,7 @@ def plot_cl_metrics(
         if len(all_wers) > 10:
             plt.legend(loc="upper left", ncols=2)
         plt.grid()
-        plt.title("whisper-" + model)
+        plt.title(model)
         plt.xlim(-0.25, len(new_locales) + 0.25)
         plt.ylim(0)
         plt.xticks(range(num_tasks), ["base"] + list(new_locales))
@@ -490,6 +503,31 @@ if __name__ == "__main__":
         "input_dir", help="path to directory containing the train logs",
     )
     parser.add_argument(
+        "-o",
+        "--old_locales",
+        nargs="+",
+        default=("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+        help="old locales",
+    )
+    parser.add_argument(
+        "-n",
+        "--new_locales",
+        nargs="+",
+        default=(
+            "rw",
+            "eo",
+            "kab",
+            "lg",
+            "mhr",
+            "ckb",
+            "ab",
+            "kmr",
+            "fy-NL",
+            "ia",
+        ),
+        help="new locales",
+    )
+    parser.add_argument(
         "-f",
         "--figsize",
         nargs=2,
@@ -516,12 +554,15 @@ if __name__ == "__main__":
             if file.endswith(".txt"):
                 train_log = os.path.join(root, file)
                 metrics = parse_train_log(train_log)
-                all_wers[file] = metrics["test WER"]
+                wers = metrics["test WER"]
+                all_wers[file] = wers
                 output_image = train_log.replace(".txt", ".png")
                 # Plot WER
                 plot_wer(
-                    metrics["test WER"],
+                    wers,
                     output_image,
+                    old_locales=args.old_locales,
+                    new_locales=args.new_locales,
                     figsize=args.figsize,
                     usetex=args.usetex,
                     style_file_or_name=args.style_file_or_name,
@@ -532,6 +573,8 @@ if __name__ == "__main__":
     plot_cl_metrics(
         all_wers,
         args.input_dir,
+        old_locales=args.old_locales,
+        new_locales=args.new_locales,
         figsize=args.figsize,
         usetex=args.usetex,
         style_file_or_name=args.style_file_or_name,

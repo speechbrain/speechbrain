@@ -45,14 +45,16 @@ _URL_TEMPLATE = (
     "/cv-corpus-$version/cv-corpus-$version-$locale.tar.gz"
 )
 
-
-
-
 _SPLITS = ["train", "dev", "test"]
 
 # Random indices are not generated on the fly but statically read from a predefined
 # file to avoid reproducibility issues on different platforms and/or Python versions
-with open(os.path.join(os.path.dirname(__file__), "random_idxes.txt")) as f:
+with open(
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), "random_idxes.txt"
+    ),
+    encoding="utf-8",
+) as f:
     _RANDOM_IDXES = [int(line) for line in f]
 
 # Default seed
@@ -201,7 +203,9 @@ def download_locale(
         for split in _SPLITS:
             input_tsv_file = os.path.join(download_dir, f"{split}.tsv")
             output_tsv_file = os.path.join(download_dir, f"tmp.tsv")
-            with open(input_tsv_file) as fr, open(output_tsv_file, "w") as fw:
+            with open(input_tsv_file, encoding="utf-8") as fr, open(
+                output_tsv_file, "w", encoding="utf-8"
+            ) as fw:
                 tsv_reader = csv.reader(
                     fr, delimiter="\t", quoting=csv.QUOTE_NONE
                 )
@@ -268,7 +272,7 @@ def merge_tsv_files(
         max_duration = float("inf")
     _LOGGER.log(logging.INFO, f"Writing output TSV file ({output_tsv_file})...")
     os.makedirs(os.path.dirname(output_tsv_file), exist_ok=True)
-    with open(output_tsv_file, "w") as fw:
+    with open(output_tsv_file, "w", encoding="utf-8") as fw:
         tsv_writer = csv.writer(
             fw, delimiter="\t", quoting=csv.QUOTE_NONE, escapechar="\\"
         )
@@ -277,7 +281,7 @@ def merge_tsv_files(
             _LOGGER.log(
                 logging.INFO, f"Reading input TSV file ({input_tsv_file})..."
             )
-            with open(input_tsv_file) as fr:
+            with open(input_tsv_file, encoding="utf-8") as fr:
                 tsv_reader = csv.reader(fr, delimiter="\t")
                 header = next(tsv_reader)
                 if write_header:
@@ -345,7 +349,9 @@ def preprocess_tsv_file(
     _LOGGER.log(logging.INFO, f"Writing output CSV file ({output_csv_file})...")
     os.makedirs(os.path.dirname(output_csv_file), exist_ok=True)
     num_clips, total_duration = 0, 0.0
-    with open(input_tsv_file) as fr, open(output_csv_file, "w") as fw:
+    with open(input_tsv_file, encoding="utf-8") as fr, open(
+        output_csv_file, "w", encoding="utf-8"
+    ) as fw:
         tsv_reader = csv.reader(fr, delimiter="\t", quoting=csv.QUOTE_NONE)
         csv_writer = csv.writer(fw)
         _ = next(tsv_reader)
@@ -356,7 +362,7 @@ def preprocess_tsv_file(
             mp3 = os.path.join("$data_root", locale, "clips", mp3)
 
             # Unicode normalization (default in Python 3)
-            wrd = unicode_normalisation(wrd)
+            wrd = str(wrd)
 
             # Remove commas
             wrd = wrd.replace(",", " ")
@@ -388,19 +394,12 @@ def preprocess_tsv_file(
             total_duration += float(duration)
             csv_writer.writerow([id_, mp3, wrd, locale, duration])
 
-    with open(f"{output_csv_file}.stats", "w") as fw:
+    with open(f"{output_csv_file}.stats", "w", encoding="utf-8") as fw:
         fw.write(f"Number of samples: {num_clips}\n")
         fw.write(f"Total duration in seconds: {total_duration}")
 
     _LOGGER.log(logging.INFO, "Done!")
 
-def unicode_normalisation(text):
-
-    try:
-        text = unicode(text, "utf-8")
-    except NameError:  # unicode is a default on python 3
-        pass
-    return str(text)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare Common Voice dataset")
