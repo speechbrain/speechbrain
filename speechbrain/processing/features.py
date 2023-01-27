@@ -1154,8 +1154,8 @@ class InputNormalization(torch.nn.Module):
             self.glob_mean = state["glob_mean"]
             self.glob_std = state["glob_std"]
         else:
-            self.glob_mean = state["glob_mean"]  # .to(self.device_inp)
-            self.glob_std = state["glob_std"]  # .to(self.device_inp)
+            self.glob_mean = state["glob_mean"].to(self.device_inp)
+            self.glob_std = state["glob_std"].to(self.device_inp)
 
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}
@@ -1199,16 +1199,15 @@ class InputNormalization(torch.nn.Module):
 
     @mark_as_transfer
     @mark_as_loader
-    def _load(self, path, end_of_epoch=False, device=None):
+    def _load(self, path, end_of_epoch=False):
         """Load statistic dictionary.
 
         Arguments
         ---------
         path : str
             The path of the statistic dictionary
-        device : str, None
-            Passed to torch.load(..., map_location=device)
         """
         del end_of_epoch  # Unused here.
+        device = "cpu"
         stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)
