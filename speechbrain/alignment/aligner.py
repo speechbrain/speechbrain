@@ -1315,9 +1315,8 @@ class HMMAligner(torch.nn.Module):
         torch.save(self.align_dict, path)
 
     @mark_as_loader
-    def _load(self, path, end_of_epoch=False, device=None):
+    def _load(self, path, end_of_epoch=False):
         del end_of_epoch  # Not used here.
-        del device
         self.align_dict = torch.load(path)
 
 

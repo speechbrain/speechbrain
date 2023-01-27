@@ -124,7 +124,7 @@ def foreign_class(
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
-        pretrainer.load_collected(device="cpu")
+        pretrainer.load_collected()
 
         # Import class and create instance
         module = import_from_path(pymodule_local_path)
@@ -405,7 +405,7 @@ class Pretrained(torch.nn.Module):
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
             # run_opts={"device": ...}
-            pretrainer.load_collected(device="cpu")
+            pretrainer.load_collected()
 
             # Now return the system
             return cls(hparams["modules"], hparams, **kwargs)
@@ -2527,7 +2527,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         deps_pretrainer = getattr(self.hparams, "deps_pretrainer", None)
         if deps_pretrainer:
             deps_pretrainer.collect_files()
-            deps_pretrainer.load_collected(device=self.device)
+            deps_pretrainer.load_collected()
 
     def __call__(self, text):
         """A convenience callable wrapper - same as G2P

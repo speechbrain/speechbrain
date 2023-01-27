@@ -1142,7 +1142,7 @@ def load_dependencies(hparams, run_opts):
     deps_pretrainer = hparams.get("deps_pretrainer")
     if deps_pretrainer:
         run_on_main(deps_pretrainer.collect_files)
-        deps_pretrainer.load_collected(device=run_opts["device"])
+        deps_pretrainer.load_collected()
 
 
 def check_tensorboard(hparams):
