@@ -101,10 +101,11 @@ whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     save_path: !ref <save_folder>/whisper_checkpoint
     encoder_only: False
 
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    dim: -1
+    apply_log: True
 
-ce_loss: !new:torch.nn.CrossEntropyLoss
-    ignore_index: !ref <ignore_index>
-    label_smoothing: !ref <label_smoothing>
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
 
 modules:
     whisper: !ref <whisper>
