@@ -41,11 +41,11 @@ class CustomWhisperTokenizer(WhisperTokenizer):
 
         if self.language is not None:
             self.language = self.language.lower()
-            if self.language in TO_LANGUAGE_CODE:
-                language_id = TO_LANGUAGE_CODE[self.language]
+            if self.language in self.to_language_codes:
+                language_id = self.to_language_codes[self.language]
             else:
                 raise ValueError(
-                    f"Unsupported language: {self.language}. Language should be in: {TO_LANGUAGE_CODE.keys()}"
+                    f"Unsupported language: {self.language}. Language should be in: {self.to_language_codes.keys()}"
                 )
 
         if self.task is not None:
@@ -373,7 +373,10 @@ class HuggingFaceWhisper(nn.Module):
         else:
             if forced_decoder_locale.lower() == "zh-cn":
                 forced_decoder_locale = "zh"
-            if forced_decoder_locale.lower() not in LANGUAGES:
+            if (
+                forced_decoder_locale.lower()
+                not in self.tokenizer.supported_languages
+            ):
                 raise NotImplementedError(
                     f"Unsupported language: {forced_decoder_locale}"
                 )

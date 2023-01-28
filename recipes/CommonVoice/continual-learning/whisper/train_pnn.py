@@ -262,9 +262,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
     # Test on old + new locales
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
@@ -289,6 +286,11 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
+
+        # Retrieve corresponding tokenizer
+        tokenizer = hparams["whisper"].tokenizer = hparams[
+            "whisper"
+        ].tokenizer_backup[locale]
 
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
@@ -322,12 +324,10 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
     # Store embedding layer for each locale
     hparams["whisper"].embed_tokens_backup = torch.nn.ModuleDict()
     hparams["whisper"].decoder_layers_backup = torch.nn.ModuleDict()
+    hparams["whisper"].tokenizer_backup = {}
     for locale in hparams["old_locales"]:
         hparams["whisper"].embed_tokens_backup[locale] = hparams[
             "whisper"
@@ -335,6 +335,9 @@ def train(hparams, run_opts):
         hparams["whisper"].decoder_layers_backup[locale] = hparams[
             "whisper"
         ].model.decoder.layers
+        hparams["whisper"].tokenizer_backup[locale] = hparams[
+            "whisper"
+        ].tokenizer
 
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
@@ -373,6 +376,9 @@ def train(hparams, run_opts):
         new_tokens = vocab[1:]
 
         # Add new language token
+        tokenizer = hparams["whisper"].tokenizer = copy.deepcopy(
+            hparams["whisper"].tokenizer
+        )
         tokenizer.add_tokens(f"<|{locale.lower()}|>")
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
@@ -400,17 +406,7 @@ def train(hparams, run_opts):
         hparams["whisper"].embed_tokens_backup[locale] = hparams[
             "whisper"
         ].model.decoder.embed_tokens
-
-        # Update suppress tokens
-        """
-        suppress_tokens_backup = hparams["whisper"].model.config.suppress_tokens
-        hparams["whisper"].model.config.suppress_tokens = list(
-            set(range(hparams["whisper"].model.decoder.embed_tokens.weight.shape[0])) -
-            set(tokenizer.convert_tokens_to_ids(list(new_tokens) + tokenizer._additional_special_tokens))
-        )
-        hparams["whisper"].model.config.suppress_tokens += suppress_tokens_backup
-        hparams["whisper"].model.config.suppress_tokens = list(set(hparams["whisper"].model.config.suppress_tokens))
-        """
+        hparams["whisper"].tokenizer_backup[locale] = tokenizer
 
         # Add new decoding layers
         hparams["whisper"].model.decoder.layers = copy.deepcopy(
