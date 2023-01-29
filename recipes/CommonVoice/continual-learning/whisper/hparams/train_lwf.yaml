@@ -34,7 +34,7 @@ num_epochs: 5  # 10 for whisper-large-v2
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-lwf_alpha: 0.2
+lwf_alpha: 0.5
 lwf_T: 2
 
 whisper_variant: openai/whisper-tiny  # whisper-large-v2

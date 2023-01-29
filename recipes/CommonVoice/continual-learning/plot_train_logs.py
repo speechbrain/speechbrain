@@ -359,7 +359,7 @@ def plot_cl_metrics(
             )
 
     # Plot performance metrics with Matplotlib
-    output_image = os.path.join(output_dir, f"{model}_average_wer.png")
+    output_image = os.path.join(output_dir, f"{model}_avg_wer.png")
     with plt.style.context(style_file_or_name):
         fig = plt.figure(figsize=figsize)
         plt.gca().set_prop_cycle("color", colors)
@@ -381,7 +381,7 @@ def plot_cl_metrics(
         plt.savefig(output_image.replace(".png", ".pdf"), bbox_inches="tight")
         plt.close()
 
-    output_image = os.path.join(output_dir, f"{model}_average_forgetting.png")
+    output_image = os.path.join(output_dir, f"{model}_avg_forgetting.png")
     with plt.style.context(style_file_or_name):
         fig = plt.figure(figsize=figsize)
         plt.gca().set_prop_cycle("color", colors)
@@ -409,7 +409,7 @@ def plot_cl_metrics(
         plt.close()
 
     # Plot performance metrics with Plotly
-    output_image = os.path.join(output_dir, f"{model}_average_wer.html")
+    output_image = os.path.join(output_dir, f"{model}_avg_wer.html")
     fig = go.Figure()
     for name, avg_A in zip(all_wers.keys(), avg_As):
         name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
@@ -457,7 +457,7 @@ def plot_cl_metrics(
         output_image, include_plotlyjs=True,
     )
 
-    output_image = os.path.join(output_dir, f"{model}_average_forgetting.html")
+    output_image = os.path.join(output_dir, f"{model}_avg_forgetting.html")
     fig = go.Figure()
     for name, avg_F in zip(all_wers.keys(), avg_Fs):
         name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
