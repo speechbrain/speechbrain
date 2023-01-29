@@ -16,8 +16,9 @@ train_log: !ref <output_folder>/train_log.txt
 whisper_hub: openai/whisper-tiny
 test_only: False # Set it to True if you only want to  do the evaluation
 
-# Normalize the english inputs with
-# the same normalization done in the paper
+
+# Normalize inputs with
+# the same normalization done in the paper. Refer to Appendix C for further information.
 normalized_transcripts: True
 
 # Data files
