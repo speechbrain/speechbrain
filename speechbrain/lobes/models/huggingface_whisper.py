@@ -1,6 +1,8 @@
 """This lobe enables the integration of huggingface pretrained whisper model.
+
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
+
 Authors
  * Adel Moumen 2022
  * Titouan Parcollet 2022
@@ -15,9 +17,6 @@ try:
     from transformers import WhisperModel
     from transformers import WhisperFeatureExtractor
     from transformers.models.whisper.tokenization_whisper import (
-        LANGUAGES,
-        TASK_IDS,
-        TO_LANGUAGE_CODE,
         WhisperTokenizer,
     )
 except ImportError:
@@ -28,58 +27,16 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class CustomWhisperTokenizer(WhisperTokenizer):
-    # override
-    @property
-    def prefix_tokens(self):
-        # all_special_ids = self.all_special_ids
-        bos_token_id = 50258  # all_special_ids[-106]
-        translate_token_id = 50358  # all_special_ids[-6]
-        transcribe_token_id = 50359  # all_special_ids[-5]
-        notimestamps_token_id = 50363  # all_special_ids[-1]
-        # langs = tuple(LANGUAGES.keys())
-
-        if self.language is not None:
-            self.language = self.language.lower()
-            if self.language in self.to_language_codes:
-                language_id = self.to_language_codes[self.language]
-            else:
-                raise ValueError(
-                    f"Unsupported language: {self.language}. Language should be in: {self.to_language_codes.keys()}"
-                )
-
-        if self.task is not None:
-            if self.task not in TASK_IDS:
-                raise ValueError(
-                    f"Unsupported task: {self.task}. Task should be in: {TASK_IDS}"
-                )
-
-        bos_sequence = [bos_token_id]
-        if self.language is not None:
-            # Need to replace with custom code because language ID is hardcoded...
-            # bos_sequence.append(bos_token_id + 1 + langs.index(language_id))
-            bos_sequence.append(
-                self.encode(f"<|{language_id}|>", add_special_tokens=False)[0]
-            )
-        if self.task is not None:
-            bos_sequence.append(
-                transcribe_token_id
-                if self.task == "transcribe"
-                else translate_token_id
-            )
-        if not self.predict_timestamps:
-            bos_sequence.append(notimestamps_token_id)
-        return bos_sequence
-
-
 class HuggingFaceWhisper(nn.Module):
     """This lobe enables the integration of HuggingFace pretrained Whisper model.
     Source paper whisper:
         https://cdn.openai.com/papers/whisper.pdf
     Transformer from HuggingFace needs to be installed:
     https://huggingface.co/transformers/installation.html
+
     Some part of the code also cis adapted from the official OpenAI repository:
     https://github.com/openai/whisper
+
     The model can be finetuned. It will download automatically the model from
     HuggingFace or use a local path.
     Arguments
@@ -88,6 +45,11 @@ class HuggingFaceWhisper(nn.Module):
         HuggingFace hub name: e.g "openai/whisper-tiny"
     save_path : str
         Path (dir) of the downloaded model.
+    output_all_hiddens: bool (default: False)
+        If True, the forward function outputs the hidden states from all transformer layers of the encoder.
+        For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),
+        where the output of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer of the encoder.
     Example
     -------
     >>> model_hub = "openai/whisper-tiny"
@@ -108,6 +70,7 @@ class HuggingFaceWhisper(nn.Module):
         freeze=False,
         freeze_encoder=False,
         output_attentions=True,
+        output_all_hiddens=False,
     ):
         super().__init__()
         self.sampling_rate = sampling_rate
@@ -115,18 +78,12 @@ class HuggingFaceWhisper(nn.Module):
         self.freeze = freeze
         self.freeze_encoder = freeze_encoder
         self.output_attentions = output_attentions
+        self.output_all_hiddens = output_all_hiddens
 
         self.tokenizer = None
         # Download the tokenizer only if we are going to use the Decoder.
         if not encoder_only:
-            self.tokenizer = CustomWhisperTokenizer.from_pretrained(
-                source,
-                language=None,
-                task="transcribe",
-                predict_timestamps=False,
-            )
-            self.tokenizer.supported_languages = LANGUAGES
-            self.tokenizer.to_language_codes = TO_LANGUAGE_CODE
+            self.tokenizer = WhisperTokenizer.from_pretrained(source)
 
         # Download the extractor from HuggingFace.
         feature_extractor = WhisperFeatureExtractor.from_pretrained(
@@ -159,16 +116,19 @@ class HuggingFaceWhisper(nn.Module):
 
     def forward(self, wav, decoder_input_ids=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
+
         Arguments
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         decoder_input_ids : torch.Tensor
             This is necessary if we want to use the decoder.
+
             A batch of decoder inputs tokens.
             The first tokens need to dictacte the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
+
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
@@ -178,18 +138,29 @@ class HuggingFaceWhisper(nn.Module):
                 out_encoder = self.forward_encoder(wav)
                 if self.encoder_only:
                     return out_encoder
-                logits, attn = self.forward_decoder(
-                    out_encoder, decoder_input_ids
-                )
+
+                if self.output_all_hiddens:
+                    logits, attn = self.forward_decoder(
+                        out_encoder[-1], decoder_input_ids
+                    )
+                else:
+                    logits, attn = self.forward_decoder(
+                        out_encoder, decoder_input_ids
+                    )
                 return out_encoder, logits, attn
         else:
             if self.encoder_only:
                 return self.forward_encoder(wav)
             else:
                 out_encoder = self.forward_encoder(wav)
-                logits, attn = self.forward_decoder(
-                    out_encoder, decoder_input_ids
-                )
+                if self.output_all_hiddens:
+                    logits, attn = self.forward_decoder(
+                        out_encoder[-1], decoder_input_ids
+                    )
+                else:
+                    logits, attn = self.forward_decoder(
+                        out_encoder, decoder_input_ids
+                    )
                 return out_encoder, logits, attn
 
     def forward_encoder(self, wav):
@@ -202,10 +173,24 @@ class HuggingFaceWhisper(nn.Module):
 
         if self.freeze_encoder:
             with torch.no_grad():
-                mel = self._get_mel(wav)
-                return self.model.encoder(mel).last_hidden_state
+                return self._get_encoder_states(wav)
         else:
-            mel = self._get_mel(wav)
+            return self._get_encoder_states(wav)
+
+    def _get_encoder_states(self, wav):
+        """Takes an input waveform and return its corresponding encoder states.
+        Returns the last hidden state of the encoder or all hidden states if
+        output_all_hiddens is True.
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        """
+        mel = self._get_mel(wav)
+        if self.output_all_hiddens:
+            states = self.model.encoder(mel, output_hidden_states=True)
+            return torch.stack(states.hidden_states)
+        else:
             return self.model.encoder(mel).last_hidden_state
 
     def _get_mel(self, wav):
@@ -223,12 +208,15 @@ class HuggingFaceWhisper(nn.Module):
 
     def _log_mel_spectrogram(self, audio):
         """Compute the Mel spectrogram of a batch of input waveforms.
+
         Reference: adapted from
         https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L92
+
         Arguments
         ---------
         audio : torch.Tensor
             A batch of audio waveforms in 16 kHz.
+
         Returns
         -------
         torch.Tensor
@@ -257,14 +245,17 @@ class HuggingFaceWhisper(nn.Module):
 
     def _pad_or_trim(self, array, axis=-1):
         """Pad or trim the Mel spectrograms as expected by the encoder.
+
         Reference: adapted from
         https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L52
+
         Arguments
         ---------
         array : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         axis : int
             The axis along which to pad.
+
         Returns
         -------
         torch.Tensor
@@ -299,6 +290,7 @@ class HuggingFaceWhisper(nn.Module):
             The first tokens need to dictacte the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
+
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
@@ -323,97 +315,3 @@ class HuggingFaceWhisper(nn.Module):
         ).to(audio_features.dtype)
 
         return logits, attn
-
-    @torch.no_grad()
-    def generate(
-        self,
-        wav=None,
-        audio_features=None,
-        forced_decoder_locale=None,
-        max_gen_tokens=445,
-        strategy="greedy",
-    ):
-        if wav is None and audio_features is None:
-            raise ValueError(
-                "Either `wav` or `audio_features` argument should be given"
-            )
-        if audio_features is None:
-            audio_features = self.forward_encoder(wav)
-        batch_size = audio_features.shape[0]
-        (
-            startoftranscript_id,
-            transcribe_id,
-            notimestamps_id,
-        ) = self.tokenizer.prefix_tokens
-        pad_id = self.model.config.pad_token_id
-        endoftext_id = self.tokenizer.eos_token_id
-
-        hyps = torch.full(
-            (batch_size, max_gen_tokens + 4),
-            pad_id,
-            dtype=torch.long,
-            device=audio_features.device,
-        )
-        if forced_decoder_locale is None:
-            # Compute most likely language token IDs
-            all_lang_tokens = [
-                f"<|{l}|>" for l in self.tokenizer.supported_languages
-            ]
-            all_lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(
-                all_lang_tokens
-            )
-            hyps[:, 0] = startoftranscript_id
-            logits, _ = self.forward_decoder(audio_features, hyps[:, :1])
-            lang_mask = torch.zeros(
-                logits.shape[-1], device=logits.device, dtype=torch.bool
-            )
-            lang_mask[all_lang_tokens_ids] = True
-            logits[:, :, ~lang_mask] = -float("inf")
-            lang_tokens_ids = logits.argmax(dim=-1)[:, 0]
-        else:
-            if forced_decoder_locale.lower() == "zh-cn":
-                forced_decoder_locale = "zh"
-            if (
-                forced_decoder_locale.lower()
-                not in self.tokenizer.supported_languages
-            ):
-                raise NotImplementedError(
-                    f"Unsupported language: {forced_decoder_locale}"
-                )
-            lang_tokens_ids = self.tokenizer.convert_tokens_to_ids(
-                f"<|{forced_decoder_locale.lower()}|>"
-            )
-
-        # Prepare initial tokens in the right format
-        hyps[:, 0] = startoftranscript_id
-        hyps[:, 1] = lang_tokens_ids
-        hyps[:, 2] = transcribe_id
-        hyps[:, 3] = notimestamps_id
-
-        # Autoregressive loop
-        num_gen_tokens = 0
-        unfinished_mask = torch.ones(
-            len(hyps), dtype=torch.bool, device=audio_features.device
-        )
-        while True:
-            logits, _ = self.forward_decoder(
-                audio_features[unfinished_mask],
-                hyps[unfinished_mask, : num_gen_tokens + 4],
-            )
-            # Prepare suppress mask
-            suppress_mask = torch.ones(
-                logits.shape[-1], device=audio_features.device, dtype=torch.bool
-            )
-            suppress_mask[self.model.config.suppress_tokens] = False
-            logits[:, :, ~suppress_mask] = -float("inf")
-            gen_tokens = logits.argmax(dim=-1)[:, -1]
-            hyps[unfinished_mask, num_gen_tokens + 4] = gen_tokens
-            unfinished_mask[unfinished_mask == True] = (
-                gen_tokens != endoftext_id
-            )
-            num_gen_tokens += 1
-            if (not unfinished_mask.any()) or (
-                num_gen_tokens >= max_gen_tokens
-            ):
-                break
-        return hyps[:, 4 : num_gen_tokens + 3]

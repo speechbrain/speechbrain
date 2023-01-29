@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice in a continual learning fashion via
-learning to prompt. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
+learning fashion via learning to prompt (https://arxiv.org/abs/2112.08654).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -10,12 +10,12 @@ The following technical tricks were implemented to improve performance:
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- compile model with `torch.compile` from PyTorch 2.0 nightly
+- compile model with `torch.compile` from PyTorch 2.0
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_rehearsal.py hparams/<config_file>.yaml
+> python train_l2p.py hparams/train_l2p.yaml
 
 Authors
  * Luca Della Libera 2022
@@ -23,7 +23,6 @@ Authors
 
 import os
 import pathlib
-import random
 import sys
 
 import torch
@@ -147,25 +146,8 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
-
-
-class CustomPaddedBatch(PaddedBatch):
-    def __init__(self, examples, hparams, *args, **kwargs):
-        for k in ["tokens_bos", "tokens_eos", "tokens"]:
-            max_len = max([len(x[k]) for x in examples])
-            pad_value = 0.0
-            if k in ["tokens_bos", "tokens"]:
-                pad_value = hparams["whisper"].tokenizer.pad_token_id
-            elif k == "tokens_eos":
-                pad_value = hparams["ignore_index"]
-            for example in examples:
-                x = example[k]
-                example[k] = torch.nn.functional.pad(
-                    x, [0, max_len - len(x)], value=pad_value
-                )
-        super().__init__(examples, *args, **kwargs)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -261,9 +243,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
     # Test on old + new locales
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
@@ -272,6 +251,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
+                "max_durations": hparams["max_durations"],
             },
         )
 
@@ -287,6 +267,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
+
+        # Define tokenizer
+        tokenizer = hparams["whisper"].tokenizer
 
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
@@ -316,9 +299,6 @@ def train(hparams, run_opts):
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
 
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
         # Multi-gpu (ddp) save data preparation
@@ -327,6 +307,7 @@ def train(hparams, run_opts):
             kwargs={
                 "locales": [locale],
                 "download_dir": hparams["download_dir"],
+                "max_durations": hparams["max_durations"],
             },
         )
 
@@ -351,6 +332,7 @@ def train(hparams, run_opts):
         new_tokens = vocab[1:]
 
         # Add new language token
+        tokenizer = hparams["whisper"].tokenizer
         tokenizer.add_tokens(f"<|{locale.lower()}|>")
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
@@ -370,38 +352,15 @@ def train(hparams, run_opts):
         )
 
         # Log total number of tokens
-        print(f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}")
+        print(
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+        )
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
         # Here we create the datasets objects as well as tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
-
-        # Get train data from previous tasks
-        for old_locale in hparams["old_locales"] + hparams["new_locales"][:i]:
-            run_on_main(
-                prepare_common_voice,
-                kwargs={
-                    "locales": [old_locale],
-                    "download_dir": hparams["download_dir"],
-                },
-            )
-            old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
-            selected_keys = random.sample(
-                list(old_train_data.data.keys()),
-                round(hparams["rehearsal_ratio"] * len(old_train_data)),
-            )
-            old_train_data.data = {
-                k: old_train_data.data[k] for k in selected_keys
-            }
-            train_data.data.update(old_train_data.data)
-
-        # Shuffle all data
-        all_keys = list(train_data.data.keys())
-        random.shuffle(all_keys)
-        train_data.data = {k: train_data.data[k] for k in all_keys}
-        train_data.data_ids = list(train_data.data.keys())
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
@@ -449,7 +408,6 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-    random.seed(hparams["seed"])
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -458,23 +416,31 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Compile with PyTorch 2.0 nightly
+    # Compile with PyTorch 2.0
     if hparams["compile_model"]:
         torch.set_float32_matmul_precision("high")
         hparams["whisper"].model = torch.compile(
             hparams["whisper"].model, mode="max-autotune"
         )
 
-    hparams["train_dataloader_kwargs"][
-        "collate_fn"
-    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
-        examples, hparams, *args, **kwargs
-    )
-    hparams["valid_dataloader_kwargs"][
-        "collate_fn"
-    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
-        examples, hparams, *args, **kwargs
-    )
+    class CustomPaddedBatch(PaddedBatch):
+        def __init__(self, examples, *args, **kwargs):
+            for k in ["tokens_bos", "tokens_eos", "tokens"]:
+                max_len = max([len(x[k]) for x in examples])
+                pad_value = 0.0
+                if k in ["tokens_bos", "tokens"]:
+                    pad_value = hparams["whisper"].tokenizer.pad_token_id
+                elif k == "tokens_eos":
+                    pad_value = hparams["ignore_index"]
+                for example in examples:
+                    x = example[k]
+                    example[k] = torch.nn.functional.pad(
+                        x, [0, max_len - len(x)], value=pad_value
+                    )
+            super().__init__(examples, *args, **kwargs)
+
+    hparams["train_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
+    hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
 
     # Train
     train(hparams, run_opts)

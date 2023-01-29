@@ -17,7 +17,7 @@ output_dir: !ref results/whisper_ewc/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 128  # 4 for whisper-large-v2
+train_batch_size: 128  # 2 for whisper-large-v2
 valid_batch_size: 152  # 12 for whisper-large-v2
 train_num_workers: 6
 valid_num_workers: 6
@@ -61,7 +61,7 @@ valid_dataloader_kwargs:
     num_workers: !ref <valid_num_workers>
 
 # Modules
-whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+whisper: !new:model.ProgressiveWhisper
     source: !ref <whisper_variant>
     save_path: !ref <save_dir>/checkpoint
     sampling_rate: !ref <sample_rate>

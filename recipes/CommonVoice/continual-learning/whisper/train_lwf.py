@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system with Common Voice in a continual learning fashion via
-learning without forgetting. The system employs Whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
+learning fashion via learning without forgetting (https://arxiv.org/abs/1606.09282).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -10,26 +10,27 @@ The following technical tricks were implemented to improve performance:
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- compile model with `torch.compile` from PyTorch 2.0 nightly
+- compile model with `torch.compile` from PyTorch 2.0
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_lwf.py hparams/<config_file>.yaml
+> python train_lwf.py hparams/train_lwf.yaml
 
 Authors
  * Pooneh Mousavi 2022
 """
 
+import copy
 import os
 import pathlib
 import sys
 
 import torch
+import torch.nn.functional as F
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-import copy
-import torch.nn.functional as F
+
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.tokenizers.SentencePiece import SentencePiece
@@ -52,17 +53,20 @@ class ASR(sb.Brain):
             )
         else:
             enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
-        
+
         #  generating soft labels for  new data using old model . It will be used for calculating the lwf loss function.
-        soft_logits=None
+        soft_logits = None
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
                 # for teacher forcing the new added tokens should be replaced with <UNKONW> token
-                old_bos_tokens=bos_tokens.detach().clone()
-                mask= sum(old_bos_tokens.flatten()==i for i in self.masked_tokens).bool()
-                old_bos_tokens.flatten()[mask==True]=self.tokenizer.unk_token_id
+                old_bos_tokens = bos_tokens.detach().clone()
+                mask = sum(
+                    old_bos_tokens.flatten() == i for i in self.masked_tokens
+                ).bool()
+                old_bos_tokens.flatten()[
+                    mask == True
+                ] = self.tokenizer.unk_token_id
                 _, soft_logits, _ = self.old_model(wavs, old_bos_tokens)
-
 
         hyps = None
 
@@ -86,27 +90,27 @@ class ASR(sb.Brain):
         )
         if stage == sb.Stage.TRAIN:
             # Temperature of the new softmax proposed in 'Distillation of Knowledge'
-            T=hparams['lwf_T']
+            T = hparams["lwf_T"]
             # Used to balance the new class loss1 and the old class loss2
             # Loss1 is the cross entropy between output of the new task and label
             # Loss2 is the cross entropy between output of the old task and output of the old model
-            # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax. 
-            outputs_S = F.softmax(logits.flatten(end_dim=-2)[:,:self.old_features]/T,dim=1)        
-            outputs_T = F.softmax(soft_logits.flatten(end_dim=-2)/T,dim=1)
-
+            # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax.
+            outputs_S = F.softmax(
+                logits.flatten(end_dim=-2)[:, : self.old_features] / T, dim=1
+            )
+            outputs_T = F.softmax(soft_logits.flatten(end_dim=-2) / T, dim=1)
 
             # set padded values to zero
-            mask= (tokens_eos.flatten()== hparams["ignore_index"]).bool()
-            outputs_T[mask==True]=0
+            mask = (tokens_eos.flatten() == hparams["ignore_index"]).bool()
+            outputs_T[mask == True] = 0
 
             # Cross entropy between output of the old task and output of the old model
-            loss2 = outputs_T.mul(-1*torch.log(outputs_S))
+            loss2 = outputs_T.mul(-1 * torch.log(outputs_S))
             loss2 = loss2.sum(1)
-            num_tokens= torch.sum((mask == False).int()).item()
-            loss2 = (loss2.sum()/num_tokens)*T*T
-            
-            loss = loss+loss2*hparams['lwf_alpha']
-            
+            num_tokens = torch.sum((mask == False).int()).item()
+            loss2 = (loss2.sum() / num_tokens) * T * T
+
+            loss = loss + loss2 * hparams["lwf_alpha"]
 
         if stage != sb.Stage.TRAIN:
             tokens, _ = batch.tokens
@@ -186,23 +190,6 @@ class ASR(sb.Brain):
                 self.wer_metric.write_stats(w)
 
 
-class CustomPaddedBatch(PaddedBatch):
-    def __init__(self, examples, hparams, *args, **kwargs):
-        for k in ["tokens_bos", "tokens_eos", "tokens"]:
-            max_len = max([len(x[k]) for x in examples])
-            pad_value = 0.0
-            if k in ["tokens_bos", "tokens"]:
-                pad_value = hparams["whisper"].tokenizer.pad_token_id
-            elif k == "tokens_eos":
-                pad_value = hparams["ignore_index"]
-            for example in examples:
-                x = example[k]
-                example[k] = torch.nn.functional.pad(
-                    x, [0, max_len - len(x)], value=pad_value
-                )
-        super().__init__(examples, *args, **kwargs)
-
-
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -278,12 +265,6 @@ def dataio_prepare(hparams, tokenizer):
         tokens_list = tokens_list[: hparams["max_target_length"] - 1]
         tokens_bos = torch.LongTensor([bos_index] + tokens_list)
         yield tokens_bos
-
-        # old_tokens_list = old_tokenizer.encode(wrd)
-        # # old_tokens_list = old_tokens_list[: hparams["max_target_length"] - 1]
-        # old_tokens_bos = torch.LongTensor([bos_index] + old_tokens_list)
-        # yield old_tokens_bos
-
         tokens_eos = torch.LongTensor(tokens_list + [eos_index])
         yield tokens_eos
         # Remove leading special tokens
@@ -295,17 +276,13 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos" ,  "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     return train_data, valid_data, test_data
 
 
-
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
     # Test on old + new locales
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
@@ -330,6 +307,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
+
+        # Define tokenizer
+        tokenizer = hparams["whisper"].tokenizer
 
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
@@ -359,15 +339,10 @@ def train(hparams, run_opts):
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
 
-    # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
-
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
-
-        old_model=copy.deepcopy(hparams["whisper"]).to(run_opts['device'])
-        old_features= old_model.model.decoder.embed_tokens.weight.shape[0]
-
+        old_model = copy.deepcopy(hparams["whisper"]).to(run_opts["device"])
+        old_features = old_model.model.decoder.embed_tokens.weight.shape[0]
 
         # Multi-gpu (ddp) save data preparation
         run_on_main(
@@ -400,6 +375,7 @@ def train(hparams, run_opts):
         new_tokens = vocab[1:]
 
         # Add new language token
+        tokenizer = hparams["whisper"].tokenizer
         tokenizer.add_tokens(f"<|{locale.lower()}|>")
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
@@ -419,7 +395,9 @@ def train(hparams, run_opts):
         )
 
         # Log total number of tokens
-        print(f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}")
+        print(
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+        )
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
@@ -442,12 +420,13 @@ def train(hparams, run_opts):
         # We dynamically add the tokenizer to our brain class
         # NB: This tokenizer corresponds to the one used for Whisper
         asr_brain.tokenizer = tokenizer
-        asr_brain.old_model=old_model
-        asr_brain.old_features=old_features
-        masked_tokens=tokenizer.convert_tokens_to_ids(new_tokens)
-        masked_tokens.append(tokenizer.convert_tokens_to_ids(f"<|{locale.lower()}|>"))
-        asr_brain.masked_tokens= set(masked_tokens)
-   
+        asr_brain.old_model = old_model
+        asr_brain.old_features = old_features
+        masked_tokens = tokenizer.convert_tokens_to_ids(
+            list(new_tokens) + [f"<|{locale.lower()}|>"]
+        )
+        asr_brain.masked_tokens = set(masked_tokens)
+
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
@@ -489,23 +468,31 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Compile with PyTorch 2.0 nightly
+    # Compile with PyTorch 2.0
     if hparams["compile_model"]:
         torch.set_float32_matmul_precision("high")
         hparams["whisper"].model = torch.compile(
             hparams["whisper"].model, mode="max-autotune"
         )
 
-    hparams["train_dataloader_kwargs"][
-        "collate_fn"
-    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
-        examples, hparams, *args, **kwargs
-    )
-    hparams["valid_dataloader_kwargs"][
-        "collate_fn"
-    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
-        examples, hparams, *args, **kwargs
-    )
+    class CustomPaddedBatch(PaddedBatch):
+        def __init__(self, examples, *args, **kwargs):
+            for k in ["tokens_bos", "tokens_eos", "tokens"]:
+                max_len = max([len(x[k]) for x in examples])
+                pad_value = 0.0
+                if k in ["tokens_bos", "tokens"]:
+                    pad_value = hparams["whisper"].tokenizer.pad_token_id
+                elif k == "tokens_eos":
+                    pad_value = hparams["ignore_index"]
+                for example in examples:
+                    x = example[k]
+                    example[k] = torch.nn.functional.pad(
+                        x, [0, max_len - len(x)], value=pad_value
+                    )
+            super().__init__(examples, *args, **kwargs)
+
+    hparams["train_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
+    hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
 
     # Train
     train(hparams, run_opts)

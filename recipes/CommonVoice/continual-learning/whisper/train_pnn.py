@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice
-in a continual learning fashion via progressive neural networks (https://arxiv.org/abs/1612.00796).
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
+learning fashion via progressive neural networks (https://arxiv.org/abs/1612.00796).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -10,7 +10,7 @@ The following technical tricks were implemented to improve performance:
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- compile model with `torch.compile` from PyTorch 2.0 nightly
+- compile model with `torch.compile` from PyTorch 2.0
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
@@ -152,23 +152,6 @@ class ASR(sb.Brain):
                 self.wer_metric.write_stats(w)
 
 
-class CustomPaddedBatch(PaddedBatch):
-    def __init__(self, examples, hparams, *args, **kwargs):
-        for k in ["tokens_bos", "tokens_eos", "tokens"]:
-            max_len = max([len(x[k]) for x in examples])
-            pad_value = 0.0
-            if k in ["tokens_bos", "tokens"]:
-                pad_value = hparams["whisper"].tokenizer.pad_token_id
-            elif k == "tokens_eos":
-                pad_value = hparams["ignore_index"]
-            for example in examples:
-                x = example[k]
-                example[k] = torch.nn.functional.pad(
-                    x, [0, max_len - len(x)], value=pad_value
-                )
-        super().__init__(examples, *args, **kwargs)
-
-
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -288,20 +271,20 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         hparams["forced_decoder_locale"] = locale
 
         # Retrieve corresponding tokenizer
-        tokenizer = hparams["whisper"].tokenizer = hparams[
-            "whisper"
-        ].tokenizer_backup[locale]
+        tokenizer = hparams["whisper"].tokenizer = hparams["tokenizer_backup"][
+            locale
+        ]
 
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
         # Retrieve corresponding embedding layer and decoder layers
         hparams["whisper"].model.decoder.embed_tokens = hparams[
-            "whisper"
-        ].embed_tokens_backup[locale]
+            "embed_tokens_backup"
+        ][locale]
         hparams["whisper"].model.decoder.layers = hparams[
-            "whisper"
-        ].decoder_layers_backup[locale]
+            "decoder_layers_backup"
+        ][locale]
 
         # Trainer initialization
         asr_brain = ASR(
@@ -325,19 +308,17 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 def train(hparams, run_opts):
     # Store embedding layer for each locale
-    hparams["whisper"].embed_tokens_backup = torch.nn.ModuleDict()
-    hparams["whisper"].decoder_layers_backup = torch.nn.ModuleDict()
-    hparams["whisper"].tokenizer_backup = {}
+    hparams["embed_tokens_backup"] = {}
+    hparams["decoder_layers_backup"] = {}
+    hparams["tokenizer_backup"] = {}
     for locale in hparams["old_locales"]:
-        hparams["whisper"].embed_tokens_backup[locale] = hparams[
+        hparams["embed_tokens_backup"][locale] = hparams[
             "whisper"
         ].model.decoder.embed_tokens
-        hparams["whisper"].decoder_layers_backup[locale] = hparams[
+        hparams["decoder_layers_backup"][locale] = hparams[
             "whisper"
         ].model.decoder.layers
-        hparams["whisper"].tokenizer_backup[locale] = hparams[
-            "whisper"
-        ].tokenizer
+        hparams["tokenizer_backup"][locale] = hparams["whisper"].tokenizer
 
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
@@ -403,10 +384,10 @@ def train(hparams, run_opts):
             + len(new_tokens)
             + 1
         )
-        hparams["whisper"].embed_tokens_backup[locale] = hparams[
+        hparams["embed_tokens_backup"][locale] = hparams[
             "whisper"
         ].model.decoder.embed_tokens
-        hparams["whisper"].tokenizer_backup[locale] = tokenizer
+        hparams["tokenizer_backup"][locale] = tokenizer
 
         # Add new decoding layers
         hparams["whisper"].model.decoder.layers = copy.deepcopy(
@@ -416,7 +397,7 @@ def train(hparams, run_opts):
             WhisperDecoderLayer(hparams["whisper"].model.config)
             for _ in range(hparams["num_new_decoder_layers"])
         ]
-        hparams["whisper"].decoder_layers_backup[locale] = hparams[
+        hparams["decoder_layers_backup"][locale] = hparams[
             "whisper"
         ].model.decoder.layers
 
@@ -489,23 +470,31 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Compile with PyTorch 2.0 nightly
+    # Compile with PyTorch 2.0
     if hparams["compile_model"]:
         torch.set_float32_matmul_precision("high")
         hparams["whisper"].model = torch.compile(
             hparams["whisper"].model, mode="max-autotune"
         )
 
-    hparams["train_dataloader_kwargs"][
-        "collate_fn"
-    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
-        examples, hparams, *args, **kwargs
-    )
-    hparams["valid_dataloader_kwargs"][
-        "collate_fn"
-    ] = lambda examples, *args, **kwargs: CustomPaddedBatch(
-        examples, hparams, *args, **kwargs
-    )
+    class CustomPaddedBatch(PaddedBatch):
+        def __init__(self, examples, *args, **kwargs):
+            for k in ["tokens_bos", "tokens_eos", "tokens"]:
+                max_len = max([len(x[k]) for x in examples])
+                pad_value = 0.0
+                if k in ["tokens_bos", "tokens"]:
+                    pad_value = hparams["whisper"].tokenizer.pad_token_id
+                elif k == "tokens_eos":
+                    pad_value = hparams["ignore_index"]
+                for example in examples:
+                    x = example[k]
+                    example[k] = torch.nn.functional.pad(
+                        x, [0, max_len - len(x)], value=pad_value
+                    )
+            super().__init__(examples, *args, **kwargs)
+
+    hparams["train_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
+    hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
 
     # Train
     train(hparams, run_opts)

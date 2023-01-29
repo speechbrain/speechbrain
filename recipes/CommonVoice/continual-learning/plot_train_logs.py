@@ -342,11 +342,20 @@ def plot_cl_metrics(
         os.path.join(output_dir, f"{model}_metrics.csv"), "w", encoding="utf-8"
     ) as f:
         csv_writer = csv.writer(f)
-        csv_writer.writerow(["name", "metric", "base"] + list(new_locales))
-        for name, avg_A, avg_F in zip(all_wers.keys(), avg_As, avg_As):
-            csv_writer.writerow([name, "avg WER"] + avg_A.tolist())
+        csv_writer.writerow(
+            ["name", "metric", "base"] + list(new_locales) + ["avg"]
+        )
+        for name, avg_A, avg_F in zip(all_wers.keys(), avg_As, avg_Fs):
             csv_writer.writerow(
-                [name, "avg forgetting"] + [float("NaN")] + avg_F.tolist()
+                [name, "avg WER"]
+                + avg_A.tolist()
+                + [round(np.nanmean(avg_A), 2)]
+            )
+            csv_writer.writerow(
+                [name, "avg forgetting"]
+                + [float("NaN")]
+                + avg_F.tolist()
+                + [round(np.nanmean(avg_F), 2)]
             )
 
     # Plot performance metrics with Matplotlib

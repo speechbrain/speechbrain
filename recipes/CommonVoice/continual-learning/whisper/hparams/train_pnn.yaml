@@ -61,7 +61,7 @@ valid_dataloader_kwargs:
     num_workers: !ref <valid_num_workers>
 
 # Modules
-whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+whisper: !new:model.ProgressiveWhisper
     source: !ref <whisper_variant>
     save_path: !ref <save_dir>/checkpoint
     sampling_rate: !ref <sample_rate>
