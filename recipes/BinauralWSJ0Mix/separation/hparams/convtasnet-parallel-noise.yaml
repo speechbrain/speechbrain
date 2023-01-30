@@ -23,7 +23,7 @@ data_modes: ['min'] # or if you want the whole dataset ['min', 'max']
 base_folder_dm: !ref <wsj_root>/wsj0/si_tr_s/
 
 # the path for binaural-wsj0mix datasets generation automatically
-datasets_generation: !ref <data_folder>/Binaural-WSJ0Mix-main
+datasets_generation: !ref <data_folder>/BinauralWSJ0Mix-main
 hrtf_wav_path: !ref <datasets_generation>/CIPIC_hrtf_database/wav_database/
 
 experiment_name: convtasnet-parallel-noise
