@@ -73,7 +73,7 @@ class ASR(sb.Brain):
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
 
-        if hasattr(self.hparams, "all_ewc_params"):
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "all_ewc_params"):
             for name, param in self.modules.whisper.named_parameters():
                 if not param.requires_grad:
                     continue
@@ -87,9 +87,9 @@ class ASR(sb.Brain):
                             fisher[name], [0, 0, 0, diff]
                         )
                     loss += (
-                        fisher[name].to(self.device)
-                        * (old_param[name].to(self.device) - param) ** 2
-                    ).sum() * self.hparams.ewc_lambda
+                        fisher[name]
+                        * (old_param[name] - param.to(fisher[name].device)) ** 2
+                    ).sum().to(self.device) * self.hparams.ewc_lambda
 
         if stage != sb.Stage.TRAIN:
             tokens, _ = batch.tokens
@@ -177,7 +177,7 @@ class EWCParamsComputer(ASR):
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
         with self.no_sync(False):
-            (loss / self.grad_accumulation_factor).backward()
+            loss.backward()
         self.on_fit_batch_end(batch, outputs, loss, True)
         return loss.detach().cpu()
 
