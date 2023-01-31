@@ -47,6 +47,7 @@ def fetch(
     revision=None,
     cache_dir: Union[str, pathlib.Path, None] = None,
     fetch_from: Union[FetchFrom, None] = None,
+    silent_local_fetch: bool = False,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -90,6 +91,8 @@ def fetch(
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
     fetch_from: FetchFrom (default: None)
         Restriction to interpreting source - benefit: no online search if source is known to be local (path mis/match).
+    silent_local_fetch: bool (default: False)
+        Surpress logging messages (quiet mode).
 
     Returns
     -------
@@ -113,7 +116,8 @@ def fetch(
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
         MSG = f"Destination {filename}: local file in {str(sourcepath)}."
-        logger.info(MSG)
+        if not silent_local_fetch:
+            logger.info(MSG)
         return sourcepath
     destination = savedir / save_filename
     if destination.exists() and not overwrite:

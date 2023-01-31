@@ -18,10 +18,15 @@ from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained import EncoderDecoderASR
 from speechbrain.pretrained.fetching import FetchFrom
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, ddp_barrier
 from speechbrain.utils.data_utils import batch_pad_right
+from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.sampler import DynamicBatchSampler
-from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
+from speechbrain.dataio.dataloader import (
+    LoopedLoader,
+    make_dataloader,
+    distributed_loader_specifics,
+)
 from speechbrain.dataio.dataio import (
     read_audio,
     # read_audio_multichannel,
@@ -32,21 +37,37 @@ from ASR_template_train import ASR, dataio_prepare
 logger = logging.getLogger(__name__)
 
 
-def eval_reporting(reports):
+def eval_reporting(reports, single_node=False):
     """Performance logging independent of who logs what.
 
     Parameters
     ----------
     reports: dict
         Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
+    single_node: bool
+        Flag for whether/not DDP-gather results (Default: False).
     """
     for log_metric, specs in reports.items():
-        logger.info(
-            f'{log_metric}: {specs["tracker"].summarize(specs["field"])}'
-        )
+        if not single_node:
+            print(
+                f'{log_metric} on DDP rank {int(os.environ["RANK"])}: {specs["tracker"].summarize()}'
+            )
+            result_list = [None for _ in range(int(os.environ["WORLD_SIZE"]))]
+            # WARNING: https://pytorch.org/docs/stable/distributed.html - underlying `pickle` module is known to be insecure
+            torch.distributed.all_gather_object(
+                result_list, specs["tracker"].scores
+            )
+            specs["tracker"].scores = list()
+            for r in result_list:
+                specs["tracker"].scores.extend(r)
+        summary = specs["tracker"].summarize()
+        print(f"\tSummary: {summary}")
+        logger.info(f'{log_metric}: {summary[specs["field"]]}\n')
 
 
-def eval_test_use_recipe_dataio(encoder_decoder_asr, test_set):
+def eval_test_use_recipe_dataio(
+    encoder_decoder_asr, test_set, test_kwargs, reporter, single_node=False
+):
     """Bypassing speechbrain.pretrained.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
 
     Parameters
@@ -55,13 +76,19 @@ def eval_test_use_recipe_dataio(encoder_decoder_asr, test_set):
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: dict
         Data loader options for testing.
+    test_kwargs: dict
+        Data loader options for testing.
+    reporter: dict
+        Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
+    single_node: bool
+        Flag for whether/not DDP-gather results (Default: False).
     """
+    if "ckpt_prefix" in test_kwargs:
+        del test_kwargs["ckpt_prefix"]
     if not (
         isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)
     ):
-        if "ckpt_prefix" in test_loader_kwargs:
-            del test_loader_kwargs["ckpt_prefix"]
-        test_set = make_dataloader(test_set, **test_loader_kwargs)
+        test_set = make_dataloader(test_set, **test_kwargs)
 
     with torch.no_grad():
         for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
@@ -72,56 +99,74 @@ def eval_test_use_recipe_dataio(encoder_decoder_asr, test_set):
             predicted = [wrd.split(" ") for wrd in predictions[0]]
             targeted = [wrd.split(" ") for wrd in batch.words]
             ids = batch.id
-            for metric in reporting.keys():
-                reporting[metric]["tracker"].append(
+            for metric in reporter.keys():
+                reporter[metric]["tracker"].append(
                     ids=ids, predict=predicted, target=targeted
                 )
 
         # Report summary
-        eval_reporting(reports=reporting)
+        eval_reporting(reports=reporter, single_node=single_node)
 
 
-def eval_test_batch_from_scratch(encoder_decoder_asr, test_set):
+def eval_test_batch_from_scratch(
+    encoder_decoder_asr,
+    test_set,
+    test_kwargs,
+    reporter,
+    pretrainer_load_audio=False,
+):
     """Relies only on batched audio paths to create batches using the pretrained interface only.
 
     Parameters
     ----------
     encoder_decoder_asr: speechbrain.pretrained.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
-    test_set: dict
+    test_set: Dataset, DataLoader
+        If a DataLoader is given, it is iterated directly. Otherwise passed to `sb.dataio.dataloader.make_dataloader()`.
+    test_kwargs: dict
         Data loader options for testing.
+    reporter: dict
+        Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
+    pretrainer_load_audio: bool (Default: False)
+        Whether to use Pretrainer.load_audio (True) or dataio.read_audio (False).
     """
+    if "ckpt_prefix" in test_kwargs:
+        del test_kwargs["ckpt_prefix"]
     if not (
         isinstance(test_set, DataLoader) or isinstance(test_set, LoopedLoader)
     ):
-        if "ckpt_prefix" in test_loader_kwargs:
-            del test_loader_kwargs["ckpt_prefix"]
-        test_set = make_dataloader(test_set, **test_loader_kwargs)
+        test_set = make_dataloader(test_set, **test_kwargs)
 
     with torch.no_grad():
         for batch in tqdm(test_set, dynamic_ncols=True, disable=False):
             # instead of using batch.sig, we desire to see pretrained_hf_asr.load_audio in action
             wavs = []
-            for audio_path in batch.wavs:  # get the paths only
-                wavs.append(encoder_decoder_asr.load_audio(path=audio_path))
-                loaded = read_audio(audio_path)
-                wavs.append(loaded)
+            for audio_path in batch.wav:  # get the paths only
+                if pretrainer_load_audio:
+                    wavs.append(
+                        encoder_decoder_asr.load_audio(
+                            path=audio_path, silent_local_fetch=True
+                        )
+                    )
+                else:
+                    wavs.append(
+                        read_audio(audio_path).to(encoder_decoder_asr.device)
+                    )
             wavs, wav_lens = batch_pad_right(wavs)
-            wav_lens = wav_lens.to(encoder_decoder_asr.device)
-            enc = encoder_decoder_asr.encode_batch(wavs, wav_lens)
-            predictions = encoder_decoder_asr.mods.decoder(enc, wav_lens)
+            predictions = encoder_decoder_asr(wavs, wav_lens)
 
             # prepare for metric reporting
             predicted = [wrd.split(" ") for wrd in predictions[0]]
             targeted = [wrd.split(" ") for wrd in batch.words]
             ids = batch.id
-            for metric in reporting.keys():
-                reporting[metric]["tracker"].append(
+            for metric in reporter.keys():
+                reporter[metric]["tracker"].append(
                     ids=ids, predict=predicted, target=targeted
                 )
 
         # Report summary
-        eval_reporting(reports=reporting)
+        ddp_barrier()
+        eval_reporting(reports=reporter)
 
 
 if __name__ == "__main__":
@@ -133,6 +178,22 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    # Kept aside for later
+    reporting = {
+        "WER": {
+            "field": "error_rate",
+            "tracker": deepcopy(
+                hparams["error_rate_computer"]()
+            ),  # n_jobs=int(os.environ['WORLD_SIZE']))),
+        },
+        "CER": {
+            "field": "error_rate",
+            "tracker": deepcopy(
+                hparams["cer_computer"]()
+            ),  # n_jobs=int(os.environ['WORLD_SIZE']))),
+        },
+    }
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -203,6 +264,8 @@ if __name__ == "__main__":
     asr_brain.hparams.test_search = asr_brain.hparams.test_search.to(
         asr_brain.device
     )
+    asr_brain.cer_metric = deepcopy(reporting["CER"]["tracker"])
+    asr_brain.wer_metric = deepcopy(reporting["WER"]["tracker"])
 
     # Freeze all but LM
     for mod in [
@@ -230,24 +293,15 @@ if __name__ == "__main__":
 
     # Save, so it can be found as pre-trained model source
     if not os.path.exists(f"{hparams['save_folder']}/CKPT+latest"):
+        ddp_barrier()  # just to be sure
         run_on_main(
             asr_brain.checkpointer.save_checkpoint, kwargs={"name": "latest"}
         )
 
     # Clean-up memory (for using EncoderDecoderASR interface only) but preserve testing-relevant objects
     test_datasets = deepcopy(datasets["test"])
-    reporting = {
-        "WER": {
-            "field": "error_rate",
-            "tracker": deepcopy(hparams["error_rate_computer"]()),
-        },
-        "CER": {
-            "field": "error_rate",
-            "tracker": deepcopy(hparams["cer_computer"]()),
-        },
-    }
     test_loader_kwargs = deepcopy(hparams["test_dataloader_opts"])
-    del asr_brain, hparams, datasets
+    del asr_brain, datasets
 
     # Pre-trained interface
     pretrained_asr = EncoderDecoderASR.from_hparams(
@@ -258,43 +312,38 @@ if __name__ == "__main__":
         run_opts=deepcopy(run_opts),
     )
 
-    # Re:testing w/ previous dataloader
+    # Test w/ DDP
+    ddp_test_set = DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[],
+        output_keys=["id", "wav", "words"],
+    )
+    ddp_test_kwargs = distributed_loader_specifics(
+        distributed_launch=True,
+        rank=int(os.environ["RANK"]),
+        dataset=ddp_test_set,
+        loader_kwargs=deepcopy(test_loader_kwargs),
+    )
+    for flag in [True, False]:
+        logger.info(f"\nBatch from scratch w/ pretrainer_load_audio={flag}")
+        eval_test_batch_from_scratch(
+            encoder_decoder_asr=pretrained_asr,
+            test_set=deepcopy(ddp_test_set),
+            test_kwargs=deepcopy(ddp_test_kwargs),
+            reporter=deepcopy(reporting),
+            pretrainer_load_audio=flag,
+        )
+
+    # Re:testing w/ previous dataloader // note: needs to run as last item (the script might get stuck otherwise)
+    logger.info(f"\nTesting w/ asr_brain's eval dataloader")
     run_on_main(
         eval_test_use_recipe_dataio,
         kwargs={
             "encoder_decoder_asr": pretrained_asr,
             "test_set": deepcopy(test_datasets),
+            "test_kwargs": deepcopy(test_loader_kwargs),
+            "reporter": deepcopy(reporting),
+            "single_node": True,
         },
-    )
-
-    # Test w/ DDP
-    run_on_main(
-        eval_test_batch_from_scratch,
-        kwargs={
-            "encoder_decoder_asr": pretrained_asr,
-            "test_set": deepcopy(test_datasets),
-        },
-    )
-
-    # Test on both nodes w/ pretrained HF model; ensure first it's fetched
-    repo = "speechbrain/asr-crdnn-rnnlm-librispeech"
-    run_on_main(
-        EncoderDecoderASR.from_hparams,
-        kwargs={
-            "source": repo,  # to default save_dir: pretrained_models/...
-            "fetch_from": FetchFrom.HUGGING_FACE,  # needs to be here only bc speechbrain/asr-crdnn-rnnlm-librispeech exists
-            "download_only": True,
-        },
-    )
-
-    # Instantiate pretrained HF model
-    pretrained_hf_asr = EncoderDecoderASR.from_hparams(
-        source=repo,
-        fetch_from=FetchFrom.HUGGING_FACE,
-        run_opts=deepcopy(run_opts),
-    )
-
-    # From HF model card
-    pretrained_hf_asr.transcribe_file(
-        "speechbrain/asr-crdnn-rnnlm-librispeech/example.wav"
     )

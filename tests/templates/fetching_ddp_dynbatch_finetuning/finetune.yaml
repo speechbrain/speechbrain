@@ -54,6 +54,7 @@ valid_dataloader_opts:
 
 test_dataloader_opts:
     batch_size: !ref <batch_size>
+    # batch_size: 1  # to ensure metrics w/o padding (or alike) impacts
     num_workers: !ref <num_workers>
 
 # Using Dynamic Batching to optimise your GPU utilization and decrease your training time.

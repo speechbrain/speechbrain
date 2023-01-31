@@ -279,6 +279,7 @@ class Pretrained(torch.nn.Module):
                 "revision",
                 "cache_dir",
                 "fetch_from",
+                "silent_local_fetch",
             ]:
                 if key in kwargs:
                     fetch_kwargs[key] = kwargs.pop(key)
