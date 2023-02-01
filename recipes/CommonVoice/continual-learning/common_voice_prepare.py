@@ -103,11 +103,10 @@ def prepare_common_voice(
         )
 
     for locale in locales:
-        _LOGGER.log(
-            logging.INFO,
+        _LOGGER.info(
             "----------------------------------------------------------------------",
         )
-        _LOGGER.log(logging.INFO, f"Locale: {locale}")
+        _LOGGER.info(f"Locale: {locale}")
         locale_dir = os.path.join(download_dir, locale)
         if not os.path.isdir(locale_dir):
             try:
@@ -117,13 +116,12 @@ def prepare_common_voice(
                     shutil.rmtree(download_dir)
                 raise
         else:
-            _LOGGER.log(logging.INFO, "Data already downloaded")
+            _LOGGER.info("Data already downloaded")
 
-    _LOGGER.log(
-        logging.INFO,
+    _LOGGER.info(
         "----------------------------------------------------------------------",
     )
-    _LOGGER.log(logging.INFO, f"Merging TSV files...")
+    _LOGGER.info(f"Merging TSV files...")
     for split, max_duration in zip(_SPLITS, max_durations):
         merge_tsv_files(
             [
@@ -134,11 +132,10 @@ def prepare_common_voice(
             max_duration,
         )
 
-    _LOGGER.log(
-        logging.INFO,
+    _LOGGER.info(
         "----------------------------------------------------------------------",
     )
-    _LOGGER.log(logging.INFO, f"Creating data manifest CSV files...")
+    _LOGGER.info(f"Creating data manifest CSV files...")
     for split in _SPLITS:
         preprocess_tsv_file(
             os.path.join(download_dir, f"{split}.tsv"),
@@ -174,7 +171,7 @@ def download_locale(
     archive = os.path.join(download_dir, "tmp.tar.gz")
     url = _URL_TEMPLATE.replace("$version", version).replace("$locale", locale)
     try:
-        _LOGGER.log(logging.INFO, "Downloading data...")
+        _LOGGER.info("Downloading data...")
         with requests.get(url, stream=True) as response:
             total_size = int(response.headers.get("content-length", 0))
             chunk_size = 1024 * 1024
@@ -184,9 +181,9 @@ def download_locale(
                     progress_bar.update(len(data))
                     f.write(data)
                 progress_bar.close()
-        _LOGGER.log(logging.INFO, "Done!")
+        _LOGGER.info("Done!")
 
-        _LOGGER.log(logging.INFO, "Extracting data...")
+        _LOGGER.info("Extracting data...")
         with tarfile.open(archive) as tar:
             for member in tar.getmembers():
                 name = os.path.basename(member.name)
@@ -197,9 +194,9 @@ def download_locale(
                     member.name = os.path.join(download_dir, name)
                     tar.extract(member)
         os.remove(archive)
-        _LOGGER.log(logging.INFO, "Done!")
+        _LOGGER.info("Done!")
 
-        _LOGGER.log(logging.INFO, "Computing clip durations...")
+        _LOGGER.info("Computing clip durations...")
         for split in _SPLITS:
             input_tsv_file = os.path.join(download_dir, f"{split}.tsv")
             output_tsv_file = os.path.join(download_dir, f"tmp.tsv")
@@ -227,7 +224,7 @@ def download_locale(
 
                     tsv_writer.writerow(row + [duration])
             shutil.move(output_tsv_file, input_tsv_file)
-        _LOGGER.log(logging.INFO, "Done!")
+        _LOGGER.info("Done!")
 
     except Exception:
         shutil.rmtree(download_dir)
@@ -270,7 +267,7 @@ def merge_tsv_files(
     """
     if max_duration is None:
         max_duration = float("inf")
-    _LOGGER.log(logging.INFO, f"Writing output TSV file ({output_tsv_file})...")
+    _LOGGER.info(f"Writing output TSV file ({output_tsv_file})...")
     os.makedirs(os.path.dirname(output_tsv_file), exist_ok=True)
     with open(output_tsv_file, "w", encoding="utf-8") as fw:
         tsv_writer = csv.writer(
@@ -278,9 +275,7 @@ def merge_tsv_files(
         )
         write_header = True
         for input_tsv_file in input_tsv_files:
-            _LOGGER.log(
-                logging.INFO, f"Reading input TSV file ({input_tsv_file})..."
-            )
+            _LOGGER.info(f"Reading input TSV file ({input_tsv_file})...")
             with open(input_tsv_file, encoding="utf-8") as fr:
                 tsv_reader = csv.reader(fr, delimiter="\t")
                 header = next(tsv_reader)
@@ -316,12 +311,10 @@ def merge_tsv_files(
                 duration += float(row[10])
                 num_added_rows += 1
                 tsv_writer.writerow(row)
-            _LOGGER.log(
-                logging.INFO, f"Total duration (s): {duration}",
-            )
-            _LOGGER.log(logging.INFO, f"Added {num_added_rows} rows")
+            _LOGGER.info(f"Total duration (s): {duration}",)
+            _LOGGER.info(f"Added {num_added_rows} rows")
 
-    _LOGGER.log(logging.INFO, "Done!")
+    _LOGGER.info("Done!")
 
 
 # Adapted from:
@@ -345,8 +338,8 @@ def preprocess_tsv_file(
 
     """
     # Header: client_id path sentence up_votes down_votes age gender accents locale segment duration
-    _LOGGER.log(logging.INFO, f"Reading input TSV file ({input_tsv_file})...")
-    _LOGGER.log(logging.INFO, f"Writing output CSV file ({output_csv_file})...")
+    _LOGGER.info(f"Reading input TSV file ({input_tsv_file})...")
+    _LOGGER.info(f"Writing output CSV file ({output_csv_file})...")
     os.makedirs(os.path.dirname(output_csv_file), exist_ok=True)
     num_clips, total_duration = 0, 0.0
     with open(input_tsv_file, encoding="utf-8") as fr, open(
@@ -384,8 +377,7 @@ def preprocess_tsv_file(
 
             # Remove empty sentences
             if len(wrd) < 1:
-                _LOGGER.log(
-                    logging.DEBUG,
+                _LOGGER.debug(
                     f"Sentence for row {i + 1} is too short, removing...",
                 )
                 continue
@@ -398,7 +390,7 @@ def preprocess_tsv_file(
         fw.write(f"Number of samples: {num_clips}\n")
         fw.write(f"Total duration in seconds: {total_duration}")
 
-    _LOGGER.log(logging.INFO, "Done!")
+    _LOGGER.info("Done!")
 
 
 if __name__ == "__main__":

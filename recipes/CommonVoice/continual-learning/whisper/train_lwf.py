@@ -22,6 +22,7 @@ Authors
 """
 
 import copy
+import logging
 import os
 import pathlib
 import sys
@@ -392,7 +393,7 @@ def train(hparams, run_opts):
         hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
 
         # Log total number of tokens
-        print(
+        logging.info(
             f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
         )
 

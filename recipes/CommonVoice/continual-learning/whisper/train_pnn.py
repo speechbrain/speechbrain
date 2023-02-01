@@ -22,6 +22,7 @@ Authors
 """
 
 import copy
+import logging
 import os
 import pathlib
 import sys
@@ -307,7 +308,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Store embedding layer for each locale
+    # Store embedding layer, decoder layers and tokenizer for each locale
     hparams["embed_tokens_backup"] = {}
     hparams["decoder_layers_backup"] = {}
     hparams["tokenizer_backup"] = {}
@@ -356,9 +357,11 @@ def train(hparams, run_opts):
         # Remove "<unk>" token
         new_tokens = vocab[1:]
 
-        ## Add new language token
+        # Add new language token
         new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
-        tokenizer = hparams["whisper"].tokenizer
+        tokenizer = hparams["whisper"].tokenizer = copy.deepcopy(
+            hparams["whisper"].tokenizer
+        )
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -399,7 +402,7 @@ def train(hparams, run_opts):
         hparams["whisper"].model.decoder.embed_tokens.weight.requires_grad_()
 
         # Log total number of tokens
-        print(
+        logging.info(
             f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
         )
 
