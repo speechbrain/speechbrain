@@ -96,6 +96,35 @@ class SLU(sb.core.Brain):
             self.ctc_metric.append(ids, p_ctc, chars, wav_lens, char_lens)
 
         return loss
+    
+    def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
+
+        stage = sb.Stage.TRAIN
+
+        # Train.
+        predictions = self.compute_forward(batch, stage)
+        loss = self.compute_objectives(predictions, batch, stage)
+
+        # Propagate loss.
+        loss.backward()
+        if self.check_gradients(loss):
+            self.optimizer_wav2vec.step()
+            self.optimizer.step()
+        self.optimizer_wav2vec.zero_grad()
+        self.optimizer.zero_grad()
+
+        return loss.detach()
+
+    def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
+
+        # Evaluate.
+        predictions = self.compute_forward(batch, stage=stage)
+        with torch.no_grad():
+            loss = self.compute_objectives(predictions, batch, stage)
+
+        return loss.detach()
 
     def init_optimizers(self):
         """Initializes the wav2vec2 optimizer and model optimizer"""
