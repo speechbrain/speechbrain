@@ -343,7 +343,7 @@ def train(hparams, run_opts):
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
         old_model = copy.deepcopy(hparams["whisper"]).to(run_opts["device"])
-        num_old_embeddings = old_model.model.decoder.num_embeddings
+        num_old_embeddings = old_model.model.decoder.embed_tokens.num_embeddings
 
         # Multi-gpu (ddp) save data preparation
         run_on_main(
