@@ -96,7 +96,8 @@ class ASR(sb.Brain):
             # Loss2 is the cross entropy between output of the old task and output of the old model
             # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax.
             outputs_S = F.softmax(
-                logits.flatten(end_dim=-2)[:, : self.old_features] / T, dim=1
+                logits.flatten(end_dim=-2)[:, : self.num_old_embeddings] / T,
+                dim=1,
             )
             outputs_T = F.softmax(soft_logits.flatten(end_dim=-2) / T, dim=1)
 
@@ -342,7 +343,7 @@ def train(hparams, run_opts):
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
         old_model = copy.deepcopy(hparams["whisper"]).to(run_opts["device"])
-        old_features = old_model.model.decoder.embed_tokens.weight.shape[0]
+        num_old_embeddings = old_model.model.decoder.num_embeddings
 
         # Multi-gpu (ddp) save data preparation
         run_on_main(
@@ -375,8 +376,8 @@ def train(hparams, run_opts):
         new_tokens = vocab[1:]
 
         # Add new language token
+        new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
         tokenizer = hparams["whisper"].tokenizer
-        tokenizer.add_tokens(f"<|{locale.lower()}|>")
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -388,15 +389,11 @@ def train(hparams, run_opts):
         tokenizer.add_tokens(list(new_tokens))
 
         # Add new random embeddings to Whisper for the new tokens
-        hparams["whisper"].model.resize_token_embeddings(
-            hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
-            + len(new_tokens)
-            + 1
-        )
+        hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
 
         # Log total number of tokens
         print(
-            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
         )
 
         # Set forced decoder locale
@@ -421,7 +418,7 @@ def train(hparams, run_opts):
         # NB: This tokenizer corresponds to the one used for Whisper
         asr_brain.tokenizer = tokenizer
         asr_brain.old_model = old_model
-        asr_brain.old_features = old_features
+        asr_brain.num_old_embeddings = num_old_embeddings
         masked_tokens = tokenizer.convert_tokens_to_ids(
             list(new_tokens) + [f"<|{locale.lower()}|>"]
         )

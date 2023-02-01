@@ -332,8 +332,8 @@ def train(hparams, run_opts):
         new_tokens = vocab[1:]
 
         # Add new language token
+        new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
         tokenizer = hparams["whisper"].tokenizer
-        tokenizer.add_tokens(f"<|{locale.lower()}|>")
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -345,15 +345,11 @@ def train(hparams, run_opts):
         tokenizer.add_tokens(list(new_tokens))
 
         # Add new random embeddings to Whisper for the new tokens
-        hparams["whisper"].model.resize_token_embeddings(
-            hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
-            + len(new_tokens)
-            + 1
-        )
+        hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
 
         # Log total number of tokens
         print(
-            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.weight.shape[0]}"
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
         )
 
         # Set forced decoder locale

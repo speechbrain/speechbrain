@@ -89,6 +89,18 @@ class ProgressiveWhisper(HuggingFaceWhisper):
                 task="transcribe",
                 predict_timestamps=False,
             )
+            # The number of embeddings is 51865 while the vocabulary size is 50364
+            # The missing tokens are timestamp tokens (see https://github.com/openai/whisper/discussions/361)
+            # To avoid problems when extending the tokenizer and/or the model we add them explicitly
+            vocab_size = len(self.tokenizer.get_vocab())
+            num_embeddings = self.model.decoder.embed_tokens.num_embeddings
+            num_missing_tokens = num_embeddings - vocab_size
+            timestamps = [
+                i * 30.0 / (num_missing_tokens - 1)
+                for i in range(num_missing_tokens)
+            ]
+            timestamp_tokens = [f"<|{ts:.2f}|>" for ts in timestamps]
+            self.tokenizer.add_tokens(timestamp_tokens)
 
     @torch.no_grad()
     def generate(

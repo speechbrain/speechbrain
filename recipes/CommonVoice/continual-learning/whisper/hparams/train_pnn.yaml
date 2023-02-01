@@ -17,8 +17,8 @@ output_dir: !ref results/whisper_pnn/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 128  # 96 for whisper-base, 6 for whisper-large-v2
-valid_batch_size: 152  # 128 for whisper-base, 12 for whisper-large-v2
+train_batch_size: 128  # 96 for whisper-base, 2 for whisper-large-v2
+valid_batch_size: 152  # 128 for whisper-base, 6 for whisper-large-v2
 train_num_workers: 6
 valid_num_workers: 6
 
