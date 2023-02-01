@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
-learning fashion via learning to prompt (https://arxiv.org/abs/2112.08654).
+learning fashion via learning to prompt (https://arxiv.org/abs/1612.00796).
+
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,10 +16,10 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_l2p.py hparams/train_l2p.yaml
+> python train_ft.py hparams/train_ft.yaml
 
 Authors
- * Luca Della Libera 2022
+ * Pooneh Mousavi 2022
 """
 
 import os
@@ -49,8 +50,14 @@ class ASR(sb.Brain):
             enc_out, logits, _ = torch.utils.checkpoint.checkpoint(
                 self.modules.whisper, wavs, bos_tokens, use_reentrant=False
             )
+            # TODO: repeat the same thing here
         else:
-            enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+            # enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+            enc_out = self.modules.whisper.forward_encoder(wavs)
+            prompt_out= self.modules.prompt(enc_out, prompt_mask=None)
+            prompted_enc_embedding,prompted_decoder_embedding= self.compute_prompted_input(audio_features=enc_out, decoder_input_ids=bos_tokens,prompt_out=prompt_out)
+            logits, attn = self.modules.whisper.forward_decoder(prompted_enc_embedding, prompted_decoder_embedding)
+            
 
         hyps = None
         if stage != sb.Stage.TRAIN:
@@ -60,17 +67,42 @@ class ASR(sb.Brain):
                 max_gen_tokens=self.hparams.max_gen_tokens,
             )
 
-        return logits, hyps
+        return logits, hyps,prompt_out
+
+    def compute_prompted_input(self,audio_features, decoder_input_ids,prompt_out):
+
+        if self.hparams.prompt_loc_mode == 'enc' or self.hparams.prompt_loc_mode == 'both':
+           batched_prompt= prompt_out['batched_prompt']
+           audio_features = torch.cat([batched_prompt, audio_features], dim=1)
+        if self.hparams.prompt_loc_mode == 'dec' or self.hparams.prompt_loc_mode == 'both':
+            prompted_decoder_input_ids=torch.zeros(decoder_input_ids.shape[0], decoder_input_ids.shape[1]+prompt_out['total_prompt_len'],dtype =torch.long).to(self.device)
+            for id in range(prompt_out['prompt_idx'].shape[0]):
+                prompts_tokens=[f"<|prompt{i}-{j}|>"  for i in range(prompt_out['prompt_idx'].shape[1]) for j in  range(hparams['prompt'].length)]
+                prompts_ids=self.tokenizer.convert_tokens_to_ids(prompts_tokens)
+                dec_list= decoder_input_ids[id,:].tolist()
+                prompted_decoder_input_ids[id]=torch.LongTensor(dec_list[:4]+ prompts_ids + dec_list[4:])
+            decoder_input_ids= prompted_decoder_input_ids
+
+        return audio_features,decoder_input_ids
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        logits, hyps = predictions
+        prompted_logits, hyps, prompt_out = predictions
         ids = batch.id
         tokens_eos, _ = batch.tokens_eos
+        if self.hparams.prompt_loc_mode == 'dec' or  self.hparams.prompt_loc_mode == 'both':
+            splits=torch.split(prompted_logits,[4,prompt_out['total_prompt_len'],prompted_logits.shape[1]-prompt_out['total_prompt_len']-4],dim=1)
+            logits=torch.cat((splits[0],splits[2]),1)
+            prompts=splits[1]
+        else:
+            logits=prompted_logits
+            prompts=prompt_out['batched_prompt']
 
         loss = self.hparams.ce_loss(
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
+        if self.hparams.pull_constraint and 'reduce_sim' in prompt_out:
+            loss = loss - self.hparams.pull_constraint_coeff * prompt_out['reduce_sim']
 
         if stage != sb.Stage.TRAIN:
             tokens, _ = batch.tokens
@@ -298,6 +330,27 @@ def train(hparams, run_opts):
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
+
+    tokenizer = hparams["whisper"].tokenizer
+
+    for i in range(hparams['prompt'].pool_size):
+        for j in range(hparams['prompt'].length):
+            tokenizer.add_tokens(f"<|prompt{i}-{j}|>")
+            tokenizer._additional_special_tokens += [f"<|prompt{i}-{j}|>"]
+          
+    
+    hparams["whisper"].model.resize_token_embeddings(
+            hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
+            +
+             (hparams['prompt'].pool_size*hparams['prompt'].length)
+        )
+    
+    for i in range(hparams['prompt'].pool_size):
+        for j in range(hparams['prompt'].length):
+            token_id=tokenizer.convert_tokens_to_ids(f"<|prompt{i}-{j}|>")
+            hparams["whisper"].model.decoder.embed_tokens.weight[token_id].data=hparams['prompt'].prompt[i,j,:]
+
+
 
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
