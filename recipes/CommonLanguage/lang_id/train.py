@@ -285,7 +285,7 @@ if __name__ == "__main__":
 
     # Fetch and laod pretrained modules
     sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Initialize the Brain object to prepare for mask training.
     lid_brain = LID(

@@ -392,7 +392,7 @@ if __name__ == "__main__":
     # depending on the path given in the YAML file). The tokenizer is loaded at
     # the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(
