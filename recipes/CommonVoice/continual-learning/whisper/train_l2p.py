@@ -19,7 +19,7 @@ To run this recipe, do the following:
 > python train_ft.py hparams/train_ft.yaml
 
 Authors
- * Pooneh Mousavi 2022
+ * Pooneh Mousavi 2023
 """
 
 import os
@@ -45,19 +45,15 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         bos_tokens, _ = batch.tokens_bos
 
-        # Forward encoder + decoder
+
+            # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
-            enc_out, logits, _ = torch.utils.checkpoint.checkpoint(
+            enc_out, logits, _,prompt_out = torch.utils.checkpoint.checkpoint(
                 self.modules.whisper, wavs, bos_tokens, use_reentrant=False
             )
-            # TODO: repeat the same thing here
         else:
-            # enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
-            enc_out = self.modules.whisper.forward_encoder(wavs)
-            prompt_out= self.modules.prompt(enc_out, prompt_mask=None)
-            prompted_enc_embedding,prompted_decoder_embedding= self.compute_prompted_input(audio_features=enc_out, decoder_input_ids=bos_tokens,prompt_out=prompt_out)
-            logits, attn = self.modules.whisper.forward_decoder(prompted_enc_embedding, prompted_decoder_embedding)
-            
+            enc_out, logits, _ ,prompt_out= self.modules.whisper(wavs, bos_tokens)
+
 
         hyps = None
         if stage != sb.Stage.TRAIN:
@@ -69,34 +65,19 @@ class ASR(sb.Brain):
 
         return logits, hyps,prompt_out
 
-    def compute_prompted_input(self,audio_features, decoder_input_ids,prompt_out):
 
-        if self.hparams.prompt_loc_mode == 'enc' or self.hparams.prompt_loc_mode == 'both':
-           batched_prompt= prompt_out['batched_prompt']
-           audio_features = torch.cat([batched_prompt, audio_features], dim=1)
-        if self.hparams.prompt_loc_mode == 'dec' or self.hparams.prompt_loc_mode == 'both':
-            prompted_decoder_input_ids=torch.zeros(decoder_input_ids.shape[0], decoder_input_ids.shape[1]+prompt_out['total_prompt_len'],dtype =torch.long).to(self.device)
-            for id in range(prompt_out['prompt_idx'].shape[0]):
-                prompts_tokens=[f"<|prompt{i}-{j}|>"  for i in range(prompt_out['prompt_idx'].shape[1]) for j in  range(hparams['prompt'].length)]
-                prompts_ids=self.tokenizer.convert_tokens_to_ids(prompts_tokens)
-                dec_list= decoder_input_ids[id,:].tolist()
-                prompted_decoder_input_ids[id]=torch.LongTensor(dec_list[:4]+ prompts_ids + dec_list[4:])
-            decoder_input_ids= prompted_decoder_input_ids
-
-        return audio_features,decoder_input_ids
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
         prompted_logits, hyps, prompt_out = predictions
         ids = batch.id
         tokens_eos, _ = batch.tokens_eos
-        if self.hparams.prompt_loc_mode == 'dec' or  self.hparams.prompt_loc_mode == 'both':
+        
+        if (self.hparams.prompt_loc_mode == 'dec' or  self.hparams.prompt_loc_mode == 'both'):
             splits=torch.split(prompted_logits,[4,prompt_out['total_prompt_len'],prompted_logits.shape[1]-prompt_out['total_prompt_len']-4],dim=1)
             logits=torch.cat((splits[0],splits[2]),1)
-            prompts=splits[1]
         else:
             logits=prompted_logits
-            prompts=prompt_out['batched_prompt']
 
         loss = self.hparams.ce_loss(
             logits.flatten(end_dim=-2), tokens_eos.flatten()
@@ -325,30 +306,105 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             test_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
 
+def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_test.txt"):
+    for locale in locales:
+        # Multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_common_voice,
+            kwargs={
+                "locales": [locale],
+                "download_dir": hparams["download_dir"],
+                "max_durations": hparams["max_durations"],
+            },
+        )
+
+        if locale in ["zh-CN", "ja"]:
+            # Use CER instead of WER (spaces are not used)
+            hparams[
+                "wer_computer"
+            ] = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
+                split_tokens=True
+            )
+        else:
+            hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
+
+        # Set forced decoder locale
+        hparams["forced_decoder_locale"] = locale
+
+        # Define tokenizer
+        tokenizer = hparams["whisper"].tokenizer
+
+        # Here we create the datasets objects as well as tokenization and encoding
+        _, _, test_data = dataio_prepare(hparams, tokenizer)
+
+        # Trainer initialization
+        asr_brain = ASR(
+            modules=hparams["modules"],
+            hparams=hparams,
+            run_opts=run_opts,
+            opt_class=hparams["opt_class"],
+            checkpointer=hparams["checkpointer"],
+        )
+
+
+        # We dynamically add the tokenizer to our brain class
+        # NB: This tokenizer corresponds to the one used for Whisper
+        asr_brain.tokenizer = tokenizer
+
+        # Testing
+        locale_dir = os.path.join(hparams["output_dir"], locale)
+        os.makedirs(locale_dir, exist_ok=True)
+        asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+
+        asr_brain.fit(
+            hparams["epoch_counter"],
+            test_data,
+            train_loader_kwargs=hparams["valid_dataloader_kwargs"],
+ 
+        )
+
 
 def train(hparams, run_opts):
+
+
+    test(
+        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    )
+    # hparams['prompt_enable']= True
+
+    freeze_blocks=['model._orig_mod.decoder','model._orig_mod.encoder']
+    hparams["whisper"].set_require_grad(freeze_blocks)
+    initialize_prompt_pool(
+        hparams, run_opts, hparams["old_locales"], f"wer_prompted_test.txt",
+    )
+
+    freeze_blocks=[block.replace("model","model._orig_mod") for block in hparams["whisper"].freeze_blocks]
+    hparams["whisper"].set_require_grad(freeze_blocks)
+
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
 
+
+
     tokenizer = hparams["whisper"].tokenizer
 
-    for i in range(hparams['prompt'].pool_size):
-        for j in range(hparams['prompt'].length):
-            tokenizer.add_tokens(f"<|prompt{i}-{j}|>")
-            tokenizer._additional_special_tokens += [f"<|prompt{i}-{j}|>"]
+    # for i in range(hparams['prompt'].pool_size):
+    #     for j in range(hparams['prompt'].length):
+    #         tokenizer.add_tokens(f"<|prompt{i}-{j}|>")
+    #         tokenizer._additional_special_tokens += [f"<|prompt{i}-{j}|>"]
           
     
-    hparams["whisper"].model.resize_token_embeddings(
-            hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
-            +
-             (hparams['prompt'].pool_size*hparams['prompt'].length)
-        )
+    # hparams["whisper"].model.resize_token_embeddings(
+    #         hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
+    #         +
+    #          (hparams['prompt'].pool_size*hparams['prompt'].length)
+    #     )
     
-    for i in range(hparams['prompt'].pool_size):
-        for j in range(hparams['prompt'].length):
-            token_id=tokenizer.convert_tokens_to_ids(f"<|prompt{i}-{j}|>")
-            hparams["whisper"].model.decoder.embed_tokens.weight[token_id].data=hparams['prompt'].prompt[i,j,:]
+    # for i in range(hparams['prompt'].pool_size):
+    #     for j in range(hparams['prompt'].length):
+    #         token_id=tokenizer.convert_tokens_to_ids(f"<|prompt{i}-{j}|>")
+    #         hparams["whisper"].model.decoder.embed_tokens.weight[token_id].data=hparams['prompt'].prompt[i,j,:]
 
 
 

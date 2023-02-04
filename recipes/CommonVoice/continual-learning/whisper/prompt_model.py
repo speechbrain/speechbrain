@@ -94,12 +94,11 @@ class PromptWhisperDecoder(WhisperDecoder):
     """
 
     def __init__(
-        self, source, prompts
+        self, source,
     ):
         super().__init__(
             source
         )
-        self.prompts= prompts
 
     # override
     def forward(
@@ -115,6 +114,7 @@ class PromptWhisperDecoder(WhisperDecoder):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        prompt=None,
     ):
         r"""
         Args:
@@ -196,6 +196,12 @@ class PromptWhisperDecoder(WhisperDecoder):
 
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
+        
+        if prompt:
+            encoder_hidden_states,inputs_embeds, input_ids= self.compute_prompted_input(audio_features=encoder_hidden_states, inputs_embeds=inputs_embeds,input_ids=input_ids,prompt_out=prompt)
+            input_shape = input_ids.size()
+
+
 
         attention_mask = self._prepare_decoder_attention_mask(
             attention_mask, input_shape, inputs_embeds, past_key_values_length
@@ -300,6 +306,15 @@ class PromptWhisperDecoder(WhisperDecoder):
             attentions=all_self_attns,
             cross_attentions=all_cross_attentions,
         )
+    def compute_prompted_input(self,audio_features, inputs_embeds,input_ids,prompt_out):
+        batched_prompt= prompt_out['batched_prompt']
+        if prompt_out['prompt_loc_mode'] == 'enc' or prompt_out['prompt_loc_mode'] == 'both':
+            audio_features = torch.cat([batched_prompt, audio_features], dim=1)
+        if prompt_out['prompt_loc_mode'] == 'dec' or prompt_out['prompt_loc_mode'] == 'both':
+            inputs_embeds = torch.cat([inputs_embeds[:,:4,:],batched_prompt, inputs_embeds[:,4:,:]], dim=1)
+            input_ids = torch.cat([input_ids[:,:4],torch.full((input_ids.shape[0],batched_prompt.shape[1]),prompt_out['token_id']).to(input_ids.get_device()), input_ids[:,4:]], dim=1)
+        return audio_features,inputs_embeds,input_ids
+
 
 
 
@@ -310,7 +325,7 @@ class PromptWhisperDecoder(WhisperDecoder):
 class PromptWhisper(HuggingFaceWhisper):
     # override
     def __init__(
-        self, source,prompt,freeze_blocks, save_path, **kwargs,
+        self, source,prompt,freeze_blocks, save_path,prompt_mode='enc',prompt_enabled=True,**kwargs,
     ):
         super().__init__(
             source, save_path, **kwargs,
@@ -326,6 +341,7 @@ class PromptWhisper(HuggingFaceWhisper):
             # The missing tokens are timestamp tokens (see https://github.com/openai/whisper/discussions/361)
             # To avoid problems when extending the tokenizer and/or the model we add them explicitly
             vocab_size = len(self.tokenizer.get_vocab())
+            
             num_embeddings = self.model.decoder.embed_tokens.num_embeddings
             num_missing_tokens = num_embeddings - vocab_size
             timestamps = [
@@ -337,10 +353,104 @@ class PromptWhisper(HuggingFaceWhisper):
         
         
         self.prompt=prompt
+        self.prompt_mode=prompt_mode
+        self.prompt_enabled=prompt_enabled
         self.freeze_blocks=freeze_blocks
         self.model.decoder.save_pretrained("./decoder")
         self.model.decoder=PromptWhisperDecoder.from_pretrained("./decoder")
+        self.set_require_grad(self.freeze_blocks)
 
+
+
+    def set_require_grad(self,freeze_blocks):
+        for n, p in self.named_parameters():
+            if n.startswith(tuple(freeze_blocks)):
+                p.requires_grad = False
+            else:
+                p.requires_grad = True
+        n_parameters = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print('number of params:', n_parameters)
+
+
+    def forward(self, wav, decoder_input_ids=None):
+        """Perform mel transformation and one step of the whisper (encoder-decoder).
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        decoder_input_ids : torch.Tensor
+            This is necessary if we want to use the decoder.
+
+            A batch of decoder inputs tokens.
+            The first tokens need to dictacte the behavior of the decoder.
+            It needs to start with the bos_token, the language token,
+            the task token, and finally the timestamp token.
+
+            Please refer to the whisper paper for more details or go to the
+            seq2seq2.py file in SpeechBrain to see how to generate the tokens
+            with Greedy Search and/or Beam Search.
+
+        """
+        out_encoder = self.forward_encoder(wav)
+        prompt_out= self.prompt(out_encoder, prompt_mask=None)
+                
+
+        if self.output_all_hiddens:
+            logits, attn = self.forward_decoder(
+                out_encoder[-1], decoder_input_ids,prompt=prompt_out
+            )
+        else:
+            logits, attn = self.forward_decoder(
+                out_encoder, decoder_input_ids,prompt=prompt_out
+            )
+        return out_encoder, logits, attn, prompt_out
+
+
+
+
+    
+    
+    
+    def forward_decoder(self, audio_features, decoder_input_ids,prompt=None):
+        """Perform one step of the whisper decoder.
+        Arguments
+        ---------
+        audio_features : torch.Tensor
+            A batch of audio features (mel + whisper encoding).
+        decoder_input_ids : torch.Tensor
+            A batch of decoder inputs tokens.
+            The first tokens need to dictacte the behavior of the decoder.
+            It needs to start with the bos_token, the language token,
+            the task token, and finally the timestamp token.
+
+            Please refer to the whisper paper for more details or go to the
+            seq2seq2.py file in SpeechBrain to see how to generate the tokens
+            with Greedy Search and/or Beam Search.
+        """
+        output_states = self.model.decoder(
+            encoder_hidden_states=audio_features,
+            input_ids=decoder_input_ids,
+            output_attentions=self.output_attentions,
+            prompt=prompt
+        )
+
+        attn = output_states.attentions[-1]
+        attn = attn.view(attn.shape[0] * attn.shape[1], *attn.shape[2:])
+        output_states = output_states.last_hidden_state
+
+        logits = (
+            output_states
+            @ torch.transpose(
+                self.model.decoder.embed_tokens.weight.to(output_states.dtype),
+                0,
+                1,
+            )
+        ).to(audio_features.dtype)
+
+        return logits, attn
+
+    
 
     @torch.no_grad()
     def generate(

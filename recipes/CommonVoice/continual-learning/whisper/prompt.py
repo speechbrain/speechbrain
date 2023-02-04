@@ -9,7 +9,7 @@ import torch.nn as nn
 
 class Prompt(nn.Module):
     def __init__(self, length=5, embed_dim=384, embedding_key='mean', prompt_init='uniform', prompt_pool=False, 
-                 prompt_key=False, pool_size=None, top_k=None, batchwise_prompt=False, prompt_key_init='uniform',):
+                 prompt_key=False, pool_size=None, top_k=None, batchwise_prompt=False, prompt_key_init='uniform',prompt_loc_mode='dec',token_id=-200):
         super().__init__()
 
         self.length = length
@@ -21,6 +21,8 @@ class Prompt(nn.Module):
         self.pool_size = pool_size
         self.top_k = top_k
         self.batchwise_prompt = batchwise_prompt
+        self.prompt_loc_mode=prompt_loc_mode
+        self.token_id=token_id
 
         if self.prompt_pool:
             prompt_pool_shape = (pool_size, length, embed_dim)
@@ -120,5 +122,7 @@ class Prompt(nn.Module):
         out['total_prompt_len'] = batched_prompt.shape[1]
         out['batched_prompt']=batched_prompt
         out['prompted_embedding'] = torch.cat([batched_prompt, x_embed], dim=1)
+        out['token_id']=self.token_id
+        out['prompt_loc_mode']=self.prompt_loc_mode
 
         return out
