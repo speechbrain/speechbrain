@@ -24,12 +24,6 @@ import tarfile
 
 logger = logging.getLogger(__name__)
 
-_URL_TEMPLATE = (
-    "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com"
-    "/cv-corpus-$version/cv-corpus-$version-$locale.tar.gz"
-)
-
-_SPLITS = ["train", "dev", "test"]
 
 
 def prepare_common_voice(
