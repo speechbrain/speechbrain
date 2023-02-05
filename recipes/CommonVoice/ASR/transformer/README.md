@@ -18,7 +18,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 with our transformers:
 - French
 
-For Whisper finetuning, here is list of the different language that we tested  within the CommonVoice dataset:
+For Whisper-large-v2 finetuning, here is list of the different language that we tested  within the CommonVoice.10_0 dataset:
 - Hindi
 - Arabic
 - Persian
@@ -35,16 +35,16 @@ For Whisper finetuning, here is list of the different language that we tested  w
 
 ## Whisper Finetuning Result:
 Following tabl econtains whisper-finetuning results for 1 epoch using whisper_large model when freezing encoder and only fine-tune whisper-decoder.
-| Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER |Zero-shot Test WER  | GPUs |
+| Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HF link  | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
-| Arabic | 2023-01-10 | train_ar_hf_whisper.yaml | No | 4.65, | 14.91 | 6.39 | 20.40 | 56.0 | 1xV100 16GB |
-| Persian | 2023-01-10 | train_fa_hf_whisper.yaml | No | 8.09 | 28.57 | 10.49 | 34.97 | 44.8 | 1xV100 16GB |
-| Mongolian | 2023-01-10 | train_mn_hf_whisper.yaml | No | 25.23 | 65.01 | 27.38 | 67.12 | 117.4 | 1xV100 16GB |
-| Hindi | 2023-01-10 | train_hi_hf_whisper.yaml | No | 5.07 | 11.59 | 8.09 | 17.20 | 25.0 | 1xV100 16GB |
-| Serbian | 2023-01-10 | train_sr_hf_whisper.yaml | No | 14.55 | 35.65 | 13.33 | 32.54 | 87.4 | 1xV100 16GB |
-| French | 2023-01-10 | train_fr_hf_whisper.yaml | No | 3.5 | 10.36 | 4.42 | 12.34 | 14.7 | 1xV100 16GB |
+| Arabic | 2023-01-10 | train_ar_hf_whisper.yaml | No | 4.02, | 12.47 | 5.20 | 16.96 | https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-ar | 1xV100 16GB |
+| Persian | 2023-01-10 | train_fa_hf_whisper.yaml | No | 6.91 | 25.30 | 9.38 | 31.75 | https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-fa | 1xV100 16GB |
+| Mongolian | 2023-01-10 | train_mn_hf_whisper.yaml | No | 24.05 | 62.37 | 25.73 | 64.92 | https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-mn | 1xV100 16GB |
+| Hindi | 2023-01-10 | train_hi_hf_whisper.yaml | No | 4.54 | 10.46 | 7.00 | 15.27 | https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-hi | 1xV100 16GB |
+| Serbian | 2023-01-10 | train_sr_hf_whisper.yaml | No | 8.92 | 27.12 |  7.60 | 23.63 | https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-sr | 1xV100 16GB |
+| French | 2023-01-10 | train_fr_hf_whisper.yaml | No | 3.00 | 8.95 | 3.83 | 10.62 | https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-fr | 1xV100 16GB |
 
-The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/11NMzY0zV-NqJmPMyZfC3RtT64bYe-G_O?usp=sharing).
+The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/1Vc63yYXnwhnnCtNTLhyVDLsTt1IO0VcP?usp=share_link).
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

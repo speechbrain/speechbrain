@@ -103,7 +103,6 @@ whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     encoder_only: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
-    dim: -1
     apply_log: True
 
 nll_loss: !name:speechbrain.nnet.losses.nll_loss

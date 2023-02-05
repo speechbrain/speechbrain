@@ -14,16 +14,15 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
-language: italian #Language for whsiper tokenizer. It should be compatible with <locale> 
 test_only: False # Set it to True if you only want to  do the evaluation
 
-# Normalize the english inputs with
-# the same normalization done in the paper
+# Normalize inputs with
+# the same normalization done in the paper. Refer to Appendix C for further information.
 normalized_transcripts: True
 
 # Data files
 locale: it # use 'it' for italian, 'fr' for french, 'en' for english , It is alnaguge for common-voice data. It should be compatible with <language> 
-data_folder: !ref 'data/common_voice_10_0/<locale>' 
+data_folder: !ref !PLACEHOLDER' 
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
@@ -105,9 +104,7 @@ whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-ce_loss: !new:torch.nn.CrossEntropyLoss
-    ignore_index: !ref <ignore_index>
-    label_smoothing: !ref <label_smoothing>
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
 
 modules:
     whisper: !ref <whisper>

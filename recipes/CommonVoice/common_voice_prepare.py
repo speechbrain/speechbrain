@@ -369,103 +369,13 @@ def check_commonvoice_folders(data_folder,dataset_version,language):
     # Checking clips
    
     if not os.path.exists(data_folder + files_str):
-        logger.info(
+        err_msg = (
             "the folder %s does not exist (it is expected in "
             "the Common Voice dataset)" % (data_folder + files_str)
         )
-        logger.info(f"Downloading dataset for {language}")
-        download_locale(language,data_folder,dataset_version)
+        raise FileNotFoundError(err_msg)
 
 
-    else:
-        logger.info("Dataset already downloaded")
-
-def download_locale(
-    locale: "str", download_dir: "str", version: "str",
-) -> "None":
-    """Download Common Voice dataset locale.
-
-    Parameters
-    ----------
-    locale:
-        The dataset locale to download.
-    download_dir:
-        The path to the dataset locale download directory.
-    version:
-        The dataset version.
-
-    Raises
-    ------
-    RuntimeError
-        If an error occurs while downloading the data.
-
-    Examples
-    --------
-    >>> download_locale("en", os.path.join("data", "en"), "11.0-2022-09-21")
-
-    """
-    os.makedirs(download_dir)
-    archive = os.path.join(download_dir, "tmp.tar.gz")
-    url = _URL_TEMPLATE.replace("$version", version).replace("$locale", locale)
-    try:
-        logger.log(logging.INFO, "Downloading data...")
-        with requests.get(url, stream=True) as response:
-            total_size = int(response.headers.get("content-length", 0))
-            chunk_size = 1024 * 1024
-            progress_bar = tqdm(total=total_size, unit="B", unit_scale=True)
-            with open(archive, "wb") as f:
-                for data in response.iter_content(chunk_size):
-                    progress_bar.update(len(data))
-                    f.write(data)
-                progress_bar.close()
-        logger.log(logging.INFO, "Done!")
-
-        logger.log(logging.INFO, "Extracting data...")
-        with tarfile.open(archive) as tar:
-            for member in tar.getmembers():
-                name = os.path.basename(member.name)
-                if name.endswith(".mp3"):
-                    member.name = os.path.join(download_dir, "clips", name)
-                    tar.extract(member)
-                elif os.path.splitext(name)[0] in _SPLITS:
-                    member.name = os.path.join(download_dir, name)
-                    tar.extract(member)
-        os.remove(archive)
-        logger.log(logging.INFO, "Done!")
-
-        logger.log(logging.INFO, "Computing clip durations...")
-        for split in _SPLITS:
-            input_tsv_file = os.path.join(download_dir, f"{split}.tsv")
-            output_tsv_file = os.path.join(download_dir, f"tmp.tsv")
-            with open(input_tsv_file) as fr, open(output_tsv_file, "w") as fw:
-                tsv_reader = csv.reader(
-                    fr, delimiter="\t", quoting=csv.QUOTE_NONE
-                )
-                tsv_writer = csv.writer(fw, delimiter="\t")
-                header = next(tsv_reader)
-                tsv_writer.writerow(header + ["duration"])
-                for row in tsv_reader:
-                    # Remove "\t" and "\"" to not confuse the TSV writer
-                    for i in range(len(row)):
-                        row[i] = row[i].replace("\t", " ")
-                        row[i] = row[i].replace('"', "")
-
-                    mp3 = row[1]
-                    mp3 = os.path.join(download_dir, "clips", mp3)
-
-                    # NOTE: info returns incorrect num_frames on torchaudio==0.12.x
-                    info = torchaudio.info(mp3)
-                    duration = info.num_frames / info.sample_rate
-
-                    tsv_writer.writerow(row + [duration])
-            shutil.move(output_tsv_file, input_tsv_file)
-        logger.log(logging.INFO, "Done!")
-
-    except Exception:
-        # shutil.rmtree(download_dir)
-        raise RuntimeError(f"Could not download locale: {locale}")
-
-            
 
 def unicode_normalisation(text):
 
