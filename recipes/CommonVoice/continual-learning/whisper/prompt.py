@@ -1,5 +1,6 @@
 """Learnable Prompts for L2p Method.
 
+Code Adopted from : https://github.com/google-research/l2p
 Authors
  * Pooneh Mousavi 2022
 """
@@ -8,8 +9,47 @@ import torch
 import torch.nn as nn
 
 class Prompt(nn.Module):
+    """This is a module to ensemble a Prompt-pools for Continual Learning in L2P approach(https://arxiv.org/abs/2112.08654)
+
+     Arguments
+    ----------
+    length: int
+        Number of prompts for each key (default 5).
+    embed_dim: int
+        The size of prompts-value.(should be compatibale with model inpit dimension (e.g., 384 for tiny whisper))
+    embedding_key: int
+        Strategy to generate input for comparing with param's key (default take average of inputs).
+    prompt_init: str
+        how to initialize the prompt-values (default uniform).
+    prompt_pool: boolean
+        wheter to use prompt_pool shared among tasks or not.
+    prompt_key: boolean
+        wheter to learn prompt keys or used frozen keys.
+    pool_size: int
+        Number of prompts keys.
+    top_k: int
+        Number of selected prompts keys at each iteration based on the similariy score.
+    batchwise_prompt: boolean
+        Normalization to regularize the model (default BatchNorm1d).
+    prompt_key_init: str
+        how to initialize the prompt-keys (default uniform).
+
+    token_id:
+        token_if dor prompt tokens
+    
+    return: Dic 
+        return dic contains information about computed prompts  for the input.
+
+    Example
+    -------
+    >>> x = torch.rand((8, 30, 10))
+    >>> prompt = Prompt(embed_dim=x.shape[2],pool_size=10, top_k=5,prompt_pool=True)
+    >>> out = prompt(x)
+    >>> out['batched_prompt'].shape
+    torch.Size([8, 25, 10])
+    """
     def __init__(self, length=5, embed_dim=384, embedding_key='mean', prompt_init='uniform', prompt_pool=False, 
-                 prompt_key=False, pool_size=None, top_k=None, batchwise_prompt=False, prompt_key_init='uniform',prompt_loc_mode='dec',token_id=-200):
+                 prompt_key=False, pool_size=None, top_k=None, batchwise_prompt=False, prompt_key_init='uniform',token_id=-200):
         super().__init__()
 
         self.length = length
@@ -21,7 +61,6 @@ class Prompt(nn.Module):
         self.pool_size = pool_size
         self.top_k = top_k
         self.batchwise_prompt = batchwise_prompt
-        self.prompt_loc_mode=prompt_loc_mode
         self.token_id=token_id
 
         if self.prompt_pool:
@@ -123,6 +162,6 @@ class Prompt(nn.Module):
         out['batched_prompt']=batched_prompt
         out['prompted_embedding'] = torch.cat([batched_prompt, x_embed], dim=1)
         out['token_id']=self.token_id
-        out['prompt_loc_mode']=self.prompt_loc_mode
+  
 
         return out

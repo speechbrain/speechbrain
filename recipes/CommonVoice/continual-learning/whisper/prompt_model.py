@@ -12,6 +12,8 @@ import torch
 import torch.utils.checkpoint
 from torch import nn
 import logging
+import copy
+
 
 from transformers.models.whisper.tokenization_whisper import (
     LANGUAGES,
@@ -170,8 +172,11 @@ class PromptWhisperDecoder(WhisperDecoder):
             output_hidden_states (`bool`, *optional*):
                 Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
                 for more detail.
+            Prompt: Dic
+               dic contains information about computed prompts  for the input.It contains prompts, length of added prompts and similarity scores for learning keys.
             return_dict (`bool`, *optional*):
                 Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
+            
         """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -325,8 +330,25 @@ class PromptWhisperDecoder(WhisperDecoder):
 class PromptWhisper(HuggingFaceWhisper):
     # override
     def __init__(
-        self, source,prompt,freeze_blocks, save_path,prompt_mode='enc',prompt_enabled=True,**kwargs,
+        self, source,prompt,freeze_blocks, save_path,prompt_loc_mode='enc',prompt_enabled=True,**kwargs,
     ):
+        """Perform mel transformation and one step of the whisper (encoder-decoder) with prompt learning.
+
+            Arguments
+            ---------
+            config: WhisperConfig
+            prompt : Prompt
+                A Prompt Module contains prompt pool.
+            prompt_loc_mode: str
+                where to add prompts (enc: add prompts as audio-features, dec: add prompts as decoder_input_ids and  both. Prompts are added at time-dimension)
+            prompt_enabled : boolean
+                wheter to use prompt or not.
+            freeze_blocks list[str]:
+                indictaed the blocks that need to be frozen in the whisper model.
+
+
+            """
+
         super().__init__(
             source, save_path, **kwargs,
         )
@@ -353,7 +375,7 @@ class PromptWhisper(HuggingFaceWhisper):
         
         
         self.prompt=prompt
-        self.prompt_mode=prompt_mode
+        self.prompt_loc_mode=prompt_loc_mode
         self.prompt_enabled=prompt_enabled
         self.freeze_blocks=freeze_blocks
         self.model.decoder.save_pretrained("./decoder")
@@ -393,7 +415,11 @@ class PromptWhisper(HuggingFaceWhisper):
 
         """
         out_encoder = self.forward_encoder(wav)
-        prompt_out= self.prompt(out_encoder, prompt_mask=None)
+        if self.prompt_enabled:
+            prompt_out= self.prompt(out_encoder, prompt_mask=None)
+            prompt_out['prompt_loc_mode']=self.prompt_loc_mode
+        else:
+            prompt_out=None
                 
 
         if self.output_all_hiddens:
@@ -427,6 +453,10 @@ class PromptWhisper(HuggingFaceWhisper):
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
+        Prompt: Dic
+          dic contains information about computed prompts  for the input.It contains prompts, length of added prompts and similarity scores for learning keys.
+
+        
         """
         output_states = self.model.decoder(
             encoder_hidden_states=audio_features,
@@ -467,6 +497,14 @@ class PromptWhisper(HuggingFaceWhisper):
             )
         if audio_features is None:
             audio_features = self.forward_encoder(wav)
+        
+        if self.prompt_enabled:
+            prompt_out= self.prompt(audio_features, prompt_mask=None)
+            prompt_out['prompt_loc_mode']=self.prompt_loc_mode
+        else:
+            prompt_out=None
+
+
         batch_size = audio_features.shape[0]
         (
             startoftranscript_id,
@@ -477,7 +515,7 @@ class PromptWhisper(HuggingFaceWhisper):
         endoftext_id = self.tokenizer.eos_token_id
 
         hyps = torch.full(
-            (batch_size, max_gen_tokens + 4),
+            (batch_size, max_gen_tokens  + 4),
             pad_id,
             dtype=torch.long,
             device=audio_features.device,
@@ -518,16 +556,27 @@ class PromptWhisper(HuggingFaceWhisper):
         hyps[:, 2] = transcribe_id
         hyps[:, 3] = notimestamps_id
 
+      
+
         # Autoregressive loop
         num_gen_tokens = 0
         unfinished_mask = torch.ones(
             len(hyps), dtype=torch.bool, device=audio_features.device
         )
+        if self.prompt_enabled:
+            prompts=copy.deepcopy(prompt_out['batched_prompt'])
         while True:
+            if self.prompt_enabled:
+                prompt_out['batched_prompt']=prompts[unfinished_mask]
             logits, _ = self.forward_decoder(
                 audio_features[unfinished_mask],
-                hyps[unfinished_mask, : num_gen_tokens + 4],
+                hyps[unfinished_mask, : num_gen_tokens + 4],prompt=prompt_out
             )
+            
+            if self.prompt_enabled:
+                if (prompt_out['prompt_loc_mode'] == 'dec' or prompt_out['prompt_loc_mode'] == 'both'):
+                    splits=torch.split(logits,[4,prompt_out['total_prompt_len'],logits.shape[1]-prompt_out['total_prompt_len']-4],dim=1)
+                    logits=torch.cat((splits[0],splits[2]),1)
             # Prepare suppress mask
             suppress_mask = torch.ones(
                 logits.shape[-1], device=audio_features.device, dtype=torch.bool
@@ -544,5 +593,8 @@ class PromptWhisper(HuggingFaceWhisper):
                 num_gen_tokens >= max_gen_tokens
             ):
                 break
-        return hyps[:, 4 : num_gen_tokens + 3]
+
+        if self.prompt_enabled:
+            prompt_out['batched_prompt']=prompts
+        return hyps[:, 4 : num_gen_tokens + 3],prompt_out
 

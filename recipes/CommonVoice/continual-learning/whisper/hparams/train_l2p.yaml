@@ -45,6 +45,7 @@ freeze_encoder: True
 pull_constraint: True
 pull_constraint_coeff: 0.1
 prompt_loc_mode: 'dec'
+prompt_enabled: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: False  # True for whisper-large-v2 (for full dataset it causes NaN in forward pass for Kinyarwanda)
@@ -75,6 +76,9 @@ whisper: !new:prompt_model.PromptWhisper
     freeze_encoder: False
     prompt: !ref <prompt>
     freeze_blocks : ["model.encoder"]
+    prompt_enabled: !ref <prompt_enabled>
+    prompt_loc_mode: !ref <prompt_loc_mode>  # 'enc', 'dec','both'
+
 
 prompt: !new:prompt.Prompt
     length: 5
@@ -87,7 +91,6 @@ prompt: !new:prompt.Prompt
     top_k: 5
     batchwise_prompt: True
     prompt_key_init: 'uniform'
-    prompt_loc_mode: !ref <prompt_loc_mode>   # 'enc', 'dec','both'
     token_id: -200
 
 

@@ -57,7 +57,7 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage != sb.Stage.TRAIN:
-            hyps = self.modules.whisper.generate(
+            hyps,prompt_out = self.modules.whisper.generate(
                 audio_features=enc_out.detach(),
                 forced_decoder_locale=self.hparams.forced_decoder_locale,
                 max_gen_tokens=self.hparams.max_gen_tokens,
@@ -73,17 +73,20 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens_eos, _ = batch.tokens_eos
         
-        if (self.hparams.prompt_loc_mode == 'dec' or  self.hparams.prompt_loc_mode == 'both'):
+
+        if self.modules.whisper.prompt_enabled and (self.hparams.prompt_loc_mode == 'dec' or  self.hparams.prompt_loc_mode == 'both'):
             splits=torch.split(prompted_logits,[4,prompt_out['total_prompt_len'],prompted_logits.shape[1]-prompt_out['total_prompt_len']-4],dim=1)
             logits=torch.cat((splits[0],splits[2]),1)
+
         else:
             logits=prompted_logits
 
         loss = self.hparams.ce_loss(
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
-        if self.hparams.pull_constraint and 'reduce_sim' in prompt_out:
-            loss = loss - self.hparams.pull_constraint_coeff * prompt_out['reduce_sim']
+        if  self.modules.whisper.prompt_enabled:
+            if self.hparams.pull_constraint and 'reduce_sim' in prompt_out:
+                loss = loss - self.hparams.pull_constraint_coeff * prompt_out['reduce_sim']
 
         if stage != sb.Stage.TRAIN:
             tokens, _ = batch.tokens
@@ -307,6 +310,11 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         )
 
 def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_test.txt"):
+    
+    freeze_blocks=['model._orig_mod.decoder','model._orig_mod.encoder']
+    hparams["whisper"].set_require_grad(freeze_blocks)
+
+
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
         run_on_main(
@@ -318,16 +326,6 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
             },
         )
 
-        if locale in ["zh-CN", "ja"]:
-            # Use CER instead of WER (spaces are not used)
-            hparams[
-                "wer_computer"
-            ] = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
-                split_tokens=True
-            )
-        else:
-            hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
-
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
@@ -335,9 +333,12 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
         tokenizer = hparams["whisper"].tokenizer
 
         # Here we create the datasets objects as well as tokenization and encoding
-        _, _, test_data = dataio_prepare(hparams, tokenizer)
+        train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
+        checkpoint_dir = os.path.join(hparams["save_dir"], locale)
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
@@ -346,66 +347,44 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
             checkpointer=hparams["checkpointer"],
         )
 
-
-        # We dynamically add the tokenizer to our brain class
-        # NB: This tokenizer corresponds to the one used for Whisper
+        # Training
         asr_brain.tokenizer = tokenizer
-
-        # Testing
-        locale_dir = os.path.join(hparams["output_dir"], locale)
-        os.makedirs(locale_dir, exist_ok=True)
-        asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
-
+        hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
+        hparams["epoch_counter"].current = 0
         asr_brain.fit(
             hparams["epoch_counter"],
-            test_data,
-            train_loader_kwargs=hparams["valid_dataloader_kwargs"],
- 
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["train_dataloader_kwargs"],
+            valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+    
+    freeze_blocks=[block.replace("model","model._orig_mod") for block in hparams["whisper"].freeze_blocks]
+    hparams["whisper"].set_require_grad(freeze_blocks)
+
 
 
 def train(hparams, run_opts):
 
-
+    hparams["whisper"].prompt_enabled=False
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
-    # hparams['prompt_enable']= True
+    hparams["whisper"].prompt_enabled=True
 
-    freeze_blocks=['model._orig_mod.decoder','model._orig_mod.encoder']
-    hparams["whisper"].set_require_grad(freeze_blocks)
+    
     initialize_prompt_pool(
         hparams, run_opts, hparams["old_locales"], f"wer_prompted_test.txt",
     )
 
-    freeze_blocks=[block.replace("model","model._orig_mod") for block in hparams["whisper"].freeze_blocks]
-    hparams["whisper"].set_require_grad(freeze_blocks)
-
+    # Evaluate how adding prompt affcet the output on base langugaes
     test(
-        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+        hparams, run_opts, hparams["old_locales"], f"wer_test_after_prompt_init.txt",
     )
 
 
 
     tokenizer = hparams["whisper"].tokenizer
-
-    # for i in range(hparams['prompt'].pool_size):
-    #     for j in range(hparams['prompt'].length):
-    #         tokenizer.add_tokens(f"<|prompt{i}-{j}|>")
-    #         tokenizer._additional_special_tokens += [f"<|prompt{i}-{j}|>"]
-          
-    
-    # hparams["whisper"].model.resize_token_embeddings(
-    #         hparams["whisper"].model.decoder.embed_tokens.weight.shape[0]
-    #         +
-    #          (hparams['prompt'].pool_size*hparams['prompt'].length)
-    #     )
-    
-    # for i in range(hparams['prompt'].pool_size):
-    #     for j in range(hparams['prompt'].length):
-    #         token_id=tokenizer.convert_tokens_to_ids(f"<|prompt{i}-{j}|>")
-    #         hparams["whisper"].model.decoder.embed_tokens.weight[token_id].data=hparams['prompt'].prompt[i,j,:]
-
 
 
     # Train on new locales
