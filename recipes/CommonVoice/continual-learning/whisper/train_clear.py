@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
-learning fashion via rehearsal (https://arxiv.org/abs/1811.11682).
+learning fashion via Experience Replay for Continual Learning (https://arxiv.org/abs/1811.11682).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,7 +15,11 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_rehearsal.py hparams/train_rehearsal.yaml
+> python train_clear.py hparams/train_clear.yaml
+
+NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
+      To manually resume an experiment, you have to modify the script to load the correct checkpoint
+      and set the corresponding state variables (e.g. current locale).
 
 Authors
  * Luca Della Libera 2022
@@ -26,6 +30,7 @@ import os
 import pathlib
 import random
 import sys
+import time
 
 import torch
 import torchaudio
@@ -136,7 +141,7 @@ class ASR(sb.Brain):
                 "lr": old_lr,
             }
             self.hparams.train_logger.log_stats(
-                stats_meta=(stats_meta_data),
+                stats_meta=stats_meta_data,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -376,9 +381,7 @@ def train(hparams, run_opts):
             selected_keys = random.sample(
                 list(old_train_data.data.keys()),
                 round(
-                    min(
-                        length * hparams["rehearsal_ratio"], len(old_train_data)
-                    )
+                    min(length * hparams["replay_ratio"], len(old_train_data))
                 ),
             )
             old_train_data.data = {
@@ -396,6 +399,9 @@ def train(hparams, run_opts):
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
         os.makedirs(checkpoint_dir, exist_ok=True)
         hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
+        hparams["lr_annealing"].hyperparam_value = hparams["lr"]
+        hparams["lr_annealing"].metric_values.clear()
+        hparams["lr_annealing"].current_patient = 0
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
@@ -474,4 +480,7 @@ if __name__ == "__main__":
     hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
 
     # Train
+    start_time = time.time()
     train(hparams, run_opts)
+    duration = time.time() - start_time
+    logging.info(f"Time elapsed: {duration} seconds")
