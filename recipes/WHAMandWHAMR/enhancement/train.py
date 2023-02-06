@@ -446,7 +446,6 @@ class Separation(sb.Brain):
                     )
                     mixture_signal = mixture_signal.to(targets.device)
                     mix_w = self.compute_feats(mixture_signal.squeeze(-1))
-                    
                     sisnr_baseline = self.compute_objectives(
                         [mixture_signal.squeeze(-1), mix_w], targets
                     )
