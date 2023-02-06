@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
-learning fashion via elastic weight consolidation (https://arxiv.org/abs/1612.00796).
+learning fashion via Elastic Weight Consolidation (https://arxiv.org/abs/1612.00796).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -17,6 +17,10 @@ The following technical tricks were implemented to improve performance:
 To run this recipe, do the following:
 > python train_ewc.py hparams/train_ewc.yaml
 
+NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
+      To manually resume an experiment, you have to modify the script to load the correct checkpoint
+      and set the corresponding state variables (e.g. current locale).
+
 Authors
  * Luca Della Libera 2022
  * Pooneh Mousavi 2022
@@ -26,6 +30,7 @@ import logging
 import os
 import pathlib
 import sys
+import time
 
 import torch
 import torchaudio
@@ -154,7 +159,7 @@ class ASR(sb.Brain):
                 "lr": old_lr,
             }
             self.hparams.train_logger.log_stats(
-                stats_meta=(stats_meta_data),
+                stats_meta=stats_meta_data,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -467,6 +472,9 @@ def train(hparams, run_opts):
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
         os.makedirs(checkpoint_dir, exist_ok=True)
         hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
+        hparams["lr_annealing"].hyperparam_value = hparams["lr"]
+        hparams["lr_annealing"].metric_values.clear()
+        hparams["lr_annealing"].current_patient = 0
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
@@ -544,4 +552,7 @@ if __name__ == "__main__":
     hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
 
     # Train
+    start_time = time.time()
     train(hparams, run_opts)
+    duration = time.time() - start_time
+    logging.info(f"Time elapsed: {duration} seconds")

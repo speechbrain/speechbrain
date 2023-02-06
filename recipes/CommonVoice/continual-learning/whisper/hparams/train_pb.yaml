@@ -13,7 +13,7 @@ download_dir: data
 max_durations: null  # [36000, 3600, 3600] for whisper-large-v2
 
 # Output directories
-output_dir: !ref results/whisper_piggyback/<seed>
+output_dir: !ref results/<whisper_variant>/pb/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
@@ -37,7 +37,7 @@ annealing_factor: 0.8
 mask_init: 0.01
 mask_threshold: 0.005
 
-whisper_variant: openai/whisper-tiny  # whisper-large-v2
+whisper_variant: whisper-tiny  # whisper-large-v2
 encoder_only: False
 freeze: False
 freeze_encoder: True
@@ -63,7 +63,7 @@ valid_dataloader_kwargs:
 
 # Modules
 whisper: !new:model.ProgressiveWhisper
-    source: !ref <whisper_variant>
+    source: !ref openai/<whisper_variant>
     save_path: !ref <save_dir>/checkpoint
     sampling_rate: !ref <sample_rate>
     encoder_only: !ref <encoder_only>

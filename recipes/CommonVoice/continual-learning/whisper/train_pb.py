@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice.
+"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
+learning fashion via Piggyback (https://arxiv.org/abs/1801.06519).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -14,7 +15,7 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_ft.py hparams/train_ft.yaml
+> python train_pb.py hparams/train_pb.yaml
 
 NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
       To manually resume an experiment, you have to modify the script to load the correct checkpoint
@@ -24,6 +25,7 @@ Authors
  * Luca Della Libera 2022
 """
 
+import copy
 import logging
 import os
 import pathlib
@@ -42,12 +44,48 @@ from speechbrain.utils.distributed import run_on_main
 from common_voice_prepare import prepare_common_voice
 
 
+class Threshold(torch.autograd.Function):
+    """Pseudo-differentiable thresholding function."""
+
+    @staticmethod
+    def forward(ctx, input, threshold=0.005):
+        return torch.where(input >= threshold, 1.0, 0.0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output, None
+
+
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         bos_tokens, _ = batch.tokens_bos
+
+        if stage != sb.Stage.TEST:
+            # Threshold and apply mask for training and validation
+            # To avoid useless overhead when testing, this is done
+            # only once before calling `asr_brain.evaluate`
+            self.modules.whisper.model.decoder.load_state_dict(
+                self.hparams.decoder_state_backup, strict=False
+            )
+            decoder_mask = self.hparams.decoder_mask.get(
+                self.hparams.forced_decoder_locale
+            )
+            if decoder_mask is not None:
+                for (
+                    k,
+                    v,
+                ) in self.modules.whisper.model.decoder.named_parameters():
+                    if k not in decoder_mask:
+                        continue
+                    v.detach_()
+                    thresholded_mask = Threshold.apply(
+                        decoder_mask[k].to(v.device),
+                        self.hparams.mask_threshold,
+                    )
+                    v *= thresholded_mask
 
         # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
@@ -153,6 +191,22 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
+
+    def init_optimizers(self):
+        if self.opt_class is not None:
+            parameters = [
+                p for p in self.modules.parameters() if p.requires_grad
+            ]
+            decoder_mask = self.hparams.decoder_mask.get(
+                self.hparams.forced_decoder_locale
+            )
+            if decoder_mask is not None:
+                parameters += list(decoder_mask.values())
+
+            self.optimizer = self.opt_class(parameters)
+
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -273,11 +327,34 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
-        # Define tokenizer
-        tokenizer = hparams["whisper"].tokenizer
+        # Retrieve corresponding tokenizer
+        tokenizer = hparams["whisper"].tokenizer = hparams["tokenizer_backup"][
+            locale
+        ]
 
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
+
+        # Retrieve corresponding embedding layer
+        hparams["whisper"].model.decoder.embed_tokens = hparams[
+            "embed_tokens_backup"
+        ][locale]
+
+        # Retrieve, threshold and apply corresponding mask
+        hparams["whisper"].model.decoder.load_state_dict(
+            hparams["decoder_state_backup"], strict=False
+        )
+        decoder_mask = hparams["decoder_mask"].get(locale)
+        if decoder_mask is not None:
+            for k, v in hparams["whisper"].model.decoder.named_parameters():
+                if k not in decoder_mask:
+                    continue
+                v.detach_()
+                with torch.no_grad():
+                    thresholded_mask = Threshold.apply(
+                        decoder_mask[k].to(v.device), hparams["mask_threshold"]
+                    )
+                    v *= thresholded_mask
 
         # Trainer initialization
         asr_brain = ASR(
@@ -300,6 +377,29 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
+    # Store embedding layer, decoder mask and tokenizer for each locale
+    hparams["embed_tokens_backup"] = {}
+    hparams["decoder_mask"] = {}
+    hparams["tokenizer_backup"] = {}
+    for locale in hparams["old_locales"]:
+        hparams["embed_tokens_backup"][locale] = hparams[
+            "whisper"
+        ].model.decoder.embed_tokens
+        hparams["decoder_mask"][locale] = None
+        hparams["tokenizer_backup"][locale] = hparams["whisper"].tokenizer
+
+    # Store decoder state (embedding layer excluded)
+    hparams["decoder_state_backup"] = hparams[
+        "whisper"
+    ].model.decoder.state_dict()
+    for k in list(hparams["decoder_state_backup"]):
+        if "embed_tokens" in k:
+            hparams["decoder_state_backup"].pop(k)
+            continue
+        hparams["decoder_state_backup"][k] = (
+            hparams["decoder_state_backup"][k].clone().cpu()
+        )
+
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -338,7 +438,9 @@ def train(hparams, run_opts):
 
         # Add new language token
         new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
-        tokenizer = hparams["whisper"].tokenizer
+        tokenizer = hparams["whisper"].tokenizer = copy.deepcopy(
+            hparams["whisper"].tokenizer
+        )
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -349,8 +451,29 @@ def train(hparams, run_opts):
         # Add the tokens to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
+        # Freeze the whole model to avoid forgetting
+        for param in hparams["whisper"].model.parameters():
+            param.requires_grad_(False)
+
         # Add new random embeddings to Whisper for the new tokens
+        hparams["whisper"].model.decoder.embed_tokens = copy.deepcopy(
+            hparams["whisper"].model.decoder.embed_tokens
+        )
         hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
+        hparams["embed_tokens_backup"][locale] = hparams[
+            "whisper"
+        ].model.decoder.embed_tokens
+        hparams["tokenizer_backup"][locale] = tokenizer
+
+        # Initialize decoder mask
+        hparams["decoder_mask"][locale] = {
+            k: torch.full_like(v, hparams["mask_init"], requires_grad=True)
+            for k, v in hparams["whisper"].model.decoder.named_parameters()
+            if "embed_tokens" not in k
+        }
+
+        # Unfreeze embedding layer
+        hparams["whisper"].model.decoder.embed_tokens.weight.requires_grad_()
 
         # Log total number of tokens
         logging.info(

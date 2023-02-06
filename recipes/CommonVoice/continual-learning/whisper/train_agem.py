@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
-learning fashion via Piggyback (https://arxiv.org/abs/1801.06519).
+learning fashion via Averaged Gradient Episodic Memory (https://arxiv.org/abs/1812.00420).
 
 The following technical tricks were implemented to improve performance:
 - use custom greedy decoding implementation (several times faster than built-in
@@ -15,7 +15,11 @@ The following technical tricks were implemented to improve performance:
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_piggyback.py hparams/train_piggyback.yaml
+> python train_agem.py hparams/train_agem.yaml
+
+NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
+      To manually resume an experiment, you have to modify the script to load the correct checkpoint
+      and set the corresponding state variables (e.g. current locale).
 
 Authors
  * Luca Della Libera 2022
@@ -25,7 +29,9 @@ import copy
 import logging
 import os
 import pathlib
+import random
 import sys
+import time
 
 import torch
 import torchaudio
@@ -39,48 +45,12 @@ from speechbrain.utils.distributed import run_on_main
 from common_voice_prepare import prepare_common_voice
 
 
-class Threshold(torch.autograd.Function):
-    """Pseudo-differentiable thresholding function."""
-
-    @staticmethod
-    def forward(ctx, input, threshold=0.005):
-        return torch.where(input >= threshold, 1.0, 0.0)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output, None
-
-
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         bos_tokens, _ = batch.tokens_bos
-
-        if stage != sb.Stage.TEST:
-            # Threshold and apply mask for training and validation
-            # To avoid useless overhead when testing, this is done
-            # only once before calling `asr_brain.evaluate`
-            self.modules.whisper.model.decoder.load_state_dict(
-                self.hparams.decoder_state_backup, strict=False
-            )
-            decoder_mask = self.hparams.decoder_mask.get(
-                self.hparams.forced_decoder_locale
-            )
-            if decoder_mask is not None:
-                for (
-                    k,
-                    v,
-                ) in self.modules.whisper.model.decoder.named_parameters():
-                    if k not in decoder_mask:
-                        continue
-                    v.detach_()
-                    thresholded_mask = Threshold.apply(
-                        decoder_mask[k].to(v.device),
-                        self.hparams.mask_threshold,
-                    )
-                    v *= thresholded_mask
 
         # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
@@ -152,6 +122,8 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.wer_computer()
+        else:
+            self.replay_data_iter = iter(self.replay_data)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -172,7 +144,7 @@ class ASR(sb.Brain):
                 "lr": old_lr,
             }
             self.hparams.train_logger.log_stats(
-                stats_meta=(stats_meta_data),
+                stats_meta=stats_meta_data,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -187,21 +159,121 @@ class ASR(sb.Brain):
             with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
-    def init_optimizers(self):
-        if self.opt_class is not None:
-            parameters = [
-                p for p in self.modules.parameters() if p.requires_grad
-            ]
-            decoder_mask = self.hparams.decoder_mask.get(
-                self.hparams.forced_decoder_locale
-            )
-            if decoder_mask is not None:
-                parameters += list(decoder_mask.values())
+    def fit_batch(self, batch):
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            # Compute gradient
+            with torch.cuda.amp.autocast(self.auto_mix_prec):
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                self.scaler.scale(loss).backward()
+            with torch.no_grad():
+                grad = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.whisper.parameters()
+                        if p.grad is not None
+                    ]
+                )
+                self.modules.whisper.zero_grad()
 
-            self.optimizer = self.opt_class(parameters)
+            # Draw data from replay buffer
+            try:
+                batch = next(self.replay_data_iter)
+            except StopIteration:
+                self.replay_data_iter = iter(self.replay_data)
+                batch = next(self.replay_data_iter)
 
-            if self.checkpointer is not None:
-                self.checkpointer.add_recoverable("optimizer", self.optimizer)
+            # Compute reference gradient
+            with torch.cuda.amp.autocast(self.auto_mix_prec):
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                self.scaler.scale(loss).backward()
+            with torch.no_grad():
+                grad_ref = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.whisper.parameters()
+                        if p.grad is not None
+                    ]
+                )
+
+            # Compute and inject modified gradient
+            with torch.no_grad():
+                grad_T_grad_ref = grad.dot(grad_ref)
+                if grad_T_grad_ref < 0:
+                    grad -= (grad_T_grad_ref / grad_ref.norm() ** 2) * grad_ref
+                start = 0
+                for param in self.modules.whisper.parameters():
+                    if param.grad is not None:
+                        end = start + param.numel()
+                        param.grad = grad[start:end].reshape_as(param)
+                        start = end
+
+            self.scaler.unscale_(self.optimizer)
+            if self.check_gradients(loss):
+                self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.zero_grad()
+            self.optimizer_step += 1
+        else:
+            # Compute gradient
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                loss.backward()
+            with torch.no_grad():
+                grad = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.whisper.parameters()
+                        if p.grad is not None
+                    ]
+                )
+                self.modules.whisper.zero_grad()
+
+            # Draw data from replay buffer
+            try:
+                batch = next(self.replay_data_iter)
+            except StopIteration:
+                self.replay_data_iter = iter(self.replay_data)
+                batch = next(self.replay_data_iter)
+
+            # Compute reference gradient
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                loss.backward()
+            with torch.no_grad():
+                grad_ref = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.whisper.parameters()
+                        if p.grad is not None
+                    ]
+                )
+
+            # Compute and inject modified gradient
+            with torch.no_grad():
+                grad_T_grad_ref = grad.dot(grad_ref)
+                if grad_T_grad_ref < 0:
+                    grad -= (grad_T_grad_ref / grad_ref.norm() ** 2) * grad_ref
+                start = 0
+                for param in self.modules.whisper.parameters():
+                    if param.grad is not None:
+                        end = start + param.numel()
+                        param.grad = grad[start:end].reshape_as(param)
+                        start = end
+
+            if self.check_gradients(loss):
+                self.optimizer.step()
+            self.zero_grad()
+            self.optimizer_step += 1
+
+        self.on_fit_batch_end(batch, outputs, loss, True)
+        return loss.detach().cpu()
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -290,7 +362,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "tokens_bos", "tokens_eos", "tokens", "duration"],
     )
 
     return train_data, valid_data, test_data
@@ -322,34 +395,11 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
-        # Retrieve corresponding tokenizer
-        tokenizer = hparams["whisper"].tokenizer = hparams["tokenizer_backup"][
-            locale
-        ]
+        # Define tokenizer
+        tokenizer = hparams["whisper"].tokenizer
 
         # Here we create the datasets objects as well as tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
-
-        # Retrieve corresponding embedding layer
-        hparams["whisper"].model.decoder.embed_tokens = hparams[
-            "embed_tokens_backup"
-        ][locale]
-
-        # Retrieve, threshold and apply corresponding mask
-        hparams["whisper"].model.decoder.load_state_dict(
-            hparams["decoder_state_backup"], strict=False
-        )
-        decoder_mask = hparams["decoder_mask"].get(locale)
-        if decoder_mask is not None:
-            for k, v in hparams["whisper"].model.decoder.named_parameters():
-                if k not in decoder_mask:
-                    continue
-                v.detach_()
-                with torch.no_grad():
-                    thresholded_mask = Threshold.apply(
-                        decoder_mask[k].to(v.device), hparams["mask_threshold"]
-                    )
-                    v *= thresholded_mask
 
         # Trainer initialization
         asr_brain = ASR(
@@ -372,29 +422,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Store embedding layer, decoder mask and tokenizer for each locale
-    hparams["embed_tokens_backup"] = {}
-    hparams["decoder_mask"] = {}
-    hparams["tokenizer_backup"] = {}
-    for locale in hparams["old_locales"]:
-        hparams["embed_tokens_backup"][locale] = hparams[
-            "whisper"
-        ].model.decoder.embed_tokens
-        hparams["decoder_mask"][locale] = None
-        hparams["tokenizer_backup"][locale] = hparams["whisper"].tokenizer
-
-    # Store decoder state (embedding layer excluded)
-    hparams["decoder_state_backup"] = hparams[
-        "whisper"
-    ].model.decoder.state_dict()
-    for k in list(hparams["decoder_state_backup"]):
-        if "embed_tokens" in k:
-            hparams["decoder_state_backup"].pop(k)
-            continue
-        hparams["decoder_state_backup"][k] = (
-            hparams["decoder_state_backup"][k].clone().cpu()
-        )
-
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -433,9 +460,7 @@ def train(hparams, run_opts):
 
         # Add new language token
         new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
-        tokenizer = hparams["whisper"].tokenizer = copy.deepcopy(
-            hparams["whisper"].tokenizer
-        )
+        tokenizer = hparams["whisper"].tokenizer
         tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -446,29 +471,8 @@ def train(hparams, run_opts):
         # Add the tokens to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
-        # Freeze the whole model to avoid forgetting
-        for param in hparams["whisper"].model.parameters():
-            param.requires_grad_(False)
-
         # Add new random embeddings to Whisper for the new tokens
-        hparams["whisper"].model.decoder.embed_tokens = copy.deepcopy(
-            hparams["whisper"].model.decoder.embed_tokens
-        )
         hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
-        hparams["embed_tokens_backup"][locale] = hparams[
-            "whisper"
-        ].model.decoder.embed_tokens
-        hparams["tokenizer_backup"][locale] = tokenizer
-
-        # Initialize decoder mask
-        hparams["decoder_mask"][locale] = {
-            k: torch.full_like(v, hparams["mask_init"], requires_grad=True)
-            for k, v in hparams["whisper"].model.decoder.named_parameters()
-            if "embed_tokens" not in k
-        }
-
-        # Unfreeze embedding layer
-        hparams["whisper"].model.decoder.embed_tokens.weight.requires_grad_()
 
         # Log total number of tokens
         logging.info(
@@ -480,12 +484,45 @@ def train(hparams, run_opts):
 
         # Here we create the datasets objects as well as tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        length = len(train_data)
+
+        # Get train data from previous tasks
+        replay_data = copy.deepcopy(train_data)
+        replay_data.data = {}
+        for old_locale in hparams["old_locales"] + hparams["new_locales"][:i]:
+            run_on_main(
+                prepare_common_voice,
+                kwargs={
+                    "locales": [old_locale],
+                    "download_dir": hparams["download_dir"],
+                    "max_durations": hparams["max_durations"],
+                },
+            )
+            old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
+            selected_keys = random.sample(
+                list(old_train_data.data.keys()),
+                round(
+                    min(length * hparams["replay_ratio"], len(old_train_data))
+                ),
+            )
+            old_train_data.data = {
+                k: old_train_data.data[k] for k in selected_keys
+            }
+            replay_data.data.update(old_train_data.data)
+
+        # Shuffle replay data
+        all_keys = list(replay_data.data.keys())
+        random.shuffle(all_keys)
+        replay_data.data = {k: replay_data.data[k] for k in all_keys}
+        replay_data.data_ids = list(replay_data.data.keys())
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
         os.makedirs(checkpoint_dir, exist_ok=True)
         hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
-
+        hparams["lr_annealing"].hyperparam_value = hparams["lr"]
+        hparams["lr_annealing"].metric_values.clear()
+        hparams["lr_annealing"].current_patient = 0
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
@@ -501,6 +538,16 @@ def train(hparams, run_opts):
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
+        replay_brain = ASR(
+            modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+        )
+        replay_data = replay_brain.make_dataloader(
+            replay_data,
+            stage=sb.Stage.TRAIN,
+            **hparams["train_dataloader_kwargs"],
+        )
+        del replay_brain
+        asr_brain.replay_data = replay_data
         asr_brain.fit(
             hparams["epoch_counter"],
             train_data,
@@ -528,6 +575,13 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    random.seed(hparams["seed"])
+    grad_accumulation_factor = hparams.get("grad_accumulation_factor")
+    if grad_accumulation_factor is not None and grad_accumulation_factor > 1:
+        logging.info(
+            "`grad_accumulation_factor` > 1 not supported, setting to 1"
+        )
+        hparams["grad_accumulation_factor"] = 1
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -563,4 +617,7 @@ if __name__ == "__main__":
     hparams["valid_dataloader_kwargs"]["collate_fn"] = CustomPaddedBatch
 
     # Train
+    start_time = time.time()
     train(hparams, run_opts)
+    duration = time.time() - start_time
+    logging.info(f"Time elapsed: {duration} seconds")
