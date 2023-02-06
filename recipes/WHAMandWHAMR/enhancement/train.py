@@ -141,9 +141,7 @@ class Separation(sb.Brain):
         """Computes the si-snr loss"""
         predicted_wavs, predicted_specs = predictions
 
-        if (
-            self.use_freq_domain and predicted_specs is not None
-        ):  # see: sisnr_baseline
+        if self.use_freq_domain:
             target_specs = self.compute_feats(targets)
             return self.hparams.loss(target_specs, predicted_specs)
         else:
@@ -447,8 +445,10 @@ class Separation(sb.Brain):
                         [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
+                    mix_w = self.compute_feats(mixture_signal.squeeze(-1))
+                    
                     sisnr_baseline = self.compute_objectives(
-                        [mixture_signal.squeeze(-1), None], targets
+                        [mixture_signal.squeeze(-1), mix_w], targets
                     )
                     sisnr_i = sisnr - sisnr_baseline
 
