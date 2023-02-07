@@ -15,6 +15,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the LARGE Fairseq German wav2vec2 model.
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53-german
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Dataset prep parameters
 data_folder: !PLACEHOLDER
@@ -112,7 +113,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
   output_norm: True
   freeze: !ref <freeze_wav2vec>
   freeze_feature_extractor: !ref <freeze_feature_extractor>
-  save_path: !ref <save_folder>/wav2vec2_checkpoint
+  save_path: !ref <wav2vec2_folder>
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead

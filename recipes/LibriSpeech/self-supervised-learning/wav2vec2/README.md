@@ -10,7 +10,9 @@ As usual, our goal at SpeechBrain remains to offer as much flexibility to the us
 
 # Go !
 Simply type:
-`python train_sb_wav2vec2.py hparams/wav2vec2_base.yaml`
+```shell
+python train_sb_wav2vec2.py hparams/wav2vec2_base.yaml
+```
 
 Do not forget to replace the `!PLACEHOLDER` variables in the yaml corresponding to your local configuration.
 

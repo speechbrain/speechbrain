@@ -1,0 +1,10 @@
+{
+	"enh2": {
+		"noisy_wav": "{data_root}/mixture_2.wav",
+		"clean_wav": "{data_root}/source1_2.wav",
+		"phones": "dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl",
+		"enh_wav": "{data_root}/source2_2.wav",
+		"length": 1.0,
+		"words": "THE CHILD ALMOST HURT THE SMALL DOG"
+	}
+}
