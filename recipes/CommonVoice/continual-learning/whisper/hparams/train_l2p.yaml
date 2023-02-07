@@ -75,7 +75,7 @@ whisper: !new:prompt_model.PromptWhisper
     freeze: False
     freeze_encoder: False
     prompt: !ref <prompt>
-    freeze_blocks : ["model.encoder"]
+    freeze_blocks : ["model.encoder"] # Use ["model.encoder","model.decoder.layer"] for only dinetuning the embedding layer
     prompt_enabled: !ref <prompt_enabled>
     prompt_loc_mode: !ref <prompt_loc_mode>  # 'enc', 'dec','both'
 
