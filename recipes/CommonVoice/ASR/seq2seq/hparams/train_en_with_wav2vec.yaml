@@ -14,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest HuggingFace english wav2vec2 model.
 wav2vec2_hub: facebook/wav2vec2-large-lv60
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
@@ -67,6 +68,8 @@ dnn_layers: 2
 dnn_neurons: 1024
 emb_size: 128
 dec_neurons: 1024
+dec_hidden_size: !ref <dec_neurons>
+dec_attn_dim: !ref <dec_neurons>
 freeze_wav2vec: False
 
 # Outputs
@@ -106,7 +109,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead
@@ -126,12 +129,12 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dnn_neurons>
+    enc_dim: !ref <dec_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
+    hidden_size: !ref <dec_hidden_size>
+    attn_dim: !ref <dec_attn_dim>
     num_layers: 1
     scaling: 1.0
     channels: 10

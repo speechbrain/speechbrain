@@ -108,6 +108,19 @@ def detect_script_vars(script_file, var_lst):
                             detected_var.append(var)
                             continue
 
+                # case: hparams[f"annotation_{dataset}"] - only that structure at the moment
+                re_match = re.search(r"\[f.(.*)\{.*\}.\]", line)
+                if re_match is not None:
+                    if re_match.group(1) in var:
+                        print(
+                            "\t\tWARNING: potential inconsistency %s maybe used in %s (or not)."
+                            % (var, re_match.group(0))
+                        )
+                        if var not in detected_var:
+                            detected_var.append(var)
+                            continue
+
+                # Chek var types
                 # Chek var types
                 for var_type in var_types:
                     if var_type + var in line:

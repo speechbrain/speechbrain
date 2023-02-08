@@ -34,11 +34,11 @@ data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-   - !ref <data_folder>/test-clean.csv
-   - !ref <data_folder>/test-other.csv
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 

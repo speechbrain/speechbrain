@@ -18,7 +18,9 @@ output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
 rir_folder: !ref <data_folder>
 train_log: !ref <output_folder>/train_log.txt
-device: 'cuda:0'
+train_csv: !ref <save_folder>/train.csv
+dev_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
 skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
@@ -38,6 +40,8 @@ number_of_epochs: 30
 batch_size: 4
 n_languages: 45
 emb_dim: 192 # dimensionality of the embeddings
+emb_channels: [1024, 1024, 1024, 1024, 3072]
+emb_attention_channels: 128
 
 # Dataloaders
 train_dataloader_options:
@@ -84,10 +88,10 @@ mean_var_norm_input: !new:speechbrain.processing.features.InputNormalization
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     input_size: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
-    channels: [1024, 1024, 1024, 1024, 3072]
+    channels: !ref <emb_channels>
     kernel_sizes: [5, 3, 3, 3, 1]
     dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
+    attention_channels: !ref <emb_attention_channels>
     lin_neurons: !ref <emb_dim>
 
 # Classifier baseed on cosine distance

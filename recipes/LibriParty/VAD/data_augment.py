@@ -312,11 +312,11 @@ def augment_data(noise_datasets, speech_datasets, wavs, targets, lens_targ):
         List containing noise datasets. More precisely, we expect here the pointers
         to the object used in speechbrain for data augmentation
         (e.g, speechbrain.lobes.augment.EnvCorrupt).
-    wav: torch.tensor
+    wavs: torch.tensor
         The original waveform.
     targets: torch.tensor
         The original targets.
-    lens_tar: torch.tensor
+    lens_targ: torch.tensor
         The lenght of the original targets.
 
 

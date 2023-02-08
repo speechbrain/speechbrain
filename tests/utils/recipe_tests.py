@@ -2,31 +2,34 @@
 
 Authors
  * Mirco Ravanelli 2022
- * Andreas Nautsch 2022
+ * Andreas Nautsch 2022, 2023
 """
 import os
 import re
 import csv
+import sys
+import pydoc
+from time import time
 import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
+from tests.consistency.test_recipe import __skip_list
 
 
-def check_row_for_test(row, filter_fields, filters, test_field):
+def check_row_for_test(row, filters_fields, filters, test_field):
     """Checks if the current row of the csv recipe file has a test to run.
 
     Arguments
     ---------
     row: dict
         Line of the csv file (in dict from).
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
     test_field: string
         Key of the input dictionary that contains the test flags.
-
 
     Returns
     ---------
@@ -34,10 +37,23 @@ def check_row_for_test(row, filter_fields, filters, test_field):
         True if the line must be tested, False otherwise.
     """
     test = True
-    for field in filter_fields:
-        for filt in filters:
-            if not (filt in row[field]):
+    for i, field in enumerate(filters_fields):
+        field_values = filters[i]
+        if type(field_values) == str:
+            # ... AND ... filter
+            if not (field_values == row[field]):
                 test = False
+        elif type(field_values) == list:  # type(field) == list
+            # ... AND (... OR ...) ... filter; at least one entry of the list matches
+            test_flag = False
+            for filt in field_values:
+                if filt == row[field]:
+                    test_flag = True
+            test = test and test_flag
+        else:
+            print("\tError in filters_fields and filters definition.")
+            test = False
+
     if test:
         test_flag = row[test_field].strip()
         if len(test_flag) == 0:
@@ -46,10 +62,9 @@ def check_row_for_test(row, filter_fields, filters, test_field):
 
 
 def prepare_test(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
-    recipe_id_field="RecipeID",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     filters_fields=[],
@@ -59,21 +74,19 @@ def prepare_test(
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     script_field: str
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
-    recipe_id_field: str
-        Field of the csv recipe file containing the unique recipe ID.
     test_field: string
         Field of the csv recipe file containing the test flags.
     check_field: string
         Field of the csv recipe file containing the checks to perform.
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -96,19 +109,32 @@ def prepare_test(
     test_flag = {}
     test_check = {}
 
-    # Detect needed information for the recipe tests
-    with open(recipe_csvfile, newline="") as csvf:
-        reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
-        for row in reader:
-            if not (
-                check_row_for_test(row, filters_fields, filters, test_field)
-            ):
-                continue
-            recipe_id = row[recipe_id_field].strip()
-            test_script[recipe_id] = row[script_field].strip()
-            test_hparam[recipe_id] = row[hparam_field].strip()
-            test_flag[recipe_id] = row[test_field].strip()
-            test_check[recipe_id] = row[check_field].strip()
+    # Loop over all recipe CSVs
+    for recipe_csvfile in os.listdir(recipe_folder):
+        # skip setup scripts; consider CSV files only
+        if recipe_csvfile in __skip_list:
+            continue
+
+        print(f"Loading recipes from: {recipe_csvfile}")
+        # Detect needed information for the recipe tests
+        with open(
+            os.path.join(recipe_folder, recipe_csvfile), newline=""
+        ) as csvf:
+            reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+            for row_id, row in enumerate(reader):
+                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2}"
+                if not (
+                    check_row_for_test(row, filters_fields, filters, test_field)
+                ):
+                    print(
+                        f"\tSkipped {recipe_id} - filters_fields={filters_fields}; filters={filters}"
+                        " - lacking test_field={test_field}"
+                    )
+                    continue
+                test_script[recipe_id] = row[script_field].strip()
+                test_hparam[recipe_id] = row[hparam_field].strip()
+                test_flag[recipe_id] = row[test_field].strip()
+                test_check[recipe_id] = row[check_field].strip()
 
     return test_script, test_hparam, test_flag, test_check
 
@@ -312,30 +338,29 @@ def run_test_cmd(cmd, stdout_file, stderr_file):
 
 
 def run_recipe_tests(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
-    recipe_id_field="RecipeID",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     run_opts="--device=cpu",
-    output_folder="tests/tmp/recipes/",
+    output_folder="tests/tmp/",
     filters_fields=[],
     filters=[],
     do_checks=True,
+    download_only=False,
+    run_tests_with_checks_only=False,
 ):
     """Runs the recipes tests.
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     script_field: str
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
-    recipe_id_field: str
-        Field of the csv recipe file containing the unique recipe ID.
     test_field: string
         Field of the csv recipe file containing the test flags.
     check_field: string
@@ -344,19 +369,27 @@ def run_recipe_tests(
         Additional flags to add for the tests (see run_opts of speechbrain/core.py).
     output_folder: string
         Folder where the output of the tests are saved.
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
-    do_checks:
+    do_checks: bool (default: True)
         If True performs the checks on the output folder (when the check_field is not empty).
+    download_only: bool (default: False)
+        If True skips running/checking tests after downloading relevant pre-trained data (prepare for offline testing).
+    run_tests_with_checks_only: bool (default: False)
+        If True skips all tests that do not have performance check criteria defined.
 
     Returns
-    ---------
+    -------
     check: True
         True if all the recipe tests pass, False otherwise.
+
+    Example
+    -------
+    python -c 'from speechbrain.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Dataset", "Task"], filters=[["AISHELL-1", "CommonVoice"], "SSL"])) else print("TEST PASSED")'
     """
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
@@ -364,16 +397,73 @@ def run_recipe_tests(
 
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
-        recipe_csvfile,
+        recipe_folder,
         script_field,
         hparam_field,
+        test_field=test_field,
+        check_field=check_field,
         filters_fields=filters_fields,
         filters=filters,
     )
 
+    # Download all upfront
+    if download_only:
+        for i, recipe_id in enumerate(test_script.keys()):
+            # If we are interested in performance checks only, skip
+            check_str = test_check[recipe_id].strip()
+            if run_tests_with_checks_only:
+                if len(check_str) == 0:
+                    continue
+
+            print(
+                "(%i/%i) Collecting pretrained models for %s..."
+                % (i + 1, len(test_script.keys()), recipe_id)
+            )
+
+            output_fold = os.path.join(output_folder, recipe_id)
+            os.makedirs(output_fold, exist_ok=True)
+            stdout_file = os.path.join(output_fold, "stdout.txt")
+            stderr_file = os.path.join(output_fold, "stderr.txt")
+
+            cmd = (
+                "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
+                "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
+                "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+                # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
+                # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
+            )
+            with open(test_hparam[recipe_id]) as hparam_file:
+                for line in hparam_file:
+                    if "pretrainer" in line:
+                        cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
+                    elif "from_pretrained" in line:
+                        field = line.split(":")[0].strip()
+                        cmd += f'hparams["{field}"]'
+            cmd += (
+                "' "
+                + test_hparam[recipe_id]
+                + " --output_folder="
+                + output_fold
+                + " "
+                + test_flag[recipe_id]
+                + " "
+                + run_opts
+            )
+
+            # Prepare the test
+            run_test_cmd(cmd, stdout_file, stderr_file)
+
+        return False
+
     # Run  script (check how to get std out, std err and save them in files)
     check = True
     for i, recipe_id in enumerate(test_script.keys()):
+        # If we are interested in performance checks only, skip
+        check_str = test_check[recipe_id].strip()
+        if run_tests_with_checks_only:
+            if len(check_str) == 0:
+                continue
+
         print(
             "(%i/%i) Running test for %s..."
             % (i + 1, len(test_script.keys()), recipe_id)
@@ -384,9 +474,20 @@ def run_recipe_tests(
         stdout_file = os.path.join(output_fold, "stdout.txt")
         stderr_file = os.path.join(output_fold, "stderr.txt")
 
+        # Check for setup scripts
+        setup_script = os.path.join(
+            "tests/recipes/setup",
+            test_script[recipe_id][:-3].replace("/", "_"),
+            test_hparam[recipe_id]
+            .replace(os.path.dirname(test_script[recipe_id]), "")[1:-5]
+            .replace("/", "_"),
+        )
+        if os.path.exists(setup_script):
+            os.system(setup_script)
+
         # Composing command to run
         cmd = (
-            "python "
+            f"PYTHONPATH={os.getcwd() + '/' + os.path.dirname(test_script[recipe_id])} python "
             + test_script[recipe_id]
             + " "
             + test_hparam[recipe_id]
@@ -398,20 +499,32 @@ def run_recipe_tests(
             + run_opts
         )
 
+        # add --debug if no do_checks to save testing time
+        if not do_checks:
+            cmd += " --debug --debug_persistently"
+
         # Running the test
+        time_start = time()
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
+        test_duration = time() - time_start
+        print("\t... %.2fs" % test_duration)
+
+        # Tear down
+        td_script = os.path.join(os.path.dirname(setup_script), "tear_down")
+        if os.path.exists(td_script):
+            os.system(td_script)
 
         # Check return code
         if return_code != 0:
             print(
-                "\tERROR: Error in %s. Check %s and %s for more info."
-                % (recipe_id, stderr_file, stdout_file)
+                "\tERROR: Error in %s (%s). Check %s and %s for more info."
+                % (recipe_id, test_hparam[recipe_id], stderr_file, stdout_file)
             )
             check = False
 
         # Checks
-        check_str = test_check[recipe_id].strip()
         if do_checks and len(check_str) > 0:
+            print("\t...checking files & performance...")
 
             # Check if the expected files exist
             check &= check_files(check_str, output_fold, recipe_id)
@@ -421,44 +534,32 @@ def run_recipe_tests(
 
 
 def load_yaml_test(
-    recipe_csvfile="tests/recipes.csv",
+    recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
     test_field="Hparam_file",
     filters_fields=[],
     filters=[],
-    avoid_list=[
-        "templates/hyperparameter_optimization_speaker_id/train.yaml",
-        "templates/speaker_id/train.yaml",
-        # recipes creating errors if NVIDIA driver is not on one's system
-        "recipes/timers-and-such/multistage/hparams/train_LS_LM.yaml",
-        "recipes/timers-and-such/multistage/hparams/train_TAS_LM.yaml",
-        "recipes/timers-and-such/direct/hparams/train.yaml",
-        "recipes/timers-and-such/decoupled/hparams/train_LS_LM.yaml",
-        "recipes/timers-and-such/decoupled/hparams/train_TAS_LM.yaml",
-        "recipes/fluent-speech-commands/direct/hparams/train.yaml",
-        "recipes/CommonLanguage/lang_id/hparams/train_ecapa_tdnn.yaml",
-        "recipes/SLURP/direct/hparams/train.yaml",
-    ],
+    avoid_list=[],
     rir_folder="tests/tmp/rir",
     data_folder="tests/tmp/yaml",
-    output_folder="tests/tmp/yaml",
+    output_folder="tests/tmp/",
 ):
     """Tests if the yaml files can be loaded without errors.
 
     Arguments
     ---------
-    recipe_csvfile: path
-        Path of the csv recipe file summarizing all the recipes in the repo.
+    recipe_folder: path
+        Path of the folder containing csv recipe files summarizing all the recipes in the repo.
     script_field: str
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
     test_field: string
         Field of the csv recipe file containing the test flags.
-    filter_fields: list
+    filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filter_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -504,9 +605,16 @@ def load_yaml_test(
         "data_folder_rirs": rir_folder,
     }
 
+    # Additional overrides when extra !PLACEHOLDER are encountered (not: data_folder - output_folder)
+    add_placeholder_overrides = {
+        "wav2vec2_hub": "facebook/wav2vec2-large-960h-lv60-self",  # this might not hold for all set-ups
+        "root_data_folder": data_folder,
+        "wav2vec2_folder": f"{output_folder}/wav2vec2_checkpoint",
+    }
+
     # Read the csv recipe file and detect which tests we have to run
     test_script, test_hparam, test_flag, test_check = prepare_test(
-        recipe_csvfile,
+        recipe_folder,
         script_field,
         hparam_field,
         test_field=test_field,
@@ -519,13 +627,16 @@ def load_yaml_test(
         hparam_file = test_hparam[recipe_id]
         script_file = test_script[recipe_id]
 
-        # Changing working folder to recipe folder
-        recipe_folder = os.path.dirname(script_file)
-        recipe_folder = os.path.join(cwd, recipe_folder)
-        os.chdir(recipe_folder)
+        # Changing working folder to recipe folder (as 'run_folder' to avoid name conflict with arg 'recipe_folder')
+        script_folder = os.path.dirname(script_file)
+        run_folder = os.path.join(cwd, script_folder)
+        os.chdir(run_folder)
 
         # Avoid files lister in avoid_list
         if hparam_file in avoid_list:
+            print(
+                f"\t({i + 1}/{len(test_script.keys())}) Skipped: {hparam_file}! (check avoid_list for details)"
+            )
             continue
 
         print(
@@ -539,9 +650,34 @@ def load_yaml_test(
         # Load hyperparameters file with command-line overrides
         overrides = {"data_folder": data_folder, "output_folder": output_folder}
 
+        tag_custom_model = None
         # Append additional overrides when needed
         with open(hparam_file) as f:
             for line in f:
+                # os.chdir(run_folder) is not changing sys.module, and pydoc.locate (in load_hyperpyyaml) fails
+                if "new:custom_model" in line:
+                    tag_custom_model = "custom_model"
+                    custom_model_from_root = f"{script_folder.replace(os.sep, '.')}.{tag_custom_model}"
+                    if pydoc.locate(custom_model_from_root) is not None:
+                        sys.modules[tag_custom_model] = sys.modules[
+                            custom_model_from_root
+                        ]
+                # check for !PLACEHOLDER overrides
+                flag_continue = False
+                for key, value in add_placeholder_overrides.items():
+                    placeholder_pattern = key + ": !PLACEHOLDER"
+                    if (
+                        placeholder_pattern in line
+                        and line.find(placeholder_pattern) == 0
+                    ):
+                        overrides.update({key: value})
+                        flag_continue = True
+
+                # if !PLACEHOLDER was substituted already, skip further pattern overrides for this line
+                if flag_continue:
+                    continue
+
+                # check for additional overrides
                 for key, value in add_overrides.items():
                     pattern = key + ":"
                     if pattern in line and line.find(pattern) == 0:
@@ -554,4 +690,6 @@ def load_yaml_test(
                 print("\t" + str(e))
                 check = False
                 print("\tERROR: cannot load %s" % (hparam_file))
+        if tag_custom_model is not None:
+            del sys.modules[tag_custom_model]
     return check

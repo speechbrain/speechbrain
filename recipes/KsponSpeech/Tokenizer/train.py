@@ -53,6 +53,7 @@ if __name__ == "__main__":
             "save_folder": hparams["output_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": "train.csv",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
