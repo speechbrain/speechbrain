@@ -41,7 +41,7 @@ def func_sig(x, arg0,                |    my_arg: !new:func_sig
 ```
 
 Summary of changes in V.A with comments and tasks (for reviewers):
-1. new break in `func_sig` declartion (in the signature of the function)
+1. new break in `func_sig` declaration (in the signature of the function)
    > __Reviewer: is every (tops every other) code line commented?__
 2. Comment dropped (docstring changed)
    > __Reviewer: are outer calls documented with `Arguments`; `Returns` & `Example`?__

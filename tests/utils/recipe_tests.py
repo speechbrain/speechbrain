@@ -2,15 +2,17 @@
 
 Authors
  * Mirco Ravanelli 2022
- * Andreas Nautsch 2022
+ * Andreas Nautsch 2022, 2023
 """
 import os
 import re
 import csv
 import sys
 import pydoc
+from time import time
 import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
+from tests.consistency.test_recipe import __skip_list
 
 
 def check_row_for_test(row, filters_fields, filters, test_field):
@@ -110,7 +112,7 @@ def prepare_test(
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
         # skip setup scripts; consider CSV files only
-        if recipe_csvfile == "setup":
+        if recipe_csvfile in __skip_list:
             continue
 
         print(f"Loading recipes from: {recipe_csvfile}")
@@ -502,7 +504,10 @@ def run_recipe_tests(
             cmd += " --debug --debug_persistently"
 
         # Running the test
+        time_start = time()
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
+        test_duration = time() - time_start
+        print("\t... %.2fs" % test_duration)
 
         # Tear down
         td_script = os.path.join(os.path.dirname(setup_script), "tear_down")

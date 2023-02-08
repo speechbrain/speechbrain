@@ -52,8 +52,6 @@ coverage.xml
 .pytest_cache/
 cover/
 tests/tmp/
-tests/samples/annotation/LM_train.txt.gz.lock
-tests/samples/separation_processed_16k/
 
 # Translations
 *.mo

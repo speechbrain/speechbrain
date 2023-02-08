@@ -158,7 +158,7 @@ class Separation(sb.Brain):
     def fit_batch(self, batch):
         """Trains one batch"""
 
-        if self.hparams.use_whamr_train and self.hparams.dynamic_mixing:
+        if self.hparams.use_whamr_train:
             whamr_prob = torch.rand(1).item()
             if whamr_prob > (1 - self.hparams.whamr_proportion):
                 batch = next(self.hparams.train_whamr_loader)

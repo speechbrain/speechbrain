@@ -37,7 +37,7 @@ tests/.run-load-yaml-tests.sh
 ```
 tests/.run-recipe-tests.sh
 ```
-10. Make sure all Huggingface repos are working
+10. Make sure all HuggingFace repos are working
 ```
 tests/.run-HF-checks.sh
 ```
@@ -47,3 +47,17 @@ tests/.run-url-checks.sh
 ```
 
 Make sure all the tests are passing. Also, make sure to check that the tutorials are working (we might set up an automatic test for that as well in the future).
+
+# Maintainer checks for releases
+
+Up until here, all the above madness should have settled.
+Commit logs outline what happened; features are summarized.
+
+_Note: a good point to check https://speechbrain.github.io/ is up-to-date._
+
+The task at hand is:
+* change the version number;
+* compile a change log, and
+* release the latest version on PyPI.
+
+Another CI/CD lifecycle begins.

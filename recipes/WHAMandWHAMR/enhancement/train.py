@@ -80,17 +80,16 @@ class Separation(sb.Brain):
                     else:
                         mix = targets.sum(-1)
 
-                    if noise is not None:
-                        noise = noise.to(self.device)
-                        len_noise = noise.shape[1]
-                        len_mix = mix.shape[1]
-                        min_len = min(len_noise, len_mix)
+                    noise = noise.to(self.device)
+                    len_noise = noise.shape[1]
+                    len_mix = mix.shape[1]
+                    min_len = min(len_noise, len_mix)
 
-                        # add the noise
-                        mix = mix[:, :min_len] + noise[:, :min_len]
+                    # add the noise
+                    mix = mix[:, :min_len] + noise[:, :min_len]
 
-                        # fix the length of targets also
-                        targets = targets[:, :min_len, :]
+                    # fix the length of targets also
+                    targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -141,9 +140,7 @@ class Separation(sb.Brain):
         """Computes the si-snr loss"""
         predicted_wavs, predicted_specs = predictions
 
-        if (
-            self.use_freq_domain and predicted_specs is not None
-        ):  # see: sisnr_baseline
+        if self.use_freq_domain:
             target_specs = self.compute_feats(targets)
             return self.hparams.loss(target_specs, predicted_specs)
         else:
@@ -447,8 +444,9 @@ class Separation(sb.Brain):
                         [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
+                    mix_w = self.compute_feats(mixture_signal.squeeze(-1))
                     sisnr_baseline = self.compute_objectives(
-                        [mixture_signal.squeeze(-1), None], targets
+                        [mixture_signal.squeeze(-1), mix_w], targets
                     )
                     sisnr_i = sisnr - sisnr_baseline
 

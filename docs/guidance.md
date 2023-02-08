@@ -1,16 +1,18 @@
 # Guiding contributors, reviewers & maintainers through the complexity of SpeechBrain testing.
 
-SpeechBrain is a multi-platform ecosystem.
-Functionality (to be ensured through testing continuity) is provided by python code and yaml hparams (in scripts, recipes & tutorials).
-To improve upon its quality, continuously and throughout, github workflows as of PRs are underlying CI/CD cycles.
-Yet, contributions to the SpeechBrain community might easily derail what has been put into place beforehand—legacy is at threat.
-Demonstrating no harm done, is a task with tricky bits & pieces.
+SpeechBrain is the name of a speech technology toolkit. It is written in Python and uses an extended YAML (HyperPyYAML) for hyperparameters in recipes, as well as some tutorials and scripts. SpeechBrain (the toolkit) is continuously updated and improved by the SpeechBrain community and the SpeechBrain core team, working together on GitHub. New versions of SpeechBrain (the toolkit) are continuously published by the core team on platforms like PyPI.
 
-The following ideographics illustrate the different complexity landscapes at work when it comes to testing SpeechBrain for what it is:
-conversational AI, scalable to incubate services and educate researchers, alike.
-For testing, the challenge rests in the community-driven approach: how to integrate (potentially legacy-breaking) refactorings without loosing hold on prior achievements, such that continuity of purpose is preserved (regardless of change encountered).
+If we take a step back, SpeechBrain also refers to a wider ecosystem, which has spread to many different platforms: there's documentation on readthedocs, tutorials on Colab, models on HuggingFace, et cetera. Another important part of SpeechBrain are the recipes. The main GitHub repository houses a set of recipes, which has built up over time.
 
-by Andreas Nautsch, 2022
+As SpeechBrain (all of it) is improved and changed, ideally the old, existing parts should continue to work well. However, in reality, changes will break old parts.
+
+The purpose of tests is to ensure that things work, or that at least we know what breaks: for example, SpeechBrain (the toolkit) has unittests which test specific bits of code in the core library. But since SpeechBrain (the ecosystem) is quite wide and spread out, there should also be other types of tests which ensure that the different platforms cooperate and the recipes keep working.
+
+Demonstrating that no harm is done by some given change is a big challenge. Ideally, tests will help in integrating (potentially legacy-breaking) changes without losing the existing achievements.
+
+The following graphics illustrate the different complexities at work when it comes to testing in SpeechBrain.
+
+by Andreas Nautsch, Aku Rouhe, 2022
 
 ## Functionality provided on multiple platforms, in the SpeechBrain ecosystem.
 
@@ -39,7 +41,6 @@ by Andreas Nautsch, 2022
                    (checkpoints)             (results)            (code snippets)
 ```
 Each platform/functionality has their own dependencies (which can break) and interfaces (which are specific and can change).
-<br/>[[link list]](Multiplatform.md)
 
 ## How is functionality provided?
 
@@ -72,7 +73,6 @@ While one cannot control others (dependencies), CI/CD workflows are periodic act
 Multi-platform checks, for it goes beyond this repo, is on a hybrid (partly irregular periodicity), i.e., before a future SpeechBrain release.
 
 _Naturally, writing style (linters checks) is a part of functionality._
-<br/>[[Up for a config rabbit hole?]](Approaches.md)
 
 ## How is the SpeechBrain community improving quality, continuously?
 
@@ -110,7 +110,6 @@ git add ...
 
 To guide the lifecycle of a PR within the SpeechBrain lifecycle—as contributor and as reviewer—can be demanding to being exhausted.
 Test automation (e.g., through github and offline workflows) simplify discussions to the points that are of debate, actually.
-<br/>[[PyTest for testing coverage]](PyCoverage.md)
 
 ## The location of a change foreshadows its integrative complexity.
 
@@ -186,10 +185,6 @@ Changes can be internal to a function &/or alter the function signature:
 Legacy-breaking changes will impact the outline of all recipes:
 <br/>how will all work after a change—, and after the next major refactoring (after that first one)?
 
-[[Details to the above]](PR_cycle.md)
-<br/> [[Recipes: tests for data flow with minimal examples]](Recipes.md) <= for contributing a recipe
-<br/> [[What work should remain before a future release]](Maintainer.md)
-
 ## Branch topology: release <- CI/CD <- ecosystem-spanning refactorings.
 ```
     release | main             | business
@@ -213,6 +208,3 @@ Keep in mind, the SpeechBrain community is in-flux, so is a constellation of mai
 
 _Note: github workflows take the definition of a PR, what is specified within its branch. We might update our procedures on the `develop` branch (e.g., to meet dependency updates).
 Consequentially, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._
-
-[[A guided strategy to refactor w/o loosing hold to past achievements]](Refactoring.md)
-<br/> [[There's more to be done]](Future.md)

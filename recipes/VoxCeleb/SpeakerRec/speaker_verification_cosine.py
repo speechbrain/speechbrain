@@ -240,7 +240,7 @@ if __name__ == "__main__":
         save_folder=params["save_folder"],
         verification_pairs_file=veri_file_path,
         splits=["train", "dev", "test"],
-        split_ratio=[90, 10],
+        split_ratio=params["split_ratio"],
         seg_dur=3.0,
         skip_prep=params["skip_prep"],
         source=params["voxceleb_source"]
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(params["pretrainer"].collect_files)
-    params["pretrainer"].load_collected(run_opts["device"])
+    params["pretrainer"].load_collected()
     params["embedding_model"].eval()
     params["embedding_model"].to(run_opts["device"])
 

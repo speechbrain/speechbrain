@@ -106,7 +106,8 @@ class ASR(sb.Brain):
             self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                with self.no_sync():
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
@@ -117,19 +118,18 @@ class ASR(sb.Brain):
                     self.scaler.unscale_(self.wav2vec_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        self.scaler.step(self.wav2vec_optimizer)
+                    self.scaler.step(self.wav2vec_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
         else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            with self.no_sync():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        self.wav2vec_optimizer.step()
+                    self.wav2vec_optimizer.step()
                     self.model_optimizer.step()
                 self.wav2vec_optimizer.zero_grad()
                 self.model_optimizer.zero_grad()
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
-        hparams["pretrainer"].load_collected(asr_brain.device)
+        hparams["pretrainer"].load_collected()
 
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!

@@ -74,9 +74,7 @@ class Separation(sb.Brain):
                         min_len = min(len_noise, len_mix)
 
                         # add the noise
-                        mix = mix[:, :min_len] + noise[:, :min_len].unsqueeze(
-                            -1
-                        )
+                        mix = mix[:, :min_len] + noise[:, :min_len]
 
                         # fix the length of targets also
                         targets = targets[:, :min_len, :]
