@@ -41,6 +41,12 @@ encoder_only: False
 freeze: False
 freeze_encoder: True
 
+# Wav2vec setting
+# URL for the biggest Fairseq multilingual
+wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
+wav2vec_output_dim: 1024
+freeze_wav2vec: True
+
 # prompt setting
 pull_constraint: True
 pull_constraint_coeff: 0.1
@@ -83,7 +89,7 @@ whisper: !new:prompt_model.PromptWhisper
 prompt: !new:prompt.Prompt
     length: 5
     embed_dim: 384
-    embedding_key: 'mean'
+    embedding_key: 'cls' # set to mean if you want to get the mean of whisper-encoder as an input for promptkey, set to cls if you want to use some other pretrained model like wav2vec
     prompt_init: 'uniform'
     prompt_pool: True
     prompt_key: True
@@ -91,8 +97,15 @@ prompt: !new:prompt.Prompt
     top_k: 5
     batchwise_prompt: True
     prompt_key_init: 'uniform'
+    prompt_key_dim: !ref <wav2vec_output_dim> #should be set to the output dimension of the embedding_key strategy
     token_id: -200
 
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <freeze_wav2vec>
+    save_path: !ref <save_dir>/wav2vec2_checkpoint
 
 
 ce_loss: !new:torch.nn.CrossEntropyLoss
@@ -101,6 +114,7 @@ ce_loss: !new:torch.nn.CrossEntropyLoss
 
 modules:
     whisper: !ref <whisper>
+    wav2vec2: !ref <wav2vec2>
 
 # Optimizers
 opt_class: !name:torch.optim.AdamW

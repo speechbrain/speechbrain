@@ -46,13 +46,18 @@ class ASR(sb.Brain):
         bos_tokens, _ = batch.tokens_bos
 
 
+        if self.modules.whisper.prompt_enabled and hparams['prompt'].embedding_key == 'cls':
+            cls_features = torch.mean(self.modules.wav2vec2(wavs),dim=1)
+        else: 
+            cls_features=None
+
             # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
             enc_out, logits, _,prompt_out = torch.utils.checkpoint.checkpoint(
                 self.modules.whisper, wavs, bos_tokens, use_reentrant=False
             )
         else:
-            enc_out, logits, _ ,prompt_out= self.modules.whisper(wavs, bos_tokens)
+            enc_out, logits, _ ,prompt_out= self.modules.whisper(wavs, bos_tokens,cls_features)
 
 
         hyps = None
@@ -61,6 +66,7 @@ class ASR(sb.Brain):
                 audio_features=enc_out.detach(),
                 forced_decoder_locale=self.hparams.forced_decoder_locale,
                 max_gen_tokens=self.hparams.max_gen_tokens,
+                cls_features=cls_features
             )
 
         return logits, hyps,prompt_out

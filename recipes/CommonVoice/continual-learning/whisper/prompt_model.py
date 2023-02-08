@@ -394,7 +394,7 @@ class PromptWhisper(HuggingFaceWhisper):
         print('number of params:', n_parameters)
 
 
-    def forward(self, wav, decoder_input_ids=None):
+    def forward(self, wav, decoder_input_ids=None,cls_features=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
 
         Arguments
@@ -416,7 +416,7 @@ class PromptWhisper(HuggingFaceWhisper):
         """
         out_encoder = self.forward_encoder(wav)
         if self.prompt_enabled:
-            prompt_out= self.prompt(out_encoder, prompt_mask=None)
+            prompt_out= self.prompt(out_encoder, prompt_mask=None,cls_features=cls_features)
             prompt_out['prompt_loc_mode']=self.prompt_loc_mode
         else:
             prompt_out=None
@@ -490,6 +490,7 @@ class PromptWhisper(HuggingFaceWhisper):
         forced_decoder_locale=None,
         max_gen_tokens=445,
         strategy="greedy",
+        cls_features=None
     ):
         if wav is None and audio_features is None:
             raise ValueError(
@@ -499,7 +500,7 @@ class PromptWhisper(HuggingFaceWhisper):
             audio_features = self.forward_encoder(wav)
         
         if self.prompt_enabled:
-            prompt_out= self.prompt(audio_features, prompt_mask=None)
+            prompt_out= self.prompt(audio_features, prompt_mask=None,cls_features=cls_features)
             prompt_out['prompt_loc_mode']=self.prompt_loc_mode
         else:
             prompt_out=None

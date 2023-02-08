@@ -17,8 +17,9 @@ class Prompt(nn.Module):
         Number of prompts for each key (default 5).
     embed_dim: int
         The size of prompts-value.(should be compatibale with model inpit dimension (e.g., 384 for tiny whisper))
-    embedding_key: int
-        Strategy to generate input for comparing with param's key (default take average of inputs).
+    embedding_key: str
+        Strategy to generate input for comparing with param's key (default take average of inputs). 
+        'cls' if the utput of anothe rpretrained model is used as an input to find top-k prompt keys.  
     prompt_init: str
         how to initialize the prompt-values (default uniform).
     prompt_pool: boolean
@@ -33,7 +34,8 @@ class Prompt(nn.Module):
         Normalization to regularize the model (default BatchNorm1d).
     prompt_key_init: str
         how to initialize the prompt-keys (default uniform).
-
+    prompt_key_dim : int
+        dimension of prompt-key.
     token_id:
         token_if dor prompt tokens
     
@@ -49,7 +51,7 @@ class Prompt(nn.Module):
     torch.Size([8, 25, 10])
     """
     def __init__(self, length=5, embed_dim=384, embedding_key='mean', prompt_init='uniform', prompt_pool=False, 
-                 prompt_key=False, pool_size=None, top_k=None, batchwise_prompt=False, prompt_key_init='uniform',token_id=-200):
+                 prompt_key=False, pool_size=None, top_k=None, batchwise_prompt=False, prompt_key_init='uniform', prompt_key_dim=None, token_id=-200):
         super().__init__()
 
         self.length = length
@@ -71,9 +73,12 @@ class Prompt(nn.Module):
                 self.prompt = nn.Parameter(torch.randn(prompt_pool_shape))
                 nn.init.uniform_(self.prompt, -1, 1)
         
+        if prompt_key_dim is None:
+            prompt_key_dim=embed_dim
+        
         # if using learnable prompt keys
         if prompt_key:
-            key_shape = (pool_size, embed_dim)
+            key_shape = (pool_size, prompt_key_dim)
             if prompt_key_init == 'zero':
                 self.prompt_key = nn.Parameter(torch.zeros(key_shape))
             elif prompt_key_init == 'uniform':
