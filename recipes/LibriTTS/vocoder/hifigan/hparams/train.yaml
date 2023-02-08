@@ -21,6 +21,7 @@ libritts_subsets: ["train-clean-100", "train-clean-360"]
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
+skip_prep: False
 
 splits: ["train", "valid"]
 split_ratio: [90, 10]

@@ -102,13 +102,16 @@ def dataio_prepare(hparams):
     logging.info("generating datasets...")
     data_folder = hparams["data_folder"]
     train_transcripts = glob.glob(
-        os.path.join(data_folder, "train*/**/*.trans.txt"), recursive=True
+        os.path.join(data_folder, hparams["train_transcripts_pattern"]),
+        recursive=True,
     )
     dev_transcripts = glob.glob(
-        os.path.join(data_folder, "dev*/**/*.trans.txt"), recursive=True
+        os.path.join(data_folder, hparams["dev_transcripts_pattern"]),
+        recursive=True,
     )
     test_transcripts = glob.glob(
-        os.path.join(data_folder, "test*/**/*.trans.txt"), recursive=True
+        os.path.join(data_folder, hparams["test_transcripts_pattern"]),
+        recursive=True,
     )
 
     """prepare data and generate datasets"""

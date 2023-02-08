@@ -14,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
+whisper_folder: !ref <save_folder>/whisper_checkpoint
 language: english
 
 # Normalize the english inputs with
@@ -87,7 +88,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
-    save_path: !ref <save_folder>/whisper_checkpoint
+    save_path: !ref <whisper_folder>
     encoder_only: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
