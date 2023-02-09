@@ -102,8 +102,7 @@ class ASR(sb.core.Brain):
                     loss / self.grad_accumulation_factor
                 ).backward()
             if should_step:
-
-            self.scaler.scale(loss).backward()
+                self.scaler.scale(loss).backward()
             if not self.hparams.w2v2.freeze:
                 self.scaler.unscale_(self.wav2vec_optimizer)
             self.scaler.unscale_(self.model_optimizer)

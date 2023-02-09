@@ -122,7 +122,6 @@ w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransform
   modify_state_dict_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
   override_hf_model_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
     apply_spec_augment: !ref <apply_spec_augment>
-  freeze: !ref <freeze_wav2vec>
   cache_dir: !ref <wav2vec2_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
 
 wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
