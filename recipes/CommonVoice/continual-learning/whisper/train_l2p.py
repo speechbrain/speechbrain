@@ -138,7 +138,7 @@ class ASR(sb.Brain):
 
         return loss
     def initialiaze_prompt_counts(self):
-            prompt_size=self.modules.whisper.prompt.pool_size * self.modules.whisper.prompt.length
+            prompt_size=self.modules.whisper.prompt.pool_size
             prompt_counts= {i:0 for i in range(prompt_size)}
             return prompt_counts
 
@@ -334,8 +334,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         
 
     if asr_brain.modules.whisper.prompt_enabled:  
-        filepath=os.path.join(hparams['output_dir'],f"prompt_stats_test_after_{locales[-1]}.csv")
-        save_prompt_stast(stats,filepath)
+        filename=f"prompt_stats_test_after_{locales[-1]}.csv"
+        save_prompt_stast(hparams,asr_brain.prompt_stats,filename)
+
 
 def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_test.txt"):
     
@@ -388,14 +389,17 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
 
-        filepath=os.path.join(hparams['output_dir'],f"prompt_stats_prompt_initialization_{locale}.csv")
-        save_prompt_stast(asr_brain.prompt_stats,filepath)
+        filename=f"prompt_stats_prompt_initialization_{locale}.csv"
+        save_prompt_stast(hparams,asr_brain.prompt_stats,filename)
     
     freeze_blocks=[block.replace("model","model._orig_mod") for block in hparams["whisper"].freeze_blocks]
     hparams["whisper"].set_require_grad(freeze_blocks)
 
-def save_prompt_stast(prompt_stats,filepath):
+def save_prompt_stast(hparams,prompt_stats,filename):
     keys = prompt_stats[0].keys()
+    prompt_dir=os.path.join(hparams['output_dir'],'prompt_stats')
+    os.makedirs(prompt_dir, exist_ok=True)
+    filepath=os.path.join(prompt_dir,filename)
     with open(filepath, 'w', newline='') as output_file:
         dict_writer = csv.DictWriter(output_file, keys)
         dict_writer.writeheader()
@@ -513,8 +517,8 @@ def train(hparams, run_opts):
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
-        filepath=os.path.join(hparams['output_dir'],f"prompt_stats_training_{locale}.csv")
-        save_prompt_stast(asr_brain.prompt_stats,filepath)
+        filename=f"prompt_stats_training_{locale}.csv"
+        save_prompt_stast(hparams,asr_brain.prompt_stats,filename)
 
 
 
