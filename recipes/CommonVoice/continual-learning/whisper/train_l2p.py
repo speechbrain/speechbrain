@@ -25,6 +25,7 @@ Authors
 import os
 import pathlib
 import sys
+import csv
 
 import torch
 import torchaudio
@@ -58,6 +59,12 @@ class ASR(sb.Brain):
             )
         else:
             enc_out, logits, _ ,prompt_out= self.modules.whisper(wavs, bos_tokens,cls_features)
+
+        if self.modules.whisper.prompt_enabled and stage != sb.Stage.VALID:
+            arr=torch.flatten(prompt_out['prompt_idx'].detach())
+            prompt_id, counts= arr.unique(return_counts=True)
+            for i in range(prompt_id.shape[0]):
+                self.prompt_count[prompt_id[i].item()] += counts[i].item()
 
 
         hyps = None
@@ -130,9 +137,14 @@ class ASR(sb.Brain):
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
+    def initialiaze_prompt_counts(self):
+            prompt_size=self.modules.whisper.prompt.pool_size * self.modules.whisper.prompt.length
+            prompt_counts= {i:0 for i in range(prompt_size)}
+            return prompt_counts
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch"""
+        self.prompt_count=self.initialiaze_prompt_counts()
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.wer_computer()
@@ -140,6 +152,8 @@ class ASR(sb.Brain):
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
+        if stage != sb.Stage.VALID:
+            self.prompt_stats.append(self.prompt_count)
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
@@ -266,6 +280,7 @@ def dataio_prepare(hparams, tokenizer):
 
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # Test on old + new locales
+    stats=[]
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
         run_on_main(
@@ -304,6 +319,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # We dynamically add the tokenizer to our brain class
         # NB: This tokenizer corresponds to the one used for Whisper
         asr_brain.tokenizer = tokenizer
+        asr_brain.prompt_stats=[]
 
         # Testing
         locale_dir = os.path.join(hparams["output_dir"], locale)
@@ -314,6 +330,12 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             min_key="WER",
             test_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+        stats.extend(asr_brain.prompt_stats)
+        
+
+    if asr_brain.modules.whisper.prompt_enabled:  
+        filepath=os.path.join(hparams['output_dir'],f"prompt_stats_test_after_{locales[-1]}.csv")
+        save_prompt_stast(stats,filepath)
 
 def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_test.txt"):
     
@@ -355,6 +377,7 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
 
         # Training
         asr_brain.tokenizer = tokenizer
+        asr_brain.prompt_stats=[]
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
         asr_brain.fit(
@@ -364,13 +387,22 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+
+        filepath=os.path.join(hparams['output_dir'],f"prompt_stats_prompt_initialization_{locale}.csv")
+        save_prompt_stast(asr_brain.prompt_stats,filepath)
     
     freeze_blocks=[block.replace("model","model._orig_mod") for block in hparams["whisper"].freeze_blocks]
     hparams["whisper"].set_require_grad(freeze_blocks)
 
-
+def save_prompt_stast(prompt_stats,filepath):
+    keys = prompt_stats[0].keys()
+    with open(filepath, 'w', newline='') as output_file:
+        dict_writer = csv.DictWriter(output_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(prompt_stats)
 
 def train(hparams, run_opts):
+    
 
     hparams["whisper"].prompt_enabled=False
     test(
@@ -396,6 +428,7 @@ def train(hparams, run_opts):
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
         # Multi-gpu (ddp) save data preparation
+
         run_on_main(
             prepare_common_voice,
             kwargs={
@@ -467,6 +500,8 @@ def train(hparams, run_opts):
         # We dynamically add the tokenizer to our brain class
         # NB: This tokenizer corresponds to the one used for Whisper
         asr_brain.tokenizer = tokenizer
+        asr_brain.prompt_stats=[]
+
 
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
@@ -478,6 +513,10 @@ def train(hparams, run_opts):
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+        filepath=os.path.join(hparams['output_dir'],f"prompt_stats_training_{locale}.csv")
+        save_prompt_stast(asr_brain.prompt_stats,filepath)
+
+
 
         # Testing
         test(
