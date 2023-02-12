@@ -15,7 +15,6 @@ import logging
 import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
-import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -266,12 +265,12 @@ def create_csv(
                 + ALEF_HAMZA_ABOVE
             )
             words = re.sub("[^" + letters + " ]+", "", words).upper()
-        elif language== "fa":
+        elif language == "fa":
             HAMZA = "\u0621"
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-               "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
+                "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
@@ -309,7 +308,7 @@ def create_csv(
         chars = " ".join([char for char in chars][:])
 
         # Remove too short sentences (or empty):
-        if language in ['ja', 'ch']:
+        if language in ["ja", "ch"]:
             if len(chars) < 3:
                 continue
         else:
@@ -356,10 +355,7 @@ def check_commonvoice_folders(data_folder):
     """
 
     files_str = "/clips"
-
-
     # Checking clips
-   
     if not os.path.exists(data_folder + files_str):
         err_msg = (
             "the folder %s does not exist (it is expected in "
@@ -370,11 +366,6 @@ def check_commonvoice_folders(data_folder):
 
 
 def unicode_normalisation(text):
-
-    try:
-        text = unicode(text, "utf-8")
-    except NameError:  # unicode is a default on python 3
-        pass
     return str(text)
 
 
