@@ -20,7 +20,7 @@ test_only: False # Set it to True if you only want to  do the evaluation
 normalized_transcripts: True
 
 # Data files
-locale: hi # use 'it' for italian, 'fr' for french, 'en' for english , It is a language for common-voice data. 
+locale: hi # use 'it' for italian, 'fr' for french, 'en' for english , It is a language for common-voice data.
 data_folder: !PLACEHOLDER
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files

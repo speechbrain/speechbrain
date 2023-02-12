@@ -9,7 +9,6 @@ To run this recipe, do the following:
  * Pooneh Mousavi 2022
 """
 
-import os
 import sys
 import torch
 import logging
@@ -18,10 +17,7 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
-from transformers.models.whisper.tokenization_whisper import (
-        LANGUAGES,
-    )
+from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +63,10 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
-        log_probs= self.hparams.log_softmax(logits)
+        log_probs = self.hparams.log_softmax(logits)
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
         )
-
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
@@ -270,8 +265,8 @@ if __name__ == "__main__":
     )
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    language= LANGUAGES[hparams["locale"]]
-    
+    language = LANGUAGES[hparams["locale"]]
+
     tokenizer.set_prefix_tokens(language, "transcribe", False)
 
     # we need to prepare the tokens for searchers
@@ -288,7 +283,7 @@ if __name__ == "__main__":
     hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data  = dataio_prepare(hparams, tokenizer)
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -307,7 +302,7 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
-    if hparams['test_only'] is  False:
+    if hparams["test_only"] is False:
         # Training
         asr_brain.fit(
             asr_brain.hparams.epoch_counter,
@@ -331,5 +326,3 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_loader_kwargs"],
     )
-
-

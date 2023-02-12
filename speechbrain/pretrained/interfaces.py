@@ -2891,16 +2891,18 @@ class WhisperASR(Pretrained):
     >>> asr_model.transcribe_file("tests/samples/example2.wav")
     """
 
-    HPARAMS_NEEDED = ['language']
+    HPARAMS_NEEDED = ["language"]
     MODULES_NEEDED = ["whisper", "decoder"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.whisper.tokenizer
-        self.tokenizer.set_prefix_tokens(self.hparams.language, "transcribe", False)
+        self.tokenizer.set_prefix_tokens(
+            self.hparams.language, "transcribe", False
+        )
         self.hparams.decoder.set_decoder_input_tokens(
             self.tokenizer.prefix_tokens
-    )
+        )
 
     def transcribe_file(self, path):
         """Transcribes the given audiofile into a sequence of words.
@@ -2982,14 +2984,14 @@ class WhisperASR(Pretrained):
             encoder_out = self.encode_batch(wavs, wav_lens)
             predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
             predicted_words = self.tokenizer.batch_decode(
-                predicted_tokens, skip_special_tokens=True)
-            if  self.hparams.normalized_transcripts:
+                predicted_tokens, skip_special_tokens=True
+            )
+            if self.hparams.normalized_transcripts:
                 predicted_words = [
-                        self.tokenizer._normalize(text).split(" ")
-                        for text in predicted_words
-                    ]
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in predicted_words
+                ]
 
-            
         return predicted_words, predicted_tokens
 
     def forward(self, wavs, wav_lens):

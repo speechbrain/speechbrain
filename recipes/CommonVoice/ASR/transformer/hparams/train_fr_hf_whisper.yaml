@@ -17,7 +17,7 @@ whisper_hub: openai/whisper-tiny
 test_only: False # Set it to True if you only want to  do the evaluation
 
 # Normalize inputs with the same normalization done in the paper (https://cdn.openai.com/papers/whisper.pdf). Refer to Appendix C for further information.
-normalized_transcripts: True 
+normalized_transcripts: True
 
 # Data files
 locale: fr # use 'it' for italian, 'fr' for french, 'en' for english , It is a language for common-voice data.
