@@ -17,11 +17,6 @@ import unicodedata
 from tqdm.contrib import tzip
 import shutil
 
-import requests
-from tqdm import tqdm
-import tarfile
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +30,6 @@ def prepare_common_voice(
     accented_letters=False,
     language="en",
     skip_prep=False,
-    dataset_version="10.0-2022-07-04"
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
@@ -124,7 +118,7 @@ def prepare_common_voice(
         return
 
     # Additional checks to make sure the data folder contains Common Voice
-    check_commonvoice_folders(data_folder,dataset_version,language)
+    check_commonvoice_folders(data_folder)
 
     # Creating csv files for {train, dev, test} data
     file_pairs = zip(
@@ -348,13 +342,17 @@ def create_csv(
 
 
 
-def check_commonvoice_folders(data_folder,dataset_version,language):
+def check_commonvoice_folders(data_folder):
     """
     Check if the data folder actually contains the Common Voice dataset.
-    If not, download the data 
+    If not, raises an error.
     Returns
     -------
     None
+    Raises
+    ------
+    FileNotFoundError
+        If data folder doesn't contain Common Voice dataset.
     """
 
     files_str = "/clips"

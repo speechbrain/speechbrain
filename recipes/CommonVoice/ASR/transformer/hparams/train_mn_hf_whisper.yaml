@@ -16,9 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 whisper_hub: openai/whisper-tiny
 test_only: False # Set it to True if you only want to  do the evaluation
 
-
-# Normalize inputs with
-# the same normalization done in the paper. Refer to Appendix C for further information.
+# Normalize inputs with the same normalization done in the paper (https://cdn.openai.com/papers/whisper.pdf). Refer to Appendix C for further information.
 normalized_transcripts: True
 
 # Data files
@@ -46,10 +44,6 @@ sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
 
-ignore_index: -100  # For cross-entropy loss
-label_smoothing: 0
-
-
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 batch_size: 12
@@ -73,8 +67,6 @@ test_beam_size: 8
 freeze_whisper: False
 freeze_encoder: True
 
-
-
 train_loader_kwargs:
     batch_size: !ref <batch_size>
 
@@ -83,7 +75,6 @@ valid_loader_kwargs:
 
 test_loader_kwargs:
     batch_size: !ref <test_batch_size>
-
 
 #
 # Functions and classes
