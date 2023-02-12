@@ -39,7 +39,6 @@ lr_wav2vec: 0.00005
 auto_mix_prec: False
 sample_rate: 16000
 sorting: ascending
-warmup_steps: 1000
 num_workers: 2
 
 # With data_parallel batch_size is split into N jobs

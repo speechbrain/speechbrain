@@ -5,6 +5,7 @@ Author:
     Sung-Lin Yeh 2020
 """
 import torch
+from functools import partial
 
 
 class TransducerBeamSearcher(torch.nn.Module):
@@ -275,16 +276,13 @@ class TransducerBeamSearcher(torch.nn.Module):
                         break
                     # Add norm score
                     a_best_hyp = max(
-                        process_hyps,
-                        key=lambda x: x["logp_score"] / len(x["prediction"]),
+                        process_hyps, key=partial(get_transducer_key),
                     )
 
                     # Break if best_hyp in A is worse by more than state_beam than best_hyp in B
                     if len(beam_hyps) > 0:
                         b_best_hyp = max(
-                            beam_hyps,
-                            key=lambda x: x["logp_score"]
-                            / len(x["prediction"]),
+                            beam_hyps, key=partial(get_transducer_key),
                         )
                         a_best_prob = a_best_hyp["logp_score"]
                         b_best_prob = b_best_hyp["logp_score"]
@@ -354,9 +352,7 @@ class TransducerBeamSearcher(torch.nn.Module):
                             process_hyps.append(topk_hyp)
             # Add norm score
             nbest_hyps = sorted(
-                beam_hyps,
-                key=lambda x: x["logp_score"] / len(x["prediction"]),
-                reverse=True,
+                beam_hyps, key=partial(get_transducer_key), reverse=True,
             )[: self.nbest]
             all_predictions = []
             all_scores = []
@@ -526,3 +522,21 @@ class TransducerBeamSearcher(torch.nn.Module):
         for layer in classifier_network:
             out = layer(out)
         return out
+
+
+def get_transducer_key(x):
+    """Argument function to customize the sort order (in sorted & max).
+    To be used as `key=partial(get_transducer_key)`.
+
+    Arguments
+    ----------
+    x : dict
+        one of the items under comparison
+
+    Returns
+    -------
+    float
+        Normalized log-score.
+    """
+    logp_key = x["logp_score"] / len(x["prediction"])
+    return logp_key

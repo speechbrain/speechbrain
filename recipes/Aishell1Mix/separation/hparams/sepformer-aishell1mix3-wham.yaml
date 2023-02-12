@@ -14,12 +14,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # this is the storage folder for the whole needed dataset e.g. /yourpath
 # it should contain at least 250G space for aishell1, wham_noise and aishell1mix.
+num_spks: 3
 data_folder: !PLACEHOLDER
+data_folder_nspks: !ref <data_folder>/aishell1mix/Aishell1Mix<num_spks>
 data_freqs: ['8k'] # or if you want the whole dataset ['8k','16k']
 data_modes: ['min'] # or if you want the whole dataset ['min', 'max']
 
 # this is the base folder for dynamic mixing, usually not changed.
-base_folder_dm: !ref <data_folder>/data_aishell/wav/train
+base_folder_dm: !ref <data_folder_nspks>/data_aishell/wav/train
 
 experiment_name: sepformer-aishell1mix3-whamnoise
 output_folder: !ref results/<experiment_name>/<seed>
@@ -35,7 +37,6 @@ ckpt_interval_minutes: 60
 # Experiment params
 auto_mix_prec: True # Set it to True for mixed precision
 test_only: False
-num_spks: 3
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
@@ -85,6 +86,7 @@ N_encoder_out: 256
 out_channels: 256
 kernel_size: 16
 kernel_stride: 8
+d_ffn: 1024
 
 # Dataloader options
 dataloader_opts:
@@ -102,7 +104,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
-    d_ffn: 1024
+    d_ffn: !ref <d_ffn>
     dropout: 0
     use_positional_encoding: True
     norm_before: True
@@ -111,7 +113,7 @@ SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
-    d_ffn: 1024
+    d_ffn: !ref <d_ffn>
     dropout: 0
     use_positional_encoding: True
     norm_before: True
