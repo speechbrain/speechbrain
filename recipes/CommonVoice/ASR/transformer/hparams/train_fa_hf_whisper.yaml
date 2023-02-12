@@ -67,8 +67,6 @@ test_beam_size: 8
 freeze_whisper: False
 freeze_encoder: True
 
-
-
 train_loader_kwargs:
     batch_size: !ref <batch_size>
 
@@ -77,7 +75,6 @@ valid_loader_kwargs:
 
 test_loader_kwargs:
     batch_size: !ref <test_batch_size>
-
 
 #
 # Functions and classes
