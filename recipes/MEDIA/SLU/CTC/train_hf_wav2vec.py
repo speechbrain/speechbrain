@@ -96,7 +96,7 @@ class SLU(sb.core.Brain):
             self.ctc_metric.append(ids, p_ctc, chars, wav_lens, char_lens)
 
         return loss
-    
+
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
 
