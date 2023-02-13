@@ -1,0 +1,3 @@
+SLU,MEDIA,recipes/MEDIA/SLU/CTC/train_hf_wav2vec.py,recipes/MEDIA/SLU/CTC/hparams/train_hf_wav2vec_full.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/SLU/CTC/README.md,https://drive.google.com/drive/folders/1cZRRQ3Cc_ucXXlwYSJqB7pOl6KwZdo84?usp=share_link,,,
+SLU,MEDIA,recipes/MEDIA/SLU/CTC/train_hf_wav2vec.py,recipes/MEDIA/SLU/CTC/hparams/train_hf_wav2vec_relax.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/SLU/CTC/README.md,https://drive.google.com/drive/folders/1ALtwmk3VUUM0XRToecQp1DKAh9FsGqMA?usp=sharing,,,
+ASR,MEDIA,recipes/MEDIA/ASR/CTC/train_hf_wav2vec.py,recipes/MEDIA/ASR/CTC/hparams/train_hf_wav2vec.yaml,recipes/MEDIA/media_prepare.py,recipes/MEDIA/ASR/CTC/README.md,https://drive.google.com/drive/folders/1qJUKxsTKrYwzKz0LHzq67M4G06Mj-9fl?usp=sharing,,,
