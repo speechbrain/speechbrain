@@ -17,7 +17,8 @@ save_dry_sources: False
 # Source datasets paths #
 #########################
 
-librispeech_root: /media/sam/bx500/LibriSpeech
+librispeech_root: !PLACEHOLDER
+# /media/sam/bx500/LibriSpeech
 # root path to librispeech: download from https://openslr.org/12/
 
 librispeech_folders: # folders one wants to use for the train dataset.

@@ -14,7 +14,9 @@ pip install numba
 ```
 
 # How to run it
+```shell
 python train.py train/train.yaml
+```
 
 # Librispeech 100H Results
 

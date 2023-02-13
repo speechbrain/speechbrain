@@ -27,6 +27,8 @@ test_spk_id: 1
 train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
+split_ratio: [80, 10, 10]
+skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

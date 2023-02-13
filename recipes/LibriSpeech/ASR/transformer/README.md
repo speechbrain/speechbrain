@@ -4,9 +4,13 @@ This folder contains the scripts to train a Transformer-based speech recognizer 
 You can download LibriSpeech at http://www.openslr.org/12
 
 # How to run
+```shell
 python train_with_whisper.py hparams/train_hf_whisper.yaml
+```
 
+```shell
 python train.py hparams/transformer.yaml
+```
 
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
 installed in your environment (see extra-requirements.txt)**

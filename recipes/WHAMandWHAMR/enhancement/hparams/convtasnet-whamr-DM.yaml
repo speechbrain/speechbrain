@@ -101,6 +101,10 @@ dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 3
 
+dataloader_opts_valid:
+    batch_size: !ref <batch_size>
+    num_workers: 3
+
 # Specifying the network
 Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     kernel_size: !ref <kernel_size>

@@ -6,8 +6,10 @@ You can download LibriSpeech at http://www.openslr.org/12
 
 
 # How to run
-python train.py train/1K_unigram_subword_bpe.yaml
-python train.py train/5K_unigram_subword_bpe.yaml
+```shell
+python train.py hparams/1K_unigram_subword_bpe.yaml
+python train.py hparams/5K_unigram_subword_bpe.yaml
+```
 
 The pretrained tokenizers are available [here](https://drive.google.com/drive/folders/1NcsYx5ER-Zlv7bRxtwBrefuYxaEO4nY3?usp=sharing).
 
