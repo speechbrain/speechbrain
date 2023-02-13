@@ -18,8 +18,6 @@ from tqdm.contrib import tzip
 
 logger = logging.getLogger(__name__)
 
-
-
 def prepare_common_voice(
     data_folder,
     save_folder,
@@ -118,7 +116,6 @@ def prepare_common_voice(
 
     # Additional checks to make sure the data folder contains Common Voice
     check_commonvoice_folders(data_folder)
-
     # Creating csv files for {train, dev, test} data
     file_pairs = zip(
         [train_tsv_file, dev_tsv_file, test_tsv_file],
@@ -339,8 +336,6 @@ def create_csv(
     logger.info(msg)
 
 
-
-
 def check_commonvoice_folders(data_folder):
     """
     Check if the data folder actually contains the Common Voice dataset.
@@ -353,7 +348,6 @@ def check_commonvoice_folders(data_folder):
     FileNotFoundError
         If data folder doesn't contain Common Voice dataset.
     """
-
     files_str = "/clips"
     # Checking clips
     if not os.path.exists(data_folder + files_str):
@@ -364,17 +358,14 @@ def check_commonvoice_folders(data_folder):
         raise FileNotFoundError(err_msg)
 
 
-
 def unicode_normalisation(text):
     return str(text)
 
 
 def strip_accents(text):
-
     text = (
         unicodedata.normalize("NFD", text)
         .encode("ascii", "ignore")
         .decode("utf-8")
     )
     return str(text)
-
