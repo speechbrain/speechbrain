@@ -18,6 +18,7 @@ from speechbrain.utils.distributed import run_on_main
 class SLU(sb.Brain):
     """see recipes/timers-and-such/decoupled/train.py
     """
+
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
