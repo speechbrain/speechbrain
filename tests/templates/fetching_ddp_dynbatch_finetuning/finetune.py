@@ -238,7 +238,7 @@ if __name__ == "__main__":
     # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
     run_on_main(
         hparams["pretrainer_tokenizer"].collect_files,
-        kwargs={"fetch_from": FetchFrom.ONLINE},
+        kwargs={"fetch_from": FetchFrom.URI},
     )
     run_on_main(
         hparams["pretrainer_LM"].collect_files,

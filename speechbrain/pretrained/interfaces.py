@@ -21,8 +21,7 @@ from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
 from copy import copy
-from typing import Union
-from speechbrain.pretrained.fetching import fetch, FetchFrom
+from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 import torch.nn.functional as F
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -45,7 +44,6 @@ def foreign_class(
     savedir=None,
     use_auth_token=False,
     download_only=False,
-    fetch_from: Union[FetchFrom, None] = None,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -66,7 +64,7 @@ def foreign_class(
 
     Arguments
     ---------
-    source : str
+    source : str or Path or FetchSource
         The location to use for finding the model. See
         ``speechbrain.pretrained.fetching.fetch`` for details.
     hparams_file : str
@@ -87,8 +85,6 @@ def foreign_class(
         default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
-    fetch_from: FetchFrom (default: None)
-        Restriction to interpreting source - benefit: no online search if source is known to be local (path mis/match).
 
     Returns
     -------
@@ -105,7 +101,6 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
-        fetch_from=fetch_from,
     )
     pymodule_local_path = fetch(
         filename=pymodule_file,
@@ -115,7 +110,6 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
-        fetch_from=fetch_from,
     )
     sys.path.append(str(pymodule_local_path.parent))
 
@@ -128,8 +122,7 @@ def foreign_class(
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
     run_on_main(
-        pretrainer.collect_files,
-        kwargs={"default_source": source, "fetch_from": fetch_from},
+        pretrainer.collect_files, kwargs={"default_source": source},
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
@@ -278,7 +271,6 @@ class Pretrained(torch.nn.Module):
                 "use_auth_token",
                 "revision",
                 "cache_dir",
-                "fetch_from",
                 "silent_local_fetch",
             ]:
                 if key in kwargs:
@@ -341,7 +333,6 @@ class Pretrained(torch.nn.Module):
         use_auth_token=False,
         revision=None,
         download_only=False,
-        fetch_from: Union[FetchFrom, None] = None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -361,7 +352,7 @@ class Pretrained(torch.nn.Module):
 
         Arguments
         ---------
-        source : str
+        source : str or Path or FetchSource
             The location to use for finding the model. See
             ``speechbrain.pretrained.fetching.fetch`` for details.
         hparams_file : str
@@ -391,8 +382,6 @@ class Pretrained(torch.nn.Module):
             version of a model hosted at HuggingFace.
         download_only : bool (default: False)
             If true, class and instance creation is skipped.
-        fetch_from: FetchFrom (default: None)
-            Restriction to interpreting source - benefit: no online search if source is known to be local (path mis/match).
         """
         if savedir is None:
             clsname = cls.__name__
@@ -405,7 +394,6 @@ class Pretrained(torch.nn.Module):
             save_filename=None,
             use_auth_token=use_auth_token,
             revision=revision,
-            fetch_from=fetch_from,
         )
         try:
             pymodule_local_path = fetch(
@@ -416,7 +404,6 @@ class Pretrained(torch.nn.Module):
                 save_filename=None,
                 use_auth_token=use_auth_token,
                 revision=revision,
-                fetch_from=fetch_from,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -438,8 +425,7 @@ class Pretrained(torch.nn.Module):
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
         run_on_main(
-            pretrainer.collect_files,
-            kwargs={"default_source": source, "fetch_from": fetch_from},
+            pretrainer.collect_files, kwargs={"default_source": source},
         )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:

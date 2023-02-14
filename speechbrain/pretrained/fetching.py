@@ -12,6 +12,7 @@ import logging
 from enum import Enum
 import huggingface_hub
 from typing import Union
+from collections import namedtuple
 from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,18 @@ class FetchFrom(Enum):
 
     LOCAL = 1
     HUGGING_FACE = 2
-    ONLINE = 3
+    URI = 3
+
+
+# For easier use
+FetchSource = namedtuple("FetchSource", ["FetchFrom", "path"])
+FetchSource.__doc__ = (
+    """NamedTuple describing a source path and how to fetch it"""
+)
+FetchSource.__hash__ = lambda self: hash(self.path)
+FetchSource.encode = lambda self, *args, **kwargs: "_".join(
+    (str(self.path), str(self.FetchFrom))
+).encode(*args, **kwargs)
 
 
 def fetch(
@@ -46,7 +58,6 @@ def fetch(
     use_auth_token=False,
     revision=None,
     cache_dir: Union[str, pathlib.Path, None] = None,
-    fetch_from: Union[FetchFrom, None] = None,
     silent_local_fetch: bool = False,
 ):
     """Ensures you have a local copy of the file, returns its path
@@ -61,7 +72,7 @@ def fetch(
     ---------
     filename : str
         Name of the file including extensions.
-    source : str
+    source : str or FetchSource
         Where to look for the file. This is interpreted in special ways:
         First, if the source begins with "http://" or "https://", it is
         interpreted as a web address and the file is downloaded.
@@ -108,10 +119,13 @@ def fetch(
         save_filename = filename
     savedir = pathlib.Path(savedir)
     savedir.mkdir(parents=True, exist_ok=True)
+    fetch_from = None
+    if isinstance(source, FetchSource):
+        fetch_from, source = source
     sourcefile = f"{source}/{filename}"
     if pathlib.Path(source).is_dir() and fetch_from not in [
         FetchFrom.HUGGING_FACE,
-        FetchFrom.ONLINE,
+        FetchFrom.URI,
     ]:
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
@@ -126,7 +140,7 @@ def fetch(
         return destination
     if (
         str(source).startswith("http:") or str(source).startswith("https:")
-    ) or fetch_from is FetchFrom.ONLINE:
+    ) or fetch_from is FetchFrom.URI:
         # Interpret source as web address.
         MSG = (
             f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."

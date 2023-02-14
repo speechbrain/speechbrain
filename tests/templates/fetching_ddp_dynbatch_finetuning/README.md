@@ -25,10 +25,15 @@ CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. python3 -m torch.distributed.launch
 
 To test a HuggingFace repo & example:
 ```shell
-PYTHONPATH=../../.. python single_gpu_pretrained.py
+PYTHONPATH=../../.. python single_node_pretrained.py
 ```
 
 ---
+
+For regression testing with a mini recipe:
+```shell
+PYTHONPATH=../../.. python multisource_mini_recipe.py multisource_mini_recipe.yaml
+```
 
 # Note(s)
 

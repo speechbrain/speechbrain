@@ -546,7 +546,7 @@ def split_path(path):
 
     Arguments
     ---------
-    path : str
+    path : str or FetchSource
 
     Returns
     -------
@@ -555,11 +555,20 @@ def split_path(path):
     str
         Filename
     """
-    if "/" in path:
-        return path.rsplit("/", maxsplit=1)
+
+    def split(src):
+        if "/" in src:
+            return src.rsplit("/", maxsplit=1)
+        else:
+            # Interpret as path to file in current directory.
+            return "./", src
+
+    if isinstance(path, sb.pretrained.fetching.FetchSource):
+        fetch_from, fetch_path = path
+        source, filename = split(fetch_path)
+        return sb.pretrained.fetching.FetchSource(fetch_from, source), filename
     else:
-        # Interpret as path to file in current directory.
-        return "./", path
+        return split(path)
 
 
 def scalarize(value):
