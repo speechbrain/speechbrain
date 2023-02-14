@@ -83,7 +83,7 @@ asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
             normalize_before: False
         pretrainer:
             paths:
-                lm: "https://www.dropbox.com/s/h2nigdmx55o9rjx/timers-and-such-lm.ckpt?dl=1"
+                lm: "https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech/resolve/main/lm.ckpt"
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <emb_size>]
