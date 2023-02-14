@@ -16,6 +16,8 @@ from speechbrain.utils.distributed import run_on_main
 
 # Define training procedure
 class SLU(sb.Brain):
+    """see recipes/timers-and-such/decoupled/train.py
+    """
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
@@ -254,6 +256,8 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
+        """ see original recipe
+        """
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
@@ -265,6 +269,8 @@ def data_io_prepare(hparams):
         "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(semantics):
+        """ see original recipe
+        """
         yield semantics
         tokens_list = tokenizer.encode_as_ids(semantics)
         yield tokens_list
