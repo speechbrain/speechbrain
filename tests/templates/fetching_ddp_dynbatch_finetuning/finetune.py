@@ -17,7 +17,6 @@ from tqdm.contrib import tqdm
 from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained import EncoderDecoderASR
-from speechbrain.pretrained.fetching import FetchFrom
 from speechbrain.utils.distributed import run_on_main, ddp_barrier
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.dataset import DynamicItemDataset
@@ -236,18 +235,13 @@ if __name__ == "__main__":
     # * the tokenizer from URL - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/resolve/main/...
     # * the pretrained LM from HuggingFace - HF: speechbrain/asr-crdnn-rnnlm-librispeech
     # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_on_main(
-        hparams["pretrainer_tokenizer"].collect_files,
-        kwargs={"fetch_from": FetchFrom.URI},
-    )
-    run_on_main(
-        hparams["pretrainer_LM"].collect_files,
-        kwargs={"fetch_from": FetchFrom.HUGGING_FACE},
-    )
+    run_on_main(hparams["pretrainer_tokenizer"].collect_files,)
+    run_on_main(hparams["pretrainer_LM"].collect_files,)
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
     # LOCAL fetching takes sources directly from their location
-    hparams["pretrainer_ASR"].collect_files(fetch_from=FetchFrom.LOCAL)
+    # hparams["pretrainer_ASR"].collect_files(fetch_from=FetchFrom.LOCAL)
+    hparams["pretrainer_ASR"].collect_files()
     hparams["pretrainer_ASR"].load_collected(run_opts["device"])
 
     # Trainer initialization
@@ -308,7 +302,6 @@ if __name__ == "__main__":
         source="source_pretrained",
         savedir="source_pretrained",
         hparams_file="pretrained.yaml",
-        fetch_from=FetchFrom.LOCAL,
         run_opts=deepcopy(run_opts),
     )
 

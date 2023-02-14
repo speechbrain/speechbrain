@@ -149,11 +149,20 @@ class Pretrainer:
         str
             Filename
         """
-        if "/" in path:
-            return path.rsplit("/", maxsplit=1)
+
+        def split(src):
+            if "/" in src:
+                return src.rsplit("/", maxsplit=1)
+            else:
+                # Interpret as path to file in current directory.
+                return "./", src
+
+        if isinstance(path, FetchSource):
+            fetch_from, fetch_path = path
+            source, filename = split(fetch_path)
+            return FetchSource(fetch_from, source), filename
         else:
-            # Interpret as path to file in current directory.
-            return "./", path
+            return split(path)
 
     def collect_files(
         self, default_source=None,
@@ -212,12 +221,11 @@ class Pretrainer:
             )
             loadable_paths[name] = path
             fetch_from = None
-            if isinstance(default_source, FetchSource):
-                fetch_from, source = default_source
-            if (
-                fetch_from is FetchFrom.LOCAL
-                or str(path) == str(source) + "/" + filename
-            ):
+            if isinstance(source, FetchSource):
+                fetch_from, source = source
+            if fetch_from is FetchFrom.LOCAL or str(path) == str(
+                source
+            ) + "/" + str(filename):
                 logger.info(f"Set local path in self.paths[{name}] = {path}")
                 self.paths[name] = str(path)
                 self.is_local.append(name)

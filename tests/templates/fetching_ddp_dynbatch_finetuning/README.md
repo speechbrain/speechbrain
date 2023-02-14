@@ -32,7 +32,7 @@ PYTHONPATH=../../.. python single_node_pretrained.py
 
 For regression testing with a mini recipe:
 ```shell
-PYTHONPATH=../../.. python multisource_mini_recipe.py multisource_mini_recipe.yaml
+PYTHONPATH=../../.. python multisource_mini_recipe.py multisource_mini_recipe.yaml --debug
 ```
 
 # Note(s)

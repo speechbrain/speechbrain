@@ -63,10 +63,11 @@ dataloader_opts:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+
 # Models
 asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
-    # source: speechbrain/asr-crdnn-rnnlm-librispeech  # would create a local path issue
-    source: asr-crdnn-transformerlm-librispeech  # does not create that issue
+    # source: speechbrain/asr-crdnn-rnnlm-librispeech  # could create a local path issue; specific to this testing folder
+    source: speechbrain/asr-crdnn-transformerlm-librispeech
     run_opts: {"device":"cuda:0"}
     overrides:
         beam_size: !ref <asr_beam_size>
@@ -78,7 +79,7 @@ asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
             num_decoder_layers: 0
             d_ffn: 3072
             dropout: 0.0
-            activation: !name:torch.nn.GELU
+            # activation: !name:torch.nn.GELU  # seems to cause issues within ruaml
             normalize_before: False
         pretrainer:
             paths:

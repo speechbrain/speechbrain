@@ -47,6 +47,7 @@ FetchSource.__hash__ = lambda self: hash(self.path)
 FetchSource.encode = lambda self, *args, **kwargs: "_".join(
     (str(self.path), str(self.FetchFrom))
 ).encode(*args, **kwargs)
+# FetchSource.__str__ = lambda self: str(self.path)
 
 
 def fetch(
