@@ -18,6 +18,7 @@ from tqdm.contrib import tzip
 
 logger = logging.getLogger(__name__)
 
+
 def prepare_common_voice(
     data_folder,
     save_folder,
@@ -226,67 +227,7 @@ def create_csv(
         words = unicode_normalisation(words)
 
         # !! Language specific cleaning !!
-        # Important: feel free to specify the text normalization
-        # corresponding to your alphabet.
-
-        if language in ["en", "fr", "it", "rw"]:
-            words = re.sub(
-                "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-            ).upper()
-
-        if language == "de":
-            # this replacement helps preserve the case of ß
-            # (and helps retain solitary occurrences of SS)
-            # since python's upper() converts ß to SS.
-            words = words.replace("ß", "0000ß0000")
-            words = re.sub("[^’'A-Za-z0-9öÖäÄüÜß]+", " ", words).upper()
-            words = words.replace("'", " ")
-            words = words.replace("’", " ")
-            words = words.replace(
-                "0000SS0000", "ß"
-            )  # replace 0000SS0000 back to ß as its initial presence in the corpus
-
-        if language == "fr":
-            # Replace J'y D'hui etc by J_ D_hui
-            words = words.replace("'", " ")
-            words = words.replace("’", " ")
-
-        elif language == "ar":
-            HAMZA = "\u0621"
-            ALEF_MADDA = "\u0622"
-            ALEF_HAMZA_ABOVE = "\u0623"
-            letters = (
-                "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
-                + HAMZA
-                + ALEF_MADDA
-                + ALEF_HAMZA_ABOVE
-            )
-            words = re.sub("[^" + letters + " ]+", "", words).upper()
-        elif language == "fa":
-            HAMZA = "\u0621"
-            ALEF_MADDA = "\u0622"
-            ALEF_HAMZA_ABOVE = "\u0623"
-            letters = (
-                "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
-                + HAMZA
-                + ALEF_MADDA
-                + ALEF_HAMZA_ABOVE
-            )
-            words = re.sub("[^" + letters + " ]+", "", words).upper()
-        elif language == "ga-IE":
-            # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
-            def pfxuc(a):
-                return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
-
-            def galc(w):
-                return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
-
-            words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
-            words = " ".join(map(galc, words.split(" ")))
-        elif language == "es":
-            # Fix the following error in dataset large:
-            # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
-            words = words.replace("$", "s")
+        words = language_specific_preprocess(language, words)
 
         # Remove accents if specified
         if not accented_letters:
@@ -334,6 +275,72 @@ def create_csv(
     logger.info(msg)
     msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
     logger.info(msg)
+
+
+def language_specific_preprocess(language, words):
+    # !! Language specific cleaning !!
+    # Important: feel free to specify the text normalization
+    # corresponding to your alphabet.
+
+    if language in ["en", "fr", "it", "rw"]:
+        words = re.sub(
+            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
+        ).upper()
+
+    if language == "de":
+        # this replacement helps preserve the case of ß
+        # (and helps retain solitary occurrences of SS)
+        # since python's upper() converts ß to SS.
+        words = words.replace("ß", "0000ß0000")
+        words = re.sub("[^’'A-Za-z0-9öÖäÄüÜß]+", " ", words).upper()
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+        words = words.replace(
+            "0000SS0000", "ß"
+        )  # replace 0000SS0000 back to ß as its initial presence in the corpus
+
+    if language == "fr":
+        # Replace J'y D'hui etc by J_ D_hui
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+
+    elif language == "ar":
+        HAMZA = "\u0621"
+        ALEF_MADDA = "\u0622"
+        ALEF_HAMZA_ABOVE = "\u0623"
+        letters = (
+            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
+            + HAMZA
+            + ALEF_MADDA
+            + ALEF_HAMZA_ABOVE
+        )
+        words = re.sub("[^" + letters + " ]+", "", words).upper()
+    elif language == "fa":
+        HAMZA = "\u0621"
+        ALEF_MADDA = "\u0622"
+        ALEF_HAMZA_ABOVE = "\u0623"
+        letters = (
+            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
+            + HAMZA
+            + ALEF_MADDA
+            + ALEF_HAMZA_ABOVE
+        )
+        words = re.sub("[^" + letters + " ]+", "", words).upper()
+    elif language == "ga-IE":
+        # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
+        def pfxuc(a):
+            return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
+
+        def galc(w):
+            return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
+
+        words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
+        words = " ".join(map(galc, words.split(" ")))
+    elif language == "es":
+        # Fix the following error in dataset large:
+        # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
+        words = words.replace("$", "s")
+    return words
 
 
 def check_commonvoice_folders(data_folder):
