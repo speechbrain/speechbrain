@@ -25,6 +25,7 @@ valid_data: !ref <output_folder>/dev.csv
 test_data: !ref <output_folder>/test.csv
 
 wav2vec2_hub: TencentGameMate/chinese-wav2vec2-large
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Training parameters
 number_of_epochs: 80
@@ -130,7 +131,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>
-   save_path: !ref <save_folder>/wav2vec2_checkpoint
+   save_path: !ref <wav2vec2_folder>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dnn_neurons>

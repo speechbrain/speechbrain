@@ -41,6 +41,8 @@ from torch.nn import Conv1d
 from speechbrain.pretrained.fetching import fetch
 import zipfile
 
+logger = logging.getLogger(__name__)
+
 
 # Define training procedure
 class Separation(sb.Brain):
@@ -677,9 +679,6 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # Logger info
-    logger = logging.getLogger(__name__)
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -696,57 +695,62 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    if not os.path.exists(hparams["datasets_generation"]):
-        print("Download Datasets Generation scripts")
-        fetch(
-            filename="main.zip",
-            source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
-            savedir=hparams["data_folder"],
-            save_filename="Binaural-WSJ0Mix-main.zip",
-        )
-        file = zipfile.ZipFile(
-            os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
-        )
-        file.extractall(path=hparams["data_folder"])
+    if not hparams["skip_prep"]:
+        if not os.path.exists(hparams["datasets_generation"]):
+            print("Download Datasets Generation scripts")
+            fetch(
+                filename="main.zip",
+                source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
+                savedir=hparams["data_folder"],
+                save_filename="Binaural-WSJ0Mix-main.zip",
+            )
+            file = zipfile.ZipFile(
+                os.path.join(
+                    hparams["data_folder"], "Binaural-WSJ0Mix-main.zip"
+                )
+            )
+            file.extractall(path=hparams["data_folder"])
 
-    sys.path.append(hparams["datasets_generation"])
-    if "noise" in hparams["experiment_name"]:
-        from create_wav_2speakers_noise import create_binaural_wsj0mix
+        sys.path.append(hparams["datasets_generation"])
+        if "noise" in hparams["experiment_name"]:
+            from create_wav_2speakers_noise import create_binaural_wsj0mix
 
-        hparams["data_folder"] = os.path.join(hparams["data_folder"], "noise")
-    elif "reverb" in hparams["experiment_name"]:
-        from create_wav_2speakers_reverb import create_binaural_wsj0mix
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "noise"
+            )
+        elif "reverb" in hparams["experiment_name"]:
+            from create_wav_2speakers_reverb import create_binaural_wsj0mix
 
-        hparams["data_folder"] = os.path.join(hparams["data_folder"], "reverb")
-    elif hparams["num_spks"] == 2:
-        from create_wav_2speakers import create_binaural_wsj0mix
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "reverb"
+            )
+        elif hparams["num_spks"] == 2:
+            from create_wav_2speakers import create_binaural_wsj0mix
 
-        hparams["data_folder"] = os.path.join(
-            hparams["data_folder"], "2speakers"
-        )
-    else:
-        from create_wav_3speakers import create_binaural_wsj0mix
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "2speakers"
+            )
+        else:
+            from create_wav_3speakers import create_binaural_wsj0mix
 
-        hparams["data_folder"] = os.path.join(
-            hparams["data_folder"], "3speakers"
-        )
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "3speakers"
+            )
 
-    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
-        print("Generate Binaural WSJ0Mix dataset automatically")
-        run_on_main(
-            create_binaural_wsj0mix,
-            kwargs={
-                "wsj_root": hparams["wsj_root"],
-                "output_root": hparams["data_folder"],
-                "datafreqs": hparams["data_freqs"],
-                "datamodes": hparams["data_modes"],
-            },
-        )
+        if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
+            print("Generate Binaural WSJ0Mix dataset automatically")
+            run_on_main(
+                create_binaural_wsj0mix,
+                kwargs={
+                    "wsj_root": hparams["wsj_root"],
+                    "output_root": hparams["data_folder"],
+                    "datafreqs": hparams["data_freqs"],
+                    "datamodes": hparams["data_modes"],
+                },
+            )
 
     # Data preparation
-    from recipes.BinauralWSJ0Mix.prepare_data import (
-        prepare_binaural_wsj0mix,
-    )  # noqa
+    from prepare_data import prepare_binaural_wsj0mix  # noqa
 
     run_on_main(
         prepare_binaural_wsj0mix,

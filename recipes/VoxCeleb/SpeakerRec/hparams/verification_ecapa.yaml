@@ -11,7 +11,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
 output_folder: results/voxceleb1_2/speaker_verification_ecapa_big_vox2only
 save_folder: !ref <output_folder>/save/
-device: 'cuda:0'
 
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
@@ -31,6 +30,8 @@ pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+split_ratio: [90, 10]
+skip_prep: False
 
 batch_size: 8
 score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
