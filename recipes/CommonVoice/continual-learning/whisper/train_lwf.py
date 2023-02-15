@@ -10,7 +10,6 @@ The following technical tricks were implemented to improve performance:
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- compile model with `torch.compile` from PyTorch 2.0
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
@@ -23,6 +22,7 @@ NOTE: although checkpoints are saved regularly, automatic experiment resumption 
 
 Authors
  * Pooneh Mousavi 2022
+ * Luca Della Libera 2022
 """
 
 import copy
@@ -60,22 +60,19 @@ class ASR(sb.Brain):
         else:
             enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
-        #  generating soft labels for  new data using old model . It will be used for calculating the lwf loss function.
+        # Generate soft logits using old model
         soft_logits = None
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
-                # for teacher forcing the new added tokens should be replaced with <UNKONW> token
-                old_bos_tokens = bos_tokens.detach().clone()
+                # For teacher forcing the new added tokens should be replaced with <UNKNOWN> token
+                old_bos_tokens = bos_tokens.clone()
                 mask = sum(
                     old_bos_tokens.flatten() == i for i in self.masked_tokens
                 ).bool()
-                old_bos_tokens.flatten()[
-                    mask == True
-                ] = self.tokenizer.unk_token_id
+                old_bos_tokens.flatten()[mask] = self.tokenizer.unk_token_id
                 _, soft_logits, _ = self.old_model(wavs, old_bos_tokens)
 
         hyps = None
-
         if stage != sb.Stage.TRAIN:
             hyps = self.modules.whisper.generate(
                 audio_features=enc_out.detach(),
@@ -95,29 +92,27 @@ class ASR(sb.Brain):
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
         if stage == sb.Stage.TRAIN:
-            # Temperature of the new softmax proposed in 'Distillation of Knowledge'
-            T = hparams["lwf_T"]
-            # Used to balance the new class loss1 and the old class loss2
-            # Loss1 is the cross entropy between output of the new task and label
-            # Loss2 is the cross entropy between output of the old task and output of the old model
-            # It should be noticed that before calculating loss2, the output of each model should be handled by the new softmax.
-            outputs_S = F.softmax(
-                logits.flatten(end_dim=-2)[:, : self.num_old_embeddings] / T,
+            # Probabilities modified by distillation temperature
+            modified_probs = F.softmax(
+                logits.flatten(end_dim=-2)[:, : self.num_old_embeddings]
+                / self.hparams.lwf_T,
                 dim=1,
             )
-            outputs_T = F.softmax(soft_logits.flatten(end_dim=-2) / T, dim=1)
 
-            # set padded values to zero
-            mask = (tokens_eos.flatten() == hparams["ignore_index"]).bool()
-            outputs_T[mask == True] = 0
+            # Target probabilities modified by distillation temperature
+            modified_target_probs = F.softmax(
+                soft_logits.flatten(end_dim=-2) / self.hparams.lwf_T, dim=1
+            )
 
             # Cross entropy between output of the old task and output of the old model
-            loss2 = outputs_T.mul(-1 * torch.log(outputs_S))
-            loss2 = loss2.sum(1)
-            num_tokens = torch.sum((mask == False).int()).item()
-            loss2 = (loss2.sum() / num_tokens) * T * T
-
-            loss = loss + loss2 * hparams["lwf_alpha"]
+            valid_mask = tokens_eos.flatten() != self.hparams.ignore_index
+            lwf_loss = (
+                -(modified_target_probs * modified_probs.log())
+                .sum(dim=1)[valid_mask]
+                .mean()
+                * self.hparams.lwf_T ** 2
+            )  # ????
+            loss += self.hparams.lwf_lambda * lwf_loss
 
         if stage != sb.Stage.TRAIN:
             tokens, _ = batch.tokens
@@ -473,13 +468,6 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    # Compile with PyTorch 2.0
-    if hparams["compile_model"]:
-        torch.set_float32_matmul_precision("high")
-        hparams["whisper"].model = torch.compile(
-            hparams["whisper"].model, mode="max-autotune"
-        )
 
     class CustomPaddedBatch(PaddedBatch):
         def __init__(self, examples, *args, **kwargs):

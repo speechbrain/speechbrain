@@ -45,7 +45,6 @@ freeze_encoder: True
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: False  # True for whisper-large-v2 (for full dataset it causes NaN in forward pass for Kinyarwanda)
 gradient_checkpointing: False
-compile_model: True
 ckpt_interval_minutes: 600
 
 max_gen_tokens: 100

@@ -10,7 +10,6 @@ The following technical tricks were implemented to improve performance:
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- compile model with `torch.compile` from PyTorch 2.0
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
@@ -524,13 +523,6 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    # Compile with PyTorch 2.0
-    if hparams["compile_model"]:
-        torch.set_float32_matmul_precision("high")
-        hparams["whisper"].model = torch.compile(
-            hparams["whisper"].model, mode="max-autotune"
-        )
 
     class CustomPaddedBatch(PaddedBatch):
         def __init__(self, examples, *args, **kwargs):

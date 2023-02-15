@@ -1,5 +1,4 @@
 matplotlib
 plotly
 seaborn
-torch>=2.0.0
 transformers

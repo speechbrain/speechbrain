@@ -10,7 +10,6 @@ The following technical tricks were implemented to improve performance:
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- compile model with `torch.compile` from PyTorch 2.0
 - optionally use gradient checkpointing
 - minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
@@ -42,18 +41,6 @@ from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 
 from common_voice_prepare import prepare_common_voice
-
-
-class Threshold(torch.autograd.Function):
-    """Pseudo-differentiable thresholding function."""
-
-    @staticmethod
-    def forward(ctx, input, threshold=0.005):
-        return torch.where(input >= threshold, 1.0, 0.0)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output, None
 
 
 class ASR(sb.Brain):
@@ -207,6 +194,18 @@ class ASR(sb.Brain):
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+
+class Threshold(torch.autograd.Function):
+    """Pseudo-differentiable thresholding function."""
+
+    @staticmethod
+    def forward(ctx, input, threshold=0.005):
+        return torch.where(input >= threshold, 1.0, 0.0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output, None
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -542,13 +541,6 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    # Compile with PyTorch 2.0
-    if hparams["compile_model"]:
-        torch.set_float32_matmul_precision("high")
-        hparams["whisper"].model = torch.compile(
-            hparams["whisper"].model, mode="max-autotune"
-        )
 
     class CustomPaddedBatch(PaddedBatch):
         def __init__(self, examples, *args, **kwargs):
