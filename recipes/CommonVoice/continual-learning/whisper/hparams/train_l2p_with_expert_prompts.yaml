@@ -8,13 +8,13 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
-old_locales: [en, zh, de, es, ru, fr, pt, ja, tr, pl]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 
 download_dir: data
 max_durations: null  # [36000, 3600, 3600] for whisper-large-v2
 
 # Output directories
-output_dir: !ref results/whisper_l2p/<seed>
+output_dir: !ref results/whisper_l2_expert_prompt/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
@@ -55,7 +55,6 @@ prompt_enabled: True
 pool_size: 20
 prompt_query: 'lang_emb'
 
-
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: False  # True for whisper-large-v2 (for full dataset it causes NaN in forward pass for Kinyarwanda)
 gradient_checkpointing: False
@@ -92,14 +91,14 @@ whisper: !new:prompt_model.PromptWhisper
 prompt: !new:prompt.Prompt
     length: 5
     embed_dim: 384
-    embedding_key: 'mean' # set to mean if you want to get the mean of whisper-encoder as an input for promptkey, set to cls if you want to use some other pretrained model like wav2vec
+    embedding_key: 'cls' # set to mean if you want to get the mean of whisper-encoder as an input for promptkey, set to cls if you want to use some other pretrained model like wav2vec
     prompt_init: 'uniform'
     prompt_pool: True
-    prompt_key: False
+    prompt_key: True
     pool_size: !ref <pool_size>
-    top_k: 5
+    top_k: 1
     batchwise_prompt: True
-    prompt_key_init: 'uniform'
+    prompt_key_init: 'zero'
     # prompt_key_dim: !ref <wav2vec_output_dim> #should be set to the output dimension of the embedding_key strategy
     token_id: -200
 

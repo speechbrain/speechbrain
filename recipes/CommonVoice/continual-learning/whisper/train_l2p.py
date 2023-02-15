@@ -48,7 +48,12 @@ class ASR(sb.Brain):
 
 
         if self.modules.whisper.prompt_enabled and hparams['prompt'].embedding_key == 'cls':
-            cls_features = torch.mean(self.modules.wav2vec2(wavs),dim=1)
+
+            if hparams['prompt_query'] == 'lang_emb':
+                cls_features = self.modules.whisper.model.get_input_embeddings()(torch.tensor(bos_tokens[:,1]))
+            else:
+                cls_features = torch.mean(self.modules.wav2vec2(wavs),dim=1)
+
         else: 
             cls_features=None
 
@@ -248,7 +253,7 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "tokens")
     def text_pipeline(wrd, locale):
         language = tokenizer.supported_languages.get(
-            locale, "english"
+             hparams["forced_decoder_locale"], "english"
         )  # Use English if unknown
         tokenizer.set_prefix_tokens(language=language)
         tokens_list = tokenizer.encode(wrd)
@@ -303,6 +308,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
 
         # Set forced decoder locale
+        
+        if locale.lower() == "zh-cn":
+            locale = "zh"
         hparams["forced_decoder_locale"] = locale
 
         # Define tokenizer
@@ -335,7 +343,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
     if asr_brain.modules.whisper.prompt_enabled:  
         filename=f"prompt_stats_test_after_{locales[-1]}.csv"
-        save_prompt_stast(hparams,asr_brain.prompt_stats,filename)
+        save_prompt_stast(hparams,stats,filename)
 
 
 def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_test.txt"):
@@ -356,7 +364,10 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
         )
 
         # Set forced decoder locale
+        if locale.lower() == "zh-cn":
+            locale = "zh"
         hparams["forced_decoder_locale"] = locale
+
 
         # Define tokenizer
         tokenizer = hparams["whisper"].tokenizer
@@ -381,6 +392,10 @@ def initialize_prompt_pool(hparams, run_opts, locales, wer_file="wer_prompted_te
         asr_brain.prompt_stats=[]
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
+        
+        token_id=tokenizer.convert_tokens_to_ids(f"<|{locale.lower()}|>")
+        prompt_key_inint_val=hparams["whisper"].model.get_input_embeddings()(torch.tensor(token_id).to(run_opts['device']))
+        hparams["whisper"].prompt.int_prompt_key(prompt_key_inint_val)
         asr_brain.fit(
             hparams["epoch_counter"],
             train_data,
@@ -485,6 +500,8 @@ def train(hparams, run_opts):
 
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
+        if locale.lower() == "zh-cn":
+            hparams["forced_decoder_locale"] = "zh"
 
         # Here we create the datasets objects as well as tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
@@ -510,6 +527,11 @@ def train(hparams, run_opts):
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
+
+        token_id=tokenizer.convert_tokens_to_ids(f"<|{locale.lower()}|>")
+        prompt_key_inint_val=hparams["whisper"].model.get_input_embeddings()(torch.tensor(token_id).to(run_opts['device']))
+        hparams["whisper"].prompt.int_prompt_key(prompt_key_inint_val)
+
         asr_brain.fit(
             hparams["epoch_counter"],
             train_data,
