@@ -16,15 +16,15 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: ../../samples/ASR # e.g, /localscratch/timers-and-such
+data_folder: tests/samples/ASR # e.g, /localscratch/timers-and-such
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
-csv_train: ../../samples/annotation/ASR_train.csv
-csv_dev_real: ../../samples/annotation/ASR_train.csv
-csv_dev_synth: ../../samples/annotation/ASR_train.csv
-csv_test_real: ../../samples/annotation/ASR_train.csv
-csv_test_synth: ../../samples/annotation/ASR_train.csv
-csv_all_real: ../../samples/annotation/ASR_train.csv
+csv_train: tests/samples/annotation/ASR_train.csv
+csv_dev_real: tests/samples/annotation/ASR_train.csv
+csv_dev_synth: tests/samples/annotation/ASR_train.csv
+csv_test_real: tests/samples/annotation/ASR_train.csv
+csv_test_synth: tests/samples/annotation/ASR_train.csv
+csv_all_real: tests/samples/annotation/ASR_train.csv
 tokenizer_file: https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr/resolve/main/tokenizer.ckpt
 skip_prep: True
 ckpt_interval_minutes: 15 # save checkpoint every N min
