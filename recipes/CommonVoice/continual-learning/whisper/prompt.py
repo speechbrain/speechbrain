@@ -64,6 +64,7 @@ class Prompt(nn.Module):
         self.top_k = top_k
         self.batchwise_prompt = batchwise_prompt
         self.token_id=token_id
+        
 
         if self.prompt_pool:
             prompt_pool_shape = (pool_size, length, embed_dim)
@@ -77,8 +78,8 @@ class Prompt(nn.Module):
             prompt_key_dim=embed_dim
         
         # if using learnable prompt keys
+        key_shape = (pool_size, prompt_key_dim)
         if prompt_key:
-            key_shape = (pool_size, prompt_key_dim)
             if prompt_key_init == 'zero':
                 self.prompt_key = nn.Parameter(torch.zeros(key_shape))
             elif prompt_key_init == 'uniform':
@@ -87,14 +88,26 @@ class Prompt(nn.Module):
         else:
             # else use mean of prompt as key
             # only compatible with prompt, not prefix
-            prompt_mean = torch.mean(self.prompt, dim=1)
-            self.prompt_key = prompt_mean
+            if prompt_key_init == 'zero':
+                self.register_buffer("pkey",torch.zeros(key_shape))
+                self.prompt_key = self.pkey
+            else:
+                prompt_mean = torch.mean(self.prompt, dim=1)
+                self.prompt_key = prompt_mean
     
     def l2_normalize(self, x, dim=None, epsilon=1e-12):
         """Normalizes a given vector or matrix."""
         square_sum = torch.sum(x ** 2, dim=dim, keepdim=True)
         x_inv_norm = torch.rsqrt(torch.maximum(square_sum, torch.tensor(epsilon, device=x.device)))
         return x * x_inv_norm
+    
+    def int_prompt_key(self, key_value,):
+        empty_indices=[i for i in range(self.prompt_key.shape[0]) if self.prompt_key[i].sum()== 0]
+        if len(empty_indices) < 1:
+            print("number of tasks are more  than number of prompts. Therfore we don't initialize the expert prompt for the task")
+            return 
+        self.prompt_key[empty_indices[0]].data.copy_(key_value.data)
+
     
     def forward(self, x_embed, prompt_mask=None, cls_features=None):
         out = dict()
