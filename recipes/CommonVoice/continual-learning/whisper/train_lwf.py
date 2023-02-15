@@ -110,8 +110,7 @@ class ASR(sb.Brain):
                 -(modified_target_probs * modified_probs.log())
                 .sum(dim=1)[valid_mask]
                 .mean()
-                * self.hparams.lwf_T ** 2
-            )  # ????
+            )
             loss += self.hparams.lwf_lambda * lwf_loss
 
         if stage != sb.Stage.TRAIN:
