@@ -32,4 +32,4 @@ performance:
     field: error_rate
 predicted: "[wrd.split(' ') for wrd in predictions[0]]"
 targeted: "[wrd.split(' ') for wrd in batch.wrd]"
-append: ids, predicted, targeted
+to_stats: ids, predicted, targeted
