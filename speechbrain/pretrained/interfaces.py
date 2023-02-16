@@ -2046,7 +2046,7 @@ class SepformerSeparation(Pretrained):
             C = number of audio channels
 
         ref_channel: int
-            Index of channel, which should be used to for masking.
+            Index of channel, which should be separated
             This option is relevant only for multi-channel input.
 
         Returns
@@ -2084,7 +2084,7 @@ class SepformerSeparation(Pretrained):
         )
 
         # T changed after conv1d in encoder, fix it here
-        T_origin = mix.size(1)
+        T_origin = mix.size(-1)
         T_est = est_source.size(1)
         if T_origin > T_est:
             est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
