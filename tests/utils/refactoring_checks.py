@@ -244,7 +244,7 @@ def gather_expected_results(
 def gather_refactoring_results(
     glob_filter="*",
     new_interfaces_git="https://github.com/speechbrain/speechbrain",
-    new_interfaces_branch="testing-refactoring",
+    new_interfaces_branch="hf-interface-testing",
     new_interfaces_local_dir="tests/tmp/hf_interfaces",
     yaml_path="tests/tmp/refactoring_results.yaml",
 ):

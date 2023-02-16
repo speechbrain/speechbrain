@@ -112,6 +112,7 @@ They will create another yaml in which the gather before/after refactoring test 
 While standing interfaces are drawn from HF repos, their updated/refactored counterparts need to be specified to clone the PR git+branch into, e.g., `tests/tmp/hf_interfaces`. See the default values:
 ```python
 def gather_refactoring_results(
+    glob_filter="*",
     new_interfaces_git="https://github.com/speechbrain/speechbrain",  # change to yours
     new_interfaces_branch="hf-interface-testing",  # maybe you have another branch
     new_interfaces_local_dir="tests/tmp/hf_interfaces",  # you can leave this, or put it elsewhere
@@ -120,9 +121,17 @@ def gather_refactoring_results(
     ...
 ```
 
-```python
+Examples:
+```bash
+# expected result(s) for one audio
+python -c "from tests.utils.refactoring_checks import gather_expected_results;gather_expected_results('asr-wav2vec2-ctc-aishell')"
 
+# result(s) after refactoring
+python -c "from tests.utils.refactoring_checks import gather_refactoring_results;gather_refactoring_results('asr-wav2vec2-ctc-aishell')"
 ```
+this will give a warning
+>     WARNING - no audio found on HF: asr-wav2vec2-ctc-aishell/example.wav
+this means that `tests/samples/single-mic/example1.wav` is taken instead.
 
 ---
 
