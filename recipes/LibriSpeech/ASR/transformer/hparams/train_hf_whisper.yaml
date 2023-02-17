@@ -1,0 +1,140 @@
+# ################################
+# Model: Whisper (Encoder-Decoder) + NLL
+# Augmentation: TimeDomainSpecAugment
+# Authors: Adel Moumen 2022, Titouan Parcollet 2022
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/train_whisper/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the biggest Fairseq english whisper model.
+whisper_hub: openai/whisper-tiny
+whisper_folder: !ref <save_folder>/whisper_checkpoint
+language: english
+
+# Normalize the english inputs with
+# the same normalization done in the paper
+normalized_transcripts: True
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
+
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 1
+lr_whisper: 0.00003
+sorting: ascending
+auto_mix_prec: False
+sample_rate: 16000
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+batch_size: 12
+test_batch_size: 8
+
+# These values are only used for the searchers.
+# They needs to be hardcoded and should not be changed with Whisper.
+# They are used as part of the searching process.
+# The bos token of the searcher will be timestamp_index
+# and will be concatenated with the bos, language and task tokens.
+timestamp_index: 50363
+eos_index: 50257
+bos_index: 50258
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 0.1
+test_beam_size: 8
+
+# Model parameters
+freeze_whisper: False
+
+
+train_loader_kwargs:
+    batch_size: !ref <batch_size>
+
+valid_loader_kwargs:
+    batch_size: !ref <batch_size>
+
+test_loader_kwargs:
+    batch_size: !ref <test_batch_size>
+
+
+#
+# Functions and classes
+#
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+    source: !ref <whisper_hub>
+    freeze: !ref <freeze_whisper>
+    save_path: !ref <whisper_folder>
+    encoder_only: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+
+modules:
+    whisper: !ref <whisper>
+
+whisper_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_whisper>
+    weight_decay: 0.000000001
+
+valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
+    model: !ref <whisper>
+    bos_index: !ref <timestamp_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+
+test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
+    module: [!ref <whisper>]
+    bos_index: !ref <timestamp_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+
+lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_whisper>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        whisper: !ref <whisper>
+        scheduler_whisper: !ref <lr_annealing_whisper>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True

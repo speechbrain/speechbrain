@@ -689,8 +689,6 @@ class DynamicBatchSampler(Sampler):
         if self._batch_ordering == "random":
             # we randomly permute the batches only --> faster
             self._permute_batches()
-        else:
-            pass
 
     def set_epoch(self, epoch):
         """

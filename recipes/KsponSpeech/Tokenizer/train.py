@@ -1,11 +1,11 @@
 #!/usr/bin/env/python3
 """Recipe for training a BPE tokenizer with ksponspeech.
-The tokenizer coverts words into sub-word units that can
+The tokenizer converts words into sub-word units that can
 be used to train a language (LM) or an acoustic model (AM).
 When doing a speech recognition experiment you have to make
 sure that the acoustic and language models are trained with
 the same tokenizer. Otherwise, a token mismatch is introduced
-and beamsearch will produce bas results when combining AM and LM.
+and beamsearch will produce bad results when combining AM and LM.
 
 To run this recipe, do the following:
 > python train.py hyperparams/5K_unigram_subword_bpe.yaml
@@ -53,6 +53,7 @@ if __name__ == "__main__":
             "save_folder": hparams["output_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": "train.csv",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

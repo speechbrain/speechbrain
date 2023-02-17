@@ -11,6 +11,7 @@ data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
 train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/dev.json
 test_annotation: !ref <output_folder>/test.json
+skip_prep: False
 
 # Path containing the stored inferences of the different teachers
 tea_infer_dir: !PLACEHOLDER

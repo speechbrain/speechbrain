@@ -1,0 +1,165 @@
+# ################################
+# Model: Whisper (Encoder only) + DNN + CTC
+# Augmentation: TimeDomainSpecAugment
+# Authors: Titouan Parcollet 2022
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407 # The secret perfect seed
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/train_whisper_char/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# URL for the biggest Fairseq english whisper model.
+whisper_hub: openai/whisper-base
+whisper_folder: !ref <save_folder>/whisper_checkpoint
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+ckpt_interval_minutes: 25 # save checkpoint every N min
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
+
+# Training parameters
+number_of_epochs: 15
+warmup_steps: 1000 # We freeze whisper for 1000 steps to let the CTC adapt
+lr: 0.0008
+lr_whisper: 0.0001
+sorting: random
+auto_mix_prec: False
+sample_rate: 16000
+
+# BPE parameters
+token_type: char  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+batch_size: 6
+test_batch_size: 1
+num_workers: 4
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+
+# Model parameters
+dnn_neurons: 1024
+freeze_whisper: False
+whisper_output_dim: 512
+
+
+# Outputs
+output_neurons: 31  # BPE size, index(blank/eos/bos) = 0
+
+# Decoding parameters
+blank_index: 0
+
+#
+# Functions and classes
+#
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+   sample_rate: !ref <sample_rate>
+   speeds: [95, 100, 105]
+
+enc: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <whisper_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.LayerNorm
+   activation: !new:torch.nn.LeakyReLU
+   drop: !new:torch.nn.Dropout
+      p: 0.15
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.LayerNorm
+   activation2: !new:torch.nn.LeakyReLU
+   drop2: !new:torch.nn.Dropout
+      p: 0.15
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.LayerNorm
+   activation3: !new:torch.nn.LeakyReLU
+
+whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+   source: !ref <whisper_hub>
+   freeze: !ref <freeze_whisper>
+   save_path: !ref <whisper_folder>
+   encoder_only: True
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <output_neurons>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+   blank_index: !ref <blank_index>
+
+modules:
+   whisper: !ref <whisper>
+   enc: !ref <enc>
+   ctc_lin: !ref <ctc_lin>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <enc>, !ref <ctc_lin>]
+
+model_opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr>
+
+whisper_opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr_whisper>
+
+lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.5
+   patient: 0
+
+lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_whisper>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.75
+   patient: 0
+
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      whisper: !ref <whisper>
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_whisper: !ref <lr_annealing_whisper>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: True

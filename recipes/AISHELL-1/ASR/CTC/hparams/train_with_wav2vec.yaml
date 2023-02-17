@@ -1,0 +1,187 @@
+# ############################################################################
+# Model: CTC-wav2vec2
+# Encoder: wav2vec2
+# Decoder: -
+# Tokens: Char
+# losses: CTC
+# Training: AISHELL-1
+# Authors:  Yingzhi WANG 2022
+# ############################################################################
+
+seed: 2
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/ctc_wav2vec/<seed>
+cer_file: !ref <output_folder>/cer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/aishell
+
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+train_data: !ref <output_folder>/train.csv
+valid_data: !ref <output_folder>/dev.csv
+test_data: !ref <output_folder>/test.csv
+
+wav2vec2_hub: TencentGameMate/chinese-wav2vec2-large
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+
+# Training parameters
+number_of_epochs: 80
+lr: 1.0
+lr_wav2vec: 0.0001
+sorting: ascending
+auto_mix_prec: False
+sample_rate: 16000
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 8 per GPU to fit 32GB of VRAM
+batch_size: 10
+test_batch_size: 4
+
+dynamic_batching: False
+dynamic_batch_sampler:
+   feats_hop_size: 0.01
+   max_batch_len: 15 # in terms of "duration" in annotations by default, second here
+   left_bucket_len: 200 # old implementation attributs
+   multiplier: 1.1 # old implementation attributs
+   shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+   num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+   batch_ordering: ascending
+
+num_workers: 6
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
+valid_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+   num_workers: !ref <num_workers>
+test_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+   num_workers: !ref <num_workers>
+
+wav2vec_output_dim: 1024
+dnn_neurons: 1024
+freeze_wav2vec: False
+dropout: 0.15
+
+tokenizer: !apply:transformers.BertTokenizer.from_pretrained
+   pretrained_model_name_or_path: bert-base-chinese
+# bert-base-chinese tokens length
+output_neurons: 21128
+
+# Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
+blank_index: 0
+
+# AISHELL-1 has spaces between words in the transcripts,
+# which Chinese writing normally does not do.
+# If remove_spaces, spaces are removed
+# from the transcript before computing CER.
+# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
+remove_spaces: True
+split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+SpeedPerturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+   sample_rate: !ref <sample_rate>
+   speeds: [90, 100, 110]
+
+SpecAugment: !new:speechbrain.lobes.augment.SpecAugment
+   time_warp: True
+   time_warp_window: 5
+   time_warp_mode: bicubic
+   freq_mask: True
+   n_freq_mask: 2
+   time_mask: True
+   n_time_mask: 2
+   replace_with_zero: False
+   freq_mask_width: 30
+   time_mask_width: 40
+
+enc: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation: !new:torch.nn.LeakyReLU
+   drop: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !new:torch.nn.LeakyReLU
+   drop2: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !new:torch.nn.LeakyReLU
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+   source: !ref <wav2vec2_hub>
+   output_norm: True
+   freeze: !ref <freeze_wav2vec>
+   save_path: !ref <wav2vec2_folder>
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <output_neurons>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+   blank_index: !ref <blank_index>
+
+modules:
+   wav2vec2: !ref <wav2vec2>
+   enc: !ref <enc>
+   ctc_lin: !ref <ctc_lin>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <enc>, !ref <ctc_lin>]
+
+model_opt_class: !name:torch.optim.Adadelta
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
+
+wav2vec_opt_class: !name:torch.optim.Adam
+   lr: !ref <lr_wav2vec>
+
+lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_wav2vec>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.9
+   patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      wav2vec2: !ref <wav2vec2>
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: !ref <split_tokens>

@@ -1,6 +1,7 @@
 """Decoding methods for seq2seq autoregressive model.
 
 Authors
+ * Adel Moumen 2022
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
@@ -111,7 +112,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
     def forward(self, enc_states, wav_len):
         """This method performs a greedy search.
-
         Arguments
         ---------
         enc_states : torch.Tensor
