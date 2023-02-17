@@ -38,7 +38,7 @@ class SLU(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         #  encoder forward pass
-        wav2vec2_out = self.modules.wav2vec2(wavs)
+        wav2vec2_out = self.modules.wav2vec2(wavs, wav_lens)
 
         # SLU forward pass
         e_in = self.hparams.output_emb(tokens_bos)
@@ -218,6 +218,10 @@ class SLU(sb.Brain):
                 "wav2vec2_opt", self.wav2vec2_optimizer
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec2_optimizer.zero_grad(set_to_none)
+        self.optimizer.zero_grad(set_to_none)
 
 
 def dataio_prepare(hparams):

@@ -1,0 +1,120 @@
+# ############################################################################
+# Model: Transformer LM for E2E ASR
+# Tokens: unigram
+# losses: NLL
+# Training: Switchboard corpus transcripts + Fisher corpus transcripts
+# Authors:  Jianyuan Zhong 2021, Dominik Wagner 2022
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1312
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/transformer/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
+data_folder: !PLACEHOLDER
+splits: ["train", "dev"]
+split_ratio: [99, 1]
+add_fisher_corpus: True
+# Maximum number of times the same utterance is allowed to appear
+# in the training data.
+# Note that this only filters the swbd1 data but not the Fisher data.
+max_utt: 300
+skip_prep: False
+# train_lm.csv is is created, when the Fisher
+# corpus is included in the data preparation
+# procedure via add_fisher_corpus
+train_csv: !ref <save_folder>/train_lm.csv
+valid_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
+
+# Tokenizer model
+# Location of your trained Sentencepiece tokenizer
+# (e.g. /path/to/2000_unigram.model)
+tokenizer_file: !PLACEHOLDER
+
+# Training parameters
+number_of_epochs: 100
+batch_size: 164
+lr: 1
+accu_steps: 2 # Gradient accumulation to simulate large batch training
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    pin_memory: True
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+# Outputs
+output_neurons: 2000
+# blank_index: 0
+bos_index: 1
+eos_index: 2
+# unk_index: 0
+# pad_index: 0
+
+# model params
+d_model: 264
+
+# Functions
+model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    d_embedding: 128
+    nhead: 12
+    num_encoder_layers: 12
+    num_decoder_layers: 0
+    d_ffn: 1024
+    dropout: 0.1
+    activation: !name:torch.nn.ReLU
+    normalize_before: False
+
+modules:
+    model: !ref <model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !name:torch.optim.Adam
+    lr: 0
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 25000
+    model_size: !ref <d_model>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        tokenizer: !ref <tokenizer_file>

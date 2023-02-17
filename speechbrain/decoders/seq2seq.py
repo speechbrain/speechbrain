@@ -133,7 +133,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
     def forward(self, enc_states, wav_len):
         """This method performs a greedy search.
-
         Arguments
         ---------
         enc_states : torch.Tensor
@@ -216,15 +215,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         # Pick top log probabilities
         top_log_probs = log_probs
-
-        # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1) / max_length
-        return (
-            predictions.unsqueeze(1),
-            top_lengths.unsqueeze(1),
-            scores.unsqueeze(1),
-            top_log_probs.unsqueeze(1),
-        )
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
@@ -1135,3 +1125,76 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
+
+    def lm_forward_step(self, inp_tokens, memory):
+        """Performs a step in the implemented LM module."""
+        memory = _update_mem(inp_tokens, memory)
+        if not next(self.lm_modules.parameters()).is_cuda:
+            self.lm_modules.to(inp_tokens.device)
+        logits = self.lm_modules(memory)
+        log_probs = self.softmax(logits / self.temperature_lm)
+        return log_probs[:, -1, :], memory
+
+
+def batch_filter_seq2seq_output(prediction, eos_id=-1):
+    """Calling batch_size times of filter_seq2seq_output.
+
+    Arguments
+    ---------
+    prediction : list of torch.Tensor
+        A list containing the output ints predicted by the seq2seq system.
+    eos_id : int, string
+        The id of the eos.
+
+    Returns
+    ------
+    list
+        The output predicted by seq2seq model.
+
+    Example
+    -------
+    >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
+    >>> predictions = batch_filter_seq2seq_output(predictions, eos_id=4)
+    >>> predictions
+    [[1, 2, 3], [2, 3]]
+    """
+    outputs = []
+    for p in prediction:
+        res = filter_seq2seq_output(p.tolist(), eos_id=eos_id)
+        outputs.append(res)
+    return outputs
+
+
+def filter_seq2seq_output(string_pred, eos_id=-1):
+    """Filter the output until the first eos occurs (exclusive).
+
+    Arguments
+    ---------
+    string_pred : list
+        A list containing the output strings/ints predicted by the seq2seq system.
+    eos_id : int, string
+        The id of the eos.
+
+    Returns
+    ------
+    list
+        The output predicted by seq2seq model.
+
+    Example
+    -------
+    >>> string_pred = ['a','b','c','d','eos','e']
+    >>> string_out = filter_seq2seq_output(string_pred, eos_id='eos')
+    >>> string_out
+    ['a', 'b', 'c', 'd']
+    """
+    if isinstance(string_pred, list):
+        try:
+            eos_index = next(
+                i for i, v in enumerate(string_pred) if v == eos_id
+            )
+        except StopIteration:
+            eos_index = len(string_pred)
+        string_out = string_pred[:eos_index]
+    else:
+        raise ValueError("The input must be a list.")
+    return string_out

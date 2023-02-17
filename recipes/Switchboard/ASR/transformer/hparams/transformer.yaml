@@ -1,0 +1,292 @@
+# ############################################################################
+# Model: E2E ASR with Transformer
+# Encoder: Transformer Encoder
+# Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
+# Tokens: unigram
+# losses: CTC + KLdiv (Label Smoothing loss)
+# Training: Switchboard
+# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell, Dominik Wagner
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+
+seed: 1312
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/transformer/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Language model (LM) pretraining
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. You can download everything from the
+# Speechbrain HuggingFace repository, or you can provide a local
+# path pointing to a directory containing the lm.ckpt and tokenizer.ckpt.
+pretrained_lm_tokenizer_path: !PLACEHOLDER
+tokenizer_file: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
+lm_file: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
+
+# Data files
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here
+data_folder: !PLACEHOLDER
+splits: [train, dev]
+split_ratio: [99, 1]
+skip_prep: False
+# We don't need the Fisher corpus, here since
+# it is only used for Tokenizer and LM training
+add_fisher_corpus: False
+# Remove optional/deletable parts of the transcript
+normalize_words: True
+# Maximum number of times the same utterance is allowed to appear
+# in the training data.
+max_utt: 300
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+# The test data is split into the full test set (test.csv),
+# the Switchboard portion of the data (test_swbd.csv),
+# and the Callhome portion of the data (test_callhome.csv).
+test_csv:
+  - !ref <output_folder>/test_swbd.csv
+  - !ref <output_folder>/test_callhome.csv
+  - !ref <output_folder>/test.csv
+
+ckpt_interval_minutes: 30  # save checkpoint every N min
+
+# Training parameters
+# To make Transformers converge, the global batch size should be large enough.
+# The global batch size is computed as:
+# batch_size * n_gpus * gradient_accumulation.
+# Empirically, we found that this value should be >= 128.
+# Please, set your parameters accordingly.
+number_of_epochs: 100
+batch_size: 48  # This works for 1x GPU with 40GB
+ctc_weight: 0.3
+grad_accumulation_factor: 2
+max_grad_norm: 5.0
+loss_reduction: batchmean
+sorting: random
+
+#dynamic_batching: False
+#
+#dynamic_batch_sampler:
+#  feats_hop_size: 0.01
+#  max_batch_len: 100000    # in terms of frames
+#  num_buckets: 200
+#  shuffle_ex: False    # re-creates batches at each epoch shuffling examples.
+#  batch_ordering: descending
+#  max_batch_ex: -1
+
+# stages related parameters
+lr_adam: 0.006
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+
+# Dataloader options
+train_dataloader_opts:
+  batch_size: !ref <batch_size>
+  shuffle: True
+  num_workers: 12
+
+valid_dataloader_opts:
+  batch_size: 1
+
+test_dataloader_opts:
+  batch_size: 1
+
+####################### Model parameters  ###########################
+# Transformer
+transformer_input_size: 1280
+d_model: 256
+nhead: 4
+num_encoder_layers: 12
+num_decoder_layers: 6
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 2000
+
+# Outputs
+blank_index: 0
+label_smoothing: 0.1
+pad_index: 0
+bos_index: 1
+eos_index: 2
+# unk_index: 0
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+valid_search_interval: 10
+valid_beam_size: 10
+lm_weight: 0.30
+test_beam_size: 60
+ctc_weight_decode: 0.30
+temperature: 1.0
+temperature_lm: 1.0
+using_eos_threshold: False
+eos_threshold: 1.5
+length_normalization: True
+using_max_attn_shift: False
+max_attn_shift: 30
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+  input_shape: (8, 10, 80)
+  num_blocks: 3
+  num_layers_per_block: 1
+  out_channels: (64, 64, 64)
+  kernel_sizes: (5, 5, 1)
+  strides: (2, 2, 1)
+  residuals: (False, False, True)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+  input_size: !ref <transformer_input_size>
+  tgt_vocab: !ref <output_neurons>
+  d_model: !ref <d_model>
+  nhead: !ref <nhead>
+  num_encoder_layers: !ref <num_encoder_layers>
+  num_decoder_layers: !ref <num_decoder_layers>
+  d_ffn: !ref <d_ffn>
+  dropout: !ref <transformer_dropout>
+  activation: !ref <activation>
+  encoder_module: transformer
+  attention_type: regularMHA
+  normalize_before: True
+  causal: False
+
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+  vocab: !ref <output_neurons>
+  d_model: 264
+  d_embedding: 128
+  nhead: 12
+  num_encoder_layers: 12
+  num_decoder_layers: 0
+  d_ffn: 1024
+  dropout: 0.1
+  activation: !name:torch.nn.ReLU
+  normalize_before: False
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+  input_size: !ref <d_model>
+  n_neurons: !ref <output_neurons>
+
+seq_lin: !new:speechbrain.nnet.linear.Linear
+  input_size: !ref <d_model>
+  n_neurons: !ref <output_neurons>
+
+modules:
+  CNN: !ref <CNN>
+  Transformer: !ref <Transformer>
+  seq_lin: !ref <seq_lin>
+  ctc_lin: !ref <ctc_lin>
+  normalize: !ref <normalize>
+
+model: !new:torch.nn.ModuleList
+  - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+Adam: !name:torch.optim.Adam
+  lr: !ref <lr_adam>
+  betas: (0.9, 0.98)
+  eps: 0.000000001
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+  modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
+  blank_index: !ref <blank_index>
+  min_decode_ratio: !ref <min_decode_ratio>
+  max_decode_ratio: !ref <max_decode_ratio>
+  beam_size: !ref <valid_beam_size>
+  ctc_weight: !ref <ctc_weight_decode>
+  using_eos_threshold: False
+  length_normalization: False
+
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+  modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
+  blank_index: !ref <blank_index>
+  min_decode_ratio: !ref <min_decode_ratio>
+  max_decode_ratio: !ref <max_decode_ratio>
+  beam_size: !ref <test_beam_size>
+  ctc_weight: !ref <ctc_weight_decode>
+  lm_weight: !ref <lm_weight>
+  lm_modules: !ref <lm_model>
+  temperature: !ref <temperature>
+  temperature_lm: !ref <temperature_lm>
+  using_eos_threshold: !ref <using_eos_threshold>
+  eos_threshold: !ref <eos_threshold>
+  length_normalization: !ref <length_normalization>
+  using_max_attn_shift: !ref <using_max_attn_shift>
+  max_attn_shift: !ref <max_attn_shift>
+
+log_softmax: !new:torch.nn.LogSoftmax
+  dim: -1
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+  blank_index: !ref <blank_index>
+  reduction: !ref <loss_reduction>
+
+seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
+  label_smoothing: !ref <label_smoothing>
+  reduction: !ref <loss_reduction>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+  lr_initial: !ref <lr_adam>
+  n_warmup_steps: 25000
+    # model_size: !ref <d_model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    noam_scheduler: !ref <noam_annealing>
+    normalizer: !ref <normalize>
+    counter: !ref <epoch_counter>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+  norm_type: global
+  update_until_epoch: 4
+
+augmentation: !new:speechbrain.lobes.augment.SpecAugment
+  time_warp: False
+  time_warp_window: 5
+  time_warp_mode: bicubic
+  freq_mask: True
+  n_freq_mask: 4
+  time_mask: True
+  n_time_mask: 4
+  replace_with_zero: False
+  freq_mask_width: 15
+  time_mask_width: 20
+
+speed_perturb: True
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+  sample_rate: !ref <sample_rate>
+  n_fft: !ref <n_fft>
+  n_mels: !ref <n_mels>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+
+# The pretrainer allows a mapping between pretrained files and instances that
+# are declared in the yaml. E.g here, we will download the file lm.ckpt
+# and it will be loaded into "lm" which is pointing to the <lm_model> defined
+# before.
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+  collect_in: !ref <save_folder>
+  loadables:
+    lm: !ref <lm_model>
+    tokenizer: !ref <tokenizer>
+  paths:
+    lm: !ref <lm_file>
+    tokenizer: !ref <tokenizer_file>

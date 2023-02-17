@@ -11,8 +11,10 @@ Make sure you have the HuggingFace dataset installed. If not, type:
 pip install datasets
 
 # How to run:
+```shell
 python train.py hparams/RNNLM.yaml
 python train.py hparams/transformer.yaml
+```
 
 | Release | hyperparams file | Test PP | Model link | GPUs |
 | :---     | :---: | :---: | :---: | :---: |

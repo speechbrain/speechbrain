@@ -1,0 +1,203 @@
+# ############################################################################
+# Model: E2E ST with wav2vec 2.0 encoder
+# Encoder: wav2vec 2.0 + linear projection
+# Decoder: Transformer
+# Tokens: unigram (1000)
+# losses: NLL
+# Training: Tamasheq-French corpus
+# Author:  Marcely Zanon Boito, 2022
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 5988
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+debug: False
+output_folder: !ref output/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
+root_data_folder: !PLACEHOLDER
+# data folder is the place where the json files will be stored prior to training
+data_folder: !ref <root_data_folder>/json_version/
+lang: "fr" #for the BLEU score detokenization
+vocab_size: 1000 #for SentencePiece tokenizer (unigram)
+
+annotation_train: !ref <data_folder>/train.json
+annotation_valid: !ref <data_folder>/valid.json
+annotation_test: !ref <data_folder>/test.json
+skip_prep: False
+
+# URL for the HuggingFace model we want to load (BASE here)
+wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+
+# wav2vec 2.0 specific parameters
+wav2vec2_frozen: False
+keep_n_layers: 6 # keep first N layers from the Transformer Encoder stack inside the wav2vec 2.0 model
+
+# Training parameters
+number_of_epochs: 100
+lr: 0.001
+lr_wav2vec: 0.00001
+batch_size: 4
+test_batch_size: 4
+loss_reduction: batchmean
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Data sorting parameters: sorting_debug_duration replaces sorting_min_duration in debug mode
+sorting: ascending
+sorting_min_duration: 1
+sorting_debug_duration: 3
+sorting_max_duration: 5
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: 4
+
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: 4
+
+# Feature parameters (W2V2 etc)
+features_dim: 768 # base wav2vec output dimension, for large replace by 1024
+
+#projection for w2v
+enc_dnn_layers: 1
+enc_dnn_neurons: 256
+
+# Transformer
+embedding_size: 256
+d_model: 256
+nhead: 4
+num_decoder_layers: 3
+d_ffn: 1024
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: !ref <vocab_size> # /!\ needs to be changed accordingly to the vocabulary
+attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
+
+# Outputs
+blank_index: 0
+label_smoothing: 0.1
+pad_index: 0
+bos_index: 1
+eos_index: 2
+
+# Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+valid_beam_size: 5
+test_beam_size: 5
+
+############################## models ################################
+#wav2vec model
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <wav2vec2_frozen>
+    save_path: !ref <wav2vec2_folder>
+
+
+#linear projection
+enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, !ref <features_dim>]
+    activation: !ref <activation>
+    dnn_blocks: !ref <enc_dnn_layers>
+    dnn_neurons: !ref <enc_dnn_neurons>
+
+#transformer decoder
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerST.TransformerST # yamllint disable-line rule:line-length
+    input_size: !ref <embedding_size>
+    tgt_vocab: !ref <output_neurons>
+    num_encoder_layers: 0
+    num_decoder_layers: !ref <num_decoder_layers>
+    nhead: !ref <nhead>
+    d_model: !ref <d_model>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    attention_type: !ref <attention_type>
+    normalize_before: True
+    causal: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    enc: !ref <enc>
+    Transformer: !ref <Transformer>
+    seq_lin: !ref <seq_lin>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <Transformer>, !ref <seq_lin>]
+
+adam_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+wav2vec_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_wav2vec>
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.5
+    patient: 2
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        wav2vec2: !ref <wav2vec2>
+        lr_annealing_adam: !ref <lr_annealing_adam>
+        lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules: [!ref <Transformer>, !ref <seq_lin>, null]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <valid_beam_size>
+    using_eos_threshold: False
+    length_normalization: False
+
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+    modules: [!ref <Transformer>, !ref <seq_lin>, null]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    using_eos_threshold: True
+    length_normalization: True
+
+bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
+    merge_words: False
+    lang: !ref <lang>
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

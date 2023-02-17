@@ -1,8 +1,8 @@
-# The SpeechBrain Toolkit [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/SpeechBrain1/)
-
 <p align="center">
-  <img src="http://www.darnault-parcollet.fr/Parcollet/hiddennoshare/speechbrain.github.io/img/logo_noname_rounded_big.png" alt="drawing" width="250"/>
+  <img src="docs/images/speechbrain-logo.svg" alt="SpeechBrain Logo"/>
 </p>
+
+[![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/SpeechBrain1/)
 
 SpeechBrain is an **open-source** and **all-in-one** conversational AI toolkit based on PyTorch.
 
@@ -12,10 +12,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
-**News:** SpeechBrain 0.5.12 has been released (June 26, 2022)!
-
-
-| **[Discourse](https://speechbrain.discourse.group)** | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
+| **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
 # Key features
 
@@ -155,6 +152,51 @@ SpeechBrain is designed to speed up the research and development of speech techn
 ### Under development
 We are currently implementing speech synthesis pipelines and real-time speech processing pipelines. An interface with the Finite State Transducers (FST) implemented by the [Kaldi 2 team](https://github.com/k2-fsa/k2) is under development.
 
+# Where is what, a link list.
+```
+                  (documentation)           (tutorials)
+                  .—————————————.            .———————.
+                  | readthedocs |       ‚––> | Colab |
+                  \—————————————/      ∕     \———————/
+                         ^       ‚––––‘          |
+    (release)            |      ∕                v
+    .——————.       .———————————. (landing) .———————————.
+    | PyPI | –––>  | github.io |  (page)   | templates |   (reference)
+    \——————/       \———————————/       ‚–> \———————————/ (implementation)
+        |                |        ‚–––‘          |
+        v                v       ∕               v
+.———————————–—.   .———————————–—.           .—————————.           .~~~~~~~~~~~~~.
+| HyperPyYAML |~~~| speechbrain | ––––––––> | recipes | ––––––––> | HuggingFace |
+\————————————–/   \————————————–/           \—————————/     ∕     \~~~~~~~~~~~~~/
+  (usability)     (source/modules)          (use cases)    ∕    (pretrained models)
+                                                          ∕
+                        |                        |       ∕               |
+                        v                        v      ∕                v
+                  .~~~~~~~~~~~~~.            .~~~~~~~~.            .———————————.
+                  |   PyTorch   | ––––––––-> | GDrive |            | Inference |
+                  \~~~~~~~~~~~~~/            \~~~~~~~~/            \———————————/
+                   (checkpoints)             (results)            (code snippets)
+```
+
+* https://speechbrain.github.io/
+  * via: https://github.com/speechbrain/speechbrain.github.io
+  * pointing to several tutorials on Google Colab
+* https://github.com/speechbrain/speechbrain
+  * [docs](https://github.com/speechbrain/speechbrain/tree/develop/docs) for https://speechbrain.readthedocs.io/
+  * [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes)
+  * [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/)
+  * [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates)
+  * [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality
+* https://huggingface.co/speechbrain/
+  * hosting several model cards (pretrained models with code snippets)
+* Gdrive
+  * hosting training results; checkpoints; ...
+
+# Conference Tutorials
+SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
+- [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1d6GAquxw6rZBI-7JvfUQ_-upeiKstJEo?usp=sharing)
+- [Interspeech 2021 YouTube recordings.](https://www.youtube.com/results?search_query=Interspeech+speechbrain+)
+
 # Quick installation
 SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.
 SpeechBrain can be installed via PyPI. Moreover,  a local installation can be used by those users that what to run experiments and modify/customize the toolkit. SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
@@ -162,7 +204,7 @@ SpeechBrain can be installed via PyPI. Moreover,  a local installation can be us
 
 ## Install via PyPI
 
-Once you have created your Python environment (Python 3.8+) you can simply type:
+Once you have created your Python environment (Python 3.7+) you can simply type:
 
 ```
 pip install speechbrain
@@ -176,7 +218,7 @@ import speechbrain as sb
 
 ## Install with GitHub
 
-Once you have created your Python environment (Python 3.8+) you can simply type:
+Once you have created your Python environment (Python 3.7+) you can simply type:
 
 ```
 git clone https://github.com/speechbrain/speechbrain.git
@@ -212,7 +254,7 @@ The results will be saved in the `output_folder` specified in the yaml file. The
 
 # SpeechBrain Roadmap
 
-As a community-based and open-source project, SpeechBrain needs the help of its community to grow in the right direction. Opening the roadmap to our users enables the toolkit to benefit from new ideas, new research axes, or even new technologies. The roadmap, available on our [Discourse](https://speechbrain.discourse.group/t/speechbrain-a-community-roadmap/179) lists all the changes and updates that need to be done in the current version of SpeechBrain. Users are more than welcome to propose new items via new Discourse topics!
+As a community-based and open-source project, SpeechBrain needs the help of its community to grow in the right direction. Opening the roadmap to our users enables the toolkit to benefit from new ideas, new research axes, or even new technologies. The roadmap will be available in our [GitHub Discussions](https://github.com/speechbrain/speechbrain/discussions/categories/announcements) and will list all the changes and updates that need to be done in the current version of SpeechBrain. Users are more than welcome to propose new items via new Discussions topics!
 
 # Learning SpeechBrain
 

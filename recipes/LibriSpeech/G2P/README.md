@@ -15,9 +15,12 @@ The datasets are derived from the LibriSpeech-Alignments dataset (https://zenodo
 Decoding is performed with a beamsearch, optionally enhanced with language models.
 
 To run this recipe, do the following:
-> python train.py <hyperparameter file>
+> python train.py &lt;hyperparameter file&gt;
+
 Example:
-> python train.py hparams/hparams_g2p_transformer.yaml
+```shell
+python train.py hparams/hparams_g2p_transformer.yaml
+```
 
 RNN Model
 ---------

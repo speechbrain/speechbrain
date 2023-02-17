@@ -587,7 +587,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation for LibriMix
-    from recipes.LibriMix.prepare_data import prepare_librimix as prepare_libri
+    from prepare_data_librimix import prepare_librimix as prepare_libri
 
     # create the csv files
     run_on_main(
@@ -603,26 +603,27 @@ if __name__ == "__main__":
     )
 
     # Data preparation for WHAMR
-    from recipes.WHAMandWHAMR.prepare_data import create_wham_whamr_csv
-    from recipes.WHAMandWHAMR.separation.train import (
-        dataio_prep as dataio_prep_whamr,
-    )
+    from prepare_data_wham import create_wham_whamr_csv
+    from train_wham import dataio_prep as dataio_prep_whamr
 
-    create_wham_whamr_csv(
-        datapath=hparams["whamr_data_folder"],
-        savepath=hparams["save_folder"],
-        fs=hparams["sample_rate"],
-        add_reverb=True,
-        savename="whamr_",
-        set_types=["tr", "cv", "tt"],
-    )
+    # add another skip_prep to distinguish between LibriSpeech & WHAM/R prep
+    skip_prep = hparams["skip_prep"]
+    if not skip_prep:
+        create_wham_whamr_csv(
+            datapath=hparams["whamr_data_folder"],
+            savepath=hparams["save_folder"],
+            fs=hparams["sample_rate"],
+            add_reverb=True,
+            savename="whamr_",
+            set_types=["tr", "cv", "tt"],
+        )
 
     train_data_whamr, valid_data, test_data = dataio_prep_whamr(hparams)
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if hparams["use_reverb_augment"]:
-        from recipes.WHAMandWHAMR.prepare_data import create_whamr_rir_csv
-        from recipes.WHAMandWHAMR.meta.create_whamr_rirs import create_rirs
+        from prepare_data_wham import create_whamr_rir_csv
+        from create_whamr_rirs import create_rirs
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
@@ -648,10 +649,10 @@ if __name__ == "__main__":
         )
 
     if hparams["dynamic_mixing"]:
-        from recipes.LibriMix.separation.dynamic_mixing import (
+        from dynamic_mixing_librimix import (
             dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
         )
-        from recipes.WHAMandWHAMR.separation.dynamic_mixing import (
+        from dynamic_mixing_wham import (
             dynamic_mix_data_prep as dynamic_mix_data_prep_whamr,
         )
 
@@ -664,9 +665,7 @@ if __name__ == "__main__":
                     os.path.normpath(hparams["base_folder_dm_whamr"])
                     + "_processed"
                 ):
-                    from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
-                        resample_folder,
-                    )
+                    from preprocess_dynamic_mixing_wham import resample_folder
 
                     print("Resampling the base folder")
                     run_on_main(
@@ -713,9 +712,7 @@ if __name__ == "__main__":
             if not os.path.exists(
                 os.path.normpath(hparams["base_folder_dm"]) + "_processed"
             ):
-                from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+                from preprocess_dynamic_mixing_librimix import resample_folder
 
                 print("Resampling the base folder")
                 run_on_main(

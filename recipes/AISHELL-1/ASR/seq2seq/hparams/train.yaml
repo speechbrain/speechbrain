@@ -34,14 +34,18 @@ batch_size: 16
 lr: 0.0003
 ctc_weight: 0.5
 sorting: ascending
-dynamic_batching: True
 
+dynamic_batching: True
 dynamic_batch_sampler:
    feats_hop_size: 0.01
-   max_batch_len: 4000 # in terms of frames
-   left_bucket_len: 200
-   multiplier: 1.1
-   shuffle: False # if true re-creates batches at each epoch shuffling examples.
+   max_batch_len: 15 # in terms of "duration" in annotations by default, second here
+   left_bucket_len: 200 # old implementation attributs
+   multiplier: 1.1 # old implementation attributs
+   shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+   num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+   batch_ordering: ascending
+
+num_workers: 6
 
 # Feature parameters
 sample_rate: 16000
@@ -54,12 +58,15 @@ opt_class: !name:torch.optim.Adam
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 test_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
