@@ -8,6 +8,7 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
  * Andreas Nautsch 2022
+ * Pooneh Mousavi 20023
 """
 import logging
 import hashlib
@@ -2880,13 +2881,13 @@ class WhisperASR(Pretrained):
     (transcribe()) to transcribe speech. The given YAML must contains the fields
     specified in the *_NEEDED[] lists.
 
-    Example
-    -------
-    >>> from speechbrain.pretrained.interfaces import foreign_class
-    >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,)
-    >>> asr_model.transcribe_file("tests/samples/example2.wav")
-    """
+    # Example
+    # -------
+    # >>> from speechbrain.pretrained.interfaces import foreign_class
+    # >>> tmpdir = getfixture("tmpdir")
+    # >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,)
+    # >>> asr_model.transcribe_file("tests/samples/example2.wav")
+    # """
 
     HPARAMS_NEEDED = ["language"]
     MODULES_NEEDED = ["whisper", "decoder"]
