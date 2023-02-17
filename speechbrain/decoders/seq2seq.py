@@ -10,8 +10,6 @@ Authors
 import torch
 from speechbrain.decoders.utils import inflate_tensor, mask_by_condition
 
-# TODO: when scoring on words, in the scorer, add a function to None that can be used to do some preprocessing on the words
-
 
 class AlivedHypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
