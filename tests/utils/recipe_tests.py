@@ -406,6 +406,11 @@ def run_recipe_tests(
         filters=filters,
     )
 
+    # Early stop if there are no recipes to test
+    if len(test_script) == 0:
+        print("No recipes found for testing (please check recipe filters).")
+        return False
+
     # Download all upfront
     if download_only:
         for i, recipe_id in enumerate(test_script.keys()):
