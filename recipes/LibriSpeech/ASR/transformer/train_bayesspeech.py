@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+<<<<<<< HEAD
 """Recipe for training a Bayesian Transformer ASR system (https://arxiv.org/abs/2301.11276)
 with LibriSpeech via Bayes by Backprop (https://arxiv.org/abs/1505.05424).
 The system employs an encoder, a decoder, and an attention mechanism between them.
@@ -6,11 +7,21 @@ Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural lang
 
 To run this recipe, do the following:
 > python train_bayesspeech.py hparams/transformer_bayesspeech.yaml
+=======
+"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech.
+The system employs an encoder, a decoder, and an attention mechanism
+between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
+language model.
+
+To run this recipe, do the following:
+> python train_bayesian.py hparams/transformer_bayesian.yaml
+>>>>>>> Add BayesSpeech
 
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
 language model is used  on the top of decoder probabilities.
 
+<<<<<<< HEAD
 Linear layers are turned into Bayesian linear layers by placing a normal prior and a normal
 variational posterior upon their weights and biases. The Bayesian neural network is trained
 to minimize the evidence lower bound (ELBO), which is a trade-off between the simplicity
@@ -19,6 +30,12 @@ The likelihood loss is the standard loss function used in non-Bayesian ASR trans
 (CTC + negative-log likelihood), the complexity loss is the Kullback-Leibler divergence between
 variational posterior and prior. Sub-word units estimated with Byte Pairwise Encoding (BPE) are
 used as basic recognition tokens. Training is performed on the full LibriSpeech dataset (960 h).
+=======
+The neural network is trained on both CTC and negative-log likelihood
+targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
+are used as basic recognition tokens. Training is performed on the full
+LibriSpeech dataset (960 h).
+>>>>>>> Add BayesSpeech
 
 The best model is the average of the checkpoints from last 5 epochs.
 
@@ -38,6 +55,7 @@ Authors
  * Luca Della Libera 2023
 """
 
+<<<<<<< HEAD
 import logging
 import os
 import sys
@@ -50,6 +68,17 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 
+=======
+import os
+import sys
+import torch
+import logging
+from pathlib import Path
+import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main
+
+>>>>>>> Add BayesSpeech
 logger = logging.getLogger(__name__)
 
 
@@ -81,8 +110,14 @@ class ASR(sb.core.Brain):
         # forward modules
         src = self.modules.CNN(feats)
 
+<<<<<<< HEAD
         enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
+=======
+        enc_out, pred, kl_div = self.modules.Transformer(
+            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
+            num_mc_samples=1, return_kl_div=True,
+>>>>>>> Add BayesSpeech
         )
 
         # output layer for ctc log-probabilities
@@ -107,12 +142,20 @@ class ASR(sb.core.Brain):
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
+<<<<<<< HEAD
         return p_ctc, p_seq, wav_lens, hyps
+=======
+        return p_ctc, p_seq, kl_div, wav_lens, hyps
+>>>>>>> Add BayesSpeech
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
+<<<<<<< HEAD
         (p_ctc, p_seq, wav_lens, hyps,) = predictions
+=======
+        (p_ctc, p_seq, kl_div, wav_lens, hyps,) = predictions
+>>>>>>> Add BayesSpeech
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -139,7 +182,11 @@ class ASR(sb.core.Brain):
         loss = (
             self.hparams.ctc_weight * loss_ctc
             + (1 - self.hparams.ctc_weight) * loss_seq
+<<<<<<< HEAD
             + self.hparams.kl_div_weight * self.modules.Transformer.kl_div
+=======
+            + self.hparams.kl_div_weight * kl_div
+>>>>>>> Add BayesSpeech
         )
 
         if stage != sb.Stage.TRAIN:
@@ -159,10 +206,46 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
+<<<<<<< HEAD
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         if should_step:
             # anneal lr every update
             self.hparams.noam_annealing(self.optimizer)
+=======
+    def fit_batch(self, batch):
+
+        should_step = self.step % self.grad_accumulation_factor == 0
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            self.optimizer.zero_grad()
+            with torch.cuda.amp.autocast():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer_step += 1
+
+                # anneal lr every update
+                self.hparams.noam_annealing(self.optimizer)
+        else:
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.optimizer.zero_grad()
+                self.optimizer_step += 1
+
+                # anneal lr every update
+                self.hparams.noam_annealing(self.optimizer)
+
+        return loss.detach().cpu()
+>>>>>>> Add BayesSpeech
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
@@ -419,7 +502,11 @@ if __name__ == "__main__":
             "te_splits": hparams["test_splits"],
             "save_folder": hparams["save_folder"],
             "merge_lst": hparams["train_splits"],
+<<<<<<< HEAD
             "merge_name": os.path.basename(hparams["train_csv"]),
+=======
+            "merge_name": hparams["train_csv"],
+>>>>>>> Add BayesSpeech
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -439,6 +526,7 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
+<<<<<<< HEAD
     # ###################################################################
     # Define Bayesian modules
     # ###################################################################
@@ -474,19 +562,37 @@ if __name__ == "__main__":
                 0.0,
             )
             return output
+=======
+    # Define Bayesian modules
+    from speechbrain.nnet.attention import PositionalwiseFeedForward
+
+    from bayestorch.distributions import get_log_scale_normal, get_softplus_inv_scale_normal
+    from bayestorch.nn import VariationalPosteriorModel
+
+    # Change default number of samples - evaluation loop code is not easily accessible/editable
+    class BayesianModel(VariationalPosteriorModel):
+        def forward(self, *args, num_mc_samples=hparams["num_eval_mc_samples"], **kwargs):
+            return super().forward(*args, num_mc_samples=num_mc_samples, **kwargs)
+>>>>>>> Add BayesSpeech
 
     parameters = []
     for module in hparams["modules"]["Transformer"].modules():
         if isinstance(module, PositionalwiseFeedForward):
             parameters += list(module.parameters())
     prior_builder, prior_kwargs = get_log_scale_normal(
+<<<<<<< HEAD
         parameters, log_scale=hparams["normal_prior_log_scale"],
+=======
+        parameters,
+        log_scale=hparams["normal_prior_log_scale"],
+>>>>>>> Add BayesSpeech
     )
     posterior_builder, posterior_kwargs = get_softplus_inv_scale_normal(
         parameters,
         softplus_inv_scale=hparams["normal_posterior_softplus_inv_scale"],
         requires_grad=True,
     )
+<<<<<<< HEAD
     hparams["Transformer"] = hparams["modules"]["Transformer"] = BBBModule(
         hparams["modules"]["Transformer"],
         prior_builder,
@@ -508,6 +614,12 @@ if __name__ == "__main__":
         "Transformer", hparams["Transformer"],
     )
     # ###################################################################
+=======
+    hparams["modules"]["Transformer"] = BayesianModel(
+        hparams["modules"]["Transformer"], prior_builder, prior_kwargs,
+        posterior_builder, posterior_kwargs, parameters,
+    )
+>>>>>>> Add BayesSpeech
 
     # Trainer initialization
     asr_brain = ASR(
