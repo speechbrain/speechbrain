@@ -28,8 +28,8 @@ class AlivedHypotheses(torch.nn.Module):
         self.decoded_seq = decoded_seq
         self.tokenizer = tokenizer
 
-    def permute(self, predecessors):
-        """Permute the alived hypotheses.
+    def permute_decoded_seq(self, predecessors):
+        """Permute the decoded sequences.
 
         Arguments
         ---------
@@ -575,6 +575,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             ],
             dim=-1,
         )
+
+        alived_hyps.permute_decoded_seq(predecessors)
 
         # Takes the log-probabilities
         beam_log_probs = log_probs[
