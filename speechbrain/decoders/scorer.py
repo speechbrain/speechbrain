@@ -110,7 +110,7 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
         """This method should implement the rescoring of the hypotheses. """
         raise NotImplementedError
 
-class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
+class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
     """A wrapper of TransformerLM based on the BaseAnyTokensScorerInterface.
 
     Arguments
@@ -120,6 +120,116 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    strategy : str
+        The strategy to use for scoring. It can be either scoring on each token
+        independently (independent) or scoring on the whole sequence (sequence).
+        Scoring indendently is slower but more accurate. (default: sequence)
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer associated with the language model.
+    bos_index : int
+        The index of the beginning-of-sequence (bos) token.
+    eos_index : int
+        The index of the end-of-sequence (eos) token.
+    pad_index : int
+        The index of the padding token.
+    """
+    def __init__(self, language_model, temperature=1.0, tokenizer=None, strategy="sequence", bos_index=0, eos_index=0, pad_index=0):
+        self.lm = language_model
+        self.lm.eval()
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+        self.strategy = strategy
+        self.tokenizer = tokenizer
+        self.bos_index = bos_index
+        self.eos_index = eos_index
+        self.pad_index = pad_index
+
+    def preprocess_func(self, decoded_seq):
+        """This method preprocesses the hypotheses before scoring. """
+        
+        # normalize & encode text
+        enc_hyps = [torch.tensor([self.bos_index] + self.tokenizer.encode_as_ids(self.normalize_text(seq))[0] + [self.eos_index]) for seq in decoded_seq]
+        
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=self.pad_index).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps
+
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+        """This method scores tokens of the hypotheses.
+
+        Arguments
+        ---------
+        alived_hyps : speechbrain.decoders.beamsearch.AlivedHypotheses
+            The alived hypotheses.
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
+            scoring. If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
+
+        # preprocess hypotheses
+        padded_hyps = self.preprocess_func(alived_hyps.decoded_seq)
+        
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(inp_tokens.device)
+            padded_hyps.to(inp_tokens.device)
+        
+        # compute scores
+        logits = self.lm(padded_hyps)
+        log_probs = self.softmax(logits / self.temperature)
+        
+        # select only the log_probs of the tokens at t+1, e.g., log_probs[:, tokens[t+1]] ..., in a batched way 
+        mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device=inp_tokens.device)
+        mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
+
+        # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
+        log_probs_score = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1)
+        
+        return log_probs_score, None 
+
+    def rescoring_hyps(self, scores, hyps):
+        with torch.no_grad():
+            
+            # preprocess hypotheses
+            padded_hyps = self.preprocess_func(hyps)
+
+            if not next(self.lm.parameters()).is_cuda:
+                self.lm.to(padded_hyps.device)
+
+            logits = self.lm(padded_hyps)
+            log_probs = self.softmax(logits / self.temperature)
+
+            # try some jit? or preallocate the mask tensor and then scatter_it
+            mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device="cuda")
+            mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
+            log_probs_test = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1) * 0.5
+            log_probs_list = log_probs_test.tolist()
+            top_scores = [score + log_probs_list[idx] for idx, score in enumerate(scores)]
+            
+        # return top_scores
+        return top_scores 
+    
+class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
+    """A wrapper of RNNLM based on the BaseAnyTokensScorerInterface.
+
+    Arguments
+    ---------
+    language_model : torch.nn.Module
+        A RNN-based language model.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    strategy : str
+        The strategy to use for scoring. It can be either scoring on each token
+        independently (independent) or scoring on the whole sequence (sequence).
+        Scoring indendently is slower but more accurate. (default: sequence)
     tokenizer : speechbrain.tokenizers.SentencePiece
         The tokenizer associated with the language model.
     bos_index : int
@@ -140,32 +250,46 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
         self.eos_index = eos_index
         self.pad_index = pad_index
 
-    def preprocess_func(self, alived_hyps):
+    def preprocess_func(self, decoded_seq):
         """This method preprocesses the hypotheses before scoring. """
 
-        # normalize text
-        alived_hyps.decoded_seq = [self.normalize_text(seq) for seq in alived_hyps.decoded_seq]
         
-        # encode text
-        enc_hyps = [torch.tensor([self.bos_index] + self.tokenizer.encode_as_ids(seq)[0] + [self.eos_index]) for seq in alived_hyps.decoded_seq]
+        # normalize & encode text
+        enc_hyps = [torch.tensor([self.bos_index] + self.tokenizer.encode_as_ids(self.normalize_text(seq))[0] + [self.eos_index]) for seq in decoded_seq]
         
         # pad sequences
-        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=self.pad_index).to(alived_hyps.alived_seq.device)
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=self.pad_index).to(self.lm.device)
 
         return padded_hyps
 
     def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores tokens of the hypotheses.
+
+        Arguments
+        ---------
+        alived_hyps : speechbrain.decoders.beamsearch.AlivedHypotheses
+            The alived hypotheses.
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
+            scoring. If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
 
         # preprocess hypotheses
-        padded_hyps = self.preprocess_func(alived_hyps)
+        padded_hyps = self.preprocess_func(alived_hyps.decoded_seq)
         
         if not next(self.lm.parameters()).is_cuda:
-            self.lm.to(padded_hyps.device)
+            self.lm.to(inp_tokens.device)
+            padded_hyps.to(inp_tokens.device)
         
         # compute scores
-        logits, _ = self.lm(padded_hyps)
-        log_probs = self.softmax(logits)
+        logits = self.lm(padded_hyps)
+        log_probs = self.softmax(logits / self.temperature)
         
         # select only the log_probs of the tokens at t+1, e.g., log_probs[:, tokens[t+1]] ..., in a batched way 
         mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device=inp_tokens.device)
@@ -176,9 +300,7 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
         
         return log_probs_score, None 
 
-class AnyTokensRNNLM(BaseAnyTokensScorerInterface):
-    ...
-
+    
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
@@ -826,6 +948,7 @@ class ScorerBuilder:
             impl.__class__.__name__.lower().split("scorer")[0]
             for impl in full_scorers
         ]
+
         partial_scorer_names = [
             impl.__class__.__name__.lower().split("scorer")[0]
             for impl in partial_scorers
@@ -868,7 +991,7 @@ class ScorerBuilder:
             score, new_memory[k] = impl.score(alived_hyps, inp_tokens, memory[k], None, attn)
 
             # we directly add on the sequence score 
-            if isinstance(impl, AnyTokensTransformerLM):
+            if isinstance(impl, AnyTokensTransformerLMScorer):
                 alived_hyps.sequence_scores += score * self.weights[k]
             else:
                 log_probs += score * self.weights[k]
