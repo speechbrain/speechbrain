@@ -1,7 +1,7 @@
 """Decoding methods for seq2seq autoregressive model.
 
 Authors
- * Adel Moumen 2022
+ * Adel Moumen 2023
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
@@ -19,13 +19,34 @@ class AlivedHypotheses(torch.nn.Module):
     """
 
     def __init__(
-        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None
+        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None, tokenizer=None
     ):
         super().__init__()
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
         self.decoded_seq = decoded_seq
+        self.tokenizer = tokenizer
+
+    def permute(self, predecessors):
+        """Permute the alived hypotheses.
+
+        Arguments
+        ---------
+        predecessors : torch.Tensor
+            The predecessor of each hypothesis.
+        """
+        ...
+    
+    def update_decoded_seq(self, inp_tokens):
+        """Update the decoded sequence.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input token of the current step.
+        """
+        ...
 
 
 class S2SBaseSearcher(torch.nn.Module):
