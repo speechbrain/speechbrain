@@ -92,7 +92,8 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
     Note: No memory is used in this scorer.
 
     See:
-        - speechbrain.decoders.scorer.CTCPrefixScorer
+        - speechbrain.decoders.scorer.AnyTokensTransformerLMScorer
+        - speechbrain.decoders.scorer.AnyTokensRNNLMScorer
     """    
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring. 
@@ -196,7 +197,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
         
         Arguments
         ---------
-        hyps : list of str
+        decoded_seq : list of str
             The hypotheses to be preprocessed.
         """
         
@@ -213,23 +214,17 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
 
         Arguments
         ---------
-        language_model : torch.nn.Module
-            A Transformer-based language model.
-        temperature : float
-            Temperature factor applied to softmax. It changes the probability
-            distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
-        strategy : str
-            The strategy to use for scoring. It can be either scoring on each token
-            independently (tokens) or scoring on the whole sequence (sequence).
-            Scoring indendently is slower but more accurate. (default: sequence)
-        tokenizer : speechbrain.tokenizers.SentencePiece
-            The tokenizer associated with the language model.
-        bos_index : int
-            The index of the beginning-of-sequence (bos) token.
-        eos_index : int
-            The index of the end-of-sequence (eos) token.
-        pad_index : int
-            The index of the padding token.
+        alived_hyps : speechbrain.decoders.beamsearch.AlivedHypotheses
+            The alived hypotheses.
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
+            scoring. If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
         """
         with torch.no_grad():
             # preprocess hypotheses
@@ -257,8 +252,6 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
         
         Arguments
         ---------
-        scores : torch.Tensor
-            The scores of the hypotheses.
         hyps : list of str
             The hypotheses to be rescored.
         """
@@ -335,7 +328,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
         
         Arguments
         ---------
-        hyps : list of str
+        decoded_seq : list of str
             The hypotheses to be preprocessed.
         """
         
@@ -390,8 +383,6 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
         
         Arguments
         ---------
-        scores : torch.Tensor
-            The scores of the hypotheses.
         hyps : list of str
             The hypotheses to be rescored.
         """
