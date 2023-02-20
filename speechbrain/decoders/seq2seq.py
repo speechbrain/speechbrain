@@ -36,7 +36,8 @@ class AlivedHypotheses(torch.nn.Module):
         predecessors : torch.Tensor
             The predecessor of each hypothesis.
         """
-        ...
+        if self.tokenizer is not None:
+            self.decoded_seq = [self.decoded_seq[i].copy() for i in predecessors.tolist()]
     
     def update_decoded_seq(self, inp_tokens):
         """Update the decoded sequence.
@@ -46,7 +47,13 @@ class AlivedHypotheses(torch.nn.Module):
         inp_tokens : torch.Tensor
             The input token of the current step.
         """
-        ...
+        
+        if self.tokenizer is not None:
+            tokens = inp_tokens.tolist()
+            pieces = self.tokenizer.id_to_piece(tokens)
+
+            # update the decoded sequence and clean the special token "▁"
+            self.decoded_seq = [[(self.decoded_seq[i][0] + pieces[i]).replace("▁", " ")]  if tokens[i] != 0 else self.decoded_seq[i] for i in range(len(pieces))]
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -363,6 +370,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
+        tokenizer=None,
     ):
         super(S2SBeamSearcher, self).__init__(
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
@@ -378,6 +386,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.attn_weight = 1.0
         self.ctc_weight = 0.0
         self.minus_inf = minus_inf
+        self.tokenizer = tokenizer
 
         if self.scorer is not None:
             # Check length normalization
@@ -473,6 +482,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             .fill_(self.minus_inf)
             .index_fill_(0, self.beam_offset, 0.0),
             decoded_seq=None,
+            tokenizer=self.tokenizer,
         )
 
     def _attn_weight_step(
