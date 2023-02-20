@@ -497,11 +497,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
         return log_probs, prev_attn_peak
 
-    def _scorer_step(self, inp_tokens, scorer_memory, attn, log_probs):
+    def _scorer_step(self, alived_hyps, inp_tokens, scorer_memory, attn, log_probs):
         """This method call the scorers if scorer is not None."""
         if self.scorer is not None:
             log_probs, scorer_memory = self.scorer.score(
-                inp_tokens, scorer_memory, attn, log_probs, self.beam_size
+                alived_hyps, inp_tokens, scorer_memory, attn, log_probs, self.beam_size
             )
         return log_probs, scorer_memory
 
@@ -848,7 +848,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         (log_probs, scorer_memory,) = self._scorer_step(
-            inp_tokens, scorer_memory, attn, log_probs,
+            alived_hyps, inp_tokens, scorer_memory, attn, log_probs,
         )
 
         log_probs = self._eos_threshold_step(log_probs)
