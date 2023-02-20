@@ -133,13 +133,11 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
         """
         raise NotImplementedError
     
-    def rescore_hyps(self, scores, hyps):
+    def rescore_hyps(self, hyps):
         """This method should implement the rescoring of the hypotheses. 
         
         Arguments
         ---------
-        scores : torch.Tensor
-            The scores of the hypotheses.
         hyps : list of str
             The hypotheses to be rescored.
         """
@@ -248,7 +246,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             
             return log_probs_score, None 
 
-    def rescore_hyps(self, scores, hyps):
+    def rescore_hyps(self, hyps):
         """This method implement the rescoring of the hypotheses. 
         
         Arguments
@@ -1089,7 +1087,7 @@ class ScorerBuilder:
         for k, impl in self.full_scorers.items():
             if isinstance(impl, AnyTokensRNNLMScorer) or isinstance(impl, AnyTokensTransformerLMScorer):
                 if impl.strategy == "sequence":
-                    lm_score = impl.rescore_hyps(scores, hyps) * self.weights[k]
+                    lm_score = impl.rescore_hyps(hyps) * self.weights[k]
                     scores = [s + l for s, l in zip(scores, lm_score)]
         return scores
 
