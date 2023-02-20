@@ -510,6 +510,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _scorer_step(self, alived_hyps, inp_tokens, scorer_memory, attn, log_probs):
         """This method call the scorers if scorer is not None."""
         if self.scorer is not None:
+            alived_hyps.update_decoded_seq(inp_tokens)
             log_probs, scorer_memory = self.scorer.score(
                 alived_hyps, inp_tokens, scorer_memory, attn, log_probs, self.beam_size
             )
