@@ -93,9 +93,13 @@ class BaseAnyTokensScorerInterface:
     See:
         - speechbrain.decoders.scorer.CTCPrefixScorer
     """    
+    def normalize_text(self, text):
+        """This method normalizes the text before scoring. """
+        return text
+
     def preprocess_func(self, hyps):
         """This method preprocesses the hypotheses before scoring. """
-        return hyps
+        raise NotImplementedError
 
     def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
@@ -115,17 +119,39 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer associated with the language model.
+    bos_token : int
+        The index of the beginning-of-sequence (bos) token.
+    eos_token : int
+        The index of the end-of-sequence (eos) token.
+    pad_token : int
+        The index of the padding token.
     """
     def __init__(self, language_model, temperature=1.0, tokenizer=None, bos_token=0, eos_token=0, pad_token=0):
         self.lm = language_model
         self.lm.eval()
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
-        
+
         self.tokenizer = tokenizer
         self.bos_token = bos_token
         self.eos_token = eos_token
         self.pad_token = pad_token
+
+    def preprocess_func(self, alived_hyps):
+        """This method preprocesses the hypotheses before scoring. """
+
+        # normalize text
+        alived_hyps.decoded_seq = [self.normalize_text(seq) for seq in alived_hyps.decoded_seq]
+        
+        # encode text
+        enc_hyps = [torch.tensor([self.bos_id] + self.tokenizer.encode_as_ids(seq)[0] + [self.eos_token]) for seq in alived_hyps.decoded_seq]
+        
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=alived_hyps.alived_seq.device).to("cuda")
+
+        return padded_hyps
 
 class AnyTokensRNNLM(BaseAnyTokensScorerInterface):
     ...
