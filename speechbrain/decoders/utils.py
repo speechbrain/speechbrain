@@ -1,4 +1,4 @@
-""" Utils functions for the decoding modules. 
+""" Utils functions for the decoding modules.
 
 Authors
  * Adel Moumen 2023

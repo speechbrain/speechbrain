@@ -10,6 +10,7 @@ Authors
 import torch
 from speechbrain.decoders.utils import inflate_tensor, mask_by_condition
 
+
 class AlivedHypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
 
@@ -28,7 +29,12 @@ class AlivedHypotheses(torch.nn.Module):
     """
 
     def __init__(
-        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None, tokenizer=None
+        self,
+        alived_seq,
+        alived_log_probs,
+        sequence_scores,
+        decoded_seq=None,
+        tokenizer=None,
     ):
         super().__init__()
         self.alived_seq = alived_seq
@@ -46,8 +52,10 @@ class AlivedHypotheses(torch.nn.Module):
             The predecessor of each hypothesis.
         """
         if self.tokenizer is not None:
-            self.decoded_seq = [self.decoded_seq[i].copy() for i in predecessors.tolist()]
-    
+            self.decoded_seq = [
+                self.decoded_seq[i].copy() for i in predecessors.tolist()
+            ]
+
     def update_decoded_seq(self, inp_tokens):
         """Update the decoded sequence.
 
@@ -56,13 +64,18 @@ class AlivedHypotheses(torch.nn.Module):
         inp_tokens : torch.Tensor
             The input token of the current step.
         """
-        
+
         if self.tokenizer is not None:
             tokens = inp_tokens.tolist()
             pieces = self.tokenizer.id_to_piece(tokens)
 
             # update the decoded sequence and clean the special token "▁"
-            self.decoded_seq = [[(self.decoded_seq[i][0] + pieces[i]).replace("▁", " ")]  if tokens[i] != 0 else self.decoded_seq[i] for i in range(len(pieces))]
+            self.decoded_seq = [
+                [(self.decoded_seq[i][0] + pieces[i]).replace("▁", " ")]
+                if tokens[i] != 0
+                else self.decoded_seq[i]
+                for i in range(len(pieces))
+            ]
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -259,6 +272,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs.unsqueeze(1),
         )
 
+
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
     This class implements the greedy decoding
@@ -420,7 +434,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 self.ctc_weight = self.scorer.weights["ctc"]
                 self.attn_weight = 1.0 - self.ctc_weight
 
-
     def _check_full_beams(self, hyps):
         """This method checks whether hyps has been full.
 
@@ -490,7 +503,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         decoded_seq = None
         if self.tokenizer is not None:
-            decoded_seq = [[''] for _ in range(self.n_bh)]
+            decoded_seq = [[""] for _ in range(self.n_bh)]
 
         return AlivedHypotheses(
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
@@ -524,19 +537,28 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
         return log_probs, prev_attn_peak
 
-    def _scorer_step(self, alived_hyps, inp_tokens, scorer_memory, attn, log_probs):
+    def _scorer_step(
+        self, alived_hyps, inp_tokens, scorer_memory, attn, log_probs
+    ):
         """This method call the scorers if scorer is not None."""
         if self.scorer is not None:
             alived_hyps.update_decoded_seq(inp_tokens)
             log_probs, scorer_memory = self.scorer.score(
-                alived_hyps, inp_tokens, scorer_memory, attn, log_probs, self.beam_size
+                alived_hyps,
+                inp_tokens,
+                scorer_memory,
+                attn,
+                log_probs,
+                self.beam_size,
             )
         return log_probs, scorer_memory
 
     def _rescoring_step(self, top_scores, hyps):
         """This method rescores the final hypothesis if scorer is not None."""
         if self.scorer is not None and self.tokenizer is not None:
-            hyps_to_score = [[self.tokenizer.decode_ids(seq.tolist()[:-1])] for seq in hyps]
+            hyps_to_score = [
+                [self.tokenizer.decode_ids(seq.tolist()[:-1])] for seq in hyps
+            ]
             top_scores = self.scorer.rescore_hyps(top_scores, hyps_to_score)
         return top_scores
 
