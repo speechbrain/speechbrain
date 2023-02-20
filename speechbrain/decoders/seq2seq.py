@@ -533,6 +533,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             )
         return log_probs, scorer_memory
 
+    def _rescoring_step(self, top_scores, hyps):
+        """This method rescores the final hypothesis if scorer is not None."""
+        if self.scorer is not None and self.tokenizer is not None:
+            hyps_to_score = [[self.tokenizer.decode_ids(seq.tolist()[:-1])] for seq in hyps]
+            top_scores = self.scorer.rescore_hyps(top_scores, hyps_to_score)
+        return top_scores
+
     def _set_eos_minus_inf_step(self, log_probs, step, min_decode_steps):
         """This method set the log_probs of eos to minus infinity if the step is less than min_decode_steps."""
         if step < min_decode_steps:
@@ -817,11 +824,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
             top_log_probs += log_probs
             top_lengths += [len(hyp) for hyp in hyps]
 
-        save_hyps = []
-        for batch_hyp in top_hyps:
-            save_hyps.append([self.tokenizer.decode_ids(batch_hyp.tolist()[:-1])])
-
-        top_scores = self.scorer.full_scorers["anytokenstransformerlm"].rescore_hyps(top_scores, save_hyps)
+        # Rescore hypotheses
+        top_scores = self._rescoring_step(top_scores, top_hyps)
 
         # Convert lists to tensors
         top_hyps = torch.nn.utils.rnn.pad_sequence(
