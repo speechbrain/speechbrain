@@ -684,7 +684,7 @@ class CategoricalEncoder:
     def ignore_len(self):
         """Specifies that category count shall be ignored at encoding/decoding
         time.
-        
+
         Effectively inhibits the ".expect_len was never called" warning.
         Prefer :py:meth:`~CategoricalEncoder.expect_len` when the category count
         is known."""
