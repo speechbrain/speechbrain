@@ -9,6 +9,7 @@ import torch
 import collections
 import itertools
 import logging
+import warnings
 import speechbrain as sb
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
@@ -443,6 +444,7 @@ class CategoricalEncoder:
         int
             Corresponding encoded int value.
         """
+        self._assert_len()
         try:
             return self.lab2ind[label]
         except KeyError:
@@ -493,6 +495,7 @@ class CategoricalEncoder:
         list
             Corresponding integer labels.
         """
+        self._assert_len()
         return [self.encode_label(label, allow_unk) for label in sequence]
 
     def encode_sequence_torch(self, sequence, allow_unk=True):
@@ -530,6 +533,7 @@ class CategoricalEncoder:
         list
             list of original labels
         """
+        self._assert_len()
         decoded = []
         # Recursively operates on the different dimensions.
         if x.ndim == 1:  # Last dimension!
@@ -557,6 +561,7 @@ class CategoricalEncoder:
             ndim list of original labels, or if input was single element,
             output will be, too.
         """
+        self._assert_len()
         # Recursively operates on the different dimensions.
         try:
             decoded = []
@@ -654,6 +659,63 @@ class CategoricalEncoder:
             )
             return False
         return True  # If here, all good
+
+    def expect_len(self, expected_len):
+        """Specify the expected category count. If the category count observed
+        during encoding/decoding does NOT match this, an error will be raised.
+
+        This can prove useful to detect bugs in scenarios where the encoder is
+        dynamically built using a dataset, but downstream code expects a
+        specific category count (and may silently break otherwise).
+
+        This can be called anytime and the category count check will only be
+        performed during an actual encoding/decoding task.
+
+        Arguments
+        ---------
+        expected_len : int
+            The expected final category count, i.e. `len(encoder)`.
+
+        Example
+        -------"""
+        # TODO
+        self.expected_len = expected_len
+
+    def ignore_len(self):
+        """Specifies that category count shall be ignored at encoding/decoding
+        time.
+        
+        Effectively inhibits the ".expect_len was never called" warning.
+        Prefer :py:meth:`~CategoricalEncoder.expect_len` when the category count
+        is known."""
+        self.expected_len = None
+
+    def _assert_len(self):
+        """If `expect_len` was called, then check if len(self) matches the
+        expected value. If it does not, raise a RuntimeError.
+        If neither `expect_len` or `ignore_len` were ever called, warn once."""
+        if hasattr(self, "expected_len"):
+            # skip when ignore_len() was called
+            if self.expected_len is None:
+                return
+
+            real_len = len(self)
+
+            if real_len != self.expected_len:
+                raise RuntimeError(
+                    f".expect_len({self.expected_len}) was called, "
+                    f"but {real_len} categories found"
+                )
+        else:
+            warnings.warn(
+                f"{self.__class__.__name__}.expect_len was never called: "
+                f"assuming category count of {len(self)} to be correct!\n"
+                "Sanity check your encoder using `.expect_len`. "
+                "Ensure that downstream code also uses the correct size.\n"
+                "If you are sure this does not apply to you, use `.ignore_len`."
+            )
+            self.ignore_len()
+            return
 
     def _get_extras(self):
         """Override this to provide any additional things to save
