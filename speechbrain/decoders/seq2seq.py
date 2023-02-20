@@ -234,6 +234,14 @@ class S2SGreedySearcher(S2SBaseSearcher):
         # Pick top log probabilities
         top_log_probs = log_probs
 
+        # Use SpeechBrain style lengths
+        top_lengths = (top_lengths - 1) / max_length
+        return (
+            predictions.unsqueeze(1),
+            top_lengths.unsqueeze(1),
+            scores.unsqueeze(1),
+            top_log_probs.unsqueeze(1),
+        )
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
