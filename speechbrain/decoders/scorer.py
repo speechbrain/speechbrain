@@ -88,6 +88,8 @@ class BaseAnyTokensScorerInterface:
     tokenizer, and then encode them with the language model tokenizer. Then, the language
     model can be used to score the tokens and add them to the acoustic model scores.
     
+    Note: No memory is used in this scorer.
+
     See:
         - speechbrain.decoders.scorer.CTCPrefixScorer
     """
@@ -102,11 +104,21 @@ class BaseAnyTokensScorerInterface:
     
     def preprocess_func(self, hyps):
         """This method preprocesses the hypotheses before scoring. """
+        return hyps
+
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
+        raise NotImplementedError
+    
+    def rescore_hyps(self, hyps, memory, attn):
+        """Specifies hypothesis rescore."""
         raise NotImplementedError
 
-    def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
-        ...
+class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
+    ...
+
+class AnyTokensRNNLM(BaseAnyTokensScorerInterface):
+    ...
 
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
