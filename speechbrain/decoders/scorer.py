@@ -26,7 +26,7 @@ class BaseScorerInterface:
         - speechbrain.decoders.scorer.LengthScorer
     """
 
-    def score(self, inp_tokens, memory, candidates, attn):
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
         """This method scores tokens in vocabulary.
 
         Arguments
@@ -78,7 +78,7 @@ class BaseScorerInterface:
         return None
 
 
-class BaseAnyTokensScorerInterface:
+class BaseAnyTokensScorerInterface(BaseScorerInterface):
     """A scorer abstraction to be inherited by other
     scoring approaches for beam search. 
 
@@ -150,9 +150,28 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
         enc_hyps = [torch.tensor([self.bos_id] + self.tokenizer.encode_as_ids(seq)[0] + [self.eos_token]) for seq in alived_hyps.decoded_seq]
         
         # pad sequences
-        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=alived_hyps.alived_seq.device).to("cuda")
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=alived_hyps.alived_seq.device).to(alived_hyps.alived_seq.device)
 
         return padded_hyps
+
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
+
+        # preprocess hypotheses
+        padded_hyps = self.preprocess_func(alived_hyps)
+        
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(padded_hyps.device)
+        
+        # compute scores
+        logits, _ = self.lm(padded_hyps)
+        log_probs = self.softmax(logits)
+        
+        mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device=inp_tokens.device)
+        mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
+        log_probs_score = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1)
+        
+        return log_probs_score, None 
 
 class AnyTokensRNNLM(BaseAnyTokensScorerInterface):
     ...
