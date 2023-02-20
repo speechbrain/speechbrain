@@ -101,8 +101,6 @@ def fetch(
         version of a model hosted at HuggingFace.
     cache_dir: str or Path (default: None)
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
-    fetch_from: FetchFrom (default: None)
-        Restriction to interpreting source - benefit: no online search if source is known to be local (path mis/match).
     silent_local_fetch: bool (default: False)
         Surpress logging messages (quiet mode).
 

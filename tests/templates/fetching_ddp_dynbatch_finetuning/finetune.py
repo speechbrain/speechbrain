@@ -240,7 +240,6 @@ if __name__ == "__main__":
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
     # LOCAL fetching takes sources directly from their location
-    # hparams["pretrainer_ASR"].collect_files(fetch_from=FetchFrom.LOCAL)
     hparams["pretrainer_ASR"].collect_files()
     hparams["pretrainer_ASR"].load_collected(run_opts["device"])
 
