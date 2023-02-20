@@ -92,16 +92,7 @@ class BaseAnyTokensScorerInterface:
 
     See:
         - speechbrain.decoders.scorer.CTCPrefixScorer
-    """
-    def __init__(
-        self, lm, tokenizer, bos_token=0, eos_token=0, pad_token=0
-    ):
-        self.lm = lm
-        self.tokenizer = tokenizer
-        self.bos_token = bos_token
-        self.eos_token = eos_token
-        self.pad_token = pad_token
-    
+    """    
     def preprocess_func(self, hyps):
         """This method preprocesses the hypotheses before scoring. """
         return hyps
@@ -115,7 +106,26 @@ class BaseAnyTokensScorerInterface:
         raise NotImplementedError
 
 class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
-    ...
+    """A wrapper of TransformerLM based on the BaseAnyTokensScorerInterface.
+
+    Arguments
+    ---------
+    language_model : torch.nn.Module
+        A Transformer-based language model.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    """
+    def __init__(self, language_model, temperature=1.0, tokenizer=None, bos_token=0, eos_token=0, pad_token=0):
+        self.lm = language_model
+        self.lm.eval()
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+        
+        self.tokenizer = tokenizer
+        self.bos_token = bos_token
+        self.eos_token = eos_token
+        self.pad_token = pad_token
 
 class AnyTokensRNNLM(BaseAnyTokensScorerInterface):
     ...
