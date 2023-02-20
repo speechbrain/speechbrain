@@ -95,19 +95,19 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
         - speechbrain.decoders.scorer.CTCPrefixScorer
     """    
     def normalize_text(self, text):
-        """This method normalizes the text before scoring. """
+        """This method should implement the normalization of the text before scoring. """
         return text
 
     def preprocess_func(self, hyps):
-        """This method preprocesses the hypotheses before scoring. """
+        """This method should implement the preprocessing of the hypotheses before scoring. """
         raise NotImplementedError
 
     def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method should implement the scoring of the hypotheses. """
         raise NotImplementedError
     
     def rescore_hyps(self, hyps, memory, attn):
-        """Specifies hypothesis rescore."""
+        """This method should implement the rescoring of the hypotheses. """
         raise NotImplementedError
 
 class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
@@ -167,8 +167,11 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
         logits, _ = self.lm(padded_hyps)
         log_probs = self.softmax(logits)
         
+        # select only the log_probs of the tokens at t+1, e.g., log_probs[:, tokens[t+1]] ..., in a batched way 
         mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device=inp_tokens.device)
         mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
+
+        # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
         log_probs_score = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1)
         
         return log_probs_score, None 
@@ -243,7 +246,7 @@ class CTCScorer(BaseScorerInterface):
         self.ctc_window_size = ctc_window_size
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-    def score(self, inp_tokens, memory, candidates, attn):
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         scores, memory = self.ctc_score.forward_step(
             inp_tokens, memory, candidates, attn
@@ -344,7 +347,7 @@ class RNNLMScorer(BaseScorerInterface):
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-    def score(self, inp_tokens, memory, candidates, attn):
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
@@ -450,7 +453,7 @@ class TransformerLMScorer(BaseScorerInterface):
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-    def score(self, inp_tokens, memory, candidates, attn):
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         with torch.no_grad():
             if memory is None:
@@ -509,7 +512,7 @@ class KenLMScorer(BaseScorerInterface):
             raise ValueError(MSG)
         self.id2char = token_list
 
-    def score(self, inp_tokens, memory, candidates, attn):
+    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
@@ -657,7 +660,7 @@ class CoverageScorer(BaseScorerInterface):
         # Use time_step to normalize the coverage over steps
         self.time_step = 0
 
-    def score(self, inp_tokens, coverage, candidates, attn):
+    def score(self, alived_hyps, inp_tokens, coverage, candidates, attn):
         """Specifies token scoring."""
         n_bh = attn.size(0)
         self.time_step += 1
@@ -837,7 +840,7 @@ class ScorerBuilder:
         # Check if scorers are valid
         self._validate_scorer(all_scorer_names)
 
-    def score(self, inp_tokens, memory, attn, log_probs, beam_size):
+    def score(self, alived_hyps, inp_tokens, memory, attn, log_probs, beam_size):
         """This method scores tokens in vocabulary based on defined full scorers
         and partial scorers. Scores will be added to the log probs for beamsearch.
 
@@ -862,9 +865,13 @@ class ScorerBuilder:
         new_memory = dict()
         # score full candidates
         for k, impl in self.full_scorers.items():
-            score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
-            log_probs += score * self.weights[k]
+            score, new_memory[k] = impl.score(alived_hyps, inp_tokens, memory[k], None, attn)
 
+            # we directly add on the sequence score 
+            if isinstance(impl, AnyTokensTransformerLM):
+                alived_hyps.sequence_scores += score * self.weights[k]
+            else:
+                log_probs += score * self.weights[k]
         # select candidates from the results of full scorers for partial scorers
         _, candidates = log_probs.topk(
             int(beam_size * self.scorer_beam_scale), dim=-1
@@ -873,7 +880,7 @@ class ScorerBuilder:
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
             score, new_memory[k] = impl.score(
-                inp_tokens, memory[k], candidates, attn
+                alived_hyps, inp_tokens, memory[k], candidates, attn
             )
             log_probs += score * self.weights[k]
 
