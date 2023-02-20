@@ -122,23 +122,23 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
     tokenizer : speechbrain.tokenizers.SentencePiece
         The tokenizer associated with the language model.
-    bos_token : int
+    bos_index : int
         The index of the beginning-of-sequence (bos) token.
-    eos_token : int
+    eos_index : int
         The index of the end-of-sequence (eos) token.
-    pad_token : int
+    pad_index : int
         The index of the padding token.
     """
-    def __init__(self, language_model, temperature=1.0, tokenizer=None, bos_token=0, eos_token=0, pad_token=0):
+    def __init__(self, language_model, temperature=1.0, tokenizer=None, bos_index=0, eos_index=0, pad_index=0):
         self.lm = language_model
         self.lm.eval()
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
         self.tokenizer = tokenizer
-        self.bos_token = bos_token
-        self.eos_token = eos_token
-        self.pad_token = pad_token
+        self.bos_index = bos_index
+        self.eos_index = eos_index
+        self.pad_index = pad_index
 
     def preprocess_func(self, alived_hyps):
         """This method preprocesses the hypotheses before scoring. """
@@ -147,10 +147,10 @@ class AnyTokensTransformerLM(BaseAnyTokensScorerInterface):
         alived_hyps.decoded_seq = [self.normalize_text(seq) for seq in alived_hyps.decoded_seq]
         
         # encode text
-        enc_hyps = [torch.tensor([self.bos_id] + self.tokenizer.encode_as_ids(seq)[0] + [self.eos_token]) for seq in alived_hyps.decoded_seq]
+        enc_hyps = [torch.tensor([self.bos_index] + self.tokenizer.encode_as_ids(seq)[0] + [self.eos_index]) for seq in alived_hyps.decoded_seq]
         
         # pad sequences
-        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=alived_hyps.alived_seq.device).to(alived_hyps.alived_seq.device)
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=self.pad_index).to(alived_hyps.alived_seq.device)
 
         return padded_hyps
 
