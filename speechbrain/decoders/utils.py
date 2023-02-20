@@ -1,4 +1,12 @@
-""" Utils functions for the decoding modules. """
+""" Utils functions for the decoding modules. 
+
+Authors
+ * Adel Moumen 2023
+ * Ju-Chieh Chou 2020
+ * Peter Plantinga 2020
+ * Mirco Ravanelli 2020
+ * Sung-Lin Yeh 2020
+"""
 
 import torch
 

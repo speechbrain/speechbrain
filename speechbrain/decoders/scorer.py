@@ -1140,7 +1140,6 @@ class ScorerBuilder:
         """
         for k, impl in self.full_scorers.items():
             if isinstance(impl, AnyTokensRNNLMScorer) or isinstance(impl, AnyTokensTransformerLMScorer):
-                if impl.strategy == "sequence":
                     lm_score = impl.rescore_hyps(hyps) * self.weights[k]
                     scores = [s + l for s, l in zip(scores, lm_score)]
         return scores
