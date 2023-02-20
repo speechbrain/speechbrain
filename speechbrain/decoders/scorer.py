@@ -77,6 +77,37 @@ class BaseScorerInterface:
         return None
 
 
+class BaseAnyTokensScorerInterface:
+    """A scorer abstraction to be inherited by other
+    scoring approaches for beam search. 
+
+    This scorer allows one to score (and/or rescore) any tokens with a language model 
+    trained on a different vocabulary. 
+
+    The idea is to take the tokens from the acoustic model, decode them with the encoder 
+    tokenizer, and then encode them with the language model tokenizer. Then, the language
+    model can be used to score the tokens and add them to the acoustic model scores.
+    
+    See:
+        - speechbrain.decoders.scorer.CTCPrefixScorer
+    """
+    def __init__(
+        self, lm, tokenizer, bos_token=0, eos_token=0, pad_token=0
+    ):
+        self.lm = lm
+        self.tokenizer = tokenizer
+        self.bos_token = bos_token
+        self.eos_token = eos_token
+        self.pad_token = pad_token
+    
+    def preprocess_func(self, hyps):
+        """This method preprocesses the hypotheses before scoring. """
+        raise NotImplementedError
+
+    def score(self, inp_tokens, memory, candidates, attn):
+        """Specifies token scoring."""
+        ...
+
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
