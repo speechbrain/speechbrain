@@ -362,6 +362,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
     minus_inf : float
         The value of minus infinity to block some path
         of the search. Default: -1e20.
+    tokenizer : speechbrain.tokenizers.Tokenizer
+        Tokenizer instance. Default: None.
     """
 
     def __init__(
@@ -417,6 +419,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
                 self.ctc_weight = self.scorer.weights["ctc"]
                 self.attn_weight = 1.0 - self.ctc_weight
+
 
     def _check_full_beams(self, hyps):
         """This method checks whether hyps has been full.
@@ -484,13 +487,18 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def init_hypotheses(self):
         """This method initializes the AlivedHypotheses object."""
+
+        decoded_seq = None
+        if self.tokenizer is not None:
+            decoded_seq = [[''] for _ in range(self.n_bh)]
+
         return AlivedHypotheses(
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
             alived_log_probs=torch.empty(self.n_bh, 0, device=self.device),
             sequence_scores=torch.empty(self.n_bh, device=self.device)
             .fill_(self.minus_inf)
             .index_fill_(0, self.beam_offset, 0.0),
-            decoded_seq=None,
+            decoded_seq=decoded_seq,
             tokenizer=self.tokenizer,
         )
 
