@@ -821,7 +821,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         for batch_hyp in top_hyps:
             save_hyps.append([self.tokenizer.decode_ids(batch_hyp.tolist()[:-1])])
 
-        top_scores = self.scorer.full_scorers["anytokenstransformerlm"].rescoring_hyps(top_scores, save_hyps)
+        top_scores = self.scorer.full_scorers["anytokenstransformerlm"].rescore_hyps(top_scores, save_hyps)
 
         # Convert lists to tensors
         top_hyps = torch.nn.utils.rnn.pad_sequence(
