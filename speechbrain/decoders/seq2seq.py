@@ -12,10 +12,19 @@ from speechbrain.decoders.utils import inflate_tensor, mask_by_condition
 
 class AlivedHypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
-    Default to None if we are not going to score on word / char level with external
-    scorers.
 
-    It also contains the functions to tokenize to words etc...
+    Arguments
+    ---------
+    alived_seq : torch.Tensor
+        The sequence of tokens for each hypothesis.
+    alived_log_probs : torch.Tensor
+        The log probabilities of each token for each hypothesis.
+    sequence_scores : torch.Tensor
+        The sum of log probabilities for each hypothesis.
+    decoded_seq : list
+        The decoded sequence of each hypothesis.
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer to decode the sequence. If None, the sequence will not be decoded.
     """
 
     def __init__(
