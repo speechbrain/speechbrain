@@ -213,17 +213,23 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
 
         Arguments
         ---------
-        alived_hyps : speechbrain.decoders.beamsearch.AlivedHypotheses
-            The alived hypotheses.
-        inp_tokens : torch.Tensor
-            The input tensor of the current timestep.
-        memory : No limit
-            The scorer states for this timestep.
-        candidates : torch.Tensor
-            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
-            scoring. If None, scorers will score on full vocabulary set.
-        attn : torch.Tensor
-            The attention weight to be used in CoverageScorer or CTCScorer.
+        language_model : torch.nn.Module
+            A Transformer-based language model.
+        temperature : float
+            Temperature factor applied to softmax. It changes the probability
+            distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+        strategy : str
+            The strategy to use for scoring. It can be either scoring on each token
+            independently (tokens) or scoring on the whole sequence (sequence).
+            Scoring indendently is slower but more accurate. (default: sequence)
+        tokenizer : speechbrain.tokenizers.SentencePiece
+            The tokenizer associated with the language model.
+        bos_index : int
+            The index of the beginning-of-sequence (bos) token.
+        eos_index : int
+            The index of the end-of-sequence (eos) token.
+        pad_index : int
+            The index of the padding token.
         """
         with torch.no_grad():
             # preprocess hypotheses
@@ -299,26 +305,45 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
     pad_index : int
         The index of the padding token.
     """
-    def __init__(self, language_model, temperature=1.0, tokenizer=None, bos_index=0, eos_index=0, pad_index=0):
+    def __init__(self, language_model, temperature=1.0, tokenizer=None, strategy="sequence", bos_index=0, eos_index=0, pad_index=0):
         self.lm = language_model
         self.lm.eval()
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
+        self.strategy = strategy
         self.tokenizer = tokenizer
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
 
-    def preprocess_func(self, decoded_seq):
-        """This method preprocesses the hypotheses before scoring. """
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring. 
+        
+        Default to uppercasing the text because the (current) language models are trained on 
+        LibriSpeech which is all uppercase.
 
+        Arguments
+        ---------
+        text : list of str
+            The text to be normalized.
+        """
+        return [t.upper() for t in text]
+
+    def preprocess_func(self, decoded_seq):
+        """This method preprocesses the hypotheses before scoring. 
+        
+        Arguments
+        ---------
+        hyps : list of str
+            The hypotheses to be preprocessed.
+        """
         
         # normalize & encode text
         enc_hyps = [torch.tensor([self.bos_index] + self.tokenizer.encode_as_ids(self.normalize_text(seq))[0] + [self.eos_index]) for seq in decoded_seq]
         
         # pad sequences
-        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=self.pad_index).to(self.lm.device)
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(enc_hyps, batch_first=True, padding_value=self.pad_index).to(self.lm.parameters().__next__().device)
 
         return padded_hyps
 
@@ -339,27 +364,56 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
         """
+        with torch.no_grad():
+            # preprocess hypotheses
+            padded_hyps = self.preprocess_func(alived_hyps.decoded_seq)
+            
+            if not next(self.lm.parameters()).is_cuda:
+                self.lm.to(inp_tokens.device)
+                padded_hyps.to(inp_tokens.device)
+            
+            # compute scores
+            logits, _ = self.lm(padded_hyps)
+            log_probs = self.softmax(logits / self.temperature)
+            
+            # select only the log_probs of the tokens at t+1, e.g., log_probs[:, tokens[t+1]] ..., in a batched way 
+            mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device="cuda")
+            mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-        # preprocess hypotheses
-        padded_hyps = self.preprocess_func(alived_hyps.decoded_seq)
-        
-        if not next(self.lm.parameters()).is_cuda:
-            self.lm.to(inp_tokens.device)
-            padded_hyps.to(inp_tokens.device)
-        
-        # compute scores
-        logits = self.lm(padded_hyps)
-        log_probs = self.softmax(logits / self.temperature)
-        
-        # select only the log_probs of the tokens at t+1, e.g., log_probs[:, tokens[t+1]] ..., in a batched way 
-        mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device=inp_tokens.device)
-        mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
+            # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
+            log_probs_score = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1)
+            
+            return log_probs_score, None 
 
-        # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
-        log_probs_score = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1)
+    def rescore_hyps(self, hyps):
+        """This method implement the rescoring of the hypotheses. 
         
-        return log_probs_score, None 
+        Arguments
+        ---------
+        scores : torch.Tensor
+            The scores of the hypotheses.
+        hyps : list of str
+            The hypotheses to be rescored.
+        """
+        with torch.no_grad():
+            # preprocess hypotheses
+            padded_hyps = self.preprocess_func(hyps)
 
+            if not next(self.lm.parameters()).is_cuda:
+                self.lm.to(padded_hyps.device)
+
+            # compute scores
+            logits, _ = self.lm(padded_hyps)
+            log_probs = self.softmax(logits / self.temperature)
+
+            # select only the log_probs of the tokens at t+1, e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way 
+            mask = torch.zeros((padded_hyps[:, 1:].size(0), padded_hyps[:, 1:].size(1), log_probs.size(2)), dtype=torch.bool, device="cuda")
+            mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
+            
+            # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
+            log_probs_scores = log_probs[:, :-1].masked_select(mask).view(log_probs.size(0), -1).mean(dim=-1)
+            
+            return log_probs_scores 
     
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
@@ -1049,7 +1103,7 @@ class ScorerBuilder:
         # score full candidates
         for k, impl in self.full_scorers.items():
             # we directly add on the sequence score 
-            if isinstance(impl, AnyTokensTransformerLMScorer):
+            if isinstance(impl, AnyTokensTransformerLMScorer) or isinstance(impl, AnyTokensRNNLMScorer):
                 if impl.strategy == "tokens":
                     score, new_memory[k] = impl.score(alived_hyps, inp_tokens, memory[k], None, attn)
                     alived_hyps.sequence_scores += score * self.weights[k]
