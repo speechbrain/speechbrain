@@ -421,11 +421,10 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
         batchsize, time, in_channels = input_shape
 
         # [M, K, H] -> [M, K, H]
-
         if causal:
             paddingval = dilation * (kernel_size - 1)
-            padding = 'causal'
-            default_padding = 'same'
+            padding = "causal"
+            default_padding = "same"
         else:
             default_padding = 0
 
@@ -439,7 +438,7 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
             groups=in_channels,
             bias=False,
             layer_name="conv_0",
-            default_padding=default_padding
+            default_padding=default_padding,
         )
 
         if causal:
