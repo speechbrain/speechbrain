@@ -709,9 +709,9 @@ class CategoricalEncoder:
         else:
             warnings.warn(
                 f"{self.__class__.__name__}.expect_len was never called: "
-                f"assuming category count of {len(self)} to be correct!\n"
+                f"assuming category count of {len(self)} to be correct! "
                 "Sanity check your encoder using `.expect_len`. "
-                "Ensure that downstream code also uses the correct size.\n"
+                "Ensure that downstream code also uses the correct size. "
                 "If you are sure this does not apply to you, use `.ignore_len`."
             )
             self.ignore_len()
