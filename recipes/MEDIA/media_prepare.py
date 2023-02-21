@@ -107,10 +107,6 @@ def prepare_media(
 
     wav_paths = glob.glob(data_folder + "/S0272/**/*.wav", recursive=True)
     channels, filenames = get_channels(channels_path)
-    unused_dialogs = get_unused_dialogs(data_folder)
-    concepts_full, concepts_relax = get_concepts_full_relax(concepts_path)
-
-    write_first_row(save_folder)
 
     # Wavs.
     if not (skip_wav):
@@ -121,6 +117,7 @@ def prepare_media(
             split_audio_channels(wav_path, filename, channel, save_folder)
 
     # Train, Dev, Test.
+    write_first_row(save_folder)
     for xml in xmls:
         logger.info(
             "Processing file "
@@ -137,6 +134,8 @@ def prepare_media(
 
     # Test2.
     if process_test2:
+        unused_dialogs = get_unused_dialogs(data_folder)
+        concepts_full, concepts_relax = get_concepts_full_relax(concepts_path)
         logger.info("Processing files for test2")
         for filename in tqdm(unused_dialogs):
             root = get_root(
