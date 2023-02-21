@@ -69,6 +69,7 @@ class CategoricalEncoder:
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
     >>> dataset = [[x+1, x+2] for x in range(20)]
     >>> encoder = CategoricalEncoder()
+    >>> encoder.ignore_len()
     >>> encoder.update_from_iterable(dataset, sequence_input=True)
     >>> assert len(encoder) == 21 # there are only 21 unique elements 1-21
 
@@ -636,6 +637,7 @@ class CategoricalEncoder:
         >>> # So the first time you run the experiment, the encoding is created.
         >>> # However, later, the encoding exists:
         >>> encoder = CategoricalEncoder()
+        >>> encoder.expect_len(4)
         >>> if not encoder.load_if_possible(encoding_file):
         ...     assert False  # We won't get here!
         >>> encoder.decode_ndim(range(4))
@@ -677,7 +679,18 @@ class CategoricalEncoder:
             The expected final category count, i.e. `len(encoder)`.
 
         Example
-        -------"""
+        -------
+        >>> encoder = CategoricalEncoder()
+        >>> encoder.update_from_iterable("abcd")
+        >>> encoder.expect_len(3)
+        >>> encoder.encode_label("a")
+        Traceback (most recent call last):
+          ...
+        RuntimeError: .expect_len(3) was called, but 4 categories found
+        >>> encoder.expect_len(4)
+        >>> encoder.encode_label("a")
+        0
+        """
         # TODO
         self.expected_len = expected_len
 
@@ -804,10 +817,12 @@ class TextEncoder(CategoricalEncoder):
     >>> dataset = [["encode", "this", "textencoder"], ["foo", "bar"]]
     >>> encoder = TextEncoder()
     >>> encoder.update_from_iterable(dataset)
+    >>> encoder.expect_len(5)
     >>> encoder.encode_label("this")
     1
     >>> encoder.add_unk()
     5
+    >>> encoder.expect_len(6)
     >>> encoder.encode_sequence(["this", "out-of-vocab"])
     [1, 5]
     >>>
@@ -816,6 +831,7 @@ class TextEncoder(CategoricalEncoder):
     insert_bos_eos, add_bos_eos.
 
     >>> encoder.add_bos_eos()
+    >>> encoder.expect_len(8)
     >>> encoder.lab2ind[encoder.eos_label]
     7
     >>>
@@ -823,6 +839,7 @@ class TextEncoder(CategoricalEncoder):
     >>> encoder = TextEncoder()
     >>> encoder.update_from_iterable(dataset)
     >>> encoder.insert_bos_eos(bos_index=0, eos_index=1)
+    >>> encoder.expect_len(7)
     >>> encoder.lab2ind[encoder.eos_label]
     1
     >>>
@@ -1029,6 +1046,7 @@ class CTCTextEncoder(TextEncoder):
     >>> encoder = CTCTextEncoder()
     >>> encoder.update_from_iterable(chars)
     >>> encoder.add_blank()
+    >>> encoder.expect_len(5)
     >>> encoder.encode_sequence(chars)
     [0, 1, 2, 3]
     >>> encoder.get_blank_index()
