@@ -345,12 +345,12 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["save_folder"],
+            "channels_path": hparams["channels_path"],
+            "concepts_path": hparams["concepts_path"],
             "skip_wav": hparams["skip_wav"],
             "method": hparams["method"],
             "task": hparams["task"],
             "skip_prep": hparams["skip_prep"],
-            "channels_path": hparams["channels_path"],
-            "concepts_path": hparams["concepts_path"],
         },
     )
 
