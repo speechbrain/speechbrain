@@ -89,7 +89,36 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
     tokenizer, and then encode them with the language model tokenizer. Then, the language
     model can be used to score the tokens and add them to the acoustic model scores.
 
-    Note: No memory is used in this scorer.
+    Example:
+        - tokens_seq = [1, 12, 43]
+        # we decode the tokens with the encoder tokenizer
+        - decoded_seq = ['_hell', 'o', '_friends']
+        # we encode the tokens with the language model tokenizer
+        - encoded_seq = [0, 5, 4, 2]
+        # we score the tokens with the language model...
+        
+    Note 1: No memory is used in this scorer as it is not possible to keep tracks of the
+    hypotheses. Indeed, at the time step t we can have the hypothesis:
+        - tokens_seq = [1, 12, 43]
+        - decoded_seq = ['_hell', 'o', '_frie']
+        - encoded_seq = [0, 5, 3]
+    but at the time step t+1 the same seq with a new token can lead to a different decoded_seq:
+        - tokens_seq = [1, 12, 43, 2]
+        - decoded_seq = ['_hell', 'o', '_friends']
+        - encoded_seq = [0, 5, 4, 2]
+
+    So, we cannot use the memory and we have to rescore the whole hypotheses at each time step.
+    This introduces a computational cost, and we recommend to use the AnyTokensRNNLMScorer that is
+    more efficient than AnyTokensTransformerLMScorer. Even though they are some decoding "errors" it is 
+    still better than only rescoring the final hypotheses.
+
+    Note 2: As we are decoding the tokens with the encoder tokenizer, it might happens that
+    the decoded tokens are not corresponding with the ones trained for the language model tokenizer.
+
+    For example, if the encoder tokenizer is trained on lower case tokens, and the language model
+    tokenizer is trained on upper case tokens, the decoded tokens will be lower case, and the
+    language model will not be able to score them. To solve this issue, we can use the normalize_text
+    method to normalize the decoded tokens before scoring them with the language model.
 
     See:
         - speechbrain.decoders.scorer.AnyTokensTransformerLMScorer
@@ -436,7 +465,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
             logits, _ = self.lm(padded_hyps)
             log_probs = self.softmax(logits / self.temperature)
 
-            # select only the log_probs of the tokens at t+1, 
+            # select only the log_probs of the tokens at t+1,
             # e.g., log_probs[:, tokens[t+1]] ..., in a batched way
             mask = torch.zeros(
                 (
@@ -449,7 +478,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
             )
             mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-            # compute the mean of the log_probs of the tokens at t+1, 
+            # compute the mean of the log_probs of the tokens at t+1,
             # doing the sum may harm the scores as we are summing over a large number of tokens
             log_probs_score = (
                 log_probs[:, :-1]
@@ -479,7 +508,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
             logits, _ = self.lm(padded_hyps)
             log_probs = self.softmax(logits / self.temperature)
 
-            # select only the log_probs of the tokens at t+1, e.g., 
+            # select only the log_probs of the tokens at t+1, e.g.,
             # log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
             mask = torch.zeros(
                 (
@@ -492,7 +521,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
             )
             mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-            # compute the mean of the log_probs of the tokens at t+1, 
+            # compute the mean of the log_probs of the tokens at t+1,
             # doing the sum may harm the scores as we are summing over a large number of tokens
             log_probs_scores = (
                 log_probs[:, :-1]
