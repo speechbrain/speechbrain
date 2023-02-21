@@ -40,7 +40,6 @@ class SLU(sb.core.Brain):
         # Get data.
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         # Forward pass.
         feats = self.modules.wav2vec2(wavs, wav_lens)
