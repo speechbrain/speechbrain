@@ -1,39 +1,66 @@
-# What's the point of this
+# Stuck with DDP and multi-source pretrained locations?
 
-This testing template is an integration test that combines SpeechBrain features which require multiple GPUs. As such, this test case is supposed to be run offline and serves more as a tool to debug that this works (outside of GitHub workflows). Since one can modify this recipe for further use cases, it also serves as a template.
+This testing template is an integration test that combines SpeechBrain features which require multiple GPUs
+(intermediate integration examples are for single-GPU, so one can go step-by-step).
+As such, this test case is supposed to be run offline and serves more as a tool to debug that this works
+(outside of GitHub workflows).
+
+Since one can modify this recipe for further use cases, it also serves as a template.
+Eventually, code snippets provided here might find proper re-use in recipes and testing of pretrained models,
+e.g. when re-running evaluations on int'l research challenges,
+(where one needs to obtain scores for fusion &/or calibration of classifiers for submission).
 
 Tested and demonstrated features are:
 * DDP
 * Dynamic batching
-* Fine-tuning of LM only (inexpensive compared to whole ASR system)
+* Fine-tuning of LM only (inexpensive compared to whole ASR system); mock-up code
 * Mixed fetching: local; from HuggingFace & from a URL
 * Testing using pretrained interface & its `load_audio` function<br/>(minilibrispeech as local dataset w/ file path via data loader from recipe template)
 
-Essentially, this template is a continuation of the ASR speech recognition template. Thus, this template makes a few assumptions:
+Essentially, the extensive case study in this testing is a continuation of the ASR speech recognition template.
+Thus, before getting started, please meet the following assumptions:
 1. There is a checkpoint `templates/speech_recognition/ASR/results/CRDNN_BPE_960h_LM/2602/save/CKPT+latest` <br/><br/>
-   > This test case seeks to force SpeechBrain's fetching to refer to this local path using a symbolic link from `speechbrain/asr-crdnn-rnnlm-librispeech` (which is also a HuggingFace repository).
+   > This test case seeks to force SpeechBrain's fetching to refer to this local path using a symbolic link from `speechbrain/asr-crdnn-rnnlm-librispeech` (which is also a HuggingFace repository). This is to challenge conflicting names in FetchSources, and to move on properly.
 2. OpenRIR & minilibrispeech datasets are located at: `templates/speech_recognition/data` with prepared JSON descriptors in `speechbrain/templates/speech_recognition` (for train; valid & test sets).
-   > Simply to avoid re-downloading everything.
+   > Simply to avoid re-downloading everything. This should be part of ensuring the above (-> just run the ASR templates before starting here).
+
+Each of the test cases below is of a different nature.
 
 ---
 
-# How to run
+## Extensive case: handling on the Python side
+The `finetune.py` example serves as a template to an extensive set of all of the above use cases combined.
+Accompanied by `finetune.yaml`, a YAML infrastructure is demonstrated that uses inputs from other hparam files.
+The benefit is a simple one: the training/fine-tuning hparams share a common set of yaml entries with the pretrained model: `ASR.yaml`.
+As such, the pretrained model yaml `source_pretrained/pretrained.ymal` also references inputs from `ASR.yaml` and
+provides symlinks in `source_pretrained` to an expected CKPT that is created during the execution of the script.
 
+How to run with DDP:
 ```shell
 CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. python3 -m torch.distributed.launch --nproc_per_node=2 finetune.py finetune.yaml --distributed_launch --distributed_backend='nccl'
 ```
 
-To test a HuggingFace repo & example:
+## Sanity check: standard model card from one of our HuggingFace repos
+
+How to run on single-GPU:
 ```shell
 PYTHONPATH=../../.. python single_node_pretrained.py
 ```
 
----
+## Sanity check: multi-source fetching with handling on the YAML-side
 
-For regression testing with a mini recipe:
+For single-GPU regression testing with a mini recipe:
 ```shell
 cd ../../.. && PYTHONPATH=. python tests/templates/fetching_ddp_dynbatch_finetuning/multisource_mini_recipe.py tests/templates/fetching_ddp_dynbatch_finetuning/multisource_mini_recipe.yaml --debug --debug_persistently; cd -
 ```
+
+## Extensive case: handling on the YAML-side
+
+How to run with DDP:
+```shell
+CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. python3 -m torch.distributed.launch --nproc_per_node=2 finetune_fetch_once.py finetune_fetch_once.yaml --distributed_launch --distributed_backend='nccl'
+```
+
 
 # Note(s)
 
