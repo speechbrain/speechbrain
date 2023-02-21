@@ -155,17 +155,19 @@ def prepare_media(
                 + "_HC.xml",
                 1,
             )
-            test2_data.extend(parse_test2(
-                root,
-                channels,
-                filenames,
-                save_folder,
-                method,
-                task,
-                filename,
-                concepts_full,
-                concepts_relax,
-            ))
+            test2_data.extend(
+                parse_test2(
+                    root,
+                    channels,
+                    filenames,
+                    save_folder,
+                    method,
+                    task,
+                    filename,
+                    concepts_full,
+                    concepts_relax,
+                )
+            )
 
     append_data(save_folder, train_data, "train")
     append_data(save_folder, dev_data, "dev")
@@ -229,7 +231,7 @@ def parse(
     list
         all informations needed to append the data in SpeechBrain csv files.
     """
-    
+
     data = []
 
     for dialogue in tqdm(root.getElementsByTagName("dialogue")):
@@ -248,12 +250,7 @@ def parse(
                     turn, time_beg, time_end, method, task
                 )
 
-                data.append([
-                    channel,
-                    filename,
-                    speaker_name,
-                    sentences,
-                ])
+                data.append([channel, filename, speaker_name, sentences])
 
     return data
 
@@ -301,7 +298,7 @@ def parse_test2(
 
     speaker_id, speaker_name = get_speaker_test2(root)
     channel = get_channel(filename, channels, filenames)
-    
+
     data = []
 
     for turn in root.getElementsByTagName("Turn"):
@@ -326,12 +323,7 @@ def parse_test2(
             ):
                 sentences[len(sentences) - 1][3] = "321.000"
 
-            data.append([
-                channel,
-                filename,
-                speaker_name,
-                sentences,
-            ])
+            data.append([channel, filename, speaker_name, sentences])
 
     return data
 
@@ -354,7 +346,7 @@ def append_data(save_folder, data, corpus):
 
     for line in data:
         channel, filename, speaker_name, sentences = line
-        
+
         # Retrieve other necessary information
         out = subprocess.Popen(
             ["soxi", "-D", save_folder + "/wav/" + channel + filename + ".wav"],
