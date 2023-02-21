@@ -53,7 +53,7 @@ sample_rate: 16000
 feats_dim: 1024
 
 # Training parameters:
-number_of_epochs: 100
+number_of_epochs: 30
 lr: 1
 lr_wav2vec: 0.0001
 annealing_factor: 0.8
