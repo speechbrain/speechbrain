@@ -155,6 +155,23 @@ def test_categorical_encoder_from_dataset():
     assert encoder.decode_ndim(dataset[0]["words_t"]) == ["hello", "world"]
 
 
+def test_categorical_encoder_length_check():
+    from speechbrain.dataio.encoder import CategoricalEncoder
+
+    encoder = CategoricalEncoder()
+    encoder.update_from_iterable("abcd")
+
+    encoder.expect_len(3)
+    with pytest.raises(RuntimeError):
+        encoder.encode_label("a")
+
+    encoder.ignore_len()
+    encoder.encode_label("a")
+
+    encoder.expect_len(4)
+    encoder.encode_label("a")
+
+
 def test_text_encoder(tmpdir):
     from speechbrain.dataio.encoder import TextEncoder
 
