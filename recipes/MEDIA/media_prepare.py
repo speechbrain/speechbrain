@@ -32,6 +32,7 @@ def prepare_media(
     method="slu",
     task="full",
     skip_prep=False,
+    process_test2=False,
 ):
     """
     Prepares the csv files for the MEDIA dataset.
@@ -63,6 +64,8 @@ def prepare_media(
         'asr' Parse ASR data.
     skip_prep: bool, optional
         If True, skip data preparation.
+    process_test2: bool, optional
+        It True, process test2 corpus
     """
 
     if skip_prep:
@@ -133,26 +136,27 @@ def prepare_media(
         )
 
     # Test2.
-    logger.info("Processing files for test2")
-    for filename in tqdm(unused_dialogs):
-        root = get_root(
-            data_folder
-            + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/"
-            + filename
-            + "_HC.xml",
-            1,
-        )
-        parse_test2(
-            root,
-            channels,
-            filenames,
-            save_folder,
-            method,
-            task,
-            filename,
-            concepts_full,
-            concepts_relax,
-        )
+    if process_test2:
+        logger.info("Processing files for test2")
+        for filename in tqdm(unused_dialogs):
+            root = get_root(
+                data_folder
+                + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/"
+                + filename
+                + "_HC.xml",
+                1,
+            )
+            parse_test2(
+                root,
+                channels,
+                filenames,
+                save_folder,
+                method,
+                task,
+                filename,
+                concepts_full,
+                concepts_relax,
+            )
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
