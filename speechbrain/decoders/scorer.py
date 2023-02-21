@@ -110,15 +110,16 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
     So, we cannot use the memory and we have to rescore the whole hypotheses at each time step.
     This introduces a computational cost, and we recommend to use the AnyTokensRNNLMScorer that is
     more efficient than AnyTokensTransformerLMScorer. Even though they are some decoding "errors" it is 
-    still better than only rescoring the final hypotheses.
+    still better than only rescoring the final hypotheses (or no LMs!).
 
     Note 2: As we are decoding the tokens with the encoder tokenizer, it might happens that
     the decoded tokens are not corresponding with the ones trained for the language model tokenizer.
 
     For example, if the encoder tokenizer is trained on lower case tokens, and the language model
     tokenizer is trained on upper case tokens, the decoded tokens will be lower case, and the
-    language model will not be able to score them. To solve this issue, we can use the normalize_text
-    method to normalize the decoded tokens before scoring them with the language model.
+    language model will not be able to "understand" them correctly which will leads to bad results. 
+    To solve this issue, we have the normalize_text method that normalize the decoded_seq before encoding 
+    them with the language model tokenizer.
 
     See:
         - speechbrain.decoders.scorer.AnyTokensTransformerLMScorer
@@ -288,7 +289,8 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             logits = self.lm(padded_hyps)
             log_probs = self.softmax(logits / self.temperature)
 
-            # select only the log_probs of the tokens at t+1, e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
+            # select only the log_probs of the tokens at t+1, 
+            # e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
             mask = torch.zeros(
                 (
                     padded_hyps[:, 1:].size(0),
@@ -300,7 +302,9 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             )
             mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-            # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
+            # compute the mean of the log_probs of the tokens at t+1, 
+            # doing the sum may harm the scores as we are summing over a large number of tokens
+            # and also it could have some errors in the decoding process
             log_probs_score = (
                 log_probs[:, :-1]
                 .masked_select(mask)
@@ -329,7 +333,8 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             logits = self.lm(padded_hyps)
             log_probs = self.softmax(logits / self.temperature)
 
-            # select only the log_probs of the tokens at t+1, e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
+            # select only the log_probs of the tokens at t+1, 
+            # e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
             mask = torch.zeros(
                 (
                     padded_hyps[:, 1:].size(0),
@@ -341,7 +346,9 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             )
             mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-            # compute the mean of the log_probs of the tokens at t+1, doing the sum may harm the scores as we are summing over a large number of tokens
+            # compute the mean of the log_probs of the tokens at t+1, d
+            # oing the sum may harm the scores as we are summing over a large number of tokens
+            # and also it could have some errors in the decoding process
             log_probs_scores = (
                 log_probs[:, :-1]
                 .masked_select(mask)
@@ -480,6 +487,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
 
             # compute the mean of the log_probs of the tokens at t+1,
             # doing the sum may harm the scores as we are summing over a large number of tokens
+            # and also it could have some errors in the decoding process
             log_probs_score = (
                 log_probs[:, :-1]
                 .masked_select(mask)
@@ -510,6 +518,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
 
             # select only the log_probs of the tokens at t+1, e.g.,
             # log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
+            # and also it could have some errors in the decoding process
             mask = torch.zeros(
                 (
                     padded_hyps[:, 1:].size(0),
@@ -523,6 +532,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
 
             # compute the mean of the log_probs of the tokens at t+1,
             # doing the sum may harm the scores as we are summing over a large number of tokens
+            # and also it could have some errors in the decoding process
             log_probs_scores = (
                 log_probs[:, :-1]
                 .masked_select(mask)
