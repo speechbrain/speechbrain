@@ -82,7 +82,7 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
     """A scorer abstraction to be inherited by other
     scoring approaches for beam search.
 
-    This scorer allows one to score (and/or rescore) any tokens with a language model
+    This scorer allows one to score (and/or rescore) any tokens sequences with a language model
     trained on a different vocabulary.
 
     The idea is to take the tokens from the acoustic model, decode them with the encoder
@@ -105,7 +105,7 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
     but at the time step t+1 the same seq with a new token can lead to a different decoded_seq:
         - tokens_seq = [1, 12, 43, 2]
         - decoded_seq = ['_hell', 'o', '_friends']
-        - encoded_seq = [0, 5, 4, 2]
+        - encoded_seq = [0, 5, 4, 2] # WARNING: different from the previous one
 
     So, we cannot use the memory and we have to rescore the whole hypotheses at each time step.
     This introduces a computational cost, and we recommend to use the AnyTokensRNNLMScorer that is
