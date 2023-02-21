@@ -24,6 +24,7 @@ skip_wav: False # Skip the wav files storing if already done before.
 method: relax # Remove or keep specifiers in concepts. Method used by default.
 task: slu # Parse SLU or ASR data.
 skip_prep: False # Skip data preparation to csv because already done.
+process_test2: False # Process the test2 corpus
 
 # See https://github.com/pytorch/fairseq/blob/main/examples/wav2vec/README.md
 # for Wav2Vec models and https://huggingface.co/LeBenchmark for French ones.
@@ -32,7 +33,7 @@ wav2vec_url: LeBenchmark/wav2vec2-FR-3K-large
 # Data files:
 csv_train: !ref <save_folder>/csv/train.csv
 csv_valid: !ref <save_folder>/csv/dev.csv
-csv_test: !ref <save_folder>/csv/test.csv
+csv_test: !ref <save_folder>/csv/test.csv # If the test2 was processed, you can change the file to test2.csv
 
 # Data parameters:
 # With data_parallel batch_size is split into N jobs.
