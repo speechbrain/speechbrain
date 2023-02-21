@@ -329,6 +329,7 @@ if __name__ == "__main__":
             "method": hparams["method"],
             "task": hparams["task"],
             "skip_prep": hparams["skip_prep"],
+            "process_test2": hparams["process_test2"],
         },
     )
 
