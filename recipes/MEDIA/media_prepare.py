@@ -33,7 +33,7 @@ def prepare_media(
 ):
     """
     Prepares the csv files for the MEDIA dataset.
-    Both following repositories are nesseray for transcriptions
+    Both following repositories are necessary for transcriptions
     and annotations (S0272) and audio (E0024).
     https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/
     https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/
