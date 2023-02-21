@@ -105,6 +105,11 @@ def prepare_media(
         "media_testHC_a_blanc.xml": "dev",
     }
 
+    train_data = []
+    dev_data = []
+    test_data = []
+    test2_data = []
+
     wav_paths = glob.glob(data_folder + "/S0272/**/*.wav", recursive=True)
     channels, filenames = get_channels(channels_path)
 
@@ -117,7 +122,6 @@ def prepare_media(
             split_audio_channels(wav_path, filename, channel, save_folder)
 
     # Train, Dev, Test.
-    write_first_row(save_folder)
     for xml in xmls:
         logger.info(
             "Processing file "
@@ -128,9 +132,15 @@ def prepare_media(
         root = get_root(
             data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml, 0,
         )
-        parse(
+        data = parse(
             root, channels, filenames, save_folder, method, task, xmls[xml],
         )
+        if xmls[xml] == "train":
+            train_data.extend(data)
+        elif xmls[xml] == "dev":
+            dev_data.extend(data)
+        elif xmls[xml] == "test":
+            test_data.extend(data)
 
     # Test2.
     if process_test2:
@@ -145,7 +155,7 @@ def prepare_media(
                 + "_HC.xml",
                 1,
             )
-            parse_test2(
+            test2_data.extend(parse_test2(
                 root,
                 channels,
                 filenames,
@@ -155,7 +165,13 @@ def prepare_media(
                 filename,
                 concepts_full,
                 concepts_relax,
-            )
+            ))
+
+    append_data(save_folder, train_data, "train")
+    append_data(save_folder, dev_data, "dev")
+    append_data(save_folder, test_data, "test")
+    if process_test2:
+        append_data(save_folder, test2_data, "test2")
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -207,7 +223,14 @@ def parse(
         Either 'asr' or 'slu'.
     corpus: str
         'train', 'dev' or 'test'.
+
+    Returns
+    -------
+    list
+        all informations needed to append the data in SpeechBrain csv files.
     """
+    
+    data = []
 
     for dialogue in tqdm(root.getElementsByTagName("dialogue")):
 
@@ -225,14 +248,14 @@ def parse(
                     turn, time_beg, time_end, method, task
                 )
 
-                append_data(
-                    save_folder,
+                data.append([
                     channel,
                     filename,
                     speaker_name,
                     sentences,
-                    corpus,
-                )
+                ])
+
+    return data
 
 
 def parse_test2(
@@ -278,6 +301,8 @@ def parse_test2(
 
     speaker_id, speaker_name = get_speaker_test2(root)
     channel = get_channel(filename, channels, filenames)
+    
+    data = []
 
     for turn in root.getElementsByTagName("Turn"):
         if turn.getAttribute("speaker") == speaker_id:
@@ -301,19 +326,17 @@ def parse_test2(
             ):
                 sentences[len(sentences) - 1][3] = "321.000"
 
-            append_data(
-                save_folder,
+            data.append([
                 channel,
                 filename,
                 speaker_name,
                 sentences,
-                "test2",
-            )
+            ])
+
+    return data
 
 
-def append_data(
-    save_folder, channel, filename, speaker_name, sentences, corpus,
-):
+def append_data(save_folder, data, corpus):
     """
     Make the csv corpora using data retrieved previously for one Media file.
 
@@ -321,64 +344,62 @@ def append_data(
     ---------
     save_folder: str
         Path where the csvs and preprocessed wavs will be stored.
-    channel: str
-        Channel (Right / Left) of the stereo recording to keep.
-    filename: str
-        Name of the Media recording.
-    speaker_name: str
-        Name of the speaker who said the given sentences.
-    sentences: dictionnary of str
-        Sentences previously parsed.
+    data: list
+        channel, filename, speaker_name, sentences
     corpus: str
         Either 'train', 'dev', 'test', or 'test2'.
     """
 
-    data = []
+    to_append = []
 
-    # Retrieve other necessary information
-    out = subprocess.Popen(
-        ["soxi", "-D", save_folder + "/wav/" + channel + filename + ".wav"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    stdout, stderr = out.communicate()
-    wav_duration = str("%.2f" % float(stdout))
-    wav = save_folder + "/wav/" + channel + filename + ".wav"
-    IDs = get_IDs(speaker_name, sentences, channel, filename)
+    for line in data:
+        channel, filename, speaker_name, sentences = line
+        
+        # Retrieve other necessary information
+        out = subprocess.Popen(
+            ["soxi", "-D", save_folder + "/wav/" + channel + filename + ".wav"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        stdout, stderr = out.communicate()
+        wav_duration = str("%.2f" % float(stdout))
+        wav = save_folder + "/wav/" + channel + filename + ".wav"
+        IDs = get_IDs(speaker_name, sentences, channel, filename)
 
-    # Append data list
-    for n in range(len(sentences)):
-        f1 = float(sentences[n][3])
-        f2 = float(sentences[n][2])
-        duration = str("%.2f" % (f1 - f2))
-        if (
-            float(wav_duration) >= f1
-            and float(duration) != 0.0
-            and sentences[n][0] != ""
-        ):
-            data.append(
-                [
-                    IDs[n],
-                    duration,
-                    sentences[n][2],
-                    sentences[n][3],
-                    wav,
-                    "wav",
-                    speaker_name,
-                    "string",
-                    sentences[n][0],
-                    "string",
-                    sentences[n][1],
-                    "string",
-                ]
-            )
+        # Fill to_append list
+        for n in range(len(sentences)):
+            f1 = float(sentences[n][3])
+            f2 = float(sentences[n][2])
+            duration = str("%.2f" % (f1 - f2))
+            if (
+                float(wav_duration) >= f1
+                and float(duration) != 0.0
+                and sentences[n][0] != ""
+            ):
+                to_append.append(
+                    [
+                        IDs[n],
+                        duration,
+                        sentences[n][2],
+                        sentences[n][3],
+                        wav,
+                        "wav",
+                        speaker_name,
+                        "string",
+                        sentences[n][0],
+                        "string",
+                        sentences[n][1],
+                        "string",
+                    ]
+                )
 
-    # Write data
-    if data is not None:
+    # Write to_append
+    if to_append is not None:
+        write_first_row(save_folder, corpus)
         path = save_folder + "/csv/" + corpus + ".csv"
         SB_file = open(path, "a")
         writer = csv.writer(SB_file, delimiter=",")
-        writer.writerows(data)
+        writer.writerows(to_append)
         SB_file.close()
 
 
@@ -862,7 +883,7 @@ def normalize_sentence(sentence):
     return sentence
 
 
-def write_first_row(save_folder):
+def write_first_row(save_folder, corpus):
     """
     Write the first row of the csv files.
 
@@ -870,28 +891,29 @@ def write_first_row(save_folder):
     ---------
     save_folder: str
         Path where the csvs and preprocessed wavs will be stored.
+    corpus : str
+        Either 'train', 'dev', 'test', or 'test2'.
     """
 
-    for corpus in ["train", "dev", "test", "test2"]:
-        SB_file = open(save_folder + "/csv/" + corpus + ".csv", "w")
-        writer = csv.writer(SB_file, delimiter=",")
-        writer.writerow(
-            [
-                "ID",
-                "duration",
-                "start_seg",
-                "end_seg",
-                "wav",
-                "wav_format",
-                "spk_id",
-                "spk_id_format",
-                "wrd",
-                "wrd_format",
-                "char",
-                "char_format",
-            ]
-        )
-        SB_file.close()
+    SB_file = open(save_folder + "/csv/" + corpus + ".csv", "w")
+    writer = csv.writer(SB_file, delimiter=",")
+    writer.writerow(
+        [
+            "ID",
+            "duration",
+            "start_seg",
+            "end_seg",
+            "wav",
+            "wav_format",
+            "spk_id",
+            "spk_id_format",
+            "wrd",
+            "wrd_format",
+            "char",
+            "char_format",
+        ]
+    )
+    SB_file.close()
 
 
 def split_audio_channels(path, filename, channel, save_folder):
