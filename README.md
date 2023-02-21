@@ -152,6 +152,46 @@ SpeechBrain is designed to speed up the research and development of speech techn
 ### Under development
 We are currently implementing speech synthesis pipelines and real-time speech processing pipelines. An interface with the Finite State Transducers (FST) implemented by the [Kaldi 2 team](https://github.com/k2-fsa/k2) is under development.
 
+# Where is what, a link list.
+```
+                  (documentation)           (tutorials)
+                  .—————————————.            .———————.
+                  | readthedocs |       ‚––> | Colab |
+                  \—————————————/      ∕     \———————/
+                         ^       ‚––––‘          |
+    (release)            |      ∕                v
+    .——————.       .———————————. (landing) .———————————.
+    | PyPI | –––>  | github.io |  (page)   | templates |   (reference)
+    \——————/       \———————————/       ‚–> \———————————/ (implementation)
+        |                |        ‚–––‘          |
+        v                v       ∕               v
+.———————————–—.   .———————————–—.           .—————————.           .~~~~~~~~~~~~~.
+| HyperPyYAML |~~~| speechbrain | ––––––––> | recipes | ––––––––> | HuggingFace |
+\————————————–/   \————————————–/           \—————————/     ∕     \~~~~~~~~~~~~~/
+  (usability)     (source/modules)          (use cases)    ∕    (pretrained models)
+                                                          ∕
+                        |                        |       ∕               |
+                        v                        v      ∕                v
+                  .~~~~~~~~~~~~~.            .~~~~~~~~.            .———————————.
+                  |   PyTorch   | ––––––––-> | GDrive |            | Inference |
+                  \~~~~~~~~~~~~~/            \~~~~~~~~/            \———————————/
+                   (checkpoints)             (results)            (code snippets)
+```
+
+* https://speechbrain.github.io/
+  * via: https://github.com/speechbrain/speechbrain.github.io
+  * pointing to several tutorials on Google Colab
+* https://github.com/speechbrain/speechbrain
+  * [docs](https://github.com/speechbrain/speechbrain/tree/develop/docs) for https://speechbrain.readthedocs.io/
+  * [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes)
+  * [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/)
+  * [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates)
+  * [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality
+* https://huggingface.co/speechbrain/
+  * hosting several model cards (pretrained models with code snippets)
+* Gdrive
+  * hosting training results; checkpoints; ...
+
 # Conference Tutorials
 SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
 - [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1d6GAquxw6rZBI-7JvfUQ_-upeiKstJEo?usp=sharing)

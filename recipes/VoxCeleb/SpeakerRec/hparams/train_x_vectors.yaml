@@ -26,6 +26,7 @@ rir_folder: !ref <data_folder> # Change it if needed
 # Therefore you cannot use any files in VoxCeleb1 for training if you are using these lists for testing.
 verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 
+split_ratio: [90, 10]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -48,6 +49,7 @@ deltas: False
 
 # Number of speakers
 out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+emb_dim: 512
 
 dataloader_options:
     batch_size: !ref <batch_size>
@@ -68,13 +70,13 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_channels: [512, 512, 512, 512, 1500]
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
-    lin_neurons: 512
+    lin_neurons: !ref <emb_dim>
 
 classifier: !new:speechbrain.lobes.models.Xvector.Classifier
-    input_shape: [null, null, 512]
+    input_shape: [null, null, !ref <emb_dim>]
     activation: !name:torch.nn.LeakyReLU
     lin_blocks: 1
-    lin_neurons: 512
+    lin_neurons: !ref <emb_dim>
     out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
