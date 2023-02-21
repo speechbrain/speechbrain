@@ -349,6 +349,8 @@ if __name__ == "__main__":
             "method": hparams["method"],
             "task": hparams["task"],
             "skip_prep": hparams["skip_prep"],
+            "channels_path": hparams["channels_path"],
+            "concepts_path": hparams["concepts_path"],
         },
     )
 
