@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 def prepare_media(
     data_folder,
     save_folder,
+    channels_path,
+    concepts_path,
     skip_wav=True,
     method="slu",
     task="full",
@@ -44,6 +46,10 @@ def prepare_media(
         Path where folders S0272 and E0024 are stored.
     save_folder: str
         Path where the csvs and preprocessed wavs will be stored.
+    channels_path: str
+        Path of the channels.csv file downloaded via https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+    concepts_path: str
+        Path of the concepts_full_relax.csv file downloaded via https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
     skip_wav: bool, optional
         Skip the wav files storing if already done before.
     method: str, optional
@@ -97,11 +103,9 @@ def prepare_media(
     }
 
     wav_paths = glob.glob(data_folder + "/S0272/**/*.wav", recursive=True)
-    channels, filenames = get_channels("./channels.csv")
+    channels, filenames = get_channels(channels_path)
     unused_dialogs = get_unused_dialogs(data_folder)
-    concepts_full, concepts_relax = get_concepts_full_relax(
-        "./concepts_full_relax.csv"
-    )
+    concepts_full, concepts_relax = get_concepts_full_relax(concepts_path)
 
     write_first_row(save_folder)
 
