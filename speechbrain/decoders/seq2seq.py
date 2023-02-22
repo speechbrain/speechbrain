@@ -1420,7 +1420,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     
     def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
         """set the minimum/maximum length the decoder can take."""
-        return self.min_decode_ratio * self.max_length, self.max_decode_ratio * self.max_length
+        return int(self.min_decode_ratio * self.max_length), int(self.max_decode_ratio * self.max_length)
 
     def set_decoder_input_tokens(self, decoder_input_tokens):
         """decoder_input_tokens are the tokens used as input to the decoder.
