@@ -342,11 +342,7 @@ def append_data(save_folder, data, corpus):
         Either 'train', 'dev', 'test', or 'test2'.
     """
 
-    logger.info(
-            "Preparing "
-            + corpus
-            + ".csv"
-        )
+    logger.info("Preparing " + corpus + ".csv")
 
     to_append = []
 
