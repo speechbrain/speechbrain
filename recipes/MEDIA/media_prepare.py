@@ -124,7 +124,7 @@ def prepare_media(
     # Train, Dev, Test.
     for xml in xmls:
         logger.info(
-            "Processing file "
+            "Processing xml file "
             + str(list(xmls.keys()).index(xml) + 1)
             + "/"
             + str(len(xmls))
@@ -146,8 +146,8 @@ def prepare_media(
     if process_test2:
         unused_dialogs = get_unused_dialogs(data_folder)
         concepts_full, concepts_relax = get_concepts_full_relax(concepts_path)
-        logger.info("Processing files for test2")
-        for filename in tqdm(unused_dialogs):
+        logger.info("Processing xml files for test2")
+        for filename in unused_dialogs:
             root = get_root(
                 data_folder
                 + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/semantizer_files/"
@@ -234,7 +234,7 @@ def parse(
 
     data = []
 
-    for dialogue in tqdm(root.getElementsByTagName("dialogue")):
+    for dialogue in root.getElementsByTagName("dialogue"):
 
         speaker_name = get_speaker(dialogue)
         filename = dialogue.getAttribute("id")
@@ -342,9 +342,15 @@ def append_data(save_folder, data, corpus):
         Either 'train', 'dev', 'test', or 'test2'.
     """
 
+    logger.info(
+            "Preparing "
+            + corpus
+            + ".csv"
+        )
+
     to_append = []
 
-    for line in data:
+    for line in tqdm(data):
         channel, filename, speaker_name, sentences = line
 
         # Retrieve other necessary information
