@@ -153,6 +153,7 @@ class S2SBaseSearcher(torch.nn.Module):
         """set the minimum/maximum length the decoder can take."""
         return min_decode_steps, max_decode_steps
 
+
 class S2SGreedySearcher(S2SBaseSearcher):
     """This class implements the general forward-pass of
     greedy decoding approach. See also S2SBaseSearcher().
@@ -181,9 +182,11 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         log_probs_lst = []
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
-        
-        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper). 
-        _, max_decode_steps = self.change_max_decoding_length(0, max_decode_steps)
+
+        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper).
+        _, max_decode_steps = self.change_max_decoding_length(
+            0, max_decode_steps
+        )
 
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
@@ -220,7 +223,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         The task token to be used for the decoder input.
     timestamp_token : int
         The timestamp token to be used for the decoder input.
-    max_length : int 
+    max_length : int
         The maximum decoding steps to perform.
         The Whisper model has a maximum length of 448.
     **kwargs
@@ -234,7 +237,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         bos_token=50258,
         task_token=50359,
         timestamp_token=50363,
-        max_length=448, 
+        max_length=448,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -736,8 +739,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
-        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper). 
-        min_decode_steps, max_decode_steps = self.change_max_decoding_length(min_decode_steps, max_decode_steps)
+        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper).
+        min_decode_steps, max_decode_steps = self.change_max_decoding_length(
+            min_decode_steps, max_decode_steps
+        )
 
         # Initialize the previous attention peak to zero
         # This variable will be used when using_max_attn_shift=True
@@ -986,6 +991,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         raise NotImplementedError
 
+
 class S2SRNNBeamSearcher(S2SBeamSearcher):
     """
     This class implements the beam search decoding
@@ -1093,6 +1099,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
             )
         return (hs, c)
 
+
 class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
     """This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
@@ -1188,6 +1195,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         # zero vectors.
         return None
 
+
 class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
     """This class implements the beam search decoding
     for AttentionalRNNDecoder (speechbrain/nnet/RNN.py) with LM.
@@ -1274,6 +1282,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         # zero vectors.
         return None
 
+
 class S2STransformerBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Transformer.
@@ -1340,6 +1349,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         log_probs = self.softmax(logits / self.temperature_lm)
         return log_probs[:, -1, :], memory
 
+
 class S2SWhisperBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
@@ -1360,7 +1370,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         The token to use for task.
     timestamp_token : int
         The token to use for timestamp.
-    max_length : int 
+    max_length : int
         The maximum decoding steps to perform.
         The Whisper model has a maximum length of 448.
     **kwargs
@@ -1376,7 +1386,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         bos_token=50258,
         task_token=50359,
         timestamp_token=50363,
-        max_length=448, 
+        max_length=448,
         **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
@@ -1395,7 +1405,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.bos_token = bos_token  # always this value
         self.task_token = task_token  # default task is transcribe
         self.timestamp_token = timestamp_token  # default is notimestamp
-        
+
         self.max_length = max_length
 
     def set_language_token(self, language_token):
@@ -1417,10 +1427,13 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         # inp_token and need to be the first so that the first input gave
         # to the model is [bos, language, task, timestamp] (order matters).
         self.bos_index = self.timestamp_token
-    
+
     def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
         """set the minimum/maximum length the decoder can take."""
-        return int(self.min_decode_ratio * self.max_length), int(self.max_decode_ratio * self.max_length)
+        return (
+            int(self.min_decode_ratio * self.max_length),
+            int(self.max_decode_ratio * self.max_length),
+        )
 
     def set_decoder_input_tokens(self, decoder_input_tokens):
         """decoder_input_tokens are the tokens used as input to the decoder.
@@ -1567,6 +1580,7 @@ def inflate_tensor(tensor, times, dim):
             [4., 5., 6.]])
     """
     return torch.repeat_interleave(tensor, times, dim=dim)
+
 
 def mask_by_condition(tensor, cond, fill_value):
     """This function will mask some element in the tensor with fill_value, if condition=False.
