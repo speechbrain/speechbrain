@@ -92,6 +92,7 @@ valid_search_every: 10
 valid_beam_size: 10
 test_beam_size: 10
 ctc_decode_weight: 0.40
+valid_search_interval: 10
 
 ############################## models ################################
 

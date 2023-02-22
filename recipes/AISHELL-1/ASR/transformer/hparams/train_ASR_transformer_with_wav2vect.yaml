@@ -34,10 +34,10 @@ freeze_wav2vec: False
 # Training parameters
 number_of_epochs: 80
 batch_size: 2
-ctc_weight: 0.3
 gradient_accumulation: 16
 loss_reduction: 'batchmean'
 sorting: random
+ctc_weight: 0.3
 
 dynamic_batching: False
 dynamic_batch_sampler:
@@ -55,12 +55,6 @@ num_workers: 6
 stage_one_epochs: 40
 lr_adam: 1.0
 lr_sgd: 0.000025
-# lr_wav2vec: 0.0001
-
-# Feature parameters
-# sample_rate: 16000
-# n_fft: 400
-# n_mels: 80
 
 # Dataloader options
 train_dataloader_opts:
@@ -179,11 +173,9 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
     scorer: !ref <scorer>
@@ -192,11 +184,9 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
     scorer: !ref <scorer>

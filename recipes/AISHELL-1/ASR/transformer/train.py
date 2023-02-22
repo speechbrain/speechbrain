@@ -3,6 +3,9 @@
 
 AISHELL-1 transformer model recipe. (Adapted from the LibriSpeech recipe.)
 
+Authors
+    * Jianyuan Zhong 2021
+    * Titouan Parcollet 2021
 """
 
 import sys

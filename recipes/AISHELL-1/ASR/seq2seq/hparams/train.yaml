@@ -85,9 +85,10 @@ dnn_neurons: 512
 emb_size: 128
 dec_neurons: 1024
 output_neurons: 5000  # Number of tokens
+# we need to have blank_index != bos_index != eos_index when using CTCScorer
 blank_index: 0
-bos_index: 0
-eos_index: 0
+bos_index: 1
+eos_index: 2
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -98,7 +99,7 @@ using_max_attn_shift: True
 max_attn_shift: 240
 coverage_penalty: 1.5
 temperature: 1.25
-
+scorer_beam_scale: 0.5 
 # AISHELL-1 has spaces between words in the transcripts,
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed
@@ -194,7 +195,6 @@ modules:
    seq_lin: !ref <seq_lin>
    normalize: !ref <normalize>
    env_corrupt: !ref <env_corrupt>
-   #lm_model: !ref <lm_model>
 
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
@@ -221,7 +221,8 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [!ref <coverage_scorer>, !ref <ctc_scorer>]
    weights:
       coverage: !ref <coverage_penalty>
-      ctc: !ref <ctc_decode_weight>
+      ctc: !ref <ctc_weight>
+   scorer_beam_scale: !ref <scorer_beam_scale>
 
 beam_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
@@ -235,8 +236,6 @@ beam_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
-   coverage_penalty: !ref <coverage_penalty>
-   temperature: !ref <temperature>
    scorer: !ref <scorer>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

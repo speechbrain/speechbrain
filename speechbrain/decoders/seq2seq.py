@@ -1145,8 +1145,11 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     See also S2SBaseSearcher(), S2SBeamSearcher().
     Arguments
     ---------
-    model : torch.nn.Module
-        The model to use for decoding.
+    modules : list with the followings one:
+        model : torch.nn.Module
+            A Transformer model.
+        seq_lin : torch.nn.Module
+            A linear output layer.
     linear : torch.nn.Module
         A linear output layer.
     **kwargs
