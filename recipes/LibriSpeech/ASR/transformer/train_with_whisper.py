@@ -311,13 +311,15 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
 
     # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["train_loader_kwargs"],
-        valid_loader_kwargs=hparams["valid_loader_kwargs"],
-    )
+    if hparams["test_only"] is False:
+        # Training
+        asr_brain.fit(
+            asr_brain.hparams.epoch_counter,
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["train_loader_kwargs"],
+            valid_loader_kwargs=hparams["valid_loader_kwargs"],
+        )
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc

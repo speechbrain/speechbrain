@@ -149,6 +149,10 @@ class S2SBaseSearcher(torch.nn.Module):
         """
         raise NotImplementedError
 
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return min_decode_steps, max_decode_steps
+
 
 class S2SGreedySearcher(S2SBaseSearcher):
     """This class implements the general forward-pass of
@@ -179,6 +183,11 @@ class S2SGreedySearcher(S2SBaseSearcher):
         log_probs_lst = []
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
+        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper).
+        _, max_decode_steps = self.change_max_decoding_length(
+            0, max_decode_steps
+        )
+
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
@@ -206,6 +215,17 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     ---------
     model : HuggingFaceWhisper
         The Whisper model.
+    language_token : int
+        The language token to be used for the decoder input.
+    bos_token : int
+        The beginning of sentence token to be used for the decoder input.
+    task_token : int
+        The task token to be used for the decoder input.
+    timestamp_token : int
+        The timestamp token to be used for the decoder input.
+    max_length : int
+        The maximum decoding steps to perform.
+        The Whisper model has a maximum length of 448.
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
     """
@@ -217,6 +237,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         bos_token=50258,
         task_token=50359,
         timestamp_token=50363,
+        max_length=448,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -227,6 +248,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         self.bos_token = bos_token  # always this value
         self.task_token = task_token  # default task is transcribe
         self.timestamp_token = timestamp_token  # default is notimestamp
+        self.max_length = max_length - 3  # 3 tokens are added to the input
 
     def set_language_token(self, language_token):
         """set the language token to be used for the decoder input."""
@@ -273,12 +295,20 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
+
         # WARNING: the max_decode_ratio need to be under 449 because
         #  of positinal encoding
         dec_out, attn = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
 
         return log_probs, memory, attn
+
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return (
+            int(self.min_decode_ratio * self.max_length),
+            int(self.max_decode_ratio * self.max_length),
+        )
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
@@ -712,6 +742,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
+
+        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper).
+        min_decode_steps, max_decode_steps = self.change_max_decoding_length(
+            min_decode_steps, max_decode_steps
+        )
 
         # Initialize the previous attention peak to zero
         # This variable will be used when using_max_attn_shift=True
@@ -1252,85 +1287,6 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         return None
 
 
-def inflate_tensor(tensor, times, dim):
-    """This function inflates the tensor for times along dim.
-
-    Arguments
-    ---------
-    tensor : torch.Tensor
-        The tensor to be inflated.
-    times : int
-        The tensor will inflate for this number of times.
-    dim : int
-        The dim to be inflated.
-
-    Returns
-    -------
-    torch.Tensor
-        The inflated tensor.
-
-    Example
-    -------
-    >>> tensor = torch.Tensor([[1,2,3], [4,5,6]])
-    >>> new_tensor = inflate_tensor(tensor, 2, dim=0)
-    >>> new_tensor
-    tensor([[1., 2., 3.],
-            [1., 2., 3.],
-            [4., 5., 6.],
-            [4., 5., 6.]])
-    """
-    return torch.repeat_interleave(tensor, times, dim=dim)
-
-
-def mask_by_condition(tensor, cond, fill_value):
-    """This function will mask some element in the tensor with fill_value, if condition=False.
-
-    Arguments
-    ---------
-    tensor : torch.Tensor
-        The tensor to be masked.
-    cond : torch.BoolTensor
-        This tensor has to be the same size as tensor.
-        Each element represents whether to keep the value in tensor.
-    fill_value : float
-        The value to fill in the masked element.
-
-    Returns
-    -------
-    torch.Tensor
-        The masked tensor.
-
-    Example
-    -------
-    >>> tensor = torch.Tensor([[1,2,3], [4,5,6]])
-    >>> cond = torch.BoolTensor([[True, True, False], [True, False, False]])
-    >>> mask_by_condition(tensor, cond, 0)
-    tensor([[1., 2., 0.],
-            [4., 0., 0.]])
-    """
-    tensor = torch.where(
-        cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
-    )
-    return tensor
-
-
-def _update_mem(inp_tokens, memory):
-    """This function is for updating the memory for transformer searches.
-    it is called at each decoding step. When being called, it appends the
-    predicted token of the previous step to existing memory.
-
-    Arguments:
-    -----------
-    inp_tokens : tensor
-        Predicted token of the previous decoding step.
-    memory : tensor
-        Contains all the predicted tokens.
-    """
-    if memory is None:
-        return inp_tokens.unsqueeze(1)
-    return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
-
-
 class S2STransformerBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Transformer.
@@ -1410,6 +1366,17 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)
             A linear output layer for CTC.
+    language_token : int
+        The token to use for language.
+    bos_token : int
+        The token to use for beginning of sentence.
+    task_token : int
+        The token to use for task.
+    timestamp_token : int
+        The token to use for timestamp.
+    max_length : int
+        The maximum decoding steps to perform.
+        The Whisper model has a maximum length of 448.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
@@ -1423,6 +1390,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         bos_token=50258,
         task_token=50359,
         timestamp_token=50363,
+        max_length=447,
         **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
@@ -1441,6 +1409,8 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.bos_token = bos_token  # always this value
         self.task_token = task_token  # default task is transcribe
         self.timestamp_token = timestamp_token  # default is notimestamp
+
+        self.max_length = max_length - 3  # -3 for [bos, language, task]
 
     def set_language_token(self, language_token):
         """set the language token to use for the decoder input."""
@@ -1461,6 +1431,13 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         # inp_token and need to be the first so that the first input gave
         # to the model is [bos, language, task, timestamp] (order matters).
         self.bos_index = self.timestamp_token
+
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return (
+            int(self.min_decode_ratio * self.max_length),
+            int(self.max_decode_ratio * self.max_length),
+        )
 
     def set_decoder_input_tokens(self, decoder_input_tokens):
         """decoder_input_tokens are the tokens used as input to the decoder.
@@ -1577,3 +1554,82 @@ def filter_seq2seq_output(string_pred, eos_id=-1):
     else:
         raise ValueError("The input must be a list.")
     return string_out
+
+
+def inflate_tensor(tensor, times, dim):
+    """This function inflates the tensor for times along dim.
+
+    Arguments
+    ---------
+    tensor : torch.Tensor
+        The tensor to be inflated.
+    times : int
+        The tensor will inflate for this number of times.
+    dim : int
+        The dim to be inflated.
+
+    Returns
+    -------
+    torch.Tensor
+        The inflated tensor.
+
+    Example
+    -------
+    >>> tensor = torch.Tensor([[1,2,3], [4,5,6]])
+    >>> new_tensor = inflate_tensor(tensor, 2, dim=0)
+    >>> new_tensor
+    tensor([[1., 2., 3.],
+            [1., 2., 3.],
+            [4., 5., 6.],
+            [4., 5., 6.]])
+    """
+    return torch.repeat_interleave(tensor, times, dim=dim)
+
+
+def mask_by_condition(tensor, cond, fill_value):
+    """This function will mask some element in the tensor with fill_value, if condition=False.
+
+    Arguments
+    ---------
+    tensor : torch.Tensor
+        The tensor to be masked.
+    cond : torch.BoolTensor
+        This tensor has to be the same size as tensor.
+        Each element represents whether to keep the value in tensor.
+    fill_value : float
+        The value to fill in the masked element.
+
+    Returns
+    -------
+    torch.Tensor
+        The masked tensor.
+
+    Example
+    -------
+    >>> tensor = torch.Tensor([[1,2,3], [4,5,6]])
+    >>> cond = torch.BoolTensor([[True, True, False], [True, False, False]])
+    >>> mask_by_condition(tensor, cond, 0)
+    tensor([[1., 2., 0.],
+            [4., 0., 0.]])
+    """
+    tensor = torch.where(
+        cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
+    )
+    return tensor
+
+
+def _update_mem(inp_tokens, memory):
+    """This function is for updating the memory for transformer searches.
+    it is called at each decoding step. When being called, it appends the
+    predicted token of the previous step to existing memory.
+
+    Arguments:
+    -----------
+    inp_tokens : tensor
+        Predicted token of the previous decoding step.
+    memory : tensor
+        Contains all the predicted tokens.
+    """
+    if memory is None:
+        return inp_tokens.unsqueeze(1)
+    return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
