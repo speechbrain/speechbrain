@@ -188,8 +188,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
             0, max_decode_steps
         )
 
-        print("max_decode_steps: ", max_decode_steps)
-
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
