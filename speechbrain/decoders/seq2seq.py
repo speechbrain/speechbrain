@@ -206,6 +206,14 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     ---------
     model : HuggingFaceWhisper
         The Whisper model.
+    language_token : int
+        The language token to be used for the decoder input.
+    bos_token : int
+        The beginning of sentence token to be used for the decoder input.
+    task_token : int
+        The task token to be used for the decoder input.
+    timestamp_token : int
+        The timestamp token to be used for the decoder input.
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
     """
@@ -1410,6 +1418,14 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)
             A linear output layer for CTC.
+    language_token : int
+        The token to use for language.
+    bos_token : int
+        The token to use for beginning of sentence.
+    task_token : int
+        The token to use for task.
+    timestamp_token : int
+        The token to use for timestamp.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
