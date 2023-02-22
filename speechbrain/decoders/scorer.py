@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Token scorer abstraction and specifications.
 
@@ -186,12 +185,17 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer associated with the language model.
     strategy : str
         The strategy to use for scoring. It can be either scoring on each token
         independently (tokens) or scoring on the whole sequence (sequence).
         Scoring indendently is slower but more accurate. (default: sequence)
-    tokenizer : speechbrain.tokenizers.SentencePiece
-        The tokenizer associated with the language model.
+    patience : int
+        The patience to use for scoring on tokens. It is define as when to 
+        score the hypothesis. If patience is 1, we will score the hypothesis
+        at each time step. If patience is 2, we will score the hypothesis
+        every 2 time steps. (default: 1)
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
@@ -206,6 +210,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
         temperature=1.0,
         tokenizer=None,
         strategy="sequence",
+        patience=1,
         bos_index=0,
         eos_index=0,
         pad_index=0,
@@ -217,6 +222,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
 
         self.strategy = strategy
         self.tokenizer = tokenizer
+        self.patience = patience
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
@@ -369,12 +375,17 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer associated with the language model.
     strategy : str
         The strategy to use for scoring. It can be either scoring on each token
         independently (tokens) or scoring on the whole sequence (sequence).
         Scoring indendently is slower but more accurate. (default: sequence)
-    tokenizer : speechbrain.tokenizers.SentencePiece
-        The tokenizer associated with the language model.
+    patience : int
+        The patience to use for scoring on tokens. It is define as when to 
+        score the hypothesis. If patience is 1, we will score the hypothesis
+        at each time step. If patience is 2, we will score the hypothesis
+        every 2 time steps. (default: 1)
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
@@ -389,6 +400,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
         temperature=1.0,
         tokenizer=None,
         strategy="sequence",
+        patience=1,
         bos_index=0,
         eos_index=0,
         pad_index=0,
@@ -399,6 +411,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
         self.strategy = strategy
+        self.patience = patience
         self.tokenizer = tokenizer
         self.bos_index = bos_index
         self.eos_index = eos_index
@@ -1206,7 +1219,7 @@ class ScorerBuilder:
         self._validate_scorer(all_scorer_names)
 
     def score(
-        self, alived_hyps, inp_tokens, memory, attn, log_probs, beam_size
+        self, step, alived_hyps, inp_tokens, memory, attn, log_probs, beam_size
     ):
         """This method scores tokens in vocabulary based on defined full scorers
         and partial scorers. Scores will be added to the log probs for beamsearch.
@@ -1237,10 +1250,14 @@ class ScorerBuilder:
                 impl, AnyTokensRNNLMScorer
             ):
                 if impl.strategy == "tokens":
-                    score, new_memory[k] = impl.score(
-                        alived_hyps, inp_tokens, memory[k], None, attn
-                    )
-                    alived_hyps.sequence_scores += score * self.weights[k]
+                    # when to score depends on the patience
+                    if step % impl.patience == 0:
+                        score, new_memory[k] = impl.score(
+                            alived_hyps, inp_tokens, memory[k], None, attn
+                        )
+                        alived_hyps.sequence_scores += score * self.weights[k]
+                    else : 
+                        new_memory[k] = None
                 else:
                     # we need to set the memory for the permutation
                     new_memory[k] = None
