@@ -188,6 +188,8 @@ class S2SGreedySearcher(S2SBaseSearcher):
             0, max_decode_steps
         )
 
+        print("max_decode_steps: ", max_decode_steps)
+
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
@@ -248,7 +250,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         self.bos_token = bos_token  # always this value
         self.task_token = task_token  # default task is transcribe
         self.timestamp_token = timestamp_token  # default is notimestamp
-        self.max_length = max_length
+        self.max_length = max_length - 3  # 3 tokens are added to the input
 
     def set_language_token(self, language_token):
         """set the language token to be used for the decoder input."""
@@ -257,10 +259,6 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     def set_bos_token(self, bos_token):
         """set the bos token to be used for the decoder input."""
         self.bos_token = bos_token
-
-    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
-        """set the minimum/maximum length the decoder can take."""
-        return min_decode_steps, max_decode_steps
 
     def set_task_token(self, task_token):
         """set the task token to be used for the decoder input."""
@@ -299,12 +297,20 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
+
         # WARNING: the max_decode_ratio need to be under 449 because
         #  of positinal encoding
         dec_out, attn = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
 
         return log_probs, memory, attn
+
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return (
+            int(self.min_decode_ratio * self.max_length),
+            int(self.max_decode_ratio * self.max_length),
+        )
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
@@ -1386,7 +1392,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         bos_token=50258,
         task_token=50359,
         timestamp_token=50363,
-        max_length=448,
+        max_length=447,
         **kwargs,
     ):
         super(S2SWhisperBeamSearch, self).__init__(**kwargs)
@@ -1406,7 +1412,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.task_token = task_token  # default task is transcribe
         self.timestamp_token = timestamp_token  # default is notimestamp
 
-        self.max_length = max_length
+        self.max_length = max_length - 3  # -3 for [bos, language, task]
 
     def set_language_token(self, language_token):
         """set the language token to use for the decoder input."""
