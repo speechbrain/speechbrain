@@ -17,7 +17,7 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 | Media Release | hyperparams | Test ChER | Wav2Vec | Training time | Model link |
 |:------:|:------:|:------:|:------:|:------:|:------:|
-| 2008-03-27 | train_with_wav2vec.yaml | 4.78 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | | [here](https://drive.google.com/drive/folders/1qJUKxsTKrYwzKz0LHzq67M4G06Mj-9fl?usp=sharing) |
+| 2008-03-27 | train_with_wav2vec.yaml | 4.78 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://drive.google.com/drive/folders/1qJUKxsTKrYwzKz0LHzq67M4G06Mj-9fl?usp=sharing) |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
