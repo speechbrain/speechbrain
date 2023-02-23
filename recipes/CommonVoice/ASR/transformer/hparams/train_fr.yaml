@@ -163,7 +163,7 @@ beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
+    ctc_weight: !ref <ctc_decode_weight>
     using_eos_threshold: False
     length_normalization: True
     scorer: !ref <scorer>

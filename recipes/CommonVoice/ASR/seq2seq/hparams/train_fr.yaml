@@ -90,6 +90,7 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 80
 eos_threshold: 1.5
+coverage_penalty: 1.0
 using_max_attn_shift: True
 max_attn_shift: 140
 # ctc_weight_decode: 0.0

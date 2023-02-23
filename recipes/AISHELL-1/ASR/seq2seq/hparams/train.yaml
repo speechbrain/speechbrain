@@ -89,6 +89,7 @@ output_neurons: 5000  # Number of tokens
 blank_index: 0
 bos_index: 1
 eos_index: 2
+label_smoothing: 0.1
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -184,7 +185,7 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
    blank_index: !ref <blank_index>
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
-   label_smoothing: 0.1
+   label_smoothing: !ref <label_smoothing>
 
 # Models
 modules:
