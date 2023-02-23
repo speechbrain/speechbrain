@@ -50,6 +50,7 @@ max_decode_ratio: 10.0
 slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
+scorer_beam_scale: 0.5 
 
 dataloader_opts:
     batch_size: !ref <batch_size>
@@ -116,6 +117,16 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
         asr_tokenizer: !ref <asr_tokenizer_file>
         slu_tokenizer: !ref <slu_tokenizer_file>
 
+# Scorer
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+   vocab_size: !ref <output_neurons>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+   full_scorers: [!ref <coverage_scorer>]
+   weights:
+      coverage: 0
+   scorer_beam_scale: !ref <scorer_beam_scale>
+
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
     decoder: !ref <dec>
@@ -127,6 +138,9 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     beam_size: !ref <slu_beam_size>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
+    max_attn_shift: 30
+    using_max_attn_shift: False
+    scorer: !ref <scorer>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

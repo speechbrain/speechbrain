@@ -42,7 +42,12 @@ class SLU(sb.Brain):
 
         # Compute outputs
         p_tokens = None
-        if stage != sb.Stage.TRAIN:
+        if (
+            stage == sb.Stage.TRAIN
+            and self.batch_count % show_results_every != 0
+        ):
+            return p_seq, transcript_tokens_lens
+        else:
             topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
                 encoder_out, transcript_tokens_lens
             )
@@ -52,7 +57,8 @@ class SLU(sb.Brain):
             # Convert best hypothesis to list
             p_tokens = undo_padding(best_hyps, best_lens)
 
-        return p_seq, transcript_tokens_lens, p_tokens
+            return p_seq, transcript_tokens_lens, p_tokens
+
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""

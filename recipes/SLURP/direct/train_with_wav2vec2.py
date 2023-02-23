@@ -23,6 +23,7 @@ from speechbrain.utils.distributed import run_on_main
 import jsonlines
 import ast
 import pandas as pd
+from speechbrain.utils.data_utils import undo_padding
 
 
 class SLU(sb.Brain):
@@ -55,10 +56,17 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                wav2vec2_out, wav_lens
+            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
+                wav2vec2_out.detach(), wav_lens
             )
-            return p_seq, wav_lens, p_tokens
+
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
+
+            return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
