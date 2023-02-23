@@ -142,6 +142,8 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: !ref <annealing_factor_wav2vec>
     patient: !ref <patient_wav2vec>
 
+label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
@@ -150,6 +152,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         lr_annealing: !ref <lr_annealing>
         lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
         counter: !ref <epoch_counter>
+        tokenizer: !ref <label_encoder>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
