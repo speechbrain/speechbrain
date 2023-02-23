@@ -124,9 +124,11 @@ def gather_refactoring_results(
 Examples:
 ```bash
 # expected result(s) for one audio
+# git checkout develop
 python -c "from tests.utils.refactoring_checks import gather_expected_results;gather_expected_results('asr-wav2vec2-ctc-aishell')"
 
 # result(s) after refactoring
+# git checkout refactor_branch
 python -c "from tests.utils.refactoring_checks import gather_refactoring_results;gather_refactoring_results('asr-wav2vec2-ctc-aishell')"
 ```
 this will give a warning
