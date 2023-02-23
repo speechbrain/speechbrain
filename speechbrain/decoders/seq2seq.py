@@ -202,6 +202,11 @@ class S2SGreedySearcher(S2SBaseSearcher):
         log_probs_lst = []
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
+        # the decoding steps can be based on the max number of tokens that a decoder can process (e.g., 448 for Whisper).
+        _, max_decode_steps = self.change_max_decoding_length(
+            0, max_decode_steps
+        )
+
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
@@ -270,6 +275,13 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_lengths.unsqueeze(1),
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
+        )
+
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return (
+            int(self.min_decode_ratio * self.max_length),
+            int(self.max_decode_ratio * self.max_length),
         )
 
 

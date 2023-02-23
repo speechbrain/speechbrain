@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
-"""Recipe for training a whisper-based ASR system with librispeech.
+"""Recipe for training a whisper-based ASR system with CommonVoice.
 The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
-This recipe take the whisper encoder-decoder to fine-tune on the NLL.
-
-If you want to only use the whisper encoder system, please refer to the recipe
-speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
+This recipe take the whisper encoder-decoder to fine-tune on.
 
 To run this recipe, do the following:
-> python train_with_whisper.py hparams/train_hf_whisper.yaml
+> python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml
 
-Authors
- * Adel Moumen 2022
- * Titouan Parcollet 2022
+ * Pooneh Mousavi 2022
 """
 
-import os
 import sys
 import torch
 import logging
+import torchaudio
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
+from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -52,24 +47,23 @@ class ASR(sb.Brain):
         # Forward encoder + decoder
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
-        log_probs = self.hparams.log_softmax(logits)
-
         hyps = None
         if stage == sb.Stage.VALID:
             hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
 
-        return log_probs, hyps, wav_lens
+        return logits, hyps, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
 
-        log_probs, hyps, wav_lens, = predictions
+        logits, hyps, wav_lens, = predictions
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
+        log_probs = self.hparams.log_softmax(logits)
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
         )
@@ -186,24 +180,22 @@ def dataio_prepare(hparams, tokenizer):
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     # test is separate
-    test_datasets = {}
-    for csv_file in hparams["test_csv"]:
-        name = Path(csv_file).stem
-        test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, replacements={"data_root": data_folder}
-        )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+    )
 
-    datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
+    datasets = [train_data, valid_data, test_data]
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
+        info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        resampled = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -233,7 +225,7 @@ def dataio_prepare(hparams, tokenizer):
         ["id", "sig", "tokens_list", "tokens_bos", "tokens_eos", "tokens"],
     )
 
-    return train_data, valid_data, test_datasets
+    return train_data, valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -255,26 +247,27 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    from common_voice_prepare import prepare_common_voice  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        prepare_common_voice,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "save_folder": hparams["save_folder"],
+            "train_tsv_file": hparams["train_tsv_file"],
+            "dev_tsv_file": hparams["dev_tsv_file"],
+            "test_tsv_file": hparams["test_tsv_file"],
+            "accented_letters": hparams["accented_letters"],
+            "language": hparams["locale"],
             "skip_prep": hparams["skip_prep"],
         },
     )
-
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
+    language = LANGUAGES[hparams["locale"]]
+
+    tokenizer.set_prefix_tokens(language, "transcribe", False)
 
     # we need to prepare the tokens for searchers
     hparams["valid_greedy_searcher"].set_decoder_input_tokens(
@@ -290,7 +283,7 @@ if __name__ == "__main__":
     hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
+    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -309,8 +302,6 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
-
-    # Training
     if hparams["test_only"] is False:
         # Training
         asr_brain.fit(
@@ -322,10 +313,16 @@ if __name__ == "__main__":
         )
 
     # Testing
-    for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
-        )
-        asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_loader_kwargs"]
-        )
+    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    asr_brain.evaluate(
+        test_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["test_loader_kwargs"],
+    )
+
+    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_valid.txt"
+    asr_brain.evaluate(
+        valid_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["test_loader_kwargs"],
+    )
