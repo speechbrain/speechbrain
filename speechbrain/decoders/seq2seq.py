@@ -230,7 +230,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         ) = self._get_top_prediction(predictions, scores, log_probs)
 
         return top_hyps, top_lengths, top_scores, top_log_probs
-
+    
     def _get_top_prediction(self, predictions, scores, log_probs):
         """This method return the best prediction of the greedy search algorithm.
 
@@ -757,8 +757,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # the decoding steps can be based on the max number of tokens that a decoder can process 
         # (e.g., 448 for Whisper).
-        min_decode_steps, max_decode_steps = self.change_max_decoding_length(
-            min_decode_steps, max_decode_steps
+        self.min_decode_steps, self.max_decode_steps = self.change_max_decoding_length(
+            self.min_decode_steps, self.max_decode_steps
         )
 
         # Initialize the previous attention peak to zero

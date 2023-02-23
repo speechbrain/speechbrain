@@ -48,10 +48,16 @@ class ASR(sb.Brain):
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         hyps = None
-        if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+            # Decide searcher for inference: valid or test search
+            search = getattr(self.hparams, f"{stage.name}_search".lower())
+            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
+
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
 
         return logits, hyps, wav_lens
 
@@ -270,18 +276,18 @@ if __name__ == "__main__":
     tokenizer.set_prefix_tokens(language, "transcribe", False)
 
     # we need to prepare the tokens for searchers
-    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
+    hparams["valid_search"].set_decoder_input_tokens(
         tokenizer.prefix_tokens
     )
-    hparams["valid_greedy_searcher"].set_language_token(
+    hparams["valid_search"].set_language_token(
         tokenizer.prefix_tokens[1]
     )
 
-    hparams["test_beam_searcher"].set_decoder_input_tokens(
+    hparams["test_search"].set_decoder_input_tokens(
         tokenizer.prefix_tokens
     )
-    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
-
+    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
+    
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
