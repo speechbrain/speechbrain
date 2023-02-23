@@ -9,11 +9,20 @@ Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
 Authors
- * Titouan Parcollet 2021, 2022
+ * Titouan Parcollet 2021, 2022, 2023
+ * Mirco Ravanelli 2021
  * Boumadane Abdelmoumene 2021
- * Adel Moumen 2022
- * Andreas Nautsch 2022
+ * Ju-Chieh Chou 2021
+ * Artem Ploujnikov 2021, 2022
+ * Abdel Heba 2021
+ * Aku Rouhe 2022
+ * Arseniy Gorin 2022
+ * Ali Safaya 2022
+ * Benoit Wang 2022
+ * Adel Moumen 2022, 2023
+ * Andreas Nautsch 2022, 2023
  * Luca Della Libera 2022
+ * Heitor Guimarães 2022
 """
 import os
 import torch
@@ -25,6 +34,7 @@ from functools import partial
 from typing import Union, Callable
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
+from speechbrain.dataio.dataio import length_to_mask
 
 
 # We check if transformers is installed.
@@ -77,10 +87,10 @@ class HuggingFaceTransformer(nn.Module):
         Specifies a HuggingFace transformers class that is created directly from a Config object
         (e.g. Wav2Vec2ForPreTraining).
     forward_partial_fn : Callable (default: None)
-        Partial function that takes `model` and `data` which is assigned to `self.forward_partial_fn` and specified by:
+        Partial function that takes `model` and `wav` which is assigned to `self.forward_partial_fn` and specified by:
             `self.forward_partial_fn.keywords['model'] = self.model`
-             to be invoked later on by: `out, norm_shape = self.forward_partial_fn(data=data)`.
-        Default (None) refers to the above `default_forward(model, data)` function by invokig:
+             to be invoked later on by: `out, norm_shape = self.forward_partial_fn(wav=wav)`.
+        Default (None) refers to the above `default_forward(model, wav)` function by invokig:
             `self.forward_partial_fn = partial(default_forward, model=self.model)`.
     modify_state_dict_partial_fn : Callable (default: None)
         Partial function that adjusts de/serialization to ensure HuggingFace <> SpeechBrain model compatibility
@@ -123,7 +133,7 @@ class HuggingFaceTransformer(nn.Module):
         modify_state_dict_partial_fn: Union[Callable, None] = None,
         override_hf_config_partial_fn: Union[Callable, None] = None,
         override_hf_model_partial_fn: Union[Callable, None] = None,
-        freeze=True,
+        freeze=False,
         freeze_model_fn: Union[Callable, None] = None,
         freeze_params_fn: Union[Callable, None] = None,
         cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",
@@ -271,11 +281,11 @@ class HuggingFaceTransformer(nn.Module):
                 + "is useless for finetuning this HuggingFaceTransformer."
             )
 
-    def forward(self, data, **kwargs):
+    def forward(self, wav, **kwargs):
         """Process data (token streams, wavs, ...). This function wraps weight-freezing.
         """
         # If we freeze, we simply remove all grads and features from the graph.
-        kwargs["data"] = data
+        kwargs["wav"] = wav
         if self.freeze:
             with torch.no_grad():
                 return self.forward_partial_fn(**kwargs)
@@ -505,7 +515,7 @@ def modify_state_dict_wav2vec2(path, replacables=["wav2vec2"]):
     return modified_state_dict
 
 
-def forward_default(model, data):
+def forward_default(model, wav):
     """Takes input data and returns its forward pass of a given model.
 
     Default for HuggingFaceTransformer init argument:
@@ -516,7 +526,7 @@ def forward_default(model, data):
         Note: `model` is a required parameter, and handled in the init function scope.
 
     Called in: HuggingFaceTransformer.forward - invoked by:
-        `return self.forward_partial_fn(data=data)`.
+        `return self.forward_partial_fn(wav=wav)`.
 
     If you have another forward function:
      * create your function in your recipe (copy this one and modify as you see fit)
@@ -528,7 +538,7 @@ def forward_default(model, data):
     ---------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
-    data : torch.Tensor (signal)
+    wav : torch.Tensor (signal)
         A batch of audio signals to transform to features.
 
     Returns
@@ -536,12 +546,12 @@ def forward_default(model, data):
     out : torch.Tensor
         Batch of depending model outputs
     """
-    out = model(data)
+    out = model(wav)
     return out
 
 
 def forward_wav2vec2(
-    model, data, output_all_hiddens=False,
+    model, wav, wav_lens, output_all_hiddens=False,
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -565,8 +575,10 @@ def forward_wav2vec2(
     ---------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
-    data : torch.Tensor (signal)
+    wav : torch.Tensor (signal)
         A batch of audio signals to transform to features.
+    wav_lens : tensor
+            The relative length of the wav given in SpeechBrain format.
     output_all_hiddens : bool (default: False)
         If True, the forward function outputs the hidden states from all transformer layers.
         For example wav2vec2-base has 12 transformer layers and the output is of shape (13, B, T, C),
@@ -580,21 +592,25 @@ def forward_wav2vec2(
     norm_shape : List[int]
         Shape to be used in layer norm.
     """
+    padding_mask = make_masks(wav, wav_len=wav_lens)
+
     # Extract wav2vec output
-    out = model(data, output_hidden_states=True)
+    out = model(
+        wav,
+        attention_mask=padding_mask,
+        output_hidden_states=model.output_all_hiddens,
+    )
 
     if output_all_hiddens:
         out = torch.stack(list(out.hidden_states), dim=0)
-        # norm_shape = out.shape[-3:]
     else:
         out = out.last_hidden_state
-        # norm_shape = out.shape
 
     return out
 
 
 def forward_wav2vec2_pretraining(
-    model, data, mask_prob, mask_length,
+    model, wav, wav_lens, mask_prob, mask_length,
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -619,8 +635,10 @@ def forward_wav2vec2_pretraining(
     ----------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
-    data : torch.Tensor (signal)
+    wav : torch.Tensor (signal)
         A batch of audio signals to transform to features.
+    wav_lens : tensor
+            The relative length of the wav given in SpeechBrain format.
     mask_prob : float
         Probability of masking a given frame. Default is taken from the paper.
     mask_length : int
@@ -634,7 +652,8 @@ def forward_wav2vec2_pretraining(
     torch_mask_time_indices : List[int]
         Shape to be used in layer norm.
     """
-    batch_size, raw_sequence_length = data.shape
+    batch_size, raw_sequence_length = wav.shape
+    padding_mask = make_masks(wav, wav_len=wav_lens)
 
     sequence_length = model._get_feat_extract_output_lengths(
         raw_sequence_length
@@ -647,7 +666,7 @@ def forward_wav2vec2_pretraining(
         mask_length=mask_length,
     )
     torch_mask_time_indices = torch.tensor(
-        mask_time_indices, device=data.device, dtype=torch.long,
+        mask_time_indices, device=wav.device, dtype=torch.long,
     )
 
     # 2. Sample the negative samples from the entire sequence.
@@ -662,12 +681,13 @@ def forward_wav2vec2_pretraining(
     )
 
     negative_sample_indices = torch.tensor(
-        sampled_negative_indices, device=data.device, dtype=torch.long,
+        sampled_negative_indices, device=wav.device, dtype=torch.long,
     )
 
     # 3. prepare the output
     out = model(
-        data,
+        wav,
+        attention_mask=padding_mask,
         mask_time_indices=torch_mask_time_indices,
         sampled_negative_indices=negative_sample_indices,
     )
@@ -677,13 +697,14 @@ def forward_wav2vec2_pretraining(
 
 def forward_whisper(
     model,
-    data,
+    wav,
     decoder_input_ids,
     n_samples=480000,
     n_fft=400,
     hop_length=160,
     mel_filters=80,
     output_attentions=True,
+    output_all_hiddens=False,
 ):
     """Perform mel transformation and one step of the whisper (encoder-decoder).
 
@@ -691,7 +712,7 @@ def forward_whisper(
     ---------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
-    data : torch.Tensor (signal)
+    wav : torch.Tensor (signal)
         A batch of audio signals to transform to features.
     decoder_input_ids : torch.Tensor
         This is necessary if we want to use the decoder.
@@ -705,6 +726,8 @@ def forward_whisper(
         Mel filterbanks as operand in matrix multiplication.
     output_attentions : bool
         Whether/not to return attention values as well.
+    output_all_hiddens : bool
+        Whether/not to return attention values as well.
 
         A batch of decoder inputs tokens.
         The first tokens need to dictacte the behavior of the decoder.
@@ -717,7 +740,7 @@ def forward_whisper(
     """
     out_encoder = forward_mel_encoder(
         model=model,
-        data=data,
+        wav=wav,
         n_samples=n_samples,
         n_fft=n_fft,
         hop_length=hop_length,
@@ -725,23 +748,34 @@ def forward_whisper(
     )
     if decoder_input_ids is None:
         return out_encoder
-    logits, attn = forward_decoder(
-        model=model,
-        data=out_encoder,
-        decoder_input_ids=decoder_input_ids,
-        output_attentions=output_attentions,
-    )
+    if output_all_hiddens:
+        logits, attn = forward_decoder(out_encoder[-1], decoder_input_ids)
+    else:
+        logits, attn = forward_decoder(
+            model=model,
+            wav=out_encoder,
+            decoder_input_ids=decoder_input_ids,
+            output_attentions=output_attentions,
+        )
     return out_encoder, logits, attn
 
 
-def forward_mel_encoder(model, data, n_samples, n_fft, hop_length, mel_filters):
+def forward_mel_encoder(
+    model,
+    wav,
+    n_samples,
+    n_fft,
+    hop_length,
+    mel_filters,
+    output_all_hiddens=False,
+):
     """Perform one step of the whisper encoder with Mel FBANKs as Input.
 
     Arguments
     ---------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
-    data : torch.Tensor (signal)
+    wav : torch.Tensor (signal)
         A batch of Mel FBANK from HF to transform to features.
     n_samples : int
         For width in padding/trimming audio signal before mel sepctrum.
@@ -751,7 +785,11 @@ def forward_mel_encoder(model, data, n_samples, n_fft, hop_length, mel_filters):
         Size of sliding window shift.
     mel_filters : torch.Tensor
         Mel filterbanks as operand in matrix multiplication.
-    output_attentions : bool
+    output_all_hiddens: bool (default: False)
+        If True, the forward function outputs the hidden states from all transformer layers of the encoder.
+        For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),
+        where the output of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer of the encoder.
 
     Returns
     -------
@@ -827,31 +865,47 @@ def forward_mel_encoder(model, data, n_samples, n_fft, hop_length, mel_filters):
 
         return array
 
-    def _get_mel(wav):
+    def _get_mel(wavs):
         """Takes an input waveform and return its corresponding mel spectrogram
         according to HuggingFace implementation. WARNING: it's slow! Better push this
         in the DataLoader.
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wavs : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         """
-        mels = _pad_or_trim(wav)
+        mels = _pad_or_trim(wavs)
         mels = _log_mel_spectrogram(mels)
         return mels
 
-    mel = _get_mel(data)
+    def _get_encoder_states(wavs, output_all_hiddens):
+        """Takes an input waveform and return its corresponding encoder states.
+        Returns the last hidden state of the encoder or all hidden states if
+        output_all_hiddens is True.
+        Arguments
+        ---------
+        wavs : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        """
+        mel = _get_mel(wavs)
+        if output_all_hiddens:
+            states = model.encoder(mel, output_hidden_states=True)
+            return torch.stack(states.hidden_states)
+        else:
+            return model.encoder(mel).last_hidden_state
+
+    mel = _get_mel(wav)
     return model.encoder(mel).last_hidden_state
 
 
-def forward_decoder(model, data, decoder_input_ids, output_attentions=True):
+def forward_decoder(model, wav, decoder_input_ids, output_attentions=True):
     """Perform one step of the whisper decoder.
     Arguments
     ---------
     model : transformers.AutoModel
         A valid HuggingFace transformers model.
-    audio_features : torch.Tensor
+    wav : torch.Tensor
         A batch of audio features (mel + whisper encoding).
     decoder_input_ids : torch.Tensor
         A batch of decoder inputs tokens.
@@ -867,7 +921,7 @@ def forward_decoder(model, data, decoder_input_ids, output_attentions=True):
 
     """
     output_states = model.decoder(
-        encoder_hidden_states=data,
+        encoder_hidden_states=wav,
         input_ids=decoder_input_ids,
         output_attentions=output_attentions,
     )
@@ -881,6 +935,44 @@ def forward_decoder(model, data, decoder_input_ids, output_attentions=True):
         @ torch.transpose(
             model.decoder.embed_tokens.weight.to(output_states.dtype), 0, 1,
         )
-    ).to(data.dtype)
+    ).to(wav.dtype)
 
     return logits, attn
+
+
+def make_padding_masks(src, wav_len=None, pad_idx=0):
+    """This method generates the padding masks.
+    Arguments
+    ---------
+    src : tensor
+        The sequence to the encoder (required).
+    wav_len : tensor
+        The relative length of the wav given in SpeechBrain format.
+    pad_idx : int
+        The index for <pad> token (default=0).
+    """
+    src_key_padding_mask = None
+    if wav_len is not None:
+        abs_len = torch.round(wav_len * src.shape[1])
+        src_key_padding_mask = length_to_mask(abs_len).bool()
+
+    return src_key_padding_mask
+
+
+def make_masks(self, src, wav_len=None, pad_idx=0):
+    """This method generates the padding masks.
+    Arguments
+    ---------
+    src : tensor
+        The sequence to the encoder (required).
+    wav_len : tensor
+        The relative length of the wav given in SpeechBrain format.
+    pad_idx : int
+        The index for <pad> token (default=0).
+    """
+    src_key_padding_mask = None
+    if wav_len is not None:
+        abs_len = torch.round(wav_len * src.shape[1])
+        src_key_padding_mask = length_to_mask(abs_len).bool()
+
+    return src_key_padding_mask

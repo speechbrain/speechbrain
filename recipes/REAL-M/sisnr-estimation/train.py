@@ -655,6 +655,7 @@ if __name__ == "__main__":
         from dynamic_mixing_wham import (
             dynamic_mix_data_prep as dynamic_mix_data_prep_whamr,
         )
+
         print(f'y/n? {hparams["use_whamr_train"]}')
         if hparams["use_whamr_train"]:
             print("hi")
@@ -707,7 +708,7 @@ if __name__ == "__main__":
             )
             hparams["train_whamr_loader"] = it.cycle(iter(train_data_whamr))
             print(f'{hparams["train_whamr_loader"]}')
-        
+
         print(f"{hparams}")
 
         # if the base_folder for dm is not processed for LibriMix, preprocess it

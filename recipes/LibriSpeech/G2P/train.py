@@ -18,7 +18,6 @@ import datasets
 import logging
 import os
 import random
-import torch
 import speechbrain as sb
 import sys
 from enum import Enum
@@ -165,8 +164,7 @@ class G2PBrain(sb.Brain):
                     step,
                 )
                 result = self.checkpointer.recover_if_possible(
-                    min_key=min_key,
-                    max_key=max_key,
+                    min_key=min_key, max_key=max_key,
                 )
                 if result:
                     logger.info(
