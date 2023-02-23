@@ -10,6 +10,22 @@ Authors
 
 import torch
 
+def _update_mem(inp_tokens, memory):
+    """This function is for updating the memory for transformer searches.
+    it is called at each decoding step. When being called, it appends the
+    predicted token of the previous step to existing memory.
+    Arguments:
+    -----------
+    inp_tokens : tensor
+        Predicted token of the previous decoding step.
+    memory : tensor
+        Contains all the predicted tokens.
+    """
+    if memory is None:
+        memory = torch.empty(
+            inp_tokens.size(0), 0, device=inp_tokens.device
+        )
+    return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
 
 def inflate_tensor(tensor, times, dim):
     """This function inflates the tensor for times along dim.
