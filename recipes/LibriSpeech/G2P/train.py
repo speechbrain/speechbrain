@@ -154,7 +154,6 @@ class G2PBrain(sb.Brain):
             step = self.train_step["name"]
             logger.info(f"Attempting to restore checkpoint for step {step}")
             result = self.checkpointer.recover_if_possible(
-                device=torch.device(self.device),
                 min_key=min_key,
                 max_key=max_key,
                 ckpt_predicate=(lambda ckpt: ckpt.meta.get("step") == step),
@@ -166,7 +165,6 @@ class G2PBrain(sb.Brain):
                     step,
                 )
                 result = self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device),
                     min_key=min_key,
                     max_key=max_key,
                 )

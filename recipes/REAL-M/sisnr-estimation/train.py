@@ -655,8 +655,9 @@ if __name__ == "__main__":
         from dynamic_mixing_wham import (
             dynamic_mix_data_prep as dynamic_mix_data_prep_whamr,
         )
-
+        print(f'y/n? {hparams["use_whamr_train"]}')
         if hparams["use_whamr_train"]:
+            print("hi")
 
             if "processed" not in hparams["base_folder_dm_whamr"]:
                 # if the processed folder does not exist for whamr dynamic mixing, we do the necessary preprocessing
@@ -705,6 +706,9 @@ if __name__ == "__main__":
                 num_workers=hparams["dataloader_opts"]["num_workers"],
             )
             hparams["train_whamr_loader"] = it.cycle(iter(train_data_whamr))
+            print(f'{hparams["train_whamr_loader"]}')
+        
+        print(f"{hparams}")
 
         # if the base_folder for dm is not processed for LibriMix, preprocess it
         if "processed" not in hparams["base_folder_dm"]:
