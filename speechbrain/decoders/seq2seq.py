@@ -181,7 +181,7 @@ class S2SBaseSearcher(torch.nn.Module):
         Overrides this function if the fc layer is embedded 
         in the model, e.g., Whisper.
         """
-        self.n_out = self.fc.w.out_features
+        return self.fc.w.out_features
 
 class S2SGreedySearcher(S2SBaseSearcher):
     """ This class implements the general forward-pass of
@@ -729,7 +729,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.batch_size = enc_states.shape[0]
         self.n_bh = self.batch_size * self.beam_size
 
-        self.set_n_out()
+        self.n_out = self.set_n_out()
 
         memory, scorer_memory = self._update_reset_memory(enc_states, enc_lens)
 
@@ -1450,7 +1450,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     
     def set_n_out(self):
         """set the number of output tokens."""
-        self.n_out = self.model.model.decoder.embed_tokens.weight.shape[0]
+        return self.model.model.decoder.embed_tokens.weight.shape[0]
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
