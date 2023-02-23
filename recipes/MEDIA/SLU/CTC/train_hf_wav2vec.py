@@ -76,21 +76,21 @@ class SLU(sb.core.Brain):
                 predict=sequence,
                 target=chars,
                 target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim,
+                ind2lab=self.tokenizer.decode_ndim,
             )
             self.coer_metric.append(
                 ids=ids,
                 predict=sequence,
                 target=chars,
                 target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim,
+                ind2lab=self.tokenizer.decode_ndim,
             )
             self.cver_metric.append(
                 ids=ids,
                 predict=sequence,
                 target=chars,
                 target_len=char_lens,
-                ind2lab=self.label_encoder.decode_ndim,
+                ind2lab=self.tokenizer.decode_ndim,
             )
             self.ctc_metric.append(ids, p_ctc, chars, wav_lens, char_lens)
 
@@ -367,8 +367,8 @@ if __name__ == "__main__":
     )
 
     # Adding objects to trainer.
-    slu_brain.label_encoder = label_encoder
-    slu_brain.label_encoder.add_unk()  # handle unknown SLU labels
+    slu_brain.tokenizer = label_encoder
+    slu_brain.tokenizer.add_unk()  # handle unknown SLU labels
 
     # Check for stopped training.
     slu_brain.checkpointer.recover_if_possible()
