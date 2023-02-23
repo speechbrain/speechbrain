@@ -1,38 +1,39 @@
 # ################################
 # Model: Whisper (Encoder-Decoder) + NLL
 # Augmentation: TimeDomainSpecAugment
-# Authors: Adel Moumen 2022, Titouan Parcollet 2022
+# Authors: Pooneh Mousavi 2022
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/train_whisper/<seed>
+output_folder: !ref results/train_whisper/<seed>/<locale>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
-whisper_folder: !ref <save_folder>/whisper_checkpoint
-language: english
-
-# Normalize the english inputs with
-# the same normalization done in the paper
-normalized_transcripts: True
 test_only: False # Set it to True if you only want to  do the evaluation
 
+# Normalize inputs with the same normalization done in the paper (https://cdn.openai.com/papers/whisper.pdf). Refer to Appendix C for further information.
+normalized_transcripts: True
+
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
-skip_prep: False
-train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev-clean.csv
-test_csv:
-    - !ref <output_folder>/test-clean.csv
-    - !ref <output_folder>/test-other.csv
+locale: fa # use 'it' for italian, 'fr' for french, 'en' for english , It is a language for common-voice data.
+data_folder: !PLACEHOLDER
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
+dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
+accented_letters: True
+train_csv: !ref <save_folder>/train.csv
+valid_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
+skip_prep: False # Skip data preparation
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -64,7 +65,7 @@ test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
-
+freeze_encoder: True
 
 train_loader_kwargs:
     batch_size: !ref <batch_size>
@@ -74,7 +75,6 @@ valid_loader_kwargs:
 
 test_loader_kwargs:
     batch_size: !ref <test_batch_size>
-
 
 #
 # Functions and classes
@@ -86,61 +86,12 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-#whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
-#    source: !ref <whisper_hub>
-#    freeze: !ref <freeze_whisper>
-#    save_path: !ref <whisper_folder>/whisper_checkpoint
-#    encoder_only: False
-
-whisper_tokenizer: !apply:transformers.WhisperTokenizer.from_pretrained
-    auto_class: transformers.AutoTokenizer
-    pretrained_model_name_or_path: !ref <whisper_hub>
-    save_path: !ref <whisper_folder>
-    cache_dir: !ref <whisper_folder>
-    freeze: False
-    # all the rest at default
-
-output_attentions: True
-
-whisper_extractor: !new:transformers.WhisperFeatureExtractor
-    auto_class: transformers.AutoFeatureExtractor
-    pretrained_model_name_or_path: !ref <whisper_hub>
-    save_path: !ref <whisper_folder>
-    cache_dir: !ref <whisper_folder>
-    sampling_rate: !ref <sample_rate>
-
-whisper: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
+whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
-    save_path: !ref <whisper_folder>
-    forward_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.forward_whisper
-        output_attentions: !ref <output_attentions>
-        n_samples: !ref <whisper_extractor.n_samples>
-        n_fft: !ref <whisper_extractor.n_fft>
-        hop_length: !ref <whisper_extractor.hop_length>
-        mel_filters: !apply:torch.as_tensor
-            data: !ref <whisper_extractor.mel_filters>
-    #   modify_state_dict_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.modify_state_dict_wav2vec2
-    #   override_hf_model_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
-    #       apply_spec_augment: !ref <apply_spec_augment>
     freeze: !ref <freeze_whisper>
-    freeze_model_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_model_but_train
-    freeze_params_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_params_encoder
-    cache_dir: !ref <whisper_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
+    freeze_encoder: !ref <freeze_encoder>
+    save_path: !ref <save_folder>/whisper_checkpoint
     encoder_only: False
-
-whisper_decoder: !name:speechbrain.lobes.models.transformer.HuggingFace.forward_decoder
-    model: !ref <whisper.model>
-    output_attentions: !ref <output_attentions>
-
-# not needed?
-#wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
-#    input_norm: !new:speechbrain.processing.features.InputNormalization
-#        norm_type: sentence
-#        dim: -1
-#    w2v2: !ref <whisper>
-#    output_norm: !new:speechbrain.processing.features.InputNormalization
-#        norm_type: sentence
-#        dim: (-2, -1)
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -152,7 +103,7 @@ modules:
 
 whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
-    weight_decay: 0.01
+    weight_decay: 0.000000001
 
 valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
