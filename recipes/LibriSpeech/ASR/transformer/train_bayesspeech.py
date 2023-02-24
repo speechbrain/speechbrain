@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-<<<<<<< HEAD
-<<<<<<< HEAD
 """Recipe for training a Bayesian Transformer ASR system (https://arxiv.org/abs/2301.11276)
 with LibriSpeech via Bayes by Backprop (https://arxiv.org/abs/1505.05424).
 The system employs an encoder, a decoder, and an attention mechanism between them.
@@ -8,30 +6,11 @@ Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural lang
 
 To run this recipe, do the following:
 > python train_bayesspeech.py hparams/transformer_bayesspeech.yaml
-=======
-"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech.
-The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
-language model.
-
-To run this recipe, do the following:
-> python train_bayesian.py hparams/transformer_bayesian.yaml
->>>>>>> Add BayesSpeech
-=======
-"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech (see https://arxiv.org/abs/2301.11276).
-The system employs an encoder, a decoder, and an attention mechanism between them.
-Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
-language model.
-
-To run this recipe, do the following:
-> python train_bayesspeech.py hparams/transformer_bayesspeech.yaml
->>>>>>> Update BayesTorch version, bug fixes
 
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
 language model is used  on the top of decoder probabilities.
 
-<<<<<<< HEAD
 Linear layers are turned into Bayesian linear layers by placing a normal prior and a normal
 variational posterior upon their weights and biases. The Bayesian neural network is trained
 to minimize the evidence lower bound (ELBO), which is a trade-off between the simplicity
@@ -40,12 +19,6 @@ The likelihood loss is the standard loss function used in non-Bayesian ASR trans
 (CTC + negative-log likelihood), the complexity loss is the Kullback-Leibler divergence between
 variational posterior and prior. Sub-word units estimated with Byte Pairwise Encoding (BPE) are
 used as basic recognition tokens. Training is performed on the full LibriSpeech dataset (960 h).
-=======
-The neural network is trained on both CTC and negative-log likelihood
-targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
->>>>>>> Add BayesSpeech
 
 The best model is the average of the checkpoints from last 5 epochs.
 
@@ -65,39 +38,15 @@ Authors
  * Luca Della Libera 2023
 """
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-import logging
 import os
 import sys
-from pathlib import Path
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
-
-
-=======
-=======
 import logging
->>>>>>> Update BayesTorch version, bug fixes
-import os
-import sys
 from pathlib import Path
-
-import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
-<<<<<<< HEAD
->>>>>>> Add BayesSpeech
-=======
-
->>>>>>> Update BayesTorch version, bug fixes
 logger = logging.getLogger(__name__)
 
 
@@ -109,39 +58,21 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
 
         # forward modules
         src = self.modules.CNN(feats)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
         enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
-=======
-        enc_out, pred, kl_div = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
-            num_mc_samples=1, return_kl_div=True,
->>>>>>> Add BayesSpeech
-=======
-        enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
->>>>>>> Update BayesTorch version, bug fixes
         )
 
         # output layer for ctc log-probabilities
@@ -154,58 +85,54 @@ class ASR(sb.core.Brain):
 
         # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                # for the sake of efficiency, we only perform beamsearch with limited capacity
-                # and no LM to give user some idea of how the AM is doing
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_interval == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+        if any([is_valid_search, is_test_search]):
+            # Note: For valid_search, for the sake of efficiency, we only perform beamsearch with
+            # limited capacity and no LM to give user some idea of how the AM is doing
+
+            # Decide searcher for inference: valid or test search
+            if stage == sb.Stage.VALID:
+                hyps, _, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
+            else:
+                hyps, _, _, _ = self.hparams.test_search(
+                    enc_out.detach(), wav_lens
+                )
+
         return p_ctc, p_seq, wav_lens, hyps
-=======
-        return p_ctc, p_seq, kl_div, wav_lens, hyps
->>>>>>> Add BayesSpeech
-=======
-        return p_ctc, p_seq, wav_lens, hyps
->>>>>>> Update BayesTorch version, bug fixes
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-<<<<<<< HEAD
-<<<<<<< HEAD
         (p_ctc, p_seq, wav_lens, hyps,) = predictions
-=======
-        (p_ctc, p_seq, kl_div, wav_lens, hyps,) = predictions
->>>>>>> Add BayesSpeech
-=======
-        (p_ctc, p_seq, wav_lens, hyps,) = predictions
->>>>>>> Update BayesTorch version, bug fixes
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
-            tokens = torch.cat([tokens, tokens], dim=0)
-            tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_lens
+                )
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos_lens
+                )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
-
-        # now as training progresses we use real prediction from the prev step instead of teacher forcing
 
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
@@ -214,15 +141,7 @@ class ASR(sb.core.Brain):
         loss = (
             self.hparams.ctc_weight * loss_ctc
             + (1 - self.hparams.ctc_weight) * loss_seq
-<<<<<<< HEAD
-<<<<<<< HEAD
             + self.hparams.kl_div_weight * self.modules.Transformer.kl_div
-=======
-            + self.hparams.kl_div_weight * kl_div
->>>>>>> Add BayesSpeech
-=======
-            + self.hparams.kl_div_weight * self.modules.Transformer.kl_div
->>>>>>> Update BayesTorch version, bug fixes
         )
 
         if stage != sb.Stage.TRAIN:
@@ -242,53 +161,20 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-<<<<<<< HEAD
-    def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        if should_step:
-            # anneal lr every update
-            self.hparams.noam_annealing(self.optimizer)
-=======
-    def fit_batch(self, batch):
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint averge if needed"""
+        super().on_evaluate_start()
 
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model",
+        )
 
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach().cpu()
->>>>>>> Add BayesSpeech
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
+        print("Loaded the average")
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -313,7 +199,7 @@ class ASR(sb.core.Brain):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
 
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
@@ -333,7 +219,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
@@ -341,8 +227,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
@@ -353,19 +240,10 @@ class ASR(sb.core.Brain):
                 num_to_keep=1,
             )
 
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
-        super().on_evaluate_start()
-
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
-        )
-
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
 
 def dataio_prepare(hparams):
@@ -434,14 +312,10 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if hparams["speed_perturb"]:
+        if "speed_perturb" in hparams:
             sig = sb.dataio.dataio.read_audio(wav)
-            # factor = np.random.uniform(0.95, 1.05)
-            # sig = resample(sig.numpy(), 16000, int(16000*factor))
-            speed = sb.processing.speech_augmentation.SpeedPerturb(
-                16000, [x for x in range(95, 105)]
-            )
-            sig = speed(sig.unsqueeze(0)).squeeze(0)  # torch.from_numpy(sig)
+
+            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
         else:
             sig = sb.dataio.dataio.read_audio(wav)
         return sig
@@ -477,25 +351,18 @@ def dataio_prepare(hparams):
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
-        dynamic_hparams = hparams["dynamic_batch_sampler"]
-        num_buckets = dynamic_hparams["num_buckets"]
+        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
+        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams_train,
         )
-
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams_valid,
         )
 
     return (
@@ -514,7 +381,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -536,13 +402,9 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["save_folder"],
+            "save_folder": hparams["output_folder"],
             "merge_lst": hparams["train_splits"],
-<<<<<<< HEAD
-            "merge_name": os.path.basename(hparams["train_csv"]),
-=======
-            "merge_name": hparams["train_csv"],
->>>>>>> Add BayesSpeech
+            "merge_name": "train.csv",
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -560,10 +422,8 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     # ###################################################################
     # Define Bayesian modules
     # ###################################################################
@@ -577,7 +437,7 @@ if __name__ == "__main__":
         from bayestorch.nn import VariationalPosteriorModule
     except ImportError:
         raise ImportError(
-            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch==0.0.3`)"
+            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch>=0.0.3`)"
         )
 
     # Minimize number of modifications to existing training/evaluation loops
@@ -599,111 +459,40 @@ if __name__ == "__main__":
                 0.0,
             )
             return output
-=======
-=======
-    # ###################################################################
->>>>>>> Update BayesTorch version, bug fixes
-    # Define Bayesian modules
-    # ###################################################################
-    from speechbrain.nnet.attention import PositionalwiseFeedForward
-
-    try:
-        from bayestorch.distributions import (
-            get_log_scale_normal,
-            get_softplus_inv_scale_normal,
-        )
-        from bayestorch.nn import VariationalPosteriorModule
-    except ImportError:
-        raise ImportError(
-            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch>=0.0.3`)"
-        )
-
-<<<<<<< HEAD
-    # Change default number of samples - evaluation loop code is not easily accessible/editable
-    class BayesianModel(VariationalPosteriorModel):
-        def forward(self, *args, num_mc_samples=hparams["num_eval_mc_samples"], **kwargs):
-            return super().forward(*args, num_mc_samples=num_mc_samples, **kwargs)
->>>>>>> Add BayesSpeech
-=======
-    # Minimize number of modifications to existing training/evaluation loops
-    # NOTE: differently from https://arxiv.org/abs/2301.11276, we employ the standard
-    # reparameterization trick instead of the local reparameterization trick
-    class BayesByBackpropModule(VariationalPosteriorModule):
-        def forward(self, *args, **kwargs):
-            if self.training:
-                output, self.kl_div = super().forward(
-                    *args, num_mc_samples=1, return_kl_div=True, **kwargs
-                )
-                return output
-            output, self.kl_div = (
-                super().forward(
-                    *args,
-                    num_mc_samples=hparams["num_eval_mc_samples"],
-                    **kwargs,
-                ),
-                0.0,
-            )
-            return output
->>>>>>> Update BayesTorch version, bug fixes
 
     parameters = []
     for module in hparams["modules"]["Transformer"].modules():
         if isinstance(module, PositionalwiseFeedForward):
             parameters += list(module.parameters())
     prior_builder, prior_kwargs = get_log_scale_normal(
-<<<<<<< HEAD
-<<<<<<< HEAD
         parameters, log_scale=hparams["normal_prior_log_scale"],
-=======
-        parameters,
-        log_scale=hparams["normal_prior_log_scale"],
->>>>>>> Add BayesSpeech
-=======
-        parameters, log_scale=hparams["normal_prior_log_scale"],
->>>>>>> Update BayesTorch version, bug fixes
     )
     posterior_builder, posterior_kwargs = get_softplus_inv_scale_normal(
         parameters,
         softplus_inv_scale=hparams["normal_posterior_softplus_inv_scale"],
         requires_grad=True,
     )
-<<<<<<< HEAD
-<<<<<<< HEAD
     hparams["Transformer"] = hparams["modules"]["Transformer"] = BBBModule(
-=======
-    hparams["modules"]["Transformer"] = BayesByBackpropModule(
->>>>>>> Update BayesTorch version, bug fixes
         hparams["modules"]["Transformer"],
         prior_builder,
         prior_kwargs,
         posterior_builder,
         posterior_kwargs,
         parameters,
-<<<<<<< HEAD
     )
     hparams["model"] = torch.nn.ModuleList(
         [hparams["CNN"], hparams["seq_lin"], hparams["ctc_lin"]]
     )
+    hparams["ctc_scorer"].ctc_fc = hparams["ctc_lin"]
     hparams["test_search"].modules = hparams["valid_search"].modules = [
         hparams["Transformer"],
         hparams["seq_lin"],
-        hparams["ctc_lin"],
     ]
     hparams["checkpointer"].recoverables["model"] = hparams["model"]
     hparams["checkpointer"].add_recoverable(
         "Transformer", hparams["Transformer"],
     )
     # ###################################################################
-=======
-    hparams["modules"]["Transformer"] = BayesianModel(
-        hparams["modules"]["Transformer"], prior_builder, prior_kwargs,
-        posterior_builder, posterior_kwargs, parameters,
-    )
->>>>>>> Add BayesSpeech
-=======
-    )
-    # ###################################################################
->>>>>>> Update BayesTorch version, bug fixes
 
     # Trainer initialization
     asr_brain = ASR(
@@ -720,12 +509,27 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in train_dataloader_opts:
+            collate_fn = train_dataloader_opts["collate_fn"]
+
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
+
+        if collate_fn is not None:
+            train_dataloader_opts["collate_fn"] = collate_fn
+
     if valid_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in valid_dataloader_opts:
+            collate_fn = valid_dataloader_opts["collate_fn"]
+
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(
@@ -737,9 +541,12 @@ if __name__ == "__main__":
     )
 
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],
