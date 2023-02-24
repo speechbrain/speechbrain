@@ -15,10 +15,10 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 # Results
 
-| Media Release | hyperparams | Test ChER | Test CER | Test CVER | Wav2Vec | Training time | Model link |
-|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
-| 2008-03-27 | train_with_wav2vec_relax.yaml | 7.46 | 20.10 | 31.41 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://drive.google.com/drive/folders/1ALtwmk3VUUM0XRToecQp1DKAh9FsGqMA?usp=sharing) |
-| 2008-03-27 | train_with_wav2vec_full.yaml | 7.78 | 24.88 | 35.77 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://drive.google.com/drive/folders/1cZRRQ3Cc_ucXXlwYSJqB7pOl6KwZdo84?usp=share_link) |
+| Media Release | hyperparams | Test ChER | Test CER | Test CVER | Wav2Vec | Training time | HuggingFace link | Model link |
+|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+| 2008-03-27 | train_with_wav2vec_relax.yaml | 7.46 | 20.10 | 31.41 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/slu-wav2vec2-ctc-MEDIA-relax) | [here](https://drive.google.com/drive/folders/1ALtwmk3VUUM0XRToecQp1DKAh9FsGqMA) |
+| 2008-03-27 | train_with_wav2vec_full.yaml | 7.78 | 24.88 | 35.77 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/slu-wav2vec2-ctc-MEDIA-full) | [here](https://drive.google.com/drive/folders/1LHKmtQ8Roz85GfwkYXHRv_zz-Z-2Qurf) |
 
 The CVER is the one implemented in SpeechBrain for this recipe. It is strict (yield an error for a single false character), without the human rules added generally for MEDIA. Find more in the article linked above, as it corresponds to u-CVER.
 
