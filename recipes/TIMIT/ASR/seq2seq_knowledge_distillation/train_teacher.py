@@ -51,6 +51,7 @@ class ASR(sb.Brain):
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
+        hyps = None
         if stage != sb.Stage.TRAIN:
             # Decide searcher for inference: valid or test search
             searcher = getattr(self.hparams, f"{stage.name}_searcher".lower())
