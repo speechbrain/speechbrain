@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 <<<<<<< HEAD
+<<<<<<< HEAD
 """Recipe for training a Bayesian Transformer ASR system (https://arxiv.org/abs/2301.11276)
 with LibriSpeech via Bayes by Backprop (https://arxiv.org/abs/1505.05424).
 The system employs an encoder, a decoder, and an attention mechanism between them.
@@ -16,6 +17,15 @@ language model.
 To run this recipe, do the following:
 > python train_bayesian.py hparams/transformer_bayesian.yaml
 >>>>>>> Add BayesSpeech
+=======
+"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech (see https://arxiv.org/abs/2301.11276).
+The system employs an encoder, a decoder, and an attention mechanism between them.
+Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
+language model.
+
+To run this recipe, do the following:
+> python train_bayesspeech.py hparams/transformer_bayesspeech.yaml
+>>>>>>> Update BayesTorch version, bug fixes
 
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
@@ -56,6 +66,7 @@ Authors
 """
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 import logging
 import os
 import sys
@@ -69,16 +80,24 @@ from speechbrain.utils.distributed import run_on_main
 
 
 =======
+=======
+import logging
+>>>>>>> Update BayesTorch version, bug fixes
 import os
 import sys
-import torch
-import logging
 from pathlib import Path
-import speechbrain as sb
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
+<<<<<<< HEAD
 >>>>>>> Add BayesSpeech
+=======
+
+>>>>>>> Update BayesTorch version, bug fixes
 logger = logging.getLogger(__name__)
 
 
@@ -111,6 +130,7 @@ class ASR(sb.core.Brain):
         src = self.modules.CNN(feats)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
 =======
@@ -118,6 +138,10 @@ class ASR(sb.core.Brain):
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
             num_mc_samples=1, return_kl_div=True,
 >>>>>>> Add BayesSpeech
+=======
+        enc_out, pred = self.modules.Transformer(
+            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
+>>>>>>> Update BayesTorch version, bug fixes
         )
 
         # output layer for ctc log-probabilities
@@ -143,19 +167,27 @@ class ASR(sb.core.Brain):
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         return p_ctc, p_seq, wav_lens, hyps
 =======
         return p_ctc, p_seq, kl_div, wav_lens, hyps
 >>>>>>> Add BayesSpeech
+=======
+        return p_ctc, p_seq, wav_lens, hyps
+>>>>>>> Update BayesTorch version, bug fixes
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         (p_ctc, p_seq, wav_lens, hyps,) = predictions
 =======
         (p_ctc, p_seq, kl_div, wav_lens, hyps,) = predictions
 >>>>>>> Add BayesSpeech
+=======
+        (p_ctc, p_seq, wav_lens, hyps,) = predictions
+>>>>>>> Update BayesTorch version, bug fixes
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -183,10 +215,14 @@ class ASR(sb.core.Brain):
             self.hparams.ctc_weight * loss_ctc
             + (1 - self.hparams.ctc_weight) * loss_seq
 <<<<<<< HEAD
+<<<<<<< HEAD
             + self.hparams.kl_div_weight * self.modules.Transformer.kl_div
 =======
             + self.hparams.kl_div_weight * kl_div
 >>>>>>> Add BayesSpeech
+=======
+            + self.hparams.kl_div_weight * self.modules.Transformer.kl_div
+>>>>>>> Update BayesTorch version, bug fixes
         )
 
         if stage != sb.Stage.TRAIN:
@@ -527,6 +563,7 @@ if __name__ == "__main__":
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     # ###################################################################
     # Define Bayesian modules
     # ###################################################################
@@ -563,17 +600,51 @@ if __name__ == "__main__":
             )
             return output
 =======
+=======
+    # ###################################################################
+>>>>>>> Update BayesTorch version, bug fixes
     # Define Bayesian modules
+    # ###################################################################
     from speechbrain.nnet.attention import PositionalwiseFeedForward
 
-    from bayestorch.distributions import get_log_scale_normal, get_softplus_inv_scale_normal
-    from bayestorch.nn import VariationalPosteriorModel
+    try:
+        from bayestorch.distributions import (
+            get_log_scale_normal,
+            get_softplus_inv_scale_normal,
+        )
+        from bayestorch.nn import VariationalPosteriorModule
+    except ImportError:
+        raise ImportError(
+            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch>=0.0.3`)"
+        )
 
+<<<<<<< HEAD
     # Change default number of samples - evaluation loop code is not easily accessible/editable
     class BayesianModel(VariationalPosteriorModel):
         def forward(self, *args, num_mc_samples=hparams["num_eval_mc_samples"], **kwargs):
             return super().forward(*args, num_mc_samples=num_mc_samples, **kwargs)
 >>>>>>> Add BayesSpeech
+=======
+    # Minimize number of modifications to existing training/evaluation loops
+    # NOTE: differently from https://arxiv.org/abs/2301.11276, we employ the standard
+    # reparameterization trick instead of the local reparameterization trick
+    class BayesByBackpropModule(VariationalPosteriorModule):
+        def forward(self, *args, **kwargs):
+            if self.training:
+                output, self.kl_div = super().forward(
+                    *args, num_mc_samples=1, return_kl_div=True, **kwargs
+                )
+                return output
+            output, self.kl_div = (
+                super().forward(
+                    *args,
+                    num_mc_samples=hparams["num_eval_mc_samples"],
+                    **kwargs,
+                ),
+                0.0,
+            )
+            return output
+>>>>>>> Update BayesTorch version, bug fixes
 
     parameters = []
     for module in hparams["modules"]["Transformer"].modules():
@@ -581,11 +652,15 @@ if __name__ == "__main__":
             parameters += list(module.parameters())
     prior_builder, prior_kwargs = get_log_scale_normal(
 <<<<<<< HEAD
+<<<<<<< HEAD
         parameters, log_scale=hparams["normal_prior_log_scale"],
 =======
         parameters,
         log_scale=hparams["normal_prior_log_scale"],
 >>>>>>> Add BayesSpeech
+=======
+        parameters, log_scale=hparams["normal_prior_log_scale"],
+>>>>>>> Update BayesTorch version, bug fixes
     )
     posterior_builder, posterior_kwargs = get_softplus_inv_scale_normal(
         parameters,
@@ -593,13 +668,18 @@ if __name__ == "__main__":
         requires_grad=True,
     )
 <<<<<<< HEAD
+<<<<<<< HEAD
     hparams["Transformer"] = hparams["modules"]["Transformer"] = BBBModule(
+=======
+    hparams["modules"]["Transformer"] = BayesByBackpropModule(
+>>>>>>> Update BayesTorch version, bug fixes
         hparams["modules"]["Transformer"],
         prior_builder,
         prior_kwargs,
         posterior_builder,
         posterior_kwargs,
         parameters,
+<<<<<<< HEAD
     )
     hparams["model"] = torch.nn.ModuleList(
         [hparams["CNN"], hparams["seq_lin"], hparams["ctc_lin"]]
@@ -620,6 +700,10 @@ if __name__ == "__main__":
         posterior_builder, posterior_kwargs, parameters,
     )
 >>>>>>> Add BayesSpeech
+=======
+    )
+    # ###################################################################
+>>>>>>> Update BayesTorch version, bug fixes
 
     # Trainer initialization
     asr_brain = ASR(
