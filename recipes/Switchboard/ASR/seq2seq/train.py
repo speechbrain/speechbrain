@@ -42,6 +42,7 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
+from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +112,25 @@ class ASR(sb.Brain):
                 return p_seq, wav_lens
         else:
             if stage == sb.Stage.VALID:
-                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
+                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                    x, wav_lens
+                )
+
+                # Select the best hypothesis
+                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+                # Convert best hypothesis to list
+                p_tokens = undo_padding(best_hyps, best_lens)
             else:
-                p_tokens, scores = self.hparams.test_search(x, wav_lens)
+                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                    x, wav_lens
+                )
+
+                # Select the best hypothesis
+                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+                # Convert best hypothesis to list
+                p_tokens = undo_padding(best_hyps, best_lens)
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):

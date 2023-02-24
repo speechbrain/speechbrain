@@ -130,6 +130,7 @@ eos_threshold: 1.5
 length_normalization: True
 using_max_attn_shift: False
 max_attn_shift: 30
+scorer_beam_scale: 0.3
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
   input_shape: (8, 10, 80)
@@ -204,6 +205,7 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     weights:
         transformerlm: !ref <lm_weight>
         ctc: !ref <ctc_weight_decode>
+    scorer_beam_scale: !ref <scorer_beam_scale>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]

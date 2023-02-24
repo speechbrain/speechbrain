@@ -125,6 +125,7 @@ max_attn_shift: 240
 ctc_weight_decode: 0.3
 coverage_penalty: 1.8
 temperature: 1.25
+scorer_beam_scale: 0.1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -247,7 +248,8 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    weights:
       coverage: !ref <coverage_penalty>
       ctc: !ref <ctc_weight_decode>
-   
+   scorer_beam_scale: !ref <scorer_beam_scale>
+
 test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
    decoder: !ref <dec>
