@@ -50,7 +50,7 @@ We use `torch.distributed.launch` once on each machine, with the following param
 - `--nproc_per_node=2` means we will spawn 2 processes per node, which equates to 2 GPUs per nodes.
 - `--nnodes=2` means we will be using two nodes in total.
 - `--node_rank=0` and `--node_rank=1` refer to the rank/"index" we are attributing to the node/machine.
-- `--master_addr`/`--master_port` define the IP address and the port of the "master" machine. In this case, we're arbitrarily choosing the first machine to be the "master" of everyone else (the 2nd machine in our case). Note that `5555` might be taken by a different process if you are unlucky, so you may need to choose a different free port.
+- `--master_addr`/`--master_port` define the IP address and the port of the "master" machine. In this case, we're arbitrarily choosing the first machine to be the "master" of everyone else (the 2nd machine in our case). Note that `5555` might be taken by a different process if you are unlucky or if you would run multiple different training scripts on that node, so you may need to choose a different free port.
 
 We also need to pass `--distributed_launch` as a parameter **to our script** (`experiment.py`) as opposed to `torch.distributed.launch`. This is so we tell SpeechBrain to enable DDP.
 
