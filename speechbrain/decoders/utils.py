@@ -87,3 +87,60 @@ def mask_by_condition(tensor, cond, fill_value):
         cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
     )
     return tensor
+
+def batch_filter_seq2seq_output(prediction, eos_id=-1):
+    """Calling batch_size times of filter_seq2seq_output.
+    Arguments
+    ---------
+    prediction : list of torch.Tensor
+        A list containing the output ints predicted by the seq2seq system.
+    eos_id : int, string
+        The id of the eos.
+    Returns
+    ------
+    list
+        The output predicted by seq2seq model.
+    Example
+    -------
+    >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
+    >>> predictions = batch_filter_seq2seq_output(predictions, eos_id=4)
+    >>> predictions
+    [[1, 2, 3], [2, 3]]
+    """
+    outputs = []
+    for p in prediction:
+        res = filter_seq2seq_output(p.tolist(), eos_id=eos_id)
+        outputs.append(res)
+    return outputs
+
+
+def filter_seq2seq_output(string_pred, eos_id=-1):
+    """Filter the output until the first eos occurs (exclusive).
+    Arguments
+    ---------
+    string_pred : list
+        A list containing the output strings/ints predicted by the seq2seq system.
+    eos_id : int, string
+        The id of the eos.
+    Returns
+    ------
+    list
+        The output predicted by seq2seq model.
+    Example
+    -------
+    >>> string_pred = ['a','b','c','d','eos','e']
+    >>> string_out = filter_seq2seq_output(string_pred, eos_id='eos')
+    >>> string_out
+    ['a', 'b', 'c', 'd']
+    """
+    if isinstance(string_pred, list):
+        try:
+            eos_index = next(
+                i for i, v in enumerate(string_pred) if v == eos_id
+            )
+        except StopIteration:
+            eos_index = len(string_pred)
+        string_out = string_pred[:eos_index]
+    else:
+        raise ValueError("The input must be a list.")
+    return string_out
