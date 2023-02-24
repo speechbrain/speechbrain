@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech.
-The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
+"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech (see https://arxiv.org/abs/2301.11276).
+The system employs an encoder, a decoder, and an attention mechanism between them.
+Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train_bayesian.py hparams/transformer_bayesian.yaml
+> python train_bayesspeech.py hparams/transformer_bayesspeech.yaml
 
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
@@ -34,14 +34,17 @@ Authors
  * Luca Della Libera 2023
 """
 
+import logging
 import os
 import sys
-import torch
-import logging
 from pathlib import Path
-import speechbrain as sb
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +77,8 @@ class ASR(sb.core.Brain):
         # forward modules
         src = self.modules.CNN(feats)
 
-        enc_out, pred, kl_div = self.modules.Transformer(
+        enc_out, pred = self.modules.Transformer(
             src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
-            num_mc_samples=1, return_kl_div=True,
         )
 
         # output layer for ctc log-probabilities
@@ -101,12 +103,12 @@ class ASR(sb.core.Brain):
         elif stage == sb.Stage.TEST:
             hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
-        return p_ctc, p_seq, kl_div, wav_lens, hyps
+        return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        (p_ctc, p_seq, kl_div, wav_lens, hyps,) = predictions
+        (p_ctc, p_seq, wav_lens, hyps,) = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -133,7 +135,7 @@ class ASR(sb.core.Brain):
         loss = (
             self.hparams.ctc_weight * loss_ctc
             + (1 - self.hparams.ctc_weight) * loss_seq
-            + self.hparams.kl_div_weight * kl_div
+            + self.hparams.kl_div_weight * self.modules.Transformer.kl_div
         )
 
         if stage != sb.Stage.TRAIN:
@@ -462,34 +464,63 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
+    # ###################################################################
     # Define Bayesian modules
+    # ###################################################################
     from speechbrain.nnet.attention import PositionalwiseFeedForward
 
-    from bayestorch.distributions import get_log_scale_normal, get_softplus_inv_scale_normal
-    from bayestorch.nn import VariationalPosteriorModel
+    try:
+        from bayestorch.distributions import (
+            get_log_scale_normal,
+            get_softplus_inv_scale_normal,
+        )
+        from bayestorch.nn import VariationalPosteriorModule
+    except ImportError:
+        raise ImportError(
+            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch>=0.0.3`)"
+        )
 
-    # Change default number of samples - evaluation loop code is not easily accessible/editable
-    class BayesianModel(VariationalPosteriorModel):
-        def forward(self, *args, num_mc_samples=hparams["num_eval_mc_samples"], **kwargs):
-            return super().forward(*args, num_mc_samples=num_mc_samples, **kwargs)
+    # Minimize number of modifications to existing training/evaluation loops
+    # NOTE: differently from https://arxiv.org/abs/2301.11276, we employ the standard
+    # reparameterization trick instead of the local reparameterization trick
+    class BayesByBackpropModule(VariationalPosteriorModule):
+        def forward(self, *args, **kwargs):
+            if self.training:
+                output, self.kl_div = super().forward(
+                    *args, num_mc_samples=1, return_kl_div=True, **kwargs
+                )
+                return output
+            output, self.kl_div = (
+                super().forward(
+                    *args,
+                    num_mc_samples=hparams["num_eval_mc_samples"],
+                    **kwargs,
+                ),
+                0.0,
+            )
+            return output
 
     parameters = []
     for module in hparams["modules"]["Transformer"].modules():
         if isinstance(module, PositionalwiseFeedForward):
             parameters += list(module.parameters())
     prior_builder, prior_kwargs = get_log_scale_normal(
-        parameters,
-        log_scale=hparams["normal_prior_log_scale"],
+        parameters, log_scale=hparams["normal_prior_log_scale"],
     )
     posterior_builder, posterior_kwargs = get_softplus_inv_scale_normal(
         parameters,
         softplus_inv_scale=hparams["normal_posterior_softplus_inv_scale"],
         requires_grad=True,
     )
-    hparams["modules"]["Transformer"] = BayesianModel(
-        hparams["modules"]["Transformer"], prior_builder, prior_kwargs,
-        posterior_builder, posterior_kwargs, parameters,
+    hparams["modules"]["Transformer"] = BayesByBackpropModule(
+        hparams["modules"]["Transformer"],
+        prior_builder,
+        prior_kwargs,
+        posterior_builder,
+        posterior_kwargs,
+        parameters,
     )
+    # ###################################################################
 
     # Trainer initialization
     asr_brain = ASR(

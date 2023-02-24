@@ -12,10 +12,10 @@ python train.py hparams/transformer.yaml
 installed in your environment (see extra-requirements.txt)**
 # Results
 
-| Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
+| Release  | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
+|:--------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 24-03-22 | transformer.yaml | 2.26 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1sM3_PksmGQZMxXPibp7W7mQfPXFdHqc5?usp=sharing) | 1xA100 40GB |
-| 06-12-23 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
+| 06-12-22 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace:
