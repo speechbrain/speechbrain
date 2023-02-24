@@ -36,7 +36,7 @@ python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.
 
 _This covers the case where you want to split training across **multiple machines** on a network, with any amount of GPUs per machine._
 
-Note that using DDP across multiple machines introduces a **communication overhead** that might slow down training significantly, sometimes more than if you were to train on a single node! This largely depends on the network speed between the nodes.  
+Note that using DDP across multiple machines introduces a **communication overhead** that might slow down training significantly, sometimes more than if you were to train on a single node! This largely depends on the network speed between the nodes.
 Make sure you are actually observing any benefits from distributing the work across machines.
 
 While DDP is more efficient than `DataParallel`, it is somewhat prone to exhibit unexpected bugs. DDP is quite server-dependent, so some setups may face issues. If you are encountering problems, make sure PyTorch is well up to date.
