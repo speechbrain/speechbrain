@@ -1,5 +1,5 @@
 # ############################################################################
-# Model: E2E ASR with Bayesian Transformer
+# Model: E2E ASR with Bayesian Transformer (see https://arxiv.org/abs/2301.11276)
 # Encoder: Bayesian Transformer Encoder
 # Decoder: Bayesian Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
@@ -11,7 +11,7 @@
 
 seed: 74443
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/bayesspeech/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -99,7 +99,7 @@ output_neurons: 5000
 
 # Bayesian inference parameters
 normal_prior_log_scale: -1.0
-normal_posterior_softplus_inv_scale: -2.0
+normal_posterior_softplus_inv_scale: -5.0
 kl_div_weight: 0.000001  # Set based on the number of model parameters
 num_eval_mc_samples: 10
 
