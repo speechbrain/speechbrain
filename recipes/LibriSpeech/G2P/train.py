@@ -1096,6 +1096,8 @@ def dataio_prep(hparams, train_step=None):
                 ],
             }
         )
+    for dynamic_item in dynamic_items:
+        sb.dataio.dataset.add_dynamic_item(datasets, **dynamic_item)
 
     # 3. Set output:
     output_keys = [
