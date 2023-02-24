@@ -43,18 +43,29 @@ While DDP is more efficient than `DataParallel`, it is somewhat prone to exhibit
 
 #### Basics & manual multi-node setup
 
-Let's start with a simple example where a user is able to connect to each node directly. If we want to run 2 GPUs on 2 different nodes (for a total of 4 GPUs), we must do:
+Let's start with a simple example where a user is able to connect to each node directly. Consider that we have 2 nodes with 2 GPUs each (for a total of 4 GPUs).
+
+We use `torch.distributed.launch` once on each machine, with the following parameters:
+
+- `--nproc_per_node=2` means we will spawn 2 processes per node, which equates to 2 GPUs per nodes.
+- `--nnodes=2` means we will be using two nodes in total.
+- `--node_rank=0` and `--node_rank=1` refer to the rank/"index" we are attributing to the node/machine.
+- `--master_addr`/`--master_port` define the IP address and the port of the "master" machine. In this case, we're arbitrarily choosing the first machine to be the "master" of everyone else (the 2nd machine in our case). Note that `5555` might be taken by a different process if you are unlucky, so you may need to choose a different free port.
+
+We also need to pass `--distributed_launch` as a parameter **to our script** (`experiment.py`) as opposed to `torch.distributed.launch`. This is so we tell SpeechBrain to enable DDP.
+
+Hence, we get:
 
 ```bash
 # Machine 1
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
 ```
 
 ```bash
 # Machine 2
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
 ```
 
 In this setup:
