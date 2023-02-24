@@ -1,7 +1,7 @@
 # ############################################################################
 # Model: E2E ASR with Bayesian Transformer
-# Encoder: Transformer Encoder
-# Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
+# Encoder: Bayesian Transformer Encoder
+# Decoder: Bayesian Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
@@ -48,7 +48,7 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 60
-batch_size: 32 # This works for 1x GPU with 40GB
+batch_size: 24 # This works for 1x GPU with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 2
 max_grad_norm: 5.0
@@ -93,14 +93,14 @@ nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 6
 d_ffn: 2048
-transformer_dropout: 0.1
+transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 
 # Bayesian inference parameters
 normal_prior_log_scale: -1.0
 normal_posterior_softplus_inv_scale: -2.0
-kl_div_weight: 0.1
+kl_div_weight: 0.000001  # Set based on the number of model parameters
 num_eval_mc_samples: 10
 
 # Outputs
