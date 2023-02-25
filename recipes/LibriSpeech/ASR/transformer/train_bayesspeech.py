@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech (see https://arxiv.org/abs/2301.11276).
+"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech (https://arxiv.org/abs/2301.11276).
 The system employs an encoder, a decoder, and an attention mechanism between them.
 Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
 language model.
