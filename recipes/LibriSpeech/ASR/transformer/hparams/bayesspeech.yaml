@@ -1,5 +1,5 @@
 # ############################################################################
-# Model: E2E ASR with Bayesian Transformer (see https://arxiv.org/abs/2301.11276)
+# Model: E2E ASR with Bayesian Transformer (https://arxiv.org/abs/2301.11276)
 # Encoder: Bayesian Transformer Encoder
 # Decoder: Bayesian Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
