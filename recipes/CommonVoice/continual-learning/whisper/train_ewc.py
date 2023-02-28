@@ -52,8 +52,9 @@ class ASR(sb.Brain):
 
         # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
+            bos_tokens.requires_grad_()
             enc_out, logits, _ = torch.utils.checkpoint.checkpoint(
-                self.modules.whisper, wavs, bos_tokens, use_reentrant=False
+                self.modules.whisper, wavs, bos_tokens,
             )
         else:
             enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
@@ -425,10 +426,10 @@ def train(hparams, run_opts):
         os.makedirs(sp_dir, exist_ok=True)
         sp = SentencePiece(
             model_dir=sp_dir,
-            vocab_size=hparams["vocab_size"],
+            vocab_size=-1,
             annotation_train=os.path.join(hparams["download_dir"], "train.csv"),
             annotation_read="wrd",
-            model_type="bpe",
+            model_type="char",
         )
 
         # Get sentence-piece tokenizer vocabulary

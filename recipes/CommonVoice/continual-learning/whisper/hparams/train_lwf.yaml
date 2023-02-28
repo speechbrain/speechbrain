@@ -1,14 +1,14 @@
 # ############################################################################
 # Model: Whisper (encoder-decoder) + cross-entropy loss
-# Authors: Pooneh Mousavi 2022
+# Authors: Pooneh Mousavi 2022, Luca Della Libera 2022
 # ############################################################################
 
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-new_locales: [or, ga-IE]  #[rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
-old_locales: [fi]  #[en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
+new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
 max_durations: null  # [36000, 3600, 3600] for whisper-large-v2
 
@@ -17,15 +17,14 @@ output_dir: !ref results/<whisper_variant>/lwf/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 20 #64  # 32 for whisper-base, 1 for whisper-large-v2
-valid_batch_size: 30  #64  # 32 for whisper-base, 1 for whisper-large-v2
+train_batch_size: 64  # 32 for whisper-base, 1 for whisper-large-v2
+valid_batch_size: 128  # 32 for whisper-base, 1 for whisper-large-v2
 train_num_workers: 6
 valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
-vocab_size: 250  # Vocabulary size for BPE encoding of each new locale
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0

@@ -88,7 +88,6 @@ dependencies:
     - ruamel-yaml==0.17.21
     - ruamel-yaml-clib==0.2.7
     - scipy==1.9.3
-    - seaborn==0.12.2
     - sentencepiece==0.1.97
     - six==1.16.0
     - sympy==1.11.1

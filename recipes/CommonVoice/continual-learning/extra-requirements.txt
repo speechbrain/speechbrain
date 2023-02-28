@@ -1,4 +1,1 @@
-matplotlib
-plotly
-seaborn
 transformers
