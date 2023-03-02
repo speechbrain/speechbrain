@@ -237,11 +237,11 @@ def dataio_prepare(hparams):
     label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav", "start_seg", "end_seg")
+    @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav, start_seg, end_seg):
-        start = int(float(start_seg) * hparams["sample_rate"])
-        stop = int(float(end_seg) * hparams["sample_rate"])
+    def audio_pipeline(wav, start, stop):
+        start = int(float(start) * hparams["sample_rate"])
+        stop = int(float(stop) * hparams["sample_rate"])
         speech_segment = {"file": wav, "start": start, "stop": stop}
         sig = sb.dataio.dataio.read_audio(speech_segment)
         return sig
