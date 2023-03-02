@@ -121,14 +121,14 @@ def prepare_test(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
+            print(f"\tfilters_fields={filters_fields} => filters={filters}")
             for row_id, row in enumerate(reader):
                 recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
                     print(
-                        f"\tSkipped {recipe_id} - filters_fields={filters_fields}; filters={filters}"
-                        " - lacking test_field={test_field}"
+                        f"\tSkipped {recipe_id} - lacking test_field={test_field}"
                     )
                     continue
                 test_script[recipe_id] = row[script_field].strip()

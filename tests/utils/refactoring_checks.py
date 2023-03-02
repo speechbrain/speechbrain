@@ -28,7 +28,11 @@ from speechbrain.pretrained.interfaces import foreign_class  # noqa
 from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
-def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
+def init(
+    new_interfaces_git="https://github.com/speechbrain/speechbrain",
+    new_interfaces_branch="hf-interface-testing",
+    new_interfaces_local_dir="tests/tmp/hf_interfaces",
+):
     """Initialises a PR branch to: https://github.com/speechbrain/speechbrain/tree/hf-interface-testing
 
     Skip if the path as of `new_interfaces_local_dir` exists (e.g. by DIY init instead of via this script).
