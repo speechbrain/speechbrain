@@ -110,6 +110,7 @@ def prepare_test(
     test_check = {}
 
     # Loop over all recipe CSVs
+    print(f"\tfilters_fields={filters_fields} => filters={filters}")
     for recipe_csvfile in os.listdir(recipe_folder):
         # skip setup scripts; consider CSV files only
         if recipe_csvfile in __skip_list:
@@ -121,7 +122,6 @@ def prepare_test(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
-            print(f"\tfilters_fields={filters_fields} => filters={filters}")
             for row_id, row in enumerate(reader):
                 recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2}"
                 if not (
