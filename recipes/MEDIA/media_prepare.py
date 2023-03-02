@@ -895,8 +895,8 @@ def write_first_row(save_folder, corpus):
         [
             "ID",
             "duration",
-            "start_seg",
-            "end_seg",
+            "start",
+            "stop",
             "wav",
             "wav_format",
             "spk_id",
