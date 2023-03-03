@@ -30,4 +30,4 @@ performance:
     field: average
 predicted: predictions[0]
 targeted: batch.emo_encoded[0]
-append: ids, predicted, targeted, wav_lens
+to_stats: ids, predicted, targeted, wav_lens
