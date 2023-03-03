@@ -65,23 +65,23 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
   blank_index: !ref <blank_index>
 
 asr_model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <ctc_lin>]
+  - [!ref <enc>, !ref <ctc_lin>]
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 encoder: !new:speechbrain.nnet.containers.LengthsCapableSequential
-    wav2vec2: !ref <wav2vec2>
-    enc: !ref <enc>
-    ctc_lin: !ref <ctc_lin>
+  wav2vec2: !ref <wav2vec2>
+  enc: !ref <enc>
+  ctc_lin: !ref <ctc_lin>
 
 modules:
   encoder: !ref <encoder>
 
 decoding_function: !name:speechbrain.decoders.ctc_greedy_decode
-    blank_id: !ref <blank_index>
+  blank_id: !ref <blank_index>
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-   loadables:
-      wav2vec2: !ref <wav2vec2>
-      asr: !ref <asr_model>
-      tokenizer: !ref <tokenizer>
+  loadables:
+    wav2vec2: !ref <wav2vec2>
+    asr: !ref <asr_model>
+    tokenizer: !ref <tokenizer>
