@@ -251,7 +251,7 @@ if __name__ == "__main__":
 
     hparams["whisper"].forward_decoder = lambda audio, mem: hparams[
         "whisper_decoder"
-    ](data=audio, decoder_input_ids=mem)
+    ](wav=audio, decoder_input_ids=mem)
 
     # Create experiment directory
     sb.create_experiment_directory(

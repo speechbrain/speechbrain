@@ -186,18 +186,22 @@ class HuggingFaceTransformer(nn.Module):
 
         # Set inner forward function
         if forward_partial_fn is not None:
-            # self.forward_partial_fn = forward_partial_fn
+            self.forward_partial_fn = forward_partial_fn
             # self.forward_partial_fn.keywords["model"] = self.model
             # if forward_partial_fn is a partial, add model to the partial's keyword attributes
+            """
             if isinstance(forward_partial_fn, partial):
                 self.forward_partial_fn = forward_partial_fn
-                self.forward_partial_fn.keywords["model"] = self.model
+                # self.forward_partial_fn.keywords["model"] = self.model
             else:  # if forward_partial_fn is a function, create a partial from it with the model parameter set
                 self.forward_partial_fn = partial(
-                    forward_partial_fn, model=self.model
+                    forward_partial_fn,   # model=self.model
                 )
+            """
         else:
-            self.forward_partial_fn = partial(forward_default, model=self.model)
+            self.forward_partial_fn = partial(
+                forward_default
+            )  # , model=self.model)
 
         # Prepare for training, fine-tuning, or inference
         self.freeze = freeze
@@ -281,15 +285,19 @@ class HuggingFaceTransformer(nn.Module):
                 + "is useless for finetuning this HuggingFaceTransformer."
             )
 
-    def forward(self, wav, **kwargs):
+    def forward(self, wav, lengths=None, **kwargs):
         """Process data (token streams, wavs, ...). This function wraps weight-freezing.
         """
         # If we freeze, we simply remove all grads and features from the graph.
+        kwargs["self"] = self
         kwargs["wav"] = wav
+        # there's a toch function calling this, which needs "lengths" so it uses more than 'x' as argument to call this one
+        # => in case of despair, package all your extra variables into a 'lengths' dictionary, so it arrives here; then unpack later
+        if lengths is not None:
+            kwargs["wav_lens"] = lengths
         if self.freeze:
             with torch.no_grad():
                 return self.forward_partial_fn(**kwargs)
-
         return self.forward_partial_fn(**kwargs)
 
 
@@ -334,7 +342,9 @@ def freeze_params_feature_extractor(model):
     logger.warning(
         "speechbrain.lobes.models.transformer.HuggingFace - feature extractor is frozen."
     )
-    model.feature_extractor._freeze_parameters()
+    model.feature_extractor.eval()
+    for param in model.feature_extractor.parameters():
+        param.requires_grad = False
 
 
 def freeze_params_encoder(model):
@@ -515,7 +525,7 @@ def modify_state_dict_wav2vec2(path, replacables=["wav2vec2"]):
     return modified_state_dict
 
 
-def forward_default(model, wav):
+def forward_default(self, wav):
     """Takes input data and returns its forward pass of a given model.
 
     Default for HuggingFaceTransformer init argument:
@@ -546,12 +556,12 @@ def forward_default(model, wav):
     out : torch.Tensor
         Batch of depending model outputs
     """
-    out = model(wav)
+    out = self.model(wav)
     return out
 
 
 def forward_wav2vec2(
-    model, wav, wav_lens, output_all_hiddens=False,
+    self, wav, wav_lens, output_all_hiddens=False,
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -592,13 +602,13 @@ def forward_wav2vec2(
     norm_shape : List[int]
         Shape to be used in layer norm.
     """
-    padding_mask = make_masks(wav, wav_len=wav_lens)
+    padding_mask = make_masks(src=wav, wav_len=wav_lens)
 
     # Extract wav2vec output
-    out = model(
+    out = self.model(
         wav,
         attention_mask=padding_mask,
-        output_hidden_states=model.output_all_hiddens,
+        output_hidden_states=output_all_hiddens,
     )
 
     if output_all_hiddens:
@@ -610,7 +620,7 @@ def forward_wav2vec2(
 
 
 def forward_wav2vec2_pretraining(
-    model, wav, wav_lens, mask_prob, mask_length,
+    self, wav, wav_lens, mask_prob, mask_length,
 ):
     """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -655,7 +665,7 @@ def forward_wav2vec2_pretraining(
     batch_size, raw_sequence_length = wav.shape
     padding_mask = make_masks(wav, wav_len=wav_lens)
 
-    sequence_length = model._get_feat_extract_output_lengths(
+    sequence_length = self.model._get_feat_extract_output_lengths(
         raw_sequence_length
     )
 
@@ -676,7 +686,7 @@ def forward_wav2vec2_pretraining(
     full_sentence_indices = np.ones((batch_size, sequence_length))
     sampled_negative_indices = transformers.models.wav2vec2.modeling_wav2vec2._sample_negative_indices(
         (batch_size, sequence_length.numpy()),
-        num_negatives=model.config.num_negatives,
+        num_negatives=self.model.config.num_negatives,
         mask_time_indices=full_sentence_indices,
     )
 
@@ -685,7 +695,7 @@ def forward_wav2vec2_pretraining(
     )
 
     # 3. prepare the output
-    out = model(
+    out = self.model(
         wav,
         attention_mask=padding_mask,
         mask_time_indices=torch_mask_time_indices,
@@ -696,7 +706,7 @@ def forward_wav2vec2_pretraining(
 
 
 def forward_whisper(
-    model,
+    self,
     wav,
     decoder_input_ids,
     n_samples=480000,
@@ -739,7 +749,7 @@ def forward_whisper(
         with Greedy Search and/or Beam Search.
     """
     out_encoder = forward_mel_encoder(
-        model=model,
+        model=self.model,
         wav=wav,
         n_samples=n_samples,
         n_fft=n_fft,
@@ -752,7 +762,7 @@ def forward_whisper(
         logits, attn = forward_decoder(out_encoder[-1], decoder_input_ids)
     else:
         logits, attn = forward_decoder(
-            model=model,
+            model=self.model,
             wav=out_encoder,
             decoder_input_ids=decoder_input_ids,
             output_attentions=output_attentions,
@@ -959,7 +969,7 @@ def make_padding_masks(src, wav_len=None, pad_idx=0):
     return src_key_padding_mask
 
 
-def make_masks(self, src, wav_len=None, pad_idx=0):
+def make_masks(src, wav_len=None, pad_idx=0):
     """This method generates the padding masks.
     Arguments
     ---------

@@ -115,7 +115,7 @@ apply_spec_augment: False
 w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransformer
   source: !ref <wav2vec2_hub>
   freeze: !ref <freeze_wav2vec>
-  freeze_feature_extractor: !ref <freeze_feature_extractor>
+  freeze_params_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_params_feature_extractor
   save_path: !ref <wav2vec2_folder>
   forward_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.forward_wav2vec2
     output_all_hiddens: !ref <output_all_hiddens>

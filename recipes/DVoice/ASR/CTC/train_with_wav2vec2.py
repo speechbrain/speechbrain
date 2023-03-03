@@ -213,7 +213,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
     def zero_grad(self, set_to_none=False):
-        if not self.hparams.wav2vec2.freeze:
+        if not self.hparams.w2v2.freeze:
             self.wav2vec_optimizer.zero_grad(set_to_none)
         self.model_optimizer.zero_grad(set_to_none)
 

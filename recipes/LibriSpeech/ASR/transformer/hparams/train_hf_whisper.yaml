@@ -126,7 +126,6 @@ whisper: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransf
     freeze_model_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_model_but_train
     freeze_params_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_params_encoder
     cache_dir: !ref <whisper_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
-    encoder_only: False
 
 whisper_decoder: !name:speechbrain.lobes.models.transformer.HuggingFace.forward_decoder
     model: !ref <whisper.model>

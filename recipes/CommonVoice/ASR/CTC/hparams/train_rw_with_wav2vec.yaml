@@ -122,8 +122,8 @@ w2v2: !new:speechbrain.lobes.models.transformer.HuggingFace.HuggingFaceTransform
     override_hf_model_partial_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.model_set_spectral_augmentation
         apply_spec_augment: !ref <apply_spec_augment>
     freeze: !ref <freeze_wav2vec>
+    freeze_params_fn: !name:speechbrain.lobes.models.transformer.HuggingFace.freeze_params_feature_extractor
     cache_dir: !ref <wav2vec2_folder>  # for a different cache folder, e.g.: !ref <output_folder>/cache
-    freeze_feature_extractor: !ref <freeze_feature_extractor>
 
 wav2vec2: !new:speechbrain.nnet.containers.LengthsCapableSequential
     input_norm: !new:speechbrain.processing.features.InputNormalization
