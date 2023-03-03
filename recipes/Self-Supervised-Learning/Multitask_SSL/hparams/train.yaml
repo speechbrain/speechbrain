@@ -1,0 +1,180 @@
+# ################################
+# Model: PASE with CRDNN encoder
+# Authors : Salah Zaiem & Titouan Parcollet
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 2209
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/multi_task_CRDNN_fr/<seed>
+csv_folder: !PLACEHOLDER
+# Folder containing the task labels, one csv_file per audio_sample
+save_folder: !ref <output_folder>/workers_save
+train_log: !ref <output_folder>/train_log.txt
+# Data files
+# root path of the commonvoice dataset, may be needed for the preparation
+data_folder: !PLACEHOLDER
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
+dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
+duration_threshold: 15  # Longer sentences will be removed (in seconds)
+train_csv: !ref  <csv_folder>/train.csv
+valid_csv: !ref <csv_folder>/dev.csv
+test_csv: !ref <csv_folder>/test.csv
+#To be adapted to the datset
+avoid_if_longer_than: 35
+sorting: ascending
+# Training parameters
+number_of_epochs: 5
+batch_size: 2
+batch_counter: 0
+lr: 1.0
+device: 'cuda:0'
+multigpu: True
+ckpt_interval_minutes: 30
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+test_batch_size: 8
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: 8
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: 8
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 3
+cnn_channels: (128, 200, 256)
+cnn_channels_dec: (256, 200, 128)
+inter_layer_pooling_size: (2, 2, 2)
+inter_layer_ps: (1, 1, 1)
+cnn_kernelsize: (3, 3)
+time_pooling_size: 1
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
+rnn_layers: 5
+rnn_neurons: 512
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 1024
+
+# Workers
+# To add workers, you have to add it here with the corresponding weight for the loss
+# They have to match the name of the worker in the csv files containing the values
+# An example is given with a possible pitch feature you may add
+workers: [
+    'melfs',
+    'mfcc',
+    #'pitch_feature'
+    ]
+#Online workers are workers whose labels are computed on the fly (spectrograms for instance)
+online_workers: [
+    'melfs',
+    'mfcc',
+    ]
+#mel and mfccs are weighted with 1.
+workers_weights: {"melfs": 1.0 , "mfcc": 1.0}
+# Functions
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    activation: !ref <activation>
+    input_shape: [ null, null, !ref <n_mels>]
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    rnn_re_init: True
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+# Workers
+# When adding new pretext tasks, you would have to add a new worker here
+# You can follow the mel and mfcc workers examples
+mel: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    input_shape: [null, null, !ref <dnn_neurons> ]
+    dnn_neurons: !ref <n_mels>
+mfcc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    activation: !name:torch.nn.PReLU
+    input_shape: [null, null, !ref <dnn_neurons> ]
+    dnn_neurons: 660
+#The following worker is an example for an added pretext task. 
+pitch_feature: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+    activation: !name:torch.nn.PReLU
+    input_shape: [null, null, !ref <dnn_neurons> ]
+    dnn_neurons: 1
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+mfcc_normalizer: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+
+classification_loss: !name:torch.nn.CrossEntropyLoss
+reconstruction_loss: !name:torch.nn.MSELoss
+regression_loss: !name:torch.nn.L1Loss
+#Example of added loss
+pitch_feature_loss: !name:torch.nn.MSELoss
+
+workers_regressors: {
+    "melfs": !ref  <mel>,
+    "mfcc": !ref <mfcc>
+}
+# Same for the losses
+workers_losses: {
+    "melfs": !ref <reconstruction_loss>,
+    "mfcc": !ref <reconstruction_loss>,
+}
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+opt_class: !name:torch.optim.Adadelta
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
+modules:
+    enc: !ref <enc>
+    mel: !ref  <mel>
+    mfcc: !ref <mfcc>
+    pitch_feature: !ref <pitch_feature>
+    normalize: !ref <normalize>
+model: !new:torch.nn.ModuleList
+    - [!ref <enc> ,  !ref <mel> , !ref <mfcc> , !ref <pitch_feature> ]
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+recoverables:
+    model: !ref <model>
+    scheduler: !ref <lr_annealing>
+    normalizer: !ref <normalize>
+    counter: !ref <epoch_counter>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.75
+    patient: 0
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+MFCC_head: !new:speechbrain.lobes.features.MFCC
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: 40
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+online_computation: { "melfs": !ref <compute_features>, 
+        "mfcc": !ref <MFCC_head>}
+online_normalization: { "melfs": !ref <normalize>, 
+        "mfcc": !ref <mfcc_normalizer>}
