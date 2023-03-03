@@ -615,9 +615,11 @@ def load_yaml_test(
         "wav2vec2_hub": "facebook/wav2vec2-large-960h-lv60-self",  # this might not hold for all set-ups
         "root_data_folder": data_folder,
         "wav2vec2_folder": f"{output_folder}/wav2vec2_checkpoint",
+        # these will need refactoring at some point (recipe-depending values)
         "pretrained_tokenizer_path": "speechbrain/asr-wav2vec2-switchboard",
         "pretrained_lm_tokenizer_path": "speechbrain/asr-transformer-switchboard",
         "channels_path": None,
+        "concepts_path": None,
     }
 
     # Read the csv recipe file and detect which tests we have to run
