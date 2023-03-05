@@ -59,6 +59,8 @@ left_frames: 0
 right_frames: 0
 deltas: False
 
+use_melspectra: True
+
 # Number of classes
 out_n_neurons: 50
 

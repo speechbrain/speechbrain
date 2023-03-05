@@ -43,10 +43,17 @@ class ESC50Brain(sb.core.Brain):
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
-        X_logmel = self.modules.compute_fbank(X_stft_power)
+
+        if self.hparams.use_melspectra:
+            net_input = self.modules.compute_fbank(X_stft_power)
+        else:
+            net_input = torch.log1p(X_stft_power)
 
         # Embeddings + sound classifier
-        embeddings = self.modules.embedding_model(X_logmel)
+        embeddings = self.modules.embedding_model(net_input)
+        if embeddings.ndim == 4:
+            embeddings = embeddings.mean((-1, -2))
+
         outputs = self.modules.classifier(embeddings)
 
         return outputs, lens
