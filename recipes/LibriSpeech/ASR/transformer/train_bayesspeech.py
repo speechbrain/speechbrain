@@ -437,7 +437,7 @@ if __name__ == "__main__":
         from bayestorch.nn import VariationalPosteriorModule
     except ImportError:
         raise ImportError(
-            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch>=0.0.3`)"
+            "Please install BayesTorch to use BayesSpeech (e.g. `pip install bayestorch==0.0.3`)"
         )
 
     # Minimize number of modifications to existing training/evaluation loops

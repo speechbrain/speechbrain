@@ -33,15 +33,27 @@ installed in your environment (see extra-requirements.txt)**
 | 27-03-23 | hyperconformer_22M.yaml | 3.19 | 2.23 | 5.54  (**only 21.7M parameters**)  | NA | [DropBox](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_13M.yaml | NA | 2.54 | 6.58  | NA | soon | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_25M.yaml | NA | 2.36 | 5.89 | NA | soon | 1xP40 24GB
+| 05-01-24 | bayesspeech.yaml | 4.28 | 2.84 | 6.27 | NA | [DropBox](https://www.dropbox.com/scl/fo/cdken4jqfj96ev1v84jxm/h?rlkey=25eu1ytgm5ac51zqj8p65zwxd&dl=0) | 1xV100 32GB |
 
-# PreTrained Model + Easy-Inference
-You can find the pre-trained model with an easy-inference function on HuggingFace:
-- https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
-- https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech
-- https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
+# **About HyperConformer**
+HyperConformer is a new architecture, which replaces the self-attention mechanism of Conformer with the linear-time token mixing architecture HyperMixer.
+It achieves competitive or better results than Conformer while requiring less memory and compute.
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/15uUZ21HYnw4KyOPW3tx8bLrS9RoBZfS7?usp=sharing
+- Paper: https://arxiv.org/abs/2305.18281
+- HyperMixer code: https://github.com/idiap/hypermixing
+
+Please cite HyperConformer if you use it for your research or business.
+
+```bibtex
+@inproceedings{mai23_interspeech,
+  author={Florian Mai and Juan Zuluaga-Gomez and Titouan Parcollet and Petr Motlicek},
+  title={{HyperConformer}: Multi-head HyperMixer for Efficient Speech Recognition},
+  year=2023,
+  booktitle={Proc. Interspeech 2023},
+  pages={2213--2217},
+  doi={10.21437/Interspeech.2023-1611}
+}
+```
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
