@@ -45,7 +45,9 @@ class ASR(sb.Brain):
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
         # Forward encoder + decoder
-        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+        enc_out, logits, _ = self.modules.whisper(
+            wavs, decoder_input_ids=bos_tokens
+        )
 
         hyps = None
         if stage == sb.Stage.VALID:
@@ -263,8 +265,13 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+
+    hparams["whisper"].forward_decoder = lambda audio, mem: hparams[
+        "whisper_decoder"
+    ](wav=audio, decoder_input_ids=mem)
+
     # Defining tokenizer and loading it
-    tokenizer = hparams["whisper"].tokenizer
+    tokenizer = hparams["whisper_tokenizer"]
     language = LANGUAGES[hparams["locale"]]
 
     tokenizer.set_prefix_tokens(language, "transcribe", False)
@@ -292,6 +299,11 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
         opt_class=hparams["whisper_opt_class"],
+    )
+    hparams["whisper"].forward_partial_fn.keywords["mel_filters"] = (
+        hparams["whisper"]
+        .forward_partial_fn.keywords["mel_filters"]
+        .to(asr_brain.device)
     )
 
     # We load the pretrained whisper model
