@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.5.0  # Use the ref you want to point at
+    rev: v4.4.0  # Use the ref you want to point at
     hooks:
       - id: trailing-whitespace
         types: [file, text]
@@ -14,18 +14,17 @@ repos:
         args: [--maxkb=1024]
 
   - repo: https://github.com/psf/black
-    rev: 19.10b0
+    rev: 23.1.0
     hooks:
       - id: black
         types: [python]
-        additional_dependencies: ['click==8.0.4']
   - repo: https://github.com/PyCQA/flake8
-    rev: 3.7.9
+    rev: 6.0.0
     hooks:
       - id: flake8
         types: [python]
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.23.0
+    rev: v1.29.0
     hooks:
       - id: yamllint
