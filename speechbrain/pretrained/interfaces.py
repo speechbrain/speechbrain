@@ -17,6 +17,7 @@ import speechbrain
 import torch
 import torchaudio
 import sentencepiece
+from pathlib import Path
 from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
@@ -1916,6 +1917,7 @@ class VAD(Pretrained):
     def get_speech_segments(
         self,
         audio_file,
+        use_channel=0,
         large_chunk_size=30,
         small_chunk_size=10,
         overlap_small_chunk=False,
@@ -1949,6 +1951,8 @@ class VAD(Pretrained):
         ---------
         audio_file : str
             Path to audio file.
+        use_channel : int
+            Select a typical channel.
         large_chunk_size: float
             Size (in seconds) of the large chunks that are read sequentially
             from the input audio file.
@@ -2005,6 +2009,27 @@ class VAD(Pretrained):
         # Fetch audio file from web if not local
         source, fl = split_path(audio_file)
         audio_file = fetch(fl, source=source)
+
+        # Resample the data if needed, select single channel data
+        waveform, sr = torchaudio.load(audio_file)
+        if waveform.ndim == 2:
+            num_channels = waveform.shape[0]
+            if num_channels > 1:
+                waveform = waveform[use_channel].unsqueeze(0)
+        if sr != self.sample_rate:
+            print(
+                f"Resampling the audio from {sr} Hz to {self.sample_rate} Hz"
+            )
+            waveform = torchaudio.functional.resample(
+                waveform,
+                sr,
+                self.sample_rate,
+                lowpass_filter_width=64,
+                rolloff=0.95,
+                resampling_method="kaiser_window",
+                beta=14.769656459379492,
+            )
+        torchaudio.save(audio_file, waveform, self.sample_rate, format=Path(audio_file).suffix.strip('.'))
 
         # Computing speech vs non speech probabilities
         prob_chunks = self.get_speech_prob_file(
