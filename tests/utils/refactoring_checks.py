@@ -28,7 +28,11 @@ from speechbrain.pretrained.interfaces import foreign_class  # noqa
 from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
-def init(new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir):
+def init(
+    new_interfaces_git="https://github.com/speechbrain/speechbrain",
+    new_interfaces_branch="hf-interface-testing",
+    new_interfaces_local_dir="tests/tmp/hf_interfaces",
+):
     """Initialises a PR branch to: https://github.com/speechbrain/speechbrain/tree/hf-interface-testing
 
     Skip if the path as of `new_interfaces_local_dir` exists (e.g. by DIY init instead of via this script).
@@ -190,8 +194,9 @@ def get_prediction(repo, values, updates_dir=None):
 
 
 def gather_expected_results(
+    glob_filter="*",
     new_interfaces_git="https://github.com/speechbrain/speechbrain",
-    new_interfaces_branch="testing-refactoring",
+    new_interfaces_branch="hf-interface-testing",
     new_interfaces_local_dir="tests/tmp/hf_interfaces",
     yaml_path="tests/tmp/refactoring_results.yaml",
 ):
@@ -199,6 +204,8 @@ def gather_expected_results(
 
     Parameters
     ----------
+    glob_filter: str
+        Filter for a repo subset or a specific repo.
     new_interfaces_git: str
         Your git repo (or default: `https://github.com/speechbrain/speechbrain`);
         can be specified in tests/utils/overrides.yaml
@@ -221,7 +228,7 @@ def gather_expected_results(
     updates_dir = init(
         new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/*"))
+    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"),)
     for repo in repos:
         # skip if results are there
         if repo not in results.keys():
@@ -239,8 +246,9 @@ def gather_expected_results(
 
 
 def gather_refactoring_results(
+    glob_filter="*",
     new_interfaces_git="https://github.com/speechbrain/speechbrain",
-    new_interfaces_branch="testing-refactoring",
+    new_interfaces_branch="hf-interface-testing",
     new_interfaces_local_dir="tests/tmp/hf_interfaces",
     yaml_path="tests/tmp/refactoring_results.yaml",
 ):
@@ -248,6 +256,8 @@ def gather_refactoring_results(
 
     Parameters
     ----------
+    glob_filter: str
+        Filter for a repo subset or a specific repo.
     new_interfaces_git: str
         Your git repo (or default: `https://github.com/speechbrain/speechbrain`);
         can be specified in tests/utils/overrides.yaml
@@ -267,7 +277,7 @@ def gather_refactoring_results(
     updates_dir = init(
         new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/*"))
+    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"),)
     for repo in repos:
         # skip if results are there
         if "after" not in results[repo].keys():
@@ -295,7 +305,7 @@ def gather_refactoring_results(
 def test_performance(
     repo, values, run_opts, updates_dir=None, recipe_overrides={}
 ):
-    """
+    """Runs the evaluation partition of a recipe dataset for a pretrained model.
 
     Parameters
     ----------
@@ -384,7 +394,9 @@ def test_performance(
                 targeted = eval(values["targeted"])  # noqa
                 ids = batch.id  # noqa
                 for metric in reporting.keys():
-                    reporting[metric]["tracker"].append(*eval(values["append"]))
+                    reporting[metric]["tracker"].append(
+                        *eval(values["to_stats"])
+                    )
 
         stats[k] = {}
         for metric, specs in reporting.items():

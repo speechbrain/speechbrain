@@ -7,9 +7,10 @@ Authors
  * Ju-Chieh Chou 2020
  * Samuele Cornell 2020
  * Abdel HEBA 2020
+ * Gaelle Laperriere 2021
+ * Sahar Ghannay 2021
  * Sylvain de Langen 2022
 """
-
 import os
 import torch
 import logging
@@ -1056,9 +1057,9 @@ def split_word(sequences, space="_"):
 
     Arguments
     ---------
-    sequences : list
+    sequences: list
         Each item contains a list, and this list contains a words sequence.
-    space : string
+    space: string
         The token represents space. Default: _
 
     Returns
@@ -1076,4 +1077,80 @@ def split_word(sequences, space="_"):
     for seq in sequences:
         chars = list(space.join(seq))
         results.append(chars)
+    return results
+
+
+def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
+    """keep the semantic concepts and values for evaluation.
+
+    Arguments
+    ---------
+    sequences: list
+        Each item contains a list, and this list contains a character sequence.
+    keep_values: bool
+        If True, keep the values. If not don't.
+    tag_in: char
+        Indicates the start of the concept.
+    tag_out: char
+        Indicates the end of the concept.
+    space: string
+        The token represents space. Default: _
+
+    Returns
+    -------
+    The list contains concept and value sequences for each sentence.
+
+    Example
+    -------
+    >>> sequences = [['<reponse>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<reponse>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
+    >>> results = extract_concepts_values(sequences, True, '<', '>', '_')
+    >>> results
+    [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], ['']]
+    """
+    results = []
+    for sequence in sequences:
+        # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
+        sequence = "".join(sequence)
+        # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
+        sequence = sequence.split(space)
+        processed_sequence = []
+        value = (
+            []
+        )  # If previous sequence value never used because never had a tag_out
+        kept = ""  # If previous sequence kept never used because never had a tag_out
+        concept_open = False
+        for word in sequence:
+            if re.match(tag_in, word):
+                # If not close tag but new tag open
+                if concept_open and keep_values:
+                    if len(value) != 0:
+                        kept += " " + " ".join(value)
+                    concept_open = False
+                    processed_sequence.append(kept)
+                kept = word  # 1st loop: '<reponse>'
+                value = []  # Concept's value
+                concept_open = True  # Trying to catch the concept's value
+                # If we want the CER
+                if not keep_values:
+                    processed_sequence.append(kept)  # Add the kept concept
+            # If we have a tag_out, had a concept, and want the values for CVER
+            elif re.match(tag_out, word) and concept_open and keep_values:
+                # If we have a value
+                if len(value) != 0:
+                    kept += " " + " ".join(
+                        value
+                    )  # 1st loop: '<response>' + ' ' + 'no'
+                concept_open = False  # Wait for a new tag_in to pursue
+                processed_sequence.append(kept)  # Add the kept concept + value
+            elif concept_open:
+                value.append(word)  # 1st loop: 'no'
+        # If not close tag but end sequence
+        if concept_open and keep_values:
+            if len(value) != 0:
+                kept += " " + " ".join(value)
+            concept_open = False
+            processed_sequence.append(kept)
+        if len(processed_sequence) == 0:
+            processed_sequence.append("")
+        results.append(processed_sequence)
     return results
