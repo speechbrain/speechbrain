@@ -457,7 +457,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
         torch_mask_time_indices = torch.tensor(
             mask_time_indices, device=wav.device, dtype=torch.long,
         )
-        padding_mask = self.make_masks(wav, wav_len=wav_lens)
+        padding_mask = self.make_padding_masks(wav, wav_len=wav_lens)
 
         # 2. Sample the negative samples from the entire sequence.
         # Fairseq does it only on the masked indices, but this only work if you

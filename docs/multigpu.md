@@ -1,62 +1,94 @@
 # Basics of multi-GPU
 
-SpeechBrain provides two different ways of using multiple gpus while training or inferring. For further information, please see our multi-gpu tutorial: amazing multi-gpu tutorial
-
-## Multi-GPU training using Data Parallel
-The common pattern for using multi-GPU training over a single machine with Data Parallel is:
-
-```
-> cd recipes/<dataset>/<task>/
-> python experiment.py params.yaml --data_parallel_backend
-```
-If you want to use a specific set of GPU devices, condiser using `CUDA_VISIBLE_DEVICES` as follow:
-```
-> cd recipes/<dataset>/<task>/
-> CUDA_VISIBLE_DEVICES=1,5 python experiment.py params.yaml --data_parallel_backend
-```
-
-Important: the batch size for each GPU process will be: `batch_size / Number of GPUs`. So you should consider changing the batch_size value according to you need.
+Training speed can greatly benefit from being distributed across multiple GPUs. However, even on a single machine, this is **NOT** the default. To enable multi-GPU training, we strongly recommend you use **Distributed Data Parallel** (DDP).
 
 ## Multi-GPU training using Distributed Data Parallel (DDP)
 
-DDP implements data parallelism on different processes. This way, the GPUs do not necessarily have to be in the same server. This solution is much more flexible. However, the training routines must be written considering multi-threading.
+DDP implements data parallelism by spawning **one process per GPU**. DDP allows you to distribute work across GPUs **on the same machine _or_ across several machines on a network** if wanted.
 
-With SpeechBrain, we put several efforts to make sure the code is compliant with DDP. For instance, to avoid conflicts across processes we develop the `run_on_main` function. It is called when critical operations such as writing a file on disk are performed. It ensures that these operations are run in a single process only. The other processes are waiting until this operation is completed.
+When using CUDA (which we will assume in this document), PyTorch uses [NCCL](https://developer.nvidia.com/nccl) behind the scenes to synchronize everything. PyTorch documentation [further details](https://pytorch.org/docs/stable/distributed.html) distributed backends.
 
-Using DDP in speechbrain with a single server (node) is quite easy:
+### Writing DDP-safe code in SpeechBrain
 
-```
+DDP requires your training routines to be written to be DDP-safe, because your script will be run several times concurrently (potentially across multiple machines). Stock SpeechBrain recipes will work with DDP. We also provide functionality to assist with writing DDP-safe scripts.
+
+`run_on_main` ensures that a specific function is executed only once, in only one process, forcing other processes to wait. It is frequently used to run a dataset preparation step in recipes.
+
+Many functions like `Brain.fit` are written to be DDP-aware. In practice, there is not a lot you need to do to make your code DDP-safe, but it is something you should keep in mind.
+
+> **NOTE:**
+> With DDP, batch size is defined for a single process/GPU. This is different from Data Parallel (DP), where batches are split according to the number of GPUs. For example, with DDP, if you specify a batch size of 16, each GPU/process will use batches of 16 regardless of how many GPUs you have.
+
+### Single-node setup
+
+_This covers the case where you want to split training across **multiple GPUs** on **a single machine** (node)._
+
+Using SpeechBrain, this would look like:
+
+```bash
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch
 ```
 
-Where:
-- nproc_per_node must be equal to the number of GPUs.
-- distributed_backend is the type of backend managing multiple processes synchronizations (e.g, 'nccl', 'gloo'). Try to switch the DDP backend if you have issues with nccl.
+... where `nproc_per_node` is the the number of processes to spawn/GPUs to use.
 
-Running DDP over multiple servers (nodes) is quite system dependent. Let's start with a simple example where a user is able to connect to each node directly. If we want to run 2 GPUs on 2 different nodes (i.e total of 4 GPUs), we must do:
+### Multi-node setup
 
-```shell
+_This covers the case where you want to split training across **multiple machines** on a network, with any amount of GPUs per machine._
+
+Note that using DDP across multiple machines introduces a **communication overhead** that might slow down training significantly, sometimes more than if you were to train on a single node! This largely depends on the network speed between the nodes.
+Make sure you are actually observing any benefits from distributing the work across machines.
+
+While DDP is more efficient than `DataParallel`, it is somewhat prone to exhibit unexpected bugs. DDP is quite server-dependent, so some setups may face issues. If you are encountering problems, make sure PyTorch is well up to date.
+
+#### Basics & manual multi-node setup
+
+Let's start with a simple example where a user is able to connect to each node directly. Consider that we have 2 nodes with 2 GPUs each (for a total of 4 GPUs).
+
+We use `torch.distributed.launch` once on each machine, with the following parameters:
+
+- `--nproc_per_node=2` means we will spawn 2 processes per node, which equates to 2 GPUs per nodes.
+- `--nnodes=2` means we will be using two nodes in total.
+- `--node_rank=0` and `--node_rank=1` refer to the rank/"index" we are attributing to the node/machine.
+- `--master_addr`/`--master_port` define the IP address and the port of the "master" machine. In this case, we're arbitrarily choosing the first machine to be the "master" of everyone else (the 2nd machine in our case). Note that `5555` might be taken by a different process if you are unlucky or if you would run multiple different training scripts on that node, so you may need to choose a different free port.
+
+We also need to pass `--distributed_launch` as a parameter **to our script** (`experiment.py`) as opposed to `torch.distributed.launch`. This is so we tell SpeechBrain to enable DDP.
+
+Hence, we get:
+
+```bash
 # Machine 1
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
-
-# Machine 2
-cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_adress --master_port 5555 experiment.py hyperparams.yaml --distributed_launch --distributed_backend='nccl'
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
 ```
 
-In this case, Machine 1 will have 2 subprocesses (subprocess1: with local_rank=0, rank=0, and subprocess2: with local_rank=1, rank=1). Machine 2 will have 2 subprocess (subprocess1: with local_rank=0, rank=2, and subprocess2: with local_rank=1, rank=3).
+```bash
+# Machine 2
+cd recipes/<dataset>/<task>/
+python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
+```
 
-In practice, using `torch.distributed.launch` ensures that the right environment variables are set (`local_rank` and `rank`), so you don't have to bother about it.
+In this setup:
 
-Now, let's try to scale this up a bit with a resource manager like SLURM. Here, we will create two scripts:
+- Machine 1 will have 2 subprocesses:
+    - Subprocess #1: `local_rank`=0, `rank`=0
+    - Subprocess #2: `local_rank`=1, `rank`=1
+- Machine 2 will have 2 subprocess:
+    - Subprocess #1: `local_rank`=0, `rank`=2
+    - Subprocess #2: `local_rank`=1, `rank`=3
+
+In practice, using `torch.distributed.launch` ensures that the right environment variables are set (`local_rank` and `rank`), so you don't have to bother with it.
+
+#### Multi-node setup with Slurm
+
+If you have access to a compute cluster using Slurm, you can automate this process. We will create two scripts:
+
 - a SBATCH script that will request the node configuration and call the second script.
 - a SRUN script that will call the training on each node.
 
-```shell
-## sbatch.sh
+`sbatch.sh`:
 
+```bash
 #SBATCH --nodes=2 # We want two nodes (servers)
 #SBATCH --ntasks-per-node=1 # we will run once the next srun per node
 #SBATCH --gres=gpu:4 # we want 4 GPUs per node
@@ -71,9 +103,9 @@ cd ${SLURM_SUBMIT_DIR}
 srun srun_script.sh
 ```
 
-```shell
-## srun_script.sh
+`srun_script.sh`:
 
+```bash
 #!/bin/bash
 
 # We jump into the submission dir
@@ -90,6 +122,22 @@ MASTER=`echo $LISTNODES | cut -d" " -f1`
 python -m torch.distributed.launch --nproc_per_node=4 --nnodes=${SLURM_JOB_NUM_NODES} --node_rank=${SLURM_NODEID} --master_addr=${MASTER} --master_port=5555 train.py hparams/myrecipe.yaml
 ```
 
-Note that using DDP on different machines introduces a **communication overhead** that might slow down training (depending on how fast is the connection across the different machines).
+## (DEPRECATED) Single-node multi-GPU training using Data Parallel
 
-We would like to advise our users that despite being more efficient, DDP is also more prone to exhibit unexpected bugs. Indeed, DDP is quite server-dependent and some setups might generate errors with the PyTorch implementation of DDP.  The future version of pytorch will improve the stability of DDP.
+[**We strongly recommend AGAINST using `DataParallel`, even for single-node setups**](https://pytorch.org/docs/stable/generated/torch.nn.DataParallel.html)! Use `DistributedDataParallel` instead. We no longer provide support for `DataParallel`. Future PyTorch versions may even remove `DataParallel` altogether.
+
+The common pattern for using multi-GPU training over a single machine with Data Parallel is:
+
+```bash
+cd recipes/<dataset>/<task>/
+python experiment.py params.yaml --data_parallel_backend
+```
+
+If you want to use a specific set of GPU devices, condiser using `CUDA_VISIBLE_DEVICES` as follow:
+
+```bash
+cd recipes/<dataset>/<task>/
+CUDA_VISIBLE_DEVICES=1,5 python experiment.py params.yaml --data_parallel_backend
+```
+
+Important: the batch size for each GPU process will be: `batch_size / Number of GPUs`. So you should consider changing the batch_size value according to you need.
