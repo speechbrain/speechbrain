@@ -110,6 +110,7 @@ def prepare_test(
     test_check = {}
 
     # Loop over all recipe CSVs
+    print(f"\tfilters_fields={filters_fields} => filters={filters}")
     for recipe_csvfile in os.listdir(recipe_folder):
         # skip setup scripts; consider CSV files only
         if recipe_csvfile in __skip_list:
@@ -121,7 +122,6 @@ def prepare_test(
             os.path.join(recipe_folder, recipe_csvfile), newline=""
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
-            print(f"\tfilters_fields={filters_fields} => filters={filters}")
             for row_id, row in enumerate(reader):
                 recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2}"
                 if not (
@@ -615,6 +615,11 @@ def load_yaml_test(
         "wav2vec2_hub": "facebook/wav2vec2-large-960h-lv60-self",  # this might not hold for all set-ups
         "root_data_folder": data_folder,
         "wav2vec2_folder": f"{output_folder}/wav2vec2_checkpoint",
+        # these will need refactoring at some point (recipe-depending values)
+        "pretrained_tokenizer_path": "speechbrain/asr-wav2vec2-switchboard",
+        "pretrained_lm_tokenizer_path": "speechbrain/asr-transformer-switchboard",
+        "channels_path": None,
+        "concepts_path": None,
     }
 
     # Read the csv recipe file and detect which tests we have to run

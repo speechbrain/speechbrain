@@ -746,6 +746,7 @@ if __name__ == "__main__":
 
         train_data = dynamic_mix_data_prep(hparams)
     else:
+        hparams["use_whamr_train"] = False
         train_data, valid_data, test_data = dataio_prep(hparams)
 
     # Brain class initialization
