@@ -193,41 +193,42 @@ Adam: !name:torch.optim.Adam
   eps: 0.000000001
 
 transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
-   language_model: !ref <lm_model>
+  language_model: !ref <lm_model>
+
 # Scorer
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
-    eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
-    ctc_fc: !ref <ctc_lin>
+  eos_index: !ref <eos_index>
+  blank_index: !ref <blank_index>
+  ctc_fc: !ref <ctc_lin>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-    full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
-    weights:
-        transformerlm: !ref <lm_weight>
-        ctc: !ref <ctc_weight_decode>
-    scorer_beam_scale: !ref <scorer_beam_scale>
+  full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
+  weights:
+    transformerlm: !ref <lm_weight>
+    ctc: !ref <ctc_weight_decode>
+  scorer_beam_scale: !ref <scorer_beam_scale>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
-    modules: [!ref <Transformer>, !ref <seq_lin>]
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <valid_beam_size>
-    using_eos_threshold: False
-    length_normalization: False
-    scorer: !ref <scorer>
+  modules: [!ref <Transformer>, !ref <seq_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
+  min_decode_ratio: !ref <min_decode_ratio>
+  max_decode_ratio: !ref <max_decode_ratio>
+  beam_size: !ref <valid_beam_size>
+  using_eos_threshold: False
+  length_normalization: False
+  scorer: !ref <scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
-    modules: [!ref <Transformer>, !ref <seq_lin>]
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <test_beam_size>
-    using_eos_threshold: !ref <using_max_attn_shift>
-    length_normalization: !ref <length_normalization>
-    scorer: !ref <scorer>
+  modules: [!ref <Transformer>, !ref <seq_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
+  min_decode_ratio: !ref <min_decode_ratio>
+  max_decode_ratio: !ref <max_decode_ratio>
+  beam_size: !ref <test_beam_size>
+  using_eos_threshold: !ref <using_max_attn_shift>
+  length_normalization: !ref <length_normalization>
+  scorer: !ref <scorer>
 
 
 log_softmax: !new:torch.nn.LogSoftmax

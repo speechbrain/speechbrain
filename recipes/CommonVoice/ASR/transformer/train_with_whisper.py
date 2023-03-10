@@ -276,18 +276,12 @@ if __name__ == "__main__":
     tokenizer.set_prefix_tokens(language, "transcribe", False)
 
     # we need to prepare the tokens for searchers
-    hparams["valid_search"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["valid_search"].set_language_token(
-        tokenizer.prefix_tokens[1]
-    )
+    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
 
-    hparams["test_search"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
+    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
     hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
-    
+
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 

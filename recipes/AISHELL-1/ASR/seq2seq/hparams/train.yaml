@@ -100,7 +100,7 @@ using_max_attn_shift: True
 max_attn_shift: 240
 coverage_penalty: 1.5
 temperature: 1.25
-scorer_beam_scale: 0.5 
+scorer_beam_scale: 0.5
 # AISHELL-1 has spaces between words in the transcripts,
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed

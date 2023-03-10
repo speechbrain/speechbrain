@@ -354,7 +354,7 @@ transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
 
 # Scorer
 coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
-   vocab_size: !ref <output_neurons>
+    vocab_size: !ref <output_neurons>
 
 
 scorer_lm: !new:speechbrain.decoders.scorer.ScorerBuilder

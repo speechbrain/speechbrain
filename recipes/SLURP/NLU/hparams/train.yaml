@@ -50,7 +50,7 @@ max_decode_ratio: 10.0
 slu_beam_size: 80
 eos_threshold: 1.5
 temperature: 1.25
-scorer_beam_scale: 0.5 
+scorer_beam_scale: 0.5
 
 dataloader_opts:
     batch_size: !ref <batch_size>
@@ -119,13 +119,13 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 # Scorer
 coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
-   vocab_size: !ref <output_neurons>
+    vocab_size: !ref <output_neurons>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-   full_scorers: [!ref <coverage_scorer>]
-   weights:
-      coverage: 0
-   scorer_beam_scale: !ref <scorer_beam_scale>
+    full_scorers: [!ref <coverage_scorer>]
+    weights:
+        coverage: 0
+    scorer_beam_scale: !ref <scorer_beam_scale>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>

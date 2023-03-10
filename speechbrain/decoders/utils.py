@@ -10,6 +10,7 @@ Authors
 
 import torch
 
+
 def _update_mem(inp_tokens, memory):
     """This function is for updating the memory for transformer searches.
     it is called at each decoding step. When being called, it appends the
@@ -22,10 +23,9 @@ def _update_mem(inp_tokens, memory):
         Contains all the predicted tokens.
     """
     if memory is None:
-        memory = torch.empty(
-            inp_tokens.size(0), 0, device=inp_tokens.device
-        )
+        memory = torch.empty(inp_tokens.size(0), 0, device=inp_tokens.device)
     return torch.cat([memory, inp_tokens.unsqueeze(1)], dim=-1)
+
 
 def inflate_tensor(tensor, times, dim):
     """This function inflates the tensor for times along dim.
@@ -87,6 +87,7 @@ def mask_by_condition(tensor, cond, fill_value):
         cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
     )
     return tensor
+
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
     """Calling batch_size times of filter_seq2seq_output.

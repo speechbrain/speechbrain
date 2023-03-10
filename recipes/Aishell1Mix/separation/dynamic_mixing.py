@@ -18,7 +18,6 @@ import pyloudnorm
 import random
 
 
-
 def build_spk_hashtable_aishell1mix(hparams):
     """
     This function builds a dictionary of speaker-utterance pairs to be used in dynamic mixing

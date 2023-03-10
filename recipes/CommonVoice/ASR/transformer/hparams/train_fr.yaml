@@ -93,7 +93,7 @@ valid_search_every: 5
 valid_beam_size: 10
 test_beam_size: 80
 ctc_decode_weight: 0.3
-scorer_beam_scale: 0.3 
+scorer_beam_scale: 0.3
 
 ############################## models ################################
 

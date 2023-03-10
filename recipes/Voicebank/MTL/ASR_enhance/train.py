@@ -128,7 +128,7 @@ class MTLbrain(sb.Brain):
 
                 # Convert best hypothesis to list
                 predictions["hyps"] = undo_padding(best_hyps, best_lens)
-                
+
         elif self.hparams.ctc_type is not None:
             if self.hparams.ctc_type == "clean":
                 embed = self.modules.src_embedding(clean_feats)

@@ -59,7 +59,6 @@ class SLU(sb.Brain):
 
             return p_seq, transcript_tokens_lens, p_tokens
 
-
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 

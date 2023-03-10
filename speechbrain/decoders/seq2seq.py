@@ -8,7 +8,11 @@ Authors
  * Sung-Lin Yeh 2020
 """
 import torch
-from speechbrain.decoders.utils import inflate_tensor, mask_by_condition, _update_mem
+from speechbrain.decoders.utils import (
+    inflate_tensor,
+    mask_by_condition,
+    _update_mem,
+)
 
 
 class AlivedHypotheses(torch.nn.Module):
@@ -175,13 +179,14 @@ class S2SBaseSearcher(torch.nn.Module):
     def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
         """set the minimum/maximum length the decoder can take."""
         return min_decode_steps, max_decode_steps
-    
+
     def set_n_out(self):
-        """set the number of output tokens. 
-        Overrides this function if the fc layer is embedded 
+        """set the number of output tokens.
+        Overrides this function if the fc layer is embedded
         in the model, e.g., Whisper.
         """
         return self.fc.w.out_features
+
 
 class S2SGreedySearcher(S2SBaseSearcher):
     """ This class implements the general forward-pass of
@@ -212,7 +217,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         log_probs_lst = []
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
-        # the decoding steps can be based on the max number of tokens that a decoder can process 
+        # the decoding steps can be based on the max number of tokens that a decoder can process
         # (e.g., 448 for Whisper).
         _, max_decode_steps = self.change_max_decoding_length(
             0, max_decode_steps
@@ -237,7 +242,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         ) = self._get_top_prediction(predictions, scores, log_probs)
 
         return top_hyps, top_lengths, top_scores, top_log_probs
-    
+
     def _get_top_prediction(self, predictions, scores, log_probs):
         """This method return the best prediction of the greedy search algorithm.
 
@@ -287,6 +292,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
         )
+
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
@@ -763,9 +769,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         self.max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
-        # the decoding steps can be based on the max number of tokens that a decoder can process 
+        # the decoding steps can be based on the max number of tokens that a decoder can process
         # (e.g., 448 for Whisper).
-        self.min_decode_steps, self.max_decode_steps = self.change_max_decoding_length(
+        (
+            self.min_decode_steps,
+            self.max_decode_steps,
+        ) = self.change_max_decoding_length(
             self.min_decode_steps, self.max_decode_steps
         )
 
@@ -1234,6 +1243,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
 
+
 class S2SWhisperGreedySearch(S2SGreedySearcher):
     """
     This class implements the greedy decoding
@@ -1342,6 +1352,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
             int(self.max_decode_ratio * self.max_length),
         )
 
+
 class S2SWhisperBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
@@ -1447,7 +1458,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         """Permutes the memory."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
-    
+
     def set_n_out(self):
         """set the number of output tokens."""
         return self.model.model.decoder.embed_tokens.weight.shape[0]

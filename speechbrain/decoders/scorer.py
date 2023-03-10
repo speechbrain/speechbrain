@@ -95,7 +95,7 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
         # we encode the tokens with the language model tokenizer
         - encoded_seq = [0, 5, 4, 2]
         # we score the tokens with the language model...
-        
+
     Note 1: No memory is used in this scorer as it is not possible to keep tracks of the
     hypotheses. Indeed, at the time step t we can have the hypothesis:
         - tokens_seq = [1, 12, 43]
@@ -108,7 +108,7 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
 
     So, we cannot use the memory and we have to rescore the whole hypotheses at each time step.
     This introduces a computational cost, and we recommend to use the AnyTokensRNNLMScorer that is
-    more efficient than AnyTokensTransformerLMScorer. Even though they are some decoding "errors" it is 
+    more efficient than AnyTokensTransformerLMScorer. Even though they are some decoding "errors" it is
     still better than only rescoring the final hypotheses (or no LMs!).
 
     Note 2: As we are decoding the tokens with the encoder tokenizer, it might happens that
@@ -116,8 +116,8 @@ class BaseAnyTokensScorerInterface(BaseScorerInterface):
 
     For example, if the encoder tokenizer is trained on lower case tokens, and the language model
     tokenizer is trained on upper case tokens, the decoded tokens will be lower case, and the
-    language model will not be able to "understand" them correctly which will leads to bad results. 
-    To solve this issue, we have the normalize_text method that normalize the decoded_seq before encoding 
+    language model will not be able to "understand" them correctly which will leads to bad results.
+    To solve this issue, we have the normalize_text method that normalize the decoded_seq before encoding
     them with the language model tokenizer.
 
     See:
@@ -192,7 +192,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
         independently (tokens) or scoring on the whole sequence (sequence).
         Scoring indendently is slower but more accurate. (default: sequence)
     patience : int
-        The patience to use for scoring on tokens. It is define as when to 
+        The patience to use for scoring on tokens. It is define as when to
         score the hypothesis. If patience is 1, we will score the hypothesis
         at each time step. If patience is 2, we will score the hypothesis
         every 2 time steps. (default: 1)
@@ -295,7 +295,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             logits = self.lm(padded_hyps)
             log_probs = self.softmax(logits / self.temperature)
 
-            # select only the log_probs of the tokens at t+1, 
+            # select only the log_probs of the tokens at t+1,
             # e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
             mask = torch.zeros(
                 (
@@ -308,7 +308,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             )
             mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-            # compute the mean of the log_probs of the tokens at t+1, 
+            # compute the mean of the log_probs of the tokens at t+1,
             # doing the sum may harm the scores as we are summing over a large number of tokens
             # and also it could have some errors in the decoding process
             log_probs_score = (
@@ -339,7 +339,7 @@ class AnyTokensTransformerLMScorer(BaseAnyTokensScorerInterface):
             logits = self.lm(padded_hyps)
             log_probs = self.softmax(logits / self.temperature)
 
-            # select only the log_probs of the tokens at t+1, 
+            # select only the log_probs of the tokens at t+1,
             # e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
             mask = torch.zeros(
                 (
@@ -382,7 +382,7 @@ class AnyTokensRNNLMScorer(BaseAnyTokensScorerInterface):
         independently (tokens) or scoring on the whole sequence (sequence).
         Scoring indendently is slower but more accurate. (default: sequence)
     patience : int
-        The patience to use for scoring on tokens. It is define as when to 
+        The patience to use for scoring on tokens. It is define as when to
         score the hypothesis. If patience is 1, we will score the hypothesis
         at each time step. If patience is 2, we will score the hypothesis
         every 2 time steps. (default: 1)
@@ -1256,7 +1256,7 @@ class ScorerBuilder:
                             alived_hyps, inp_tokens, memory[k], None, attn
                         )
                         alived_hyps.sequence_scores += score * self.weights[k]
-                    else : 
+                    else:
                         new_memory[k] = None
                 else:
                     # we need to set the memory for the permutation

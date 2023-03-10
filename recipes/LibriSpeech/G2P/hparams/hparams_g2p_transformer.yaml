@@ -375,7 +375,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     ctc_fc: !ref <ctc_lin>
 
 coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
-   vocab_size: !ref <output_neurons>
+    vocab_size: !ref <output_neurons>
 
 transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
     language_model: !ref <lm_model>

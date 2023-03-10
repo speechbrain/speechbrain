@@ -192,12 +192,12 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
 
 # Scorer
 coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
-   vocab_size: !ref <output_neurons>
+    vocab_size: !ref <output_neurons>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-   full_scorers: [!ref <coverage_scorer>]
-   weights:
-      coverage: !ref <coverage_penalty>
+    full_scorers: [!ref <coverage_scorer>]
+    weights:
+        coverage: !ref <coverage_penalty>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
@@ -213,7 +213,7 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     max_attn_shift: !ref <max_attn_shift>
     scorer: !ref <scorer>
     temperature: !ref <temperature>
-    
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
