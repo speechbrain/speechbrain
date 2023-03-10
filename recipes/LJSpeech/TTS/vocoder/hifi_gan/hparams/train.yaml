@@ -183,3 +183,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     generator: !ref <generator>
     discriminator: !ref <discriminator>
     counter: !ref <epoch_counter>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        generator: !ref <generator>
