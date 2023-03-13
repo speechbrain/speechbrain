@@ -12,7 +12,6 @@ To run this recipe, go into the "tacotron2" folder and run:
 ```
 python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
-Training takes about X hours on an nvidia RTX8000.
 
 The training logs are available [here](https://drive.google.com/drive/folders/1CbkXPvtLFVrRBeeuMnmTmNCyagNKO6uX?usp=sharing).
 
@@ -46,8 +45,6 @@ To run this recipe, go into the "vocoder/hifi_gan/" folder and run:
 ```
 python train.py hparams/train.yaml --data_folder /path/to/LJspeech
 ```
-
-Training takes about X hours on an nvidia RTX8000.
 
 The training logs are available [here](https://drive.google.com/drive/folders/19sLwV7nAsnUuLkoTu5vafURA9Fo2WZgG?usp=sharing)
 
