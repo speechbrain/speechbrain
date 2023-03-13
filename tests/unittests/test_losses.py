@@ -1,6 +1,5 @@
 import torch
 import pytest
-import math
 
 
 def test_nll(device):
@@ -150,7 +149,7 @@ def test_transducer_loss(device):
         use_torchaudio=False,
     )
     out_cost.backward()
-    assert math.isclose(out_cost.item(), 2.247833251953125, abs_tol=1e-5)
+    assert out_cost.item() == pytest.approx(2.2478, 0.0001)
 
 
 def test_guided_attention_loss_mask(device):

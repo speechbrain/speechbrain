@@ -265,7 +265,7 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["save_folder"],
+            "save_folder": hparams["output_folder"],
             "merge_lst": hparams["train_splits"],
             "merge_name": "train.csv",
             "skip_prep": hparams["skip_prep"],
@@ -311,13 +311,15 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
 
     # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["train_loader_kwargs"],
-        valid_loader_kwargs=hparams["valid_loader_kwargs"],
-    )
+    if hparams["test_only"] is False:
+        # Training
+        asr_brain.fit(
+            asr_brain.hparams.epoch_counter,
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["train_loader_kwargs"],
+            valid_loader_kwargs=hparams["valid_loader_kwargs"],
+        )
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc

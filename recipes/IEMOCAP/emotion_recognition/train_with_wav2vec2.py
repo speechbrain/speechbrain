@@ -248,24 +248,25 @@ if __name__ == "__main__":
     from iemocap_prepare import prepare_data  # noqa E402
 
     # Data preparation, to be run on only one process.
-    sb.utils.distributed.run_on_main(
-        prepare_data,
-        kwargs={
-            "data_original": hparams["data_folder"],
-            "save_json_train": hparams["train_annotation"],
-            "save_json_valid": hparams["valid_annotation"],
-            "save_json_test": hparams["test_annotation"],
-            "split_ratio": [80, 10, 10],
-            "different_speakers": hparams["different_speakers"],
-            "test_spk_id": hparams["test_spk_id"],
-            "seed": hparams["seed"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        sb.utils.distributed.run_on_main(
+            prepare_data,
+            kwargs={
+                "data_original": hparams["data_folder"],
+                "save_json_train": hparams["train_annotation"],
+                "save_json_valid": hparams["valid_annotation"],
+                "save_json_test": hparams["test_annotation"],
+                "split_ratio": hparams["split_ratio"],
+                "different_speakers": hparams["different_speakers"],
+                "test_spk_id": hparams["test_spk_id"],
+                "seed": hparams["seed"],
+            },
+        )
 
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)
 
-    hparams["wav2vec2"] = hparams["wav2vec2"].to("cuda:0")
+    hparams["wav2vec2"] = hparams["wav2vec2"].to(device=run_opts["device"])
     # freeze the feature extractor part when unfreezing
     if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:
         hparams["wav2vec2"].model.feature_extractor._freeze_parameters()

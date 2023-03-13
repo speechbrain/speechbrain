@@ -10,6 +10,7 @@ output_folder: !ref results/tokenizer_bpe51/
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
 train_splits: ["train-synth", "train-real"]
+skip_prep: False
 train_csv: !ref <output_folder>/train-type=direct.csv
 valid_csv: !ref <output_folder>/dev-real-type=direct.csv
 

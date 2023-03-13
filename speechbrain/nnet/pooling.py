@@ -36,7 +36,7 @@ class Pooling1d(nn.Module):
         It is the number of padding elements to apply.
     dilation : int
         Controls the dilation factor of pooling.
-    ceil_mode : int
+    ceil_mode : bool
         When True, will use ceil instead of floor to compute the output shape.
 
     Example
@@ -145,7 +145,7 @@ class Pooling2d(nn.Module):
         It is the number of padding elements to apply.
     dilation : int
         Controls the dilation factor of pooling.
-    ceil_mode : int
+    ceil_mode : bool
         When True, will use ceil instead of floor to compute the output shape.
 
     Example
