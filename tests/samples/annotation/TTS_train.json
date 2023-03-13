@@ -1,24 +1,57 @@
-}
-  "LJ050-0115": {
-    "uttid": "LJ050-0115",
-    "wav": "{data_root}/LJ050-0115.wav",
-    "label": "this is especially necessary with regard to the fbi and cia,",
-    "segment": false,
-    "label_phoneme": "DH IH S IH Z AH S P EH SH AH L IY N EH S AH S EH R IY W IH TH R IH G AA R D T IH DH IY spn AE N D spn S IY AY EY",
+{
+  "LJ050-01310": {
+    "uttid": "LJ050-0131",
+    "wav": "{data_root}/LJ050-0131.wav",
+    "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
+    "segment": true,
+    "label_phoneme": "AH N L EH S AH S IH S T AH M IH Z IH S T AE B L IH SH T spn F ER DH AH F R IY K W AH N T F AO R M AH L R IY V Y UW spn AH V AE K T IH V IH T IY Z DH EH R AH N D ER spn IH N DH IH S R AH G AA R D",
     "start": 0.0,
-    "end": 3.58,
-    "durations": "{data_root}/d_LJ050-0115.npy",
-    "pitch": "{data_root}/LJ050-0115.npy"
+    "end": 7.58,
+    "durations": "{data_root}/d_LJ050-0131.npy",
+    "pitch": "{data_root}/LJ050-0131.npy"
   },
-  "LJ050-0075": {
-    "uttid": "LJ050-0075",
-    "wav": "{data_root}/LJ050-0075.wav",
-    "label": "the commission shares this concern.",
-    "segment": false,
-    "label_phoneme": "DH IY K AH M IH SH AH N SH EH R Z DH IH S K AH N S ER N",
+  "LJ050-01311": {
+    "uttid": "LJ050-0131",
+    "wav": "{data_root}/LJ050-0131.wav",
+    "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
+    "segment": true,
+    "label_phoneme": "AH N L EH S AH S IH S T AH M IH Z IH S T AE B L IH SH T spn F ER DH AH F R IY K W AH N T F AO R M AH L R IY V Y UW spn AH V AE K T IH V IH T IY Z DH EH R AH N D ER spn IH N DH IH S R AH G AA R D",
     "start": 0.0,
-    "end": 1.88,
-    "durations": "{data_root}/d_LJ050-0075.npy",
-    "pitch": "{data_root}/LJ050-0075.npy"
+    "end": 7.58,
+    "durations": "{data_root}/d_LJ050-0131.npy",
+    "pitch": "{data_root}/LJ050-0131.npy"
+  },
+  "LJ050-01312": {
+    "uttid": "LJ050-0131",
+    "wav": "{data_root}/LJ050-0131.wav",
+    "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
+    "segment": true,
+    "label_phoneme": "AH N L EH S AH S IH S T AH M IH Z IH S T AE B L IH SH T spn F ER DH AH F R IY K W AH N T F AO R M AH L R IY V Y UW spn AH V AE K T IH V IH T IY Z DH EH R AH N D ER spn IH N DH IH S R AH G AA R D",
+    "start": 0.0,
+    "end": 7.58,
+    "durations": "{data_root}/d_LJ050-0131.npy",
+    "pitch": "{data_root}/LJ050-0131.npy"
+  },
+  "LJ050-01313": {
+    "uttid": "LJ050-0131",
+    "wav": "{data_root}/LJ050-0131.wav",
+    "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
+    "segment": true,
+    "label_phoneme": "AH N L EH S AH S IH S T AH M IH Z IH S T AE B L IH SH T spn F ER DH AH F R IY K W AH N T F AO R M AH L R IY V Y UW spn AH V AE K T IH V IH T IY Z DH EH R AH N D ER spn IH N DH IH S R AH G AA R D",
+    "start": 0.0,
+    "end": 7.58,
+    "durations": "{data_root}/d_LJ050-0131.npy",
+    "pitch": "{data_root}/LJ050-0131.npy"
+  },
+  "LJ050-01314": {
+    "uttid": "LJ050-0131",
+    "wav": "{data_root}/LJ050-0131.wav",
+    "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
+    "segment": true,
+    "label_phoneme": "AH N L EH S AH S IH S T AH M IH Z IH S T AE B L IH SH T spn F ER DH AH F R IY K W AH N T F AO R M AH L R IY V Y UW spn AH V AE K T IH V IH T IY Z DH EH R AH N D ER spn IH N DH IH S R AH G AA R D",
+    "start": 0.0,
+    "end": 7.58,
+    "durations": "{data_root}/d_LJ050-0131.npy",
+    "pitch": "{data_root}/LJ050-0131.npy"
   }
 }
