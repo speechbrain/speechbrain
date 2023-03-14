@@ -155,6 +155,7 @@ class NMFDecoderAudio(nn.Module):
         return output
 
     def return_W(self):
+        """This function returns the NMF dictionary"""
         W = self.W
         return self.activ(W)
 

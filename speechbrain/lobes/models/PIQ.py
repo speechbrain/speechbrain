@@ -172,6 +172,7 @@ class VectorQuantization(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """Handles error in case grad() is called on the VQ operation. """
         raise RuntimeError(
             "Trying to call `.grad()` on graph containing "
             "`VectorQuantization`. The function `VectorQuantization` "
