@@ -243,6 +243,12 @@ def parse_arguments(arg_list=None):
         help="This flag enables training with automatic mixed-precision.",
     )
     parser.add_argument(
+        "--bfloat16_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with bfloat16 mixed-precision.",
+    )
+    parser.add_argument(
         "--max_grad_norm",
         type=float,
         help="Gradient norm will be clipped to this value, "
@@ -465,6 +471,7 @@ class Brain:
             "find_unused_parameters": False,
             "jit_module_keys": None,
             "auto_mix_prec": False,
+            "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "noprogressbar": False,
@@ -915,7 +922,9 @@ class Brain:
         if self.auto_mix_prec:
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+
+            # Losses are excluded from mixed precision to avoid instabilities
+            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
                     loss / self.grad_accumulation_factor
@@ -928,8 +937,13 @@ class Brain:
                 self.zero_grad()
                 self.optimizer_step += 1
         else:
-            outputs = self.compute_forward(batch, Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            if self.bfloat16_mix_prec:
+                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+                    outputs = self.compute_forward(batch, Stage.TRAIN)
+                    loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            else:
+                outputs = self.compute_forward(batch, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
