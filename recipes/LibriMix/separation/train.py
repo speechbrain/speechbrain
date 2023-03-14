@@ -37,6 +37,8 @@ import csv
 import logging
 from speechbrain.dataio.batch import PaddedBatch
 
+logger = logging.getLogger(__name__)
+
 
 # Define training procedure
 class Separation(sb.Brain):
@@ -571,9 +573,6 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # Logger info
-    logger = logging.getLogger(__name__)
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -582,7 +581,7 @@ if __name__ == "__main__":
     )
 
     # Data preparation
-    from recipes.LibriMix.prepare_data import prepare_librimix
+    from prepare_data import prepare_librimix
 
     run_on_main(
         prepare_librimix,
@@ -711,7 +710,9 @@ if __name__ == "__main__":
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:
         run_on_main(hparams["pretrained_separator"].collect_files)
-        hparams["pretrained_separator"].load_collected()
+        hparams["pretrained_separator"].load_collected(
+            device=run_opts["device"]
+        )
 
     # Brain class initialization
     separator = Separation(

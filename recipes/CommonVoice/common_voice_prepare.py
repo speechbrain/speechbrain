@@ -1,11 +1,11 @@
 """
 Data preparation.
-
 Download: https://voice.mozilla.org/en/datasets
-
 Author
 ------
 Titouan Parcollet
+Luca Della Libera 2022
+Pooneh Mousavi 2022
 """
 
 import os
@@ -32,12 +32,11 @@ def prepare_common_voice(
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
     Download: https://voice.mozilla.org/en/datasets
-
     Arguments
     ---------
     data_folder : str
         Path to the folder where the original Common Voice dataset is stored.
-        This path should include the lang: /datasets/CommonVoice/en/
+        This path should include the lang: /datasets/CommonVoice/<language>/
     save_folder : str
         The directory where to store the csv files.
     train_tsv_file : str, optional
@@ -53,7 +52,6 @@ def prepare_common_voice(
         Specify the language for text normalization.
     skip_prep: bool
         If True, skip data preparation.
-
     Example
     -------
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
@@ -119,7 +117,6 @@ def prepare_common_voice(
 
     # Additional checks to make sure the data folder contains Common Voice
     check_commonvoice_folders(data_folder)
-
     # Creating csv files for {train, dev, test} data
     file_pairs = zip(
         [train_tsv_file, dev_tsv_file, test_tsv_file],
@@ -134,9 +131,7 @@ def prepare_common_voice(
 def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the Common Voice data preparation has been already done.
-
     If the preparation has been done, we can skip it.
-
     Returns
     -------
     bool
@@ -162,7 +157,6 @@ def create_csv(
 ):
     """
     Creates the csv file given a list of wav files.
-
     Arguments
     ---------
     orig_tsv_file : str
@@ -172,7 +166,6 @@ def create_csv(
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-
     Returns
     -------
     None
@@ -234,40 +227,7 @@ def create_csv(
         words = unicode_normalisation(words)
 
         # !! Language specific cleaning !!
-        # Important: feel free to specify the text normalization
-        # corresponding to your alphabet.
-
-        if language in ["en", "fr", "it", "rw"]:
-            words = re.sub(
-                "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-            ).upper()
-
-        if language == "fr":
-            # Replace J'y D'hui etc by J_ D_hui
-            words = words.replace("'", " ")
-            words = words.replace("’", " ")
-
-        elif language == "ar":
-            HAMZA = "\u0621"
-            ALEF_MADDA = "\u0622"
-            ALEF_HAMZA_ABOVE = "\u0623"
-            letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويىءآأؤإئ"
-                + HAMZA
-                + ALEF_MADDA
-                + ALEF_HAMZA_ABOVE
-            )
-            words = re.sub("[^" + letters + " ]+", "", words).upper()
-        elif language == "ga-IE":
-            # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
-            def pfxuc(a):
-                return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
-
-            def galc(w):
-                return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
-
-            words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
-            words = " ".join(map(galc, words.split(" ")))
+        words = language_specific_preprocess(language, words)
 
         # Remove accents if specified
         if not accented_letters:
@@ -286,8 +246,12 @@ def create_csv(
         chars = " ".join([char for char in chars][:])
 
         # Remove too short sentences (or empty):
-        if len(words.split(" ")) < 3:
-            continue
+        if language in ["ja", "ch"]:
+            if len(chars) < 3:
+                continue
+        else:
+            if len(words.split(" ")) < 3:
+                continue
 
         # Composition of the csv_line
         csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
@@ -313,27 +277,87 @@ def create_csv(
     logger.info(msg)
 
 
+def language_specific_preprocess(language, words):
+    # !! Language specific cleaning !!
+    # Important: feel free to specify the text normalization
+    # corresponding to your alphabet.
+
+    if language in ["en", "fr", "it", "rw"]:
+        words = re.sub(
+            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
+        ).upper()
+
+    if language == "de":
+        # this replacement helps preserve the case of ß
+        # (and helps retain solitary occurrences of SS)
+        # since python's upper() converts ß to SS.
+        words = words.replace("ß", "0000ß0000")
+        words = re.sub("[^’'A-Za-z0-9öÖäÄüÜß]+", " ", words).upper()
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+        words = words.replace(
+            "0000SS0000", "ß"
+        )  # replace 0000SS0000 back to ß as its initial presence in the corpus
+
+    if language == "fr":
+        # Replace J'y D'hui etc by J_ D_hui
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+
+    elif language == "ar":
+        HAMZA = "\u0621"
+        ALEF_MADDA = "\u0622"
+        ALEF_HAMZA_ABOVE = "\u0623"
+        letters = (
+            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
+            + HAMZA
+            + ALEF_MADDA
+            + ALEF_HAMZA_ABOVE
+        )
+        words = re.sub("[^" + letters + " ]+", "", words).upper()
+    elif language == "fa":
+        HAMZA = "\u0621"
+        ALEF_MADDA = "\u0622"
+        ALEF_HAMZA_ABOVE = "\u0623"
+        letters = (
+            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
+            + HAMZA
+            + ALEF_MADDA
+            + ALEF_HAMZA_ABOVE
+        )
+        words = re.sub("[^" + letters + " ]+", "", words).upper()
+    elif language == "ga-IE":
+        # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
+        def pfxuc(a):
+            return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
+
+        def galc(w):
+            return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
+
+        words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
+        words = " ".join(map(galc, words.split(" ")))
+    elif language == "es":
+        # Fix the following error in dataset large:
+        # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
+        words = words.replace("$", "s")
+    return words
+
+
 def check_commonvoice_folders(data_folder):
     """
     Check if the data folder actually contains the Common Voice dataset.
-
     If not, raises an error.
-
     Returns
     -------
     None
-
     Raises
     ------
     FileNotFoundError
         If data folder doesn't contain Common Voice dataset.
     """
-
     files_str = "/clips"
-
     # Checking clips
     if not os.path.exists(data_folder + files_str):
-
         err_msg = (
             "the folder %s does not exist (it is expected in "
             "the Common Voice dataset)" % (data_folder + files_str)
@@ -342,20 +366,13 @@ def check_commonvoice_folders(data_folder):
 
 
 def unicode_normalisation(text):
-
-    try:
-        text = unicode(text, "utf-8")
-    except NameError:  # unicode is a default on python 3
-        pass
     return str(text)
 
 
 def strip_accents(text):
-
     text = (
         unicodedata.normalize("NFD", text)
         .encode("ascii", "ignore")
         .decode("utf-8")
     )
-
     return str(text)

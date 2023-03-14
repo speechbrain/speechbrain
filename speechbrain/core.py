@@ -187,6 +187,12 @@ def parse_arguments(arg_list=None):
         "If a non-positive number is passed, all epochs are run.",
     )
     parser.add_argument(
+        "--debug_persistently",
+        default=False,
+        action="store_true",
+        help="Keep data stored during debug mode (not using /tmp).",
+    )
+    parser.add_argument(
         "--log_config",
         type=str,
         help="A file storing the configuration options for logging",
@@ -268,6 +274,13 @@ def parse_arguments(arg_list=None):
         "--optimizer_step_limit",
         type=int,
         help="Number of optimizer steps to run. If not passed, all epochs are run.",
+    )
+    parser.add_argument(
+        "--tqdm_colored_bar",
+        default=False,
+        action="store_true",
+        help="Enable colored progress-bar in tqdm. If this is "
+        "false, tqdm shall use default colors.",
     )
 
     # Accept extra args to override yaml
@@ -358,7 +371,7 @@ class Brain:
         These modules are passed to the optimizer by default if they have
         trainable parameters, and will have ``train()``/``eval()`` called on them.
     opt_class : torch.optim class
-        A torch optimizer constructor that has takes only the list of
+        A torch optimizer constructor that takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
@@ -379,6 +392,8 @@ class Brain:
         debug_epochs (int)
             Number of epochs to run in debug mode, Default ``2``.
             If a non-positive number is passed, all epochs are run.
+        debug_persistently (bool)
+            Keep data stored during debug mode (not using /tmp), Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
         distributed_backend (str)
@@ -442,6 +457,7 @@ class Brain:
             "debug": False,
             "debug_batches": 2,
             "debug_epochs": 2,
+            "debug_persistently": False,
             "device": "cpu",
             "data_parallel_backend": False,
             "distributed_launch": False,
@@ -455,6 +471,12 @@ class Brain:
             "ckpt_interval_minutes": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
+            "tqdm_colored_bar": False,
+            "tqdm_barcolor": {
+                "train": "GREEN",
+                "valid": "MAGENTA",
+                "test": "CYAN",
+            },
         }
 
         for arg, default in run_opt_defaults.items():
@@ -521,6 +543,7 @@ class Brain:
         # Checkpointer should point at a temporary directory in debug mode
         if (
             self.debug
+            and not self.debug_persistently
             and self.checkpointer is not None
             and hasattr(self.checkpointer, "checkpoints_dir")
         ):
@@ -585,6 +608,10 @@ class Brain:
         # Add this class to the checkpointer for intra-epoch checkpoints
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
+
+        # Force default color for tqdm progrressbar
+        if not self.tqdm_colored_bar:
+            self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -739,6 +766,14 @@ class Brain:
 
         # Possibly make a DistributedSampler or a wrapper for some other sampler
         if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            # sort or not
+            if hasattr(self.hparams, "sorting"):
+                shuffle_ddp = (
+                    self.hparams.sorting == "random"
+                )  # False if 'ascending' or 'descending'
+            else:
+                shuffle_ddp = True
+
             drop_last = loader_kwargs.get("drop_last", False)
             # num_replicas arg is equal to world_size
             # and retrieved automatically within
@@ -757,7 +792,10 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=True, drop_last=drop_last
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle_ddp,
+                    drop_last=drop_last,
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -767,7 +805,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
-                    shuffle=True,
+                    shuffle=shuffle_ddp,
                 )
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
@@ -817,6 +855,16 @@ class Brain:
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        """Sets the gradients of all optimized ``torch.Tensor``s to zero
+        if ``set_to_none=False`` (default) or to None otherwise.
+
+        Setting gradients to None should save the memory, e.g.
+        during ``evaluate()`` and thus larger batch might be used.
+        """
+        if hasattr(self, "optimizer"):
+            self.optimizer.zero_grad(set_to_none)
+
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
 
@@ -865,7 +913,6 @@ class Brain:
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            self.optimizer.zero_grad()
             with torch.cuda.amp.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
@@ -878,6 +925,7 @@ class Brain:
                 if self.check_gradients(loss):
                     self.scaler.step(self.optimizer)
                 self.scaler.update()
+                self.zero_grad()
                 self.optimizer_step += 1
         else:
             outputs = self.compute_forward(batch, Stage.TRAIN)
@@ -887,7 +935,7 @@ class Brain:
             if should_step:
                 if self.check_gradients(loss):
                     self.optimizer.step()
-                self.optimizer.zero_grad()
+                self.zero_grad()
                 self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
@@ -985,6 +1033,7 @@ class Brain:
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
         self.modules.train()
+        self.zero_grad()
 
         # Reset nonfinite count to 0 each epoch
         self.nonfinite_count = 0
@@ -996,12 +1045,12 @@ class Brain:
 
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
-
         with tqdm(
             train_set,
             initial=self.step,
             dynamic_ncols=True,
             disable=not enable,
+            colour=self.tqdm_barcolor["train"],
         ) as t:
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
@@ -1040,6 +1089,7 @@ class Brain:
                     last_ckpt_time = time.time()
 
         # Run train "on_stage_end" on all processes
+        self.zero_grad(set_to_none=True)  # flush gradients
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1052,7 +1102,10 @@ class Brain:
             avg_valid_loss = 0.0
             with torch.no_grad():
                 for batch in tqdm(
-                    valid_set, dynamic_ncols=True, disable=not enable
+                    valid_set,
+                    dynamic_ncols=True,
+                    disable=not enable,
+                    colour=self.tqdm_barcolor["valid"],
                 ):
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
@@ -1200,11 +1253,18 @@ class Brain:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(
-                        module,
-                        device_ids=[self.device],
-                        find_unused_parameters=self.find_unused_parameters,
-                    )
+                    if self.distributed_backend == "gloo":
+                        module = DDP(
+                            module,
+                            device_ids=None,
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
+                    else:
+                        module = DDP(
+                            module,
+                            device_ids=[self.device],
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
                     self.modules[name] = module
         else:
             # data_parallel_backend
@@ -1264,7 +1324,10 @@ class Brain:
         avg_test_loss = 0.0
         with torch.no_grad():
             for batch in tqdm(
-                test_set, dynamic_ncols=True, disable=not progressbar
+                test_set,
+                dynamic_ncols=True,
+                disable=not progressbar,
+                colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)

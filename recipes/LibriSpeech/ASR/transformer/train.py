@@ -151,40 +151,6 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach().cpu()
-
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
         with torch.no_grad():
@@ -268,6 +234,41 @@ class ASR(sb.core.Brain):
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
+
+    def fit_batch(self, batch):
+
+        should_step = self.step % self.grad_accumulation_factor == 0
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            with torch.cuda.amp.autocast():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                self.scaler.scale(
+                    loss / self.grad_accumulation_factor
+                ).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.zero_grad()
+                self.optimizer_step += 1
+                self.hparams.noam_annealing(self.optimizer)
+        else:
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.zero_grad()
+                self.optimizer_step += 1
+                self.hparams.noam_annealing(self.optimizer)
+
+        self.on_fit_batch_end(batch, outputs, loss, should_step)
+        return loss.detach().cpu()
 
 
 def dataio_prepare(hparams):
@@ -393,7 +394,7 @@ def dataio_prepare(hparams):
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["max_batch_len_val"],
             num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
             shuffle=dynamic_hparams["shuffle_ex"],
@@ -438,9 +439,9 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "merge_lst": hparams["train_splits"],
-            "merge_name": hparams["train_csv"],
+            "merge_name": "train.csv",
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -479,6 +480,7 @@ if __name__ == "__main__":
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
+
     if valid_bsampler is not None:
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
