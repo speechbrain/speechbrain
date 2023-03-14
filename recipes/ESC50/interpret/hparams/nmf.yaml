@@ -49,10 +49,6 @@ sample_rate: 44100
 
 device: "cpu"
 
-# Feature parameters
-
-# Number of classes
-
 shuffle: True
 dataloader_options:
     batch_size: !ref <batch_size>
@@ -86,7 +82,7 @@ K: 100
 N_FREQ: 513
 
 # NMF Decoder
-nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoder
+nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
     n_comp: !ref <K>
     n_freq: !ref <N_FREQ>
     # init_file: !ref <nmf_d_path>

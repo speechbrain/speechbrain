@@ -16,7 +16,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
-from train_classifier import dataio_prep
+from train_l2i import dataio_prep
 
 
 class NMFBrain(sb.core.Brain):
@@ -36,7 +36,7 @@ class NMFBrain(sb.core.Brain):
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
         X_stft_tf = torch.log1p(X_stft_power)
         z = self.hparams.nmf_encoder(X_stft_tf.permute(0, 2, 1))
-        Xhat = torch.matmul(self.hparams.nmf_decoder.return_W(), z.squeeze())
+        Xhat = self.hparams.nmf_decoder(z)
 
         return Xhat
 
@@ -55,8 +55,7 @@ class NMFBrain(sb.core.Brain):
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        """Gets called at the end of an epoch.
-        """
+        """Gets called at the end of an epoch."""
         # Compute/store important stats
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss

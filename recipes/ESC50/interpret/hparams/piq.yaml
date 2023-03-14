@@ -1,12 +1,3 @@
-# #################################
-# The recipe for training an L2I interpretability method on the ESC50 dataset.
-#
-# Author:
-#  * Cem Subakan 2022
-#  * Francesco Paissan 2022
-#  (based on the SpeechBrain UrbanSound8k recipe)
-# #################################
-
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
@@ -14,15 +5,17 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: L2I
+experiment_name: piq
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 test_only: False
-save_interpretations: False
+save_interpretations: True
+interpret_period: 10
 
 # Tensorboard logs
 use_tensorboard: False
@@ -33,6 +26,8 @@ train_annotation: !ref <data_folder>/manifest/train.json
 valid_annotation: !ref <data_folder>/manifest/valid.json
 test_annotation: !ref <data_folder>/manifest/test.json
 
+# To standardize results, UrbanSound8k has pre-separated samples into
+# 10 folds for multi-fold validation
 train_fold_nums: [1, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
@@ -42,10 +37,16 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 200
-batch_size: 2
-lr: 0.0001
-sample_rate: 44100
-interpret_period: 1
+batch_size: 16
+lr: 0.0002
+base_lr: 0.00002
+max_lr: !ref <lr>
+step_size: 65000
+sample_rate: 16000
+use_vq: True
+rec_loss_coef: 1
+use_mask_output: True
+mask_th: 0.35
 
 device: "cuda:0"
 
@@ -54,6 +55,8 @@ n_mels: 80
 left_frames: 0
 right_frames: 0
 deltas: False
+amp_to_db: True
+normalize: True
 
 # Number of classes
 out_n_neurons: 50
@@ -67,6 +70,21 @@ dataloader_options:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
+## Data augmentation
+
+augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [100]
+
+augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
@@ -74,42 +92,54 @@ opt_class: !name:torch.optim.Adam
 lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
     patience: 3
-    dont_halve_until_epoch: 50
+    dont_halve_until_epoch: 100
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        theta: !ref <theta>
         psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
 
-compute_features: !new:speechbrain.lobes.features.Fbank
-    n_mels: !ref <n_mels>
-    left_frames: !ref <left_frames>
-    right_frames: !ref <right_frames>
-    deltas: !ref <deltas>
-    sample_rate: !ref <sample_rate>
-    n_fft: 1024
-    win_length: 20
-    hop_length: 10
 
-embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
-    mel_bins: !ref <n_mels>
-    emb_dim: 2048
-    return_reps: True
+# Model and pre-processing
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+use_pretrain: False
+
+# embedding_model: !new:custom_models.Conv2dEncoder_v2
+embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
+    dim: 256
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 2048
+    input_size: 256
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
+embedding_model_path: "fpaissan/conv2d_us8k/embedding_modelft.ckpt"
+classifier_model_path: "fpaissan/conv2d_us8k/classifier.ckpt"
+pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+    paths:
+        embedding_model: !ref <embedding_model_path>
+        classifier: !ref <classifier_model_path>
+
 # Interpretation hyperparams
-K: 100
-n_freq: 513
+T: 413
+K: 1024
+FREQ: 513
 
 # pre-processing
 n_fft: 1024
@@ -132,37 +162,17 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.L2I.Psi
-theta: !new:speechbrain.lobes.models.L2I.Theta
+psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSI_Audio
+    dim: 256
+    K: !ref <K>
+    shared_keys: 0
+    activate_class_partitioning: True
+    use_adapter: True
+    adapter_reduce_dim: True
 
-# NMF Decoder
-nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoder
-    n_comp: !ref <K>
-    n_freq: !ref <n_freq>
-    device: !ref <device>
-
-alpha: 10 # applied to NMF loss
-beta: 0.8 # L1 regularization to time activations
 k_fidelity: 3 # top-k fidelity
-
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
     compute_istft: !ref <compute_istft>
-    compute_features: !ref <compute_features>
     psi: !ref <psi_model>
-    theta: !ref <theta>
-
-embedding_model_path: cemsubakan/cnn14-esc50/embedding_model_esc50ft.ckpt
-classifier_model_path: cemsubakan/cnn14-esc50/classifier_esc50.ckpt
-nmf_decoder_path: cemsubakan/cnn14-esc50/nmf_decoder.ckpt
-pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        embedding_model: !ref <embedding_model>
-        classifier: !ref <classifier>
-        nmf_decoder: !ref <nmf_decoder>
-    paths:
-        embedding_model: !ref <embedding_model_path>
-        classifier: !ref <classifier_model_path>
-        nmf_decoder: !ref <nmf_decoder_path>

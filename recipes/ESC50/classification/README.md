@@ -1,26 +1,16 @@
 # Summary
 
-This recipe implements the following:
+This recipe implements a classification training script (`train_classifier.py`) for the ESC50 multiclass sound classification dataset. This classification is mainly adapted from the Speechbrain UrbanSound8k recipe. The classification recipe makes use of a [CNN14 model](https://arxiv.org/abs/1912.10211) and a convolutional encoder pretrained on the [VGG Sound](https://www.robots.ox.ac.uk/~vgg/data/vggsound/) dataset with self-supervised learning. The scripts offers the possibility to train both with log-spectra and log-mel audio features.
 
-- A classification training script (`train.py`) for the ESC50 multiclass sound classification dataset. This classification is mainly adapted from the Speechbrain UrbanSound8k recipe. The classification recipe makes use of a [CNN14 model](https://arxiv.org/abs/1912.10211) pretrained on the [VGG Sound](https://www.robots.ox.ac.uk/~vgg/data/vggsound/) dataset with self-supervised learning.
+We have two main training scripts. Here's the breakdown, and how to run them:
 
-- [Listen to Interpret](https://arxiv.org/abs/2202.11479v2) which makes use of Non-Negative Matrix Factorization to reconstruct the classifier hidden representation in order to provide an interpretation audio signal for the classifier decision. The corresponding training script is `train_l2i.py`.
+- *The training script for CNN14 model:* This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/1XLleSta8-GE47T7IFMK-i8apHOs-4NNT?usp=share_link`](https://drive.google.com/drive/folders/1XLleSta8-GE47T7IFMK-i8apHOs-4NNT?usp=share_link);
 
+- *The training script for the conv2d-based model:* This script trains an simple convolutional classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link`](https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link).
 
-- We have three main training scripts. Here's the breakdown, and how to run them:
-
-	* *The training script for the classifier:* This script trains a classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1odiG8UOsNfXd3LGkKnGRIFa8XfPU9FAU?usp=share_link`.
-
-	* *The training script NMF on ESC50:* This script trains an NMF model on the ESC50 dataset. To run this, you can use the command `python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1bjniBr6fuYiPyKNlcyiMbHW-XzZytkUt?usp=share_link`.
-
-	* *The training script for L2I interpretation method:*: This script trains the L2I method on the ESC50 dataset. To run this you can use the command `python train_l2i.py hparams/l2i.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1eMPpDSOeGQ0awMPf8LeWZkPy0KP7XV_X?usp=share_link`.
-
-
-- Note that the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it.
-
-- Note that all of the necessary models are downloaded automatically for each training script.
-
-
+Note that:
+  - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
+  - all of the necessary models are downloaded automatically for each training script.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

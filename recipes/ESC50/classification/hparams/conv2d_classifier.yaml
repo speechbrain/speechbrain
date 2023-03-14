@@ -8,10 +8,6 @@ data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
 open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
-# TODO the follwing folder will contain the resampled audio
-# files (mono channel and config SR) to train on
-#reasmpled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
-#
 experiment_name: conv2dv2_classifier-16k
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -59,11 +55,6 @@ normalize: True
 # Number of classes
 out_n_neurons: 50
 
-# Note that it's actually important to shuffle the data here
-# (or at the very least, not sort the data by duration)
-# Also note that this does not violate the UrbanSound8k "no-shuffle" policy
-# because this does not mix samples from folds in train to valid/test, only
-# within train or valid, or test
 shuffle: True
 dataloader_options:
     batch_size: !ref <batch_size>
@@ -76,12 +67,9 @@ embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-   input_size: 256
-   out_neurons: !ref <out_n_neurons>
-   lin_blocks: 1
-
-     # classifier: !new:custom_models.custom_classifier
-     # dim: 256
+    input_size: 256
+    out_neurons: !ref <out_n_neurons>
+    lin_blocks: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -94,48 +82,6 @@ augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
-
-    #add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
-    #    openrir_folder: !ref <open_rir_folder>
-    #    openrir_max_noise_len: 3.0  # seconds
-    #    reverb_prob: 1.0
-    #    noise_prob: 0.0
-    #    noise_snr_low: 0
-    #    noise_snr_high: 15
-    #    rir_scale_factor: 1.0
-    #
-    #add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    #    openrir_folder: !ref <open_rir_folder>
-    #    openrir_max_noise_len: 3.0  # seconds
-    #    reverb_prob: 0.0
-    #    noise_prob: 1.0
-    #    noise_snr_low: 0
-    #    noise_snr_high: 15
-    #    rir_scale_factor: 1.0
-    #
-    #add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    #    openrir_folder: !ref <open_rir_folder>
-    #    openrir_max_noise_len: 3.0  # seconds
-    #    reverb_prob: 1.0
-    #    noise_prob: 1.0
-    #    noise_snr_low: 0
-    #    noise_snr_high: 15
-    #    rir_scale_factor: 1.0
-
-
-# Definition of the augmentation pipeline.
-# If concat_augment = False, the augmentation techniques are applied
-# in sequence. If concat_augment = True, all the augmented signals
-# # are concatenated in a single big batch.
-
-augment_pipeline: [
-    #!ref <augment_wavedrop>,
-    #!ref <augment_speed>,
-    #!ref <add_rev>,
-    #!ref <add_noise>,
-    #!ref <add_rev_noise>
-]
-concat_augment: True
 
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
@@ -160,11 +106,6 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
-    #augment_wavedrop: !ref <augment_wavedrop>
-    #augment_speed: !ref <augment_speed>
-    #add_rev: !ref <add_rev>
-    #add_noise: !ref <add_noise>
-    #add_rev_noise: !ref <add_rev_noise>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
@@ -173,8 +114,6 @@ compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
     loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
         margin: 0.2
         scale: 30
-
-# compute_error: !name:speechbrain.nnet.losses.classification_error
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -205,8 +144,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 # If you do not want to use the pretrained separator you can simply delete pretrained_separator field.
 embedding_model_path: "fpaissan/conv2d_us8k/embedding_model.ckpt"
 pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
-     collect_in: !ref <save_folder>
-     loadables:
-         embedding_model: !ref <embedding_model>
-     paths:
-         embedding_model: !ref <embedding_model_path>
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    paths:
+        embedding_model: !ref <embedding_model_path>

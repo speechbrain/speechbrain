@@ -4,14 +4,15 @@
  * Cem Subakan 2022
  * Francesco Paissan 2022
 """
-
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+from speechbrain.lobes.models.PIQ import ResBlockAudio
+
 
 class Psi(nn.Module):
-    """ Convolutional Layers to estimate NMF Activations from Classifier Representations
+    """Convolutional Layers to estimate NMF Activations from Classifier Representations
 
     Arguments
     ---------
@@ -102,6 +103,167 @@ class Psi(nn.Module):
         x = self.conv(x)
         x = self.act(self.out_conv(x)).squeeze(3)
         return x
+
+
+class NMFDecoderAudio(nn.Module):
+    """This class implements an NMF decoder
+
+    Arguments
+    ---------
+    n_comp : int
+        Number of NMF components
+    n_freq : int
+        The number of frequency bins in the NMF dictionary
+    device : str
+        The device to run the model
+
+    Example:
+    --------
+    >>> NMF_dec = NMFDecoderAudio(20, 210, device='cpu')
+    >>> H = torch.rand(3, 20, 150)
+    >>> Xhat = NMF_dec.forward(H)
+    >>> print(Xhat.shape)
+    torch.Size([3, 210, 150])
+    """
+
+    def __init__(self, n_comp=100, n_freq=513, device="cuda"):
+        super(NMFDecoderAudio, self).__init__()
+
+        self.W = nn.Parameter(
+            0.1 * torch.rand(n_freq, n_comp), requires_grad=True
+        )
+        self.activ = nn.ReLU()
+
+    def forward(self, H):
+        """The forward pass for NMF given the activations H
+
+        Arguments:
+        ---------
+        H : torch.Tensor
+            The activations Tensor with shape B x n_comp x T
+
+        where B = Batchsize
+              n_comp = number of NMF components
+              T = number of timepoints
+        """
+        # Assume input of shape n_batch x n_comp x T
+
+        H = self.activ(H)
+        temp = self.activ(self.W).unsqueeze(0)
+        output = torch.einsum("bij, bjk -> bik", temp, H)
+
+        return output
+
+    def return_W(self):
+        W = self.W
+        return self.activ(W)
+
+
+def weights_init(m):
+    """
+    Applies Xavier initialization to network weights.
+    """
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        try:
+            nn.init.xavier_uniform_(m.weight.data)
+            m.bias.data.fill_(0)
+        except AttributeError:
+            print("Skipping initialization of ", classname)
+
+
+class PsiOptimized(nn.Module):
+    """Convolutional Layers to estimate NMF Activations from Classifier Representations, optimized for log-spectra.
+
+    Arguments
+    ---------
+    dim: int
+        Dimension of the hidden representations (input to the classifier).
+    K : int
+        Number of NMF components (or equivalently number of neurons at the output per timestep)
+    num_classes : int
+        Number of possible classes.
+    use_adapter : bool
+        `True` if you wish to learn an adapter for the latent representations.
+    adapter_reduce_dim: bool
+        `True` if the adapter should compress the latent representations.
+
+    Example
+    -------
+    >>> inp = torch.randn(16, 256, 26, 32)
+    >>> psi = PsiOptimized(dim=256, K=100, use_adapter=False, adapter_reduce_dim=False)
+    >>> h, inp_ad= psi(inp)
+    >>> print(h.shape, inp_ad.shape)
+    torch.Size([16, 1, 417, 100]) torch.Size([16, 256, 26, 32])
+    """
+
+    def __init__(
+        self,
+        dim=128,
+        K=100,
+        numclasses=50,
+        use_adapter=False,
+        adapter_reduce_dim=True,
+    ):
+        """
+        Computes NMF activations from hidden state.
+        """
+        super().__init__()
+
+        self.use_adapter = use_adapter
+        self.adapter_reduce_dim = adapter_reduce_dim
+        if use_adapter:
+            self.adapter = ResBlockAudio(dim)
+
+            if adapter_reduce_dim:
+                self.down = nn.Conv2d(dim, dim, 4, (2, 2), 1)
+                self.up = nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1)
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(dim, dim, 3, (2, 2), 1),
+            nn.ReLU(True),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, 1, 12, 1, 1),
+            nn.ReLU(),
+            nn.Linear(513, K),
+            nn.ReLU(),
+        )
+        self.apply(weights_init)
+
+    def forward(self, hs):
+        """
+        Computes forward step.
+        Arguments
+        -------
+        hs : torch.Tensor
+            Latent representations (input to the classifier). Expected shape `torch.Size([B, C, H, W])`.
+
+        Returns
+        -------
+        NMF activations and adapted representations. Shape `torch.Size([B, 1, T, 100])`. : torch.Tensor
+        """
+        if self.use_adapter:
+            hcat = self.adapter(hs)
+        else:
+            hcat = hs
+
+        if self.adapter_reduce_dim:
+            hcat = self.down(hcat)
+            z_q_x_st = self.up(hcat)
+            out = self.decoder(z_q_x_st)
+        else:
+            out = self.decoder(hcat)
+
+        return out, hcat
 
 
 class NMFDecoder(nn.Module):
@@ -209,7 +371,6 @@ class Theta(nn.Module):
               n_comp = number of NMF components
               T = number of timepoints
         """
-
         theta_out = self.hard_att(H).squeeze(2)
         theta_out = self.classifier(theta_out)
         return theta_out

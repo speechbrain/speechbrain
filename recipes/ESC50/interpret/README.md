@@ -1,24 +1,20 @@
 # Summary
 
-This recipe implements the following:
+This recipe implements the following posthoc interpretability techniques. This trainings run on pre-trained models from `recipes/ESC50/classification/` automatically downloaded from HuggingFace Hub. If needed, you can train your own classifier with the instruction in the reference README.
 
-- A classification training script (`train.py`) for the ESC50 multiclass sound classification dataset. This classification is mainly adapted from the Speechbrain UrbanSound8k recipe. The classification recipe makes use of a [CNN14 model](https://arxiv.org/abs/1912.10211) pretrained on the [VGG Sound](https://www.robots.ox.ac.uk/~vgg/data/vggsound/) dataset with self-supervised learning.
-
+- [Posthoc Interpretability via Quantization]() which makes use of vector quantization on the classifier's representations to reconstruct the predictions. The companion website for PIQ is [here](https://piqinter.github.io/). The corresponding training script is `train_piq.py`.
+    * *The training script for PIQ:* This script trains PIQ on a convolutional classifier working on the ESC50 dataset. To run this, you can use the command `python train_piq.py hparams/piq.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `update link`. Companion website with samples can be found [here](https://piqinter.github.io/).
 - [Listen to Interpret](https://arxiv.org/abs/2202.11479v2) which makes use of Non-Negative Matrix Factorization to reconstruct the classifier hidden representation in order to provide an interpretation audio signal for the classifier decision. The corresponding training script is `train_l2i.py`.
 
+	* *The training script NMF on ESC50:* This script trains an NMF model on the ESC50 dataset. To run this, you can use the command `python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1cUC5vpZVMuZi6bGhLHduoi6I-tuh4Bwu?usp=share_link`.
 
-- We have three main training scripts. Here's the breakdown, and how to run them:
+    * *The training script for L2I interpretation method on convolutional classifier:*: This script trains the L2I method on the ESC50 dataset, interpreting a convolutional model. To run this you can use the command `python train_l2i.py hparams/l2i_conv2dclassifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link`](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
 
-	* *The training script for the classifier:* This script trains a classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1odiG8UOsNfXd3LGkKnGRIFa8XfPU9FAU?usp=share_link`.
+	* *The training script for L2I interpretation method on CNN14:*: This script trains the L2I method on the ESC50 dataset, interpreting a CNN14 model. To run this you can use the command `python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link`](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
 
-	* *The training script NMF on ESC50:* This script trains an NMF model on the ESC50 dataset. To run this, you can use the command `python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1bjniBr6fuYiPyKNlcyiMbHW-XzZytkUt?usp=share_link`.
-
-	* *The training script for L2I interpretation method:*: This script trains the L2I method on the ESC50 dataset. To run this you can use the command `python train_l2i.py hparams/l2i.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `https://drive.google.com/drive/folders/1eMPpDSOeGQ0awMPf8LeWZkPy0KP7XV_X?usp=share_link`.
-
-
-- Note that the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it.
-
-- Note that all of the necessary models are downloaded automatically for each training script.
+Note that:
+    - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
+    - all of the necessary models are downloaded automatically for each training script.
 
 
 
