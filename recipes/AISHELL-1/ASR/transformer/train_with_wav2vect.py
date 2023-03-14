@@ -33,7 +33,7 @@ class ASR(sb.core.Brain):
                 tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
 
         # compute features
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         current_epoch = self.hparams.epoch_counter.current
 
         if stage == sb.Stage.TRAIN:
@@ -288,6 +288,10 @@ class ASR(sb.core.Brain):
                 "wav2vec_opt", self.optimizer_wav2vect
             )
             self.checkpointer.add_recoverable("modelopt", self.optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.optimizer_wav2vect.zero_grad(set_to_none)
+        self.optimizer.zero_grad(set_to_none)
 
 
 def dataio_prepare(hparams):

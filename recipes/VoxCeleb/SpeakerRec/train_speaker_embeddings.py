@@ -223,7 +223,7 @@ if __name__ == "__main__":
             "save_folder": hparams["save_folder"],
             "verification_pairs_file": veri_file_path,
             "splits": ["train", "dev"],
-            "split_ratio": [90, 10],
+            "split_ratio": hparams["split_ratio"],
             "seg_dur": hparams["sentence_len"],
             "skip_prep": hparams["skip_prep"],
         },

@@ -34,11 +34,11 @@ train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
-train_csv: !ref <data_folder>/train.csv
-valid_csv: !ref <data_folder>/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-    - !ref <data_folder>/test-clean.csv
-    - !ref <data_folder>/test-other.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
@@ -48,10 +48,11 @@ test_csv:
 number_of_epochs: 110
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
-grad_accumulation_factor: 4
+grad_accumulation_factor: 1
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
-sorting: ascending
+sorting: random
+num_workers: 4
 
 # stages related parameters
 # stage_one_epochs: 90
@@ -63,20 +64,26 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
-dynamic_batching: False
+# This setup works well for V100 32GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_len: 900
+max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
 
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 100000 # in terms of frames
-    num_buckets: 200
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: descending
-    max_batch_ex: -1
+    max_batch_len: !ref <max_batch_len>
+    max_batch_len_val: !ref <max_batch_len_val>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+    max_batch_ex: 128
 
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
+    num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
     batch_size: 1
@@ -91,7 +98,7 @@ nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 4
 d_ffn: 1024
-transformer_dropout: 0.0
+transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 
@@ -230,7 +237,6 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
     n_warmup_steps: 25000
-#    model_size: !ref <d_model>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

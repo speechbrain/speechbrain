@@ -23,8 +23,14 @@ data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
 vocab_size: 1000 #for SentencePiece tokenizer (unigram)
 
+annotation_train: !ref <data_folder>/train.json
+annotation_valid: !ref <data_folder>/valid.json
+annotation_test: !ref <data_folder>/test.json
+skip_prep: False
+
 # URL for the HuggingFace model we want to load (BASE here)
 wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # wav2vec 2.0 specific parameters
 wav2vec2_frozen: False
@@ -57,7 +63,7 @@ test_dataloader_options:
     num_workers: 4
 
 # Feature parameters (W2V2 etc)
-features_dim: 768 #base wav2vec output dimension, for large replace by 1024
+features_dim: 768 # base wav2vec output dimension, for large replace by 1024
 
 #projection for w2v
 enc_dnn_layers: 1
@@ -94,7 +100,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <wav2vec2_frozen>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
 
 
 #linear projection

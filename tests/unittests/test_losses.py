@@ -149,7 +149,7 @@ def test_transducer_loss(device):
         use_torchaudio=False,
     )
     out_cost.backward()
-    assert out_cost.item() == 2.247833251953125
+    assert out_cost.item() == pytest.approx(2.2478, 0.0001)
 
 
 def test_guided_attention_loss_mask(device):
