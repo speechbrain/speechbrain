@@ -84,7 +84,7 @@ class ASR(sb.core.Brain):
 
         # output layer for seq2seq log-probabilities
         pred = self.modules.seq_lin(pred)
-        p_seq = self.hparams.log_softmax(pred)
+        p_seq = self.hparams.log_softmax(pred, dtype=torch.float32)
 
         # Compute outputs
         hyps = None
