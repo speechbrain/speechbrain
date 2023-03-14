@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Recipe for training a Bayesian Transformer ASR system with LibriSpeech (https://arxiv.org/abs/2301.11276).
+"""Recipe for training a Bayesian Transformer ASR system (https://arxiv.org/abs/2301.11276)
+with LibriSpeech via Bayes by Backprop (https://arxiv.org/abs/1505.05424).
 The system employs an encoder, a decoder, and an attention mechanism between them.
-Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
-language model.
+Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural language model.
 
 To run this recipe, do the following:
 > python train_bayesspeech.py hparams/transformer_bayesspeech.yaml
@@ -11,10 +11,14 @@ With the default hyperparameters, the system employs a convolutional frontend an
 The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
 language model is used  on the top of decoder probabilities.
 
-The neural network is trained on both CTC and negative-log likelihood
-targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
+Linear layers are turned into Bayesian linear layers by placing a normal prior and a normal
+variational posterior upon their weights and biases. The Bayesian neural network is trained
+to minimize the evidence lower bound (ELBO), which is a trade-off between the simplicity
+of the prior (complexity loss) and the complexity of the data (likelihood loss).
+The likelihood loss is the standard loss function used in non-Bayesian ASR transformers
+(CTC + negative-log likelihood), the complexity loss is the Kullback-Leibler divergence between
+variational posterior and prior. Sub-word units estimated with Byte Pairwise Encoding (BPE) are
+used as basic recognition tokens. Training is performed on the full LibriSpeech dataset (960 h).
 
 The best model is the average of the checkpoints from last 5 epochs.
 
@@ -155,39 +159,10 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach().cpu()
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        if should_step:
+            # anneal lr every update
+            self.hparams.noam_annealing(self.optimizer)
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
