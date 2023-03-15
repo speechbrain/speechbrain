@@ -418,7 +418,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
         return tensors[0].unsqueeze(0), torch.tensor([1.0])
 
     if not (
-        any(
+        all(
             [tensors[i].ndim == tensors[0].ndim for i in range(1, len(tensors))]
         )
     ):
