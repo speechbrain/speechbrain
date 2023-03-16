@@ -1,7 +1,10 @@
-This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study". 
-The reported experiments are the ones leading to largest inference time reductions while keeping lower error rates, using a downsampling of the input sequences. 
+# Downsampling inputs for faster inferences using SSL Models
 
-# Downsampling experiments : 
+This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study". 
+The reported experiments are the ones leading to largest inference time reductions while keeping lower error rates, using a downsampling of the input sequences. You can download LibriSpeech at http://www.openslr.org/12.
+
+
+# How To Run : 
 Three methods are prpoposed in the downsampling experiments, to run the signal downsampling one with a factor 2 downsampling: 
 
 ```
@@ -20,7 +23,7 @@ python downsampled_train.py hparams/average_downsampling.yaml  --downsampling_te
 ```
 
 
-### Results with Librispeech train-clean-100
+### Results with Librispeech train-clean-100 split
 The inference times shown here are for running the whole test-clean LibriSpeech split, and are in seconds. MACs shown here are the mean MACs for a test batch.
 
 | Name | Factor | WER   | GPU- Inference Time | CPU - Inference Time | WER-LM | GPULM - Inference Time | CPULM - Inference Time | MACs (G)|
@@ -51,22 +54,11 @@ AV : Averaging window
 # **Citing**
 Bibtex for the paper describing these experiments : 
 ```bibtex
-@misc{https://doi.org/10.48550/arxiv.2303.06740,
-  doi = {10.48550/ARXIV.2303.06740},
-  
-  url = {https://arxiv.org/abs/2303.06740},
-  
-  author = {Zaiem, Salah and Algayres, Robin and Parcollet, Titouan and Essid, Slim and Ravanelli, Mirco},
-  
-  keywords = {Audio and Speech Processing (eess.AS), Machine Learning (cs.LG), FOS: Electrical engineering, electronic engineering, information engineering, FOS: Electrical engineering, electronic engineering, information engineering, FOS: Computer and information sciences, FOS: Computer and information sciences},
-  
-  title = {Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models: A Comparative Study},
-  
-  publisher = {arXiv},
-  
-  year = {2023},
-  
-  copyright = {arXiv.org perpetual, non-exclusive license}
+@article{zaiem2023fine,
+  title={Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models: A Comparative Study},
+  author={Zaiem, Salah and Algayres, Robin and Parcollet, Titouan and Essid, Slim and Ravanelli, Mirco},
+  journal={arXiv preprint arXiv:2303.06740},
+  year={2023}
 }
 ```
 

@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: /gpfsstore/rech/nou/uzn19yk/results/efficient/librispeech/test/sigdown_8000_notupsampled/1986/
+output_folder: /gpfsstore/rech/nou/uzn19yk/results/efficient/librispeech/newtest/sigdown_8000_notupsampled/1986/
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -23,7 +23,7 @@ data_folder: /gpfsscratch/rech/nou/uzn19yk/Libri/LibriSpeech/ # e,g./path/to/Lib
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-skip_prep: False
+skip_prep: True
 ckpt_interval_minutes: 25 # save checkpoint every N min
 csv_folder: /gpfsstore/rech/nou/uzn19yk/speechbrain/recipes/LibriSpeech/CTC/results/titouan_checkpoint/1986/
 train_csv: !ref <csv_folder>/train-clean-100.csv
@@ -34,14 +34,14 @@ test_csv:
 
 
 downsampling_factor: 2
-downsampling_technique: signal_downsampling
+downsampling_technique: convolutional
 upsampling: False
 use_language_modelling: True
 ngram_lm_path: /gpfsstore/rech/nou/uzn19yk/4-gram.arpa
-compute_macs: False
+compute_macs: True
 
 # Training parameters
-number_of_epochs: 15
+number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending

@@ -11,6 +11,7 @@ are used as basic recognition tokens. Training is performed on the train-clean-1
 split of the LibriSpeech dataset (100 h).
 
 Authors
+ * Salah Zaiem 2023
  * Sung-Lin Yeh 2021
  * Titouan Parcollet 2021
  * Ju-Chieh Chou 2020
@@ -18,7 +19,6 @@ Authors
  * Abdel Heba 2020
  * Peter Plantinga 2020
  * Samuele Cornell 2020
- * Salah Zaiem 2023
 """
 
 import os
@@ -34,7 +34,7 @@ import torchaudio.transforms as T
 import numpy as np
 from thop import profile, clever_format
 from pyctcdecode import build_ctcdecoder
-import copy
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,33 +46,39 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        
-        #Downsampling the inputs
-        if self.hparams.downsampling_technique =="convolutional" : 
+
+        # Downsampling the inputs
+        if self.hparams.downsampling_technique == "convolutional":
             wavs = self.modules.subsampling(wavs)
-        if self.hparams.downsampling_technique =="signal_downsampling" : 
+        if self.hparams.downsampling_technique == "signal_downsampling":
             wavs = self.resampler(wavs)
 
         # Forward pass
-        if self.hparams.compute_macs : #Should be turned off during train
-            macs, params = profile(self.modules.wav2vec2.model, inputs=(feats, ), verbose =False)
-            #self.macs.append(macs)
+        if self.hparams.compute_macs:  # Should be turned off during train
+            macs, params = profile(
+                self.modules.wav2vec2.model, inputs=(wavs,), verbose=False
+            )
+            # self.macs.append(macs)
         feats = self.modules.wav2vec2(wavs)
-        if self.hparams.compute_macs :
-            second_macs, params = profile(self.modules.enc, inputs=(feats, ), verbose =False)
-            self.macs.append(macs+second_macs)
-        
+        if self.hparams.compute_macs:
+            second_macs, params = profile(
+                self.modules.enc, inputs=(feats,), verbose=False
+            )
+            self.macs.append(macs + second_macs)
+
         x = self.modules.enc(feats)
         # Compute outputs
         p_tokens = None
         logits = self.modules.ctc_lin(x)
-        if self.hparams.upsampling : 
-            logits = logits.view(logits.shape[0],-1,self.hparams.output_neurons)
+        if self.hparams.upsampling:
+            logits = logits.view(
+                logits.shape[0], -1, self.hparams.output_neurons
+            )
         p_ctc = self.hparams.log_softmax(logits)
 
         if stage != sb.Stage.TRAIN:
             p_tokens = sb.decoders.ctc_greedy_decode(
-                    p_ctc, wav_lens, blank_id=self.hparams.blank_index
+                p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
         return p_ctc, wav_lens, p_tokens
 
@@ -95,8 +101,8 @@ class ASR(sb.Brain):
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
-        #Validation WER are computed without using the language model
-        if stage ==sb.Stage.VALID:
+        # Validation WER are computed without using the language model
+        if stage == sb.Stage.VALID:
             predicted_words = [
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                 for utt_seq in predicted_tokens
@@ -105,15 +111,14 @@ class ASR(sb.Brain):
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
-
         if stage == sb.Stage.TEST:
             # Decode token terms to words
-            if self.hparams.use_language_modelling : 
-                predicted_words =[]
-                for logs in p_ctc: 
+            if self.hparams.use_language_modelling:
+                predicted_words = []
+                for logs in p_ctc:
                     text = decoder.decode(logs.detach().cpu().numpy())
                     predicted_words.append(text.split(" "))
-            else : 
+            else:
                 predicted_words = [
                     "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                     for utt_seq in predicted_tokens
@@ -331,8 +336,8 @@ if __name__ == "__main__":
 
     # Dataset prep (parsing Librispeech)
     from librispeech_prepare import prepare_librispeech  # noqa
+
     # multi-gpu (ddp) save data preparation
-    """
     run_on_main(
         prepare_librispeech,
         kwargs={
@@ -346,7 +351,6 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-    """
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
@@ -362,23 +366,31 @@ if __name__ == "__main__":
     )
 
     asr_brain.tokenizer = label_encoder
-    if hparams["downsampling_technique"]=="signal_downsampling" : 
-        downsampling_rate = int(hparams["sample_rate"] / hparams["downsampling_factor"])
-        asr_brain.resampler = T.Resample(hparams["sample_rate"], downsampling_rate, dtype=torch.float).to(asr_brain.device)
+    if hparams["downsampling_technique"] == "signal_downsampling":
+        downsampling_rate = int(
+            hparams["sample_rate"] / hparams["downsampling_factor"]
+        )
+        asr_brain.resampler = T.Resample(
+            hparams["sample_rate"], downsampling_rate, dtype=torch.float
+        ).to(asr_brain.device)
 
-    #Loading the labels for the LM decoding and the CTC decoder 
+    # Loading the labels for the LM decoding and the CTC decoder
     if hparams["use_language_modelling"]:
         ind2lab = label_encoder.ind2lab
-        labels =[ind2lab[x] for x in range(len(ind2lab))]
-        labels = [""] + labels[1:] #Replace the <blank> token with a blank character, needed for PyCTCdecode
+        labels = [ind2lab[x] for x in range(len(ind2lab))]
+        labels = [""] + labels[
+            1:
+        ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
         decoder = build_ctcdecoder(
             labels,
-            kenlm_model_path=hparams["ngram_lm_path"],  # either .arpa or .bin file
+            kenlm_model_path=hparams[
+                "ngram_lm_path"
+            ],  # either .arpa or .bin file
             alpha=0.5,  # tuned on a val set
             beta=1.0,  # tuned on a val set
         )
 
-    #Training
+    # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
@@ -387,7 +399,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    #Evaluation
+    # Evaluation
     asr_brain.macs = []
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
@@ -397,11 +409,6 @@ if __name__ == "__main__":
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )
-        if hparams["compute_thop"] == False : 
+        if hparams["compute_macs"] :
             macs = clever_format([np.mean(asr_brain.macs)], "%.3f")
             logger.info(f" mean number of macs per batch : {macs}")
-
-
-
-
-
