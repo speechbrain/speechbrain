@@ -1,44 +1,42 @@
-# ################################
+## ################################
 # Model: wav2vec2 + DNN + CTC
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: /gpfsstore/rech/nou/uzn19yk/results/efficient/librispeech/newtest/sigdown_8000_notupsampled/1986/
+output_folder: !PLACEHOLDER
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english wav2vec2 model.
-wav2vec2_hub: /gpfsstore/rech/nou/uzn19yk/wavlm/
+wav2vec2_hub: !PLACEHOLDER
 encoder_dim: 1024 #Should be 1024 for Large versions and 768 for Base models
 
 # Data files
-data_folder: /gpfsscratch/rech/nou/uzn19yk/Libri/LibriSpeech/ # e,g./path/to/LibriSpeech
+data_folder: /path/to/datafolder # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-skip_prep: True
+skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
-csv_folder: /gpfsstore/rech/nou/uzn19yk/speechbrain/recipes/LibriSpeech/CTC/results/titouan_checkpoint/1986/
-train_csv: !ref <csv_folder>/train-clean-100.csv
-valid_csv: !ref <csv_folder>/dev-clean.csv
+train_csv: !ref <save_folder>/train-clean-100.csv
+valid_csv: !ref <save_folder>/dev-clean.csv
 test_csv:
-   - !ref <csv_folder>/test-clean.csv
-   - !ref <csv_folder>/test-other.csv
+   - !ref <save_folder>/test-clean.csv
+   - !ref <save_folder>/test-other.csv
 
 
 downsampling_factor: 2
-downsampling_technique: convolutional
+downsampling_technique: signal_downsampling
 upsampling: False
 use_language_modelling: True
-ngram_lm_path: /gpfsstore/rech/nou/uzn19yk/4-gram.arpa
-compute_macs: True
+ngram_lm_path: /path/to/4-gram.arpa #Not needed if False in the previous line
+compute_macs: False
 
 # Training parameters
 number_of_epochs: 1

@@ -1,11 +1,11 @@
 #!/usr/bin/env/python3
 """Recipe for training a wav2vec-based ctc ASR system with librispeech.
-This recipes also allows for downsampling the input with three possible 
+This recipes also allows for downsampling the input with three possible
 downsampling techniques.
 The system employs wav2vec as its encoder. Decoding is performed with
 ctc greedy decoder or with language modelling
 To run this recipe, do the following:
-> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
+> python downsampled_train.py hparams/downsampling.yaml
 The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens. Training is performed on the train-clean-100
 split of the LibriSpeech dataset (100 h).
@@ -29,7 +29,6 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-import torchaudio
 import torchaudio.transforms as T
 import numpy as np
 from thop import profile, clever_format
