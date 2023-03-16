@@ -109,9 +109,6 @@ subsampling: !new:speechbrain.nnet.pooling.Pooling1d
    input_dims: 3
    pool_type: avg
 
-
-
-
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
    blank_index: !ref <blank_index>
 

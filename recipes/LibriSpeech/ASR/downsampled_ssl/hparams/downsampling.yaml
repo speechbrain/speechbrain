@@ -100,10 +100,11 @@ ctc_lin: !new:speechbrain.nnet.linear.Linear
 log_softmax: !new:speechbrain.nnet.activations.Softmax
    apply_log: True
 
+subsampling_kernel_size: 161
 subsampling: !new:speechbrain.nnet.CNN.Conv1d
    stride: !ref <downsampling_factor>
    padding: valid
-   kernel_size: 161
+   kernel_size: !ref <subsampling_kernel_size>
    out_channels: 1
    input_shape: [Null, Null]
 
