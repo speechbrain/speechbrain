@@ -23,9 +23,7 @@ from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
 from sklearn.metrics import confusion_matrix
 import numpy as np
-from recipes.UrbanSound8k.SoundClassification.confusion_matrix_fig import (
-    create_cm_fig,
-)
+from confusion_matrix_fig import create_cm_fig
 
 
 class ESC50Brain(sb.core.Brain):
