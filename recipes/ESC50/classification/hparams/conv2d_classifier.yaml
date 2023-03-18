@@ -61,7 +61,7 @@ dataloader_options:
     shuffle: !ref <shuffle>
     num_workers: 0
 
-use_pretrain: True
+use_pretrained: True
 use_melspectra: False
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256

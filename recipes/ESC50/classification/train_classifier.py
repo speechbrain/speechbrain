@@ -393,7 +393,7 @@ if __name__ == "__main__":
     )
 
     # Load pretrained model if pretrained_separator is present in the yaml
-    if "pretrained_encoder" in hparams:
+    if "pretrained_encoder" in hparams and hparams["use_pretrained"]:
         run_on_main(hparams["pretrained_encoder"].collect_files)
         hparams["pretrained_encoder"].load_collected()
 
