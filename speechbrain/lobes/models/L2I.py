@@ -120,10 +120,10 @@ class NMFDecoderAudio(nn.Module):
     Example:
     --------
     >>> NMF_dec = NMFDecoderAudio(20, 210, device='cpu')
-    >>> H = torch.rand(3, 20, 150)
+    >>> H = torch.rand(1, 20, 150)
     >>> Xhat = NMF_dec.forward(H)
     >>> print(Xhat.shape)
-    torch.Size([3, 210, 150])
+    torch.Size([1, 210, 150])
     """
 
     def __init__(self, n_comp=100, n_freq=513, device="cuda"):
@@ -191,11 +191,11 @@ class PsiOptimized(nn.Module):
 
     Example
     -------
-    >>> inp = torch.randn(16, 256, 26, 32)
+    >>> inp = torch.randn(1, 256, 26, 32)
     >>> psi = PsiOptimized(dim=256, K=100, use_adapter=False, adapter_reduce_dim=False)
     >>> h, inp_ad= psi(inp)
     >>> print(h.shape, inp_ad.shape)
-    torch.Size([16, 1, 417, 100]) torch.Size([16, 256, 26, 32])
+    torch.Size([1, 1, 417, 100]) torch.Size([1, 256, 26, 32])
     """
 
     def __init__(
@@ -284,10 +284,10 @@ class NMFDecoder(nn.Module):
     Example:
     --------
     >>> NMF_dec = NMFDecoder(20, 210, device='cpu')
-    >>> H = torch.rand(3, 20, 150)
+    >>> H = torch.rand(1, 20, 150)
     >>> Xhat = NMF_dec.forward(H)
     >>> print(Xhat.shape)
-    torch.Size([3, 210, 150])
+    torch.Size([1, 210, 150])
     """
 
     def __init__(self, n_comp=100, n_freq=513, init_file=None, device="cuda"):
@@ -343,10 +343,10 @@ class Theta(nn.Module):
     Example:
     --------
     >>> theta = Theta(30, 120, 50)
-    >>> H = torch.rand(5, 30, 120)
+    >>> H = torch.rand(1, 30, 120)
     >>> c_hat = theta.forward(H)
     >>> print(c_hat.shape)
-    torch.Size([5, 50])
+    torch.Size([1, 50])
     """
 
     def __init__(self, n_comp=100, T=431, num_classes=50):
@@ -390,10 +390,10 @@ class NMFEncoder(nn.Module):
     Example:
     --------
     >>> nmfencoder = NMFEncoder(513, 100)
-    >>> X = torch.rand(12, 513, 240)
+    >>> X = torch.rand(1, 513, 240)
     >>> Hhat = nmfencoder(X)
     >>> print(Hhat.shape)
-    torch.Size([12, 100, 240])
+    torch.Size([1, 100, 240])
     """
 
     def __init__(self, n_freq, n_comp):
