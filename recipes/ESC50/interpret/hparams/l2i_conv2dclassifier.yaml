@@ -154,6 +154,7 @@ modules:
 embedding_model_path: "fpaissan/conv2d_us8k/embedding_modelft.ckpt"
 classifier_model_path: "fpaissan/conv2d_us8k/classifier.ckpt"
 nmf_decoder_path: "fpaissan/conv2d_us8k/nmf_decoder.ckpt"
+use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

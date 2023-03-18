@@ -138,6 +138,7 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
 
 psi_model: !new:speechbrain.lobes.models.L2I.Psi
 theta: !new:speechbrain.lobes.models.L2I.Theta
+    num_classes: !ref <out_n_neurons>
 
 # NMF Decoder
 nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoder
@@ -160,6 +161,7 @@ modules:
 embedding_model_path: cemsubakan/cnn14-esc50/embedding_model_esc50ft.ckpt
 classifier_model_path: cemsubakan/cnn14-esc50/classifier_esc50.ckpt
 nmf_decoder_path: fpaissan/conv2d_us8k/nmf_decoder.ckpt
+use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

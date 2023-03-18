@@ -138,6 +138,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
+        if wavs.shape[0] <= 1:
+            return
+
         s1 = wavs[0]
         s1 = s1 / s1.max()
         s2 = wavs[1]
@@ -325,7 +328,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             xhat = self.modules.psi.decoder(hcat)
 
             z_q_x = None
-        xhat = xhat.squeeze()
+
+        xhat = xhat.squeeze(1)
 
         if self.hparams.use_mask_output:
             xhat = F.sigmoid(xhat)
@@ -468,7 +472,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             faithfulness = (
                 predictions_selected - predictions_masked_selected
-            ).squeeze()
+            ).squeeze(1)
 
             return faithfulness
 
@@ -711,7 +715,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    if "pretrained_esc50" in hparams:
+    if "pretrained_esc50" in hparams and hparams["use_pretrained"]:
         print("Loading model...")
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
@@ -719,7 +723,6 @@ if __name__ == "__main__":
     hparams["embedding_model"].to(hparams["device"])
     hparams["classifier"].to(hparams["device"])
     hparams["embedding_model"].eval()
-    # hparams["nmf"].to(hparams["device"])
 
     if not hparams["test_only"]:
         Interpreter_brain.fit(

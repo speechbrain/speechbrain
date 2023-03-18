@@ -501,7 +501,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             faithfulness = (
                 predictions_selected - predictions_masked_selected
-            ).squeeze()
+            ).squeeze(1)
 
             return faithfulness
 
@@ -643,7 +643,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    if "pretrained_esc50" in hparams:
+    if "pretrained_esc50" in hparams and hparams["use_pretrained"]:
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
 
