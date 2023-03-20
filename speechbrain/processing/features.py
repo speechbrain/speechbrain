@@ -36,7 +36,6 @@ Authors
 import math
 import torch
 import logging
-from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
