@@ -102,7 +102,7 @@ class TransformerASR(TransformerInterface):
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
         attention_type: Optional[str] = "regularMHA",
-        max_length: Optional[int] = 2500,
+        max_length: Optional[int] = 5000,
         causal: Optional[bool] = True,
     ):
         super().__init__(
