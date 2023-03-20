@@ -187,9 +187,9 @@ class TransformerASR(TransformerInterface):
             # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
             # FIXME we use pos embs also on enc output
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
+            # encoder_out = encoder_out + self.positional_encoding_decoder(
+            #    encoder_out
+            # )
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.positional_encoding_type == "fixed_abs_sine":
