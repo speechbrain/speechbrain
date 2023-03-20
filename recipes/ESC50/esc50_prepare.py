@@ -15,7 +15,6 @@ import os
 import shutil
 import json
 import logging
-import ntpath
 import torchaudio
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.dataio.dataio import load_data_csv
@@ -258,7 +257,6 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
-
 
 
 def folds_overlap(list1, list2):

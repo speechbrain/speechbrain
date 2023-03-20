@@ -13,7 +13,7 @@ import itertools
 
 def create_cm_fig(cm, display_labels):
     """Creates confusion matrix plot.
-    
+
     Arguments
     ---------
     cm : np.ndarray
