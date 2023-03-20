@@ -1,4 +1,6 @@
 -r lint-requirements.txt
+cchardet
+chardet
 huggingface_hub>=0.12.1
 hyperpyyaml>=1.1.0
 joblib>=1.2.0
