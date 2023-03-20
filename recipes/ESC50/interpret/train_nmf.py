@@ -5,8 +5,8 @@ To run this recipe, use the following command:
 > python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC-50-master
 
 Authors
-    * Cem Subakan 2022
-    * Francesco Paissan 2022
+    * Cem Subakan 2022, 2023
+    * Francesco Paissan 2022, 2023
 """
 
 

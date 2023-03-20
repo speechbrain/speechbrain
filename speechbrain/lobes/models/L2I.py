@@ -163,6 +163,11 @@ class NMFDecoderAudio(nn.Module):
 def weights_init(m):
     """
     Applies Xavier initialization to network weights.
+
+    Arguments
+    ---------
+    m : nn.Module
+        Module to initialize.
     """
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:

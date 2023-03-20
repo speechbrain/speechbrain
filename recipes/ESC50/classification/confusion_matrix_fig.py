@@ -12,6 +12,19 @@ import itertools
 
 
 def create_cm_fig(cm, display_labels):
+    """Creates confusion matrix plot.
+    
+    Arguments
+    ---------
+    cm : np.ndarray
+        Confusion matrix.
+    display_labels : list
+        Class labels to display.
+
+    Returns
+    ---------
+    Confusion matrix figure : matplotlib.figure.Figure
+    """
 
     fig = plt.figure(figsize=cm.shape, dpi=50, facecolor="w", edgecolor="k")
     ax = fig.add_subplot(1, 1, 1)
@@ -46,4 +59,5 @@ def create_cm_fig(cm, display_labels):
         )
 
     fig.set_tight_layout(True)
+
     return fig
