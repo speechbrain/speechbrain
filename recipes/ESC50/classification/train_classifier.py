@@ -6,8 +6,8 @@ To run this recipe, use the following command:
 > python train_classifier.py hparams/cnn14.yaml --data_folder yourpath/ESC-50-master
 
 Authors
-    * Cem Subakan 2022
-    * Francesco Paissan 2022
+    * Cem Subakan 2022, 2023
+    * Francesco Paissan 2022, 2023
 
 Based on the Urban8k recipe by
     * David Whipps 2021

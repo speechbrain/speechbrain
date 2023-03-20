@@ -2,8 +2,8 @@
 # The recipe for training an L2I interpretability method on the ESC50 dataset.
 #
 # Author:
-#  * Cem Subakan 2022
-#  * Francesco Paissan 2022
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 

@@ -2,8 +2,8 @@
 # The hyperparameters to train an NMF model on ESC50
 #
 # Author:
-#  * Cem Subakan 2022
-#  * Francesco Paissan 2022
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 

@@ -3,8 +3,8 @@
 # This recipe uses the ecapa-tdnn backbone for classification.
 #
 # Authors:
-#  * Cem Subakan 2022
-#  * Francesco Paissan 2022
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 

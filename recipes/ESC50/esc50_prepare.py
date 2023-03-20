@@ -5,8 +5,8 @@ If the data does not exist in the specified --data_folder, we download the data 
 https://urbansounddataset.weebly.com/urbansound8k.htm://github.com/karolpiczak/ESC-50
 
 Authors:
- * Cem Subakan 2022
- * Francesco Paissan 2022
+ * Cem Subakan 2022, 2023
+ * Francesco Paissan 2022, 2023
 
  Adapted from the Urbansound8k recipe.
 """

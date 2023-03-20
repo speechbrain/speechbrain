@@ -1,3 +1,13 @@
+# #################################
+# Basic training parameters for sound classification using the ESC50 dataset.
+# This recipe uses a conv2d backbone for classification.
+#
+# Authors:
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
+#  (based on the SpeechBrain UrbanSound8k recipe)
+# #################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
