@@ -141,10 +141,9 @@ theta: !new:speechbrain.lobes.models.L2I.Theta
     num_classes: !ref <out_n_neurons>
 
 # NMF Decoder
-nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoder
+nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
     n_comp: !ref <K>
     n_freq: !ref <n_freq>
-    device: !ref <device>
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations

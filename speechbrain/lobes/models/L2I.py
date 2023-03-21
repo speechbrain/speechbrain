@@ -63,7 +63,8 @@ class Psi(nn.Module):
 
     def forward(self, inp):
         """This forward function returns the NMF time activations given classifier activations
-        Argument:
+        Arguments
+        ---------
             inp: A length 3 list of classifier input representions.
         """
         error = "in PSI doesn't match. The embedding dimensions need to be consistent with the list self.in_emb_dims"
@@ -270,67 +271,6 @@ class PsiOptimized(nn.Module):
             out = self.decoder(hcat)
 
         return out, hcat
-
-
-class NMFDecoder(nn.Module):
-    """This class implements an NMF decoder
-
-    Arguments
-    ---------
-    n_comp : int
-        Number of NMF components
-    n_freq : int
-        The number of frequency bins in the NMF dictionary
-    init_file : str
-        The path for the NMF dictionary to be loaded
-    device : str
-        The device to run the model
-
-    Example:
-    --------
-    >>> NMF_dec = NMFDecoder(20, 210, device='cpu')
-    >>> H = torch.rand(1, 20, 150)
-    >>> Xhat = NMF_dec.forward(H)
-    >>> print(Xhat.shape)
-    torch.Size([1, 210, 150])
-    """
-
-    def __init__(self, n_comp=100, n_freq=513, init_file=None, device="cuda"):
-        super(NMFDecoder, self).__init__()
-
-        self.W = nn.Parameter(
-            0.1 * torch.rand(n_freq, n_comp), requires_grad=True
-        )
-        self.activ = nn.ReLU()
-
-        # we need to fix this! we should download from HF
-        if init_file is not None:
-            self.W.data = torch.load(
-                init_file, map_location=torch.device(device)
-            )
-
-    def forward(self, H):
-        """The forward pass for NMF given the activations H
-
-        Arguments:
-        ---------
-        H : torch.Tensor
-            The activations Tensor with shape B x n_comp x T
-
-        where B = Batchsize
-              n_comp = number of NMF components
-              T = number of timepoints
-        """
-        W = self.activ(self.W)
-        W = nn.functional.normalize(W, dim=0, p=2)
-        output = torch.matmul(W.unsqueeze(0), H)
-        return output
-
-    def return_W(self):
-        """This function returns the NMF dictionary"""
-        W = self.W
-        W = nn.functional.normalize(self.activ(W), dim=0, p=2)
-        return W
 
 
 class Theta(nn.Module):

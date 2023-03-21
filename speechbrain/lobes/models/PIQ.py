@@ -116,7 +116,7 @@ class VectorQuantization(Function):
             `True` if latent space should be quantized for different classes.
         shared_keys : int
             Number of shared keys among classes.
-        traing : bool
+        training : bool
             `True` if stage is TRAIN.
 
         Returns
@@ -213,7 +213,7 @@ class VectorQuantizationStraightThrough(Function):
             `True` if latent space should be quantized for different classes.
         shared_keys : int
             Number of shared keys among classes.
-        traing : bool
+        training : bool
             `True` if stage is TRAIN.
 
         Returns
@@ -411,7 +411,7 @@ class VectorQuantizedPSI_Audio(nn.Module):
         Dimensionality of VQ vectors.
     K : int
         Number of elements of VQ dictionary.
-    num_classes : int
+    numclasses : int
         Number of possible classes
     activate_class_partitioning : bool
         `True` if latent space should be quantized for different classes.

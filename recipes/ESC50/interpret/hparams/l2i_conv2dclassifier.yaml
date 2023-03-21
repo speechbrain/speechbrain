@@ -50,7 +50,7 @@ sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
 
-device: "cuda:0"
+device: "cuda"
 
 # Feature parameters
 n_mels: 80
@@ -138,7 +138,6 @@ theta: !new:speechbrain.lobes.models.L2I.Theta
 nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
     n_comp: !ref <K>
     n_freq: !ref <n_freq>
-    device: !ref <device>
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations

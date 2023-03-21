@@ -200,6 +200,8 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
     metadata: dict
         A dictionary containing the ESC50 metadata file modified for the
         SpeechBrain, such that keys are IDs (which are the .wav file names without the file extension).
+    audio_data_folder : str or Path
+        Data folder that stores ESC50 samples.
     folds_list : list of int
         The list of folds [1,5] to include in this batch
     json_file : str
@@ -294,6 +296,8 @@ def full_path_to_audio_file(data_folder, slice_file_name, fold_num):
     """Get path to file given slice file name and fold number
     Arguments
     ---------
+    data_foder : str
+        Folder that contains the dataset.
     slice_file_name : str
         Filename.
     fold_num : int
