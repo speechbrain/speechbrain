@@ -399,6 +399,7 @@ def dataio_prepare(hparams):
             length_func=lambda x: x["duration"],
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
+            max_batch_ex=dynamic_hparams["max_batch_ex"],
         )
 
         valid_batch_sampler = DynamicBatchSampler(
