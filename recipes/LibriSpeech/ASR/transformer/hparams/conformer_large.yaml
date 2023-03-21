@@ -9,9 +9,9 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
-seed: 5555
+seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer_large/<seed>
+output_folder: !ref results/conformer_small/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -53,11 +53,10 @@ max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
-rel_pos: RelPosMHAXL
 
 # stages related parameters
 # stage_one_epochs: 90
-lr_adam: 0.0005
+lr_adam: 0.001
 # lr_sgd: 0.000025
 
 # Feature parameters
@@ -96,8 +95,8 @@ test_dataloader_opts:
 # Transformer
 d_model: 512
 nhead: 8
-num_encoder_layers: 10
-num_decoder_layers: 4
+num_encoder_layers: 12
+num_decoder_layers: 6
 d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
@@ -141,7 +140,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     encoder_module: conformer
-    attention_type: !ref <rel_pos>
+    attention_type: RelPosMHAXL
     normalize_before: True
     causal: False
 
@@ -237,7 +236,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 40000
+    n_warmup_steps: 25000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
