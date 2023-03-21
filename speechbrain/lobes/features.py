@@ -77,6 +77,8 @@ class Fbank(torch.nn.Module):
     >>> feats = feature_maker(inputs)
     >>> feats.shape
     torch.Size([10, 101, 40])
+    >>> fbank = Fbank(sample_rate=8000, n_fft=512, n_mels=64, left_frames=0, right_frames=0, deltas=False)
+    >>> _ = torch.jit.script(fbank)
     """
 
     def __init__(
