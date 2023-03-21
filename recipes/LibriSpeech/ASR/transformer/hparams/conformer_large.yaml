@@ -184,7 +184,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # define two optimizers here for two-stage training
-Adam: !name:torch.optim.AdamW
+Adam: !name:torch.optim.Adam
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
