@@ -631,7 +631,7 @@ class DynamicBatchSampler(Sampler):
             for bucket_indx in range(len(self._bucket_boundaries)):
                 try:
                     num_batches = stats_tracker[bucket_indx]["tot"] // (
-                        self._max_seconds_per_batch
+                        self._max_duration_per_batch
                     )
                     pad_factor = (
                         stats_tracker[bucket_indx]["max"]
