@@ -348,12 +348,8 @@ def dataio_prepare(hparams):
         # workers of the dataloader (faster).
         if hparams["speed_perturb"]:
             sig = sb.dataio.dataio.read_audio(wav)
-            # factor = np.random.uniform(0.95, 1.05)
-            # sig = resample(sig.numpy(), 16000, int(16000*factor))
-            speed = sb.processing.speech_augmentation.SpeedPerturb(
-                16000, [x for x in range(95, 105)]
-            )
-            sig = speed(sig.unsqueeze(0)).squeeze(0)  # torch.from_numpy(sig)
+
+            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
         else:
             sig = sb.dataio.dataio.read_audio(wav)
         return sig
