@@ -80,9 +80,9 @@ dynamic_batching: False
 dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
 max_batch_size: 64 # Max number of samples per batch, per gpu.
 dynamic_batch_sampler:
-    max_batch_len: !ref <dyn_batch_len>
+    max_duration_per_batch: !ref <dyn_batch_len>
     max_batch_ex: !ref <max_batch_size>
-    shuffle_ex: True
+    shuffle: True
     batch_ordering: !ref <sorting>
     num_buckets: 30
 

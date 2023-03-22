@@ -281,11 +281,8 @@ def dataio_prep(hparams):
 
         batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=dynamic_hparams["num_buckets"],
-            length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            length_func=lambda x: x["duration"] * (1 / hop_size),  # to frames
+            **dynamic_hparams,
         )
 
         train_data = SaveableDataLoader(

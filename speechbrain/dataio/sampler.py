@@ -7,7 +7,7 @@ Authors:
   * Samuele Cornell 2020
   * Ralf Leibold 2020
   * Artem Ploujnikov 2021
-  * Andreas Nautsch 2021
+  * Andreas Nautsch 2021, 2023
 """
 import torch
 import logging
@@ -313,9 +313,9 @@ class DynamicBatchSampler(Sampler):
     where length of examples can vary significantly (e.g Librispeech).
     Inspired by: https://www.tensorflow.org/api_docs/python/tf/data/experimental/bucket_by_sequence_length
 
-    Dynamic batching is performed by specifying a max_batch_length which is the
+    Dynamic batching is performed by specifying a max_duration_per_batch which is the
     upper limit for the sum of the length of examples in a batch:
-    e.g., if ex1 has length 4, ex2 length 5 and if max_batch_length is set to 6
+    e.g., if ex1 has length 4, ex2 length 5 and if max_duration_per_batch is set to 6
     ex1 and ex2 will be placed, alone, in two distinct batches.
 
     Length for each example can be obtained in two manners.
@@ -363,12 +363,13 @@ class DynamicBatchSampler(Sampler):
     >>> for i, b in enumerate(dataloader):
     ...     data, length = b["wav"]
     >>> assert data.shape[-1] == max(item_lengths)
+    >>> bsampler_max = DynamicBatchSampler(dataset, 20, 4, length_func, shuffle=False, batch_ordering='descending', max_batch_ex=3)
 
     Arguments
     ---------
     dataset : torch.utils.data.Dataset
         Pytorch Dataset from which elements will be sampled.
-    max_batch_length : int
+    max_duration_per_batch : int
         Upper limit for the sum of the length of examples in a batch.
         Should be chosen based on your GPU memory.
     num_buckets : int
@@ -389,7 +390,7 @@ class DynamicBatchSampler(Sampler):
     batch_ordering : string
         If ``random``, batches are randomly permuted; otherwise ``ascending`` or ``descending`` sorted by length.
     max_batch_ex: int
-        If set, it limits the maximum number of examples that can be in a batch superseeding max_batch_length
+        If set, it limits the maximum number of examples that can be in a batch superseeding max_duration_per_batch
         in instances where the amount of examples will exceeed the value specified here.
         E.g. you have a lot of short examples and the batch size for those will be too high, you can use this argument
         to limit the batch size for these short examples.
@@ -413,7 +414,7 @@ class DynamicBatchSampler(Sampler):
     def __init__(
         self,
         dataset,
-        max_batch_length: int,
+        max_duration_per_batch: int,
         num_buckets: int = None,
         length_func=lambda x: x["duration"],
         shuffle: bool = True,
@@ -472,12 +473,12 @@ class DynamicBatchSampler(Sampler):
             # use num_buckets
             self._bucket_boundaries = np.array(
                 self._get_boundaries_through_warping(
-                    max_batch_length=max_batch_length,
+                    max_duration_per_batch=max_duration_per_batch,
                     num_quantiles=num_buckets,
                 )
             )
 
-        self._max_batch_length = max_batch_length
+        self._max_duration_per_batch = max_duration_per_batch
         self._shuffle_ex = shuffle
         self._batch_ordering = batch_ordering
         self._seed = seed
@@ -485,11 +486,22 @@ class DynamicBatchSampler(Sampler):
         if max_batch_ex is None:
             max_batch_ex = np.inf
         self._max_batch_ex = max_batch_ex
-        # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
+        # Calculate bucket lengths - how often does one bucket boundary fit into max_duration_per_batch?
+        # Adjust for max_batch_ex (max. #samples / batch) through min
         self._bucket_lens = [
-            max(1, int(max_batch_length / self._bucket_boundaries[i]))
+            min(
+                self._max_batch_ex,  # tops max_duration_per_batch
+                max(
+                    1,  # and at least 1
+                    int(
+                        self._max_duration_per_batch
+                        / self._bucket_boundaries[i]
+                    ),
+                ),
+            )
             for i in range(len(self._bucket_boundaries))
         ] + [1]
+
         self._epoch = epoch
         self._generate_batches()
 
@@ -498,7 +510,7 @@ class DynamicBatchSampler(Sampler):
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
-        self, max_batch_length: int, num_quantiles: int,
+        self, max_duration_per_batch: int, num_quantiles: int,
     ) -> List[int]:
 
         # NOTE: the following lines do not cover that there is only one example in the dataset
@@ -512,8 +524,8 @@ class DynamicBatchSampler(Sampler):
         )
         # get quantiles using lognormal distribution
         quantiles = lognorm.ppf(latent_boundaries, 1)
-        # scale up to to max_batch_length
-        bucket_boundaries = quantiles * max_batch_length / quantiles[-1]
+        # scale up to max_duration_per_batch
+        bucket_boundaries = quantiles * max_duration_per_batch / quantiles[-1]
         # compute resulting bucket length multipliers
         length_multipliers = [
             bucket_boundaries[x + 1] / bucket_boundaries[x]
@@ -578,8 +590,18 @@ class DynamicBatchSampler(Sampler):
         for idx in sampler:
             # length of pre-sampled audio
             item_len = self._ex_lengths[str(idx)]
+
             # bucket to fill up most padding
             bucket_id = np.searchsorted(self._bucket_boundaries, item_len)
+
+            if (
+                len(bucket_batches[bucket_id])
+                >= self._bucket_lens[bucket_id] + item_len
+                or len(bucket_batches[bucket_id]) > self._max_batch_ex
+            ):
+                self._batches.append(bucket_batches[bucket_id])
+                bucket_batches[bucket_id] = []
+
             # fill audio's duration into that bucket
             bucket_batches[bucket_id].append(idx)
 
@@ -593,14 +615,6 @@ class DynamicBatchSampler(Sampler):
             stats_tracker[bucket_id]["n_ex"] += 1
             # track #samples - why not duration/#frames; rounded up?
             # keep track of durations, if necessary
-
-            if (
-                len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]
-                or len(bucket_batches[bucket_id]) >= self._max_batch_ex
-            ):
-                self._batches.append(bucket_batches[bucket_id])
-                bucket_batches[bucket_id] = []
-                # keep track of durations
 
         # Dump remaining batches
         if not self._drop_last:
@@ -617,7 +631,7 @@ class DynamicBatchSampler(Sampler):
             for bucket_indx in range(len(self._bucket_boundaries)):
                 try:
                     num_batches = stats_tracker[bucket_indx]["tot"] // (
-                        self._max_batch_length
+                        self._max_seconds_per_batch
                     )
                     pad_factor = (
                         stats_tracker[bucket_indx]["max"]
@@ -633,7 +647,7 @@ class DynamicBatchSampler(Sampler):
                 logger.info(
                     (
                         "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
-                        + "batch_size {}: Num Examples {:.1f}, Num Full Batches {:.3f}, Pad Factor {:.3f}."
+                        + "batch_size {}: Num Examples {:.0f}, Num Full Batches {:.0f}, Pad Factor {:.3f}."
                     ).format(
                         bucket_indx,
                         boundaries[bucket_indx],
