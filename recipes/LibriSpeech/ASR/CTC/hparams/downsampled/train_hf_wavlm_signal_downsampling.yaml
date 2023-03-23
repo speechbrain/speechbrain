@@ -102,8 +102,6 @@ downsampler: !new:speechbrain.lobes.downsampling.SignalDownsampler
    downsampling_factor: !ref <downsampling_factor>
    initial_sampling_rate: !ref <sample_rate>
 
-
-
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead
 # of a HuggingFace one. Here, we provide an URL that is obtained from the
