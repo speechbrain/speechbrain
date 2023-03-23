@@ -16,8 +16,7 @@ python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampl
 ```
 
 #KenLM n-gram CTC rescoring
-To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [LINK](https://www.openslr.org/11/). 
-
+To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [LINK](https://www.openslr.org/11/)
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
 installed in your environment (see extra-requirements.txt)**
 
@@ -30,12 +29,11 @@ installed in your environment (see extra-requirements.txt)**
 | 06-12-23 | train_hf_whisper.yaml (small) | 960h | 4.89 | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
-
-This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study". 
+This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"
 The reported experiments are the ones leading to largest inference time reductions while keeping lower error rates, using a downsampling of the input sequences. You can download LibriSpeech at http://www.openslr.org/12.
 
 ### Downsampling Results with Librispeech train-clean-100 split
-The inference times shown here are for running the whole test-clean LibriSpeech split, and are in seconds. MACs shown here are the mean MACs for a test batch. 
+The inference times shown here are for running the whole test-clean LibriSpeech split, and are in seconds. MACs shown here are the mean MACs for a test batch
 These results are obtained using WavLM Large finetuned only on the train-clean-100 split of LibriSpeech (100 hours of speech)
 
 | Name  | Factor | WER   | GPU- Inference Time | CPU - Inference Time | WER-LM | GPULM - Inference Time | CPULM - Inference Time | MACs (G) |
@@ -74,6 +72,7 @@ Please, cite SpeechBrain if you use it for your research or business.
 }
 ```
 If you use the downsampling approach, please cite : 
+
 ```bibtex
 @article{zaiem2023fine,
   title={Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models: A Comparative Study},
