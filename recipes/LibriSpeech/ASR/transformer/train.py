@@ -221,20 +221,6 @@ class ASR(sb.core.Brain):
                 num_to_keep=1,
             )
 
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
-        super().on_evaluate_start()
-
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
-        )
-
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
-
     def fit_batch(self, batch):
 
         should_step = self.step % self.grad_accumulation_factor == 0
