@@ -67,7 +67,7 @@ class Conv1DDownsampler(Downsampler):
     >>> a = torch.rand([8,33000])
     >>> a = sd(a)
     >>> print(a.shape)
-    torch.Size([8, 11000])
+    torch.Size([8, 10947])
     """
 
     def __init__(self, downsampling_factor, kernel_size):
@@ -102,7 +102,7 @@ class PoolingDownsampler(Downsampler):
     >>> a = torch.rand([8,33000])
     >>> a = sd(a)
     >>> print(a.shape)
-    torch.Size([8, 11000])
+    torch.Size([8, 10987])
     """
 
     def __init__(
