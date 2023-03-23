@@ -937,11 +937,9 @@ class Brain:
                 self.zero_grad()
                 self.optimizer_step += 1
         else:
-            if self.bfloat16_mix_prec:
-                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                    outputs = self.compute_forward(batch, Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            else:
+            with torch.cuda.amp.autocast(
+                dtype=torch.bfloat16, enabled=self.bfloat16_mix_prec
+            ):
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             with self.no_sync(not should_step):
