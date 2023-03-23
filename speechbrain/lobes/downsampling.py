@@ -13,6 +13,7 @@ from speechbrain.nnet.pooling import Pooling1d
 class Downsampler(torch.nn.Module):
     """ Wrapper for downsampling techniques
     """
+
     def forward(self, x):
         """ Downsampling function
         Arguments
