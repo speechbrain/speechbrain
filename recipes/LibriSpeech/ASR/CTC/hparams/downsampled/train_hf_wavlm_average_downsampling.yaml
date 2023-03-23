@@ -103,8 +103,6 @@ downsampler: !new:speechbrain.lobes.downsampling.PoolingDownsampler
    downsampling_factor: !ref <downsampling_factor>
    kernel_size: !ref <downsampling_kernel_size>
 
-
-
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead
 # of a HuggingFace one. Here, we provide an URL that is obtained from the
