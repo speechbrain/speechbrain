@@ -9,13 +9,14 @@ python train_with_wav2vec.py hparams/file.yaml
 
 python train_with_whisper.py hparams/file.yaml
 
-Three methods are prpoposed in the downsampling experiments, to run the signal downsampling one with a factor 2 downsampling: 
+To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster training and inferences) :
 
 ```
 python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampling.yaml --downsampling_factor 2
 ```
 
-
+#KenLM n-gram CTC rescoring
+To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [LINK](https://www.openslr.org/11/). 
 
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
 installed in your environment (see extra-requirements.txt)**
@@ -28,7 +29,7 @@ installed in your environment (see extra-requirements.txt)**
 | 22-09-22 | train_sb_wav2vec.yaml | 960h | 4.2 | Not Avail. | Not Avail. | 2xTesla V100 32GB |
 | 06-12-23 | train_hf_whisper.yaml (small) | 960h | 4.89 | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
 
-# Downsampling inputs for faster inferences using SSL Models
+# Downsampling inputs for faster fine-tuning and inferences using SSL Models
 
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study". 
 The reported experiments are the ones leading to largest inference time reductions while keeping lower error rates, using a downsampling of the input sequences. You can download LibriSpeech at http://www.openslr.org/12.
@@ -37,16 +38,18 @@ The reported experiments are the ones leading to largest inference time reductio
 ``
 
 ### Downsampling Results with Librispeech train-clean-100 split
-The inference times shown here are for running the whole test-clean LibriSpeech split, and are in seconds. MACs shown here are the mean MACs for a test batch.
+The inference times shown here are for running the whole test-clean LibriSpeech split, and are in seconds. MACs shown here are the mean MACs for a test batch. 
+These results are obtained using WavLM Large finetuned only on the train-clean-100 split of LibriSpeech (100 hours of speech)
 
-| Name | Factor | WER   | GPU- Inference Time | CPU - Inference Time | WER-LM | GPULM - Inference Time | CPULM - Inference Time | MACs (G)|
-|------|--------|-------|---------------------|----------------------|--------|------------------------|------------------------|---------|
-| CL2  |      2 | 4.61  |                  84 |                  582 | 3.48   |                     98 |                    600 | 192.97  |
-| CL3  |      3 | 5.47  |                  69 |                  414 |   4.12 |                     91 |                    436 | 134.864 |
-| AV2  |      2 | 4.93  |                  80 |                  570 | 3.66   |                     98 |                    578 | 192.97  |
-| AV3  |      3 | 6.01  |                  64 |                  406 | 4.27   |                     90 |                    422 | 134.864 |
-| SD2  |      2 | 4.85  |                  86 |                  569 | 3.58   |                     97 |                    575 | 192.97  |
-| SD3  |      3 | 5.83  |                  72 |                  427 |  4.08  |                     89 |                    458 | 134.864 |
+| Name  | Factor | WER   | GPU- Inference Time | CPU - Inference Time | WER-LM | GPULM - Inference Time | CPULM - Inference Time | MACs (G) |
+|-------|--------|-------|---------------------|----------------------|--------|------------------------|------------------------|----------|
+| No SD | 1      |  4.09 |                 134 |                 1121 |   3.31 |                    152 |                   1128 | 386.538  |
+| CL2   |      2 | 4.61  |                  84 |                  582 | 3.48   |                     98 |                    600 | 192.97   |
+| CL3   |      3 | 5.47  |                  69 |                  414 |   4.12 |                     91 |                    436 | 134.864  |
+| AV2   |      2 | 4.93  |                  80 |                  570 | 3.66   |                     98 |                    578 | 192.97   |
+| AV3   |      3 |  6.01 |                  64 |                  406 | 4.27   |                     90 |                    422 | 134.864  |
+| SD2   |      2 | 4.85  |                  86 |                  569 | 3.58   |                     97 |                    575 | 192.97   |
+| SD3   |      3 | 5.83  |                  72 |                  427 |   4.08 |                     89 |                    458 | 134.864  |
 
 CL: Learned convolutional downsampling
 

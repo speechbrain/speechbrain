@@ -1,3 +1,9 @@
+"""
+Combinations of processing algorithms to implement downsampling methods.
+
+Authors
+ * Salah Zaiem
+"""
 import torch
 import torchaudio.transforms as T
 from speechbrain.nnet.CNN import Conv1d
@@ -10,6 +16,24 @@ class Downsampler(torch.nn.Module):
 
 
 class SignalDownsampler(Downsampler):
+    """Signal downsampling (Decimation)
+
+    Arguments
+    ---------
+    downsampling_factor : int
+        Factor of downsampling (i.e. ratio (length before ds / length after ds))
+    initial_sampling_rate : int
+        Sampling_rate of the input audios
+
+    Example
+    -------
+    >>> sd = SignalDownsampler(2,16000)
+    >>> a = torch.rand([8,28000])
+    >>> a = sd(a)
+    >>> print(a.shape)
+    torch.Size([8, 14000])
+    """
+
     def __init__(self, downsampling_factor, initial_sampling_rate):
         super().__init__()
         self.downsampling_factor = downsampling_factor
@@ -20,6 +44,23 @@ class SignalDownsampler(Downsampler):
 
 
 class Conv1DDownsampler(Downsampler):
+    """1D Convolutional downsampling with a learned convolution
+
+    Arguments
+    ---------
+    downsampling_factor : int
+        Factor of downsampling (i.e. ratio (length before ds / length after ds))
+    kernel_size : int
+        Kernel size of the 1D filter (must be an odd integer)
+    Example
+    -------
+    >>> sd = Conv1DDownsampler(3,161)
+    >>> a = torch.rand([8,33000])
+    >>> a = sd(a)
+    >>> print(a.shape)
+    torch.Size([8, 11000])
+    """
+
     def __init__(self, downsampling_factor, kernel_size):
         super().__init__()
         self.kernel_size = kernel_size
@@ -34,6 +75,27 @@ class Conv1DDownsampler(Downsampler):
 
 
 class PoolingDownsampler(Downsampler):
+    """1D Pooling downsampling (non-learned)
+
+    Arguments
+    ---------
+    downsampling_factor : int
+        Factor of downsampling (i.e. ratio (length before ds / length after ds))
+    kernel_size : int
+        Kernel size of the 1D filter (must be an odd integer)
+    padding : int
+        The number of padding elements to apply.
+    pool_type : string
+        Pooling approach, must be within ["avg","max"]
+    Example
+    -------
+    >>> sd = PoolingDownsampler(3,41)
+    >>> a = torch.rand([8,33000])
+    >>> a = sd(a)
+    >>> print(a.shape)
+    torch.Size([8, 11000])
+    """
+
     def __init__(
         self, downsampling_factor, kernel_size, padding=0, pool_type="avg"
     ):
