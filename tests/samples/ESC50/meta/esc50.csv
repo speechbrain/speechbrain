@@ -1,0 +1,6 @@
+filename,fold,target,category,esc10,src_file,take
+1-100032-A-0.wav,1,0,dog,True,100032,A
+2-100648-A-43.wav,2,43,car_horn,False,100648,A
+3-103051-C-19.wav,3,19,thunderstorm,False,103051,C
+4-156993-A-19.wav,4,19,thunderstorm,False,156993,A
+5-156999-C-19.wav,5,19,thunderstorm,False,156999,C
