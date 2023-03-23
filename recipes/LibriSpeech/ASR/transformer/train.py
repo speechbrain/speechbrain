@@ -151,6 +151,21 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint averge if needed"""
+        super().on_evaluate_start()
+
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model", device=self.device
+        )
+
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
+        print("Loaded the average")
+
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
         with torch.no_grad():
