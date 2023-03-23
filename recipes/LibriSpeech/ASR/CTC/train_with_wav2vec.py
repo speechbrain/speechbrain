@@ -26,7 +26,7 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-
+from pyctcdecode import build_ctcdecoder
 logger = logging.getLogger(__name__)
 
 
@@ -37,7 +37,9 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
+        # Downsample the inputs if specified
+        if hasattr(self.modules, "downsampler"):
+            wavs = self.modules.downsampler(wavs)
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
@@ -64,6 +66,11 @@ class ASR(sb.Brain):
         # Compute outputs
         p_tokens = None
         logits = self.modules.ctc_lin(x)
+        # Upsample the inputs if they have been highly downsampled
+        if self.hparams.upsampling:
+            logits = logits.view(
+                logits.shape[0], -1, self.hparams.output_neurons
+            )
         p_ctc = self.hparams.log_softmax(logits)
         if stage != sb.Stage.TRAIN:
             p_tokens = sb.decoders.ctc_greedy_decode(
@@ -86,7 +93,7 @@ class ASR(sb.Brain):
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
             predicted_words = [
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
@@ -95,7 +102,20 @@ class ASR(sb.Brain):
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
-
+        if stage == sb.Stage.TEST:  # Language model decoding only used for test
+            if self.hparams.use_language_modelling:
+                predicted_words = []
+                for logs in p_ctc:
+                    text = decoder.decode(logs.detach().cpu().numpy())
+                    predicted_words.append(text.split(" "))
+            else:
+                predicted_words = [
+                    "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
+                    for utt_seq in predicted_tokens
+                ]
+                target_words = [wrd.split(" ") for wrd in batch.wrd]
+                self.wer_metric.append(ids, predicted_words, target_words)
+                self.cer_metric.append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -367,6 +387,22 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
+
+    # Loading the labels for the LM decoding and the CTC decoder
+    if hparams["use_language_modelling"]:
+        ind2lab = label_encoder.ind2lab
+        labels = [ind2lab[x] for x in range(len(ind2lab))]
+        labels = [""] + labels[
+            1:
+        ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
+        decoder = build_ctcdecoder(
+            labels,
+            kenlm_model_path=hparams[
+                "ngram_lm_path"
+            ],  # either .arpa or .bin file
+            alpha=0.5,  # tuned on a val set
+            beta=1.0,  # tuned on a val set
+        )
 
     # Training
     asr_brain.fit(
