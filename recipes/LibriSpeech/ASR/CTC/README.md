@@ -9,7 +9,7 @@ python train_with_wav2vec.py hparams/file.yaml
 
 python train_with_whisper.py hparams/file.yaml
 
-To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster training and inferences) :
+To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster training and inferences)
 
 ```
 python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampling.yaml --downsampling_factor 2
@@ -33,9 +33,6 @@ installed in your environment (see extra-requirements.txt)**
 
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study". 
 The reported experiments are the ones leading to largest inference time reductions while keeping lower error rates, using a downsampling of the input sequences. You can download LibriSpeech at http://www.openslr.org/12.
-
-
-``
 
 ### Downsampling Results with Librispeech train-clean-100 split
 The inference times shown here are for running the whole test-clean LibriSpeech split, and are in seconds. MACs shown here are the mean MACs for a test batch. 
