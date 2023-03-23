@@ -372,6 +372,25 @@ if __name__ == "__main__":
         hparams
     )
 
+    # Loading the labels for the LM decoding and the CTC decoder
+    if "use_language_modelling" in hparams:
+        if hparams["use_language_modelling"]:
+            ind2lab = label_encoder.ind2lab
+            labels = [ind2lab[x] for x in range(len(ind2lab))]
+            labels = [""] + labels[
+                1:
+            ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
+            decoder = build_ctcdecoder(
+                labels,
+                kenlm_model_path=hparams[
+                    "ngram_lm_path"
+                ],  # either .arpa or .bin file
+                alpha=0.5,  # tuned on a val set
+                beta=1.0,  # tuned on a val set
+            )
+    else:
+        hparams["use_language_modelling"] = False
+
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -388,22 +407,6 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
-
-    # Loading the labels for the LM decoding and the CTC decoder
-    if hparams["use_language_modelling"]:
-        ind2lab = label_encoder.ind2lab
-        labels = [ind2lab[x] for x in range(len(ind2lab))]
-        labels = [""] + labels[
-            1:
-        ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
-        decoder = build_ctcdecoder(
-            labels,
-            kenlm_model_path=hparams[
-                "ngram_lm_path"
-            ],  # either .arpa or .bin file
-            alpha=0.5,  # tuned on a val set
-            beta=1.0,  # tuned on a val set
-        )
 
     # Training
     asr_brain.fit(
