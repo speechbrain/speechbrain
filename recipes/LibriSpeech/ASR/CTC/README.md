@@ -54,14 +54,12 @@ SD : Signal downsampling
 
 AV : Averaging window
 
-# **Citing**
-Bibtex for the paper describing these experiments : 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
-# **Citing SpeechBrain**
+# **Citing**
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
