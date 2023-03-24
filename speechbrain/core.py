@@ -920,7 +920,7 @@ class Brain:
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
+            with torch.autocast():
                 outputs = self.compute_forward(batch, Stage.TRAIN)
 
             # Losses are excluded from mixed precision to avoid instabilities
@@ -937,7 +937,7 @@ class Brain:
                 self.zero_grad()
                 self.optimizer_step += 1
         else:
-            with torch.cuda.amp.autocast(
+            with torch.autocast(
                 device_type=self.device,
                 dtype=torch.bfloat16,
                 enabled=self.bfloat16_mix_prec,
