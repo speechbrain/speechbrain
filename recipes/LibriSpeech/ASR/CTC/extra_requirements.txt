@@ -1,4 +1,2 @@
-https://github.com/kpu/kenlm/archive/master.zip
 pyctcdecode
-# For wav2vect recipe (HuggingFace)
 transformers
