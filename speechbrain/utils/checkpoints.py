@@ -161,14 +161,16 @@ def torch_parameter_transfer(obj, path, device):
 DEFAULT_LOAD_HOOKS = {
     torch.nn.Module: torch_recovery,
     torch.optim.Optimizer: torch_recovery,
-    torch.optim.lr_scheduler._LRScheduler: torch_recovery,
+    torch.optim.lr_scheduler._LRScheduler: torch_recovery,  # for pytorch<2.0
+    torch.optim.lr_scheduler.LRScheduler: torch_recovery,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
     torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
 }
 DEFAULT_SAVE_HOOKS = {
     torch.nn.Module: torch_save,
     torch.optim.Optimizer: torch_save,
-    torch.optim.lr_scheduler._LRScheduler: torch_save,
+    torch.optim.lr_scheduler._LRScheduler: torch_save,  # for pytorch<2.0
+    torch.optim.lr_scheduler.LRScheduler: torch_save,
     torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
     torch.cuda.amp.grad_scaler.GradScaler: torch_save,
 }
