@@ -944,10 +944,10 @@ class Brain:
                 ):
                     outputs = self.compute_forward(batch, Stage.TRAIN)
                     loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            else: 
+            else:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-                
+
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
