@@ -46,7 +46,7 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
     - Optimised and fast beam search on both CPUs and GPUs.
 - Transducer end-to-end ASR with both a custom Numba loss and the torchaudio one. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Pre-trained ASR models for transcribing an audio file or extracting features for a downstream task.
-- Fully customizable with the possibility to add external Beam Search decoders such as [PyCTCDecode](https://github.com/kensho-technologies/pyctcdecode) like in our LibriSpeech CTC wav2vec recipe.
+- Fully customizable with the possibility to add external Beam Search decoders, if the ones offered nativaly by SpeechBrain are not sufficient, such as [PyCTCDecode](https://github.com/kensho-technologies/pyctcdecode) like in our LibriSpeech CTC wav2vec recipe.
 
 ### Feature extraction and augmentation
 
@@ -93,7 +93,7 @@ Combining multiple microphones is a powerful approach to achieving robustness in
 - Speaker localization.
 
 ### Emotion Recognition
-- Recipes for emotion recognition with the [IEMOCAP](https://sail.usc.edu/iemocap/) dataset using wav2vec2 and ECAPA-TDNN models.
+- Recipes for emotion recognition with the [IEMOCAP](https://sail.usc.edu/iemocap/) dataset using SSL and ECAPA-TDNN models.
 
 ### Spoken Language Understanding
 - Recipes for training wav2vec 2.0 models with the [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) dataset.
@@ -104,7 +104,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | wav2vec2 | WER=1.90% (test-clean) |
-| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.26% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Conformer | WER=2.2% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
