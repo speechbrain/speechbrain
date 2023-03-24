@@ -18,7 +18,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 In March 2023, PyTorch introduced a new version, PyTorch 2.0, which offers numerous enhancements to the community. At present, the majority of SpeechBrain is compatible with PyTorch 2.0. However, certain sections of the code remain incompatible, and we are actively working towards full compatibility with PyTorch 2.0. For the time being, we recommend users continue utilizing PyTorch 1.13, as this is the version employed in our experiments.
 
-If you wish to use SpeechBrain alongside PyTorch 2.0 and encounter any issues, kindly inform us by responding to this [issue](1897).
+If you wish to use SpeechBrain alongside PyTorch 2.0 and encounter any issues, kindly inform us by responding to this [issue](https://github.com/speechbrain/speechbrain/issues/1897).
 
 # Key features
 
