@@ -42,10 +42,11 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 - State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models, including RNNLM and TransformerLM. We also share several pre-trained models that you can easily use (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
-    - Many available encoders: CRDNN (VGG + {LSTM,GRU,LiGRU} + DNN), ResNet, SincNet, vanilla transformers, context net-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in a few hours of work. The decoder is fully customizable: LSTM, GRU, LiGRU, transformer, or your neural network!
+    - Many available encoders: CRDNN (VGG + {LSTM,GRU,Li-GRU} + DNN), ResNet, SincNet, vanilla transformers, whisper, context net-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in a few hours of work. The decoder is fully customizable: LSTM, GRU, LiGRU, transformer, or your neural network!
     - Optimised and fast beam search on both CPUs and GPUs.
 - Transducer end-to-end ASR with both a custom Numba loss and the torchaudio one. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Pre-trained ASR models for transcribing an audio file or extracting features for a downstream task.
+- Fully customizable with the possibility to add external Beam Search decoders such as [PyCTCDecode](https://github.com/kensho-technologies/pyctcdecode) like in our LibriSpeech CTC wav2vec recipe. 
 
 ### Feature extraction and augmentation
 
@@ -75,7 +76,7 @@ SpeechBrain provides different models for speaker recognition, identification, a
 ### Grapheme-to-Phoneme (G2P)
 We have models for converting characters into a sequence of phonemes. In particular, we have Transformer- and RNN-based models operating at the sentence level (i.e, converting a full sentence into a corresponding sequence of phonemes). The models are trained with both data from Wikipedia and LibriSpeech.
 
-###  Language Identification
+### Language Identification
 SpeechBrain provides different models for language identification.
 In particular, our best model is based on an ECAPA-TDNN trained with the [voxlingua107 dataset](http://bark.phon.ioc.ee/voxlingua107/).
 
@@ -91,7 +92,11 @@ Combining multiple microphones is a powerful approach to achieving robustness in
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
+### Emotion Recognition
+- Recipes for emotion recognition with the [IEMOCAP](https://sail.usc.edu/iemocap/) dataset using wav2vec2 and ECAPA-TDNN models.
 
+### Spoken Language Understanding
+- Recipes for training wav2vec 2.0 models with the [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) dataset.
 
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:
