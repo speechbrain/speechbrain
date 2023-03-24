@@ -67,11 +67,13 @@ class ASR(sb.Brain):
         # Compute outputs
         p_tokens = None
         logits = self.modules.ctc_lin(x)
+
         # Upsample the inputs if they have been highly downsampled
-        if self.hparams.upsampling:
+        if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
             logits = logits.view(
                 logits.shape[0], -1, self.hparams.output_neurons
             )
+
         p_ctc = self.hparams.log_softmax(logits)
         if stage != sb.Stage.TRAIN:
             p_tokens = sb.decoders.ctc_greedy_decode(
@@ -409,13 +411,13 @@ if __name__ == "__main__":
     asr_brain.tokenizer = label_encoder
 
     # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
-    )
+    # asr_brain.fit(
+    #    asr_brain.hparams.epoch_counter,
+    #    train_data,
+    #    valid_data,
+    #    train_loader_kwargs=hparams["train_dataloader_opts"],
+    #    valid_loader_kwargs=hparams["valid_dataloader_opts"],
+    # )
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
