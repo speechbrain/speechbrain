@@ -257,7 +257,9 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask_width: 15
     time_mask_width: 20
 
-speed_perturb: True
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
