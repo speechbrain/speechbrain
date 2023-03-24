@@ -375,7 +375,7 @@ if __name__ == "__main__":
     )
 
     # Loading the labels for the LM decoding and the CTC decoder
-    if "use_language_modelling" in hparams:
+    if hasattr(hparams, "use_language_modelling"):
         if hparams["use_language_modelling"]:
             ind2lab = label_encoder.ind2lab
             labels = [ind2lab[x] for x in range(len(ind2lab))]
@@ -387,8 +387,8 @@ if __name__ == "__main__":
                 kenlm_model_path=hparams[
                     "ngram_lm_path"
                 ],  # either .arpa or .bin file
-                alpha=0.5,  # tuned on a val set
-                beta=1.0,  # tuned on a val set
+                alpha=0.5,  # Default by KenLM
+                beta=1.0,  # Default by KenLM
             )
     else:
         hparams["use_language_modelling"] = False
@@ -411,13 +411,13 @@ if __name__ == "__main__":
     asr_brain.tokenizer = label_encoder
 
     # Training
-    # asr_brain.fit(
-    #    asr_brain.hparams.epoch_counter,
-    #    train_data,
-    #    valid_data,
-    #    train_loader_kwargs=hparams["train_dataloader_opts"],
-    #    valid_loader_kwargs=hparams["valid_dataloader_opts"],
-    # )
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_dataloader_opts"],
+        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+    )
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
