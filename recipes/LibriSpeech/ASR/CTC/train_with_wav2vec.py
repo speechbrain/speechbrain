@@ -26,7 +26,6 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from pyctcdecode import build_ctcdecoder
 
 logger = logging.getLogger(__name__)
 
@@ -377,6 +376,13 @@ if __name__ == "__main__":
     # Loading the labels for the LM decoding and the CTC decoder
     if hasattr(hparams, "use_language_modelling"):
         if hparams["use_language_modelling"]:
+            try:
+                from pyctcdecode import build_ctcdecoder
+            except ImportError:
+                err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
+                err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
+            raise ImportError(err_msg)
+
             ind2lab = label_encoder.ind2lab
             labels = [ind2lab[x] for x in range(len(ind2lab))]
             labels = [""] + labels[
