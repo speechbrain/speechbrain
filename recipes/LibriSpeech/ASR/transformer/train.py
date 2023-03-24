@@ -241,7 +241,7 @@ class ASR(sb.core.Brain):
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
+            with torch.autocast(torch.device(self.device).type):
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
             # Losses are excluded from mixed precision to avoid instabilities
@@ -259,13 +259,11 @@ class ASR(sb.core.Brain):
                 self.optimizer_step += 1
                 self.hparams.noam_annealing(self.optimizer)
         else:
-            if self.bfloat16_mix_prec:
-                with torch.cuda.amp.autocast(dtype=torch.bfloat16):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
-            else:
+            with torch.autocast(
+                torch.device(self.device).type,
+                dtype=torch.bfloat16,
+                enabled=self.bfloat16_mix_prec,
+            ):
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
