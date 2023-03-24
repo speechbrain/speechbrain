@@ -4,6 +4,9 @@ You can download LibriSpeech at http://www.openslr.org/12.
 
 **Supported pre-trained wav2vec2:** [SpeechBrain](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/self-supervised-learning/wav2vec2) and [HuggingFace](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice/self-supervised-learning/wav2vec2)
 
+**If using a HuggingFace pre-trained model, please make sure you have "transformers"
+installed in your environment (see extra-requirements.txt)**
+
 # How to run
 python train_with_wav2vec.py hparams/file.yaml
 
@@ -15,10 +18,8 @@ To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster train
 python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampling.yaml --downsampling_factor 2
 ```
 
-#KenLM n-gram CTC rescoring
-To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [LINK](https://www.openslr.org/11/)
-**If using a HuggingFace pre-trained model, please make sure you have "transformers"
-installed in your environment (see extra-requirements.txt)**
+# KenLM n-gram CTC rescoring
+To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. Results are reported without rescoring.
 
 # Results
 
