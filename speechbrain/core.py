@@ -938,7 +938,9 @@ class Brain:
                 self.optimizer_step += 1
         else:
             with torch.cuda.amp.autocast(
-                dtype=torch.bfloat16, enabled=self.bfloat16_mix_prec
+                device_type=self.device,
+                dtype=torch.bfloat16,
+                enabled=self.bfloat16_mix_prec,
             ):
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
