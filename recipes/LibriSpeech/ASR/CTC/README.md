@@ -8,10 +8,12 @@ You can download LibriSpeech at http://www.openslr.org/12.
 installed in your environment (see extra-requirements.txt)**
 
 # How to run
+```
 python train_with_wav2vec.py hparams/file.yaml
-
+```
+```
 python train_with_whisper.py hparams/file.yaml
-
+```
 To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster training and inferences)
 
 ```
