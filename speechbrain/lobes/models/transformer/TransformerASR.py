@@ -184,9 +184,16 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
 
         # Add positional encoding to the target before feeding the decoder.
-        tgt = tgt + self.positional_encoding(tgt)
-        pos_embs_target = None
-        pos_embs_encoder = None
+        tgt = self.custom_tgt_module(tgt)
+        if self.attention_type == "RelPosMHAXL":
+            # use standard sinusoidal pos encoding in decoder
+            tgt = tgt + self.positional_encoding_decoder(tgt)
+            pos_embs_encoder = None  # self.positional_encoding(src)
+            pos_embs_target = None
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            tgt = tgt + self.positional_encoding(tgt)
+            pos_embs_target = None
+            pos_embs_encoder = None
 
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
