@@ -2883,10 +2883,10 @@ class WhisperASR(Pretrained):
 
     Example
     -------
-    >>> from speechbrain.pretrained.interfaces import foreign_class
+    >>> from speechbrain.pretrained import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,)
-    >>> asr_model.transcribe_file("tests/samples/example2.wav")
+    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,) # doctest: +SKIP
+    >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["language"]
