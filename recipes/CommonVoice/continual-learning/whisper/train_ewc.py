@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
+"""Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
 learning fashion via Elastic Weight Consolidation (https://arxiv.org/abs/1612.00796).
 
 The following technical tricks were implemented to improve performance:
@@ -94,9 +94,16 @@ class ASR(sb.Brain):
                             fisher[name], [0, 0, 0, diff]
                         )
                     loss += (
-                        fisher[name]
-                        * (old_param[name] - param.to(fisher[name].device)) ** 2
-                    ).sum().to(self.device) * 0.5 * self.hparams.ewc_lambda
+                        (
+                            fisher[name]
+                            * (old_param[name] - param.to(fisher[name].device))
+                            ** 2
+                        )
+                        .sum()
+                        .to(self.device)
+                        * 0.5
+                        * self.hparams.ewc_lambda
+                    )
 
         if stage != sb.Stage.TRAIN:
             target_words = batch.target_wrd

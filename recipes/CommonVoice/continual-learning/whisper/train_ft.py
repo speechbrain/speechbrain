@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice.
+"""Recipe for fine-tuning a Whisper-based ASR system on Common Voice.
 
 The following technical tricks were implemented to improve performance:
 - use custom decoding implementation (faster than built-in searchers

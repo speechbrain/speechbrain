@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
+"""Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
 learning fashion via Learning Without Forgetting (https://arxiv.org/abs/1606.09282).
 
 The following technical tricks were implemented to improve performance:
