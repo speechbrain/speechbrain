@@ -80,6 +80,7 @@ dependencies:
     - pandas==1.5.3
     - pillow==9.3.0
     - plotly==5.11.0
+    - ptflops==0.6.9
     - python-dateutil==2.8.2
     - pytz==2022.7.1
     - pyyaml==6.0
@@ -95,6 +96,7 @@ dependencies:
     - tokenizers==0.13.2
     - torch==1.13.1
     - torchaudio==0.13.1
+    - torchinfo==1.7.2
     - torchvision==0.14.1
     - tqdm==4.64.1
     - transformers==4.25.1

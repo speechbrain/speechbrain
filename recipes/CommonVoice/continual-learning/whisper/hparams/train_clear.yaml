@@ -1,24 +1,24 @@
 # ############################################################################
 # Model: Whisper (encoder-decoder) + cross-entropy loss
-# Authors: Luca Della Libera 2022
+# Authors: Luca Della Libera 2023
 # ############################################################################
 
-seed: 1986
+seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 download_dir: data
-max_durations: null  # [36000, 3600, 3600] for whisper-large-v2
+max_durations: [36000, 3600, 3600]
 
 # Output directories
 output_dir: !ref results/<whisper_variant>/clear/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 96  # 96 for whisper-base, 8 for whisper-large-v2
-valid_batch_size: 152  # 128 for whisper-base, 16 for whisper-large-v2
+train_batch_size: 8
+valid_batch_size: 16
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -29,19 +29,19 @@ avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
 
-num_epochs: 5  # 10 for whisper-large-v2
+num_epochs: 2
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
 replay_ratio: 0.1
 
-whisper_variant: whisper-tiny  # whisper-large-v2
+whisper_variant: whisper-large-v2
 encoder_only: False
 freeze: False
 freeze_encoder: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
-auto_mix_prec: False  # True for whisper-large-v2 (for full dataset it causes NaN in forward pass for Kinyarwanda)
+auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 

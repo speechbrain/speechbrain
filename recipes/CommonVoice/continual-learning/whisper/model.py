@@ -1,9 +1,9 @@
 """Whisper model that supports decoding with predicted batch of languages,
-implements a more efficient greedy decoding and whose tokenizer's vocabulary
+implements a more efficient decoding and whose tokenizer's vocabulary
 can be progressively extended by adding new tokens.
 
 Authors
- * Luca Della Libera 2022
+ * Luca Della Libera 2023
 """
 
 import torch
@@ -102,15 +102,73 @@ class ProgressiveWhisper(HuggingFaceWhisper):
             timestamp_tokens = [f"<|{ts:.2f}|>" for ts in timestamps]
             self.tokenizer.add_tokens(timestamp_tokens)
 
-    @torch.no_grad()
+    # Wrap in torch.no_grad for more efficient inference
     def generate(
         self,
         wav=None,
         audio_features=None,
         forced_decoder_locale=None,
         max_gen_tokens=445,
-        strategy="greedy",
+        beam_size=1,
+        length_norm_coeff=1.0,
+        eos_threshold=1.5,
+        return_scores=False,
+        return_all=False,
     ):
+        """
+        Arguments
+        ---------
+        wav : torch.Tensor
+            A batch of audio signals to transform to features.
+            Either `wav` or `audio_features` argument should be given.
+        audio_features : torch.Tensor
+            A batch of features.
+            Either `wav` or `audio_features` argument should be given.
+        forced_decoder_locale: str
+            The locale (e.g. "en", "de", "it") to use for decoding
+            (the same for all batch elements).
+            If not specified, Whisper's predicted locale (one for
+            each batch element) is used.
+        max_gen_tokens: int
+            The maximum number of tokens to generate.
+            Low values of `max_gen_tokens` might result in truncated decoded
+            sequences but reduce the amount of memory required for decoding
+            (useful when `OutOfMemoryError` is raised).
+        beam_size: int
+            The beam size. Greedy search is used if `beam_size` is 1,
+            beam search otherwise.
+        length_norm_coeff: float
+            The length normalization coefficient for beam search decoding
+            (used only if `beam_size` > 1).
+        eos_threshold: float
+            The EOS threshold for beam search decoding (used only if `beam_size` > 1).
+        return_scores: bool
+            True to additionally return the scores along with the hypotheses,
+            False otherwise.
+            Returns None if `beam_size` is 1.
+        return_all: bool
+            True to return all the hypotheses (`beam_size` for each batch element),
+            False to return only the one with the highest score.
+
+        Returns
+        -------
+        torch.Tensor
+            The batch of hypotheses, shape: ['batch_size`, `beam_size`, `seq_length`]
+            if `return_all` is True, ['batch_size`, `seq_length`] otherwise.
+        Optional[torch.Tensor]
+            If `return_scores` is True and `beam_size` is 1, return None.
+            If `return_scores` is True and `beam_size` > 1, return the batch of scores,
+            shape: ['batch_size`, `beam_size`] if `return_all` is True, ['batch_size`] otherwise.
+
+        Example
+        -------
+        >>> model_hub = "openai/whisper-tiny"
+        >>> save_path = "savedir"
+        >>> model = ProgressiveWhisper(model_hub, save_path, sampling_rate=16000)
+        >>> inputs = torch.randn([2, 93680])
+        >>> with torch.no_grad():
+        ...     hyps = model.generate(inputs, beam_size=5)
+        """
         if wav is None and audio_features is None:
             raise ValueError(
                 "Either `wav` or `audio_features` argument should be given"
@@ -118,14 +176,10 @@ class ProgressiveWhisper(HuggingFaceWhisper):
         if audio_features is None:
             audio_features = self.forward_encoder(wav)
         batch_size = audio_features.shape[0]
-        (
-            startoftranscript_id,
-            transcribe_id,
-            notimestamps_id,
-        ) = self.tokenizer.prefix_tokens
+        startoftranscript_id = 50258
+        transcribe_id = 50359
+        notimestamps_id = 50363
         pad_id = self.model.config.pad_token_id
-        endoftext_id = self.tokenizer.eos_token_id
-
         hyps = torch.full(
             (batch_size, max_gen_tokens + 4),
             pad_id,
@@ -168,30 +222,213 @@ class ProgressiveWhisper(HuggingFaceWhisper):
         hyps[:, 2] = transcribe_id
         hyps[:, 3] = notimestamps_id
 
-        # Autoregressive loop
-        num_gen_tokens = 0
-        unfinished_mask = torch.ones(
-            len(hyps), dtype=torch.bool, device=audio_features.device
+        # Prepare token suppression mask
+        suppress_mask = torch.ones(
+            self.model.decoder.embed_tokens.num_embeddings,
+            device=audio_features.device,
+            dtype=torch.bool,
         )
+        suppress_mask[self.model.config.suppress_tokens] = False
+
+        if beam_size > 1:
+            hyps, scores = self._beam_search(
+                audio_features,
+                hyps,
+                suppress_mask,
+                max_gen_tokens,
+                beam_size,
+                length_norm_coeff,
+                eos_threshold,
+            )
+            if not return_all:
+                hyps, scores = hyps[:, 0, :], scores[:, 0]
+        else:
+            hyps, scores = self._greedy_search(
+                audio_features, hyps, suppress_mask, max_gen_tokens,
+            )
+
+        if return_scores:
+            return hyps, scores
+
+        return hyps
+
+    def _greedy_search(
+        self,
+        audio_features,  # B x S x F
+        hyps,  # B x T
+        suppress_mask,  # K
+        max_gen_tokens,
+    ):
+        endoftext_id = self.tokenizer.eos_token_id
+        batch_size = audio_features.shape[0]  # B
+        num_gen_tokens = 0
+        # B
+        unfinished_mask = torch.ones(
+            batch_size, dtype=torch.bool, device=audio_features.device
+        )
+        # Autoregressive loop
         while True:
+            # B* x S x F
+            unfinished_audio_features = audio_features[unfinished_mask]
+            # B* x T
+            unfinished_hyps = hyps[unfinished_mask, : num_gen_tokens + 4]
+            # B* x T x K
             logits, _ = self.forward_decoder(
-                audio_features[unfinished_mask],
-                hyps[unfinished_mask, : num_gen_tokens + 4],
+                unfinished_audio_features, unfinished_hyps
             )
-            # Prepare suppress mask
-            suppress_mask = torch.ones(
-                logits.shape[-1], device=audio_features.device, dtype=torch.bool
-            )
-            suppress_mask[self.model.config.suppress_tokens] = False
-            logits[:, :, ~suppress_mask] = -float("inf")
-            gen_tokens = logits.argmax(dim=-1)[:, -1]
-            hyps[unfinished_mask, num_gen_tokens + 4] = gen_tokens
+            # B* x K
+            logits = logits[:, -1, :]
+            logits[:, ~suppress_mask] = -float("inf")
+            # B*
+            gen_token_ids = logits.argmax(dim=-1)
+            # B*
+            hyps[unfinished_mask, num_gen_tokens + 4] = gen_token_ids
+            # B*
             unfinished_mask[unfinished_mask == True] = (
-                gen_tokens != endoftext_id
+                gen_token_ids != endoftext_id
             )
             num_gen_tokens += 1
             if (not unfinished_mask.any()) or (
                 num_gen_tokens >= max_gen_tokens
             ):
                 break
-        return hyps[:, 4 : num_gen_tokens + 3]
+        # B x T
+        hyps = hyps[:, 4 : num_gen_tokens + 4]
+        return hyps, None
+
+    def _beam_search(
+        self,
+        audio_features,  # B x S x F
+        hyps,  # B x T
+        suppress_mask,  # K
+        max_gen_tokens,
+        beam_size,  # N
+        length_norm_coeff,
+        eos_threshold,
+    ):
+        endoftext_id = self.tokenizer.eos_token_id
+        batch_size = audio_features.shape[0]  # B
+        num_gen_tokens = 0
+        # B
+        unfinished_mask = torch.ones(
+            batch_size, dtype=torch.bool, device=audio_features.device
+        )
+        # B
+        scores = torch.zeros(batch_size, device=audio_features.device,)
+        # Autoregressive loop
+        while True:
+            if num_gen_tokens == 0:
+                # B* x S x F
+                unfinished_audio_features = audio_features[unfinished_mask]
+                # B* x T
+                unfinished_hyps = hyps[unfinished_mask, : num_gen_tokens + 4]
+                unfinished_batch_size = unfinished_hyps.shape[0]
+            else:
+                # N x B* x S x F
+                unfinished_audio_features = audio_features[:, unfinished_mask]
+                # N x B* x T
+                unfinished_hyps = hyps[:, unfinished_mask, : num_gen_tokens + 4]
+                unfinished_batch_size = unfinished_hyps.shape[1]
+                # NB* x S x F
+                unfinished_audio_features = unfinished_audio_features.movedim(
+                    0, 1
+                ).reshape(
+                    beam_size * unfinished_batch_size,
+                    -1,
+                    unfinished_audio_features.shape[-1],
+                )
+                # NB* x T
+                unfinished_hyps = unfinished_hyps.movedim(0, 1).reshape(
+                    beam_size * unfinished_batch_size, -1
+                )
+            # NB* x T x K or B* x T x K (num_gen_tokens=0)
+            logits, _ = self.forward_decoder(
+                unfinished_audio_features, unfinished_hyps
+            )
+            # NB* x K or B* x K (num_gen_tokens=0)
+            logits = logits[:, -1, :]
+            logits[:, ~suppress_mask] = -float("inf")
+            log_probs = logits.log_softmax(dim=-1)
+            if eos_threshold < float("inf"):
+                # NB* or B* (num_gen_tokens=0)
+                max_log_probs, _ = log_probs.max(dim=-1)
+                eos_log_probs = log_probs[:, endoftext_id]
+                eos_mask = eos_log_probs <= (eos_threshold * max_log_probs)
+                log_probs[:, endoftext_id][eos_mask] = -1e20
+            if num_gen_tokens == 0:
+                # B*
+                unfinished_scores = scores[unfinished_mask]
+                # B* x K
+                unfinished_scores = unfinished_scores[:, None] + log_probs
+                # K x B*
+                unfinished_scores = unfinished_scores.movedim(0, 1)
+                # N x B*
+                unfinished_scores, gen_token_ids = unfinished_scores.topk(
+                    beam_size, dim=0
+                )
+                # N x B x S x F
+                audio_features = audio_features.expand(beam_size, -1, -1, -1)
+                # N x B x T
+                hyps = hyps.expand(beam_size, -1, -1).clone()
+                # N x B
+                scores = scores.expand(beam_size, -1).clone()
+            else:
+                # N x B* x K
+                log_probs = log_probs.reshape(
+                    unfinished_batch_size, beam_size, -1
+                ).movedim(0, 1)
+                # N x B*
+                unfinished_scores = scores[:, unfinished_mask]
+                # N x B* x K
+                unfinished_scores = unfinished_scores[:, :, None] + log_probs
+                if length_norm_coeff > 0.0:
+                    unfinished_scores /= (
+                        num_gen_tokens + 1
+                    ) ** length_norm_coeff
+                # N x K x B*
+                unfinished_scores = unfinished_scores.movedim(-1, 1)
+                # NK x B*
+                unfinished_scores = unfinished_scores.reshape(
+                    -1, unfinished_batch_size
+                )
+                # N x B*
+                unfinished_scores, gen_token_ids = unfinished_scores.topk(
+                    beam_size, dim=0
+                )
+                hyp_idxes = gen_token_ids // logits.shape[-1]
+                gen_token_ids -= logits.shape[-1] * hyp_idxes
+                # N x B*
+                hyp_idxes += torch.arange(
+                    0,
+                    unfinished_batch_size * beam_size,
+                    beam_size,
+                    device=hyp_idxes.device,
+                )[None]
+                # N x B* x T
+                hyps[
+                    :, unfinished_mask, : num_gen_tokens + 4
+                ] = unfinished_hyps[hyp_idxes]
+                if length_norm_coeff > 0.0:
+                    unfinished_scores *= (
+                        num_gen_tokens + 1
+                    ) ** length_norm_coeff
+            # N x B*
+            hyps[:, unfinished_mask, num_gen_tokens + 4] = gen_token_ids
+            # N x B*
+            scores[:, unfinished_mask] = unfinished_scores
+            # B*
+            unfinished_mask[unfinished_mask == True] = (
+                gen_token_ids != endoftext_id
+            ).all(dim=0)
+            num_gen_tokens += 1
+            if (not unfinished_mask.any()) or (
+                num_gen_tokens >= max_gen_tokens
+            ):
+                break
+        # N x B x T
+        hyps = hyps[:, :, 4 : num_gen_tokens + 4]
+        # B x N x T
+        hyps = hyps.movedim(0, 1)
+        # B x N
+        scores = scores.movedim(0, 1)
+        return hyps, scores

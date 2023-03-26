@@ -4,14 +4,13 @@
 learning fashion via Elastic Weight Consolidation (https://arxiv.org/abs/1612.00796).
 
 The following technical tricks were implemented to improve performance:
-- use custom greedy decoding implementation (several times faster than built-in
-  greedy searchers and supports decoding with predicted batch of languages)
+- use custom decoding implementation (faster than built-in searchers
+  and supports decoding with predicted batch of languages)
 - apply the correct padding tokens directly in the dataloader
 - use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
 - remove unnecessary `undo_padding` since padding tokens are now set correctly
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
-- minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
 > python train_ewc.py hparams/train_ewc.yaml
@@ -21,8 +20,8 @@ NOTE: although checkpoints are saved regularly, automatic experiment resumption 
       and set the corresponding state variables (e.g. current locale).
 
 Authors
- * Luca Della Libera 2022
- * Pooneh Mousavi 2022
+ * Luca Della Libera 2023
+ * Pooneh Mousavi 2023
 """
 
 import logging
@@ -31,8 +30,10 @@ import pathlib
 import sys
 import time
 
+import ptflops
 import torch
 import torchaudio
+import torchinfo
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
@@ -62,7 +63,7 @@ class ASR(sb.Brain):
         hyps = None
         if stage != sb.Stage.TRAIN:
             hyps = self.modules.whisper.generate(
-                audio_features=enc_out.detach(),
+                audio_features=enc_out,
                 forced_decoder_locale=self.hparams.forced_decoder_locale,
                 max_gen_tokens=self.hparams.max_gen_tokens,
             )
@@ -95,19 +96,14 @@ class ASR(sb.Brain):
                     loss += (
                         fisher[name]
                         * (old_param[name] - param.to(fisher[name].device)) ** 2
-                    ).sum().to(self.device) * self.hparams.ewc_lambda
+                    ).sum().to(self.device) * 0.5 * self.hparams.ewc_lambda
 
         if stage != sb.Stage.TRAIN:
-            tokens, _ = batch.tokens
+            target_words = batch.target_wrd
 
             # Decode predicted tokens to words
             predicted_words = self.tokenizer.batch_decode(
                 hyps, skip_special_tokens=True
-            )
-
-            # Convert target tokens to words
-            target_words = self.tokenizer.batch_decode(
-                tokens, skip_special_tokens=True
             )
 
             if self.hparams.normalize_transcripts:
@@ -115,19 +111,8 @@ class ASR(sb.Brain):
                     self.tokenizer._normalize(text).split(" ")
                     for text in predicted_words
                 ]
-                target_words = [
-                    self.tokenizer._normalize(text).split(" ")
-                    for text in target_words
-                ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
-                target_words = [text.split(" ") for text in target_words]
-
-            # When `ref_tokens` is an empty string add dummy space to avoid division by 0
-            for word in target_words:
-                for i, char in enumerate(word):
-                    if len(char) == 0:
-                        word[i] = " "
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
@@ -247,7 +232,7 @@ def dataio_prepare(hparams, tokenizer):
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd", "locale")
-    @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "tokens")
+    @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "target_wrd")
     def text_pipeline(wrd, locale):
         language = tokenizer.supported_languages.get(
             locale, "english"
@@ -265,16 +250,21 @@ def dataio_prepare(hparams, tokenizer):
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [eos_index])
         yield tokens_eos
-        # Remove leading special tokens
-        # (would be removed anyway by the tokenizer for computing WER and CER)
-        tokens = torch.LongTensor(tokens_list[3:])
-        yield tokens
+        if hparams["normalize_transcripts"]:
+            wrd = tokenizer._normalize(wrd)
+        wrd = wrd.split(" ")
+        # When `ref_tokens` is an empty string add dummy space
+        # to avoid division by 0 when computing WER/CER
+        for i, char in enumerate(wrd):
+            if len(char) == 0:
+                wrd[i] = " "
+        yield wrd
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "target_wrd"],
     )
 
     return train_data, valid_data, test_data
@@ -385,6 +375,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             test_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
 
+    # MACs not 100% accurate but still useful for comparisons
+    profile(hparams)
+
 
 def train(hparams, run_opts):
     test(
@@ -454,6 +447,11 @@ def train(hparams, run_opts):
         # Add the tokens to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
+        # Log total number of tokens
+        logging.info(
+            f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
+        )
+
         # Add new random embeddings to Whisper for the new tokens
         hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
 
@@ -507,6 +505,45 @@ def train(hparams, run_opts):
         )
 
 
+def profile(hparams):
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.whisper = hparams["whisper"]
+            self.wavs = torch.randn(
+                1, hparams["sample_rate"], device=run_opts["device"],
+            )
+            self.bos_tokens = torch.ones(
+                1,
+                self.whisper.model.config.max_length,
+                dtype=torch.int,
+                device=run_opts["device"],
+            )
+
+        @torch.no_grad()
+        def forward(self, _=None):
+            enc_out, logits, _ = self.whisper(self.wavs, self.bos_tokens)
+            return logits
+
+    model = Model().eval().to(run_opts["device"])
+
+    macs, params = ptflops.get_model_complexity_info(
+        model, (1,), as_strings=True,
+    )
+    time_start = time.time()
+    model()
+    torch.cuda.synchronize()
+    time_stop = time.time() - time_start
+    max_mem = torch.cuda.max_memory_allocated("cuda") / 10 ** 9
+    result = {
+        "MACs": macs,
+        "memory": max_mem,
+        "time": time_stop,
+    }
+    logging.info(torchinfo.summary(model, verbose=0))
+    logging.info(result)
+
+
 if __name__ == "__main__":
     # Command-line interface
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -527,10 +564,10 @@ if __name__ == "__main__":
 
     class CustomPaddedBatch(PaddedBatch):
         def __init__(self, examples, *args, **kwargs):
-            for k in ["tokens_bos", "tokens_eos", "tokens"]:
+            for k in ["tokens_bos", "tokens_eos"]:
                 max_len = max([len(x[k]) for x in examples])
                 pad_value = 0.0
-                if k in ["tokens_bos", "tokens"]:
+                if k in ["tokens_bos"]:
                     pad_value = hparams["whisper"].tokenizer.pad_token_id
                 elif k == "tokens_eos":
                     pad_value = hparams["ignore_index"]

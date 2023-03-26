@@ -1,1 +1,3 @@
+ptflops
+torchinfo
 transformers

@@ -3,7 +3,7 @@
 """Analyze logs.
 
 Authors
- * Luca Della Libera 2022
+ * Luca Della Libera 2023
 """
 
 import argparse
