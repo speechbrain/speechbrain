@@ -20,7 +20,9 @@ installed in your environment (see extra-requirements.txt)**
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 24-03-22 | transformer.yaml | 2.27 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1Nv1OLbHLqVeShyZ8LY9gjhYGE1DBFzFf?usp=sharing) | 4xV100 32GB |
 | 24-03-22 | conformer_small.yaml | 2.49 (**only 13.3M parameters**) | [HuggingFace](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1I4qntoodHCcj1JNbDrfwFHYcLyu1S5-l?usp=sharing) | 1xV100 32GB |
-| 06-12-23 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
+| 06-12-22 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
+| 27-03-23 | train_hyperconformer_8M.yaml | TBD | TBD | TBD | 1xP40 24GB |
+| 27-03-23 | train_hyperconformer_22M.yaml | TBD | TBD | TBD | 1xP40 24GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
