@@ -224,7 +224,7 @@ def _get_image_saver():
 
         return torchvision.utils.save_image
     except ImportError:
-        logger.warn("torchvision is not available - cannot save figures")
+        logger.warning("torchvision is not available - cannot save figures")
         return None
 
 
