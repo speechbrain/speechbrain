@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain style.
+"""Transformer implementation in the SpeechBrain style.
 
 Authors
 * Jianyuan Zhong 2020
@@ -12,7 +12,7 @@ from typing import Optional
 import numpy as np
 
 
-from .Conformer import ConformerEncoder
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 
@@ -114,7 +114,7 @@ class TransformerInterface(nn.Module):
         self.decoder_kdim = decoder_kdim
         self.decoder_vdim = decoder_vdim
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL"]
+        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -307,6 +307,14 @@ class TransformerEncoderLayer(nn.Module):
         elif attention_type == "RelPosMHAXL":
             self.self_att = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
+            )
+        elif attention_type == "hypermixing":
+            self.self_att = sb.nnet.hypermixing.HyperMixing(
+                input_output_dim=d_model,
+                hypernet_size =d_ffn,
+                tied=False,
+                num_heads=nhead, 
+                fix_tm_hidden_size=False
             )
 
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
