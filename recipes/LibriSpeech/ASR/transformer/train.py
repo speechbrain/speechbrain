@@ -265,10 +265,14 @@ class ASR(sb.core.Brain):
                     dtype=torch.bfloat16,
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
             else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(
+                    outputs, batch, sb.Stage.TRAIN
+                )
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
