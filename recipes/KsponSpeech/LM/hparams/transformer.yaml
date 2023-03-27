@@ -26,7 +26,7 @@ test_csv:
     - !ref <data_folder>/eval_other.csv
 
 # Tokenizer model
-tokenizer_file: ddwkim/ksponspeech-conformer-medium/tokenizer.ckpt
+tokenizer_file: ddwkim/asr-conformer-transformerlm-ksponspeech/tokenizer.ckpt
 
 # Training parameters
 number_of_epochs: 30
@@ -56,6 +56,7 @@ eos_index: 2
 
 # model params
 d_model: 768
+d_ffn: 3072
 
 
 # Functions
@@ -65,7 +66,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     nhead: 12
     num_encoder_layers: 12
     num_decoder_layers: 0
-    d_ffn: 3072
+    d_ffn: !ref <d_ffn>
     dropout: 0.15
     activation: !name:torch.nn.GELU
     normalize_before: False

@@ -153,6 +153,11 @@ class HifiGanBrain(sb.Brain):
                     "scheduler_d", self.scheduler_d
                 )
 
+    def zero_grad(self, set_to_none=False):
+        if self.opt_class is not None:
+            self.optimizer_g.zero_grad(set_to_none)
+            self.optimizer_d.zero_grad(set_to_none)
+
     def _remember_sample(self, batch, predictions):
         """Remembers samples of spectrograms and the batch for logging purposes
 
@@ -335,6 +340,10 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    # If --distributed_launch then
+    # create ddp_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
