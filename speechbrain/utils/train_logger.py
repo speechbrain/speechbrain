@@ -404,7 +404,7 @@ def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
         import matplotlib.pyplot as plt
 
     except ImportError:
-        logger.warn("matplotlib is not available - cannot log figures")
+        logger.warning("matplotlib is not available - cannot log figures")
         return None
 
     spectrogram = spectrogram.detach().cpu().numpy().squeeze()
