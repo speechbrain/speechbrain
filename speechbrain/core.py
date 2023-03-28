@@ -512,7 +512,7 @@ class Brain:
             sys.version_info.major == PYTHON_VERSION_MAJOR
             and sys.version_info.minor >= PYTHON_VERSION_MINOR
         ):
-            logger.warn(
+            logger.warning(
                 "Detected Python "
                 + str(sys.version_info.major)
                 + "."
@@ -598,7 +598,7 @@ class Brain:
                         "--distributed_launch=True --distributed_backend=nccl"
                     )
                 else:
-                    logger.warn(
+                    logger.warning(
                         "To use DDP, please add "
                         "sb.utils.distributed.ddp_init_group() into your exp.py"
                     )
@@ -996,10 +996,10 @@ class Brain:
             self.nonfinite_count += 1
 
             # Print helpful debug info
-            logger.warn(f"Loss is {loss}.")
+            logger.warning(f"Loss is {loss}.")
             for p in self.modules.parameters():
                 if not torch.isfinite(p).all():
-                    logger.warn("Parameter is not finite: " + str(p))
+                    logger.warning("Parameter is not finite: " + str(p))
 
             # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
@@ -1010,7 +1010,9 @@ class Brain:
                     "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
                 )
             else:
-                logger.warn("Patience not yet exhausted, ignoring this batch.")
+                logger.warning(
+                    "Patience not yet exhausted, ignoring this batch."
+                )
                 return False
 
         # Clip gradient norm
