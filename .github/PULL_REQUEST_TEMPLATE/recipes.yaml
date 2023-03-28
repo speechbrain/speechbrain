@@ -1,0 +1,49 @@
+name: 🪲 Bug Fix
+description:
+title: ""
+labels: ["recipes"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting a PR, please search for related issues & PRs—collaborate 🌱
+        
+        Add relevant PR labels: bug (fix); enhancement (of SpeechBrain); documentation; dependencies; refactor; recipes.
+
+  - type: textarea
+    id: describe-the-PR
+    attributes:
+      label: Contribution in a nutshell
+      description: Please reference related issues & PRs.
+    validations:
+      required: True
+
+  - type: textarea
+    id: tasks-scope
+    attributes:
+      label: Tasks & scope
+      description: How does this PR become completed?
+      placeholder: |
+        * [ ] I want to get done ...
+        * [ ] ... and hope to also achieve ...
+    validations:
+      required: False
+
+  - type: checkboxes
+    id: todos-maintenance
+    attributes:
+      label: Self-service testing
+      description: Please test your work, so it can be maintained while SpeechBrain & its dependencies keep improving.
+      placeholder: |
+        * [ ] (if applicable) add an `extra_requirements.txt` file
+        * [ ] (if applicable) add database preparation scripts & use symlinks for nested folders (to the level of task READMEs)
+        * [ ] (if applicable) add a recipe test entry in the depending CSV file under: tests/recipes
+        * [ ] create a fresh testing environment (install SpeechBrain from cloned repo branch of this PR)
+        * [ ] (if applicable) run a recipe test for each yaml/your recipe dataset
+        * [ ] use CI locally: `pre-commit run -a` to check linters; run `pytest tests/consistency`
+        * [ ] (optional; 8+ GB RAM) run `tests/.run-doctests.sh` & `tests/.run-unittests.sh`
+        * [ ] exhausted patience before clicking « Ready for review » in the merge box 🍄
+        
+        Note: dropdown the « Create pull request » button => select: « Create Draft Pull Request ».
+    validations:
+      required: True
