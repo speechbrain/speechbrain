@@ -458,7 +458,7 @@ if __name__ == "__main__":
     # Minimize number of modifications to existing training/evaluation loops
     # NOTE: differently from https://arxiv.org/abs/2301.11276, we employ the standard
     # reparameterization trick instead of the local reparameterization trick
-    class BayesByBackpropModule(VariationalPosteriorModule):
+    class BBBModule(VariationalPosteriorModule):
         def forward(self, *args, **kwargs):
             if self.training:
                 output, self.kl_div = super().forward(
@@ -487,7 +487,7 @@ if __name__ == "__main__":
         softplus_inv_scale=hparams["normal_posterior_softplus_inv_scale"],
         requires_grad=True,
     )
-    hparams["modules"]["Transformer"] = BayesByBackpropModule(
+    hparams["Transformer"] = hparams["modules"]["Transformer"] = BBBModule(
         hparams["modules"]["Transformer"],
         prior_builder,
         prior_kwargs,
@@ -495,6 +495,21 @@ if __name__ == "__main__":
         posterior_kwargs,
         parameters,
     )
+    hparams["model"] = torch.nn.ModuleList(
+        [
+            hparams["CNN"],
+            hparams["Transformer"],
+            hparams["seq_lin"],
+            hparams["ctc_lin"],
+        ]
+    )
+    hparams["test_search"].modules = hparams["valid_search"].modules = [
+        hparams["Transformer"],
+        hparams["seq_lin"],
+        hparams["ctc_lin"],
+    ]
+    hparams["checkpointer"].recoverables["model"] = hparams["model"]
+    breakpoint()
     # ###################################################################
 
     # Trainer initialization
