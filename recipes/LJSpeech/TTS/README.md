@@ -26,6 +26,8 @@ Extract the phoneme alignments in the ```--data_folder=/your_folder/LJSpeech-1.1
 To run this recipe, go into the "fastspeech2" folder and run:
 
 ```
+pip install -r extra-dependencies.txt
+
 python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
 Training takes about 12 hours on an nvidia RTX3090.
