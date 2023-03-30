@@ -7,6 +7,8 @@ Authors
 
 import torch
 from torch import nn
+import torch.nn.functional as F
+from torch.nn.modules.loss import _Loss
 from speechbrain.nnet import CNN, linear
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -234,7 +236,7 @@ class DurationPredictor(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, x_mask):
         """Computes the forward pass
         Arguments
         ---------
@@ -245,15 +247,15 @@ class DurationPredictor(nn.Module):
         output: torch.Tensor
             the duration predictor outputs
         """
-        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv1(x * x_mask))
         x = self.ln1(x).to(x.dtype)
         x = self.dropout1(x)
 
-        x = self.relu(self.conv2(x))
+        x = self.relu(self.conv2(x * x_mask))
         x = self.ln2(x).to(x.dtype)
         x = self.dropout2(x)
 
-        return self.linear(x)
+        return self.linear(x * x_mask)
 
 
 class FastSpeech2(nn.Module):
@@ -528,7 +530,9 @@ class FastSpeech2(nn.Module):
             token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
         )
         token_feats = token_feats * srcmask_inverted
-        predict_durations = self.durPred(token_feats).squeeze()
+        predict_durations = self.durPred(
+            token_feats, srcmask_inverted
+        ).squeeze()
 
         if predict_durations.dim() == 1:
             predict_durations = predict_durations.unsqueeze(0)
@@ -536,6 +540,28 @@ class FastSpeech2(nn.Module):
             dur_pred_reverse_log = torch.clamp(
                 torch.exp(predict_durations) - 1, 0
             )
+
+        avg_pitch = None
+        predict_pitch = self.pitchPred(token_feats, srcmask_inverted)
+        if pitch is not None:
+            avg_pitch = average_over_durations(pitch.unsqueeze(1), durations)
+            pitch = self.pitchEmbed(avg_pitch)
+            avg_pitch = avg_pitch.permute(0, 2, 1)
+        else:
+            pitch = self.pitchEmbed(predict_pitch.permute(0, 2, 1))
+        pitch = pitch.permute(0, 2, 1)
+        token_feats = token_feats.add(pitch)
+
+        avg_energy = None
+        predict_energy = self.energyPred(token_feats, srcmask_inverted)
+        if energy is not None:
+            avg_energy = average_over_durations(energy.unsqueeze(1), durations)
+            energy = self.energyEmbed(avg_energy)
+            avg_energy = avg_energy.permute(0, 2, 1)
+        else:
+            energy = self.energyEmbed(predict_energy.permute(0, 2, 1))
+        energy = energy.permute(0, 2, 1)
+        token_feats = token_feats.add(energy)
 
         spec_feats, mel_lens = upsample(
             token_feats,
@@ -554,21 +580,6 @@ class FastSpeech2(nn.Module):
             spec_feats.shape[1], srcmask, spec_feats.dtype
         )
 
-        predict_pitch = self.pitchPred(spec_feats)
-        if pitch is not None:
-            pitch = self.pitchEmbed(pitch.unsqueeze(1))
-        else:
-            pitch = self.pitchEmbed(predict_pitch.permute(0, 2, 1))
-        pitch = pitch.permute(0, 2, 1)
-        spec_feats = spec_feats.add(pitch)
-
-        predict_energy = self.energyPred(spec_feats)
-        if energy is not None:
-            energy = self.energyEmbed(energy.unsqueeze(1))
-        else:
-            energy = self.energyEmbed(predict_energy.permute(0, 2, 1))
-        energy = energy.permute(0, 2, 1)
-        spec_feats = spec_feats.add(energy)
         spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
         output_mel_feats, memory, *_ = self.decoder(
@@ -581,9 +592,50 @@ class FastSpeech2(nn.Module):
             postnet_output,
             predict_durations,
             predict_pitch,
+            avg_pitch,
             predict_energy,
+            avg_energy,
             torch.tensor(mel_lens),
         )
+
+
+def average_over_durations(values, durs):
+    """Average values over durations.
+    Arguments
+    ---------
+    values: torch.Tensor
+        shape: [B, 1, T_de]
+    durs: torch.Tensor
+        shape: [B, T_en]
+    Returns
+    ---------
+    avg: torch.Tensor
+        shape: [B, 1, T_en]
+    """
+    durs_cums_ends = torch.cumsum(durs, dim=1).long()
+    durs_cums_starts = torch.nn.functional.pad(durs_cums_ends[:, :-1], (1, 0))
+    values_nonzero_cums = torch.nn.functional.pad(
+        torch.cumsum(values != 0.0, dim=2), (1, 0)
+    )
+    values_cums = torch.nn.functional.pad(torch.cumsum(values, dim=2), (1, 0))
+
+    bs, length = durs_cums_ends.size()
+    n_formants = values.size(1)
+    dcs = durs_cums_starts[:, None, :].expand(bs, n_formants, length)
+    dce = durs_cums_ends[:, None, :].expand(bs, n_formants, length)
+
+    values_sums = (
+        torch.gather(values_cums, 2, dce) - torch.gather(values_cums, 2, dcs)
+    ).float()
+    values_nelems = (
+        torch.gather(values_nonzero_cums, 2, dce)
+        - torch.gather(values_nonzero_cums, 2, dcs)
+    ).float()
+
+    avg = torch.where(
+        values_nelems == 0.0, values_nelems, values_sums / values_nelems
+    )
+    return avg
 
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
@@ -732,6 +784,7 @@ class Loss(nn.Module):
     def __init__(
         self,
         log_scale_durations,
+        ssim_loss_weight,
         duration_loss_weight,
         pitch_loss_weight,
         energy_loss_weight,
@@ -740,12 +793,14 @@ class Loss(nn.Module):
     ):
         super().__init__()
 
-        self.mel_loss = nn.L1Loss()
-        self.postnet_mel_loss = nn.L1Loss()
+        self.ssim_loss = SSIMLoss()
+        self.mel_loss = nn.MSELoss()
+        self.postnet_mel_loss = nn.MSELoss()
         self.dur_loss = nn.MSELoss()
         self.pitch_loss = nn.MSELoss()
         self.energy_loss = nn.MSELoss()
         self.log_scale_durations = log_scale_durations
+        self.ssim_loss_weight = ssim_loss_weight
         self.mel_loss_weight = mel_loss_weight
         self.postnet_mel_loss_weight = postnet_mel_loss_weight
         self.duration_loss_weight = duration_loss_weight
@@ -779,13 +834,18 @@ class Loss(nn.Module):
             postnet_mel_out,
             log_durations,
             predicted_pitch,
+            average_pitch,
             predicted_energy,
+            average_energy,
             mel_lens,
         ) = predictions
+
         predicted_pitch = predicted_pitch.squeeze()
         predicted_energy = predicted_energy.squeeze()
-        target_energy = target_energy.squeeze()
-        target_pitch = target_pitch.squeeze()
+
+        target_pitch = average_pitch.squeeze()
+        target_energy = average_energy.squeeze()
+
         log_durations = log_durations.squeeze()
         if self.log_scale_durations:
             log_target_durations = torch.log(target_durations.float() + 1)
@@ -834,6 +894,7 @@ class Loss(nn.Module):
                     predicted_energy[i, : mel_length[i]],
                     target_energy[i, : mel_length[i]].to(torch.float32),
                 )
+        ssim_loss = self.ssim_loss(mel_out, mel_target, mel_length)
         mel_loss = torch.div(mel_loss, len(mel_target))
         postnet_mel_loss = torch.div(postnet_mel_loss, len(mel_target))
         dur_loss = torch.div(dur_loss, len(mel_target))
@@ -841,7 +902,8 @@ class Loss(nn.Module):
         energy_loss = torch.div(energy_loss, len(mel_target))
 
         total_loss = (
-            mel_loss * self.mel_loss_weight
+            ssim_loss * self.ssim_loss_weight
+            + mel_loss * self.mel_loss_weight
             + postnet_mel_loss * self.postnet_mel_loss_weight
             + dur_loss * self.duration_loss_weight
             + pitch_loss * self.pitch_loss_weight
@@ -850,6 +912,7 @@ class Loss(nn.Module):
 
         loss = {
             "total_loss": total_loss,
+            "ssim_loss": ssim_loss * self.ssim_loss_weight,
             "mel_loss": mel_loss * self.mel_loss_weight,
             "postnet_mel_loss": postnet_mel_loss * self.postnet_mel_loss_weight,
             "dur_loss": dur_loss * self.duration_loss_weight,
@@ -943,3 +1006,541 @@ def dynamic_range_compression(x, C=1, clip_val=1e-5):
     """Dynamic range compression for audio signals
     """
     return torch.log(torch.clamp(x, min=clip_val) * C)
+
+
+class SSIMLoss(torch.nn.Module):
+    """SSIM loss as (1 - SSIM)
+    SSIM is explained here https://en.wikipedia.org/wiki/Structural_similarity
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.loss_func = _SSIMLoss()
+
+    # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
+    def sequence_mask(self, sequence_length, max_len=None):
+        """Create a sequence mask for filtering padding in a sequence tensor.
+        Arguments
+        ---------
+        sequence_length: torch.Tensor
+            Sequence lengths.
+        max_len: int
+            Maximum sequence length. Defaults to None.
+        Returns
+        ---------
+        mask: [B, T_max]
+        """
+        if max_len is None:
+            max_len = sequence_length.data.max()
+        seq_range = torch.arange(
+            max_len, dtype=sequence_length.dtype, device=sequence_length.device
+        )
+        # B x T_max
+        mask = seq_range.unsqueeze(0) < sequence_length.unsqueeze(1)
+        return mask
+
+    def sample_wise_min_max(self, x: torch.Tensor, mask: torch.Tensor):
+        """Min-Max normalize tensor through first dimension
+        Arguments
+        ---------
+        x: torch.Tensor
+            input tensor [B, D1, D2]
+        m: torch.Tensor
+            input mask [B, D1, 1]
+        """
+        maximum = torch.amax(x.masked_fill(~mask, 0), dim=(1, 2), keepdim=True)
+        minimum = torch.amin(
+            x.masked_fill(~mask, 1e30), dim=(1, 2), keepdim=True
+        )
+        return (x - minimum) / (maximum - minimum + 1e-8)
+
+    def forward(self, y_hat, y, length):
+        """
+        Arguments
+        ---------
+        y_hat: torch.Tensor
+            model prediction values [B, T, D].
+        y: torch.Tensor
+            target values [B, T, D].
+        length: torch.Tensor
+            length of each sample in a batch for masking.
+        Returns
+        ---------
+        loss: Average loss value in range [0, 1] masked by the length.
+        """
+        mask = self.sequence_mask(
+            sequence_length=length, max_len=y.size(1)
+        ).unsqueeze(2)
+        y_norm = self.sample_wise_min_max(y, mask)
+        y_hat_norm = self.sample_wise_min_max(y_hat, mask)
+        ssim_loss = self.loss_func(
+            (y_norm * mask).unsqueeze(1), (y_hat_norm * mask).unsqueeze(1)
+        )
+
+        if ssim_loss.item() > 1.0:
+            print(
+                f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 1.0"
+            )
+            ssim_loss = torch.tensor(1.0, device=ssim_loss.device)
+
+        if ssim_loss.item() < 0.0:
+            print(
+                f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 0.0"
+            )
+            ssim_loss = torch.tensor(0.0, device=ssim_loss.device)
+
+        return ssim_loss
+
+
+# Adopted from https://github.com/photosynthesis-team/piq
+class _SSIMLoss(_Loss):
+    """Creates a criterion that measures the structural similarity index error between
+    each element in the input x and target y.
+    Equation link: https://en.wikipedia.org/wiki/Structural_similarity
+    x and y are tensors of arbitrary shapes with a total of n elements each.
+    The sum operation still operates over all the elements, and divides by n.
+    The division by n can be avoided if one sets reduction = sum.
+    In case of 5D input tensors, complex value is returned as a tensor of size 2.
+    Arguments
+    ---------
+    kernel_size: int
+        By default, the mean and covariance of a pixel is obtained
+        by convolution with given filter_size.
+    kernel_sigma: float
+        Standard deviation for Gaussian kernel.
+    k1: float
+        Coefficient related to c1 (see equation in the link above).
+    k2: float
+        Coefficient related to c2 (see equation in the link above).
+    downsample: bool
+        Perform average pool before SSIM computation (Default: True).
+    reduction: str
+        Specifies the reduction type
+    data_range: Union[int, float]
+        Maximum value range of images (usually 1.0 or 255).
+    Example
+    -------
+        >>> loss = SSIMLoss()
+        >>> x = torch.rand(3, 3, 256, 256, requires_grad=True)
+        >>> y = torch.rand(3, 3, 256, 256)
+        >>> output = loss(x, y)
+        >>> output.backward()
+    References:
+        Wang, Z., Bovik, A. C., Sheikh, H. R., & Simoncelli, E. P. (2004).
+        Image quality assessment: From error visibility to structural similarity.
+        IEEE Transactions on Image Processing, 13, 600-612.
+        https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf,
+        DOI:10.1109/TIP.2003.819861
+    """
+
+    __constants__ = ["kernel_size", "k1", "k2", "sigma", "kernel", "reduction"]
+
+    def __init__(
+        self,
+        kernel_size=11,
+        kernel_sigma=1.5,
+        k1=0.01,
+        k2=0.03,
+        downsample=True,
+        reduction="mean",
+        data_range=1.0,
+    ):
+        super().__init__()
+
+        # Generic loss parameters.
+        self.reduction = reduction
+
+        # Loss-specific parameters.
+        self.kernel_size = kernel_size
+
+        # This check might look redundant because kernel size is checked within the ssim function anyway.
+        # However, this check allows to fail fast when the loss is being initialised and training has not been started.
+        assert (
+            kernel_size % 2 == 1
+        ), f"Kernel size must be odd, got [{kernel_size}]"
+        self.kernel_sigma = kernel_sigma
+        self.k1 = k1
+        self.k2 = k2
+        self.downsample = downsample
+        self.data_range = data_range
+
+    def _reduce(self, x, reduction="mean"):
+        """Reduce input in batch dimension if needed.
+        Arguments
+        ---------
+        x: torch.Tensor
+            Tensor with shape (B, *).
+        reduction: str
+            Specifies the reduction type:
+            none | mean | sum (Default: mean)
+        """
+        if reduction == "none":
+            return x
+        if reduction == "mean":
+            return x.mean(dim=0)
+        if reduction == "sum":
+            return x.sum(dim=0)
+        raise ValueError(
+            "Unknown reduction. Expected one of {'none', 'mean', 'sum'}"
+        )
+
+    def _validate_input(
+        self,
+        tensors,
+        dim_range=(0, -1),
+        data_range=(0.0, -1.0),
+        size_range=None,
+    ):
+        """Check if the input satisfies the requirements
+        Arguments
+        ---------
+        tensors: torch.Tensor
+            Tensors to check
+        dim_range: Tuple[int, int]
+            Allowed number of dimensions. (min, max)
+        data_range: Tuple[float, float]
+            Allowed range of values in tensors. (min, max)
+        size_range: Tuple[int, int]
+            Dimensions to include in size comparison. (start_dim, end_dim + 1)
+        """
+
+        if not __debug__:
+            return
+
+        x = tensors[0]
+
+        for t in tensors:
+            assert torch.is_tensor(t), f"Expected torch.Tensor, got {type(t)}"
+            assert (
+                t.device == x.device
+            ), f"Expected tensors to be on {x.device}, got {t.device}"
+
+            if size_range is None:
+                assert (
+                    t.size() == x.size()
+                ), f"Expected tensors with same size, got {t.size()} and {x.size()}"
+            else:
+                assert (
+                    t.size()[size_range[0] : size_range[1]]
+                    == x.size()[size_range[0] : size_range[1]]
+                ), f"Expected tensors with same size at given dimensions, got {t.size()} and {x.size()}"
+
+            if dim_range[0] == dim_range[1]:
+                assert (
+                    t.dim() == dim_range[0]
+                ), f"Expected number of dimensions to be {dim_range[0]}, got {t.dim()}"
+            elif dim_range[0] < dim_range[1]:
+                assert (
+                    dim_range[0] <= t.dim() <= dim_range[1]
+                ), f"Expected number of dimensions to be between {dim_range[0]} and {dim_range[1]}, got {t.dim()}"
+
+            if data_range[0] < data_range[1]:
+                assert (
+                    data_range[0] <= t.min()
+                ), f"Expected values to be greater or equal to {data_range[0]}, got {t.min()}"
+                assert (
+                    t.max() <= data_range[1]
+                ), f"Expected values to be lower or equal to {data_range[1]}, got {t.max()}"
+
+    def gaussian_filter(self, kernel_size, sigma):
+        """Returns 2D Gaussian kernel N(0,sigma^2)
+        Arguments
+        ---------
+        size: int
+            Size of the kernel
+        sigma: float
+            Std of the distribution
+        Returns
+        ---------
+        gaussian_kernel: torch.Tensor
+            [1, kernel_size, kernel_size]
+        """
+        coords = torch.arange(kernel_size, dtype=torch.float32)
+        coords -= (kernel_size - 1) / 2.0
+
+        g = coords ** 2
+        g = (-(g.unsqueeze(0) + g.unsqueeze(1)) / (2 * sigma ** 2)).exp()
+
+        g /= g.sum()
+        return g.unsqueeze(0)
+
+    def _ssim_per_channel(self, x, y, kernel, k1=0.01, k2=0.03):
+        """Calculate Structural Similarity (SSIM) index for X and Y per channel.
+        Arguments
+        ---------
+        x: torch.Tensor
+            An input tensor (N, C, H, W).
+        y: torch.Tensor
+            A target tensor (N, C, H, W).
+        kernel: torch.Tensor
+            2D Gaussian kernel.
+        k1: float
+            Algorithm parameter (see equation in the link above).
+        k2: float
+            Algorithm parameter (see equation in the link above).
+            Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
+        Returns
+        ---------
+            Full Value of Structural Similarity (SSIM) index.
+        """
+        if x.size(-1) < kernel.size(-1) or x.size(-2) < kernel.size(-2):
+            raise ValueError(
+                f"Kernel size can't be greater than actual input size. Input size: {x.size()}. "
+                f"Kernel size: {kernel.size()}"
+            )
+
+        c1 = k1 ** 2
+        c2 = k2 ** 2
+        n_channels = x.size(1)
+        mu_x = F.conv2d(
+            x, weight=kernel, stride=1, padding=0, groups=n_channels
+        )
+        mu_y = F.conv2d(
+            y, weight=kernel, stride=1, padding=0, groups=n_channels
+        )
+
+        mu_xx = mu_x ** 2
+        mu_yy = mu_y ** 2
+        mu_xy = mu_x * mu_y
+
+        sigma_xx = (
+            F.conv2d(
+                x ** 2, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu_xx
+        )
+        sigma_yy = (
+            F.conv2d(
+                y ** 2, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu_yy
+        )
+        sigma_xy = (
+            F.conv2d(
+                x * y, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu_xy
+        )
+
+        # Contrast sensitivity (CS) with alpha = beta = gamma = 1.
+        cs = (2.0 * sigma_xy + c2) / (sigma_xx + sigma_yy + c2)
+
+        # Structural similarity (SSIM)
+        ss = (2.0 * mu_xy + c1) / (mu_xx + mu_yy + c1) * cs
+
+        ssim_val = ss.mean(dim=(-1, -2))
+        cs = cs.mean(dim=(-1, -2))
+        return ssim_val, cs
+
+    def _ssim_per_channel_complex(self, x, y, kernel, k1=0.01, k2=0.03):
+        """Calculate Structural Similarity (SSIM) index for Complex X and Y per channel.
+        Arguments
+        ---------
+        x: torch.Tensor
+            An input tensor (N, C, H, W, 2).
+        y: torch.Tensor
+            A target tensor (N, C, H, W, 2).
+        kernel: torch.Tensor
+            2-D gauss kernel.
+        k1: float
+            Algorithm parameter (see equation in the link above).
+        k2: float
+            Algorithm parameter (see equation in the link above).
+            Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
+        Returns:
+            Full Value of Complex Structural Similarity (SSIM) index.
+        """
+        n_channels = x.size(1)
+        if x.size(-2) < kernel.size(-1) or x.size(-3) < kernel.size(-2):
+            raise ValueError(
+                f"Kernel size can't be greater than actual input size. Input size: {x.size()}. "
+                f"Kernel size: {kernel.size()}"
+            )
+
+        c1 = k1 ** 2
+        c2 = k2 ** 2
+
+        x_real = x[..., 0]
+        x_imag = x[..., 1]
+        y_real = y[..., 0]
+        y_imag = y[..., 1]
+
+        mu1_real = F.conv2d(
+            x_real, weight=kernel, stride=1, padding=0, groups=n_channels
+        )
+        mu1_imag = F.conv2d(
+            x_imag, weight=kernel, stride=1, padding=0, groups=n_channels
+        )
+        mu2_real = F.conv2d(
+            y_real, weight=kernel, stride=1, padding=0, groups=n_channels
+        )
+        mu2_imag = F.conv2d(
+            y_imag, weight=kernel, stride=1, padding=0, groups=n_channels
+        )
+
+        mu1_sq = mu1_real.pow(2) + mu1_imag.pow(2)
+        mu2_sq = mu2_real.pow(2) + mu2_imag.pow(2)
+        mu1_mu2_real = mu1_real * mu2_real - mu1_imag * mu2_imag
+        mu1_mu2_imag = mu1_real * mu2_imag + mu1_imag * mu2_real
+
+        compensation = 1.0
+
+        x_sq = x_real.pow(2) + x_imag.pow(2)
+        y_sq = y_real.pow(2) + y_imag.pow(2)
+        x_y_real = x_real * y_real - x_imag * y_imag
+        x_y_imag = x_real * y_imag + x_imag * y_real
+
+        sigma1_sq = (
+            F.conv2d(
+                x_sq, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu1_sq
+        )
+        sigma2_sq = (
+            F.conv2d(
+                y_sq, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu2_sq
+        )
+        sigma12_real = (
+            F.conv2d(
+                x_y_real, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu1_mu2_real
+        )
+        sigma12_imag = (
+            F.conv2d(
+                x_y_imag, weight=kernel, stride=1, padding=0, groups=n_channels
+            )
+            - mu1_mu2_imag
+        )
+        sigma12 = torch.stack((sigma12_imag, sigma12_real), dim=-1)
+        mu1_mu2 = torch.stack((mu1_mu2_real, mu1_mu2_imag), dim=-1)
+        # Set alpha = beta = gamma = 1.
+        cs_map = (sigma12 * 2 + c2 * compensation) / (
+            sigma1_sq.unsqueeze(-1)
+            + sigma2_sq.unsqueeze(-1)
+            + c2 * compensation
+        )
+        ssim_map = (mu1_mu2 * 2 + c1 * compensation) / (
+            mu1_sq.unsqueeze(-1) + mu2_sq.unsqueeze(-1) + c1 * compensation
+        )
+        ssim_map = ssim_map * cs_map
+
+        ssim_val = ssim_map.mean(dim=(-2, -3))
+        cs = cs_map.mean(dim=(-2, -3))
+
+        return ssim_val, cs
+
+    def ssim(
+        self,
+        x,
+        y,
+        kernel_size=11,
+        kernel_sigma=1.5,
+        data_range=1.0,
+        reduction="mean",
+        full=False,
+        downsample=True,
+        k1=0.01,
+        k2=0.03,
+    ):
+        """Interface of Structural Similarity (SSIM) index.
+        Inputs supposed to be in range [0, data_range].
+        To match performance with skimage and tensorflow set downsample = True.
+        Arguments
+        ---------
+        x: torch.Tensor
+            An input tensor (N, C, H, W) or (N, C, H, W, 2).
+        y: torch.Tensor
+            A target tensor (N, C, H, W) or (N, C, H, W, 2).
+        kernel_size: int
+            The side-length of the sliding window used in comparison. Must be an odd value.
+        kernel_sigma: float
+            Sigma of normal distribution.
+        data_range: Union[int, float]
+            Maximum value range of images (usually 1.0 or 255).
+        reduction: str
+            Specifies the reduction type:
+            none | mean | sum. Default:mean
+        full: bool
+            Return cs map or not.
+        downsample: bool
+            Perform average pool before SSIM computation. Default: True
+        k1: float
+            Algorithm parameter (see equation in the link above).
+        k2: float
+            Algorithm parameter (see equation in the link above).
+            Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
+        Returns
+        ---------
+            Value of Structural Similarity (SSIM) index. In case of 5D input tensors, complex value is returned
+            as a tensor of size 2.
+        """
+        assert (
+            kernel_size % 2 == 1
+        ), f"Kernel size must be odd, got [{kernel_size}]"
+        self._validate_input(
+            [x, y], dim_range=(4, 5), data_range=(0, data_range)
+        )
+
+        x = x / float(data_range)
+        y = y / float(data_range)
+
+        # Averagepool image if the size is large enough
+        f = max(1, round(min(x.size()[-2:]) / 256))
+        if (f > 1) and downsample:
+            x = F.avg_pool2d(x, kernel_size=f)
+            y = F.avg_pool2d(y, kernel_size=f)
+
+        kernel = (
+            self.gaussian_filter(kernel_size, kernel_sigma)
+            .repeat(x.size(1), 1, 1, 1)
+            .to(y)
+        )
+        _compute_ssim_per_channel = (
+            self._ssim_per_channel_complex
+            if x.dim() == 5
+            else self._ssim_per_channel
+        )
+        ssim_map, cs_map = _compute_ssim_per_channel(
+            x=x, y=y, kernel=kernel, k1=k1, k2=k2
+        )
+        ssim_val = ssim_map.mean(1)
+        cs = cs_map.mean(1)
+
+        ssim_val = self._reduce(ssim_val, reduction)
+        cs = self._reduce(cs, reduction)
+
+        if full:
+            return [ssim_val, cs]
+
+        return ssim_val
+
+    def forward(self, x, y):
+        """Computation of Structural Similarity (SSIM) index as a loss function.
+        Arguments
+        ---------
+        x: torch.Tensor
+            An input tensor (N, C, H, W) or (N, C, H, W, 2).
+        y: torch.Tensor
+            A target tensor (N, C, H, W) or (N, C, H, W, 2).
+        Returns
+        ---------
+        Value of SSIM loss to be minimized, i.e 1 - ssim in [0, 1] range. In case of 5D input tensors,
+        complex value is returned as a tensor of size 2.
+        """
+
+        score = self.ssim(
+            x=x,
+            y=y,
+            kernel_size=self.kernel_size,
+            kernel_sigma=self.kernel_sigma,
+            downsample=self.downsample,
+            data_range=self.data_range,
+            reduction=self.reduction,
+            full=False,
+            k1=self.k1,
+            k2=self.k2,
+        )
+        return torch.ones_like(score) - score
