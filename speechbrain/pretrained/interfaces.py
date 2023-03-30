@@ -8,7 +8,6 @@ Authors:
  * Titouan Parcollet 2021
  * Abdel Heba 2021
  * Andreas Nautsch 2022
- * Pooneh Mousavi 20023
 """
 import logging
 import hashlib
@@ -2828,7 +2827,7 @@ class FastSpeech2(Pretrained):
         self.input_encoder.add_unk()
         self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
 
-    def encode_batch(self, texts, pace=1.1):
+    def encode_batch(self, texts, pace=1.0):
         """Computes mel-spectrogram for a list of texts
 
         Arguments
@@ -2865,16 +2864,23 @@ class FastSpeech2(Pretrained):
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs).to(
                 self.device
             )
-            mel_outputs, _, durations, pitch, energy, _ = self.hparams.model(
-                inputs.phoneme_sequences.data, pace=pace
-            )
+            (
+                mel_outputs,
+                _,
+                durations,
+                pitch,
+                _,
+                energy,
+                _,
+                _,
+            ) = self.hparams.model(inputs.phoneme_sequences.data, pace=pace)
 
             # Transposes to make in compliant with HiFI GAN expected format
             mel_outputs = mel_outputs.transpose(-1, 1)
 
         return mel_outputs, durations, pitch, energy
 
-    def encode_text(self, text, pace=1.1):
+    def encode_text(self, text, pace=1.0):
         """Runs inference for a single text str
         Arguments
         ---------
@@ -2885,7 +2891,7 @@ class FastSpeech2(Pretrained):
         """
         return self.encode_batch([text], pace=pace)
 
-    def forward(self, texts, pace=1.1):
+    def forward(self, texts, pace=1.0):
         """Encodes the input texts.
         Arguments
         ---------
