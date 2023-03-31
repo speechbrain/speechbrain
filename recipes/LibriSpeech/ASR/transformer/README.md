@@ -13,7 +13,7 @@ python train.py hparams/transformer.yaml
 ```
 
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
-installed in your environment**
+installed in your environment (see extra-requirements.txt)**
 # Results
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
