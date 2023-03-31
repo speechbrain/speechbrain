@@ -19,7 +19,7 @@ python train.py hparams/transformer.yaml --test_only
 ```
 
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
-installed in your environment**
+installed in your environment (see extra-requirements.txt)**
 # Results
 
 <<<<<<< HEAD
