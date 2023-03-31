@@ -496,7 +496,7 @@ if __name__ == "__main__":
         parameters,
     )
     hparams["model"] = torch.nn.ModuleList(
-        [hparams["CNN"], hparams["seq_lin"], hparams["ctc_lin"],]
+        [hparams["CNN"], hparams["seq_lin"], hparams["ctc_lin"]]
     )
     hparams["test_search"].modules = hparams["valid_search"].modules = [
         hparams["Transformer"],
