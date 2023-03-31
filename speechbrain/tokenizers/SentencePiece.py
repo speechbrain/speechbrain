@@ -370,13 +370,13 @@ class SentencePiece:
                     fannotation_file.close()
                 logger.info("recover words from: " + annotation_file)
                 if len(wrong_recover_list) > 0:
-                    logger.warn(
+                    logger.warning(
                         "Wrong recover words: " + str(len(wrong_recover_list))
                     )
-                    logger.warn(
+                    logger.warning(
                         "Tokenizer vocab size: " + str(self.sp.vocab_size())
                     )
-                    logger.warn(
+                    logger.warning(
                         "accuracy recovering words: "
                         + str(
                             1

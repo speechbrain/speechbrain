@@ -17,7 +17,7 @@ manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
 
 output_folder: results/ami/xvect/
 save_folder: !ref <output_folder>/save/
-device: 'cuda:0'
+skip_prep: False
 
 # Embedding model
 # Here, the pretrained embedding model trained with train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml
@@ -42,6 +42,7 @@ n_mels: 24
 
 # Xvector model
 emb_dim: 512
+emb_tdnn_channels: [512, 512, 512, 512, 1500]
 batch_size: 512
 
 # AMI data_prep parameters
@@ -49,6 +50,8 @@ split_type: 'full_corpus_asr'
 skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
 mic_type: 'Mix-Headset'
+dev_meta_file: !ref <meta_data_dir>/ami_dev.<mic_type>.subsegs.json
+eval_meta_file: !ref <meta_data_dir>/ami_eval.<mic_type>.subsegs.json
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
@@ -79,7 +82,7 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
     tdnn_blocks: 5
-    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_channels: !ref <emb_tdnn_channels>
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>

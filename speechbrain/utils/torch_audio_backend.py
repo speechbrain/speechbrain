@@ -16,7 +16,7 @@ def check_torchaudio_backend():
     """
     current_system = platform.system()
     if current_system == "Windows":
-        logger.warn(
+        logger.warning(
             "The torchaudio backend is switched to 'soundfile'. Note that 'sox_io' is not supported on Windows."
         )
         torchaudio.set_audio_backend("soundfile")

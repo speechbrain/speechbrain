@@ -1067,10 +1067,18 @@ class Dual_Path_Model(nn.Module):
         P = K // 2
         gap = K - (P + L % K) % K
         if gap > 0:
-            pad = torch.Tensor(torch.zeros(B, N, gap)).type(input.type())
+            pad = (
+                torch.Tensor(torch.zeros(B, N, gap))
+                .type(input.dtype)
+                .to(input.device)
+            )
             input = torch.cat([input, pad], dim=2)
 
-        _pad = torch.Tensor(torch.zeros(B, N, P)).type(input.type())
+        _pad = (
+            torch.Tensor(torch.zeros(B, N, P))
+            .type(input.dtype)
+            .to(input.device)
+        )
         input = torch.cat([_pad, input, _pad], dim=2)
 
         return input, gap

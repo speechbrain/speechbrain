@@ -17,7 +17,7 @@ manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
 
 output_folder: results/ami/ecapa/
 save_folder: !ref <output_folder>/save
-device: 'cuda:0'
+skip_prep: False
 
 # Embedding model
 # Here, the pretrained embedding model trained with train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml
@@ -43,6 +43,9 @@ n_mels: 80
 
 # ECAPA-TDNN model
 emb_dim: 192
+emb_channels: [1024, 1024, 1024, 1024, 3072]
+emb_attention_channels: 128
+emb_lin_neurons: 192
 batch_size: 512
 
 # AMI data_prep parameters
@@ -50,6 +53,8 @@ split_type: 'full_corpus_asr'
 skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
 mic_type: 'Mix-Headset'
+dev_meta_file: !ref <meta_data_dir>/ami_dev.<mic_type>.subsegs.json
+eval_meta_file: !ref <meta_data_dir>/ami_eval.<mic_type>.subsegs.json
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
@@ -83,11 +88,11 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     input_size: !ref <n_mels>
-    channels: [1024, 1024, 1024, 1024, 3072]
+    channels: !ref <emb_channels>
     kernel_sizes: [5, 3, 3, 3, 1]
     dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
-    lin_neurons: 192
+    attention_channels: !ref <emb_attention_channels>
+    lin_neurons: !ref <emb_lin_neurons>
 
 mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global

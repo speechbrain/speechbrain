@@ -1,0 +1,32 @@
+{
+	"example1": {
+		"duration": 3.260,
+		"wav": "{data_root}/example1.wav",
+		"transcription": "The birch canoe slid on the smooth planks",
+		"translation_0": "Das Bikrenkanu glitt über die glatten Planken",
+		"translation_1": "Le canoë en bouleau a glissé sur les planches lisses",
+		"translation_2": "La canoa de abedul se deslizó sobre los lisos tablones",
+		"translation_3": "白樺のカヌーは、滑らかな板の上を滑っていく",
+		"transcription_and_translation": "The birch canoe slid on the smooth planks La canoa de abedul se deslizó sobre los lisos tablones"
+	},
+	"example2": {
+		"duration": 2.068,
+		"wav": "{data_root}/example2.flac",
+		"transcription": "my father has revealed the culprit",
+		"translation_0": "mein Vater hat den Schuldigen entlarvt",
+		"translation_1": "mon père a révélé le coupable",
+		"translation_2": "mi padre ha revelado al culpable",
+		"translation_3": "おやじがしらをきる",
+		"transcription_and_translation": "my father has revealed the culprit mi padre ha revelado al culpable"
+	},
+	"example5": {
+		"duration": 1.000,
+		"wav": "{data_root}/example5.wav",
+		"transcription": "The frosty air passed through the coat",
+		"translation_0": "Die frostige Luft strömte durch den Mantel",
+		"translation_1": "L'air glacial a traversé le manteau",
+		"translation_2": "El aire helado atravesó el abrigo",
+		"translation_3": "霜のような空気がコートを通り抜け",
+		"transcription_and_translation": "The frosty air passed through the coat El aire helado atravesó el abrigo"
+	}
+}

@@ -116,7 +116,7 @@ MaskNet: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
     R: 4
     C: !ref <num_spks>
     norm_type: 'gLN'
-    causal: False
+    causal: True
     mask_nonlinear: 'relu'
 
 Decoder: !new:speechbrain.lobes.models.dual_path.Decoder

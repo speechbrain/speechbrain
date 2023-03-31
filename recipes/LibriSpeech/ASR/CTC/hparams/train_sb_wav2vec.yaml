@@ -39,7 +39,6 @@ lr_wav2vec: 0.00005
 auto_mix_prec: False
 sample_rate: 16000
 sorting: ascending
-warmup_steps: 1000
 num_workers: 2
 
 # With data_parallel batch_size is split into N jobs
@@ -64,10 +63,12 @@ dnn_neurons: 1280
 dnn_dropout: 0.15
 
 # Outputs
-output_neurons: 31  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
+use_language_modelling: False
+# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes

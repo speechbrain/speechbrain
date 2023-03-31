@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="docs/images/speechbrain-logo.svg" alt="SpeechBrain Logo"/>
+  <img src="https://raw.githubusercontent.com/speechbrain/speechbrain/develop/docs/images/speechbrain-logo.svg" alt="SpeechBrain Logo"/>
 </p>
 
 [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/SpeechBrain1/)
+[![Discord](https://dcbadge.vercel.app/api/server/3wYvAaz3Ck?style=flat)](https://discord.gg/3wYvAaz3Ck)
+
 
 SpeechBrain is an **open-source** and **all-in-one** conversational AI toolkit based on PyTorch.
 
@@ -13,6 +15,12 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 *SpeechBrain is currently in beta*.
 
 | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
+
+# PyTorch 2.0 considerations
+
+In March 2023, PyTorch introduced a new version, PyTorch 2.0, which offers numerous enhancements to the community. At present, the majority of SpeechBrain is compatible with PyTorch 2.0. However, certain sections of the code remain incompatible, and we are actively working towards full compatibility with PyTorch 2.0. For the time being, we recommend users continue utilizing PyTorch 1.13, as this is the version employed in our experiments.
+
+If you wish to use SpeechBrain alongside PyTorch 2.0 and encounter any issues, kindly inform us by responding to this [issue](https://github.com/speechbrain/speechbrain/issues/1897).
 
 # Key features
 
@@ -36,10 +44,11 @@ SpeechBrain supports state-of-the-art methods for end-to-end speech recognition:
 - State-of-the-art performance or comparable with other existing toolkits in several ASR benchmarks.
 - Easily customizable neural language models, including RNNLM and TransformerLM. We also share several pre-trained models that you can easily use (more to come!). We support the Hugging Face `dataset` to facilitate the training over a large text dataset.
 - Hybrid CTC/Attention end-to-end ASR:
-    - Many available encoders: CRDNN (VGG + {LSTM,GRU,LiGRU} + DNN), ResNet, SincNet, vanilla transformers, context net-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in a few hours of work. The decoder is fully customizable: LSTM, GRU, LiGRU, transformer, or your neural network!
+    - Many available encoders: CRDNN (VGG + {LSTM,GRU,Li-GRU} + DNN), ResNet, SincNet, vanilla transformers, whisper, context net-based transformers or conformers. Thanks to the flexibility of SpeechBrain, any fully customized encoder could be connected to the CTC/attention decoder and trained in a few hours of work. The decoder is fully customizable: LSTM, GRU, LiGRU, transformer, or your neural network!
     - Optimised and fast beam search on both CPUs and GPUs.
 - Transducer end-to-end ASR with both a custom Numba loss and the torchaudio one. Any encoder or decoder can be plugged into the transducer ranging from VGG+RNN+DNN to conformers.
 - Pre-trained ASR models for transcribing an audio file or extracting features for a downstream task.
+- Fully customizable with the possibility to add external Beam Search decoders, if the ones offered natively by SpeechBrain are not sufficient, such as [PyCTCDecode](https://github.com/kensho-technologies/pyctcdecode) like in our LibriSpeech CTC wav2vec recipe.
 
 ### Feature extraction and augmentation
 
@@ -69,7 +78,7 @@ SpeechBrain provides different models for speaker recognition, identification, a
 ### Grapheme-to-Phoneme (G2P)
 We have models for converting characters into a sequence of phonemes. In particular, we have Transformer- and RNN-based models operating at the sentence level (i.e, converting a full sentence into a corresponding sequence of phonemes). The models are trained with both data from Wikipedia and LibriSpeech.
 
-###  Language Identification
+### Language Identification
 SpeechBrain provides different models for language identification.
 In particular, our best model is based on an ECAPA-TDNN trained with the [voxlingua107 dataset](http://bark.phon.ioc.ee/voxlingua107/).
 
@@ -85,7 +94,14 @@ Combining multiple microphones is a powerful approach to achieving robustness in
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
+### Emotion Recognition
+- Recipes for emotion recognition using SSL and ECAPA-TDNN models.
 
+### Interpretability
+- Recipes for various intepretability techniques on the ESC50 dataset.
+
+### Spoken Language Understanding
+- Recipes for training wav2vec 2.0 models with the [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) dataset.
 
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:
@@ -93,7 +109,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | wav2vec2 | WER=1.90% (test-clean) |
-| LibriSpeech      | Speech Recognition | CNN + Transformer | WER=2.26% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Conformer | WER=2.2% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
@@ -151,6 +167,46 @@ SpeechBrain is designed to speed up the research and development of speech techn
 
 ### Under development
 We are currently implementing speech synthesis pipelines and real-time speech processing pipelines. An interface with the Finite State Transducers (FST) implemented by the [Kaldi 2 team](https://github.com/k2-fsa/k2) is under development.
+
+# Where is what, a link list.
+```
+                  (documentation)           (tutorials)
+                  .—————————————.            .———————.
+                  | readthedocs |       ‚––> | Colab |
+                  \—————————————/      ∕     \———————/
+                         ^       ‚––––‘          |
+    (release)            |      ∕                v
+    .——————.       .———————————. (landing) .———————————.
+    | PyPI | –––>  | github.io |  (page)   | templates |   (reference)
+    \——————/       \———————————/       ‚–> \———————————/ (implementation)
+        |                |        ‚–––‘          |
+        v                v       ∕               v
+.———————————–—.   .———————————–—.           .—————————.           .~~~~~~~~~~~~~.
+| HyperPyYAML |~~~| speechbrain | ––––––––> | recipes | ––––––––> | HuggingFace |
+\————————————–/   \————————————–/           \—————————/     ∕     \~~~~~~~~~~~~~/
+  (usability)     (source/modules)          (use cases)    ∕    (pretrained models)
+                                                          ∕
+                        |                        |       ∕               |
+                        v                        v      ∕                v
+                  .~~~~~~~~~~~~~.            .~~~~~~~~.            .———————————.
+                  |   PyTorch   | ––––––––-> | GDrive |            | Inference |
+                  \~~~~~~~~~~~~~/            \~~~~~~~~/            \———————————/
+                   (checkpoints)             (results)            (code snippets)
+```
+
+* https://speechbrain.github.io/
+  * via: https://github.com/speechbrain/speechbrain.github.io
+  * pointing to several tutorials on Google Colab
+* https://github.com/speechbrain/speechbrain
+  * [docs](https://github.com/speechbrain/speechbrain/tree/develop/docs) for https://speechbrain.readthedocs.io/
+  * [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes)
+  * [speechbrain](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain), heavily tied with [HyperPyYAML](https://github.com/speechbrain/HyperPyYAML); released on [PyPI](https://pypi.org/project/speechbrain/)
+  * [templates](https://github.com/speechbrain/speechbrain/tree/develop/templates)
+  * [tools](https://github.com/speechbrain/speechbrain/tree/develop/tools) for non-core functionality
+* https://huggingface.co/speechbrain/
+  * hosting several model cards (pretrained models with code snippets)
+* Gdrive
+  * hosting training results; checkpoints; ...
 
 # Conference Tutorials
 SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
