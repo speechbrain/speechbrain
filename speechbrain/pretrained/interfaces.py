@@ -2827,7 +2827,7 @@ class FastSpeech2(Pretrained):
         self.input_encoder.add_unk()
         self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
 
-    def encode_batch(self, texts, pace=1.0):
+    def encode_batch(self, texts, pace=1.0, pitch_rate=1.0):
         """Computes mel-spectrogram for a list of texts
 
         Arguments
@@ -2836,10 +2836,12 @@ class FastSpeech2(Pretrained):
             texts to be encoded into spectrogram
         pace : float
             pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
 
         Returns
         -------
-        tensors of output spectrograms, output lengths and alignments
+        tensors of output spectrograms, output lengths, pitches and energies.
         """
 
         # Converts texts to their respective phoneme sequences
@@ -2873,14 +2875,14 @@ class FastSpeech2(Pretrained):
                 energy,
                 _,
                 _,
-            ) = self.hparams.model(inputs.phoneme_sequences.data, pace=pace)
+            ) = self.hparams.model(inputs.phoneme_sequences.data, pace=pace, pitch_rate=pitch_rate)
 
             # Transposes to make in compliant with HiFI GAN expected format
             mel_outputs = mel_outputs.transpose(-1, 1)
 
         return mel_outputs, durations, pitch, energy
 
-    def encode_text(self, text, pace=1.0):
+    def encode_text(self, text, pace=1.0, pitch_rate=1.0):
         """Runs inference for a single text str
         Arguments
         ---------
@@ -2888,10 +2890,12 @@ class FastSpeech2(Pretrained):
             text to be encoded into spectrogram
         pace : float
             pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
         """
-        return self.encode_batch([text], pace=pace)
+        return self.encode_batch([text], pace=pace, pitch_rate=pitch_rate)
 
-    def forward(self, texts, pace=1.0):
+    def forward(self, texts, pace=1.0, pitch_rate=1.0):
         """Encodes the input texts.
         Arguments
         ---------
@@ -2899,8 +2903,10 @@ class FastSpeech2(Pretrained):
             texts to be encoded into spectrogram
         pace : float
             pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
         """
-        return self.encode_batch(texts, pace=pace)
+        return self.encode_batch(texts, pace=pace, pitch_rate=pitch_rate)
 
 
 class HIFIGAN(Pretrained):

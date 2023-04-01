@@ -497,21 +497,43 @@ class FastSpeech2(nn.Module):
         )
 
     def forward(
-        self, tokens, durations=None, pitch=None, energy=None, pace=1.0
+        self, tokens, durations=None, pitch=None, energy=None, pace=1.0, pitch_rate=1.0
     ):
         """forward pass for training and inference
         Arguments
         ---------
-        tokens: torch.tensor
+        tokens: torch.Tensor
             batch of input tokens
-        durations: torch.tensor
+        durations: torch.Tensor
             batch of durations for each token. If it is None, the model will infer on predicted durations
+        pitch: torch.Tensor
+            batch of pitch for each frame. If it is None, the model will infer on predicted pitches
+        energy: torch.Tensor
+            batch of energy for each frame. If it is None, the model will infer on predicted energies
+        pace: float
+            scaling factor for durations
+        pitch_rate: float
+            scaling factor for pitches
         Returns
         ---------
         mel_post: torch.Tensor
             mel outputs from the decoder
+        postnet_output: torch.Tensor
+            mel outputs from the postnet
         predict_durations: torch.Tensor
-            predicted durations for each token
+            predicted durations of each token
+        predict_pitch: torch.Tensor
+            predicted pitches of each token
+        avg_pitch: torch.Tensor
+            target pitches for each token if input pitch is not None
+            None if input pitch is None
+        predict_energy: torch.Tensor
+            predicted energies of each token 
+        avg_energy: torch.Tensor
+            target energies for each token if input energy is not None
+            None if input energy is None
+        mel_length:
+            predicted lengths of mel spectrograms
         """
         token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
@@ -543,6 +565,10 @@ class FastSpeech2(nn.Module):
 
         avg_pitch = None
         predict_pitch = self.pitchPred(token_feats, srcmask_inverted)
+
+        # use a pitch rate to adjust the pitch
+        predict_pitch = predict_pitch * pitch_rate
+
         if pitch is not None:
             avg_pitch = average_over_durations(pitch.unsqueeze(1), durations)
             pitch = self.pitchEmbed(avg_pitch)
@@ -646,7 +672,7 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
         batch of input tokens
     durs: torch.tensor
         durations to be used to upsample
-    pace: int
+    pace: float
         scaling factor for durations
     padding_value: int
         padding index
