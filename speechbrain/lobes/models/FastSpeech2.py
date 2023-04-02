@@ -1152,7 +1152,7 @@ class _SSIMLoss(_Loss):
         Maximum value range of images (usually 1.0 or 255).
     Example
     -------
-        >>> loss = SSIMLoss()
+        >>> loss = _SSIMLoss()
         >>> x = torch.rand(3, 3, 256, 256, requires_grad=True)
         >>> y = torch.rand(3, 3, 256, 256)
         >>> output = loss(x, y)
