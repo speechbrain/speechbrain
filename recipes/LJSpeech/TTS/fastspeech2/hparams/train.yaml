@@ -37,7 +37,7 @@ skip_prep: False
 ################################
 # Audio Parameters             #
 ################################
-sample_rate: 16000
+sample_rate: 22050
 hop_length: 256
 win_length: null
 n_mel_channels: 80
@@ -57,10 +57,10 @@ max_f0: 2093 #(torchaudio pyin values)
 # Optimization Hyperparameters #
 ################################
 learning_rate: 0.0001
-weight_decay: 0.000000001
+weight_decay: 0.000001
 max_grad_norm: 1.0
-batch_size: 64 #minimum 2
-betas: [0.98, 0.99]
+batch_size: 32 #minimum 2
+betas: [0.9, 0.98]
 
 ################################
 # Model Parameters and model   #
@@ -108,7 +108,7 @@ lexicon:
     - ZH
     - spn
 
-n_symbols: 41 #fixed deppending on symbols in the lexicon +1 for a dummy symbol used for padding
+n_symbols: 41 #fixed depending on symbols in the lexicon +1 for a dummy symbol used for padding
 padding_idx: 0
 
 # Encoder parameters
@@ -197,12 +197,13 @@ criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
     duration_loss_weight: 1.0
     pitch_loss_weight: 1.0
     energy_loss_weight: 1.0
+    ssim_loss_weight: 1.0
     mel_loss_weight: 1.0
     postnet_mel_loss_weight: 1.0
 
 vocoder: "hifi-gan"
 pretrained_vocoder: True
-vocoder_source: speechbrain/tts-hifigan-libritts-16kHz
+vocoder_source: speechbrain/tts-hifigan-ljspeech
 vocoder_download_path: tmpdir_vocoder
 
 modules:
@@ -226,6 +227,12 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <learning_rate>
     weight_decay: !ref <weight_decay>
     betas: !ref <betas>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamIntervalScheduler
+    lr_initial: !ref <learning_rate>
+    anneal_steps: [60000, 80000, 100000]
+    anneal_rates: [0.3, 0.3, 0.3]
+    n_warmup_steps: 4000
 
 #epoch object
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter

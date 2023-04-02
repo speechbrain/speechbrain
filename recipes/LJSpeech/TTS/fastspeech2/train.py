@@ -64,6 +64,7 @@ class FastSpeech2Brain(sb.Brain):
             detached loss
         """
         result = super().fit_batch(batch)
+        self.hparams.noam_annealing(self.optimizer)
         return result
 
     def compute_objectives(self, predictions, batch, stage):
@@ -114,7 +115,9 @@ class FastSpeech2Brain(sb.Brain):
             postnet_mel_out,
             predict_durations,
             predict_pitch,
+            average_pitch,
             predict_energy,
+            average_energy,
             predict_mel_lens,
         ) = predictions
         self.hparams.progress_sample_logger.remember(
@@ -170,7 +173,7 @@ class FastSpeech2Brain(sb.Brain):
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.last_epoch = epoch
-            lr = self.optimizer.param_groups[-1]["lr"]
+            lr = self.hparams.noam_annealing.current_lr
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(  # 1#2#
@@ -207,9 +210,16 @@ class FastSpeech2Brain(sb.Brain):
             return
         tokens, *_ = self.last_batch
 
-        _, postnet_mel_out, _, _, _, predict_mel_lens = self.hparams.model(
-            tokens
-        )
+        (
+            _,
+            postnet_mel_out,
+            _,
+            _,
+            _,
+            _,
+            _,
+            predict_mel_lens,
+        ) = self.hparams.model(tokens)
         self.hparams.progress_sample_logger.remember(
             infer_output=self.process_mel(
                 postnet_mel_out, [len(postnet_mel_out[0])]
