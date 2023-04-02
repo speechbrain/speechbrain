@@ -381,7 +381,7 @@ class FastSpeech2(nn.Module):
     >>> mel_post.shape, predict_durations.shape
     (torch.Size([2, 15, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape
-    (torch.Size([2, 15, 1]), torch.Size([2, 15, 1]))
+    (torch.Size([2, 5, 1]), torch.Size([2, 5, 1]))
     """
 
     def __init__(
