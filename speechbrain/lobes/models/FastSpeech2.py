@@ -208,7 +208,8 @@ class DurationPredictor(nn.Module):
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
     >>> duration_predictor_layer = DurationPredictor(in_channels=384, out_channels=384, kernel_size=3)
     >>> x = torch.randn(3, 400, 384)
-    >>> y = duration_predictor_layer(x)
+    >>> mask = torch.ones(3, 400, 384)
+    >>> y = duration_predictor_layer(x, mask)
     >>> y.shape
     torch.Size([3, 400, 1])
     """
@@ -242,6 +243,8 @@ class DurationPredictor(nn.Module):
         ---------
         x: torch.Tensor
             a (batch, time_steps, features) input tensor
+        x_mask: torch.Tensor
+            mask of input tensor
         Returns
         -------
         output: torch.Tensor
@@ -374,7 +377,7 @@ class FastSpeech2(nn.Module):
     ...     [2, 4, 1, 5, 3],
     ...     [1, 2, 4, 3, 0],
     ... ])
-    >>> mel_post, postnet_output, predict_durations, predict_pitch, predict_energy, mel_lens = model(inputs, durations=durations)
+    >>> mel_post, postnet_output, predict_durations, predict_pitch, avg_pitch, predict_energy, avg_energy, mel_lens = model(inputs, durations=durations)
     >>> mel_post.shape, predict_durations.shape
     (torch.Size([2, 15, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape
