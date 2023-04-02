@@ -497,7 +497,13 @@ class FastSpeech2(nn.Module):
         )
 
     def forward(
-        self, tokens, durations=None, pitch=None, energy=None, pace=1.0, pitch_rate=1.0
+        self,
+        tokens,
+        durations=None,
+        pitch=None,
+        energy=None,
+        pace=1.0,
+        pitch_rate=1.0,
     ):
         """forward pass for training and inference
         Arguments
@@ -528,7 +534,7 @@ class FastSpeech2(nn.Module):
             target pitches for each token if input pitch is not None
             None if input pitch is None
         predict_energy: torch.Tensor
-            predicted energies of each token 
+            predicted energies of each token
         avg_energy: torch.Tensor
             target energies for each token if input energy is not None
             None if input energy is None
@@ -1151,12 +1157,6 @@ class _SSIMLoss(_Loss):
         >>> y = torch.rand(3, 3, 256, 256)
         >>> output = loss(x, y)
         >>> output.backward()
-    References:
-        Wang, Z., Bovik, A. C., Sheikh, H. R., & Simoncelli, E. P. (2004).
-        Image quality assessment: From error visibility to structural similarity.
-        IEEE Transactions on Image Processing, 13, 600-612.
-        https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf,
-        DOI:10.1109/TIP.2003.819861
     """
 
     __constants__ = ["kernel_size", "k1", "k2", "sigma", "kernel", "reduction"]

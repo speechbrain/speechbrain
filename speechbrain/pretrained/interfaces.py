@@ -2875,7 +2875,9 @@ class FastSpeech2(Pretrained):
                 energy,
                 _,
                 _,
-            ) = self.hparams.model(inputs.phoneme_sequences.data, pace=pace, pitch_rate=pitch_rate)
+            ) = self.hparams.model(
+                inputs.phoneme_sequences.data, pace=pace, pitch_rate=pitch_rate
+            )
 
             # Transposes to make in compliant with HiFI GAN expected format
             mel_outputs = mel_outputs.transpose(-1, 1)
