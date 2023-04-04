@@ -970,7 +970,7 @@ class LiGRU(torch.nn.Module):
     in IEEE Transactions on Emerging Topics in Computational Intelligence,
     2018" (https://arxiv.org/abs/1803.10225)
 
-    If you face instabilities during training, use instead the Stabilised Li-GRU (SLi-GRU).
+    If you face instabilities during training, instead use the Stabilised Li-GRU (SLi-GRU).
     See:
         - speechbrain.nnet.RNN.SLiGRU
 
