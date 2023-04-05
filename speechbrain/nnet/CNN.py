@@ -400,6 +400,8 @@ class Conv1d(nn.Module):
 
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
+        if conv_init == "normal":
+            nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
