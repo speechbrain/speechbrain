@@ -1052,6 +1052,32 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
     logger.info(f"{write_path} is created.")
 
 
+def merge_jsons(data_folder, json_lst, merged_json):
+    """Merges several JSON files into one file, similar to merge_csvs
+    
+
+    Arguments
+    ---------
+    data_folder : string
+        The folder to store JSON files to be merged and after merging.
+    json_lst : list
+        Filenames of JSON file to be merged.
+    merged_json : string
+        The filename to write the merged JSON file.    
+    """
+    write_path = os.path.join(data_folder, merged_json)
+    if os.path.isfile(write_path):
+        logger.info("Skipping merging. Completed in previous run.")
+    result = {}
+    for json_file in json_lst:
+        with open(os.path.join(data_folder, json_file)) as f:
+            content = json.load(f)
+            result.update(content)
+    with open(write_path, "w") as f:
+        json.dump(content, f)
+    logger.info(f"{write_path} is created.")
+
+    
 def split_word(sequences, space="_"):
     """Split word sequences into character sequences.
 
