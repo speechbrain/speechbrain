@@ -1550,6 +1550,9 @@ class SLiGRU_Layer(torch.nn.Module):
         Type of normalization (batchnorm, layernorm).
         Every string different from batchnorm and layernorm will result
         in layer normalization.
+        Note that this only applies to the feedforward affine transform.
+        SLi-GRU (unlike Li-GRU) unconditionally applies layer normalization in
+        the recurrent layers, which is unaffected by this parameter.
     recurrent_elementwise_affine : bool
         A boolean value that when set to True, this module has learnable per-element affine parameters initialized to ones (for weights) and zeros (for biases).
     bias: bool
