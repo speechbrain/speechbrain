@@ -1208,9 +1208,7 @@ class LiGRU_Layer(torch.nn.Module):
             self.norm.bias.requires_grad = False
 
         # Initial state
-        self.register_buffer(
-            "h_init", torch.zeros(1, self.hidden_size)
-        )
+        self.register_buffer("h_init", torch.zeros(1, self.hidden_size))
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop()
@@ -1618,9 +1616,7 @@ class SLiGRU_Layer(torch.nn.Module):
             self.norm.bias.requires_grad = False
 
         # Initial state
-        self.register_buffer(
-            "h_init", torch.zeros(1, self.hidden_size)
-        )
+        self.register_buffer("h_init", torch.zeros(1, self.hidden_size))
 
         # Preloading dropout masks (gives some speed improvement)
         self._init_drop()
