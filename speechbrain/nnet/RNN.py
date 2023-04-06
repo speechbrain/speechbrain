@@ -1209,7 +1209,7 @@ class LiGRU_Layer(torch.nn.Module):
 
         # Initial state
         self.register_buffer(
-            "h_init", torch.zeros(self.batch_size, self.hidden_size)
+            "h_init", torch.zeros(1, self.hidden_size)
         )
 
         # Preloading dropout masks (gives some speed improvement)
@@ -1255,7 +1255,9 @@ class LiGRU_Layer(torch.nn.Module):
         if hx is not None:
             h = self._ligru_cell(w, hx)
         else:
-            h = self._ligru_cell(w, self.h_init)
+            # broadcast to include batch size, this makes torch.compile happier
+            h_init = self.h_init.broadcast_to(w.shape[0], self.h_init.shape[1])
+            h = self._ligru_cell(w, h_init)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
@@ -1614,7 +1616,7 @@ class SLiGRU_Layer(torch.nn.Module):
 
         # Initial state
         self.register_buffer(
-            "h_init", torch.zeros(self.batch_size, self.hidden_size)
+            "h_init", torch.zeros(1, self.hidden_size)
         )
 
         # Preloading dropout masks (gives some speed improvement)
@@ -1660,7 +1662,9 @@ class SLiGRU_Layer(torch.nn.Module):
         if hx is not None:
             h = self._sligru_cell(w, hx)
         else:
-            h = self._sligru_cell(w, self.h_init)
+            # broadcast to include batch size, this makes torch.compile happier
+            h_init = self.h_init.broadcast_to(w.shape[0], self.h_init.shape[1])
+            h = self._sligru_cell(w, h_init)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
