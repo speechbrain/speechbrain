@@ -3,13 +3,13 @@
 # Tokens: unigram
 # losses: NLL
 # Training: Librispeech 960h transcript + LM corpus
-# Authors:  Jianyuan Zhong 2021
+# Authors:  Jianyuan Zhong 2021, Titouan Parcollet 2023
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 2223
+seed: 3407
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/Transformer/<seed>
+output_folder: !ref results/TransformerLM/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -30,17 +30,19 @@ test_transcripts_pattern: "test*/**/*.trans.txt"
 tokenizer_file: speechbrain/asr-transformer-transformerlm-librispeech/tokenizer.ckpt
 
 # Training parameters
-number_of_epochs: 20
+number_of_epochs: 25
+max_grad_norm: 5
 batch_size: 16
-lr: 10
-accu_steps: 8 # Gradient accumulation to simulate large batch training
-ckpt_interval_minutes: 15 # save checkpoint every N min
+lr: 0.0005
+weight_decay: 0.01
+ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
     pin_memory: True
+    num_workers: 8
 
 valid_dataloader_opts:
     batch_size: 1
@@ -56,17 +58,19 @@ eos_index: 2
 # pad_index: 0
 
 # model params
-d_model: 768
+d_model: 512
+d_embedding: 128
 
 
 # Functions
 model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
     vocab: !ref <output_neurons>
     d_model: !ref <d_model>
-    nhead: 12
-    num_encoder_layers: 12
+    d_embedding: !ref <d_embedding>
+    nhead: 8
+    num_encoder_layers: 16
     num_decoder_layers: 0
-    d_ffn: 3072
+    d_ffn: 2048
     dropout: 0.0
     activation: !name:torch.nn.GELU
     normalize_before: False
@@ -84,15 +88,15 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-optimizer: !name:torch.optim.Adam
-    lr: 0
+optimizer: !name:torch.optim.AdamW
+    lr: !ref <lr>
     betas: (0.9, 0.98)
     eps: 0.000000001
+    weight_decay: !ref <weight_decay>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr>
-    n_warmup_steps: 250000
-    model_size: !ref <d_model>
+    n_warmup_steps: 50000
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
