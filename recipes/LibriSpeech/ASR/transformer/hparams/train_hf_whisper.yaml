@@ -14,11 +14,13 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
+whisper_folder: !ref <save_folder>/whisper_checkpoint
 language: english
 
 # Normalize the english inputs with
 # the same normalization done in the paper
 normalized_transcripts: True
+test_only: False # Set it to True if you only want to  do the evaluation
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -57,7 +59,7 @@ bos_index: 50258
 
 # Decoding parameters
 min_decode_ratio: 0.0
-max_decode_ratio: 0.1
+max_decode_ratio: 1.0
 test_beam_size: 8
 
 # Model parameters
@@ -87,7 +89,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
-    save_path: !ref <save_folder>/whisper_checkpoint
+    save_path: !ref <whisper_folder>
     encoder_only: False
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
@@ -100,7 +102,7 @@ modules:
 
 whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
-    weight_decay: 0.000000001
+    weight_decay: 0.01
 
 valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>

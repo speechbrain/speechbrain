@@ -14,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english wav2vec2 model.
 wav2vec2_hub: facebook/wav2vec2-large-960h-lv60-self
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -38,7 +39,6 @@ sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
 
-
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
@@ -62,10 +62,12 @@ dnn_neurons: 1024
 freeze_wav2vec: True
 
 # Outputs
-output_neurons: 31  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
+use_language_modelling: False
+# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes
@@ -87,7 +89,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>
-   save_path: !ref <save_folder>/wav2vec2_checkpoint
+   save_path: !ref <wav2vec2_folder>
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead

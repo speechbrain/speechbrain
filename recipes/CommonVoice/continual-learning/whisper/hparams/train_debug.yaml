@@ -41,7 +41,6 @@ mask_init: 0.01
 mask_threshold: 0.005
 num_new_decoder_layers: 1
 
-
 whisper_variant: whisper-tiny
 encoder_only: False
 freeze: False
@@ -52,7 +51,7 @@ auto_mix_prec: False
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 150
+max_gen_tokens: 100
 forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 

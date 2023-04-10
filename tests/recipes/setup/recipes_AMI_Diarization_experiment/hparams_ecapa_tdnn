@@ -1,0 +1,6 @@
+mkdir -p tests/tmp/AMI_row_2/save/ref_rttms
+mkdir -p tests/tmp/AMI_row_2/save/metadata
+mkdir -p tests/tmp/AMI_row_2/save/sys_rttms/Mix-Headset/AMI_dev/est_cos_SC/
+touch tests/tmp/AMI_row_2/save//sys_rttms/Mix-Headset/AMI_dev/est_cos_SC/sys_output.rttm
+ln -s `realpath tests/tmp/AMI_row_2/save/sys_rttms/Mix-Headset/AMI_dev/est_cos_SC/sys_output.rttm` tests/tmp/AMI_row_2/save/ref_rttms/fullref_ami_dev.rttm
+ln -s `realpath tests/tmp/AMI_row_2/save/ref_rttms/fullref_ami_dev.rttm` tests/tmp/AMI_row_2/save/ref_rttms/fullref_ami_eval.rttm

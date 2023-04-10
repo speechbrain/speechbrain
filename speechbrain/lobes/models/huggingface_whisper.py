@@ -45,6 +45,17 @@ class HuggingFaceWhisper(nn.Module):
         HuggingFace hub name: e.g "openai/whisper-tiny"
     save_path : str
         Path (dir) of the downloaded model.
+    sampling_rate : int (default: 16000)
+        Sampling rate of the audio signal.
+    encoder_only : bool (default: False)
+        If True, the forward function outputs the hidden states from the last transformer layer of the encoder.
+        If False, one step of the decoder is performed and returned.
+    freeze : bool (default: False)
+        If True, the model is frozen.
+    freeze_encoder : bool (default: False)
+        If True, the encoder is frozen.
+    output_attentions : bool (default: True)
+        If True, the forward function outputs the attention weights.
     output_all_hiddens: bool (default: False)
         If True, the forward function outputs the hidden states from all transformer layers of the encoder.
         For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),

@@ -38,7 +38,7 @@ class SLU(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         #  encoder forward pass
-        wav2vec2_out = self.modules.wav2vec2(wavs)
+        wav2vec2_out = self.modules.wav2vec2(wavs, wav_lens)
 
         # SLU forward pass
         e_in = self.hparams.output_emb(tokens_bos)
