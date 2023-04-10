@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-"""
-Common Voice data preparation.
+"""Common Voice data preparation.
 
 Authors
  * Luca Della Libera 2023
@@ -13,13 +12,9 @@ import logging
 import os
 import random
 import re
-import shutil
-import tarfile
 from typing import Optional, Sequence
 
-import requests
 import torchaudio
-from tqdm import tqdm
 
 
 __all__ = [
@@ -37,13 +32,7 @@ logging.basicConfig(
 if torchaudio.get_audio_backend() != "sox_io":
     torchaudio.set_audio_backend("sox_io")
 
-
 _LOGGER = logging.getLogger(__name__)
-
-_URL_TEMPLATE = (
-    "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com"
-    "/cv-corpus-$version/cv-corpus-$version-$locale.tar.gz"
-)
 
 _SPLITS = ["train", "dev", "test"]
 
@@ -63,21 +52,18 @@ random.seed(0)
 
 def prepare_common_voice(
     locales: "Sequence[str]" = ("en",),
-    download_dir: "str" = "data",
-    version: "str" = "12.0-2022-12-07",
+    data_dir: "str" = "data",
     max_durations: "Optional[Sequence[float]]" = None,
 ) -> "None":
-    """Prepare the data manifest CSV files for Common Voice dataset
+    """Prepare data manifest CSV files for Common Voice dataset
     (see https://commonvoice.mozilla.org/en/datasets).
 
     Parameters
     ----------
     locales:
-        The dataset locales to download (e.g. "en", "it", etc.).
-    download_dir:
-        The path to the dataset download directory.
-    version:
-        The dataset version.
+        The locales to use (e.g. "en", "it", etc.).
+    data_dir:
+        The path to the dataset directory.
     max_durations:
         The maximum total durations in seconds to sample from
         each locale for train, dev and test splits, respectively.
@@ -87,10 +73,12 @@ def prepare_common_voice(
     ------
     ValueError
         If an invalid argument value is given.
+    RuntimeError
+        If a data directory is missing.
 
     Examples
     --------
-    >>> prepare_common_voice(["en", "it"], "data", "11.0-2022-09-21")
+    >>> prepare_common_voice(["en", "it"], "data")
 
     """
     if not locales:
@@ -107,28 +95,26 @@ def prepare_common_voice(
             "----------------------------------------------------------------------",
         )
         _LOGGER.info(f"Locale: {locale}")
-        locale_dir = os.path.join(download_dir, locale)
+        locale_dir = os.path.join(data_dir, locale)
         if not os.path.isdir(locale_dir):
-            try:
-                download_locale(locale, locale_dir, version)
-            except Exception:
-                if not os.listdir(download_dir):
-                    shutil.rmtree(download_dir)
-                raise
-        else:
-            _LOGGER.info("Data already downloaded")
+            raise RuntimeError(
+                f'"{locale}" data directory not found. '
+                f"Download them from https://commonvoice.mozilla.org/en/datasets"
+            )
+        compute_clip_durations(locale_dir)
 
     _LOGGER.info(
         "----------------------------------------------------------------------",
     )
     _LOGGER.info(f"Merging TSV files...")
     for split, max_duration in zip(_SPLITS, max_durations):
+        tsv_files = [
+            os.path.join(data_dir, locale, f"{split}_with_duration.tsv")
+            for locale in locales
+        ]
         merge_tsv_files(
-            [
-                os.path.join(download_dir, locale, f"{split}.tsv")
-                for locale in locales
-            ],
-            os.path.join(download_dir, f"{split}.tsv"),
+            tsv_files,
+            os.path.join(data_dir, f"{split}_with_duration.tsv"),
             max_duration,
         )
 
@@ -138,97 +124,53 @@ def prepare_common_voice(
     _LOGGER.info(f"Creating data manifest CSV files...")
     for split in _SPLITS:
         preprocess_tsv_file(
-            os.path.join(download_dir, f"{split}.tsv"),
-            os.path.join(download_dir, f"{split}.csv"),
+            os.path.join(data_dir, f"{split}_with_duration.tsv"),
+            os.path.join(data_dir, f"{split}.csv"),
         )
 
 
-def download_locale(
-    locale: "str", download_dir: "str", version: "str",
-) -> "None":
-    """Download Common Voice dataset locale.
+def compute_clip_durations(locale_dir: "str") -> "None":
+    """Compute clip durations for a Common Voice dataset locale.
 
     Parameters
     ----------
-    locale:
-        The dataset locale to download.
-    download_dir:
-        The path to the dataset locale download directory.
-    version:
-        The dataset version.
-
-    Raises
-    ------
-    RuntimeError
-        If an error occurs while downloading the data.
+    locale_dir:
+        The path to the dataset locale directory.
 
     Examples
     --------
-    >>> download_locale("en", os.path.join("data", "en"), "11.0-2022-09-21")
+    >>> compute_clip_durations("data/en")
 
     """
-    os.makedirs(download_dir)
-    archive = os.path.join(download_dir, "tmp.tar.gz")
-    url = _URL_TEMPLATE.replace("$version", version).replace("$locale", locale)
-    try:
-        _LOGGER.info("Downloading data...")
-        with requests.get(url, stream=True) as response:
-            total_size = int(response.headers.get("content-length", 0))
-            chunk_size = 1024 * 1024
-            progress_bar = tqdm(total=total_size, unit="B", unit_scale=True)
-            with open(archive, "wb") as f:
-                for data in response.iter_content(chunk_size):
-                    progress_bar.update(len(data))
-                    f.write(data)
-                progress_bar.close()
-        _LOGGER.info("Done!")
+    _LOGGER.info("Computing clip durations...")
+    for split in _SPLITS:
+        input_tsv_file = os.path.join(locale_dir, f"{split}.tsv")
+        output_tsv_file = os.path.join(locale_dir, f"{split}_with_duration.tsv")
+        if os.path.exists(output_tsv_file):
+            _LOGGER.info(f"Clip durations for {split}.tsv already computed")
+            continue
+        with open(input_tsv_file, encoding="utf-8") as fr, open(
+            output_tsv_file, "w", encoding="utf-8"
+        ) as fw:
+            tsv_reader = csv.reader(fr, delimiter="\t", quoting=csv.QUOTE_NONE)
+            tsv_writer = csv.writer(fw, delimiter="\t")
+            header = next(tsv_reader)
+            tsv_writer.writerow(header + ["duration"])
+            for row in tsv_reader:
+                # Remove "\t" and "\"" to not confuse the TSV writer
+                for i in range(len(row)):
+                    row[i] = row[i].replace("\t", " ")
+                    row[i] = row[i].replace('"', "")
 
-        _LOGGER.info("Extracting data...")
-        with tarfile.open(archive) as tar:
-            for member in tar.getmembers():
-                name = os.path.basename(member.name)
-                if name.endswith(".mp3"):
-                    member.name = os.path.join(download_dir, "clips", name)
-                    tar.extract(member)
-                elif os.path.splitext(name)[0] in _SPLITS:
-                    member.name = os.path.join(download_dir, name)
-                    tar.extract(member)
-        os.remove(archive)
-        _LOGGER.info("Done!")
+                mp3 = row[1]
+                mp3 = os.path.join(locale_dir, "clips", mp3)
 
-        _LOGGER.info("Computing clip durations...")
-        for split in _SPLITS:
-            input_tsv_file = os.path.join(download_dir, f"{split}.tsv")
-            output_tsv_file = os.path.join(download_dir, f"tmp.tsv")
-            with open(input_tsv_file, encoding="utf-8") as fr, open(
-                output_tsv_file, "w", encoding="utf-8"
-            ) as fw:
-                tsv_reader = csv.reader(
-                    fr, delimiter="\t", quoting=csv.QUOTE_NONE
-                )
-                tsv_writer = csv.writer(fw, delimiter="\t")
-                header = next(tsv_reader)
-                tsv_writer.writerow(header + ["duration"])
-                for row in tsv_reader:
-                    # Remove "\t" and "\"" to not confuse the TSV writer
-                    for i in range(len(row)):
-                        row[i] = row[i].replace("\t", " ")
-                        row[i] = row[i].replace('"', "")
+                # NOTE: info returns incorrect num_frames on torchaudio==0.12.x
+                info = torchaudio.info(mp3)
+                duration = info.num_frames / info.sample_rate
 
-                    mp3 = row[1]
-                    mp3 = os.path.join(download_dir, "clips", mp3)
-
-                    # NOTE: info returns incorrect num_frames on torchaudio==0.12.x
-                    info = torchaudio.info(mp3)
-                    duration = info.num_frames / info.sample_rate
-
-                    tsv_writer.writerow(row + [duration])
-            shutil.move(output_tsv_file, input_tsv_file)
-        _LOGGER.info("Done!")
-
-    except Exception:
-        shutil.rmtree(download_dir)
-        raise RuntimeError(f"Could not download locale: {locale}")
+                tsv_writer.writerow(row + [duration])
+    _LOGGER.info("Done!")
 
 
 def merge_tsv_files(
@@ -262,12 +204,14 @@ def merge_tsv_files(
 
     Examples
     --------
-    >>> merge_tsv_files(["data/en/test.tsv", "data/it/test.tsv"], "data/test.tsv")
+    >>> merge_tsv_files(
+    ...     ["data/en/test_with_duration.tsv", "data/it/test_with_duration.tsv"],
+    ...     "data/test_with_duration.tsv",
+    ... )
 
     """
     if max_duration is None:
         max_duration = float("inf")
-    _LOGGER.info(f"Writing output TSV file ({output_tsv_file})...")
     os.makedirs(os.path.dirname(output_tsv_file), exist_ok=True)
     with open(output_tsv_file, "w", encoding="utf-8") as fw:
         tsv_writer = csv.writer(
@@ -314,6 +258,7 @@ def merge_tsv_files(
             _LOGGER.info(f"Total duration (s): {duration}",)
             _LOGGER.info(f"Added {num_added_rows} rows")
 
+    _LOGGER.info(f"Writing output TSV file ({output_tsv_file})...")
     _LOGGER.info("Done!")
 
 
@@ -334,7 +279,7 @@ def preprocess_tsv_file(
 
     Examples
     --------
-    >>> preprocess_tsv_file("data/test.tsv", "data/test.csv")
+    >>> preprocess_tsv_file("data/test_with_duration.tsv", "data/test.csv")
 
     """
     # Header: client_id path sentence up_votes down_votes age gender accents locale segment duration
@@ -350,7 +295,7 @@ def preprocess_tsv_file(
         _ = next(tsv_reader)
         csv_writer.writerow(["ID", "mp3", "wrd", "locale", "duration"])
         for i, row in enumerate(tsv_reader):
-            mp3, wrd, locale, duration = row[1], row[2], row[8], row[10]
+            mp3, wrd, locale, duration = row[1], row[2], row[-3], row[-1]
             id_ = os.path.splitext(mp3)[0]
             mp3 = os.path.join("$data_root", locale, "clips", mp3)
 
@@ -361,7 +306,7 @@ def preprocess_tsv_file(
             wrd = wrd.replace(",", " ")
 
             # Replace special characters used by SpeechBrain
-            wrd = wrd.replace("$", "s")
+            wrd = wrd.replace("$", "S")
 
             # Remove quotes
             wrd = wrd.replace("'", " ")
@@ -399,17 +344,19 @@ if __name__ == "__main__":
         "-l",
         "--locales",
         nargs="+",
-        default=["en"],
-        help='dataset locales to download (e.g. "en", "it", etc.)',
+        # fmt: off
+        default=[
+            "en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl",
+            "rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia",
+        ],
+        # fmt: off
+        help='dataset locales to use (e.g. "en", "it", etc.)',
     )
     parser.add_argument(
         "-d",
-        "--download_dir",
-        default="data",
-        help="path to dataset download directory",
-    )
-    parser.add_argument(
-        "-v", "--version", default="11.0-2022-09-21", help="dataset version",
+        "--data_dir",
+        default="common_voice_13_cl",
+        help="path to the dataset directory",
     )
     parser.add_argument(
         "-m",
@@ -421,5 +368,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     prepare_common_voice(
-        args.locales, args.download_dir, args.version, args.max_durations,
+        args.locales, args.data_dir, args.max_durations,
     )

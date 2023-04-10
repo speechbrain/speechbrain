@@ -9,7 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # Data preparation
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
-download_dir: data
+data_dir: !PLACEHOLDER
 max_durations: [36000, 3600, 3600]
 
 # Output directories
@@ -33,7 +33,7 @@ num_epochs: 2
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-replay_ratio: 0.2
+replay_ratio: 0.1
 
 whisper_variant: whisper-large-v2
 encoder_only: False
@@ -45,7 +45,7 @@ auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 100
+max_gen_tokens: 150
 forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 

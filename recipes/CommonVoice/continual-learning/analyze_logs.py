@@ -18,12 +18,14 @@ from numpy import ndarray
 
 
 __all__ = [
+    "compute_cl_metrics",
     "parse_train_log",
+    "plot_cl_metrics",
     "plot_wer",
 ]
 
 
-_EXPECTED_METRICS = [
+_DEFAULT_METRICS = [
     "epoch",
     "train loss",
     "valid loss",
@@ -59,10 +61,10 @@ def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
             tokens = line.split(", ")
             names, values = zip(*[token.split(": ") for token in tokens])
             names, values = list(names), list(values)
-            for name in _EXPECTED_METRICS:
+            for name in _DEFAULT_METRICS:
                 if name not in names:
                     names.append(name)
-                    values.append("nan")
+                    values.append("NaN")
             for name, value in zip(names, values):
                 try:
                     metrics[name].append(float(value))
@@ -73,17 +75,109 @@ def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
     return metrics
 
 
+def compute_cl_metrics(
+    all_wers: "Dict[str, ndarray]",
+    # fmt: off
+    old_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+    new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
+    # fmt: on
+):
+    """Compute continual learning metrics such as average
+    word error rate, average forgetting and average learning
+    from word error rates extracted from multiple train logs
+    in continual learning format.
+
+    Parameters
+    ----------
+    all_wers:
+        The word error rates, i.e. a dict that maps
+        names of the per-log word error rates to their
+        corresponding values (old + new locales).
+    old_locales:
+        The old locales.
+    new_locales:
+        The new locales.
+
+    Returns
+    -------
+        - The average word error rate;
+        - the average forgetting;
+        - the average learning.
+
+    References
+    ----------
+    .. [1] A. Chaudhry, P. K. Dokania, T. Ajanthan, and P. H. S. Torr.
+           "Riemannian Walk for Incremental Learning: Understanding Forgetting and Intransigence".
+           In: ECCV. 2018.
+           URL: https://arxiv.org/abs/1801.10112v3
+
+    Examples
+    --------
+    >>> all_wers = {
+    ...     "ft": parse_train_log("train_log_ft.txt")["test WER"],
+    ...     "ewc": parse_train_log("train_log_ewc.txt")["test WER"],
+    ... }
+    >>> compute_cl_metrics(all_wers)
+
+    """
+    avg_As, avg_Fs, avg_Ls = [], [], []
+    for wers in all_wers.values():
+        num_tasks = 1 + len(new_locales)
+        A = np.full((num_tasks, num_tasks), -float("inf"))
+        F = np.full((num_tasks, num_tasks), -float("inf"))
+        idx = 0
+        for k in range(num_tasks):
+            for j in range(k + 1):
+                if idx > len(wers) - 1:
+                    # Fewer languages than expected
+                    break
+                if j == 0:
+                    A[k, j] = wers[idx : idx + len(old_locales)].mean() / 100
+                    idx += len(old_locales)
+                else:
+                    A[k, j] = wers[idx] / 100
+                    idx += 1
+                if j < k:
+                    F[k, j] = (A[k, j] - A[:k, j]).max()
+
+        # Average learning
+        avg_L = np.diag(A)[1:].copy()
+        mask = ~np.isinf(avg_L)
+        avg_L[~mask] = 0
+        avg_L = -np.round(avg_L * 100, 2)
+
+        # Average WER
+        mask = ~np.isinf(A)
+        A[~mask] = 0
+        avg_A = np.round(A.sum(axis=-1) / mask.sum(axis=-1) * 100, 2)
+
+        # Average forgetting
+        F = F[1:, :]
+        mask = ~np.isinf(F)
+        F[~mask] = 0
+        avg_F = np.round(100 * F.sum(axis=-1) / mask.sum(axis=-1), 2)
+
+        avg_As.append(avg_A)
+        avg_Fs.append(avg_F)
+        avg_Ls.append(avg_L)
+
+    return avg_As, avg_Fs, avg_Ls
+
+
 def plot_wer(
     wers: "ndarray",
     output_image: "str",
-    old_locales: "Optional[Sequence[str]]" = None,
-    new_locales: "Optional[Sequence[str]]" = None,
+    # fmt: off
+    old_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+    new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
+    # fmt: on
     title: "Optional[str]" = None,
     figsize: "Tuple[float, float]" = (7.5, 6.0),
     usetex: "bool" = False,
     style_file_or_name: "str" = "classic",
 ) -> "None":
-    """Plot word error rates extracted from a single train log.
+    """Plot word error rates extracted from a single train log
+    in continual learning format.
 
     Parameters
     ----------
@@ -93,10 +187,8 @@ def plot_wer(
         The path to the output image.
     old_locales:
         The old locales.
-        Default to ``("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl")``.
     new_locales:
         The new locales.
-        Default to ``("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia")``.
     title:
         The plot title.
     figsize:
@@ -114,18 +206,6 @@ def plot_wer(
     >>> plot_wer(metrics["test WER"], "train_log.png")
 
     """
-    if old_locales is None:
-        # fmt: off
-        old_locales = (
-            "en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl",
-        )
-        # fmt: on
-    if new_locales is None:
-        # fmt: off
-        new_locales = (
-            "rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia",
-        )
-        # fmt: on
     if title is None:
         title = os.path.splitext(os.path.basename(output_image))[0]
 
@@ -135,14 +215,15 @@ def plot_wer(
 
         if os.path.isfile(style_file_or_name):
             style_file_or_name = os.path.realpath(style_file_or_name)
+
         with plt.style.context(style_file_or_name):
-            # Customize style
+            # Custom style
             rc("text", usetex=usetex)
             rc("font", family="serif", serif=["Computer Modern"], size=13)
             rc("axes", labelsize=15)
             rc("legend", fontsize=12)
-            rc("xtick", direction="out")
-            rc("ytick", direction="out")
+            rc("xtick", direction="in")
+            rc("ytick", direction="in")
             rc(
                 "axes",
                 prop_cycle=plt.cycler(
@@ -167,7 +248,7 @@ def plot_wer(
                     markersize=5,
                 )
                 j += len(locales)
-            plt.legend(shadow=True, fancybox=True)
+            plt.legend(fancybox=True)
             plt.grid()
             plt.title(title)
             plt.xlim(-0.25, len(locales) - 1 + 0.25)
@@ -177,13 +258,10 @@ def plot_wer(
             plt.ylabel("WER (\%)" if usetex else "WER (%)")
             fig.tight_layout()
             plt.savefig(output_image, bbox_inches="tight")
-            plt.savefig(
-                output_image.replace(".png", ".pdf"), bbox_inches="tight"
-            )
             plt.close()
     except ImportError:
         logging.warning(
-            "Please install Matplotlib to generate the WER plot (e.g. `pip install matplotlib`)"
+            "Install Matplotlib to generate the WER plot (e.g. `pip install matplotlib`)"
         )
 
     # Plot with Plotly
@@ -241,26 +319,29 @@ def plot_wer(
             margin={"t": 60, "b": 60},
         )
         fig.write_html(
-            output_image.replace(".pdf", ".html").replace(".png", ".html"),
-            include_plotlyjs=True,
+            f"{output_image.rsplit('.', 1)[0]}.html", include_plotlyjs=True,
         )
     except ImportError:
         logging.warning(
-            "Please install Plotly to generate the interactive WER plot (e.g. `pip install plotly`)"
+            "Install Plotly to generate the interactive WER plot (e.g. `pip install plotly`)"
         )
 
 
 def plot_cl_metrics(
     all_wers: "Dict[str, ndarray]",
     output_dir: "str",
-    old_locales: "Optional[Sequence[str]]" = None,
-    new_locales: "Optional[Sequence[str]]" = None,
+    # fmt: off
+    old_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+    new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
+    # fmt: on
     figsize: "Tuple[float, float]" = (7.5, 6.0),
+    format: "str" = "png",
     usetex: "bool" = False,
     style_file_or_name: "str" = "classic",
 ) -> "None":
     """Plot continual learning metrics from word error
-    rates extracted from multiple train logs.
+    rates extracted from multiple train logs in continual
+    learning format.
 
     Parameters
     ----------
@@ -272,12 +353,12 @@ def plot_cl_metrics(
         The path to the output directory.
     old_locales:
         The old locales.
-        Default to ``("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl")``.
     new_locales:
         The new locales.
-        Default to ``("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia")``.
     figsize:
         The figure size.
+    format:
+        The image format.
     usetex:
         True to render text with LaTeX, False otherwise.
     style_file_or_name:
@@ -287,63 +368,17 @@ def plot_cl_metrics(
 
     Examples
     --------
-    >>> all_wers = [
-    ...     parse_train_log("train_log1.txt")["test WER"],
-    ...     parse_train_log("train_log2.txt")["test WER"],
-    ... ]
+    >>> all_wers = {
+    ...     "ft": parse_train_log("train_log_ft.txt")["test WER"],
+    ...     "ewc": parse_train_log("train_log_ewc.txt")["test WER"],
+    ... }
     >>> plot_cl_metrics(all_wers, "plots")
 
     """
-    if old_locales is None:
-        # fmt: off
-        old_locales = (
-            "en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl",
-        )
-        # fmt: on
-    if new_locales is None:
-        # fmt: off
-        new_locales = (
-            "rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia",
-        )
-        # fmt: on
-
-    # Compute performance metrics (average WER and forgetting,
-    # see https://arxiv.org/abs/1801.10112)
-    avg_As, avg_Fs = [], []
-    for wers in all_wers.values():
-        num_tasks = 1 + len(new_locales)
-        A = np.full((num_tasks, num_tasks), -float("inf"))
-        F = np.full((num_tasks, num_tasks), -float("inf"))
-        idx = 0
-        for k in range(num_tasks):
-            for j in range(k + 1):
-                if idx > len(wers) - 1:
-                    # Fewer languages than expected
-                    break
-                if j == 0:
-                    A[k, j] = (
-                        1 - wers[idx : idx + len(old_locales)].mean() / 100
-                    )
-                    idx += len(old_locales)
-                else:
-                    A[k, j] = 1 - wers[idx] / 100
-                    idx += 1
-                if j < k:
-                    F[k, j] = (A[:k, j] - A[k, j]).max()
-
-        # Average WER
-        mask = ~np.isinf(A)
-        A[~mask] = 0
-        avg_A = np.round((1 - A.sum(axis=-1) / mask.sum(axis=-1)) * 100, 2)
-
-        # Average forgetting
-        F = F[1:, :]
-        mask = ~np.isinf(F)
-        F[~mask] = 0
-        avg_F = np.round(100 * F.sum(axis=-1) / mask.sum(axis=-1), 2)
-
-        avg_As.append(avg_A)
-        avg_Fs.append(avg_F)
+    # Compute performance metrics
+    avg_As, avg_Fs, avg_Ls = compute_cl_metrics(
+        all_wers, old_locales, new_locales
+    )
 
     # Save performance metrics
     model = os.path.basename(output_dir).replace(".txt", "")
@@ -354,7 +389,9 @@ def plot_cl_metrics(
         csv_writer.writerow(
             ["name", "metric", "base"] + list(new_locales) + ["avg"]
         )
-        for name, avg_A, avg_F in zip(all_wers.keys(), avg_As, avg_Fs):
+        for name, avg_A, avg_F, avg_L in zip(
+            all_wers.keys(), avg_As, avg_Fs, avg_Ls
+        ):
             csv_writer.writerow(
                 [name, "avg WER"]
                 + avg_A.tolist()
@@ -366,6 +403,12 @@ def plot_cl_metrics(
                 + avg_F.tolist()
                 + [round(np.nanmean(avg_F), 2)]
             )
+            csv_writer.writerow(
+                [name, "avg learning"]
+                + [float("NaN")]
+                + avg_L.tolist()
+                + [round(np.nanmean(avg_L), 2)]
+            )
 
     # Plot performance metrics with Matplotlib
     try:
@@ -373,48 +416,48 @@ def plot_cl_metrics(
 
         if os.path.isfile(style_file_or_name):
             style_file_or_name = os.path.realpath(style_file_or_name)
-        output_image = os.path.join(output_dir, f"{model}_avg_wer.png")
+
+        output_image = os.path.join(output_dir, f"{model}_avg_wer.{format}")
         with plt.style.context(style_file_or_name):
             # Customize style
             rc("text", usetex=usetex)
             rc("font", family="serif", serif=["Computer Modern"], size=13)
             rc("axes", labelsize=15)
             rc("legend", fontsize=12)
-            rc("xtick", direction="out")
-            rc("ytick", direction="out")
+            rc("xtick", direction="in")
+            rc("ytick", direction="in")
             rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
             fig = plt.figure(figsize=figsize)
             for name, avg_A in zip(all_wers.keys(), avg_As):
                 name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
                 plt.plot(avg_A, label=name, marker="d", markersize=5)
-            plt.legend(loc="upper left", shadow=True, fancybox=True)
+            plt.legend(loc="upper left", fancybox=True)
             if len(all_wers) > 10:
-                plt.legend(
-                    loc="upper left", ncols=2, shadow=True, fancybox=True
-                )
+                plt.legend(loc="upper left", ncols=2, fancybox=True)
             plt.grid()
             plt.title(model)
             plt.xlim(-0.25, len(new_locales) + 0.25)
             plt.ylim(-0.025 * 350.0, 350.0)
-            plt.xticks(range(num_tasks), ["base"] + list(new_locales))
+            plt.xticks(
+                range(1 + len(new_locales)), ["base"] + list(new_locales)
+            )
             plt.xlabel("Language")
             plt.ylabel("Average WER (\%)" if usetex else "Average WER (%)")
             fig.tight_layout()
             plt.savefig(output_image, bbox_inches="tight")
-            plt.savefig(
-                output_image.replace(".png", ".pdf"), bbox_inches="tight"
-            )
             plt.close()
 
-        output_image = os.path.join(output_dir, f"{model}_avg_forgetting.png")
+        output_image = os.path.join(
+            output_dir, f"{model}_avg_forgetting.{format}"
+        )
         with plt.style.context(style_file_or_name):
             # Customize style
             rc("text", usetex=usetex)
             rc("font", family="serif", serif=["Computer Modern"], size=13)
             rc("axes", labelsize=15)
             rc("legend", fontsize=12)
-            rc("xtick", direction="out")
-            rc("ytick", direction="out")
+            rc("xtick", direction="in")
+            rc("ytick", direction="in")
             rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
             fig = plt.figure(figsize=figsize)
             for name, avg_F in zip(all_wers.keys(), avg_Fs):
@@ -425,16 +468,16 @@ def plot_cl_metrics(
                     marker="d",
                     markersize=5,
                 )
-            plt.legend(loc="upper left", shadow=True, fancybox=True)
+            plt.legend(loc="upper left", fancybox=True)
             if len(all_wers) > 10:
-                plt.legend(
-                    loc="upper left", ncols=2, shadow=True, fancybox=True
-                )
+                plt.legend(loc="upper left", ncols=2, fancybox=True)
             plt.grid()
             plt.title(model)
             plt.xlim(-0.25, len(new_locales) + 0.25)
             plt.ylim(-0.025 * 350.0, 350.0)
-            plt.xticks(range(num_tasks), ["base"] + list(new_locales))
+            plt.xticks(
+                range(1 + len(new_locales)), ["base"] + list(new_locales)
+            )
             plt.xlabel("Language")
             plt.ylabel(
                 "Average forgetting (\%)"
@@ -443,13 +486,49 @@ def plot_cl_metrics(
             )
             fig.tight_layout()
             plt.savefig(output_image, bbox_inches="tight")
-            plt.savefig(
-                output_image.replace(".png", ".pdf"), bbox_inches="tight"
+            plt.close()
+
+        output_image = os.path.join(
+            output_dir, f"{model}_avg_learning.{format}"
+        )
+        with plt.style.context(style_file_or_name):
+            # Customize style
+            rc("text", usetex=usetex)
+            rc("font", family="serif", serif=["Computer Modern"], size=13)
+            rc("axes", labelsize=15)
+            rc("legend", fontsize=12)
+            rc("xtick", direction="in")
+            rc("ytick", direction="in")
+            rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
+            fig = plt.figure(figsize=figsize)
+            for name, avg_L in zip(all_wers.keys(), avg_Ls):
+                name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+                plt.plot(
+                    [float("NaN")] + avg_L.tolist(),
+                    label=name,
+                    marker="d",
+                    markersize=5,
+                )
+            plt.legend(loc="upper left", fancybox=True)
+            if len(all_wers) > 10:
+                plt.legend(loc="upper left", ncols=2, fancybox=True)
+            plt.grid()
+            plt.title(model)
+            plt.xlim(-0.25, len(new_locales) + 0.25)
+            plt.ylim(-350.0, 0.025 * 350.0)
+            plt.xticks(
+                range(1 + len(new_locales)), ["base"] + list(new_locales)
             )
+            plt.xlabel("Language")
+            plt.ylabel(
+                "Average learning (\%)" if usetex else "Average learning (%)"
+            )
+            fig.tight_layout()
+            plt.savefig(output_image, bbox_inches="tight")
             plt.close()
     except ImportError:
         logging.warning(
-            "Please install Matplotlib to generate the performance metrics plots (e.g. `pip install matplotlib`)"
+            "Install Matplotlib to generate the performance metrics plots (e.g. `pip install matplotlib`)"
         )
 
     # Plot performance metrics with Plotly
@@ -551,22 +630,73 @@ def plot_cl_metrics(
         fig.write_html(
             output_image, include_plotlyjs=True,
         )
+
+        output_image = os.path.join(output_dir, f"{model}_avg_learning.html")
+        fig = go.Figure()
+        for name, avg_L in zip(all_wers.keys(), avg_Ls):
+            name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(len(avg_L) + 1)),
+                    y=[float("NaN")] + avg_L.tolist(),
+                    marker={"size": 7},
+                    mode="lines+markers",
+                    name=name,
+                )
+            )
+        fig.update_layout(
+            title={"text": model},
+            legend={"traceorder": "normal"},
+            template="none",
+            font_size=20,
+            xaxis={
+                "title": "Language",
+                "ticktext": ["base"] + list(new_locales),
+                "tickvals": list(range(len(new_locales) + 1)),
+                "ticks": "inside",
+                "zeroline": False,
+                "linewidth": 1.5,
+                "range": [-0.25, len(new_locales) + 0.25],
+                "showline": True,
+                "mirror": "all",
+                "gridcolor": "gray",
+                "griddash": "dot",
+            },
+            yaxis={
+                "title": "Average learning (%)",
+                "showline": True,
+                "ticks": "inside",
+                "zeroline": False,
+                "linewidth": 1.5,
+                "rangemode": "tozero",
+                "mirror": "all",
+                "gridcolor": "gray",
+                "griddash": "dot",
+            },
+            margin={"t": 60, "b": 60},
+        )
+        fig.write_html(
+            output_image, include_plotlyjs=True,
+        )
     except ImportError:
         logging.warning(
-            "Please install Plotly to generate the interactive performance metrics plots (e.g. `pip install plotly`)"
+            "Install Plotly to generate the interactive performance metrics plots (e.g. `pip install plotly`)"
         )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze logs")
     parser.add_argument(
-        "input_dir", help="path to directory containing the train logs",
+        "input_dir",
+        help="path to directory containing the train logs in continual learning format",
     )
     parser.add_argument(
         "-o",
         "--old_locales",
         nargs="+",
+        # fmt: off
         default=("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+        # fmt: on
         help="old locales",
     )
     parser.add_argument(
@@ -579,7 +709,7 @@ if __name__ == "__main__":
         help="new locales",
     )
     parser.add_argument(
-        "-f",
+        "-s",
         "--figsize",
         nargs=2,
         default=(10, 6),
@@ -587,10 +717,12 @@ if __name__ == "__main__":
         help="figure size",
     )
     parser.add_argument(
+        "-f", "--format", default="png", help="image format",
+    )
+    parser.add_argument(
         "-u", "--usetex", action="store_true", help="render text with LaTeX",
     )
     parser.add_argument(
-        "-s",
         "--style",
         default="classic",
         help="path to a Matplotlib style file or name of one of Matplotlib built-in styles",
@@ -607,7 +739,7 @@ if __name__ == "__main__":
                 metrics = parse_train_log(train_log)
                 wers = metrics["test WER"]
                 all_wers[file] = wers
-                output_image = train_log.replace(".txt", ".png")
+                output_image = train_log.replace(".txt", f".{args.format}")
                 # Plot WER
                 plot_wer(
                     wers,
@@ -627,6 +759,7 @@ if __name__ == "__main__":
         old_locales=args.old_locales,
         new_locales=args.new_locales,
         figsize=args.figsize,
+        format=args.format,
         usetex=args.usetex,
         style_file_or_name=args.style_file_or_name,
     )

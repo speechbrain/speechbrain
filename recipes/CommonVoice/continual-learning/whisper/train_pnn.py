@@ -63,7 +63,7 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage != sb.Stage.TRAIN:
-            hyps = self.modules.whisper.generate(
+            hyps, _ = self.modules.whisper.generate(
                 audio_features=enc_out,
                 forced_decoder_locale=self.hparams.forced_decoder_locale,
                 max_gen_tokens=self.hparams.max_gen_tokens,
@@ -147,8 +147,8 @@ def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "train.csv"),
-        replacements={"data_root": hparams["download_dir"]},
+        csv_path=os.path.join(hparams["data_dir"], "train.csv"),
+        replacements={"data_root": hparams["data_dir"]},
     )
 
     if hparams["sorting"] in ["descending", "ascending"]:
@@ -168,8 +168,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # reverse=True to fail fast in case of out-of-memory error
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
-        replacements={"data_root": hparams["download_dir"]},
+        csv_path=os.path.join(hparams["data_dir"], "dev.csv"),
+        replacements={"data_root": hparams["data_dir"]},
     ).filtered_sorted(
         sort_key="duration",
         reverse=True,
@@ -177,8 +177,8 @@ def dataio_prepare(hparams, tokenizer):
     )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "test.csv"),
-        replacements={"data_root": hparams["download_dir"]},
+        csv_path=os.path.join(hparams["data_dir"], "test.csv"),
+        replacements={"data_root": hparams["data_dir"]},
     ).filtered_sorted(
         sort_key="duration",
         reverse=True,
@@ -248,7 +248,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             prepare_common_voice,
             kwargs={
                 "locales": [locale],
-                "download_dir": hparams["download_dir"],
+                "data_dir": hparams["data_dir"],
                 "max_durations": hparams["max_durations"],
             },
         )
@@ -330,7 +330,7 @@ def train(hparams, run_opts):
             prepare_common_voice,
             kwargs={
                 "locales": [locale],
-                "download_dir": hparams["download_dir"],
+                "data_dir": hparams["data_dir"],
                 "max_durations": hparams["max_durations"],
             },
         )
@@ -341,7 +341,7 @@ def train(hparams, run_opts):
         sp = SentencePiece(
             model_dir=sp_dir,
             vocab_size=-1,
-            annotation_train=os.path.join(hparams["download_dir"], "train.csv"),
+            annotation_train=os.path.join(hparams["data_dir"], "train.csv"),
             annotation_read="wrd",
             model_type="char",
         )

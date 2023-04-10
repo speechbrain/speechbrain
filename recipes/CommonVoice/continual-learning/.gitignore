@@ -118,7 +118,7 @@ dmypy.json
 .idea/
 
 # Data
-data/
+common_voice_13_cl/
 
 # Results
 results/
