@@ -3,7 +3,7 @@
 """Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
 learning fashion via Averaged Gradient Episodic Memory (https://arxiv.org/abs/1812.00420).
 
-The following technical tricks were implemented to improve performance:
+The following optimization tricks were used to improve performance:
 - use custom decoding implementation (faster than built-in searchers
   and supports decoding with predicted batch of languages)
 - apply the correct padding tokens directly in the dataloader
@@ -14,10 +14,6 @@ The following technical tricks were implemented to improve performance:
 
 To run this recipe, do the following:
 > python train_agem.py hparams/train_agem.yaml
-
-NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
-      To manually resume an experiment, you have to modify the script to load the correct checkpoint
-      and set the corresponding state variables (e.g. current locale).
 
 Authors
  * Luca Della Libera 2023

@@ -3,7 +3,7 @@
 """Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
 learning fashion via Learning Without Forgetting (https://arxiv.org/abs/1606.09282).
 
-The following technical tricks were implemented to improve performance:
+The following optimization tricks were used to improve performance:
 - use custom decoding implementation (faster than built-in searchers
   and supports decoding with predicted batch of languages)
 - apply the correct padding tokens directly in the dataloader
@@ -15,13 +15,9 @@ The following technical tricks were implemented to improve performance:
 To run this recipe, do the following:
 > python train_lwf.py hparams/train_lwf.yaml
 
-NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
-      To manually resume an experiment, you have to modify the script to load the correct checkpoint
-      and set the corresponding state variables (e.g. current locale).
-
 Authors
- * Pooneh Mousavi 2023
  * Luca Della Libera 2023
+ * Pooneh Mousavi 2023
 """
 
 import copy
@@ -401,7 +397,9 @@ def train(hparams, run_opts):
         asr_brain.tokenizer = tokenizer
         asr_brain.old_model = old_model
         asr_brain.num_old_embeddings = num_old_embeddings
-        asr_brain.masked_token_ids = set(tokenizer.convert_tokens_to_ids(list(new_tokens)))
+        asr_brain.masked_token_ids = set(
+            tokenizer.convert_tokens_to_ids(list(new_tokens))
+        )
 
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)

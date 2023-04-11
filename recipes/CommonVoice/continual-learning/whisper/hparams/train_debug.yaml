@@ -13,7 +13,7 @@ data_dir: !PLACEHOLDER
 max_durations: null
 
 # Output directories
-output_dir: !ref results/<whisper_variant>/debug_ewcnew/<seed>
+output_dir: !ref results/<whisper_variant>/debug/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
