@@ -40,7 +40,6 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 
 from common_voice_prepare import prepare_common_voice
@@ -69,7 +68,7 @@ class ASR(sb.Brain):
                 # For teacher forcing the new added tokens should be replaced with <UNKNOWN> token
                 old_bos_tokens = bos_tokens.clone()
                 mask = sum(
-                    old_bos_tokens.flatten() == i for i in self.masked_tokens
+                    old_bos_tokens.flatten() == i for i in self.masked_token_ids
                 ).bool()
                 old_bos_tokens.flatten()[mask] = self.tokenizer.unk_token_id
                 _, soft_logits, _ = self.old_model(wavs, old_bos_tokens)
@@ -243,6 +242,7 @@ def dataio_prepare(hparams, tokenizer):
         )  # Use English if unknown
         tokenizer.set_prefix_tokens(language=language)
         tokens_list = tokenizer.encode(wrd)
+        assert sum(i == tokenizer.unk_token_id for i in tokens_list) == 1
         # Remove BOS and EOS tokens from tokens_list
         bos_index, tokens_list, eos_index = (
             tokens_list[0],
@@ -303,7 +303,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Define tokenizer
         tokenizer = hparams["whisper"].tokenizer
 
-        # Here we create the datasets objects as well as tokenization and encoding
+        # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
@@ -349,37 +349,17 @@ def train(hparams, run_opts):
             },
         )
 
-        # Fit sentence-piece tokenizer on new language
-        sp_dir = os.path.join(hparams["save_dir"], locale)
-        os.makedirs(sp_dir, exist_ok=True)
-        sp = SentencePiece(
-            model_dir=sp_dir,
-            vocab_size=-1,
-            annotation_train=os.path.join(hparams["data_dir"], "train.csv"),
-            annotation_read="wrd",
-            model_type="char",
-        )
-
-        # Get sentence-piece tokenizer vocabulary
-        vocab = [sp.sp.id_to_piece(id) for id in range(sp.sp.get_piece_size())]
-
-        # Remove leading "▁" character
-        vocab = [wrd[1:] if wrd.startswith("▁") else wrd for wrd in vocab]
-
-        # Remove "<unk>" token
-        new_tokens = vocab[1:]
-
         # Add new language token
-        new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
+        new_tokens = [f"<|{locale.lower()}|>"]
         tokenizer = hparams["whisper"].tokenizer
-        tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
+        tokenizer._additional_special_tokens += new_tokens
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
 
-        # Remove tokens that are already in Whisper tokenizer's vocabulary
+        # Check if already in Whisper tokenizer's vocabulary
         new_tokens = set(new_tokens) - set(tokenizer.get_vocab().keys())
 
-        # Add the tokens to Whisper tokenizer's vocabulary
+        # Add to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
         # Log total number of tokens
@@ -387,7 +367,7 @@ def train(hparams, run_opts):
             f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
         )
 
-        # Add new random embeddings to Whisper for the new tokens
+        # Add a new random embedding for the new language token
         hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
 
         # Log total number of tokens
@@ -398,7 +378,7 @@ def train(hparams, run_opts):
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
-        # Here we create the datasets objects as well as tokenization and encoding
+        # Create datasets, tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
@@ -421,10 +401,7 @@ def train(hparams, run_opts):
         asr_brain.tokenizer = tokenizer
         asr_brain.old_model = old_model
         asr_brain.num_old_embeddings = num_old_embeddings
-        masked_tokens = tokenizer.convert_tokens_to_ids(
-            list(new_tokens) + [f"<|{locale.lower()}|>"]
-        )
-        asr_brain.masked_tokens = set(masked_tokens)
+        asr_brain.masked_token_ids = set(tokenizer.convert_tokens_to_ids(list(new_tokens)))
 
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
@@ -437,7 +414,8 @@ def train(hparams, run_opts):
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
 
-        del asr_brain.old_model
+        # Release memory
+        del old_model, asr_brain.old_model
         torch.cuda.empty_cache()
 
         # Testing

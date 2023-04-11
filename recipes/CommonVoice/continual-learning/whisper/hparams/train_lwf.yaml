@@ -33,8 +33,8 @@ num_epochs: 2
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-lwf_lambda: 0.5
-lwf_T: 2
+lwf_lambda: 10.0
+lwf_T: 2.0
 
 whisper_variant: whisper-large-v2
 encoder_only: False

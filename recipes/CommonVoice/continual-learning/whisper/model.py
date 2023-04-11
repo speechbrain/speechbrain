@@ -210,7 +210,8 @@ class ProgressiveWhisper(HuggingFaceWhisper):
             logits[:, :, ~lang_mask] = -float("inf")
             lang_tokens_ids = logits.argmax(dim=-1)[:, 0]
         else:
-            if forced_decoder_locale.lower() == "zh-cn":
+            # Handle different Chinese variants
+            if forced_decoder_locale.lower().startswith("zh-"):
                 forced_decoder_locale = "zh"
             if (
                 forced_decoder_locale.lower()

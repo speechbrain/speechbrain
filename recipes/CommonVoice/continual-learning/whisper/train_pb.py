@@ -38,10 +38,21 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 
 from common_voice_prepare import prepare_common_voice
+
+
+class Threshold(torch.autograd.Function):
+    """Pseudo-differentiable thresholding function."""
+
+    @staticmethod
+    def forward(ctx, input, threshold=0.005):
+        return torch.where(input >= threshold, 1.0, 0.0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output, None
 
 
 class ASR(sb.Brain):
@@ -53,7 +64,7 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TEST:
             # Threshold and apply mask for training and validation
-            # To avoid useless overhead when testing, this is done
+            # To avoid unnecessary overhead when testing, this is done
             # only once before calling `asr_brain.evaluate`
             self.modules.whisper.model.decoder.load_state_dict(
                 self.hparams.decoder_state_backup, strict=False
@@ -182,18 +193,6 @@ class ASR(sb.Brain):
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
-class Threshold(torch.autograd.Function):
-    """Pseudo-differentiable thresholding function."""
-
-    @staticmethod
-    def forward(ctx, input, threshold=0.005):
-        return torch.where(input >= threshold, 1.0, 0.0)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output, None
-
-
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -260,6 +259,7 @@ def dataio_prepare(hparams, tokenizer):
         )  # Use English if unknown
         tokenizer.set_prefix_tokens(language=language)
         tokens_list = tokenizer.encode(wrd)
+        assert sum(i == tokenizer.unk_token_id for i in tokens_list) == 1
         # Remove BOS and EOS tokens from tokens_list
         bos_index, tokens_list, eos_index = (
             tokens_list[0],
@@ -317,12 +317,10 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
-        # Retrieve corresponding tokenizer
-        tokenizer = hparams["whisper"].tokenizer = hparams["tokenizer_backup"][
-            locale
-        ]
+        # Define tokenizer
+        tokenizer = hparams["whisper"].tokenizer
 
-        # Here we create the datasets objects as well as tokenization and encoding
+        # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
         # Retrieve corresponding embedding layer
@@ -373,13 +371,11 @@ def train(hparams, run_opts):
     # Store embedding layer, decoder mask and tokenizer for each locale
     hparams["embed_tokens_backup"] = {}
     hparams["decoder_mask"] = {}
-    hparams["tokenizer_backup"] = {}
     for locale in hparams["old_locales"]:
         hparams["embed_tokens_backup"][locale] = hparams[
             "whisper"
         ].model.decoder.embed_tokens
         hparams["decoder_mask"][locale] = None
-        hparams["tokenizer_backup"][locale] = hparams["whisper"].tokenizer
 
     # Store decoder state (embedding layer excluded)
     hparams["decoder_state_backup"] = hparams[
@@ -409,39 +405,19 @@ def train(hparams, run_opts):
             },
         )
 
-        # Fit sentence-piece tokenizer on new language
-        sp_dir = os.path.join(hparams["save_dir"], locale)
-        os.makedirs(sp_dir, exist_ok=True)
-        sp = SentencePiece(
-            model_dir=sp_dir,
-            vocab_size=-1,
-            annotation_train=os.path.join(hparams["data_dir"], "train.csv"),
-            annotation_read="wrd",
-            model_type="char",
-        )
-
-        # Get sentence-piece tokenizer vocabulary
-        vocab = [sp.sp.id_to_piece(id) for id in range(sp.sp.get_piece_size())]
-
-        # Remove leading "▁" character
-        vocab = [wrd[1:] if wrd.startswith("▁") else wrd for wrd in vocab]
-
-        # Remove "<unk>" token
-        new_tokens = vocab[1:]
-
         # Add new language token
-        new_tokens = [f"<|{locale.lower()}|>"] + new_tokens
+        new_tokens = [f"<|{locale.lower()}|>"]
         tokenizer = hparams["whisper"].tokenizer = copy.deepcopy(
             hparams["whisper"].tokenizer
         )
-        tokenizer._additional_special_tokens += [f"<|{locale.lower()}|>"]
+        tokenizer._additional_special_tokens += new_tokens
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
 
-        # Remove tokens that are already in Whisper tokenizer's vocabulary
+        # Check if already in Whisper tokenizer's vocabulary
         new_tokens = set(new_tokens) - set(tokenizer.get_vocab().keys())
 
-        # Add the tokens to Whisper tokenizer's vocabulary
+        # Add to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(list(new_tokens))
 
         # Freeze the whole model to avoid forgetting
@@ -453,7 +429,7 @@ def train(hparams, run_opts):
             f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
         )
 
-        # Add new random embeddings to Whisper for the new tokens
+        # Add a new random embedding for the new language token
         hparams["whisper"].model.decoder.embed_tokens = copy.deepcopy(
             hparams["whisper"].model.decoder.embed_tokens
         )
@@ -461,7 +437,6 @@ def train(hparams, run_opts):
         hparams["embed_tokens_backup"][locale] = hparams[
             "whisper"
         ].model.decoder.embed_tokens
-        hparams["tokenizer_backup"][locale] = tokenizer
 
         # Initialize decoder mask
         hparams["decoder_mask"][locale] = {
@@ -481,7 +456,7 @@ def train(hparams, run_opts):
         # Set forced decoder locale
         hparams["forced_decoder_locale"] = locale
 
-        # Here we create the datasets objects as well as tokenization and encoding
+        # Create datasets, tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
