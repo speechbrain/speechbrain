@@ -1,6 +1,6 @@
 # Continual Learning for Massively Multilingual Speech Recognition
 
-This recipe includes scripts to train [Whisper](https://cdn.openai.com/papers/whisper.pdf)-based and
+This recipe includes scripts to train [Whisper](https://cdn.openai.com/papers/whisper.pdf) and
 [WavLM](https://arxiv.org/abs/2110.13900)-based ASR systems on Common Voice in a continual learning fashion
 using a handful of methods including regularization-based, replay-based and parameter isolation approaches.
 The goal is to continually learn new languages while limiting forgetting on the previously learnt ones.
