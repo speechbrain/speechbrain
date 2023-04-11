@@ -186,7 +186,16 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     the processing time.
     """
 
-    info = torchaudio.info(path)
+    _path_no_ext, path_ext = os.path.splitext(path)
+
+    if path_ext == ".mp3":
+        # Additionally, certain affected versions of torchaudio fail to
+        # autodetect mp3.
+        # HACK: here, we check for the file extension to force mp3 detection,
+        # which prevents an error from occuring in torchaudio.
+        info = torchaudio.info(path, format="mp3")
+    else:
+        info = torchaudio.info(path)
 
     # Certain file formats, such as MP3, do not provide a reliable way to
     # query file duration from metadata (when there is any).
