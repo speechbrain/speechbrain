@@ -12,7 +12,6 @@ from concurrent.futures import Executor, ProcessPoolExecutor
 from threading import Condition
 from typing import Any, Callable, Iterable, Optional
 
-import pandas as pd
 from tqdm.auto import tqdm
 
 
