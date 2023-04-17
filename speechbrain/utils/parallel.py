@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 def _chunk_process_wrapper(fn, chunk):
     return list(map(fn, chunk))
 
+
 def parallel_map(
     fn: Callable[[Any], None],
     source: Iterable[Any],
@@ -79,10 +80,7 @@ def parallel_map(
     just_finished_count = 0
 
     if progress_bar:
-        pbar = tqdm(
-            total=known_len,
-            smoothing=0.02, # higher smoothing
-        )
+        pbar = tqdm(total=known_len, smoothing=0.02,)  # higher smoothing
     else:
         pbar = None
 

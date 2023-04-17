@@ -268,7 +268,7 @@ def create_csv(
         process_line,
         data_folder=data_folder,
         language=language,
-        accented_letters=accented_letters
+        accented_letters=accented_letters,
     )
 
     with open(csv_file, mode="w", encoding="utf-8") as csv_f:
@@ -283,7 +283,15 @@ def create_csv(
                 continue
 
             total_duration += row.duration
-            csv_writer.writerow([row.snt_id, str(row.duration), row.mp3_path, row.spk_id, row.words])
+            csv_writer.writerow(
+                [
+                    row.snt_id,
+                    str(row.duration),
+                    row.mp3_path,
+                    row.spk_id,
+                    row.words,
+                ]
+            )
 
     # Final prints
     msg = "%s successfully created!" % (csv_file)

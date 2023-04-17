@@ -17,31 +17,29 @@ def raise_error(x):
 def test_parallel_map():
     # test different chunk sizes
     for test_chunk_size in [1, 2, 4, 8, 16, 32, 64, 128]:
-        small_test_output = list(parallel_map(
-            small_test_func,
-            small_test_input,
-            process_count=2,
-            chunk_size=test_chunk_size
-        ))
+        small_test_output = list(
+            parallel_map(
+                small_test_func,
+                small_test_input,
+                process_count=2,
+                chunk_size=test_chunk_size,
+            )
+        )
 
-        assert \
-            small_test_output == small_test_expected, \
-            f"chunk_size={test_chunk_size}"
+        assert (
+            small_test_output == small_test_expected
+        ), f"chunk_size={test_chunk_size}"
 
     # test whether pbar off works properly
-    small_test_output = list(parallel_map(
-        small_test_func,
-        small_test_input,
-        progress_bar=False
-    ))
+    small_test_output = list(
+        parallel_map(small_test_func, small_test_input, progress_bar=False)
+    )
 
     # test whether exceptions are forwarded properly
     with pytest.raises(ValueError):
-        small_test_output = list(parallel_map(
-            raise_error,
-            small_test_input,
-            progress_bar=False
-        ))
+        small_test_output = list(
+            parallel_map(raise_error, small_test_input, progress_bar=False)
+        )
 
     # test edge case: empty input
     assert list(parallel_map(small_test_func, [])) == []
