@@ -83,7 +83,7 @@ def parallel_map(
     else:
         pbar = None
 
-    def bump_processed_count(future):
+    def _bump_processed_count(future):
         nonlocal just_finished_count
 
         # update progress bar with the length of the output as the progress bar
@@ -108,7 +108,7 @@ def parallel_map(
                 return False
 
             future = executor.submit(_chunk_process_wrapper, fn, chunk)
-            future.add_done_callback(bump_processed_count)
+            future.add_done_callback(_bump_processed_count)
             futures.append(future)
 
             return True
