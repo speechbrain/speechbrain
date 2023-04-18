@@ -92,6 +92,15 @@ def parallel_map(
         pbar = None
 
     def _bump_processed_count(future):
+        """Notifies the main thread of the finished job, bumping the number of
+        jobs it should requeue. Updates the progress bar based on the returned
+        chunk length.
+
+        Arguments
+        ---------
+        future: concurrent.futures.Future
+            A future holding a processed chunk (of type `list`).
+        """
         nonlocal just_finished_count
 
         # update progress bar with the length of the output as the progress bar
@@ -105,9 +114,25 @@ def parallel_map(
             cv.notify()
 
     def _map_all(executor: Executor):
+        """Performs all the parallel mapping logic.
+
+        Arguments
+        ---------
+        executor: concurrent.futures.Executor
+            The executor to `.invoke` all jobs on. The executor is NOT shut down
+            at the end of processing.
+            """
         nonlocal just_finished_count
 
         def _enqueue_job():
+            """Pulls a chunk from the source iterable and submits it to the
+            pool; must be run from the main thread.
+
+            Returns
+            -------
+            `True` if any job was submitted (that is, if there was any chunk
+            left to process), `False` otherwise.
+            """
             # immediately deplete the input stream of chunk_size elems (or less)
             chunk = list(itertools.islice(source_it, chunk_size))
 
