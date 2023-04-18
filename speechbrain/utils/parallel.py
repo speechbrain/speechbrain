@@ -136,7 +136,8 @@ def parallel_map(
             # try to enqueue as many jobs as there were just finished.
             # when the input is finished, the queue will not be refilled.
             for _ in range(to_queue_count):
-                _enqueue_job()
+                if not _enqueue_job():
+                    break
 
             # as we must yield in order, try to deplete as much futures from the
             # start of the list as are currently available.
