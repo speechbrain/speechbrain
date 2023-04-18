@@ -27,6 +27,7 @@ def parallel_map(
     queue_size: int = 128,
     executor: Optional[Executor] = None,
     progress_bar: bool = True,
+    progress_bar_kwargs: dict = {"smoothing": 0.02},
 ):
     """Maps iterable items with a function, processing chunks of items in
     parallel with multiple processes and displaying progress with tqdm.
@@ -70,6 +71,11 @@ def parallel_map(
 
     progress_bar: bool
         Whether to show a tqdm progress bar.
+
+    progress_bar_kwargs: dict
+        A dict of keyword arguments that is forwarded to tqdm when
+        `progress_bar == True`. Allows overriding the defaults or e.g.
+        specifying `total` when it cannot be inferred from the source iterable.
     """
     known_len = len(source) if hasattr(source, "__len__") else None
     source_it = iter(source)
@@ -79,7 +85,9 @@ def parallel_map(
     just_finished_count = 0
 
     if progress_bar:
-        pbar = tqdm(total=known_len, smoothing=0.02,)  # higher smoothing
+        tqdm_final_kwargs = {"total": known_len}
+        tqdm_final_kwargs.update(progress_bar_kwargs)
+        pbar = tqdm(**tqdm_final_kwargs)
     else:
         pbar = None
 
