@@ -271,7 +271,10 @@ def create_csv(
         accented_letters=accented_letters,
     )
 
-    with open(csv_file, mode="w", encoding="utf-8") as csv_f:
+    # Stream into a .tmp file, and rename it to the real path at the end.
+    csv_file_tmp = csv_file + ".tmp"
+
+    with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -292,6 +295,8 @@ def create_csv(
                     row.words,
                 ]
             )
+
+    os.replace(csv_file_tmp, csv_file)
 
     # Final prints
     msg = "%s successfully created!" % (csv_file)
