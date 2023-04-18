@@ -45,4 +45,4 @@ def test_parallel_map():
     assert list(parallel_map(small_test_func, [])) == []
 
     # trivial test for tqdm kwargs
-    parallel_map(small_test_func, small_test_input, tqdm_kwargs={})
+    parallel_map(small_test_func, small_test_input, progress_bar_kwargs={})
