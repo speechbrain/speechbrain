@@ -13,6 +13,7 @@ Authors:
 import logging
 import hashlib
 import sys
+import warnings
 import speechbrain
 import torch
 import torchaudio
@@ -172,6 +173,7 @@ class Pretrained(torch.nn.Module):
          * distributed_launch
          * distributed_backend
          * jit_module_keys
+         * compile_module_keys
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -193,6 +195,7 @@ class Pretrained(torch.nn.Module):
             "distributed_launch": False,
             "distributed_backend": "nccl",
             "jit_module_keys": None,
+            "compile_module_keys": None
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -240,7 +243,7 @@ class Pretrained(torch.nn.Module):
         """
 
         # Make jit-able
-        self._compile_jit()
+        self._compile()
         self._wrap_distributed()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -284,19 +287,62 @@ class Pretrained(torch.nn.Module):
         )
         return self.audio_normalizer(signal, sr)
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
-            if name not in self.mods:
+        if not compile_available and self.compile_module_keys is not None:
+            logger.info(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it. Only JIT will be used."
+            )
+
+        # FIXME: this is kinda trash
+        # FIXME: don't copypaste inside of interfaces
+        compile_module_keys = (
+            set(self.compile_module_keys)
+            if self.compile_module_keys is not None
+            else set()
+        )
+        jit_module_keys = (
+            set(self.jit_module_keys)
+            if self.jit_module_keys is not None
+            else set()
+        )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
+            if name not in self.modules:
                 raise ValueError(
-                    "module " + name + " cannot be jit compiled because "
-                    "it is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        if compile_available:
+            for name in compile_module_keys:
+                try:
+                    module = torch.compile(
+                        self.modules[name],
+                        mode="reduce-overhead"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"'{name}' in 'compile_module_keys' failed to compile "
+                        f"and will be skipped (may fallback onto JIT, if "
+                        f"specified): {e}"
+                    )
+                    continue
+
+                self.modules[name] = module.to(self.device)
+                jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
             module = torch.jit.script(self.mods[name])
             self.mods[name] = module.to(self.device)
+
+    def _compile_jit(self):
+        warnings.warn("'_compile_jit' is deprecated; use '_compile' instead")
+        self._compile()
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""

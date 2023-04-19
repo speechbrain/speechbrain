@@ -187,6 +187,7 @@ def check_yaml_vs_script(hparam_file, script_file):
         "distributed_backend",
         "find_unused_parameters",
         "jit_module_keys",
+        "compile_module_keys",
         "auto_mix_prec",
         "max_grad_norm",
         "nonfinite_patience",

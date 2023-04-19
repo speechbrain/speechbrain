@@ -237,6 +237,14 @@ def parse_arguments(arg_list=None):
         help="A list of keys in the 'modules' dict to jitify",
     )
     parser.add_argument(
+        "--compile_module_keys",
+        type=str,
+        nargs="*",
+        help="A list of keys in the 'modules' dict to compile using "
+        "TorchInductor. If a module also has a JIT key specified, "
+        "TorchInductor will take precedence when available."
+    )
+    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -402,6 +410,11 @@ class Brain:
             Keep data stored during debug mode (not using /tmp), Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
+        compile_module_keys (list of str)
+            List of keys in ``modules`` that should be compiled using
+            ``torch.compile``, if available. Modules specified in both this and
+            ``jit_module_keys`` will get compiled by ``torch.compile`` if it is
+            available.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
@@ -470,6 +483,7 @@ class Brain:
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
             "jit_module_keys": None,
+            "compile_module_keys": None,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -835,9 +849,9 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* starting all processes since jit modules cannot be
-        # pickled.
-        self._compile_jit()
+        # Run this *after* starting all processes since jit/compiled modules
+        # cannot be pickled.
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -1258,18 +1272,59 @@ class Brain:
             verbosity=logging.DEBUG,
         )
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
+        if not compile_available and self.compile_module_keys is not None:
+            logger.info(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it. Only JIT will be used."
+            )
+
+        # FIXME: this is kinda trash
+        # FIXME: don't copypaste inside of interfaces
+        compile_module_keys = (
+            set(self.compile_module_keys)
+            if self.compile_module_keys is not None
+            else set()
+        )
+        jit_module_keys = (
+            set(self.jit_module_keys)
+            if self.jit_module_keys is not None
+            else set()
+        )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
                 raise ValueError(
-                    "module" + name + " is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
-            module = torch.jit.script(self.modules[name])
-            self.modules[name] = module.to(self.device)
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        if compile_available:
+            for name in compile_module_keys:
+                try:
+                    module = torch.compile(
+                        self.modules[name],
+                        mode="reduce-overhead",
+                        dynamic=True
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"'{name}' in 'compile_module_keys' failed to compile "
+                        f"and will be skipped (may fallback onto JIT, if "
+                        f"specified): {e}"
+                    )
+                    continue
+
+                self.modules[name] = module.to(self.device)
+                jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
+            module = torch.jit.script(self.mods[name])
+            self.mods[name] = module.to(self.device)
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""
