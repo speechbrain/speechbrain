@@ -2995,3 +2995,56 @@ class WhisperASR(Pretrained):
     def forward(self, wavs, wav_lens):
         """Runs full transcription - note: no gradients through decoding"""
         return self.transcribe_batch(wavs, wav_lens)
+
+
+class EndToEndDialogue(Pretrained):
+    """A ready-to-use End-to-End Dialogue System model
+
+    The class can be used to generate a response based on a given utterance.
+    The given YAML must contain the fields specified in the *_NEEDED[] lists.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import EndToEndDialogue
+    >>> tmpdir = getfixture("tmpdir")
+    >>> dialogue_model = EndToEndDialogue.from_hparams(
+    ...     source="speechbrain/end-to-end-diaogue-udc",
+    ...     savedir=tmpdir,
+    ... )
+    >>> dialogue_model.generate_response("HOW CAN I GET THE FOLLOWING TO WORK")
+    "TRY LOOKING IN THE INTERNET"
+    """
+
+    HPARAMS_NEEDED = ["tokenizer"]
+    MODULES_NEEDED = ["model"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tokenizer = self.hparams.tokenizer
+
+    def generate_response(self, input):
+        """Transcribes the input text into a sequence of words
+
+        Arguments
+        ---------
+        input : torch.Tensor
+            Batch of tokens [batch, tokens]
+            depending on the model.
+        
+        Returns
+        -------
+        output
+            String of the generated text
+        """
+        with torch.no_grad():
+            input_ids = self.hparams.tokenizer.encode(input, return_tensors='pt')
+            input_ids = input_ids.to(self.device)
+            output = self.mods.model.generate(input_ids, max_new_tokens=self.max_new_tokens)
+
+        return output
+
+
+    def forward(self, utterance):
+        """Runs the dialogue system"""
+        self.generate_responses(utterance)
+
