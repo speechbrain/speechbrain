@@ -195,12 +195,16 @@ class S2SGreedySearcher(S2SBaseSearcher):
             )
             log_probs_lst.append(log_probs)
             inp_tokens = log_probs.argmax(dim=-1)
+            log_probs[has_ended] = float("inf")
             has_ended = has_ended | (inp_tokens == self.eos_index)
             if has_ended.all():
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
         scores, predictions = log_probs.max(dim=-1)
+        mask = scores == float("inf")
+        scores[mask] = 0
+        predictions[mask] = self.eos_index
         scores = scores.sum(dim=1).tolist()
         predictions = batch_filter_seq2seq_output(
             predictions, eos_id=self.eos_index
