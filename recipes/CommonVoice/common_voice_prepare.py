@@ -8,13 +8,16 @@ Luca Della Libera 2022
 Pooneh Mousavi 2022
 """
 
+from dataclasses import dataclass
 import os
 import csv
 import re
 import logging
 import torchaudio
 import unicodedata
-from tqdm.contrib import tzip
+import functools
+
+from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +155,76 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     return skip
 
 
+@dataclass
+class CVRow:
+    snt_id: str
+    duration: float
+    mp3_path: str
+    spk_id: str
+    words: str
+
+
+def process_line(line, data_folder, language, accented_letters):
+    # Path is at indice 1 in Common Voice tsv files. And .mp3 files
+    # are located in datasets/lang/clips/
+    mp3_path = data_folder + "/clips/" + line.split("\t")[1]
+    file_name = mp3_path.split(".")[-2].split("/")[-1]
+    spk_id = line.split("\t")[0]
+    snt_id = file_name
+
+    # Setting torchaudio backend to sox-io (needed to read mp3 files)
+    if torchaudio.get_audio_backend() != "sox_io":
+        logger.warning("This recipe needs the sox-io backend of torchaudio")
+        logger.warning("The torchaudio backend is changed to sox_io")
+        torchaudio.set_audio_backend("sox_io")
+
+    # Reading the signal (to retrieve duration in seconds)
+    if os.path.isfile(mp3_path):
+        info = torchaudio.info(mp3_path)
+    else:
+        msg = "\tError loading: %s" % (str(len(file_name)))
+        logger.info(msg)
+        return None
+
+    duration = info.num_frames / info.sample_rate
+
+    # Getting transcript
+    words = line.split("\t")[2]
+
+    # Unicode Normalization
+    words = unicode_normalisation(words)
+
+    # !! Language specific cleaning !!
+    words = language_specific_preprocess(language, words)
+
+    # Remove accents if specified
+    if not accented_letters:
+        words = strip_accents(words)
+        words = words.replace("'", " ")
+        words = words.replace("’", " ")
+
+    # Remove multiple spaces
+    words = re.sub(" +", " ", words)
+
+    # Remove spaces at the beginning and the end of the sentence
+    words = words.lstrip().rstrip()
+
+    # Getting chars
+    chars = words.replace(" ", "_")
+    chars = " ".join([char for char in chars][:])
+
+    # Remove too short sentences (or empty):
+    if language in ["ja", "ch"]:
+        if len(chars) < 3:
+            return None
+    else:
+        if len(words.split(" ")) < 3:
+            return None
+
+    # Composition of the csv_line
+    return CVRow(snt_id, duration, mp3_path, spk_id, words)
+
+
 def create_csv(
     orig_tsv_file, csv_file, data_folder, accented_letters=False, language="en"
 ):
@@ -179,7 +252,7 @@ def create_csv(
 
     # We load and skip the header
     loaded_csv = open(orig_tsv_file, "r").readlines()[1:]
-    nb_samples = str(len(loaded_csv))
+    nb_samples = len(loaded_csv)
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
     logger.info(msg)
@@ -188,85 +261,42 @@ def create_csv(
     msg = "Creating csv lists in %s ..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
-
-    # Start processing lines
+    # Process and write lines
     total_duration = 0.0
-    for line in tzip(loaded_csv):
 
-        line = line[0]
+    line_processor = functools.partial(
+        process_line,
+        data_folder=data_folder,
+        language=language,
+        accented_letters=accented_letters,
+    )
 
-        # Path is at indice 1 in Common Voice tsv files. And .mp3 files
-        # are located in datasets/lang/clips/
-        mp3_path = data_folder + "/clips/" + line.split("\t")[1]
-        file_name = mp3_path.split(".")[-2].split("/")[-1]
-        spk_id = line.split("\t")[0]
-        snt_id = file_name
+    # Stream into a .tmp file, and rename it to the real path at the end.
+    csv_file_tmp = csv_file + ".tmp"
 
-        # Setting torchaudio backend to sox-io (needed to read mp3 files)
-        if torchaudio.get_audio_backend() != "sox_io":
-            logger.warning("This recipe needs the sox-io backend of torchaudio")
-            logger.warning("The torchaudio backend is changed to sox_io")
-            torchaudio.set_audio_backend("sox_io")
-
-        # Reading the signal (to retrieve duration in seconds)
-        if os.path.isfile(mp3_path):
-            info = torchaudio.info(mp3_path)
-        else:
-            msg = "\tError loading: %s" % (str(len(file_name)))
-            logger.info(msg)
-            continue
-
-        duration = info.num_frames / info.sample_rate
-        total_duration += duration
-
-        # Getting transcript
-        words = line.split("\t")[2]
-
-        # Unicode Normalization
-        words = unicode_normalisation(words)
-
-        # !! Language specific cleaning !!
-        words = language_specific_preprocess(language, words)
-
-        # Remove accents if specified
-        if not accented_letters:
-            words = strip_accents(words)
-            words = words.replace("'", " ")
-            words = words.replace("’", " ")
-
-        # Remove multiple spaces
-        words = re.sub(" +", " ", words)
-
-        # Remove spaces at the beginning and the end of the sentence
-        words = words.lstrip().rstrip()
-
-        # Getting chars
-        chars = words.replace(" ", "_")
-        chars = " ".join([char for char in chars][:])
-
-        # Remove too short sentences (or empty):
-        if language in ["ja", "ch"]:
-            if len(chars) < 3:
-                continue
-        else:
-            if len(words.split(" ")) < 3:
-                continue
-
-        # Composition of the csv_line
-        csv_line = [snt_id, str(duration), mp3_path, spk_id, str(words)]
-
-        # Adding this line to the csv_lines list
-        csv_lines.append(csv_line)
-
-    # Writing the csv lines
-    with open(csv_file, mode="w", encoding="utf-8") as csv_f:
+    with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
 
-        for line in csv_lines:
-            csv_writer.writerow(line)
+        csv_writer.writerow(["ID", "duration", "wav", "spk_id", "wrd"])
+
+        for row in parallel_map(line_processor, loaded_csv):
+            if row is None:
+                continue
+
+            total_duration += row.duration
+            csv_writer.writerow(
+                [
+                    row.snt_id,
+                    str(row.duration),
+                    row.mp3_path,
+                    row.spk_id,
+                    row.words,
+                ]
+            )
+
+    os.replace(csv_file_tmp, csv_file)
 
     # Final prints
     msg = "%s successfully created!" % (csv_file)
