@@ -1711,6 +1711,7 @@ class SLiGRU_Layer(torch.nn.Module):
         self.register_buffer(
             "drop_masks",
             self.drop(torch.ones(self.N_drop_masks, self.hidden_size)).data,
+            persistent=False
         )
         self.register_buffer("drop_mask_te", torch.tensor([1.0]).float())
 
