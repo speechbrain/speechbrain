@@ -1,8 +1,8 @@
 ############################################################################
 # Model: FastSpeech2
-# Tokens: Phonemes (ARPABET)
-# Training: LJSpeech
-# Authors: Sathvik Udupa, Pradnya Kandarkar
+# Input: Phonemes (ARPABET)
+# Dataset: LJSpeech
+# Authors: Sathvik Udupa, Pradnya Kandarkar, Yingzhi Wang
 # ############################################################################
 
 ###################################
@@ -23,7 +23,7 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
+data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json

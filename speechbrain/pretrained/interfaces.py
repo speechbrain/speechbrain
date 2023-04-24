@@ -2827,7 +2827,7 @@ class FastSpeech2(Pretrained):
         self.input_encoder.add_unk()
         self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
 
-    def encode_batch(self, texts, pace=1.0, pitch_rate=1.0):
+    def encode_batch(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Computes mel-spectrogram for a list of texts
 
         Arguments
@@ -2838,6 +2838,8 @@ class FastSpeech2(Pretrained):
             pace for the speech synthesis
         pitch_rate : float
             scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
 
         Returns
         -------
@@ -2876,7 +2878,7 @@ class FastSpeech2(Pretrained):
                 _,
                 _,
             ) = self.hparams.model(
-                inputs.phoneme_sequences.data, pace=pace, pitch_rate=pitch_rate
+                inputs.phoneme_sequences.data, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
             )
 
             # Transposes to make in compliant with HiFI GAN expected format
@@ -2884,7 +2886,7 @@ class FastSpeech2(Pretrained):
 
         return mel_outputs, durations, pitch, energy
 
-    def encode_text(self, text, pace=1.0, pitch_rate=1.0):
+    def encode_text(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Runs inference for a single text str
         Arguments
         ---------
@@ -2894,10 +2896,12 @@ class FastSpeech2(Pretrained):
             pace for the speech synthesis
         pitch_rate : float
             scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
         """
-        return self.encode_batch([text], pace=pace, pitch_rate=pitch_rate)
+        return self.encode_batch([text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate)
 
-    def forward(self, texts, pace=1.0, pitch_rate=1.0):
+    def forward(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Encodes the input texts.
         Arguments
         ---------
@@ -2907,8 +2911,10 @@ class FastSpeech2(Pretrained):
             pace for the speech synthesis
         pitch_rate : float
             scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
         """
-        return self.encode_batch(texts, pace=pace, pitch_rate=pitch_rate)
+        return self.encode_batch(texts, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate)
 
 
 class HIFIGAN(Pretrained):

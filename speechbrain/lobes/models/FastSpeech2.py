@@ -3,6 +3,8 @@ Neural network modules for the FastSpeech 2: Fast and High-Quality End-to-End Te
 synthesis model
 Authors
 * Sathvik Udupa 2022
+* Pradnya Kandarkar 2023
+* Yingzhi Wang 2023
 """
 
 import torch
@@ -507,6 +509,7 @@ class FastSpeech2(nn.Module):
         energy=None,
         pace=1.0,
         pitch_rate=1.0,
+        energy_rate=1.0,
     ):
         """forward pass for training and inference
         Arguments
@@ -523,6 +526,8 @@ class FastSpeech2(nn.Module):
             scaling factor for durations
         pitch_rate: float
             scaling factor for pitches
+        energy_rate: float
+            scaling factor for energies
         Returns
         ---------
         mel_post: torch.Tensor
@@ -544,9 +549,11 @@ class FastSpeech2(nn.Module):
         mel_length:
             predicted lengths of mel spectrograms
         """
-        token_feats = self.encPreNet(tokens)
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
+
+        # prenet & encoder
+        token_feats = self.encPreNet(tokens)
         pos = self.sinusoidal_positional_embed_encoder(
             token_feats.shape[1], srcmask, token_feats.dtype
         )
@@ -561,6 +568,8 @@ class FastSpeech2(nn.Module):
             token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
         )
         token_feats = token_feats * srcmask_inverted
+
+        # duration predictor
         predict_durations = self.durPred(
             token_feats, srcmask_inverted
         ).squeeze()
@@ -572,12 +581,11 @@ class FastSpeech2(nn.Module):
                 torch.exp(predict_durations) - 1, 0
             )
 
+        # pitch predictor
         avg_pitch = None
         predict_pitch = self.pitchPred(token_feats, srcmask_inverted)
-
         # use a pitch rate to adjust the pitch
         predict_pitch = predict_pitch * pitch_rate
-
         if pitch is not None:
             avg_pitch = average_over_durations(pitch.unsqueeze(1), durations)
             pitch = self.pitchEmbed(avg_pitch)
@@ -587,8 +595,11 @@ class FastSpeech2(nn.Module):
         pitch = pitch.permute(0, 2, 1)
         token_feats = token_feats.add(pitch)
 
+        # energy predictor
         avg_energy = None
         predict_energy = self.energyPred(token_feats, srcmask_inverted)
+        # use an energy rate to adjust the energy
+        predict_energy = predict_energy * energy_rate
         if energy is not None:
             avg_energy = average_over_durations(energy.unsqueeze(1), durations)
             energy = self.energyEmbed(avg_energy)
@@ -598,6 +609,7 @@ class FastSpeech2(nn.Module):
         energy = energy.permute(0, 2, 1)
         token_feats = token_feats.add(energy)
 
+        # upsamples the durations
         spec_feats, mel_lens = upsample(
             token_feats,
             durations if durations is not None else dur_pred_reverse_log,
@@ -611,6 +623,8 @@ class FastSpeech2(nn.Module):
             .permute(0, 2, 1)
             .bool()
         )
+
+        # decoder
         pos = self.sinusoidal_positional_embed_decoder(
             spec_feats.shape[1], srcmask, spec_feats.dtype
         )
@@ -620,6 +634,8 @@ class FastSpeech2(nn.Module):
         output_mel_feats, memory, *_ = self.decoder(
             spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
         )
+
+        # postnet
         mel_post = self.linear(output_mel_feats) * srcmask_inverted
         postnet_output = self.postnet(mel_post) + mel_post
         return (
