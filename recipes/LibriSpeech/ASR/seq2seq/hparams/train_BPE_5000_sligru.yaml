@@ -11,9 +11,9 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters
 # are instantiated
-seed: 1986
+seed: 1987
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/CRDNN_BPE_960h_5k_LM/<seed>
+output_folder: !ref results/CRDNN_BPE_960h_5k_LM_SLiGRU/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
