@@ -7,7 +7,8 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
- * Andreas Nautsch 2022
+ * Andreas Nautsch 2022, 2023
+ * Pooneh Mousavi 2023
 """
 import logging
 import hashlib
