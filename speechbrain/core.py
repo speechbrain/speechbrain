@@ -198,7 +198,12 @@ def parse_arguments(arg_list=None):
         help="A file storing the configuration options for logging",
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
+    parser.add_argument(
+        "--local_rank",
+        "--local-rank",  # alias required for PyTorch 2.x
+        type=int,
+        help="Rank on local machine",
+    )
     parser.add_argument(
         "--device",
         type=str,
