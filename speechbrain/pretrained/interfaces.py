@@ -2879,7 +2879,10 @@ class FastSpeech2(Pretrained):
                 _,
                 _,
             ) = self.hparams.model(
-                inputs.phoneme_sequences.data, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+                inputs.phoneme_sequences.data,
+                pace=pace,
+                pitch_rate=pitch_rate,
+                energy_rate=energy_rate,
             )
 
             # Transposes to make in compliant with HiFI GAN expected format
@@ -2900,7 +2903,9 @@ class FastSpeech2(Pretrained):
         energy_rate : float
             scaling factor for phoneme energies
         """
-        return self.encode_batch([text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate)
+        return self.encode_batch(
+            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+        )
 
     def forward(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Encodes the input texts.
@@ -2915,7 +2920,9 @@ class FastSpeech2(Pretrained):
         energy_rate : float
             scaling factor for phoneme energies
         """
-        return self.encode_batch(texts, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate)
+        return self.encode_batch(
+            texts, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+        )
 
 
 class HIFIGAN(Pretrained):
