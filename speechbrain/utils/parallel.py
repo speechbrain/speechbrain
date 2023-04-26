@@ -76,6 +76,8 @@ class _ParallelMapper:
             self.pbar = None
 
     def run(self):
+        """Spins up an executor (if none were provided), then yields all
+        processed chunks in order."""
         with CancelFuturesOnExit(self.future_chunks):
             if self.executor is not None:
                 # just use the executor we were provided
