@@ -74,6 +74,8 @@ dnn_blocks: 2
 dnn_neurons: 1024
 emb_size: 128
 dec_neurons: 1024
+dec_hidden_size: !ref <dec_neurons>
+dec_attn_dim: !ref <dec_neurons>
 
 # Outputs
 output_neurons: 500  # BPE size, index(blank/eos/bos) = 0
@@ -143,12 +145,12 @@ emb: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <emb_size>
 
 dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dnn_neurons>
+    enc_dim: !ref <dec_neurons>
     input_size: !ref <emb_size>
     rnn_type: gru
     attn_type: location
-    hidden_size: 1024
-    attn_dim: 1024
+    hidden_size: !ref <dec_hidden_size>
+    attn_dim: !ref <dec_attn_dim>
     num_layers: 1
     scaling: 1.0
     channels: 10

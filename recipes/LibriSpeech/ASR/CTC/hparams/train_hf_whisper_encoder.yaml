@@ -14,6 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-base
+whisper_folder: !ref <save_folder>/whisper_checkpoint
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
@@ -66,10 +67,12 @@ whisper_output_dim: 512
 
 
 # Outputs
-output_neurons: 31  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
+use_language_modelling: False
+# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes
@@ -106,7 +109,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
 whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
    source: !ref <whisper_hub>
    freeze: !ref <freeze_whisper>
-   save_path: !ref <save_folder>/whisper_checkpoint
+   save_path: !ref <whisper_folder>
    encoder_only: True
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear

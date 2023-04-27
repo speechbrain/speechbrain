@@ -20,6 +20,7 @@ import pathlib
 import argparse
 import tempfile
 import warnings
+from contextlib import contextmanager
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -186,12 +187,23 @@ def parse_arguments(arg_list=None):
         "If a non-positive number is passed, all epochs are run.",
     )
     parser.add_argument(
+        "--debug_persistently",
+        default=False,
+        action="store_true",
+        help="Keep data stored during debug mode (not using /tmp).",
+    )
+    parser.add_argument(
         "--log_config",
         type=str,
         help="A file storing the configuration options for logging",
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
+    parser.add_argument(
+        "--local_rank",
+        "--local-rank",  # alias required for PyTorch 2.x
+        type=int,
+        help="Rank on local machine",
+    )
     parser.add_argument(
         "--device",
         type=str,
@@ -234,6 +246,12 @@ def parse_arguments(arg_list=None):
         default=None,
         action="store_true",
         help="This flag enables training with automatic mixed-precision.",
+    )
+    parser.add_argument(
+        "--bfloat16_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with bfloat16 mixed-precision.",
     )
     parser.add_argument(
         "--max_grad_norm",
@@ -385,6 +403,8 @@ class Brain:
         debug_epochs (int)
             Number of epochs to run in debug mode, Default ``2``.
             If a non-positive number is passed, all epochs are run.
+        debug_persistently (bool)
+            Keep data stored during debug mode (not using /tmp), Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
         distributed_backend (str)
@@ -448,6 +468,7 @@ class Brain:
             "debug": False,
             "debug_batches": 2,
             "debug_epochs": 2,
+            "debug_persistently": False,
             "device": "cpu",
             "data_parallel_backend": False,
             "distributed_launch": False,
@@ -455,6 +476,7 @@ class Brain:
             "find_unused_parameters": False,
             "jit_module_keys": None,
             "auto_mix_prec": False,
+            "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "noprogressbar": False,
@@ -495,7 +517,7 @@ class Brain:
             sys.version_info.major == PYTHON_VERSION_MAJOR
             and sys.version_info.minor >= PYTHON_VERSION_MINOR
         ):
-            logger.warn(
+            logger.warning(
                 "Detected Python "
                 + str(sys.version_info.major)
                 + "."
@@ -533,6 +555,7 @@ class Brain:
         # Checkpointer should point at a temporary directory in debug mode
         if (
             self.debug
+            and not self.debug_persistently
             and self.checkpointer is not None
             and hasattr(self.checkpointer, "checkpoints_dir")
         ):
@@ -580,7 +603,7 @@ class Brain:
                         "--distributed_launch=True --distributed_backend=nccl"
                     )
                 else:
-                    logger.warn(
+                    logger.warning(
                         "To use DDP, please add "
                         "sb.utils.distributed.ddp_init_group() into your exp.py"
                     )
@@ -718,6 +741,12 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
+        # This commented-out code block is useful when one can ensure
+        # metric reporting is DDP-valid for VALID & EVAL datasets.
+        # elif self.distributed_launch:
+        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+        #         self.distributed_launch, self.rank, dataset, loader_kwargs
+        #     )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
@@ -902,9 +931,11 @@ class Brain:
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
+            with torch.autocast(device_type=torch.device(self.device).type):
                 outputs = self.compute_forward(batch, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+
+            # Losses are excluded from mixed precision to avoid instabilities
+            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
                     loss / self.grad_accumulation_factor
@@ -917,8 +948,17 @@ class Brain:
                 self.zero_grad()
                 self.optimizer_step += 1
         else:
-            outputs = self.compute_forward(batch, Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            if self.bfloat16_mix_prec:
+                with torch.autocast(
+                    device_type=torch.device(self.device).type,
+                    dtype=torch.bfloat16,
+                ):
+                    outputs = self.compute_forward(batch, Stage.TRAIN)
+                    loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            else:
+                outputs = self.compute_forward(batch, Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
@@ -967,10 +1007,10 @@ class Brain:
             self.nonfinite_count += 1
 
             # Print helpful debug info
-            logger.warn(f"Loss is {loss}.")
+            logger.warning(f"Loss is {loss}.")
             for p in self.modules.parameters():
                 if not torch.isfinite(p).all():
-                    logger.warn("Parameter is not finite: " + str(p))
+                    logger.warning("Parameter is not finite: " + str(p))
 
             # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
@@ -981,7 +1021,9 @@ class Brain:
                     "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
                 )
             else:
-                logger.warn("Patience not yet exhausted, ignoring this batch.")
+                logger.warning(
+                    "Patience not yet exhausted, ignoring this batch."
+                )
                 return False
 
         # Clip gradient norm
