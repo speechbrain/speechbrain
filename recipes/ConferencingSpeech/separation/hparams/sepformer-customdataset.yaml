@@ -1,7 +1,7 @@
 # ################################
 # Model: SepFormer for source separation
 # https://arxiv.org/abs/2010.13154
-# Dataset : WSJ0-2mix and WSJ0-3mix
+# Dataset : Custom dataset
 # ################################
 #
 # Basic parameters
@@ -22,23 +22,23 @@ data_folder: !PLACEHOLDER
 # you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
 base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
 
-experiment_name: sepformer
+experiment_name: sepformer-custom
 output_folder: !ref results/<experiment_name>/<seed>
 train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
-train_data: !ref <save_folder>/wsj_tr.csv
-valid_data: !ref <save_folder>/wsj_cv.csv
-test_data: !ref <save_folder>/wsj_tt.csv
+train_data: !ref <save_folder>/custom_train.csv
+valid_data: !ref <save_folder>/custom_valid.csv
+test_data: !ref <save_folder>/custom_test.csv
 skip_prep: False
 
 
 # Experiment params
-auto_mix_prec: True # Set it to True for mixed precision
+auto_mix_prec: False # Set it to True for mixed precision
 test_only: False
 num_spks: 2 # set to 3 for wsj0-3mix
-noprogressbar: False
-save_audio: False # Save estimated sources on disk
-sample_rate: 8000
+progressbar: True
+save_audio: True # Save estimated sources on disk
+sample_rate: 16000
 
 # Training parameters
 N_epochs: 200
@@ -58,6 +58,7 @@ dynamic_mixing: False
 # Parameters for data augmentation
 use_wavedrop: False
 use_speedperturb: True
+use_speedperturb_sameforeachsource: False
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
@@ -99,7 +100,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 
 
 SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 4
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -108,7 +109,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     norm_before: True
 
 SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: 4
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024
@@ -120,7 +121,7 @@ MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
     num_spks: !ref <num_spks>
     in_channels: !ref <N_encoder_out>
     out_channels: !ref <out_channels>
-    num_layers: 2
+    num_layers: 1
     K: 250
     intra_model: !ref <SBtfintra>
     inter_model: !ref <SBtfinter>

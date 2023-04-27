@@ -20,7 +20,6 @@ import pathlib
 import argparse
 import tempfile
 import warnings
-from contextlib import contextmanager
 import speechbrain as sb
 from datetime import date
 from enum import Enum, auto
@@ -1023,7 +1022,6 @@ class Brain:
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
         self.modules.train()
-        self.zero_grad()
 
         # Reset nonfinite count to 0 each epoch
         self.nonfinite_count = 0
@@ -1035,26 +1033,19 @@ class Brain:
 
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
+
         with tqdm(
             train_set,
             initial=self.step,
             dynamic_ncols=True,
             disable=not enable,
-            colour=self.tqdm_barcolor["train"],
         ) as t:
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
                     logger.info("Train iteration limit exceeded")
                     break
                 self.step += 1
-                # if epoch > 1 and self.distributed_launch:
-                #     print(f"About to fit batch on rank {self.rank}")
-
                 loss = self.fit_batch(batch)
-                # if epoch > 1 and self.distributed_launch:
-                #     print(f"Finished fit batch on rank {self.rank}")
-                #     print(f"Loss is {loss}")
-                    
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
                 )
@@ -1084,11 +1075,8 @@ class Brain:
                     if sb.utils.distributed.if_main_process():
                         self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
-                # if epoch > 1 and self.distributed_launch:
-                #     print(f"Finished batch on rank {self.rank}")
 
         # Run train "on_stage_end" on all processes
-        self.zero_grad(set_to_none=True)  # flush gradients
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1101,10 +1089,7 @@ class Brain:
             avg_valid_loss = 0.0
             with torch.no_grad():
                 for batch in tqdm(
-                    valid_set,
-                    dynamic_ncols=True,
-                    disable=not enable,
-                    colour=self.tqdm_barcolor["valid"],
+                    valid_set, dynamic_ncols=True, disable=not enable
                 ):
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)

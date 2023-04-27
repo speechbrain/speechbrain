@@ -19,7 +19,6 @@ Authors
  * Samuele Cornell 2020
  * Mirko Bronzi 2020
  * Jianyuan Zhong 2020
- * Zijian Huang 2022
 """
 
 import os
@@ -36,11 +35,6 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import logging
-from pyroomacoustics.experimental.localization import tdoa
-from speechbrain.processing.features import STFT, spectral_magnitude
-from torch.nn import Conv1d
-from speechbrain.pretrained.fetching import fetch
-import zipfile
 
 
 # Define training procedure
@@ -57,7 +51,6 @@ class Separation(sb.Brain):
             [targets[i][0].unsqueeze(-1) for i in range(self.hparams.num_spks)],
             dim=-1,
         ).to(self.device)
-        # [1,t,2,2] dim = -1 is num_speakers
 
         # Add speech distortions
         if stage == sb.Stage.TRAIN:
@@ -74,113 +67,32 @@ class Separation(sb.Brain):
                     mix, targets = self.cut_signals(mix, targets)
 
         # Separation
-        if "independent" in self.hparams.experiment_name:
-            mix_wl = self.hparams.EncoderL(mix[:, :, 0])
-            est_maskl = self.hparams.MaskNetL(mix_wl)
-            mix_wl = torch.stack([mix_wl] * self.hparams.num_spks)
-            sep_hl = mix_wl * est_maskl
-
-            mix_wr = self.hparams.EncoderR(mix[:, :, 1])
-            est_maskr = self.hparams.MaskNetR(mix_wr)
-            mix_wr = torch.stack([mix_wr] * self.hparams.num_spks)
-            sep_hr = mix_wr * est_maskr
-        elif "cross" in self.hparams.experiment_name:
-            EPS = 1e-8
-            compute_stft = STFT(
-                sample_rate=self.hparams.sample_rate,
-                win_length=256 * 1000.0 / self.hparams.sample_rate,
-                hop_length=128 * 1000.0 / self.hparams.sample_rate,
-                n_fft=256,
-            ).to(self.device)
-            mix_stft = compute_stft(mix).permute(-1, 0, 2, 1, 3)
-            # IPD = torch.atan2(mix_stft[:, :, :, :, 1], mix_stft[:, :, :, :, 0])
-            # sinIPD = torch.sin(IPD[0] - IPD[1])
-            # cosIPD = torch.cos(IPD[0] - IPD[1])
-            ILD_beforelog = spectral_magnitude(mix_stft[0], power=0.5) / (
-                spectral_magnitude(mix_stft[1], power=0.5) + EPS
-            )
-            ILD = 10 * torch.log10(ILD_beforelog + EPS)
-            # print(ILD.shape) # [1,129,t/win]
-
-            # Separation
-            mix_wl = self.hparams.EncoderL(mix[:, :, 0])
-            # [1,64,t/k]
-            n_samples = mix_wl.shape[-1]
-            ILD_upsample = F.interpolate(ILD, size=n_samples)
-            conv1 = Conv1d(
-                ILD_upsample.shape[1], mix_wl.shape[1], kernel_size=1
-            ).to(self.device)
-            ILD_cat = conv1(ILD_upsample)
-
-            mix_catl = torch.cat((mix_wl, ILD_cat), dim=1)
-            est_maskl = self.hparams.MaskNetL(mix_catl)
-            mix_wl = torch.stack([mix_wl] * self.hparams.num_spks)
-            sep_hl = mix_wl * torch.chunk(est_maskl, 2, dim=2)[0]
-
-            mix_wr = self.hparams.EncoderR(mix[:, :, 1])
-            mix_catr = torch.cat((mix_wr, -ILD_cat), dim=1)
-            est_maskr = self.hparams.MaskNetR(mix_catr)
-            mix_wr = torch.stack([mix_wr] * self.hparams.num_spks)
-            sep_hr = mix_wr * torch.chunk(est_maskr, 2, dim=2)[0]
-        elif "parallel" in self.hparams.experiment_name:
-            mix_wl1 = self.hparams.EncoderL(mix[:, :, 0])
-            mix_wr2 = self.hparams.EncoderR(mix[:, :, 1])
-            mix_wl = torch.cat((mix_wl1, mix_wr2), dim=1)
-
-            est_maskl = self.hparams.MaskNetL(mix_wl)
-            mix_wl1 = torch.stack([mix_wl1] * self.hparams.num_spks)
-            mix_wr2 = torch.stack([mix_wr2] * self.hparams.num_spks)
-            sep_hl1 = mix_wl1 * torch.chunk(est_maskl, 2, dim=2)[0]
-            sep_hr2 = mix_wr2 * torch.chunk(est_maskl, 2, dim=2)[1]
-
-            mix_wl2 = self.hparams.EncoderR(mix[:, :, 0])
-            mix_wr1 = self.hparams.EncoderL(mix[:, :, 1])
-            mix_wr = torch.cat((mix_wl2, mix_wr1), dim=1)
-
-            est_maskr = self.hparams.MaskNetR(mix_wr)
-            mix_wl2 = torch.stack([mix_wl2] * self.hparams.num_spks)
-            mix_wr1 = torch.stack([mix_wr1] * self.hparams.num_spks)
-            sep_hl2 = mix_wl2 * torch.chunk(est_maskr, 2, dim=2)[0]
-            sep_hr1 = mix_wr1 * torch.chunk(est_maskr, 2, dim=2)[1]
-            sep_hl = sep_hl1 + sep_hr2
-            sep_hr = sep_hl2 + sep_hr1
-        else:
-            raise ValueError(
-                "Experiment name in hparams should contain one of these--'independent', 'cross', and 'parallel'."
-            )
+        mix_w = self.hparams.Encoder(mix)
+        est_mask = self.hparams.MaskNet(mix_w)
+        mix_w = torch.stack([mix_w] * self.hparams.num_spks)
+        sep_h = mix_w * est_mask
 
         # Decoding
-        est_sourcel = torch.cat(
-            [
-                self.hparams.DecoderL(sep_hl[i]).unsqueeze(-1)
-                for i in range(self.hparams.num_spks)
-            ],
-            dim=-1,
-        )
-
-        est_sourcer = torch.cat(
-            [
-                self.hparams.DecoderR(sep_hr[i]).unsqueeze(-1)
-                for i in range(self.hparams.num_spks)
-            ],
-            dim=-1,
-        )
-
         est_source = torch.cat(
-            [est_sourcel.unsqueeze(-2), est_sourcer.unsqueeze(-2)], dim=-2
+            [
+                self.hparams.Decoder(sep_h[i]).unsqueeze(-1)
+                for i in range(self.hparams.num_spks)
+            ],
+            dim=-1,
         )
+
         # T changed after conv1d in encoder, fix it here
         T_origin = mix.size(1)
         T_est = est_source.size(1)
         if T_origin > T_est:
-            est_source = F.pad(est_source, (0, 0, 0, 0, 0, T_origin - T_est))
+            est_source = F.pad(est_source, (0, 0, 0, T_origin - T_est))
         else:
             est_source = est_source[:, :T_origin, :]
 
         return est_source, targets
 
     def compute_objectives(self, predictions, targets):
-        """Computes the snr loss"""
+        """Computes the sinr loss"""
         return self.hparams.loss(targets, predictions)
 
     def fit_batch(self, batch):
@@ -192,7 +104,7 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        if self.auto_mix_prec:
+        if self.hparams.auto_mix_prec:
             with autocast():
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN
@@ -288,7 +200,7 @@ class Separation(sb.Brain):
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         # Compute/store important stats
-        stage_stats = {"snr": stage_loss}
+        stage_stats = {"si-snr": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
 
@@ -313,7 +225,7 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"snr": stage_stats["snr"]}, min_keys=["snr"],
+                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -334,14 +246,14 @@ class Separation(sb.Brain):
 
             for i in range(targets.shape[-1]):
                 new_target = self.hparams.speedperturb(
-                    targets[:, :, :, i], targ_lens
+                    targets[:, :, i], targ_lens
                 )
                 new_targets.append(new_target)
                 if i == 0:
-                    min_len = new_target.shape[1]
+                    min_len = new_target.shape[-1]
                 else:
-                    if new_target.shape[1] < min_len:
-                        min_len = new_target.shape[1]
+                    if new_target.shape[-1] < min_len:
+                        min_len = new_target.shape[-1]
 
             if self.hparams.use_rand_shift:
                 # Performing random_shift (independently on each source)
@@ -361,13 +273,12 @@ class Separation(sb.Brain):
                     targets = torch.zeros(
                         targets.shape[0],
                         min_len,
-                        targets.shape[-2],
                         targets.shape[-1],
                         device=targets.device,
                         dtype=torch.float,
                     )
                 for i, new_target in enumerate(new_targets):
-                    targets[:, :, :, i] = new_targets[i][:, 0:min_len]
+                    targets[:, :, i] = new_targets[i][:, 0:min_len]
 
         mix = targets.sum(-1)
         return mix, targets
@@ -396,69 +307,22 @@ class Separation(sb.Brain):
             if layer != child_layer:
                 self.reset_layer_recursively(child_layer)
 
-    def cal_interaural_error(self, predictions, targets):
-        """Compute ITD and ILD errors"""
-
-        EPS = 1e-8
-        s_target = targets[0]  # [T,E,C]
-        s_prediction = predictions[0]  # [T,E,C]
-
-        # ITD is computed with generalized cross-correlation phase transform (GCC-PHAT)
-        ITD_target = [
-            tdoa(
-                s_target[:, 0, i].cpu().numpy(),
-                s_target[:, 1, i].cpu().numpy(),
-                fs=self.hparams.sample_rate,
-            )
-            * 10 ** 6
-            for i in range(s_target.shape[-1])
-        ]
-        ITD_prediction = [
-            tdoa(
-                s_prediction[:, 0, i].cpu().numpy(),
-                s_prediction[:, 1, i].cpu().numpy(),
-                fs=self.hparams.sample_rate,
-            )
-            * 10 ** 6
-            for i in range(s_prediction.shape[-1])
-        ]
-        ITD_error1 = np.mean(
-            np.abs(np.array(ITD_target) - np.array(ITD_prediction))
-        )
-        ITD_error2 = np.mean(
-            np.abs(np.array(ITD_target) - np.array(ITD_prediction)[::-1])
-        )
-        ITD_error = min(ITD_error1, ITD_error2)
-
-        # ILD  = 10 * log_10(||s_left||^2 / ||s_right||^2)
-        ILD_target_beforelog = torch.sum(s_target[:, 0] ** 2, dim=0) / (
-            torch.sum(s_target[:, 1] ** 2, dim=0) + EPS
-        )
-        ILD_target = 10 * torch.log10(ILD_target_beforelog + EPS)  # [C]
-        ILD_prediction_beforelog = torch.sum(s_prediction[:, 0] ** 2, dim=0) / (
-            torch.sum(s_prediction[:, 1] ** 2, dim=0) + EPS
-        )
-        ILD_prediction = 10 * torch.log10(ILD_prediction_beforelog + EPS)  # [C]
-
-        ILD_error1 = torch.mean(torch.abs(ILD_target - ILD_prediction))
-        ILD_error2 = torch.mean(torch.abs(ILD_target - ILD_prediction.flip(0)))
-        ILD_error = min(ILD_error1.item(), ILD_error2.item())
-
-        return ITD_error, ILD_error
-
     def save_results(self, test_data):
         """This script computes the SDR and SI-SNR metrics and saves
         them into a csv file"""
+
+        # This package is required for SDR computation
+        from mir_eval.separation import bss_eval_sources
 
         # Create folders where to store audio
         save_file = os.path.join(self.hparams.output_folder, "test_results.csv")
 
         # Variable init
-        all_snrs = []
-        all_snrs_i = []
-        all_delta_ITDs = []
-        all_delta_ILDs = []
-        csv_columns = ["snt_id", "snr", "snr_i", "delta_ITD", "delta_ILD"]
+        all_sdrs = []
+        all_sdrs_i = []
+        all_sisnrs = []
+        all_sisnrs_i = []
+        csv_columns = ["snt_id", "sdr", "sdr_i", "si-snr", "si-snr_i"]
 
         test_loader = sb.dataio.dataloader.make_dataloader(
             test_data, **self.hparams.dataloader_opts
@@ -484,57 +348,61 @@ class Separation(sb.Brain):
                             batch.mix_sig, targets, sb.Stage.TEST
                         )
 
-                    # Compute SNR
-                    snr = self.compute_objectives(predictions, targets)
+                    # Compute SI-SNR
+                    sisnr = self.compute_objectives(predictions, targets)
 
-                    # Compute SNR improvement
+                    # Compute SI-SNR improvement
                     mixture_signal = torch.stack(
                         [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
-                    snr_baseline = self.compute_objectives(
+                    sisnr_baseline = self.compute_objectives(
                         mixture_signal, targets
                     )
-                    snr_i = snr - snr_baseline
+                    sisnr_i = sisnr - sisnr_baseline
 
-                    # Compute ITD and ILD
-                    delta_ITD, delta_ILD = self.cal_interaural_error(
-                        predictions, targets
+                    # Compute SDR
+                    sdr, _, _, _ = bss_eval_sources(
+                        targets[0].t().cpu().numpy(),
+                        predictions[0].t().detach().cpu().numpy(),
                     )
+
+                    sdr_baseline, _, _, _ = bss_eval_sources(
+                        targets[0].t().cpu().numpy(),
+                        mixture_signal[0].t().detach().cpu().numpy(),
+                    )
+
+                    sdr_i = sdr.mean() - sdr_baseline.mean()
 
                     # Saving on a csv file
                     row = {
                         "snt_id": snt_id[0],
-                        "snr": -snr.item(),
-                        "snr_i": -snr_i.item(),
-                        "delta_ITD": delta_ITD,
-                        "delta_ILD": delta_ILD,
+                        "sdr": sdr.mean(),
+                        "sdr_i": sdr_i,
+                        "si-snr": -sisnr.item(),
+                        "si-snr_i": -sisnr_i.item(),
                     }
                     writer.writerow(row)
 
                     # Metric Accumulation
-                    all_snrs.append(-snr.item())
-                    all_snrs_i.append(-snr_i.item())
-                    all_delta_ITDs.append(delta_ITD)
-                    all_delta_ILDs.append(delta_ILD)
+                    all_sdrs.append(sdr.mean())
+                    all_sdrs_i.append(sdr_i.mean())
+                    all_sisnrs.append(-sisnr.item())
+                    all_sisnrs_i.append(-sisnr_i.item())
 
                 row = {
                     "snt_id": "avg",
-                    "snr": np.array(all_snrs).mean(),
-                    "snr_i": np.array(all_snrs_i).mean(),
-                    "delta_ITD": np.array(all_delta_ITDs).mean(),
-                    "delta_ILD": np.array(all_delta_ILDs).mean(),
+                    "sdr": np.array(all_sdrs).mean(),
+                    "sdr_i": np.array(all_sdrs_i).mean(),
+                    "si-snr": np.array(all_sisnrs).mean(),
+                    "si-snr_i": np.array(all_sisnrs_i).mean(),
                 }
                 writer.writerow(row)
 
-        logger.info("Mean SNR is {}".format(np.array(all_snrs).mean()))
-        logger.info("Mean SNRi is {}".format(np.array(all_snrs_i).mean()))
-        logger.info(
-            "Mean Delta ITD is {}".format(np.array(all_delta_ITDs).mean())
-        )
-        logger.info(
-            "Mean Delta ILD is {}".format(np.array(all_delta_ILDs).mean())
-        )
+        logger.info("Mean SISNR is {}".format(np.array(all_sisnrs).mean()))
+        logger.info("Mean SISNRi is {}".format(np.array(all_sisnrs_i).mean()))
+        logger.info("Mean SDR is {}".format(np.array(all_sdrs).mean()))
+        logger.info("Mean SDRi is {}".format(np.array(all_sdrs_i).mean()))
 
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
@@ -547,31 +415,31 @@ class Separation(sb.Brain):
         for ns in range(self.hparams.num_spks):
 
             # Estimated source
-            signal = predictions[0, :, :, ns]
-            signal = signal / signal.abs().max(0).values
+            signal = predictions[0, :, ns]
+            signal = signal / signal.abs().max()
             save_file = os.path.join(
                 save_path, "item{}_source{}hat.wav".format(snt_id, ns + 1)
             )
             torchaudio.save(
-                save_file, signal.permute(1, 0).cpu(), self.hparams.sample_rate
+                save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
 
             # Original source
-            signal = targets[0, :, :, ns]
-            signal = signal / signal.abs().max(0).values
+            signal = targets[0, :, ns]
+            signal = signal / signal.abs().max()
             save_file = os.path.join(
                 save_path, "item{}_source{}.wav".format(snt_id, ns + 1)
             )
             torchaudio.save(
-                save_file, signal.permute(1, 0).cpu(), self.hparams.sample_rate
+                save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
 
         # Mixture
         signal = mixture[0][0, :]
-        signal = signal / signal.abs().max(0).values
+        signal = signal / signal.abs().max()
         save_file = os.path.join(save_path, "item{}_mix.wav".format(snt_id))
         torchaudio.save(
-            save_file, signal.permute(1, 0).cpu(), self.hparams.sample_rate
+            save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
 
@@ -646,6 +514,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    run_opts["auto_mix_prec"] = hparams["auto_mix_prec"]
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -669,107 +538,48 @@ if __name__ == "__main__":
         )
         sys.exit(1)
 
-    if not os.path.exists(hparams["datasets_generation"]):
-        print("Download Datasets Generation scripts")
-        fetch(
-            filename="main.zip",
-            source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
-            savedir=hparams["data_folder"],
-            save_filename="Binaural-WSJ0Mix-main.zip",
-        )
-        file = zipfile.ZipFile(
-            os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
-        )
-        file.extractall(path=hparams["data_folder"])
-
-    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
-        print("Generate Binaural WSJ0Mix dataset automatically")
-        sys.path.append(hparams["datasets_generation"])
-        if hparams["num_spks"] == 2:
-            from create_wav_2speakers import create_binaural_wsj0mix
-        else:
-            from create_wav_3speakers import create_binaural_wsj0mix
-        run_on_main(
-            create_binaural_wsj0mix,
-            kwargs={
-                "wsj_root": hparams["wsj_root"],
-                "output_root": hparams["data_folder"],
-                "datafreqs": hparams["data_freqs"],
-                "datamodes": hparams["data_modes"],
-            },
-        )
-
     # Data preparation
-    from recipes.BinauralWSJ0Mix.prepare_data import (
-        prepare_binaural_wsj0mix,
-    )  # noqa
+    from recipes.ConferencingSpeech.prepare_data import prepare_cs21  # noqa
 
     run_on_main(
-        prepare_binaural_wsj0mix,
+        prepare_cs21,
         kwargs={
-            "datapath": hparams["data_folder"],
+            "train_path": hparams["train_path"],
+            "dev_simu_path": hparams["dev_simu_path"],
+            "dev_real_path": hparams["dev_real_path"],
+            "eval_path": hparams["eval_path"],
             "savepath": hparams["save_folder"],
-            "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
             "fs": hparams["sample_rate"],
         },
     )
 
     # Create dataset objects
-    if hparams["dynamic_mixing"]:
-        from dynamic_mixing import dynamic_mix_data_prep
+    #if hparams["dynamic_mixing"]:
+    #    from dynamic_mixing import dynamic_mix_data_prep
 
-        # if the base_folder for dm is not processed, preprocess them
-        if "processed" not in hparams["base_folder_dm"]:
-            # if the processed folder already exists we just use it otherwise we do the preprocessing
-            if not os.path.exists(
-                os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-            ):
-                from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+    #    # if the base_folder for dm is not processed, preprocess them
+    #    if "processed" not in hparams["base_folder_dm"]:
+    #        from recipes.ConferencingSpeech.meta.preprocess_dynamic_mixing import (
+    #            resample_folder,
+    #        )
 
-                print("Resampling the base folder")
-                run_on_main(
-                    resample_folder,
-                    kwargs={
-                        "input_folder": hparams["base_folder_dm"],
-                        "output_folder": os.path.normpath(
-                            hparams["base_folder_dm"]
-                        )
-                        + "_processed",
-                        "fs": hparams["sample_rate"],
-                        "regex": "**/*.wav",
-                    },
-                )
-                # adjust the base_folder_dm path
-                hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-                )
-            else:
-                print(
-                    "Using the existing processed folder on the same directory as base_folder_dm"
-                )
-                hparams["base_folder_dm"] = (
-                    os.path.normpath(hparams["base_folder_dm"]) + "_processed"
-                )
-
-        # Prepare dictionary with hparams for dynamic mixing
-        dm_hparams = {
-            "train_data": hparams["train_data"],
-            "data_folder": hparams["data_folder"],
-            "base_folder_dm": hparams["base_folder_dm"],
-            "sample_rate": hparams["sample_rate"],
-            "num_spks": hparams["num_spks"],
-            "training_signal_len": hparams["training_signal_len"],
-            "dataloader_opts": hparams["dataloader_opts"],
-            "hrtf_wav_path": hparams["hrtf_wav_path"],
-        }
-        train_data = dynamic_mix_data_prep(dm_hparams)
-
-        _, valid_data, test_data = dataio_prep(hparams)
-    else:
-        train_data, valid_data, test_data = dataio_prep(hparams)
+    #        print("Resampling the base folder")
+    #        run_on_main(
+    #            resample_folder,
+    #            kwargs={
+    #                "input_folder": hparams["base_folder_dm"],
+    #                "output_folder": hparams["base_folder_dm"] + "_processed",
+    #                "fs": hparams["sample_rate"],
+    #                "regex": "**/*.wav",
+    #            },
+    #        )
+    #        # adjust the base_folder_dm path
+    #        hparams["base_folder_dm"] = hparams["base_folder_dm"] + "_processed"
+    #    train_data = dynamic_mix_data_prep(hparams)
+    #    _, valid_data, test_data = dataio_prep(hparams)
+    #else:
+    train_data, valid_data, test_data = dataio_prep(hparams)
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:
@@ -801,5 +611,5 @@ if __name__ == "__main__":
         )
 
     # Eval
-    separator.evaluate(test_data, min_key="snr")
+    separator.evaluate(test_data, min_key="si-snr")
     separator.save_results(test_data)

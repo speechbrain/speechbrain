@@ -8,9 +8,10 @@ SpeechBrain is an **open-source** and **all-in-one** conversational AI toolkit b
 
 The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **language identification**, **multi-microphone signal processing**, and many others.
 
-<img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> **Please, star our project on github (see top-right corner) if you appreciate our contribution to the community!**
-
 *SpeechBrain is currently in beta*.
+
+**News:** the call for new sponsors (2022) is open. [Take a look here if you are interested!](https://drive.google.com/file/d/1Njn_T2qLJCLPmF2LJ_X7yxxobqK3-CPW/view?usp=sharing)
+
 
 | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
 
@@ -80,12 +81,17 @@ In particular, our best model is based on an ECAPA-TDNN trained with the [voxlin
 ### Self-Supervised Learning of Speech Representations
 - Recipes for wav2vec 2.0 pre-training with multiple GPUs compatible with HuggingFace models.
 
+### Self-Supervised Learning of Speech Representations
+- Recipes for wav2vec 2.0 pre-training with multiple GPUs compatible with HuggingFace models.
+
 ### Multi-microphone processing
 Combining multiple microphones is a powerful approach to achieving robustness in adverse acoustic environments:
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
-
+### Text-to-Speech (TTS) and Vocoders
+- Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech) with LJSpeech.
+- Recipes for training Vocoders such as [HiFIGAN](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech).
 
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:

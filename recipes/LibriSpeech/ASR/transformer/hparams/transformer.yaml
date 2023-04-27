@@ -37,8 +37,8 @@ skip_prep: False
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev-clean.csv
 test_csv:
-    - !ref <save_folder>/test-clean.csv
-    - !ref <save_folder>/test-other.csv
+    - !ref <data_folder>/test-clean.csv
+    - !ref <data_folder>/test-other.csv
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -66,6 +66,16 @@ dynamic_batch_sampler:
     batch_ordering: descending
     max_batch_ex: -1
 
+dynamic_batching: False
+
+dynamic_batch_sampler:
+    feats_hop_size: 0.01
+    max_batch_len: 100000 # in terms of frames
+    num_buckets: 200
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: descending
+    max_batch_ex: -1
+
 # stages related parameters
 lr_adam: 0.001
 
@@ -78,7 +88,7 @@ n_mels: 80
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
-    num_workers: !ref <num_workers>
+    num_workers: 12
 
 valid_dataloader_opts:
     batch_size: 1

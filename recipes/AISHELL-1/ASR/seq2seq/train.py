@@ -343,8 +343,8 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
 
     # Changing the samplers if dynamic batching is activated
-    train_dataloader_opts = hparams["train_dataloader_opts"]
-    valid_dataloader_opts = hparams["valid_dataloader_opts"]
+    train_dataloader_opts = hparams["dataloader_options"]
+    valid_dataloader_opts = hparams["test_dataloader_options"]
 
     if train_bsampler is not None:
         train_dataloader_opts = {

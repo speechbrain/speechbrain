@@ -365,7 +365,6 @@ class Conv1d(nn.Module):
         padding_mode="reflect",
         skip_transpose=False,
         weight_norm=False,
-        conv_init=None,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -394,9 +393,6 @@ class Conv1d(nn.Module):
             groups=groups,
             bias=bias,
         )
-
-        if conv_init == "kaiming":
-            nn.init.kaiming_normal_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
@@ -502,7 +498,8 @@ class Conv1d(nn.Module):
         return in_channels
 
     def remove_weight_norm(self):
-        """Removes weight normalization at inference if used during training."""
+        """Removes weight normalization at inference if used during training.
+        """
         self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
@@ -541,8 +538,8 @@ class Conv2d(nn.Module):
     bias : bool
         If True, the additive bias b is adopted.
     skip_transpose : bool
-        If False, uses batch x spatial.dim2 x spatial.dim1 x channel convention of speechbrain.
-        If True, uses batch x channel x spatial.dim1 x spatial.dim2 convention.
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
@@ -572,7 +569,6 @@ class Conv2d(nn.Module):
         padding_mode="reflect",
         skip_transpose=False,
         weight_norm=False,
-        conv_init=None,
     ):
         super().__init__()
 
@@ -611,9 +607,6 @@ class Conv2d(nn.Module):
             groups=groups,
             bias=bias,
         )
-
-        if conv_init == "kaiming":
-            nn.init.kaiming_normal_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
@@ -721,7 +714,8 @@ class Conv2d(nn.Module):
         return in_channels
 
     def remove_weight_norm(self):
-        """Removes weight normalization at inference if used during training."""
+        """Removes weight normalization at inference if used during training.
+        """
         self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
@@ -1000,7 +994,8 @@ class ConvTranspose1d(nn.Module):
         return in_channels
 
     def remove_weight_norm(self):
-        """Removes weight normalization at inference if used during training."""
+        """Removes weight normalization at inference if used during training.
+        """
         self.conv = nn.utils.remove_weight_norm(self.conv)
 
 
@@ -1441,7 +1436,8 @@ class GaborConv1d(nn.Module):
         return self._gabor_params_from_mels()
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels."""
+        """Checks the input shape and returns the number of input channels.
+        """
 
         if len(shape) == 2:
             in_channels = 1

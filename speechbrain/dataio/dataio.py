@@ -1021,9 +1021,7 @@ def merge_csvs(data_folder, csv_lst, merged_csv):
 
     Example
     -------
-    >>> tmpdir = getfixture('tmpdir')
-    >>> os.symlink(os.path.realpath("tests/samples/annotation/speech.csv"), tmpdir / "speech.csv")
-    >>> merge_csvs(tmpdir,
+    >>> merge_csvs("tests/samples/annotation/",
     ... ["speech.csv", "speech.csv"],
     ... "test_csv_merge.csv")
     """

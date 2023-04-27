@@ -11,7 +11,7 @@ from speechbrain.utils.data_utils import download_file
 def run_HF_check(
     recipe_csvfile="tests/recipes.csv",
     field="HF_repo",
-    output_folder="tests/tmp/HF",
+    output_folder="HF_repos",
 ):
     """Checks if the code reported in the readme files of the HF repository is
     runnable. Note: the tests run the code marked as python in the readme file.

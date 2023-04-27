@@ -17,8 +17,8 @@ After training the speaker embeddings, it is possible to perform speaker verific
 `python speaker_verification_plda.py hparams/verification_plda_xvector.yaml`
 
 If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
-This system achieves an EER = 3.23% on voxceleb1 + voxceleb2.
-These results are all obtained with the official verification split of voxceleb1 (veri\_test2_.txt)
+This system achieves an EER = 3.19% on voxceleb1 + voxceleb2.
+These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 
 # Speaker verification using ECAPA-TDNN embeddings
@@ -33,12 +33,10 @@ After training the speaker embeddings, it is possible to perform speaker verific
 `python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
 
 This system achieves:
-- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm
+- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm.
 - EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
 
-These results are all obtained with the official verification split of voxceleb1 (veri\_test2.txt)
-
-Below you can find the results from model trained on VoxCeleb 2 dev set and tested on VoxSRC derivatives. Note that however, the models are trained under a very limited condition (single GPU so batch_size=2) and no score normalization at test time.
+These results are all obtained with the official verification split of voxceleb1 (veri\_split.txt)
 
 # VoxCeleb2 preparation
 Voxceleb2 audio files are released in m4a format. All the files must be converted in wav files before

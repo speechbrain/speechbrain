@@ -15,10 +15,8 @@ def test_recipe_list(
     recipe_csvfile="tests/recipes.csv",
     avoid_list=[
         "/models/",
-        "/results/",
         "recipes/Voicebank/MTL/CoopNet/hparams/logger.yaml",
         "recipes/LibriParty/generate_dataset/dataset.yaml",
-        "hpopt.yaml",
     ],
 ):
     """This test checks if all the all hparam file of all the recipes are listed

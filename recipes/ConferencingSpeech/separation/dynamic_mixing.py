@@ -8,7 +8,6 @@ from pathlib import Path
 import random
 from speechbrain.processing.signal_processing import rescale
 from speechbrain.dataio.batch import PaddedBatch
-from scipy.signal import fftconvolve
 
 """
 The functions to implement Dynamic Mixing For SpeechSeparation
@@ -16,8 +15,61 @@ The functions to implement Dynamic Mixing For SpeechSeparation
 Authors
     * Samuele Cornell 2021
     * Cem Subakan 2021
-    * Zijian Huang 2022
 """
+
+
+def build_spk_hashtable(hparams):
+    """
+    This function builds a dictionary of speaker-utterance pairs to be used in dynamic mixing
+    """
+    wsj0_utterances = glob.glob(
+        os.path.join(hparams["base_folder_dm"], "**/*.wav"), recursive=True
+    )
+
+    spk_hashtable = {}
+    for utt in wsj0_utterances:
+
+        spk_id = Path(utt).stem[:3]
+        assert torchaudio.info(utt).sample_rate == hparams["sample_rate"]
+
+        # e.g. 2speakers/wav8k/min/tr/mix/019o031a_0.27588_01vo030q_-0.27588.wav
+        # id of speaker 1 is 019 utterance id is o031a
+        # id of speaker 2 is 01v utterance id is 01vo030q
+
+        if spk_id not in spk_hashtable.keys():
+            spk_hashtable[spk_id] = [utt]
+        else:
+            spk_hashtable[spk_id].append(utt)
+
+    # calculate weights for each speaker ( len of list of utterances)
+    spk_weights = [len(spk_hashtable[x]) for x in spk_hashtable.keys()]
+
+    return spk_hashtable, spk_weights
+
+
+def get_wham_noise_filenames(hparams):
+    "This function lists the WHAM! noise files to be used in dynamic mixing"
+
+    if "Libri" in hparams["data_folder"]:
+        # Data folder should point to Libri2Mix folder
+        if hparams["sample_rate"] == 8000:
+            noise_path = "wav8k/min/train-360/noise/"
+        elif hparams["sample_rate"] == 16000:
+            noise_path = "wav16k/min/train-360/noise/"
+        else:
+            raise ValueError("Unsupported Sampling Rate")
+    else:
+        if hparams["sample_rate"] == 8000:
+            noise_path = "wav8k/min/tr/noise/"
+        elif hparams["sample_rate"] == 16000:
+            noise_path = "wav16k/min/tr/noise/"
+        else:
+            raise ValueError("Unsupported Sampling Rate")
+
+    noise_files = glob.glob(
+        os.path.join(hparams["data_folder"], noise_path, "*.wav")
+    )
+    return noise_files
 
 
 def dynamic_mix_data_prep(hparams):
@@ -33,11 +85,6 @@ def dynamic_mix_data_prep(hparams):
 
     # we build an dictionary where keys are speakers id and entries are list
     # of utterances files of that speaker
-    from recipes.WSJ0Mix.separation.dynamic_mixing import (
-        build_spk_hashtable,
-        get_wham_noise_filenames,
-    )
-
     spk_hashtable, spk_weights = build_spk_hashtable(hparams)
 
     spk_list = [x for x in spk_hashtable.keys()]
@@ -66,6 +113,8 @@ def dynamic_mix_data_prep(hparams):
 
             noise, fs_read = torchaudio.load(noise_file[0])
             noise = noise.squeeze()
+            # gain = np.clip(random.normalvariate(1, 10), -4, 15)
+            # noise = rescale(noise, torch.tensor(len(noise)), gain, scale="dB").squeeze()
 
         # select two speakers randomly
         sources = []
@@ -95,6 +144,7 @@ def dynamic_mix_data_prep(hparams):
                 spk_file, frame_offset=start, num_frames=stop - start,
             )
 
+            # peak = float(Path(spk_file).stem.split("_peak_")[-1])
             tmp = tmp[0]  # * peak  # remove channel dim and normalize
 
             if i == 0:
@@ -107,37 +157,8 @@ def dynamic_mix_data_prep(hparams):
                     first_lvl + random.normalvariate(-2.51, 2.66), -45, 0
                 )
                 tmp = rescale(tmp, torch.tensor(len(tmp)), gain, scale="dB")
-
-            tmp_bi = torch.FloatTensor(len(tmp), 2)  # binaural
-            subject_path_list = glob.glob(
-                os.path.join(hparams["hrtf_wav_path"], "subject*")
-            )
-            subject_path = np.random.choice(subject_path_list)
-            azimuth_list = (
-                [-80, -65, -55] + list(range(-45, 46, 5)) + [55, 65, 80]
-            )
-            azimuth = np.random.choice(azimuth_list)
-
-            for i, loc in enumerate(["left", "right"]):
-
-                hrtf_file = os.path.join(
-                    subject_path,
-                    "{}az{}.wav".format(
-                        azimuth.astype("str").replace("-", "neg"), loc
-                    ),
-                )
-                hrtf, sr = torchaudio.load(hrtf_file)
-                transform = torchaudio.transforms.Resample(sr, fs_read)
-                hrtf = transform(hrtf[:, np.random.randint(50)])
-                tmp_bi[:, i] = torch.from_numpy(
-                    fftconvolve(tmp.numpy(), hrtf.numpy(), mode="same")
-                )
-
-            # Make relative source energy same with original
-            spatial_scaling = torch.sqrt(
-                torch.sum(tmp ** 2) * 2 / torch.sum(tmp_bi ** 2)
-            )
-            sources.append(tmp_bi * spatial_scaling)
+                # assert not torch.all(torch.isnan(tmp))
+            sources.append(tmp)
 
         # we mix the sources together
         # here we can also use augmentations ! -> runs on cpu and for each
@@ -157,10 +178,7 @@ def dynamic_mix_data_prep(hparams):
 
         max_amp = max(
             torch.abs(mixture).max().item(),
-            *[
-                x.item()
-                for x in torch.abs(sources).max(dim=-1)[0].max(dim=-1)[0]
-            ],
+            *[x.item() for x in torch.abs(sources).max(dim=-1)[0]],
         )
         mix_scaling = 1 / max_amp * 0.9
         sources = mix_scaling * sources

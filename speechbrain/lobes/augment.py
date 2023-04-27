@@ -401,7 +401,6 @@ class EnvCorrupt(torch.nn.Module):
             self.add_reverb = AddReverb(
                 reverb_prob=reverb_prob,
                 csv_file=reverb_csv,
-                rir_scale_factor=rir_scale_factor,
                 reverb_sample_rate=reverb_sample_rate,
                 clean_sample_rate=clean_sample_rate,
             )

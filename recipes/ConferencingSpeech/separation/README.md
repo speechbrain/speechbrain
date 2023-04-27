@@ -1,9 +1,7 @@
-# Speech separation with WSJ0-Mix
-This folder contains some popular recipes for the WSJ0-Mix task (2/3 sources).
+# Speech separation with WSJ0MIX
+This folder contains some popular recipes for the WSJ0MIX task (2/3 sources).
 
-* This recipe supports train with several source separation models on WSJ0-2Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [RE-SepFormer](https://arxiv.org/abs/2206.09507), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
-
-**Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Seperation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
+* This recipe supports train with several source separation models on WSJ0-2Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
 Additional dependency:
 ```
@@ -30,7 +28,7 @@ Note that during training we print the negative SI-SNR (as we treat this value a
 
 # Results
 
-Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
+Here are the SI - SNRi results (in dB) on the test set of WSJ0 - 2/3 Mix with SepFormer:
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
@@ -42,31 +40,19 @@ Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepF
 |NoAugment | 17.6 |
 |DynamicMixing | 19.8 |
 
-| | RE-SepFormer, WSJ0-2Mix |
-| --- | --- |
-|DynamicMixing | 18.6 |
-
-| | SkiM, WSJ0-2Mix |
-| --- | --- |
-|DynamicMixing | 18.1 |
-
 
 # Training Time
-Each epoch takes about 2 hours for WSJ0-2Mix and WSJ0-3Mix (DynamicMixing ) on a NVIDIA V100 (32GB).
+Each epoch takes about 2 hours for WJS0-2MIX and WJS0-2MIX (DynamicMixing ) on a NVIDIA V100 (32GB).
 
 # Pretrained Models:
 Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can be found through huggingface:
 * https://huggingface.co/speechbrain/sepformer-wsj02mix
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
-* https://huggingface.co/speechbrain/resepformer-wsj02mix
 
-* The output folder (with logs and checkpoints) for SepFormer (hparams/sepformer.yaml) can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
-* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://drive.google.com/drive/folders/1rXOyPQ7OZZMUzg7wrP1Zsa_fjFKMqaeu?usp=sharing).
-* The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://drive.google.com/drive/folders/12_Df4zsRW18YvD4hPAJAT9y_mVWnNyBm?usp=sharing).
-* The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://drive.google.com/drive/folders/1Olq2077mXKqtqHluxECn1lMKIbo7xPFu?usp=sharing).
-* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://drive.google.com/drive/folders/12HqVPpMXY-OOMsZ3xTAtkN7kk5TZ2YaL?usp=sharing).
+* Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
 
 
+You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-wsj02mix).
 
 # Example calls for running the training scripts
 
@@ -79,17 +65,10 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 
 * WSJ0-3Mix training with dynamic mixing `python train.py hparams/sepformer.yaml --data_folder yourpath/wsj0-mix/3speakers`--num_spks 3 --base_folder_dm yourpath/wsj0/si_tr_s --dynamic_mixing True`
 
-
-# Multi-GPU training
-
-You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
-
-```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
-```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
-
-
+# **About SpeechBrain**
+- Website: https://speechbrain.github.io/
+- Code: https://github.com/speechbrain/speechbrain/
+- HuggingFace: https://huggingface.co/speechbrain/
 
 
 # **Citing SpeechBrain**

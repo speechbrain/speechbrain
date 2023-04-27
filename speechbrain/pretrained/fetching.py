@@ -118,10 +118,7 @@ def fetch(
         logger.info(MSG)
         try:
             fetched_file = huggingface_hub.hf_hub_download(
-                repo_id=source,
-                filename=filename,
-                use_auth_token=use_auth_token,
-                revision=revision,
+                repo_id=source, filename=filename, use_auth_token=use_auth_token
             )
         except HTTPError as e:
             if "404 Client Error" in str(e):
