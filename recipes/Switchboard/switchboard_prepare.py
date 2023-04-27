@@ -825,7 +825,7 @@ def swbd1_data_prep(
 
     logger.info("Starting data preparation for main Switchboard corpus")
 
-    train_data_folder = os.path.join(data_folder, "LDC97S62")
+    train_data_folder = os.path.join(data_folder, "swb1")
     check_data_folder(train_data_folder)
 
     if not os.path.exists(save_folder):
@@ -972,10 +972,10 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
         "Begin preparing the eval2000 Hub5 English test set and transcripts (LDC2002S09 and LDC2002T43)"
     )
 
-    audio_folder = os.path.join(data_folder, "LDC2002S09/hub5e_00/english")
+    audio_folder = os.path.join(data_folder, "eval2000/hub5e_00/english")
     transcription_file = os.path.join(
         data_folder,
-        "LDC2002T43/2000_hub5_eng_eval_tr/reference/hub5e00.english.000405.stm",
+        "eval2000/2000_hub5_eng_eval_tr/reference/hub5e00.english.000405.stm",
     )
 
     for d in [audio_folder, transcription_file]:
@@ -1075,7 +1075,7 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
     )
 
     glm_dir = os.path.join(
-        data_folder, "LDC2002T43/2000_hub5_eng_eval_tr/reference",
+        data_folder, "eval2000/2000_hub5_eng_eval_tr/reference",
     )
     logger.info("Start parsing mapping rules in en20000405_hub5.glm")
     parse_glm_file(glm_dir, save_folder)
@@ -1171,8 +1171,8 @@ def fisher_data_prep(data_folder, save_folder):
     )
 
     fisher_dirs = [
-        "LDC2004T19/fe_03_p1_tran/data/trans",
-        "LDC2005T19/fe_03_p2_tran/data/trans",
+        "fisher/fe_03_p1_tran/data/trans",
+        "fisher/fe_03_p2_tran/data/trans",
     ]
 
     for fisher_dir in fisher_dirs:
@@ -1238,8 +1238,8 @@ def fisher_data_prep(data_folder, save_folder):
 
 
 if __name__ == "__main__":
-    data_folder = "/nfs/data/ldc"
-    save_folder = "/mnt/md0/user/wagnerdo/speechbrain/recipes/Switchboard/test"
+    data_folder = "/fastdata/acp19jwr/data"
+    save_folder = "test"
 
     prepare_switchboard(
         data_folder,

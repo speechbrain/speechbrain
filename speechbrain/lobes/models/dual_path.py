@@ -811,7 +811,7 @@ class Dual_Computation_Block(nn.Module):
         if linear_layer_after_inter_intra:
             if isinstance(intra_mdl, SBRNNBlock):
                 self.intra_linear = Linear(
-                    out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
+                    out_channels, input_size= 2*intra_mdl.mdl.rnn.hidden_size
                 )
             else:
                 self.intra_linear = Linear(
@@ -820,7 +820,7 @@ class Dual_Computation_Block(nn.Module):
 
             if isinstance(inter_mdl, SBRNNBlock):
                 self.inter_linear = Linear(
-                    out_channels, input_size=2 * intra_mdl.mdl.rnn.hidden_size
+                    out_channels, input_size= 2*intra_mdl.mdl.rnn.hidden_size
                 )
             else:
                 self.inter_linear = Linear(
@@ -846,18 +846,17 @@ class Dual_Computation_Block(nn.Module):
                S = the number of chunks
         """
         B, N, K, S = x.shape
+
         # intra RNN
         # [BS, K, N]
         intra = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
         # [BS, K, H]
-
         intra = self.intra_mdl(intra)
-
         # [BS, K, N]
         if self.linear_layer_after_inter_intra:
             intra = self.intra_linear(intra)
-
         # [B, S, K, N]
+  
         intra = intra.view(B, S, K, N)
         # [B, N, K, S]
         intra = intra.permute(0, 3, 2, 1).contiguous()

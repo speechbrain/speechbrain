@@ -1047,7 +1047,14 @@ class Brain:
                     logger.info("Train iteration limit exceeded")
                     break
                 self.step += 1
+                # if epoch > 1 and self.distributed_launch:
+                #     print(f"About to fit batch on rank {self.rank}")
+
                 loss = self.fit_batch(batch)
+                # if epoch > 1 and self.distributed_launch:
+                #     print(f"Finished fit batch on rank {self.rank}")
+                #     print(f"Loss is {loss}")
+                    
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
                 )
@@ -1077,6 +1084,8 @@ class Brain:
                     if sb.utils.distributed.if_main_process():
                         self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
+                # if epoch > 1 and self.distributed_launch:
+                #     print(f"Finished batch on rank {self.rank}")
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients

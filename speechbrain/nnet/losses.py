@@ -768,7 +768,7 @@ def cal_si_snr(source, estimate_source):
 
     num_samples = (
         source_lengths.contiguous().reshape(1, -1, 1).float()
-    )  # [1, B, 1]
+    ).to(source.device)  # [1, B, 1]
     mean_target = torch.sum(source, dim=0, keepdim=True) / num_samples
     mean_estimate = (
         torch.sum(estimate_source, dim=0, keepdim=True) / num_samples

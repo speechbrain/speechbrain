@@ -15,7 +15,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
-data_folder: !PLACEHOLDER
+data_folder: /fastdata/acp19jwr/data
 splits: ["train", "dev"]
 split_ratio: [99, 1]
 add_fisher_corpus: True
@@ -23,7 +23,7 @@ add_fisher_corpus: True
 # in the training data.
 # Note that this only filters the swbd1 data but not the Fisher data.
 max_utt: 300
-skip_prep: False
+skip_prep: True
 # train_lm.csv is is created, when the Fisher
 # corpus is included in the data preparation
 # procedure via add_fisher_corpus
@@ -34,7 +34,7 @@ test_csv: !ref <save_folder>/test.csv
 # Tokenizer model
 # Location of your trained Sentencepiece tokenizer
 # (e.g. /path/to/2000_unigram.model)
-tokenizer_file: !PLACEHOLDER
+tokenizer_file: /home/acp19jwr/speechbrain/recipes/Switchboard/Tokenizer/results/2K_subword_unigram/2000_unigram.model
 
 # Training parameters
 number_of_epochs: 100

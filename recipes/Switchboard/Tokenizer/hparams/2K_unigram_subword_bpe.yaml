@@ -8,7 +8,7 @@ output_folder: !ref results/2K_subword_unigram
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
-data_folder: !PLACEHOLDER
+data_folder: /fastdata/acp19jwr/data
 splits: ["train", "dev"]
 split_ratio: [99, 1]
 add_fisher_corpus: True

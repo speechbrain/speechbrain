@@ -16,7 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 # Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
-data_folder: !PLACEHOLDER
+data_folder: /fastdata/acp19jwr/data
 splits: ["train", "dev"]
 split_ratio: [99, 1]
 add_fisher_corpus: True
