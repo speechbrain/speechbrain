@@ -494,6 +494,7 @@ if __name__ == "__main__":
     if valid_bsampler is not None:
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
+    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -502,6 +503,7 @@ if __name__ == "__main__":
         train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=valid_dataloader_opts,
     )
+    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
