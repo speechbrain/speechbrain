@@ -1361,6 +1361,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         log_probs = self.softmax(logits / self.temperature_lm)
         return log_probs[:, -1, :], memory
 
+
 class S2STransformerGreedySearch(S2SGreedySearcher):
     """This class implements the greedy decoding
     for Transformer.
@@ -1399,7 +1400,6 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
         pred, attn = self.model.decode(memory, enc_states)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
-
 
 
 class S2SWhisperBeamSearch(S2SBeamSearcher):
