@@ -1,6 +1,5 @@
 """Preprocessors for audio"""
 import torch
-import functools
 from speechbrain.processing.speech_augmentation import Resample
 
 
