@@ -41,7 +41,7 @@ class AudioNormalizer:
         if mix not in ["avg-to-mono", "keep"]:
             raise ValueError(f"Unexpected mixing configuration {mix}")
         self.mix = mix
-        self._cached_resample = functools.lru_cache(maxsize=12)(Resample)
+        self._cached_resample = Resample
 
     def __call__(self, audio, sample_rate):
         """Perform normalization
