@@ -16,7 +16,7 @@ Authors
 import math
 import torch
 import torch.nn.functional as F
-from methodtools import lru_cache
+from functools import lru_cache
 from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
