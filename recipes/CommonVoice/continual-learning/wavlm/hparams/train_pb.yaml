@@ -43,7 +43,7 @@ freeze_feature_extractor: True  # Feature extractor of WavLM
 hidden_size: 1024
 num_layers: 2
 dropout: 0.0
-bidirectional: False
+bidirectional: True
 
 max_target_length: 448
 auto_mix_prec: True
