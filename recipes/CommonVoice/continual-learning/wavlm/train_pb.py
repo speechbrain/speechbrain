@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning an OpenAI Whisper-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1612.00796).
+"""Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
+learning fashion via Piggyback (https://arxiv.org/abs/1801.06519).
 
-The following technical tricks were implemented to improve performance:
-- use custom greedy decoding implementation (several times faster than built-in
-  greedy searchers and supports decoding with predicted batch of languages)
-- apply the correct padding tokens directly in the dataloader
-- use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
-- remove unnecessary `undo_padding` since padding tokens are now set correctly
+The following optimization tricks were used to improve performance:
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
-- minor optimizations (e.g. remove leading special tokens from `tokens` during data loading)
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/train_pnn.yaml
+> python train_pb.py hparams/train_pb.yaml
 
-NOTE: although checkpoints are saved regularly, automatic experiment resumption is not supported.
-      To manually resume an experiment, you have to modify the script to load the correct checkpoint
-      and set the corresponding state variables (e.g. current locale).
+NOTE: automatic experiment resumption is not supported.
 
 Authors
- * Luca Della Libera 2022
+ * Luca Della Libera 2023
 """
 
 import copy
@@ -30,32 +22,43 @@ import os
 import pathlib
 import sys
 import time
-from speechbrain.lobes.models.VanillaNN import VanillaNN
-from speechbrain.nnet.linear import Linear
+
+import ptflops
 import torch
 import torchaudio
+import torchinfo
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.nnet.RNN import LSTM
+
 import speechbrain as sb
-from speechbrain.dataio.batch import PaddedBatch
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 
 from common_voice_prepare import prepare_common_voice
+
+
+class Threshold(torch.autograd.Function):
+    """Pseudo-differentiable thresholding function."""
+
+    @staticmethod
+    def forward(ctx, input, threshold=0.005):
+        return torch.where(input >= threshold, 1.0, 0.0)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output, None
+
 
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        bos_tokens, _ = batch.tokens_bos
-        # Forward encoder + decoder
-        
-        
-        feats = self.modules.wavlm(wavs)
+        tokens, _ = batch.tokens
 
-        if self.hparams.forced_decoder_locale in self.hparams.new_locales and  stage != sb.Stage.TEST:
-            self.modules.decoder.load_state_dict(
+        if stage != sb.Stage.TEST:
+            # Threshold and apply mask for training and validation
+            # To avoid unnecessary overhead when testing, this is done
+            # only once before calling `asr_brain.evaluate`
+            self.modules.wavlm.model.decoder.load_state_dict(
                 self.hparams.decoder_state_backup, strict=False
             )
             decoder_mask = self.hparams.decoder_mask.get(
@@ -65,7 +68,7 @@ class ASR(sb.Brain):
                 for (
                     k,
                     v,
-                ) in self.modules.decoder.named_parameters():
+                ) in self.modules.wavlm.model.decoder.named_parameters():
                     if k not in decoder_mask:
                         continue
                     v.detach_()
@@ -75,55 +78,54 @@ class ASR(sb.Brain):
                     )
                     v *= thresholded_mask
 
-        x = self.modules.decoder(feats)
-        x=x[0]
-        # Compute outputs
-        p_tokens = None
-        logits = hparams["ctc_decoders"][self.hparams.forced_decoder_locale](x)
-        p_ctc = self.hparams.log_softmax(logits)
-        if stage != sb.Stage.TRAIN:
-            p_tokens = sb.decoders.ctc_greedy_decode(
-                p_ctc, wav_lens, blank_id=self.hparams.blank_index
+        # Forward encoder + projection
+        if self.hparams.gradient_checkpointing:
+            tokens.requires_grad_()
+            logits = torch.utils.checkpoint.checkpoint(
+                self.modules.wavlm, wavs, wav_lens,
             )
-        return p_ctc, wav_lens, p_tokens
+        else:
+            logits = self.modules.wavlm(wavs, wav_lens)
+
+        hyps = None
+        if stage != sb.Stage.TRAIN:
+            hyps = sb.decoders.ctc_greedy_decode(
+                logits, wav_lens, blank_id=self.hparams.blank_index
+            )
+
+        return logits, hyps
 
     def compute_objectives(self, predictions, batch, stage):
-        p_ctc, wav_lens, predicted_tokens = predictions
-
+        """Computes the loss given predictions and targets."""
+        _, wav_lens = batch.sig
+        logits, hyps = predictions
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
+        logits = logits.float()  # Force float32
+        log_probs = logits.log_softmax(dim=-1)
+        loss = self.hparams.ctc_loss(log_probs, tokens, wav_lens, tokens_lens)
+
+        if stage != sb.Stage.TRAIN:
+            target_words = batch.target_wrd
+
+            # Decode predicted tokens to words
+            predicted_words = self.tokenizer.batch_decode(
+                hyps, skip_special_tokens=True
             )
-            tokens = torch.cat([tokens, tokens], dim=0)
-            tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
-        loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
-        loss = loss_ctc
-        if stage !=sb.Stage.TRAIN:
-            predicted_words = [
-                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                for utt_seq in predicted_tokens
-            ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
+
+            if self.hparams.normalize_transcripts:
+                predicted_words = [
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in predicted_words
+                ]
+            else:
+                predicted_words = [text.split(" ") for text in predicted_words]
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.model_optimizer.step()
-        self.model_optimizer.zero_grad()
-
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch"""
@@ -140,18 +142,17 @@ class ASR(sb.Brain):
         else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+
+        # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
-                stage_stats["loss"]
-            )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
+            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["loss"])
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            stats_meta_data = {
+                "epoch": epoch,
+                "lr": old_lr,
+            }
             self.hparams.train_logger.log_stats(
-                stats_meta={
-                    "epoch": epoch,
-                    "lr_model": old_lr_model,
-                },
+                stats_meta=stats_meta_data,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -163,45 +164,32 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
-
-
     def init_optimizers(self):
-        parameters = [
-            p for p in self.hparams.model.parameters() if p.requires_grad
-        ]
-        decoder_mask = self.hparams.decoder_mask.get(
-            self.hparams.forced_decoder_locale
-        )
-        if decoder_mask is not None:
-            parameters += list(decoder_mask.values())
+        if self.opt_class is not None:
+            parameters = [
+                p for p in self.modules.parameters() if p.requires_grad
+            ]
+            decoder_mask = self.hparams.decoder_mask.get(
+                self.hparams.forced_decoder_locale
+            )
+            if decoder_mask is not None:
+                parameters += list(decoder_mask.values())
 
-        self.model_optimizer = self.hparams.model_opt_class(parameters)
+            self.optimizer = self.opt_class(parameters)
 
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
-
-
-class Threshold(torch.autograd.Function):
-    """Pseudo-differentiable thresholding function."""
-
-    @staticmethod
-    def forward(ctx, input, threshold=0.005):
-        return torch.where(input >= threshold, 1.0, 0.0)
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output, None
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
 
-def dataio_prepare(hparams, label_encoder):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "train.csv"),
-        replacements={"data_root": hparams["download_dir"]},
+        csv_path=os.path.join(hparams["data_dir"], "train.csv"),
+        replacements={"data_root": hparams["data_dir"]},
     )
 
     if hparams["sorting"] in ["descending", "ascending"]:
@@ -221,8 +209,8 @@ def dataio_prepare(hparams, label_encoder):
 
     # reverse=True to fail fast in case of out-of-memory error
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
-        replacements={"data_root": hparams["download_dir"]},
+        csv_path=os.path.join(hparams["data_dir"], "dev.csv"),
+        replacements={"data_root": hparams["data_dir"]},
     ).filtered_sorted(
         sort_key="duration",
         reverse=True,
@@ -230,8 +218,8 @@ def dataio_prepare(hparams, label_encoder):
     )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "test.csv"),
-        replacements={"data_root": hparams["download_dir"]},
+        csv_path=os.path.join(hparams["data_dir"], "test.csv"),
+        replacements={"data_root": hparams["data_dir"]},
     ).filtered_sorted(
         sort_key="duration",
         reverse=True,
@@ -252,132 +240,47 @@ def dataio_prepare(hparams, label_encoder):
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-    @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
-    )
-    def text_pipeline(wrd):
-        yield wrd
-        char_list = list(wrd)
-        yield char_list
-        tokens_list = label_encoder.encode_sequence(char_list)
-        yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
-
-    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
-    sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "char_list", "tokens_bos", "tokens_eos", "tokens"],
-    )
-
-
-    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    special_labels = {
-        "bos_label": hparams["bos_index"],
-        "eos_label": hparams["eos_index"],
-        "blank_label": hparams["blank_index"],
-    }
-    return train_data,valid_data, test_data
-
-
-
-def create_label_encoder(hparams, locale):
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "train.csv"),
-        replacements={"data_root": hparams["download_dir"]},
-    )
-
-    if hparams["sorting"] in ["descending", "ascending"]:
-        # We sort training data to speed up training and get better results
-        train_data = train_data.filtered_sorted(
-            sort_key="duration",
-            reverse=hparams["sorting"] == "descending",
-            key_max_value={"duration": hparams["avoid_if_longer_than"]},
-        )
-        # When sorting do not shuffle in dataloader otherwise it is pointless
-        hparams["train_dataloader_kwargs"]["shuffle"] = False
-
-    elif hparams["sorting"] != "random":
-        raise ValueError(
-            f"`sorting` ({hparams['sorting']}) must be random, ascending or descending"
-        )
-
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "dev.csv"),
-        replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(
-        sort_key="duration",
-        reverse=True,
-        key_max_value={"duration": hparams["avoid_if_longer_than"]},
-    )
-
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["download_dir"], "test.csv"),
-        replacements={"data_root": hparams["download_dir"]},
-    ).filtered_sorted(
-        sort_key="duration",
-        reverse=True,
-        key_max_value={"duration": hparams["avoid_if_longer_than"]},
-    )
-
-
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("tokens", "target_wrd")
     def text_pipeline(wrd):
-        yield wrd
-        char_list = list(wrd)
-        yield char_list
-        tokens_list = label_encoder.encode_sequence(char_list)
-        yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
-        yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
-        yield tokens_eos
+        tokenizer.set_prefix_tokens()
+        tokens_list = tokenizer.encode(wrd)
+        tokens_list = tokens_list[3:-1]
+        assert sum(i == tokenizer.unk_token_id for i in tokens_list) == 0
+        tokens_list = tokens_list[: hparams["max_target_length"] - 1]
         tokens = torch.LongTensor(tokens_list)
         yield tokens
+        if hparams["normalize_transcripts"]:
+            wrd = tokenizer._normalize(wrd)
+        wrd = wrd.split(" ")
+        # When `ref_tokens` is an empty string add dummy space
+        # to avoid division by 0 when computing WER/CER
+        for i, char in enumerate(wrd):
+            if len(char) == 0:
+                wrd[i] = " "
+        yield wrd
 
+    sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
-    label_encoder = sb.dataio.encoder.CTCTextEncoder()
-    sb.dataio.dataset.add_dynamic_item([train_data, valid_data, test_data], text_pipeline)
-    lab_enc_file = os.path.join(hparams["save_folder"], f"label_encoder_{locale}.txt")
-    special_labels = {
-        "bos_label": hparams["bos_index"],
-        "eos_label": hparams["eos_index"],
-        "blank_label": hparams["blank_index"],
-    }
+    # 4. Set output:
+    sb.dataio.dataset.set_output_keys(
+        datasets, ["id", "sig", "tokens", "target_wrd"],
+    )
 
-    label_encoder.load_or_create(
-            path=lab_enc_file,
-            from_didatasets=[train_data, test_data, valid_data],
-            output_key="char_list",
-            special_labels=special_labels,
-            sequence_input=True,
-        )
-
-
-
-    return label_encoder
-
+    return train_data, valid_data, test_data
 
 
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # Test on old + new locales
-    for i, locale in enumerate(locales):
+    for locale in locales:
         # Multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_common_voice,
             kwargs={
                 "locales": [locale],
-                "download_dir": hparams["download_dir"],
+                "data_dir": hparams["data_dir"],
                 "max_durations": hparams["max_durations"],
             },
         )
@@ -392,23 +295,27 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         else:
             hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
 
-        # Set forced decoder locale
-
+        # Set forced decoder locale (for mask selection)
         hparams["forced_decoder_locale"] = locale
 
-        hparams["ctc_decoders"][locale].eval()
-        # Retrieve corresponding tokenizer
-        # Here we create the datasets objects as well as tokenization and encoding
+        # Define tokenizer
+        tokenizer = hparams["wavlm"].tokenizer
 
-        tokenizer = hparams["tokenizer_backup"][locale]
+        # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        hparams["decoder"].load_state_dict(
+        # Retrieve corresponding projection layer
+        hparams["wavlm"].model.decoder.out_proj = hparams["out_proj_backup"][
+            locale
+        ]
+
+        # Retrieve threshold and apply corresponding mask
+        hparams["wavlm"].model.decoder.load_state_dict(
             hparams["decoder_state_backup"], strict=False
         )
         decoder_mask = hparams["decoder_mask"].get(locale)
         if decoder_mask is not None:
-            for k, v in hparams["decoder"].named_parameters():
+            for k, v in hparams["wavlm"].model.decoder.named_parameters():
                 if k not in decoder_mask:
                     continue
                 v.detach_()
@@ -418,8 +325,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
                     )
                     v *= thresholded_mask
 
-        
-        # Retrieve corresponding embedding layer and decoder layers
         # Trainer initialization
         asr_brain = ASR(
             modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
@@ -439,129 +344,101 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             test_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
 
+    # MACs not 100% accurate but still useful for comparisons
+    profile(hparams)
+
 
 def train(hparams, run_opts):
-    # Store embedding layer, decoder layers and tokenizer for each locale
-    hparams["ctc_decoders"]={}
-    hparams["tokenizer_backup"] = {}
+    # Store projection layer, decoder mask and tokenizer for each locale
+    hparams["out_proj_backup"] = {}
     hparams["decoder_mask"] = {}
+    for locale in hparams["old_locales"]:
+        hparams["out_proj_backup"][locale] = hparams[
+            "wavlm"
+        ].model.decoder.out_proj
+        hparams["decoder_mask"][locale] = None
+
+    # Store decoder state (projection layer excluded)
     hparams["decoder_state_backup"] = hparams[
         "wavlm"
-    ].model.state_dict()
-    for i, locale in enumerate(hparams["old_locales"]):
-
-        # Train on (old) locales
-        # Multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_common_voice,
-            kwargs={
-                "locales": [locale],
-                "download_dir": hparams["download_dir"],
-                "max_durations": hparams["max_durations"],
-            },
-        )
-        label_encoder = create_label_encoder(hparams, locale)
-        hparams["tokenizer_backup"][locale] = label_encoder
-        hparams["ctc_decoders"][locale] = Linear(input_size = 2048 ,n_neurons=len(label_encoder.ind2lab))
-
-        hparams["forced_decoder_locale"] = locale
-        hparams["new_locale"]=False
-        # Here we create the datasets objects as well as tokenization and encoding
-        label_encoder = hparams["tokenizer_backup"][locale]
-        train_data, valid_data, test_data = dataio_prepare(hparams, label_encoder)
-
-        # Trainer initialization
-        checkpoint_dir = os.path.join(hparams["save_dir"], locale)
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
-        hparams["lr_annealing_model"].hyperparam_value = hparams["lr"]
-        hparams["lr_annealing_model"].metric_values.clear()
-        hparams["lr_annealing_model"].current_patient = 0
-
-        hparams["model"] =torch.nn.ModuleList([hparams["decoder"], hparams["ctc_decoders"][locale]])
-        asr_brain = ASR(
-            modules=hparams["modules"],
-            hparams=hparams,
-            run_opts=run_opts,
-            checkpointer=hparams["checkpointer"],
-        )
-        hparams["ctc_decoders"][locale].to(asr_brain.device)
-
-        # We dynamically add the tokenizer to our brain class
-        # NB: This tokenizer corresponds to the one used for Whisper
-        asr_brain.tokenizer = label_encoder
-
-        # Training
-        hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
-        hparams["epoch_counter"].current = 0
-        asr_brain.fit(
-            hparams["epoch_counter"],
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["train_dataloader_kwargs"],
-            valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
-
-    hparams["decoder_state_backup"] = asr_brain.modules.decoder.state_dict()
+    ].model.decoder.state_dict()
     for k in list(hparams["decoder_state_backup"]):
-           hparams["decoder_state_backup"][k] = (
+        if "out_proj" in k:
+            hparams["decoder_state_backup"].pop(k)
+            continue
+        hparams["decoder_state_backup"][k] = (
             hparams["decoder_state_backup"][k].clone().cpu()
         )
 
+    test(
+        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+    )
 
-
+    # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
-
-        # Train on new locales
         # Multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_common_voice,
             kwargs={
                 "locales": [locale],
-                "download_dir": hparams["download_dir"],
+                "data_dir": hparams["data_dir"],
                 "max_durations": hparams["max_durations"],
             },
         )
-        label_encoder = create_label_encoder(hparams, locale)
-        hparams["tokenizer_backup"][locale] = label_encoder
-        hparams["ctc_decoders"][locale] = Linear(input_size = 2048 ,n_neurons=len(label_encoder.ind2lab))
 
+        # Define tokenizer
+        tokenizer = hparams["wavlm"].tokenizer
 
+        # Log total number of tokens
+        logging.info(
+            f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
+        )
+
+        # Freeze the whole model to avoid forgetting
+        hparams["wavlm"].model.requires_grad_(False)
+
+        # Backup projection layer
+        hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
+            hparams["wavlm"].model.decoder.out_proj
+        )
+        hparams["out_proj_backup"][locale] = hparams[
+            "wavlm"
+        ].model.decoder.out_proj
+
+        # Initialize decoder mask
         hparams["decoder_mask"][locale] = {
             k: torch.full_like(v, hparams["mask_init"], requires_grad=True)
-            for k, v in hparams["decoder"].named_parameters()
+            for k, v in hparams["wavlm"].model.decoder.named_parameters()
+            if "out_proj" not in k
         }
 
- 
+        # Unfreeze projection layer
+        hparams["wavlm"].model.decoder.out_proj.requires_grad_()
 
-        #hparams["model"] =torch.nn.ModuleList([hparams["rnn_decoders"][locale], hparams["ctc_decoders"][locale], hparams["linear_encs"][i]])
-        # Set forced decoder locale
+        # Set forced decoder locale (for mask selection)
         hparams["forced_decoder_locale"] = locale
 
-        # Here we create the datasets objects as well as tokenization and encoding
-        label_encoder = hparams["tokenizer_backup"][locale]
-        train_data, valid_data, test_data = dataio_prepare(hparams, label_encoder)
+        # Create datasets, tokenization and encoding
+        train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
         os.makedirs(checkpoint_dir, exist_ok=True)
         hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
-        hparams["lr_annealing_model"].hyperparam_value = hparams["lr"]
-        hparams["lr_annealing_model"].metric_values.clear()
-        hparams["lr_annealing_model"].current_patient = 0
-
-        hparams["model"] =torch.nn.ModuleList([ hparams["ctc_decoders"][locale]])
+        hparams["lr_annealing"].hyperparam_value = hparams["lr"]
+        hparams["lr_annealing"].metric_values.clear()
+        hparams["lr_annealing"].current_patient = 0
         asr_brain = ASR(
             modules=hparams["modules"],
             hparams=hparams,
             run_opts=run_opts,
+            opt_class=hparams["opt_class"],
             checkpointer=hparams["checkpointer"],
         )
-        hparams["ctc_decoders"][locale].to(asr_brain.device)
 
         # We dynamically add the tokenizer to our brain class
         # NB: This tokenizer corresponds to the one used for Whisper
-        asr_brain.tokenizer = label_encoder
+        asr_brain.tokenizer = tokenizer
 
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
@@ -578,9 +455,54 @@ def train(hparams, run_opts):
         test(
             hparams,
             run_opts,
-            hparams["new_locales"][: i + 1], #Test only on new locales
+            hparams["old_locales"] + hparams["new_locales"][: i + 1],
             f"wer_test_after_{locale}.txt",
         )
+
+
+def profile(hparams):
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.wavlm = hparams["wavlm"]
+            self.wavs = torch.randn(
+                1, hparams["sample_rate"], device=run_opts["device"],
+            )
+
+        @torch.no_grad()
+        def forward(self, _=None):
+            logits = self.wavlm(self.wavs)
+            return logits
+
+    model = Model().eval().to(run_opts["device"])
+    macs, params = ptflops.get_model_complexity_info(
+        model, (1,), as_strings=True, print_per_layer_stat=False,
+    )
+    time_start = time.time()
+    model()
+    torch.cuda.synchronize()
+    time_stop = time.time() - time_start
+    max_mem = torch.cuda.max_memory_allocated("cuda") / 10 ** 9
+    result = {
+        "MACs": macs,
+        "memory": max_mem,
+        "time": time_stop,
+    }
+    summary = torchinfo.summary(model, verbose=0)
+    # Manually fix number of parameters
+    summary.trainable_params = hparams[
+        "wavlm"
+    ].model.decoder.out_proj.weight.numel()
+    summary.total_params = sum(
+        p.numel() for p in hparams["wavlm"].model.parameters()
+    )
+    for i, (k, v) in enumerate(hparams["decoder_mask"].items()):
+        if v is None:
+            continue
+        for buffer in v.values():
+            summary.total_params += buffer.numel()
+    logging.info(summary)
+    logging.info(result)
 
 
 if __name__ == "__main__":

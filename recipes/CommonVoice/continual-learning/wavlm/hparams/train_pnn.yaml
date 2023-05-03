@@ -1,27 +1,24 @@
 # ############################################################################
-# Model: Whisper (encoder-decoder) + cross-entropy loss
-# Authors: Pooneh Mousavi 2022, Luca Della Libera 2022
+# Model: WavLM + LSTM + CTC loss
+# Authors: Luca Della Libera 2023
 # ############################################################################
 
-seed: 1986
+seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Data preparation
-old_locales: [pl]
-new_locales: [ eo, kab, mhr, ckb, ab, kmr, fy-NL, ia]
-train_with_old_locales: True 
-#There is no "old_locales" as it is a SSL model
-download_dir: /gpfsscratch/rech/nou/uzn19yk/download/cv-corpus-12.0-2022-12-07/
-max_durations:  [36000, 3600, 3600] #for whisper-large-v2
+new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
+data_dir: !PLACEHOLDER
+max_durations: [36000, 3600, 3600]
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/new/first_exp_pnn_trains/<seed>
+output_dir: !ref results/<wavlm_variant>/pnn/<seed>
 save_dir: !ref <output_dir>/save
-save_folder: !ref <save_dir>
 
 # Training parameters
-train_batch_size: 8  # 32 for whisper-base, 1 for whisper-large-v2
-valid_batch_size: 8  # 32 for whisper-base, 1 for whisper-large-v2
+train_batch_size: 1
+valid_batch_size: 6
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -29,39 +26,29 @@ sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 
-ignore_index: -100  # For cross-entropy loss
-label_smoothing: 0
+blank_index: 50258  # For CTC loss (use Whisper BOS as blank)
 
-num_epochs: 3  # I think it is a good start
-lr: 0.9
-lr_wav2vec: 0.0001
-
+num_epochs: 2
+lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
+num_new_decoder_layers: 1
 
-activation: !name:torch.nn.LeakyReLU
-dnn_layers: 1
-dnn_neurons: 1024
+wavlm_variant: wavlm-large
+output_norm: True
+freeze: False  # WavLM + LSTM
+freeze_encoder: True  # WavLM
+freeze_feature_extractor: True  # Feature extractor of WavLM
+hidden_size: 1024
+num_layers: 2
+dropout: 0.0
+bidirectional: False
 
-output_neurons: 145  # BPE size, index(blank/eos/bos) = 0
-wavlm_variant: wavlm-large  # whisper-large-v2
-wavlm_hub: /gpfsstore/rech/nou/uzn19yk/wavlm/
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-   apply_log: True
-
-
-linear_enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-   input_shape: [null, null, 1024]
-   activation: !ref <activation>
-   dnn_blocks: !ref <dnn_layers>
-   dnn_neurons: !ref <dnn_neurons>
-
-
-auto_mix_prec: True  # True for whisper-large-v2 (for full dataset it causes NaN in forward pass for Kinyarwanda)
+max_target_length: 448
+auto_mix_prec: True
 gradient_checkpointing: False
-ckpt_interval_minutes: 10
+ckpt_interval_minutes: 600
 
-forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 
 # Dataloader options
@@ -74,76 +61,33 @@ valid_dataloader_kwargs:
     num_workers: !ref <valid_num_workers>
 
 # Modules
+wavlm: !new:model.ProgressiveWavLM
+    source: !ref microsoft/<wavlm_variant>
+    save_path: !ref <save_dir>/checkpoint
+    output_norm: !ref <output_norm>
+    freeze: !ref <freeze>
+    freeze_encoder: !ref <freeze_encoder>
+    freeze_feature_extractor: !ref <freeze_feature_extractor>
+    hidden_size: !ref <hidden_size>
+    num_layers: !ref <num_layers>
+    dropout: !ref <dropout>
+    bidirectional: !ref <bidirectional>
 
-wavlm: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
-   source: !ref <wavlm_hub>
-   output_norm: True
-   freeze_feature_extractor: True
-   freeze: True #In PNN the encoder is frozen
-   save_path: !ref <save_folder>/wav2vec2_checkpoint
-
-decoder: !new:speechbrain.nnet.RNN.LSTM
-   input_shape: [Null, Null, 1024]
-   num_layers: 2
-   bidirectional : True
-   dropout: 0.2
-   hidden_size: 1024
-
-
-ctc_lin: !new:speechbrain.nnet.linear.Linear
-   input_size: 2048
-   n_neurons: !ref <output_neurons>
-
-ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-   blank_index: !ref <blank_index>
+ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <blank_index>
 
 modules:
-   wavlm: !ref <wavlm>
-   decoder: !ref <decoder>
-   linear_encs: !ref <linear_enc>
-   ctc_lin: !ref <ctc_lin>
-    
-model: !new:torch.nn.ModuleList
-   - [!ref <decoder>, !ref <ctc_lin>]
+    wavlm: !ref <wavlm>
 
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
 
-model_opt_class: !name:torch.optim.Adadelta
-   lr: !ref <lr>
-   rho: 0.95
-   eps: 1.e-8
-
-wav2vec_opt_class: !name:torch.optim.Adam
-   lr: !ref <lr_wav2vec>
-
-lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.8
-   patient: 0
-
-lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr_wav2vec>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.9
-   patient: 0
-
-label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
-
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-   checkpoints_dir: !ref <save_folder>
-   recoverables:
-      wav2vec2: !ref <wavlm>
-      model: !ref <model>
-      scheduler_model: !ref <lr_annealing_model>
-      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
-      counter: !ref <epoch_counter>
-      tokenizer: !ref <label_encoder>
-blank_index: 0
-bos_index: 1
-eos_index: 2
-
-
-
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: 0
 
 # Performance metrics
 wer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
@@ -154,6 +98,13 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 # Counters, checkpointers, loggers, etc.
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_dir>
+    recoverables:
+        model: !ref <wavlm>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <output_dir>/train_log.txt

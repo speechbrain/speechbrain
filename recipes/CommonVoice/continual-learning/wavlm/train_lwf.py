@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1612.00796).
+learning fashion via Learning Without Forgetting (https://arxiv.org/abs/1606.09282).
 
 The following optimization tricks were used to improve performance:
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/train_pnn.yaml
-
-NOTE: automatic experiment resumption is not supported.
+> python train_lwf.py hparams/train_lwf.yaml
 
 Authors
  * Luca Della Libera 2023
@@ -25,6 +23,7 @@ import time
 
 import ptflops
 import torch
+import torch.nn.functional as F
 import torchaudio
 import torchinfo
 from hyperpyyaml import load_hyperpyyaml
@@ -51,24 +50,54 @@ class ASR(sb.Brain):
         else:
             logits = self.modules.wavlm(wavs, wav_lens)
 
+        # Generate soft logits using old model
+        soft_logits = None
+        if stage == sb.Stage.TRAIN:
+            with torch.no_grad():
+                soft_logits = self.old_model(wavs, wav_lens)
+
         hyps = None
         if stage != sb.Stage.TRAIN:
             hyps = sb.decoders.ctc_greedy_decode(
                 logits, wav_lens, blank_id=self.hparams.blank_index
             )
 
-        return logits, hyps
+        return logits, hyps, soft_logits
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
         _, wav_lens = batch.sig
-        logits, hyps = predictions
+        logits, hyps, soft_logits = predictions
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
         logits = logits.float()  # Force float32
         log_probs = logits.log_softmax(dim=-1)
         loss = self.hparams.ctc_loss(log_probs, tokens, wav_lens, tokens_lens)
+
+        if stage == sb.Stage.TRAIN:
+            # Probabilities modified by distillation temperature
+            modified_probs = F.softmax(
+                logits.flatten(end_dim=-2) / self.hparams.lwf_T, dim=1,
+            )
+
+            # Target probabilities modified by distillation temperature
+            modified_target_probs = F.softmax(
+                soft_logits.flatten(end_dim=-2) / self.hparams.lwf_T, dim=1
+            )
+
+            # Cross entropy between output of the old task and output of the old model
+            logits_lens = (wav_lens * logits.shape[1]).round().int()
+            valid_mask = (
+                torch.arange(logits_lens.max(), device=self.device)[None, :]
+                < logits_lens[:, None]
+            ).flatten()
+            lwf_loss = (
+                -(modified_target_probs * modified_probs.log())
+                .sum(dim=1)[valid_mask]
+                .mean()
+            )
+            loss += self.hparams.lwf_lambda * lwf_loss
 
         if stage != sb.Stage.TRAIN:
             target_words = batch.target_wrd
@@ -249,14 +278,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        # Retrieve corresponding projection layer and decoder layers
-        hparams["wavlm"].model.decoder.out_proj = hparams["out_proj_backup"][
-            locale
-        ]
-        hparams["wavlm"].model.decoder.layers = hparams[
-            "decoder_layers_backup"
-        ][locale]
-
         # Trainer initialization
         asr_brain = ASR(
             modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
@@ -281,23 +302,14 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Store projection layer, decoder layers and tokenizer for each locale
-    hparams["out_proj_backup"] = {}
-    hparams["decoder_layers_backup"] = {}
-    for locale in hparams["old_locales"]:
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
 
     # Train on new locales
     for i, locale in enumerate(hparams["new_locales"]):
+        old_model = copy.deepcopy(hparams["wavlm"]).to(run_opts["device"])
+
         # Multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_common_voice,
@@ -315,36 +327,6 @@ def train(hparams, run_opts):
         logging.info(
             f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
         )
-
-        # Backup projection layer
-        hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
-            hparams["wavlm"].model.decoder.out_proj
-        )
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-
-        # Add new decoding layers
-        hparams["wavlm"].model.decoder.layers = copy.deepcopy(
-            hparams["wavlm"].model.decoder.layers
-        )
-        hparams["wavlm"].model.decoder.layers += [
-            torch.nn.LSTM(
-                input_size=hparams["hidden_size"],
-                hidden_size=hparams["hidden_size"],
-                num_layers=hparams["num_layers"],
-                dropout=hparams["dropout"],
-                bidirectional=hparams["bidirectional"],
-                batch_first=True,
-            )
-            for _ in range(hparams["num_new_decoder_layers"])
-        ]
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
-        # Unfreeze projection layer
-        hparams["wavlm"].model.decoder.out_proj.requires_grad_()
 
         # Create datasets, tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
@@ -367,6 +349,7 @@ def train(hparams, run_opts):
         # We dynamically add the tokenizer to our brain class
         # NB: This tokenizer corresponds to the one used for Whisper
         asr_brain.tokenizer = tokenizer
+        asr_brain.old_model = old_model
 
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
@@ -378,6 +361,10 @@ def train(hparams, run_opts):
             train_loader_kwargs=hparams["train_dataloader_kwargs"],
             valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
         )
+
+        # Release memory
+        del old_model, asr_brain.old_model
+        torch.cuda.empty_cache()
 
         # Testing
         test(

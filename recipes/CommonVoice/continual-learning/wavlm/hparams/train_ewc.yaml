@@ -13,12 +13,12 @@ data_dir: !PLACEHOLDER
 max_durations: [36000, 3600, 3600]
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/pb/<seed>
+output_dir: !ref results/<wavlm_variant>/ewc/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 2
-valid_batch_size: 6
+train_batch_size: 8
+valid_batch_size: 16
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -32,8 +32,7 @@ num_epochs: 2
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-mask_init: 0.01
-mask_threshold: 0.005
+ewc_lambda: 5.0
 
 wavlm_variant: wavlm-large
 output_norm: True

@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1612.00796).
+learning fashion via Experience Replay for Continual Learning (https://arxiv.org/abs/1811.11682).
 
 The following optimization tricks were used to improve performance:
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/train_pnn.yaml
-
-NOTE: automatic experiment resumption is not supported.
+> python train_clear.py hparams/train_clear.yaml
 
 Authors
  * Luca Della Libera 2023
 """
 
-import copy
 import logging
 import os
 import pathlib
+import random
 import sys
 import time
 
@@ -249,14 +247,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        # Retrieve corresponding projection layer and decoder layers
-        hparams["wavlm"].model.decoder.out_proj = hparams["out_proj_backup"][
-            locale
-        ]
-        hparams["wavlm"].model.decoder.layers = hparams[
-            "decoder_layers_backup"
-        ][locale]
-
         # Trainer initialization
         asr_brain = ASR(
             modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
@@ -281,17 +271,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Store projection layer, decoder layers and tokenizer for each locale
-    hparams["out_proj_backup"] = {}
-    hparams["decoder_layers_backup"] = {}
-    for locale in hparams["old_locales"]:
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -316,38 +295,37 @@ def train(hparams, run_opts):
             f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
         )
 
-        # Backup projection layer
-        hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
-            hparams["wavlm"].model.decoder.out_proj
-        )
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-
-        # Add new decoding layers
-        hparams["wavlm"].model.decoder.layers = copy.deepcopy(
-            hparams["wavlm"].model.decoder.layers
-        )
-        hparams["wavlm"].model.decoder.layers += [
-            torch.nn.LSTM(
-                input_size=hparams["hidden_size"],
-                hidden_size=hparams["hidden_size"],
-                num_layers=hparams["num_layers"],
-                dropout=hparams["dropout"],
-                bidirectional=hparams["bidirectional"],
-                batch_first=True,
-            )
-            for _ in range(hparams["num_new_decoder_layers"])
-        ]
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
-        # Unfreeze projection layer
-        hparams["wavlm"].model.decoder.out_proj.requires_grad_()
-
         # Create datasets, tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        length = len(train_data)
+
+        # Get train data from previous tasks
+        for old_locale in hparams["old_locales"] + hparams["new_locales"][:i]:
+            run_on_main(
+                prepare_common_voice,
+                kwargs={
+                    "locales": [old_locale],
+                    "data_dir": hparams["data_dir"],
+                    "max_durations": hparams["max_durations"],
+                },
+            )
+            old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
+            selected_keys = random.sample(
+                list(old_train_data.data.keys()),
+                round(
+                    min(length * hparams["replay_ratio"], len(old_train_data))
+                ),
+            )
+            old_train_data.data = {
+                k: old_train_data.data[k] for k in selected_keys
+            }
+            train_data.data.update(old_train_data.data)
+
+        # Shuffle all data
+        all_keys = list(train_data.data.keys())
+        random.shuffle(all_keys)
+        train_data.data = {k: train_data.data[k] for k in all_keys}
+        train_data.data_ids = list(train_data.data.keys())
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
@@ -430,6 +408,7 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    random.seed(hparams["seed"])
 
     # Create experiment directory
     sb.create_experiment_directory(

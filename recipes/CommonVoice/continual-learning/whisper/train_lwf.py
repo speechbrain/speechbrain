@@ -88,6 +88,7 @@ class ASR(sb.Brain):
         loss = self.hparams.ce_loss(
             logits.flatten(end_dim=-2), tokens_eos.flatten()
         )
+
         if stage == sb.Stage.TRAIN:
             # Probabilities modified by distillation temperature
             modified_probs = F.softmax(
@@ -446,9 +447,8 @@ def profile(hparams):
             return logits
 
     model = Model().eval().to(run_opts["device"])
-
     macs, params = ptflops.get_model_complexity_info(
-        model, (1,), as_strings=True,
+        model, (1,), as_strings=True, print_per_layer_stat=False,
     )
     time_start = time.time()
     model()

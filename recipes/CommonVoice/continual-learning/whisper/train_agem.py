@@ -559,9 +559,8 @@ def profile(hparams):
             return logits
 
     model = Model().eval().to(run_opts["device"])
-
     macs, params = ptflops.get_model_complexity_info(
-        model, (1,), as_strings=True,
+        model, (1,), as_strings=True, print_per_layer_stat=False,
     )
     time_start = time.time()
     model()

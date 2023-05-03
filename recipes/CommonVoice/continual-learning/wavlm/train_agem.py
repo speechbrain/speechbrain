@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1612.00796).
+learning fashion via Averaged Gradient Episodic Memory (https://arxiv.org/abs/1812.00420).
 
 The following optimization tricks were used to improve performance:
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/train_pnn.yaml
-
-NOTE: automatic experiment resumption is not supported.
+> python train_agem.py hparams/train_agem.yaml
 
 Authors
  * Luca Della Libera 2023
@@ -20,6 +18,7 @@ import copy
 import logging
 import os
 import pathlib
+import random
 import sys
 import time
 
@@ -96,6 +95,8 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.wer_computer()
+        else:
+            self.replay_data_iter = iter(self.replay_data)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -130,6 +131,122 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
+
+    def fit_batch(self, batch):
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            # Compute gradient
+            with torch.cuda.amp.autocast(self.auto_mix_prec):
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                self.scaler.scale(loss).backward()
+            with torch.no_grad():
+                grad = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.wavlm.parameters()
+                        if p.grad is not None
+                    ]
+                )
+                self.modules.wavlm.zero_grad()
+
+            # Draw data from replay buffer
+            try:
+                batch = next(self.replay_data_iter)
+            except StopIteration:
+                self.replay_data_iter = iter(self.replay_data)
+                batch = next(self.replay_data_iter)
+
+            # Compute reference gradient
+            with torch.cuda.amp.autocast(self.auto_mix_prec):
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                self.scaler.scale(loss).backward()
+            with torch.no_grad():
+                grad_ref = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.wavlm.parameters()
+                        if p.grad is not None
+                    ]
+                )
+
+            # Compute and inject modified gradient
+            with torch.no_grad():
+                grad_T_grad_ref = grad.dot(grad_ref)
+                if grad_T_grad_ref < 0:
+                    grad -= (grad_T_grad_ref / grad_ref.norm() ** 2) * grad_ref
+                start = 0
+                for param in self.modules.wavlm.parameters():
+                    if param.grad is not None:
+                        end = start + param.numel()
+                        param.grad = grad[start:end].reshape_as(param)
+                        start = end
+
+            self.scaler.unscale_(self.optimizer)
+            if self.check_gradients(loss):
+                self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.zero_grad()
+            self.optimizer_step += 1
+        else:
+            # Compute gradient
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                loss.backward()
+            with torch.no_grad():
+                grad = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.wavlm.parameters()
+                        if p.grad is not None
+                    ]
+                )
+                self.modules.wavlm.zero_grad()
+
+            # Draw data from replay buffer
+            try:
+                batch = next(self.replay_data_iter)
+            except StopIteration:
+                self.replay_data_iter = iter(self.replay_data)
+                batch = next(self.replay_data_iter)
+
+            # Compute reference gradient
+            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(False):
+                loss.backward()
+            with torch.no_grad():
+                grad_ref = torch.cat(
+                    [
+                        p.grad.flatten()
+                        for p in self.modules.wavlm.parameters()
+                        if p.grad is not None
+                    ]
+                )
+
+            # Compute and inject modified gradient
+            with torch.no_grad():
+                grad_T_grad_ref = grad.dot(grad_ref)
+                if grad_T_grad_ref < 0:
+                    grad -= (grad_T_grad_ref / grad_ref.norm() ** 2) * grad_ref
+                start = 0
+                for param in self.modules.wavlm.parameters():
+                    if param.grad is not None:
+                        end = start + param.numel()
+                        param.grad = grad[start:end].reshape_as(param)
+                        start = end
+
+            if self.check_gradients(loss):
+                self.optimizer.step()
+            self.zero_grad()
+            self.optimizer_step += 1
+
+        self.on_fit_batch_end(batch, outputs, loss, True)
+        return loss.detach().cpu()
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -249,14 +366,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        # Retrieve corresponding projection layer and decoder layers
-        hparams["wavlm"].model.decoder.out_proj = hparams["out_proj_backup"][
-            locale
-        ]
-        hparams["wavlm"].model.decoder.layers = hparams[
-            "decoder_layers_backup"
-        ][locale]
-
         # Trainer initialization
         asr_brain = ASR(
             modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
@@ -281,17 +390,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Store projection layer, decoder layers and tokenizer for each locale
-    hparams["out_proj_backup"] = {}
-    hparams["decoder_layers_backup"] = {}
-    for locale in hparams["old_locales"]:
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -316,38 +414,39 @@ def train(hparams, run_opts):
             f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
         )
 
-        # Backup projection layer
-        hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
-            hparams["wavlm"].model.decoder.out_proj
-        )
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-
-        # Add new decoding layers
-        hparams["wavlm"].model.decoder.layers = copy.deepcopy(
-            hparams["wavlm"].model.decoder.layers
-        )
-        hparams["wavlm"].model.decoder.layers += [
-            torch.nn.LSTM(
-                input_size=hparams["hidden_size"],
-                hidden_size=hparams["hidden_size"],
-                num_layers=hparams["num_layers"],
-                dropout=hparams["dropout"],
-                bidirectional=hparams["bidirectional"],
-                batch_first=True,
-            )
-            for _ in range(hparams["num_new_decoder_layers"])
-        ]
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
-        # Unfreeze projection layer
-        hparams["wavlm"].model.decoder.out_proj.requires_grad_()
-
         # Create datasets, tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        length = len(train_data)
+
+        # Get train data from previous tasks
+        replay_data = copy.deepcopy(train_data)
+        replay_data.data = {}
+        for old_locale in hparams["old_locales"] + hparams["new_locales"][:i]:
+            run_on_main(
+                prepare_common_voice,
+                kwargs={
+                    "locales": [old_locale],
+                    "data_dir": hparams["data_dir"],
+                    "max_durations": hparams["max_durations"],
+                },
+            )
+            old_train_data, _, _ = dataio_prepare(hparams, tokenizer)
+            selected_keys = random.sample(
+                list(old_train_data.data.keys()),
+                round(
+                    min(length * hparams["replay_ratio"], len(old_train_data))
+                ),
+            )
+            old_train_data.data = {
+                k: old_train_data.data[k] for k in selected_keys
+            }
+            replay_data.data.update(old_train_data.data)
+
+        # Shuffle replay data
+        all_keys = list(replay_data.data.keys())
+        random.shuffle(all_keys)
+        replay_data.data = {k: replay_data.data[k] for k in all_keys}
+        replay_data.data_ids = list(replay_data.data.keys())
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)
@@ -371,6 +470,16 @@ def train(hparams, run_opts):
         # Training
         hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
         hparams["epoch_counter"].current = 0
+        replay_brain = ASR(
+            modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+        )
+        replay_data = replay_brain.make_dataloader(
+            replay_data,
+            stage=sb.Stage.TRAIN,
+            **hparams["train_dataloader_kwargs"],
+        )
+        del replay_brain
+        asr_brain.replay_data = replay_data
         asr_brain.fit(
             hparams["epoch_counter"],
             train_data,
@@ -430,6 +539,13 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    random.seed(hparams["seed"])
+    grad_accumulation_factor = hparams.get("grad_accumulation_factor")
+    if grad_accumulation_factor is not None and grad_accumulation_factor > 1:
+        logging.info(
+            "`grad_accumulation_factor` > 1 not supported, setting to 1"
+        )
+        hparams["grad_accumulation_factor"] = 1
 
     # Create experiment directory
     sb.create_experiment_directory(

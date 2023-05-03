@@ -15,6 +15,8 @@ The following optimization tricks were used to improve performance:
 To run this recipe, do the following:
 > python train_ewc.py hparams/train_ewc.yaml
 
+NOTE: automatic experiment resumption is not supported.
+
 Authors
  * Luca Della Libera 2023
  * Pooneh Mousavi 2023
@@ -77,7 +79,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "all_ewc_params"):
             for name, param in self.modules.whisper.named_parameters():
-                if not param.requires_grad:
+                if not param.requires_grad or param.grad is None:
                     continue
                 for (old_param, fisher) in self.hparams.all_ewc_params:
                     if "embed_tokens.weight" in name:
@@ -173,6 +175,63 @@ class EWCParamsComputer(ASR):
             loss.backward()
         self.on_fit_batch_end(batch, outputs, loss, True)
         return loss.detach().cpu()
+
+
+def compute_ewc_params(hparams, run_opts, locales):
+    tokenizer = hparams["whisper"].tokenizer
+    batch_size = hparams["train_dataloader_kwargs"].get("batch_size", 1)
+    max_grad_norm = hparams.get("max_grad_norm", 5.0)
+    grad_accumulation_factor = hparams.get("grad_accumulation_factor", 1)
+    auto_mix_prec = hparams.get("auto_mix_prec", False)
+    hparams["train_dataloader_kwargs"]["batch_size"] = 1
+    hparams["max_grad_norm"] = float("inf")
+    hparams["auto_mix_prec"] = False
+    hparams["grad_accumulation_factor"] = 1
+
+    # Multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_common_voice,
+        kwargs={
+            "locales": locales,
+            "data_dir": hparams["data_dir"],
+            "max_durations": hparams["max_durations"],
+        },
+    )
+
+    # Create datasets, tokenization and encoding
+    train_data, _, _ = dataio_prepare(hparams, tokenizer)
+
+    # Trainer initialization
+    asr_brain = EWCParamsComputer(
+        modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+    )
+
+    # We dynamically add the tokenizer to our brain class
+    # NB: This tokenizer corresponds to the one used for Whisper
+    asr_brain.tokenizer = tokenizer
+
+    # Training (no parameter update)
+    asr_brain.fit(
+        range(1),
+        train_data,
+        train_loader_kwargs=hparams["train_dataloader_kwargs"],
+    )
+
+    params, fisher = {}, {}
+    with torch.no_grad():
+        for name, param in hparams["whisper"].named_parameters():
+            if not param.requires_grad or param.grad is None:
+                continue
+            params[name] = param.clone().cpu()
+            fisher[name] = (param.grad.clone() ** 2).cpu()
+    hparams["whisper"].zero_grad(set_to_none=True)
+
+    hparams["train_dataloader_kwargs"]["batch_size"] = batch_size
+    hparams["max_grad_norm"] = max_grad_norm
+    hparams["auto_mix_prec"] = auto_mix_prec
+    hparams["grad_accumulation_factor"] = grad_accumulation_factor
+
+    return params, fisher
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -273,63 +332,6 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_data
 
 
-def compute_ewc_params(hparams, run_opts, locales):
-    tokenizer = hparams["whisper"].tokenizer
-    batch_size = hparams["train_dataloader_kwargs"].get("batch_size", 1)
-    max_grad_norm = hparams.get("max_grad_norm", 5.0)
-    grad_accumulation_factor = hparams.get("grad_accumulation_factor", 1)
-    auto_mix_prec = hparams.get("auto_mix_prec", False)
-    hparams["train_dataloader_kwargs"]["batch_size"] = 1
-    hparams["max_grad_norm"] = float("inf")
-    hparams["auto_mix_prec"] = False
-    hparams["grad_accumulation_factor"] = 1
-
-    # Multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_common_voice,
-        kwargs={
-            "locales": locales,
-            "data_dir": hparams["data_dir"],
-            "max_durations": hparams["max_durations"],
-        },
-    )
-
-    # Create datasets, tokenization and encoding
-    train_data, _, _ = dataio_prepare(hparams, tokenizer)
-
-    # Trainer initialization
-    asr_brain = EWCParamsComputer(
-        modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
-    )
-
-    # We dynamically add the tokenizer to our brain class
-    # NB: This tokenizer corresponds to the one used for Whisper
-    asr_brain.tokenizer = tokenizer
-
-    # Training (no parameter update)
-    asr_brain.fit(
-        range(1),
-        train_data,
-        train_loader_kwargs=hparams["train_dataloader_kwargs"],
-    )
-
-    params, fisher = {}, {}
-    with torch.no_grad():
-        for name, param in hparams["whisper"].named_parameters():
-            if not param.requires_grad:
-                continue
-            params[name] = param.clone().cpu()
-            fisher[name] = (param.grad.clone() ** 2).cpu()
-    hparams["whisper"].zero_grad(set_to_none=True)
-
-    hparams["train_dataloader_kwargs"]["batch_size"] = batch_size
-    hparams["max_grad_norm"] = max_grad_norm
-    hparams["auto_mix_prec"] = auto_mix_prec
-    hparams["grad_accumulation_factor"] = grad_accumulation_factor
-
-    return params, fisher
-
-
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # Test on old + new locales
     for locale in locales:
@@ -407,7 +409,6 @@ def train(hparams, run_opts):
             )
 
         all_ewc_params.append(ewc_params)
-
         hparams["all_ewc_params"] = all_ewc_params
 
         # Multi-gpu (ddp) save data preparation
@@ -512,9 +513,8 @@ def profile(hparams):
             return logits
 
     model = Model().eval().to(run_opts["device"])
-
     macs, params = ptflops.get_model_complexity_info(
-        model, (1,), as_strings=True,
+        model, (1,), as_strings=True, print_per_layer_stat=False,
     )
     time_start = time.time()
     model()

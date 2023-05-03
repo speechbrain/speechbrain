@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1612.00796).
+learning fashion via Elastic Weight Consolidation (https://arxiv.org/abs/1612.00796).
 
 The following optimization tricks were used to improve performance:
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/train_pnn.yaml
+> python train_ewc.py hparams/train_ewc.yaml
 
 NOTE: automatic experiment resumption is not supported.
 
@@ -16,7 +16,6 @@ Authors
  * Luca Della Libera 2023
 """
 
-import copy
 import logging
 import os
 import pathlib
@@ -69,6 +68,23 @@ class ASR(sb.Brain):
         logits = logits.float()  # Force float32
         log_probs = logits.log_softmax(dim=-1)
         loss = self.hparams.ctc_loss(log_probs, tokens, wav_lens, tokens_lens)
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "all_ewc_params"):
+            for name, param in self.modules.wavlm.named_parameters():
+                if not param.requires_grad or param.grad is None:
+                    continue
+                for (old_param, fisher) in self.hparams.all_ewc_params:
+                    loss += (
+                        (
+                            fisher[name]
+                            * (old_param[name] - param.to(fisher[name].device))
+                            ** 2
+                        )
+                        .sum()
+                        .to(self.device)
+                        * 0.5
+                        * self.hparams.ewc_lambda
+                    )
 
         if stage != sb.Stage.TRAIN:
             target_words = batch.target_wrd
@@ -130,6 +146,76 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
+
+
+class EWCParamsComputer(ASR):
+    def zero_grad(self, set_to_none=False):
+        pass
+
+    def fit_batch(self, batch):
+        outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        with self.no_sync(False):
+            loss.backward()
+        self.on_fit_batch_end(batch, outputs, loss, True)
+        return loss.detach().cpu()
+
+
+def compute_ewc_params(hparams, run_opts, locales):
+    tokenizer = hparams["wavlm"].tokenizer
+    batch_size = hparams["train_dataloader_kwargs"].get("batch_size", 1)
+    max_grad_norm = hparams.get("max_grad_norm", 5.0)
+    grad_accumulation_factor = hparams.get("grad_accumulation_factor", 1)
+    auto_mix_prec = hparams.get("auto_mix_prec", False)
+    hparams["train_dataloader_kwargs"]["batch_size"] = 1
+    hparams["max_grad_norm"] = float("inf")
+    hparams["auto_mix_prec"] = False
+    hparams["grad_accumulation_factor"] = 1
+
+    # Multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_common_voice,
+        kwargs={
+            "locales": locales,
+            "data_dir": hparams["data_dir"],
+            "max_durations": hparams["max_durations"],
+        },
+    )
+
+    # Create datasets, tokenization and encoding
+    train_data, _, _ = dataio_prepare(hparams, tokenizer)
+
+    # Trainer initialization
+    asr_brain = EWCParamsComputer(
+        modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+    )
+
+    # We dynamically add the tokenizer to our brain class
+    # NB: This tokenizer corresponds to the one used for Whisper
+    asr_brain.tokenizer = tokenizer
+
+    # Training (no parameter update)
+    asr_brain.fit(
+        range(1),
+        train_data,
+        train_loader_kwargs=hparams["train_dataloader_kwargs"],
+    )
+
+    params, fisher = {}, {}
+    with torch.no_grad():
+        for name, param in hparams["wavlm"].named_parameters():
+            if not param.requires_grad or param.grad is None:
+                continue
+            params[name] = param.clone().cpu()
+            fisher[name] = (param.grad.clone() ** 2).cpu()
+    hparams["wavlm"].zero_grad(set_to_none=True)
+
+    hparams["train_dataloader_kwargs"]["batch_size"] = batch_size
+    hparams["max_grad_norm"] = max_grad_norm
+    hparams["auto_mix_prec"] = auto_mix_prec
+    hparams["grad_accumulation_factor"] = grad_accumulation_factor
+
+    return params, fisher
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -249,14 +335,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        # Retrieve corresponding projection layer and decoder layers
-        hparams["wavlm"].model.decoder.out_proj = hparams["out_proj_backup"][
-            locale
-        ]
-        hparams["wavlm"].model.decoder.layers = hparams[
-            "decoder_layers_backup"
-        ][locale]
-
         # Trainer initialization
         asr_brain = ASR(
             modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
@@ -281,23 +359,29 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
-    # Store projection layer, decoder layers and tokenizer for each locale
-    hparams["out_proj_backup"] = {}
-    hparams["decoder_layers_backup"] = {}
-    for locale in hparams["old_locales"]:
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
 
     # Train on new locales
+    all_ewc_params = []
     for i, locale in enumerate(hparams["new_locales"]):
+        # Remove old EWC parameters
+        hparams.pop("all_ewc_params", None)
+
+        # Compute new EWC parameters
+        if i == 0:
+            ewc_params = compute_ewc_params(
+                hparams, run_opts, hparams["old_locales"]
+            )
+        else:
+            ewc_params = compute_ewc_params(
+                hparams, run_opts, [hparams["new_locales"][i - 1]]
+            )
+
+        all_ewc_params.append(ewc_params)
+        hparams["all_ewc_params"] = all_ewc_params
+
         # Multi-gpu (ddp) save data preparation
         run_on_main(
             prepare_common_voice,
@@ -315,36 +399,6 @@ def train(hparams, run_opts):
         logging.info(
             f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
         )
-
-        # Backup projection layer
-        hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
-            hparams["wavlm"].model.decoder.out_proj
-        )
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
-
-        # Add new decoding layers
-        hparams["wavlm"].model.decoder.layers = copy.deepcopy(
-            hparams["wavlm"].model.decoder.layers
-        )
-        hparams["wavlm"].model.decoder.layers += [
-            torch.nn.LSTM(
-                input_size=hparams["hidden_size"],
-                hidden_size=hparams["hidden_size"],
-                num_layers=hparams["num_layers"],
-                dropout=hparams["dropout"],
-                bidirectional=hparams["bidirectional"],
-                batch_first=True,
-            )
-            for _ in range(hparams["num_new_decoder_layers"])
-        ]
-        hparams["decoder_layers_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.layers
-
-        # Unfreeze projection layer
-        hparams["wavlm"].model.decoder.out_proj.requires_grad_()
 
         # Create datasets, tokenization and encoding
         train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)

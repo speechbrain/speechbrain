@@ -345,8 +345,7 @@ def train(hparams, run_opts):
         tokenizer.add_tokens(list(new_tokens))
 
         # Freeze the whole model to avoid forgetting
-        for param in hparams["whisper"].model.parameters():
-            param.requires_grad_(False)
+        hparams["whisper"].model.requires_grad_(False)
 
         # Log total number of tokens
         logging.info(
@@ -375,7 +374,7 @@ def train(hparams, run_opts):
         ].model.decoder.layers
 
         # Unfreeze embedding layer
-        hparams["whisper"].model.decoder.embed_tokens.weight.requires_grad_()
+        hparams["whisper"].model.decoder.embed_tokens.requires_grad_()
 
         # Log total number of tokens
         logging.info(
@@ -448,9 +447,8 @@ def profile(hparams):
             return logits
 
     model = Model().eval().to(run_opts["device"])
-
     macs, params = ptflops.get_model_complexity_info(
-        model, (1,), as_strings=True,
+        model, (1,), as_strings=True, print_per_layer_stat=False,
     )
     time_start = time.time()
     model()

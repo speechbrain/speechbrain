@@ -12,7 +12,8 @@ leveraging shared knowledge from new tasks).
 
 ## 🛠️️ Installation
 
-Clone the repository, navigate to `<path-to-repository>/recipes/CommonVoice/continual-learning`, open a terminal and run:
+Clone the repository, navigate to `<path-to-repository>/recipes/CommonVoice/continual-learning`,
+open a terminal and run:
 
 ```
 pip install -e ../../../                 # Install local SpeechBrain package
