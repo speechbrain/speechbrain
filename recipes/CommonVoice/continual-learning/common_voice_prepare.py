@@ -252,7 +252,7 @@ def merge_tsv_files(
                     row = rows[idx]
                 except IndexError:
                     continue
-                duration += float(row[10])
+                duration += float(row[-1])
                 num_added_rows += 1
                 tsv_writer.writerow(row)
             _LOGGER.info(f"Total duration (s): {duration}",)
