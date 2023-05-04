@@ -8,6 +8,7 @@ from torch import nn
 from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
 
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
+from speechbrain.nnet.RNN import LSTM as SBLSTM
 
 
 __all__ = [
@@ -21,15 +22,17 @@ class Decoder(nn.Module):
     ):
         super().__init__()
         self.layers = nn.ModuleList(
-            [nn.LSTM(input_size, hidden_size, batch_first=True, **lstm_kwargs)]
+            [SBLSTM(hidden_size, [None, None, input_size], **lstm_kwargs)]
         )
-        self.out_proj = nn.Linear(hidden_size, output_size)
+        self.out_proj = nn.Linear(
+            (2 if lstm_kwargs["bidirectional"] else 1) * hidden_size,
+            output_size,
+        )
 
     def forward(self, input, lengths=None):
-        # TODO: forward lengths argument?
         output, state = self.layers[0](input)
         for layer in self.layers[1:]:
-            output, state = layer(output, state)
+            output, state = layer(output, state, lengths=lengths)
         output = self.out_proj(output)
         return output
 

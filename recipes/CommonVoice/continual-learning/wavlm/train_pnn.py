@@ -30,6 +30,7 @@ import torchinfo
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.nnet.RNN import LSTM as SBLSTM
 from speechbrain.utils.distributed import run_on_main
 
 from common_voice_prepare import prepare_common_voice
@@ -316,6 +317,9 @@ def train(hparams, run_opts):
             f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
         )
 
+        # Freeze the whole model to avoid forgetting
+        hparams["wavlm"].model.requires_grad_(False)
+
         # Backup projection layer
         hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
             hparams["wavlm"].model.decoder.out_proj
@@ -329,13 +333,17 @@ def train(hparams, run_opts):
             hparams["wavlm"].model.decoder.layers
         )
         hparams["wavlm"].model.decoder.layers += [
-            torch.nn.LSTM(
-                input_size=hparams["hidden_size"],
-                hidden_size=hparams["hidden_size"],
+            SBLSTM(
+                hparams["hidden_size"],
+                [
+                    None,
+                    None,
+                    (2 if hparams["bidirectional"] else 1)
+                    * hparams["hidden_size"],
+                ],
                 num_layers=hparams["num_layers"],
                 dropout=hparams["dropout"],
                 bidirectional=hparams["bidirectional"],
-                batch_first=True,
             )
             for _ in range(hparams["num_new_decoder_layers"])
         ]
