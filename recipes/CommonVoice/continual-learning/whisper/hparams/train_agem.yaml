@@ -6,6 +6,8 @@
 seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
+skip_test: False
+
 # Data preparation
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
 old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
@@ -17,7 +19,7 @@ output_dir: !ref results/<whisper_variant>/agem/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 8
+train_batch_size: 6
 valid_batch_size: 16
 train_num_workers: 6
 valid_num_workers: 6
@@ -45,7 +47,7 @@ auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 100
+max_gen_tokens: 50
 forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 

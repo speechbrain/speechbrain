@@ -11,12 +11,12 @@ To run this recipe, do the following:
 > python train_pb.py hparams/train_pb.yaml
 
 NOTE: automatic experiment resumption is not supported.
+NOTE: since there is no forgetting by design, only the current locale is tested.
 
 Authors
  * Luca Della Libera 2023
 """
 
-import copy
 import logging
 import os
 import pathlib
@@ -304,11 +304,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        # Retrieve corresponding projection layer
-        hparams["wavlm"].model.decoder.out_proj = hparams["out_proj_backup"][
-            locale
-        ]
-
         # Retrieve threshold and apply corresponding mask
         hparams["wavlm"].model.decoder.load_state_dict(
             hparams["decoder_state_backup"], strict=False
@@ -338,24 +333,34 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         locale_dir = os.path.join(hparams["output_dir"], locale)
         os.makedirs(locale_dir, exist_ok=True)
         asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
-        asr_brain.evaluate(
-            test_data,
-            min_key="WER",
-            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
+        if hparams["skip_test"]:
+            # Dummy test
+            asr_brain.hparams.train_logger.save_file = asr_brain.hparams.wer_file = os.path.join(locale_dir, "tmp.txt")
+            test_data.data_ids = list(test_data.data.keys())[:1]
+            test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
+            asr_brain.evaluate(
+                test_data,
+                min_key="WER",
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
+            os.remove(asr_brain.hparams.wer_file)
+            asr_brain.hparams.train_logger.save_file = os.path.join(hparams["output_dir"], "train_log.txt")
+            asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        else:
+            asr_brain.evaluate(
+                test_data,
+                min_key="WER",
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
 
     # MACs not 100% accurate but still useful for comparisons
     profile(hparams)
 
 
 def train(hparams, run_opts):
-    # Store projection layer, decoder mask and tokenizer for each locale
-    hparams["out_proj_backup"] = {}
+    # Store decoder mask for each locale
     hparams["decoder_mask"] = {}
     for locale in hparams["old_locales"]:
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
         hparams["decoder_mask"][locale] = None
 
     # Store decoder state (projection layer excluded)
@@ -370,6 +375,7 @@ def train(hparams, run_opts):
             hparams["decoder_state_backup"][k].clone().cpu()
         )
 
+    # Testing
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -396,14 +402,6 @@ def train(hparams, run_opts):
 
         # Freeze the whole model to avoid forgetting
         hparams["wavlm"].model.requires_grad_(False)
-
-        # Backup projection layer
-        hparams["wavlm"].model.decoder.out_proj = copy.deepcopy(
-            hparams["wavlm"].model.decoder.out_proj
-        )
-        hparams["out_proj_backup"][locale] = hparams[
-            "wavlm"
-        ].model.decoder.out_proj
 
         # Initialize decoder mask
         hparams["decoder_mask"][locale] = {
@@ -455,7 +453,8 @@ def train(hparams, run_opts):
         test(
             hparams,
             run_opts,
-            hparams["old_locales"] + hparams["new_locales"][: i + 1],
+            [locale],
+            #hparams["old_locales"] + hparams["new_locales"][: i + 1],
             f"wer_test_after_{locale}.txt",
         )
 

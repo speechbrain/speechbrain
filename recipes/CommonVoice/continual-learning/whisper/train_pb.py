@@ -16,12 +16,12 @@ To run this recipe, do the following:
 > python train_pb.py hparams/train_pb.yaml
 
 NOTE: automatic experiment resumption is not supported.
+NOTE: since there is no forgetting by design, only the current locale is tested.
 
 Authors
  * Luca Della Libera 2023
 """
 
-import copy
 import logging
 import os
 import pathlib
@@ -321,11 +321,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         # Create datasets, tokenization and encoding
         _, _, test_data = dataio_prepare(hparams, tokenizer)
 
-        # Retrieve corresponding embedding layer
-        hparams["whisper"].model.decoder.embed_tokens = hparams[
-            "embed_tokens_backup"
-        ][locale]
-
         # Retrieve threshold and apply corresponding mask
         hparams["whisper"].model.decoder.load_state_dict(
             hparams["decoder_state_backup"], strict=False
@@ -355,24 +350,38 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         locale_dir = os.path.join(hparams["output_dir"], locale)
         os.makedirs(locale_dir, exist_ok=True)
         asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
-        asr_brain.evaluate(
-            test_data,
-            min_key="WER",
-            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
+        if hparams["skip_test"]:
+            # Dummy test
+            asr_brain.hparams.train_logger.save_file = (
+                asr_brain.hparams.wer_file
+            ) = os.path.join(locale_dir, "tmp.txt")
+            test_data.data_ids = list(test_data.data.keys())[:1]
+            test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
+            asr_brain.evaluate(
+                test_data,
+                min_key="WER",
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
+            os.remove(asr_brain.hparams.wer_file)
+            asr_brain.hparams.train_logger.save_file = os.path.join(
+                hparams["output_dir"], "train_log.txt"
+            )
+            asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        else:
+            asr_brain.evaluate(
+                test_data,
+                min_key="WER",
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
 
     # MACs not 100% accurate but still useful for comparisons
     profile(hparams)
 
 
 def train(hparams, run_opts):
-    # Store embedding layer, decoder mask and tokenizer for each locale
-    hparams["embed_tokens_backup"] = {}
+    # Store decoder mask for each locale
     hparams["decoder_mask"] = {}
     for locale in hparams["old_locales"]:
-        hparams["embed_tokens_backup"][locale] = hparams[
-            "whisper"
-        ].model.decoder.embed_tokens
         hparams["decoder_mask"][locale] = None
 
     # Store decoder state (embedding layer excluded)
@@ -387,6 +396,7 @@ def train(hparams, run_opts):
             hparams["decoder_state_backup"][k].clone().cpu()
         )
 
+    # Testing
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -405,9 +415,7 @@ def train(hparams, run_opts):
 
         # Add new language token
         new_tokens = [f"<|{locale.lower()}|>"]
-        tokenizer = hparams["whisper"].tokenizer = copy.deepcopy(
-            hparams["whisper"].tokenizer
-        )
+        tokenizer = hparams["whisper"].tokenizer
         tokenizer._additional_special_tokens += new_tokens
         tokenizer.supported_languages.update({locale.lower(): locale.lower()})
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
@@ -427,13 +435,7 @@ def train(hparams, run_opts):
         )
 
         # Add a new random embedding for the new language token
-        hparams["whisper"].model.decoder.embed_tokens = copy.deepcopy(
-            hparams["whisper"].model.decoder.embed_tokens
-        )
         hparams["whisper"].model.resize_token_embeddings(len(tokenizer))
-        hparams["embed_tokens_backup"][locale] = hparams[
-            "whisper"
-        ].model.decoder.embed_tokens
 
         # Initialize decoder mask
         hparams["decoder_mask"][locale] = {
@@ -490,7 +492,8 @@ def train(hparams, run_opts):
         test(
             hparams,
             run_opts,
-            hparams["old_locales"] + hparams["new_locales"][: i + 1],
+            [locale],
+            # hparams["old_locales"] + hparams["new_locales"][: i + 1],
             f"wer_test_after_{locale}.txt",
         )
 

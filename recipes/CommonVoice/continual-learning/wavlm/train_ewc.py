@@ -10,8 +10,6 @@ The following optimization tricks were used to improve performance:
 To run this recipe, do the following:
 > python train_ewc.py hparams/train_ewc.yaml
 
-NOTE: automatic experiment resumption is not supported.
-
 Authors
  * Luca Della Libera 2023
 """
@@ -348,17 +346,32 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         locale_dir = os.path.join(hparams["output_dir"], locale)
         os.makedirs(locale_dir, exist_ok=True)
         asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
-        asr_brain.evaluate(
-            test_data,
-            min_key="WER",
-            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
+        if hparams["skip_test"]:
+            # Dummy test
+            asr_brain.hparams.train_logger.save_file = asr_brain.hparams.wer_file = os.path.join(locale_dir, "tmp.txt")
+            test_data.data_ids = list(test_data.data.keys())[:1]
+            test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
+            asr_brain.evaluate(
+                test_data,
+                min_key="WER",
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
+            os.remove(asr_brain.hparams.wer_file)
+            asr_brain.hparams.train_logger.save_file = os.path.join(hparams["output_dir"], "train_log.txt")
+            asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        else:
+            asr_brain.evaluate(
+                test_data,
+                min_key="WER",
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
 
     # MACs not 100% accurate but still useful for comparisons
     profile(hparams)
 
 
 def train(hparams, run_opts):
+    # Testing
     test(
         hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
     )
@@ -370,17 +383,17 @@ def train(hparams, run_opts):
         hparams.pop("all_ewc_params", None)
 
         # Compute new EWC parameters
-        if i == 0:
-            ewc_params = compute_ewc_params(
-                hparams, run_opts, hparams["old_locales"]
-            )
-        else:
-            ewc_params = compute_ewc_params(
-                hparams, run_opts, [hparams["new_locales"][i - 1]]
-            )
-
-        all_ewc_params.append(ewc_params)
-        hparams["all_ewc_params"] = all_ewc_params
+        if not hparams["skip_ewc"]:
+            if i == 0:
+                ewc_params = compute_ewc_params(
+                    hparams, run_opts, hparams["old_locales"]
+                )
+            else:
+                ewc_params = compute_ewc_params(
+                    hparams, run_opts, [hparams["new_locales"][i - 1]]
+                )
+            all_ewc_params.append(ewc_params)
+            hparams["all_ewc_params"] = all_ewc_params
 
         # Multi-gpu (ddp) save data preparation
         run_on_main(

@@ -6,11 +6,14 @@
 seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
+skip_test: False
+skip_ewc: False
+
 # Data preparation
 new_locales: [or, ga-IE]
 old_locales: [fi]
 data_dir: !PLACEHOLDER
-max_durations: null
+max_durations: [600, 600, 600]
 
 # Output directories
 output_dir: !ref results/<wavlm_variant>/debug/<seed>
