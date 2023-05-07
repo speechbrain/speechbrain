@@ -18,6 +18,7 @@ import unicodedata
 import functools
 
 from speechbrain.utils.parallel import parallel_map
+from speechbrain.dataio.dataio import read_audio_info
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +181,7 @@ def process_line(line, data_folder, language, accented_letters):
 
     # Reading the signal (to retrieve duration in seconds)
     if os.path.isfile(mp3_path):
-        info = torchaudio.info(mp3_path)
+        info = read_audio_info(mp3_path)
     else:
         msg = "\tError loading: %s" % (str(len(file_name)))
         logger.info(msg)
