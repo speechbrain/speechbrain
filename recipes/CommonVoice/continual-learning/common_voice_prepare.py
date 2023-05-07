@@ -361,6 +361,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-m",
         "--max_durations",
+        nargs=3,
         help="maximum total durations in seconds to sample from each "
         "locale for train, dev and test splits, respectively."
         "Default to infinity",
