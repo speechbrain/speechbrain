@@ -26,7 +26,7 @@ valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
-avoid_if_longer_than: 8
+avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 
 blank_index: 50258  # For CTC loss (use Whisper BOS as blank)
 
