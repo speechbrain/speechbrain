@@ -19,7 +19,7 @@ output_dir: !ref results/<whisper_variant>/lwf/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 4
+train_batch_size: 1
 valid_batch_size: 20
 train_num_workers: 6
 valid_num_workers: 6
@@ -48,7 +48,7 @@ auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 75
+max_gen_tokens: 80
 forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 

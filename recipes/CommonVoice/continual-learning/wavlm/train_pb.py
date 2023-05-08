@@ -335,7 +335,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
         if hparams["skip_test"]:
             # Dummy test
-            asr_brain.hparams.train_logger.save_file = asr_brain.hparams.wer_file = os.path.join(locale_dir, "tmp.txt")
+            asr_brain.hparams.train_logger.save_file = (
+                asr_brain.hparams.wer_file
+            ) = os.path.join(locale_dir, "tmp.txt")
             test_data.data_ids = list(test_data.data.keys())[:1]
             test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
             asr_brain.evaluate(
@@ -344,7 +346,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
                 test_loader_kwargs=hparams["valid_dataloader_kwargs"],
             )
             os.remove(asr_brain.hparams.wer_file)
-            asr_brain.hparams.train_logger.save_file = os.path.join(hparams["output_dir"], "train_log.txt")
+            asr_brain.hparams.train_logger.save_file = os.path.join(
+                hparams["output_dir"], "train_log.txt"
+            )
             asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
         else:
             asr_brain.evaluate(
@@ -455,7 +459,7 @@ def train(hparams, run_opts):
             hparams,
             run_opts,
             [locale],
-            #hparams["old_locales"] + hparams["new_locales"][: i + 1],
+            # hparams["old_locales"] + hparams["new_locales"][: i + 1],
             f"wer_test_after_{locale}.txt",
         )
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1612.00796).
+learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1606.04671).
 
 The following optimization tricks were used to improve performance:
 - use custom decoding implementation (faster than built-in searchers

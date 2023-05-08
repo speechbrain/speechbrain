@@ -20,7 +20,7 @@ output_dir: !ref results/<wavlm_variant>/ewc/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 4
+train_batch_size: 8
 valid_batch_size: 20
 train_num_workers: 6
 valid_num_workers: 6

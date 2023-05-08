@@ -6,20 +6,17 @@
 seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-skip_test: False
-
 # Data preparation
-new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
-old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
+locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 data_dir: !PLACEHOLDER
 max_durations: [36000, 3600, 3600]
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/clear/<seed>
+output_dir: !ref results/<wavlm_variant>/pretrain/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 8
+train_batch_size: 20
 valid_batch_size: 20
 train_num_workers: 6
 valid_num_workers: 6
@@ -30,11 +27,10 @@ avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 
 blank_index: 50258  # For CTC loss (use Whisper BOS as blank)
 
-num_epochs: 2
+num_epochs: 5
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-replay_ratio: 0.1
 
 wavlm_variant: wavlm-large
 output_norm: True

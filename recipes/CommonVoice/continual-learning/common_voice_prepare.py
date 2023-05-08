@@ -328,7 +328,7 @@ def preprocess_tsv_file(
                 continue
 
             # Remove long sentences
-            if len(wrd) > 250:
+            if len(wrd) > 200:
                 _LOGGER.debug(
                     f"Sentence for row {i + 1} is too long, removing...",
                 )

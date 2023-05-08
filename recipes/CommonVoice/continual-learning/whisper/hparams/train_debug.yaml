@@ -54,7 +54,7 @@ auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 75
+max_gen_tokens: 80
 forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 
