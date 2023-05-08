@@ -327,6 +327,13 @@ def preprocess_tsv_file(
                 )
                 continue
 
+            # Remove long sentences
+            if len(wrd) > 250:
+                _LOGGER.debug(
+                    f"Sentence for row {i + 1} is too long, removing...",
+                )
+                continue
+
             num_clips += 1
             total_duration += float(duration)
             csv_writer.writerow([id_, mp3, wrd, locale, duration])
