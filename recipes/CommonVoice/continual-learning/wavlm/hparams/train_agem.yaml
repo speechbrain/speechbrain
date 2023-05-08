@@ -19,14 +19,14 @@ output_dir: !ref results/<wavlm_variant>/agem/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 16
+train_batch_size: 10
 valid_batch_size: 30
 train_num_workers: 6
 valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
-avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
+avoid_if_longer_than: 8
 
 blank_index: 50258  # For CTC loss (use Whisper BOS as blank)
 
@@ -46,7 +46,7 @@ num_layers: 2
 dropout: 0.0
 bidirectional: False
 
-max_target_length: 250  # Must be <= 448 (Whisper maximum target length)
+max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600

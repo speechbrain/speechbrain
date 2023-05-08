@@ -27,7 +27,7 @@ valid_num_workers: 6
 
 sample_rate: 16000
 sorting: ascending
-avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
+avoid_if_longer_than: 8
 
 ignore_index: -100  # For cross-entropy loss
 label_smoothing: 0
@@ -49,12 +49,12 @@ encoder_only: False
 freeze: False
 freeze_encoder: True
 
-max_target_length: 250  # Must be <= 448 (Whisper maximum target length)
+max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
-max_gen_tokens: 50
+max_gen_tokens: 75
 forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 
