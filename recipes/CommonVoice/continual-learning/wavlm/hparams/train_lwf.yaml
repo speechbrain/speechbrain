@@ -47,7 +47,7 @@ num_layers: 2
 dropout: 0.0
 bidirectional: False
 
-max_target_length: 200  # Must be <= 448 (Whisper maximum target length)
+max_target_length: 250  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
