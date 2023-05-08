@@ -400,7 +400,8 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             )
 
     # MACs not 100% accurate but still useful for comparisons
-    profile(hparams)
+    if not hparams["skip_test"]:
+        profile(hparams)
 
 
 def train(hparams, run_opts):
