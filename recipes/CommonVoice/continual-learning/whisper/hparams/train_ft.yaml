@@ -19,8 +19,8 @@ output_dir: !ref results/<whisper_variant>/ft/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 10
-valid_batch_size: 30
+train_batch_size: 4
+valid_batch_size: 20
 train_num_workers: 6
 valid_num_workers: 6
 
