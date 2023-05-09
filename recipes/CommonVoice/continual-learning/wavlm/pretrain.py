@@ -322,8 +322,7 @@ if __name__ == "__main__":
     )
 
     # MACs not 100% accurate but still useful for comparisons
-    if not hparams["skip_test"]:
-        profile(hparams)
+    profile(hparams)
 
     duration = time.time() - start_time
     logging.info(f"Time elapsed: {duration} seconds")
