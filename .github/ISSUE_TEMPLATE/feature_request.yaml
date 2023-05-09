@@ -1,4 +1,4 @@
-name: 🚀Feature Request
+name: 🚀 Feature Request
 description: New missing features? Inform us! 🎉
 title: "[Feature Request]:"
 labels: ["enhancement, feature_request"]
@@ -7,7 +7,7 @@ body:
   - type: textarea
     id: proposal
     attributes:
-      label: 🚀The feature
+      label: 🚀 The feature
       description: "What are you missing in SpeechBrain and what would you like to do with it?"
     validations:
       required: True

@@ -2,6 +2,28 @@ import torch
 import os
 
 
+def test_read_audio_info(tmpdir, device):
+    from speechbrain.dataio.dataio import read_audio_info, write_audio
+
+    test_waveform = torch.rand(32000, device=device)
+
+    for ext in ["wav", "ogg", "mp3"]:
+        audio_path = os.path.join(tmpdir, f"test.{ext}")
+        write_audio(audio_path, test_waveform.cpu(), 16000)
+        info = read_audio_info(audio_path)
+
+        # NOTE: This wide check is introduced for codecs that cannot handle
+        # exact frame counts, such as mp3, which appears to operate over chunks
+        # of 384 frames.
+        # This remains an exact read of the metadata, however, which is what we
+        # want to test and is the reason for `read_audio_info` to exist (see
+        # comments there).
+        assert (
+            32000 <= info.num_frames <= 35000
+        ), f"expected consistent len for codec {ext}"
+        assert info.sample_rate == 16000
+
+
 def test_read_audio(tmpdir, device):
     from speechbrain.dataio.dataio import read_audio, write_audio
 

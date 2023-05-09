@@ -7,8 +7,8 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
- * Andreas Nautsch 2022
- * Pooneh Mousavi 20023
+ * Andreas Nautsch 2022, 2023
+ * Pooneh Mousavi 2023
 """
 import logging
 import hashlib
@@ -21,6 +21,7 @@ from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
+from copy import copy
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 import torch.nn.functional as F
@@ -64,7 +65,7 @@ def foreign_class(
 
     Arguments
     ---------
-    source : str
+    source : str or Path or FetchSource
         The location to use for finding the model. See
         ``speechbrain.pretrained.fetching.fetch`` for details.
     hparams_file : str
@@ -121,7 +122,9 @@ def foreign_class(
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
-    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    run_on_main(
+        pretrainer.collect_files, kwargs={"default_source": source},
+    )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
@@ -246,7 +249,7 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="."):
+    def load_audio(self, path, savedir="audio_cache", **kwargs):
         """Load an audio file with this model's input spec
 
         When using a speech model, it is important to use the same type of data,
@@ -257,8 +260,28 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=False)
+        kwargs = copy(kwargs)  # shallow copy of references only
+        channels_first = kwargs.pop(
+            "channels_first", False
+        )  # False as default value: SB consistent tensor format
+        if kwargs:
+            fetch_kwargs = dict()
+            for key in [
+                "overwrite",
+                "save_filename",
+                "use_auth_token",
+                "revision",
+                "cache_dir",
+                "silent_local_fetch",
+            ]:
+                if key in kwargs:
+                    fetch_kwargs[key] = kwargs.pop(key)
+            path = fetch(fl, source=source, savedir=savedir, **fetch_kwargs)
+        else:
+            path = fetch(fl, source=source, savedir=savedir)
+        signal, sr = torchaudio.load(
+            str(path), channels_first=channels_first, **kwargs
+        )
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
@@ -330,7 +353,7 @@ class Pretrained(torch.nn.Module):
 
         Arguments
         ---------
-        source : str
+        source : str or Path or FetchSource
             The location to use for finding the model. See
             ``speechbrain.pretrained.fetching.fetch`` for details.
         hparams_file : str
@@ -402,7 +425,9 @@ class Pretrained(torch.nn.Module):
         pretrainer = hparams["pretrainer"]
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
-        run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+        run_on_main(
+            pretrainer.collect_files, kwargs={"default_source": source},
+        )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
             # run_opts={"device": ...}
@@ -441,7 +466,7 @@ class EndToEndSLU(Pretrained):
             run_opts={"device": self.device},
         )
 
-    def decode_file(self, path):
+    def decode_file(self, path, **kwargs):
         """Maps the given audio file to a string representing the
         semantic dictionary for the utterance.
 
@@ -455,7 +480,7 @@ class EndToEndSLU(Pretrained):
         str
             The predicted semantics.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         waveform = waveform.to(self.device)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
@@ -553,7 +578,7 @@ class EncoderDecoderASR(Pretrained):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
 
-    def transcribe_file(self, path):
+    def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments
@@ -566,7 +591,7 @@ class EncoderDecoderASR(Pretrained):
         str
             The audiofile transcription produced by this ASR system.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -671,7 +696,7 @@ class WaveformEncoder(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def encode_file(self, path):
+    def encode_file(self, path, **kwargs):
         """Encode the given audiofile into a sequence of embeddings.
 
         Arguments
@@ -684,7 +709,7 @@ class WaveformEncoder(Pretrained):
         torch.Tensor
             The audiofile embeddings produced by this system.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -750,7 +775,7 @@ class EncoderASR(Pretrained):
         self.tokenizer = self.hparams.tokenizer
         self.decoding_function = self.hparams.decoding_function
 
-    def transcribe_file(self, path):
+    def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments
@@ -763,7 +788,7 @@ class EncoderASR(Pretrained):
         str
             The audiofile transcription produced by this ASR system.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -984,7 +1009,7 @@ class EncoderClassifier(Pretrained):
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
 
-    def classify_file(self, path):
+    def classify_file(self, path, **kwargs):
         """Classifies the given audiofile into the given set of labels.
 
         Arguments
@@ -1004,7 +1029,7 @@ class EncoderClassifier(Pretrained):
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -1092,7 +1117,7 @@ class SpeakerRecognition(EncoderClassifier):
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
-    def verify_files(self, path_x, path_y):
+    def verify_files(self, path_x, path_y, **kwargs):
         """Speaker verification with cosine distance
 
         Returns the score and the decision (0 different speakers,
@@ -1107,8 +1132,8 @@ class SpeakerRecognition(EncoderClassifier):
             The prediction is 1 if the two signals in input are from the same
             speaker and 0 otherwise.
         """
-        waveform_x = self.load_audio(path_x)
-        waveform_y = self.load_audio(path_y)
+        waveform_x = self.load_audio(path_x, **kwargs)
+        waveform_y = self.load_audio(path_y, **kwargs)
         # Fake batches:
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
@@ -2110,7 +2135,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="."):
+    def separate_file(self, path, savedir="audio_cache"):
         """Separate sources from file.
 
         Arguments
@@ -2221,7 +2246,7 @@ class SpectralMaskEnhancement(Pretrained):
         # Return resynthesized waveforms
         return self.hparams.resynth(torch.expm1(enhanced), noisy)
 
-    def enhance_file(self, filename, output_filename=None):
+    def enhance_file(self, filename, output_filename=None, **kwargs):
         """Enhance a wav file.
 
         Arguments
@@ -2231,7 +2256,7 @@ class SpectralMaskEnhancement(Pretrained):
         output_filename : str
             If provided, writes enhanced data to this file.
         """
-        noisy = self.load_audio(filename)
+        noisy = self.load_audio(filename, **kwargs)
         noisy = noisy.to(self.device)
 
         # Fake a batch:
@@ -2593,7 +2618,7 @@ class WaveformEnhancement(Pretrained):
         enhanced_wav, _ = self.mods.enhance_model(noisy)
         return enhanced_wav
 
-    def enhance_file(self, filename, output_filename=None):
+    def enhance_file(self, filename, output_filename=None, **kwargs):
         """Enhance a wav file.
 
         Arguments
@@ -2603,7 +2628,7 @@ class WaveformEnhancement(Pretrained):
         output_filename : str
             If provided, writes enhanced data to this file.
         """
-        noisy = self.load_audio(filename)
+        noisy = self.load_audio(filename, **kwargs)
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)

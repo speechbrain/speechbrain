@@ -199,7 +199,12 @@ def parse_arguments(arg_list=None):
         help="A file storing the configuration options for logging",
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
+    parser.add_argument(
+        "--local_rank",
+        "--local-rank",  # alias required for PyTorch 2.x
+        type=int,
+        help="Rank on local machine",
+    )
     parser.add_argument(
         "--device",
         type=str,
@@ -737,6 +742,12 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
+        # This commented-out code block is useful when one can ensure
+        # metric reporting is DDP-valid for VALID & EVAL datasets.
+        # elif self.distributed_launch:
+        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+        #         self.distributed_launch, self.rank, dataset, loader_kwargs
+        #     )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
