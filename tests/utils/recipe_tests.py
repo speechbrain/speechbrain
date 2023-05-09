@@ -2,10 +2,7 @@
 
 Authors
  * Mirco Ravanelli 2022
-<<<<<<< HEAD:speechbrain/utils/recipe_tests.py
-=======
  * Andreas Nautsch 2022, 2023
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908:tests/utils/recipe_tests.py
 """
 import os
 import re

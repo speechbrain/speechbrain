@@ -2744,14 +2744,9 @@ class Tacotron2(Pretrained):
     >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-<<<<<<< HEAD
-    >>> # Intialize the Vocoder (HiFIGAN)
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir="tmpdir_vocoder")
-=======
     >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_tts)
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
     >>> # Running the TTS
     >>> mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>> # Running Vocoder (spectrogram-to-waveform)
@@ -2834,14 +2829,9 @@ class HIFIGAN(Pretrained):
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
 
     >>> # You can use the vocoder coupled with a TTS system
-<<<<<<< HEAD
-    >>>	# Intialize TTS (tacotron2)
-    >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir="tmpdir_tts")
-=======
     >>>	# Initialize TTS (tacotron2)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
     >>>	# Running the TTS
     >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
     >>>	# Running Vocoder (spectrogram-to-waveform)

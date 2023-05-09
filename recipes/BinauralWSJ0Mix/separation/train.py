@@ -684,24 +684,6 @@ if __name__ == "__main__":
             )
             file.extractall(path=hparams["data_folder"])
 
-<<<<<<< HEAD
-    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
-        print("Generate Binaural WSJ0Mix dataset automatically")
-        sys.path.append(hparams["datasets_generation"])
-        if hparams["num_spks"] == 2:
-            from create_wav_2speakers import create_binaural_wsj0mix
-        else:
-            from create_wav_3speakers import create_binaural_wsj0mix
-        run_on_main(
-            create_binaural_wsj0mix,
-            kwargs={
-                "wsj_root": hparams["wsj_root"],
-                "output_root": hparams["data_folder"],
-                "datafreqs": hparams["data_freqs"],
-                "datamodes": hparams["data_modes"],
-            },
-        )
-=======
         sys.path.append(hparams["datasets_generation"])
         if "noise" in hparams["experiment_name"]:
             from create_wav_2speakers_noise import create_binaural_wsj0mix
@@ -739,7 +721,6 @@ if __name__ == "__main__":
                     "datamodes": hparams["data_modes"],
                 },
             )
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
 
     # Data preparation
     from prepare_data import prepare_binaural_wsj0mix  # noqa

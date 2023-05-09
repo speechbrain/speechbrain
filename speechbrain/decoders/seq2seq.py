@@ -1363,8 +1363,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         return log_probs[:, -1, :], memory
 
 
-<<<<<<< HEAD
-=======
 class S2SWhisperBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
@@ -1503,7 +1501,6 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         return log_probs[:, -1, :], memory
 
 
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
     """Calling batch_size times of filter_seq2seq_output.
 

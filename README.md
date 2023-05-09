@@ -98,20 +98,9 @@ Combining multiple microphones is a powerful approach to achieving robustness in
 - Delay-and-sum, MVDR, and GeV beamforming.
 - Speaker localization.
 
-<<<<<<< HEAD
 ### Text-to-Speech (TTS) and Vocoders
 - Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech) with LJSpeech.
 - Recipes for training Vocoders such as [HiFIGAN](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech).
-=======
-### Emotion Recognition
-- Recipes for emotion recognition using SSL and ECAPA-TDNN models.
-
-### Interpretability
-- Recipes for various intepretability techniques on the ESC50 dataset.
-
-### Spoken Language Understanding
-- Recipes for training wav2vec 2.0 models with the [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) dataset.
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
 
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:

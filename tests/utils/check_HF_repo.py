@@ -11,13 +11,7 @@ from tests.consistency.test_recipe import __skip_list
 
 
 def run_HF_check(
-<<<<<<< HEAD:speechbrain/utils/check_HF_repo.py
-    recipe_csvfile="tests/recipes.csv",
-    field="HF_repo",
-    output_folder="HF_repos",
-=======
     recipe_folder="tests/recipes", field="HF_repo", output_folder="tests/tmp",
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908:tests/utils/check_HF_repo.py
 ):
     """Checks if the code reported in the readme files of the HF repository is
     runnable. Note: the tests run the code marked as python in the readme file.

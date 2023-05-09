@@ -37,13 +37,8 @@ skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-<<<<<<< HEAD
-    - !ref <data_folder>/test-clean.csv
-    - !ref <data_folder>/test-other.csv
-=======
     - !ref <output_folder>/test-clean.csv
     - !ref <output_folder>/test-other.csv
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 

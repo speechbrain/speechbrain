@@ -159,15 +159,11 @@ def fetch(
         logger.info(MSG)
         try:
             fetched_file = huggingface_hub.hf_hub_download(
-<<<<<<< HEAD
-                repo_id=source, filename=filename, use_auth_token=use_auth_token
-=======
                 repo_id=source,
                 filename=filename,
                 use_auth_token=use_auth_token,
                 revision=revision,
                 cache_dir=cache_dir,
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
             )
             logger.info(f"HF fetch: {fetched_file}")
         except HTTPError as e:

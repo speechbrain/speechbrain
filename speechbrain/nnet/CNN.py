@@ -367,11 +367,8 @@ class Conv1d(nn.Module):
         padding_mode="reflect",
         skip_transpose=False,
         weight_norm=False,
-<<<<<<< HEAD
-=======
         conv_init=None,
         default_padding=0,
->>>>>>> 891318f5950c337bb951912bf64bd5973af7c908
     ):
         super().__init__()
         self.kernel_size = kernel_size
