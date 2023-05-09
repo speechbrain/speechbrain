@@ -25,7 +25,6 @@ from __future__ import absolute_import, division, print_function
 
 import datasets
 import re
-from typing import Optional
 
 
 _CITATION = """\
@@ -52,7 +51,9 @@ class LibrispeechLmConfig(datasets.BuilderConfig):
     """builder config for LibriSpeech LM
     """
 
-    lm_corpus_path: Optional[str] = None
+    def __init__(self, **kwargs):
+        self.lm_corpus_path = kwargs.pop("lm_corpus_path", None)
+        super(LibrispeechLmConfig, self).__init__(**kwargs,)
 
     def __post_init__(self):
         if self.lm_corpus_path is None:
@@ -97,9 +98,10 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
 
     def _generate_examples(self, archive_path):
         """Yields examples."""
+        key = 0
         for p in archive_path:
             with open(p, "r", encoding="utf-8") as f:
-                for key, line in enumerate(f):
+                for line in f:
                     line = re.sub(
                         r"\d+-\d+-\d+\s", "", line
                     )  # remove ids in transcripts
@@ -109,3 +111,4 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
                     # very long sentences (>1000 char) are removed to prevent OOM
                     if text and len(text) < 1000:
                         yield key, {"text": text}
+                    key += 1

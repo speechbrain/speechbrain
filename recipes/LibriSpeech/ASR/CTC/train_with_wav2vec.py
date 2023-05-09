@@ -37,7 +37,9 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-
+        # Downsample the inputs if specified
+        if hasattr(self.modules, "downsampler"):
+            wavs = self.modules.downsampler(wavs)
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
@@ -57,13 +59,20 @@ class ASR(sb.Brain):
                 "embeddings"
             ]
         else:  # HuggingFace pretrained model
-            feats = self.modules.wav2vec2(wavs)
+            feats = self.modules.wav2vec2(wavs, wav_lens)
 
         x = self.modules.enc(feats)
 
         # Compute outputs
         p_tokens = None
         logits = self.modules.ctc_lin(x)
+
+        # Upsample the inputs if they have been highly downsampled
+        if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
+            logits = logits.view(
+                logits.shape[0], -1, self.hparams.output_neurons
+            )
+
         p_ctc = self.hparams.log_softmax(logits)
         if stage != sb.Stage.TRAIN:
             p_tokens = sb.decoders.ctc_greedy_decode(
@@ -86,7 +95,7 @@ class ASR(sb.Brain):
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
             predicted_words = [
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
@@ -95,7 +104,20 @@ class ASR(sb.Brain):
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
-
+        if stage == sb.Stage.TEST:  # Language model decoding only used for test
+            if self.hparams.use_language_modelling:
+                predicted_words = []
+                for logs in p_ctc:
+                    text = decoder.decode(logs.detach().cpu().numpy())
+                    predicted_words.append(text.split(" "))
+            else:
+                predicted_words = [
+                    "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
+                    for utt_seq in predicted_tokens
+                ]
+                target_words = [wrd.split(" ") for wrd in batch.wrd]
+                self.wer_metric.append(ids, predicted_words, target_words)
+                self.cer_metric.append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -106,7 +128,8 @@ class ASR(sb.Brain):
             self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                with self.no_sync():
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
@@ -117,19 +140,18 @@ class ASR(sb.Brain):
                     self.scaler.unscale_(self.wav2vec_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
                 if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        self.scaler.step(self.wav2vec_optimizer)
+                    self.scaler.step(self.wav2vec_optimizer)
                     self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
         else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            with self.no_sync():
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             (loss / self.grad_accumulation_factor).backward()
             if should_step:
                 if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        self.wav2vec_optimizer.step()
+                    self.wav2vec_optimizer.step()
                     self.model_optimizer.step()
                 self.wav2vec_optimizer.zero_grad()
                 self.model_optimizer.zero_grad()
@@ -350,6 +372,32 @@ if __name__ == "__main__":
     train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
         hparams
     )
+
+    # Loading the labels for the LM decoding and the CTC decoder
+    if hasattr(hparams, "use_language_modelling"):
+        if hparams["use_language_modelling"]:
+            try:
+                from pyctcdecode import build_ctcdecoder
+            except ImportError:
+                err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
+                err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
+            raise ImportError(err_msg)
+
+            ind2lab = label_encoder.ind2lab
+            labels = [ind2lab[x] for x in range(len(ind2lab))]
+            labels = [""] + labels[
+                1:
+            ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
+            decoder = build_ctcdecoder(
+                labels,
+                kenlm_model_path=hparams[
+                    "ngram_lm_path"
+                ],  # either .arpa or .bin file
+                alpha=0.5,  # Default by KenLM
+                beta=1.0,  # Default by KenLM
+            )
+    else:
+        hparams["use_language_modelling"] = False
 
     # Trainer initialization
     asr_brain = ASR(

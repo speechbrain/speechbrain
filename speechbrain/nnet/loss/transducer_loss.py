@@ -340,5 +340,17 @@ class TransducerLoss(Module):
     def forward(self, logits, labels, T, U):
         """Computes the transducer loss."""
         # Transducer.apply function take log_probs tensor.
+<<<<<<< HEAD
         log_probs = logits.log_softmax(-1)
         return self.loss(log_probs, labels, T, U, self.blank, self.reduction)
+=======
+        if all(t.is_cuda for t in (logits, labels, T, U)):
+            log_probs = logits.log_softmax(-1)
+            return self.loss(
+                log_probs, labels, T, U, self.blank, self.reduction
+            )
+        else:
+            raise ValueError(
+                f"Found inputs tensors to be on {[logits.device, labels.device, T.device, U.device]} while needed to be on a 'cuda' device to use the transducer loss."
+            )
+>>>>>>> 891318f5950c337bb951912bf64bd5973af7c908

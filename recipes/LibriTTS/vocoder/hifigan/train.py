@@ -363,21 +363,21 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    sys.path.append("../../")
-    from libritts_prepare import prepare_libritts
+    if not hparams["skip_prep"]:
+        from libritts_prepare import prepare_libritts
 
-    sb.utils.distributed.run_on_main(
-        prepare_libritts,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_json_train": hparams["train_json"],
-            "save_json_valid": hparams["valid_json"],
-            "save_json_test": hparams["test_json"],
-            "sample_rate": hparams["sample_rate"],
-            "split_ratio": hparams["split_ratio"],
-            "libritts_subsets": hparams["libritts_subsets"],
-        },
-    )
+        sb.utils.distributed.run_on_main(
+            prepare_libritts,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_json_train": hparams["train_json"],
+                "save_json_valid": hparams["valid_json"],
+                "save_json_test": hparams["test_json"],
+                "sample_rate": hparams["sample_rate"],
+                "split_ratio": hparams["split_ratio"],
+                "libritts_subsets": hparams["libritts_subsets"],
+            },
+        )
 
     datasets = dataio_prepare(hparams)
 
