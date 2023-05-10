@@ -52,7 +52,9 @@ class AudioNormalizer:
         """
         if sample_rate not in self._cached_resamplers:
             # Create a Resample instance from this newly seen SR to internal SR
-            self._cached_resamplers[sample_rate] = Resample(sample_rate, self.sample_rate)
+            self._cached_resamplers[sample_rate] = Resample(
+                sample_rate, self.sample_rate
+            )
         resampler = self._cached_resamplers[sample_rate]
         resampled = resampler(audio.unsqueeze(0)).squeeze(0)
         return self._mix(resampled)
