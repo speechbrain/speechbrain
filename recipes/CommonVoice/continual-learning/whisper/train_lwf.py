@@ -50,7 +50,7 @@ class ASR(sb.Brain):
 
         # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
-            bos_tokens.requires_grad_()
+            wavs.requires_grad_()
             enc_out, logits, _ = torch.utils.checkpoint.checkpoint(
                 self.modules.whisper, wavs, bos_tokens,
             )

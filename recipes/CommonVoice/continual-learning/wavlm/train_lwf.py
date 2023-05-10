@@ -43,7 +43,7 @@ class ASR(sb.Brain):
 
         # Forward encoder + projection
         if self.hparams.gradient_checkpointing:
-            tokens.requires_grad_()
+            wavs.requires_grad_()
             logits = torch.utils.checkpoint.checkpoint(
                 self.modules.wavlm, wavs, wav_lens,
             )

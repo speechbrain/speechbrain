@@ -50,7 +50,7 @@ class ASR(sb.Brain):
 
         # Forward encoder + decoder
         if self.hparams.gradient_checkpointing:
-            bos_tokens.requires_grad_()
+            wavs.requires_grad_()
             enc_out, logits, _ = torch.utils.checkpoint.checkpoint(
                 self.modules.whisper, wavs, bos_tokens,
             )
@@ -360,7 +360,7 @@ def train(hparams, run_opts):
         ]
 
         # Unfreeze embedding layer
-        hparams["whisper"].model.decoder.embed_tokens.requires_grad_()
+        hparams["whisper"].model.decoder.embed_wavs.requires_grad_()
 
         # Log total number of tokens
         logging.info(
