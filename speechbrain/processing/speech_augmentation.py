@@ -16,7 +16,6 @@ Authors
 import math
 import torch
 import torch.nn.functional as F
-from functools import lru_cache
 from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
@@ -567,7 +566,6 @@ class Resample(torch.nn.Module):
         self.conv_stride = input_samples_in_unit
         self.conv_transpose_stride = self.output_samples
 
-    @lru_cache(maxsize=12)
     def forward(self, waveforms):
         """
         Arguments
