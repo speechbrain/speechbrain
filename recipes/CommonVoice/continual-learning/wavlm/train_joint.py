@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
-learning fashion via Progressive Neural Networks (https://arxiv.org/abs/1606.04671).
+"""Recipe for fine-tuning a WavLM-based ASR system on Common Voice.
 
 The following optimization tricks were used to improve performance:
 - improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
 - optionally use gradient checkpointing
 
 To run this recipe, do the following:
-> python train_pnn.py hparams/train_pnn.yaml
-
-NOTE: since there is no forgetting by design, only the current locale is tested.
+> python train_joint.py hparams/train_joint.yaml
 
 Authors
  * Luca Della Libera 2023
@@ -18,7 +15,6 @@ Authors
 
 import logging
 import os
-import pathlib
 import sys
 import time
 
@@ -29,7 +25,6 @@ import torchinfo
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.nnet.RNN import LSTM as SBLSTM
 from speechbrain.utils.distributed import run_on_main
 
 from common_voice_prepare import prepare_common_voice
@@ -121,7 +116,10 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"CER": stage_stats["CER"]},
+                min_keys=[
+                    "CER"
+                ],  # Use CER since WER for "zh-CN" and "ja" is not reliable
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -271,7 +269,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
             asr_brain.evaluate(
                 test_data,
-                min_key="WER",
+                min_key="CER",  # Use CER since WER for "zh-CN" and "ja" is not reliable
                 test_loader_kwargs=hparams["valid_dataloader_kwargs"],
             )
             os.remove(asr_brain.hparams.wer_file)
@@ -282,7 +280,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         else:
             asr_brain.evaluate(
                 test_data,
-                min_key="WER",
+                min_key="CER",  # Use CER since WER for "zh-CN" and "ja" is not reliable
                 test_loader_kwargs=hparams["valid_dataloader_kwargs"],
             )
 
@@ -298,89 +296,58 @@ def train(hparams, run_opts):
     )
 
     # Train on new locales
-    for i, locale in enumerate(hparams["new_locales"]):
-        # Multi-gpu (ddp) save data preparation
-        run_on_main(
-            prepare_common_voice,
-            kwargs={
-                "locales": [locale],
-                "data_dir": hparams["data_dir"],
-                "max_durations": hparams["max_durations"],
-            },
-        )
+    # Multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_common_voice,
+        kwargs={
+            "locales": hparams["new_locales"],
+            "data_dir": hparams["data_dir"],
+            "max_durations": hparams["max_durations"],
+        },
+    )
 
-        # Define tokenizer
-        tokenizer = hparams["wavlm"].tokenizer
+    # Define tokenizer
+    tokenizer = hparams["wavlm"].tokenizer
 
-        # Freeze the whole model to avoid forgetting
-        hparams["wavlm"].model.requires_grad_(False)
+    # Log total number of tokens
+    logging.info(
+        f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
+    )
 
-        # Add new decoding layers
-        hparams["wavlm"].model.decoder.layers += [
-            SBLSTM(
-                hparams["hidden_size"],
-                [
-                    None,
-                    None,
-                    (2 if hparams["bidirectional"] else 1)
-                    * hparams["hidden_size"],
-                ],
-                num_layers=hparams["num_layers"],
-                dropout=hparams["dropout"],
-                bidirectional=hparams["bidirectional"],
-            )
-            for _ in range(hparams["num_new_decoder_layers"])
-        ]
+    # Create datasets, tokenization and encoding
+    train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
 
-        # Unfreeze projection layer
-        hparams["wavlm"].model.decoder.out_proj.requires_grad_()
+    # Trainer initialization
+    asr_brain = ASR(
+        modules=hparams["modules"],
+        hparams=hparams,
+        run_opts=run_opts,
+        opt_class=hparams["opt_class"],
+        checkpointer=hparams["checkpointer"],
+    )
 
-        # Log total number of tokens
-        logging.info(
-            f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
-        )
+    # We dynamically add the tokenizer to our brain class
+    # NB: This tokenizer corresponds to the one used for Whisper
+    asr_brain.tokenizer = tokenizer
 
-        # Create datasets, tokenization and encoding
-        train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
+    # Training
+    hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
+    hparams["epoch_counter"].current = 0
+    asr_brain.fit(
+        hparams["epoch_counter"],
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_dataloader_kwargs"],
+        valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
+    )
 
-        # Trainer initialization
-        checkpoint_dir = os.path.join(hparams["save_dir"], locale)
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
-        hparams["lr_annealing"].hyperparam_value = hparams["lr"]
-        hparams["lr_annealing"].metric_values.clear()
-        hparams["lr_annealing"].current_patient = 0
-        asr_brain = ASR(
-            modules=hparams["modules"],
-            hparams=hparams,
-            run_opts=run_opts,
-            opt_class=hparams["opt_class"],
-            checkpointer=hparams["checkpointer"],
-        )
-
-        # We dynamically add the tokenizer to our brain class
-        # NB: This tokenizer corresponds to the one used for Whisper
-        asr_brain.tokenizer = tokenizer
-
-        # Training
-        hparams["valid_dataloader_kwargs"].pop("ckpt_prefix", None)
-        hparams["epoch_counter"].current = 0
-        asr_brain.fit(
-            hparams["epoch_counter"],
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["train_dataloader_kwargs"],
-            valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
-
-        # Testing
-        test(
-            hparams,
-            run_opts,
-            [locale],
-            # hparams["old_locales"] + hparams["new_locales"][: i + 1],
-            f"wer_test_after_{locale}.txt",
-        )
+    # Testing
+    test(
+        hparams,
+        run_opts,
+        hparams["old_locales"] + hparams["new_locales"],
+        f"wer_test_after.txt",
+    )
 
 
 def profile(hparams):

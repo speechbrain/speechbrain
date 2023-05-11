@@ -348,7 +348,7 @@ def train(hparams, run_opts):
         )
 
         # Create datasets, tokenization and encoding
-        train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)

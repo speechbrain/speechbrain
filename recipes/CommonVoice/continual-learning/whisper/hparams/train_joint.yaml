@@ -1,5 +1,5 @@
 # ############################################################################
-# Model: WavLM + LSTM + CTC loss
+# Model: Whisper (encoder-decoder) + cross-entropy loss
 # Authors: Luca Della Libera 2023
 # ############################################################################
 
@@ -7,21 +7,20 @@ seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 skip_test: False
-skip_ewc: False
 
 # Data preparation
-new_locales: [or, ga-IE]
-old_locales: [fi]
+new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
+old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 data_dir: !PLACEHOLDER
-max_durations: [600, 600, 600]
+max_durations: [36000, 3600, 3600]
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/debug/<seed>
+output_dir: !ref results/<whisper_variant>/joint/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 2
-valid_batch_size: 10
+train_batch_size: 4
+valid_batch_size: 8
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -29,35 +28,26 @@ sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 
-blank_index: 50258  # For CTC loss (use Whisper BOS as blank)
+ignore_index: -100  # For cross-entropy loss
+label_smoothing: 0
 
 num_epochs: 2
 lr: 0.0001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
-ewc_lambda: 5.0
-replay_ratio: 0.1
-lwf_lambda: 10.0
-lwf_T: 2.0
-mask_init: 0.01
-mask_threshold: 0.005
-num_new_decoder_layers: 1
 
-wavlm_variant: wavlm-base
-output_norm: True
-freeze: False  # WavLM + LSTM
-freeze_encoder: False  # WavLM
-freeze_feature_extractor: True  # Feature extractor of WavLM
-hidden_size: 1024
-num_layers: 2
-dropout: 0.0
-bidirectional: True
+whisper_variant: whisper-large-v2
+encoder_only: False
+freeze: False
+freeze_encoder: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
 
+max_gen_tokens: 80
+forced_decoder_locale: null  # Set dynamically
 normalize_transcripts: True
 
 # Dataloader options
@@ -70,23 +60,20 @@ valid_dataloader_kwargs:
     num_workers: !ref <valid_num_workers>
 
 # Modules
-wavlm: !new:model.ProgressiveWavLM
-    source: !ref microsoft/<wavlm_variant>
+whisper: !new:model.ProgressiveWhisper
+    source: !ref openai/<whisper_variant>
     save_path: !ref <save_dir>/checkpoint
-    output_norm: !ref <output_norm>
+    sampling_rate: !ref <sample_rate>
+    encoder_only: !ref <encoder_only>
     freeze: !ref <freeze>
     freeze_encoder: !ref <freeze_encoder>
-    freeze_feature_extractor: !ref <freeze_feature_extractor>
-    hidden_size: !ref <hidden_size>
-    num_layers: !ref <num_layers>
-    dropout: !ref <dropout>
-    bidirectional: !ref <bidirectional>
 
-ctc_loss: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
+ce_loss: !new:torch.nn.CrossEntropyLoss
+    ignore_index: !ref <ignore_index>
+    label_smoothing: !ref <label_smoothing>
 
 modules:
-    wavlm: !ref <wavlm>
+    whisper: !ref <whisper>
 
 # Optimizers
 opt_class: !name:torch.optim.AdamW
@@ -111,7 +98,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_dir>
     recoverables:
-        model: !ref <wavlm>
+        model: !ref <whisper>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 

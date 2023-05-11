@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Recipe for fine-tuning a Whisper-based ASR system on Common Voice.
+"""Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
+learning fashion.
 
 The following optimization tricks were used to improve performance:
 - use custom decoding implementation (faster than built-in searchers
@@ -196,6 +197,9 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("wrd", "locale")
     @sb.utils.data_pipeline.provides("tokens_bos", "tokens_eos", "target_wrd")
     def text_pipeline(wrd, locale):
+        if locale.startswith("zh"):
+            locale = "zh"
+        locale = locale.lower()
         language = tokenizer.supported_languages.get(
             locale, "english"
         )  # Use English if unknown
@@ -355,7 +359,7 @@ def train(hparams, run_opts):
         hparams["forced_decoder_locale"] = locale
 
         # Create datasets, tokenization and encoding
-        train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
         checkpoint_dir = os.path.join(hparams["save_dir"], locale)

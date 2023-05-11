@@ -1,4 +1,4 @@
-"""WavLM + Conv1D + LSTM model with Whisper's tokenizer.
+"""WavLM + LSTM model with Whisper's tokenizer.
 
 Authors
  * Luca Della Libera 2023
@@ -8,7 +8,6 @@ from torch import nn
 from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
 
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
-from speechbrain.nnet.CNN import Conv1d as SBConv1d
 from speechbrain.nnet.RNN import LSTM as SBLSTM
 
 
@@ -22,8 +21,6 @@ class Decoder(nn.Module):
         self,
         input_size,
         output_size,
-        kernel_size=5,
-        stride=1,
         hidden_size=1024,
         num_layers=1,
         dropout=0.0,
@@ -32,12 +29,6 @@ class Decoder(nn.Module):
         super().__init__()
         self.layers = nn.ModuleList(
             [
-                SBConv1d(
-                    input_size,
-                    kernel_size,
-                    in_channels=input_size,
-                    stride=stride,
-                ),
                 SBLSTM(
                     hidden_size,
                     input_size=input_size,
@@ -52,9 +43,8 @@ class Decoder(nn.Module):
         )
 
     def forward(self, input, lengths=None):
-        output = self.layers[0](input)
-        output, state = self.layers[1](output, lengths=lengths)
-        for layer in self.layers[2:]:
+        output, state = self.layers[0](input, lengths=lengths)
+        for layer in self.layers[1:]:
             output, state = layer(output, state, lengths=lengths)
         output = self.out_proj(output)
         return output
@@ -118,9 +108,7 @@ class ProgressiveWavLM(nn.Module):
         freeze_encoder=False,
         freeze_feature_extractor=False,
         apply_spec_augment=False,
-        # Decoder (Conv1D + LSTM)
-        kernel_size=5,
-        stride=1,
+        # Decoder (LSTM)
         hidden_size=1024,
         num_layers=1,
         dropout=0.0,
@@ -142,8 +130,6 @@ class ProgressiveWavLM(nn.Module):
             "output_all_hiddens": False,
         }
         decoder_kwargs = {
-            "kernel_size": kernel_size,
-            "stride": stride,
             "hidden_size": hidden_size,
             "num_layers": num_layers,
             "dropout": dropout,

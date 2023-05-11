@@ -116,7 +116,10 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"CER": stage_stats["CER"]},
+                min_keys=[
+                    "CER"
+                ],  # Use CER since WER for "zh-CN" and "ja" is not reliable
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -257,14 +260,33 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         locale_dir = os.path.join(hparams["output_dir"], locale)
         os.makedirs(locale_dir, exist_ok=True)
         asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
-        asr_brain.evaluate(
-            test_data,
-            min_key="CER",  # Use CER as WER for "zh-CN" and "ja" is not reliable
-            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
-        )
+        if hparams["skip_test"]:
+            # Dummy test
+            asr_brain.hparams.train_logger.save_file = (
+                asr_brain.hparams.wer_file
+            ) = os.path.join(locale_dir, "tmp.txt")
+            test_data.data_ids = list(test_data.data.keys())[:1]
+            test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
+            asr_brain.evaluate(
+                test_data,
+                min_key="CER",  # Use CER since WER for "zh-CN" and "ja" is not reliable
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
+            os.remove(asr_brain.hparams.wer_file)
+            asr_brain.hparams.train_logger.save_file = os.path.join(
+                hparams["output_dir"], "train_log.txt"
+            )
+            asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        else:
+            asr_brain.evaluate(
+                test_data,
+                min_key="CER",  # Use CER since WER for "zh-CN" and "ja" is not reliable
+                test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+            )
 
     # MACs not 100% accurate but still useful for comparisons
-    profile(hparams)
+    if not hparams["skip_test"]:
+        profile(hparams)
 
 
 def train(hparams, run_opts):

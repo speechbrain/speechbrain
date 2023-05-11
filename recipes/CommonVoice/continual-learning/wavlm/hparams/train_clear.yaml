@@ -1,5 +1,5 @@
 # ############################################################################
-# Model: WavLM + Conv1D + LSTM + CTC loss
+# Model: WavLM + LSTM + CTC loss
 # Authors: Luca Della Libera 2023
 # ############################################################################
 
@@ -19,8 +19,8 @@ output_dir: !ref results/<wavlm_variant>/clear/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 10
-valid_batch_size: 20
+train_batch_size: 8
+valid_batch_size: 16
 train_num_workers: 6
 valid_num_workers: 6
 
@@ -38,14 +38,12 @@ replay_ratio: 0.1
 
 wavlm_variant: wavlm-large
 output_norm: True
-freeze: False  # WavLM + Conv1D + LSTM
+freeze: False  # WavLM + LSTM
 freeze_encoder: False  # WavLM
 freeze_feature_extractor: True  # Feature extractor of WavLM
-kernel_size: 5
-stride: 5
 hidden_size: 1024
 num_layers: 2
-dropout: 0.2
+dropout: 0.0
 bidirectional: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)

@@ -316,7 +316,7 @@ def train(hparams, run_opts):
         )
 
         # Create datasets, tokenization and encoding
-        train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+        train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
         length = len(train_data)
 
         # Get train data from previous tasks
