@@ -215,6 +215,108 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_data
 
 
+def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
+    # Test on all locales
+    for locale in locales:
+        # Multi-gpu (ddp) save data preparation
+        run_on_main(
+            prepare_common_voice,
+            kwargs={
+                "locales": [locale],
+                "data_dir": hparams["data_dir"],
+                "max_durations": hparams["max_durations"],
+            },
+        )
+
+        if locale in ["zh-CN", "ja"]:
+            # Use CER instead of WER (spaces are not used)
+            hparams[
+                "wer_computer"
+            ] = lambda *args, **kwargs: sb.utils.metric_stats.ErrorRateStats(
+                split_tokens=True
+            )
+        else:
+            hparams["wer_computer"] = sb.utils.metric_stats.ErrorRateStats
+
+        # Define tokenizer
+        tokenizer = hparams["wavlm"].tokenizer
+
+        # Create datasets, tokenization and encoding
+        _, _, test_data = dataio_prepare(hparams, tokenizer)
+
+        # Trainer initialization
+        asr_brain = ASR(
+            modules=hparams["modules"], hparams=hparams, run_opts=run_opts,
+        )
+
+        # We dynamically add the tokenizer to our brain class
+        # NB: This tokenizer corresponds to the one used for Whisper
+        asr_brain.tokenizer = tokenizer
+
+        # Testing
+        locale_dir = os.path.join(hparams["output_dir"], locale)
+        os.makedirs(locale_dir, exist_ok=True)
+        asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        asr_brain.evaluate(
+            test_data,
+            min_key="CER",  # Use CER as WER for "zh-CN" and "ja" is not reliable
+            test_loader_kwargs=hparams["valid_dataloader_kwargs"],
+        )
+
+    # MACs not 100% accurate but still useful for comparisons
+    profile(hparams)
+
+
+def train(hparams, run_opts):
+    # Multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_common_voice,
+        kwargs={
+            "locales": hparams["locales"],
+            "data_dir": hparams["data_dir"],
+            "max_durations": hparams["max_durations"],
+        },
+    )
+
+    # Define tokenizer
+    tokenizer = hparams["wavlm"].tokenizer
+
+    # Log total number of tokens
+    logging.info(
+        f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
+    )
+
+    # Create datasets, tokenization and encoding
+    train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
+
+    # Trainer initialization
+    asr_brain = ASR(
+        modules=hparams["modules"],
+        hparams=hparams,
+        run_opts=run_opts,
+        opt_class=hparams["opt_class"],
+        checkpointer=hparams["checkpointer"],
+    )
+
+    # We dynamically add the tokenizer to our brain class
+    # NB: This tokenizer corresponds to the one used for Whisper
+    asr_brain.tokenizer = tokenizer
+
+    # Training
+    asr_brain.fit(
+        hparams["epoch_counter"],
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_dataloader_kwargs"],
+        valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
+    )
+
+    # Testing
+    test(
+        hparams, run_opts, hparams["locales"], f"wer_test.txt",
+    )
+
+
 def profile(hparams):
     class Model(torch.nn.Module):
         def __init__(self):
@@ -267,62 +369,6 @@ if __name__ == "__main__":
 
     # Train
     start_time = time.time()
-
-    # Multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_common_voice,
-        kwargs={
-            "locales": hparams["locales"],
-            "data_dir": hparams["data_dir"],
-            "max_durations": hparams["max_durations"],
-        },
-    )
-
-    # Define tokenizer
-    tokenizer = hparams["wavlm"].tokenizer
-
-    # Log total number of tokens
-    logging.info(
-        f"Total number of tokens: {hparams['wavlm'].model.decoder.out_proj.out_features}"
-    )
-
-    # Create datasets, tokenization and encoding
-    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
-
-    # Trainer initialization
-    asr_brain = ASR(
-        modules=hparams["modules"],
-        hparams=hparams,
-        run_opts=run_opts,
-        opt_class=hparams["opt_class"],
-        checkpointer=hparams["checkpointer"],
-    )
-
-    # We dynamically add the tokenizer to our brain class
-    # NB: This tokenizer corresponds to the one used for Whisper
-    asr_brain.tokenizer = tokenizer
-
-    # Training
-    asr_brain.fit(
-        hparams["epoch_counter"],
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["train_dataloader_kwargs"],
-        valid_loader_kwargs=hparams["valid_dataloader_kwargs"],
-    )
-
-    # Testing
-    asr_brain.hparams.wer_file = os.path.join(
-        hparams["output_dir"], "wer_test.txt"
-    )
-    asr_brain.evaluate(
-        test_data,
-        min_key="WER",
-        test_loader_kwargs=hparams["valid_dataloader_kwargs"],
-    )
-
-    # MACs not 100% accurate but still useful for comparisons
-    profile(hparams)
-
+    train(hparams, run_opts)
     duration = time.time() - start_time
     logging.info(f"Time elapsed: {duration} seconds")

@@ -23,9 +23,9 @@ class Decoder(nn.Module):
         input_size,
         output_size,
         kernel_size=5,
-        stride=5,
+        stride=1,
         hidden_size=1024,
-        num_layers=2,
+        num_layers=1,
         dropout=0.0,
         bidirectional=False,
     ):
@@ -120,9 +120,9 @@ class ProgressiveWavLM(nn.Module):
         apply_spec_augment=False,
         # Decoder (Conv1D + LSTM)
         kernel_size=5,
-        stride=5,
+        stride=1,
         hidden_size=1024,
-        num_layers=2,
+        num_layers=1,
         dropout=0.0,
         bidirectional=False,
     ):
