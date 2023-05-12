@@ -363,7 +363,7 @@ def train(hparams, run_opts):
         ]
 
         # Unfreeze embedding layer
-        hparams["whisper"].model.decoder.embed_wavs.requires_grad_()
+        hparams["whisper"].model.decoder.embed_tokens.requires_grad_()
 
         # Log total number of tokens
         logging.info(
