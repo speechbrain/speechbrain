@@ -69,17 +69,8 @@ class ASR(sb.Brain):
             target_words = batch.target_wrd
 
             # Decode predicted tokens to words
-            predicted_words = self.tokenizer.batch_decode(
-                hyps, skip_special_tokens=True
-            )
-
-            if self.hparams.normalize_transcripts:
-                predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
-                    for text in predicted_words
-                ]
-            else:
-                predicted_words = [text.split(" ") for text in predicted_words]
+            predicted_words = self.tokenizer.decode(hyps)
+            predicted_words = [text.split(" ") for text in predicted_words]
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
@@ -191,15 +182,11 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides("tokens", "target_wrd")
     def text_pipeline(wrd):
-        tokenizer.set_prefix_tokens()
         tokens_list = tokenizer.encode(wrd)
-        tokens_list = tokens_list[3:-1]
-        assert sum(i == tokenizer.unk_token_id for i in tokens_list) == 0
+        assert sum(i == hparams["blank_index"] for i in tokens_list) == 0
         tokens_list = tokens_list[: hparams["max_target_length"] - 1]
         tokens = torch.LongTensor(tokens_list)
         yield tokens
-        if hparams["normalize_transcripts"]:
-            wrd = tokenizer._normalize(wrd)
         wrd = wrd.split(" ")
         # When `ref_tokens` is an empty string add dummy space
         # to avoid division by 0 when computing WER/CER
@@ -253,7 +240,6 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         )
 
         # We dynamically add the tokenizer to our brain class
-        # NB: This tokenizer corresponds to the one used for Whisper
         asr_brain.tokenizer = tokenizer
 
         # Testing
@@ -321,7 +307,6 @@ def train(hparams, run_opts):
     )
 
     # We dynamically add the tokenizer to our brain class
-    # NB: This tokenizer corresponds to the one used for Whisper
     asr_brain.tokenizer = tokenizer
 
     # Training

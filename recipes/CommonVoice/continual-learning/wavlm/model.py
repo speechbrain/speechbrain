@@ -1,14 +1,16 @@
-"""WavLM + LSTM model with Whisper's tokenizer.
+"""WavLM + LSTM model with character-level SentencePiece tokenizer.
 
 Authors
  * Luca Della Libera 2023
 """
 
+import os
+
 from torch import nn
-from transformers.models.whisper.tokenization_whisper import WhisperTokenizer
 
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 from speechbrain.nnet.RNN import LSTM as SBLSTM
+from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 
 __all__ = [
@@ -71,26 +73,6 @@ class Model(nn.Module):
         )
         self.config = self.encoder.model.config
 
-    def resize_out_proj(self, new_num_tokens):
-        old_out_proj = self.decoder.out_proj
-        n = min(old_out_proj.out_features, new_num_tokens)
-        has_bias = old_out_proj.bias is not None
-        new_out_proj = nn.Linear(
-            old_out_proj.in_features,
-            new_num_tokens,
-            bias=has_bias,
-            device=old_out_proj.weight.device,
-            dtype=old_out_proj.weight.dtype,
-        )
-        new_out_proj.weight.data[:n, :] = old_out_proj.weight.data[:n, :]
-        new_out_proj.requires_grad_(old_out_proj.weight.requires_grad)
-        if has_bias:
-            new_out_proj.bias.data[:n] = old_out_proj.bias.data[:n]
-            new_out_proj.requires_grad_(old_out_proj.bias.requires_grad)
-        self.decoder.out_proj = new_out_proj
-        self.vocab_size = new_num_tokens
-        return new_out_proj
-
     def forward(self, wav, wav_lens=None):
         output = self.encoder(wav, wav_lens)
         output = self.decoder(output, wav_lens)
@@ -115,13 +97,12 @@ class ProgressiveWavLM(nn.Module):
         bidirectional=False,
     ):
         super().__init__()
-        self.tokenizer = WhisperTokenizer.from_pretrained(
-            "openai/whisper-tiny",
-            language=None,
-            task="transcribe",
-            predict_timestamps=False,
-        )
-        vocab_size = len(self.tokenizer.get_vocab())
+        self.tokenizer = SentencePiece(
+            model_dir=os.path.join(os.path.dirname(__file__), "tokenizer"),
+            vocab_size=4887,
+            model_type="char",
+        ).sp
+        vocab_size = self.tokenizer.vocab_size()
         encoder_kwargs = {
             "output_norm": output_norm,
             "freeze": freeze_encoder or freeze,

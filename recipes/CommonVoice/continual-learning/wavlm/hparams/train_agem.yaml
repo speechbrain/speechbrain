@@ -28,7 +28,7 @@ sample_rate: 16000
 sorting: ascending
 avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 
-blank_index: 50258  # For CTC loss (use Whisper BOS as blank)
+blank_index: 0
 
 num_epochs: 2
 lr: 0.0001
@@ -50,8 +50,6 @@ max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600
-
-normalize_transcripts: True
 
 # Dataloader options
 train_dataloader_kwargs:
