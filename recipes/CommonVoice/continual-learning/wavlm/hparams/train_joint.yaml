@@ -31,7 +31,7 @@ avoid_if_longer_than: 10  # Remove utterances longer than 10s (open microphones)
 blank_index: 0
 
 num_epochs: 2
-lr: 0.0001
+lr: 0.00001
 improvement_threshold: 0.0025
 annealing_factor: 0.8
 

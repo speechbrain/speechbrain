@@ -15,6 +15,7 @@ NOTE: since there is no forgetting by design, only the current locale is tested.
 
 Authors
  * Luca Della Libera 2023
+ * Salah Zaiem 2023
 """
 
 import logging

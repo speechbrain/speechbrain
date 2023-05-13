@@ -1,6 +1,6 @@
 # ############################################################################
 # Model: Whisper (encoder-decoder) + cross-entropy loss
-# Authors: Pooneh Mousavi 2023, Luca Della Libera 2023
+# Authors: Luca Della Libera 2023, Pooneh Mousavi 2023
 # ############################################################################
 
 seed: 0

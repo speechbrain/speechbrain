@@ -323,7 +323,7 @@ def train(hparams, run_opts):
     run_on_main(
         prepare_common_voice,
         kwargs={
-            "locales": hparams["new_locales"],
+            "locales": hparams["old_locales"] + hparams["new_locales"],
             "data_dir": hparams["data_dir"],
             "max_durations": hparams["max_durations"],
         },
