@@ -71,10 +71,9 @@ class ASR(sb.Brain):
                 self.hparams.forced_decoder_locale
             )
             if decoder_mask is not None:
-                for (
-                    k,
-                    v,
-                ) in self.modules.whisper.model.decoder.named_parameters():
+                for (k, v,) in self.modules.whisper.model.decoder.layers[
+                    -2:
+                ].named_parameters():
                     if k not in decoder_mask:
                         continue
                     v.detach_()
@@ -330,7 +329,9 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         )
         decoder_mask = hparams["decoder_mask"].get(locale)
         if decoder_mask is not None:
-            for k, v in hparams["whisper"].model.decoder.named_parameters():
+            for k, v in (
+                hparams["whisper"].model.decoder.layers[-2:].named_parameters()
+            ):
                 if k not in decoder_mask:
                     continue
                 v.detach_()
@@ -444,7 +445,9 @@ def train(hparams, run_opts):
         # Initialize decoder mask
         hparams["decoder_mask"][locale] = {
             k: torch.full_like(v, hparams["mask_init"], requires_grad=True)
-            for k, v in hparams["whisper"].model.decoder.named_parameters()
+            for k, v in hparams["whisper"]
+            .model.decoder.layers[-2:]
+            .named_parameters()
             if "embed_tokens" not in k
         }
 
