@@ -578,7 +578,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         max_probs, _ = torch.max(log_probs, dim=-1)
         eos_probs = log_probs[:, self.eos_index]
-        cond = eos_probs > (self.eos_threshold * max_probs)
+        cond = eos_probs >= (self.eos_threshold * max_probs)
         return cond
 
     def _update_hyp_and_scores(
