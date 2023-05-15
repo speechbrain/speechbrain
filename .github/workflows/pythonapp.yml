@@ -24,6 +24,9 @@ jobs:
             - name: Install libsndfile
               run: |
                   sudo apt-get install -y libsndfile1
+            - name: Install ffmpeg
+              run: |
+                  sudo apt-get install -y ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
