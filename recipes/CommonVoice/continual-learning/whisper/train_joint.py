@@ -53,7 +53,12 @@ class ASR(sb.Brain):
             enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         hyps = None
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
+            hyps, _ = self.modules.whisper.generate(
+                audio_features=enc_out,
+                max_gen_tokens=self.hparams.max_gen_tokens,
+            )
+        elif stage == sb.Stage.TEST:
             hyps, _ = self.modules.whisper.generate(
                 audio_features=enc_out,
                 forced_decoder_locale=self.hparams.forced_decoder_locale,
