@@ -873,7 +873,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         (log_probs, scorer_memory,) = self._scorer_step(
-            step, alived_hyps, inp_tokens, scorer_memory, attn, log_probs,
+            inp_tokens, scorer_memory, attn, log_probs,
         )
 
         log_probs = self._eos_threshold_step(log_probs)
