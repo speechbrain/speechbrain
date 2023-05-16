@@ -26,10 +26,6 @@ class AlivedHypotheses(torch.nn.Module):
         The log probabilities of each token for each hypothesis.
     sequence_scores : torch.Tensor
         The sum of log probabilities for each hypothesis.
-    decoded_seq : list
-        The decoded sequence of each hypothesis.
-    tokenizer : speechbrain.tokenizers.SentencePiece
-        The tokenizer to decode the sequence. If None, the sequence will not be decoded.
     """
 
     def __init__(
@@ -37,49 +33,11 @@ class AlivedHypotheses(torch.nn.Module):
         alived_seq,
         alived_log_probs,
         sequence_scores,
-        decoded_seq=None,
-        tokenizer=None,
     ):
         super().__init__()
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
-        self.decoded_seq = decoded_seq
-        self.tokenizer = tokenizer
-
-    def permute_decoded_seq(self, predecessors):
-        """Permute the decoded sequences.
-
-        Arguments
-        ---------
-        predecessors : torch.Tensor
-            The predecessor of each hypothesis.
-        """
-        if self.tokenizer is not None:
-            self.decoded_seq = [
-                self.decoded_seq[i].copy() for i in predecessors.tolist()
-            ]
-
-    def update_decoded_seq(self, inp_tokens):
-        """Update the decoded sequence.
-
-        Arguments
-        ---------
-        inp_tokens : torch.Tensor
-            The input token of the current step.
-        """
-
-        if self.tokenizer is not None:
-            tokens = inp_tokens.tolist()
-            pieces = self.tokenizer.id_to_piece(tokens)
-
-            # update the decoded sequence and clean the special token "▁"
-            self.decoded_seq = [
-                [(self.decoded_seq[i][0] + pieces[i]).replace("▁", " ")]
-                if tokens[i] != 0
-                else self.decoded_seq[i]
-                for i in range(len(pieces))
-            ]
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -416,7 +374,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         using_max_attn_shift=False,
         max_attn_shift=60,
         minus_inf=-1e20,
-        tokenizer=None,
     ):
         super(S2SBeamSearcher, self).__init__(
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
@@ -432,7 +389,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.attn_weight = 1.0
         self.ctc_weight = 0.0
         self.minus_inf = minus_inf
-        self.tokenizer = tokenizer
 
         if self.scorer is not None:
             # Check length normalization
@@ -521,19 +477,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def init_hypotheses(self):
         """This method initializes the AlivedHypotheses object."""
-
-        decoded_seq = None
-        if self.tokenizer is not None:
-            decoded_seq = [[""] for _ in range(self.n_bh)]
-
         return AlivedHypotheses(
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
             alived_log_probs=torch.empty(self.n_bh, 0, device=self.device),
             sequence_scores=torch.empty(self.n_bh, device=self.device)
             .fill_(self.minus_inf)
             .index_fill_(0, self.beam_offset, 0.0),
-            decoded_seq=decoded_seq,
-            tokenizer=self.tokenizer,
         )
 
     def _attn_weight_step(
@@ -559,14 +508,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return log_probs, prev_attn_peak
 
     def _scorer_step(
-        self, step, alived_hyps, inp_tokens, scorer_memory, attn, log_probs
+        self, inp_tokens, scorer_memory, attn, log_probs
     ):
         """This method call the scorers if scorer is not None."""
         if self.scorer is not None:
-            alived_hyps.update_decoded_seq(inp_tokens)
             log_probs, scorer_memory = self.scorer.score(
-                step,
-                alived_hyps,
                 inp_tokens,
                 scorer_memory,
                 attn,
@@ -574,15 +520,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 self.beam_size,
             )
         return log_probs, scorer_memory
-
-    def _rescoring_step(self, top_scores, hyps):
-        """This method rescores the final hypothesis if scorer is not None."""
-        if self.scorer is not None and self.tokenizer is not None:
-            hyps_to_score = [
-                [self.tokenizer.decode_ids(seq.tolist()[:-1])] for seq in hyps
-            ]
-            top_scores = self.scorer.rescore_hyps(top_scores, hyps_to_score)
-        return top_scores
 
     def _set_eos_minus_inf_step(self, log_probs, step, min_decode_steps):
         """This method set the log_probs of eos to minus infinity if the step is less than min_decode_steps."""
@@ -662,8 +599,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             ],
             dim=-1,
         )
-
-        alived_hyps.permute_decoded_seq(predecessors)
 
         # Takes the log-probabilities
         beam_log_probs = log_probs[
@@ -877,9 +812,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             top_scores += scores
             top_log_probs += log_probs
             top_lengths += [len(hyp) for hyp in hyps]
-
-        # Rescore hypotheses
-        top_scores = self._rescoring_step(top_scores, top_hyps)
 
         # Convert lists to tensors
         top_hyps = torch.nn.utils.rnn.pad_sequence(
