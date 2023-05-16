@@ -133,13 +133,11 @@ class ASR(sb.Brain):
             with self.no_sync(False):
                 self.scaler.scale(loss).backward()
             with torch.no_grad():
-                grad = torch.cat(
-                    [
-                        p.grad.flatten()
-                        for p in self.modules.wavlm.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                grads = []
+                mask = []
+                for param in self.modules.wavlm.parameters():
+                    grads.append(param.grad)
+                    mask.append((param.grad is not None))
                 self.modules.wavlm.zero_grad()
 
             # Draw data from replay buffer
@@ -156,25 +154,30 @@ class ASR(sb.Brain):
             with self.no_sync(False):
                 self.scaler.scale(loss).backward()
             with torch.no_grad():
-                grad_ref = torch.cat(
-                    [
-                        p.grad.flatten()
-                        for p in self.modules.wavlm.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                grad_refs = []
+                for i, param in enumerate(self.modules.wavlm.parameters()):
+                    grad_refs.append(param.grad)
+                    mask[i] = mask[i] and (param.grad is not None)
 
             # Compute and inject modified gradient
             with torch.no_grad():
+                grad = torch.cat(
+                    [g.flatten() for i, g in enumerate(grads) if mask[i]]
+                )
+                grad_ref = torch.cat(
+                    [g.flatten() for i, g in enumerate(grad_refs) if mask[i]]
+                )
                 grad_T_grad_ref = grad.dot(grad_ref)
                 if grad_T_grad_ref < 0:
                     grad -= (grad_T_grad_ref / grad_ref.norm() ** 2) * grad_ref
                 start = 0
-                for param in self.modules.wavlm.parameters():
-                    if param.grad is not None:
+                for i, param in enumerate(self.modules.wavlm.parameters()):
+                    if mask[i]:
                         end = start + param.numel()
                         param.grad = grad[start:end].reshape_as(param)
                         start = end
+                    else:
+                        param.grad = None
 
             self.scaler.unscale_(self.optimizer)
             if self.check_gradients(loss):
@@ -189,13 +192,11 @@ class ASR(sb.Brain):
             with self.no_sync(False):
                 loss.backward()
             with torch.no_grad():
-                grad = torch.cat(
-                    [
-                        p.grad.flatten()
-                        for p in self.modules.wavlm.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                grads = []
+                mask = []
+                for param in self.modules.wavlm.parameters():
+                    grads.append(param.grad)
+                    mask.append((param.grad is not None))
                 self.modules.wavlm.zero_grad()
 
             # Draw data from replay buffer
@@ -211,25 +212,30 @@ class ASR(sb.Brain):
             with self.no_sync(False):
                 loss.backward()
             with torch.no_grad():
-                grad_ref = torch.cat(
-                    [
-                        p.grad.flatten()
-                        for p in self.modules.wavlm.parameters()
-                        if p.grad is not None
-                    ]
-                )
+                grad_refs = []
+                for i, param in enumerate(self.modules.wavlm.parameters()):
+                    grad_refs.append(param.grad)
+                    mask[i] = mask[i] and (param.grad is not None)
 
             # Compute and inject modified gradient
             with torch.no_grad():
+                grad = torch.cat(
+                    [g.flatten() for i, g in enumerate(grads) if mask[i]]
+                )
+                grad_ref = torch.cat(
+                    [g.flatten() for i, g in enumerate(grad_refs) if mask[i]]
+                )
                 grad_T_grad_ref = grad.dot(grad_ref)
                 if grad_T_grad_ref < 0:
                     grad -= (grad_T_grad_ref / grad_ref.norm() ** 2) * grad_ref
                 start = 0
-                for param in self.modules.wavlm.parameters():
-                    if param.grad is not None:
+                for i, param in enumerate(self.modules.wavlm.parameters()):
+                    if mask[i]:
                         end = start + param.numel()
                         param.grad = grad[start:end].reshape_as(param)
                         start = end
+                    else:
+                        param.grad = None
 
             if self.check_gradients(loss):
                 self.optimizer.step()
