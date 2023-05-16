@@ -38,6 +38,7 @@ annealing_factor: 0.8
 ewc_lambda: 5.0
 
 wavlm_variant: wavlm-large
+pretrained_wavlm_path: null
 output_norm: True
 freeze: False  # WavLM + LSTM
 freeze_encoder: False  # WavLM

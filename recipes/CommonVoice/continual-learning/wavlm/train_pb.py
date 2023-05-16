@@ -350,6 +350,12 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
+    # Load checkpoint
+    if hparams["pretrained_wavlm_path"] is not None:
+        hparams["wavlm"].load_state_dict(
+            torch.load(hparams["pretrained_wavlm_path"])
+        )
+
     # Store decoder mask for each locale
     hparams["decoder_mask"] = {}
     for locale in hparams["old_locales"]:
