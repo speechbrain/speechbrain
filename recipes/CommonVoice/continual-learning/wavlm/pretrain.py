@@ -18,10 +18,8 @@ import os
 import sys
 import time
 
-import ptflops
 import torch
 import torchaudio
-import torchinfo
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
@@ -272,7 +270,12 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
     # MACs not 100% accurate but still useful for comparisons
     if not hparams["skip_test"]:
-        profile(hparams)
+        try:
+            profile(hparams)
+        except Exception:
+            logging.warning(
+                "Install ptflops and torchinfo to profile the model (e.g. `pip install ptflops torchinfo`)"
+            )    
 
 
 def train(hparams, run_opts):
@@ -325,6 +328,9 @@ def train(hparams, run_opts):
 
 
 def profile(hparams):
+    import ptflops
+    import torchinfo
+    
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()

@@ -18,10 +18,8 @@ import os
 import sys
 import time
 
-import ptflops
 import torch
 import torchaudio
-import torchinfo
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
@@ -206,7 +204,7 @@ def dataio_prepare(hparams, tokenizer):
 
 
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
-    # Test on old + new locales
+    # Test on base + new locales
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
         run_on_main(
@@ -272,7 +270,12 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
     # MACs not 100% accurate but still useful for comparisons
     if not hparams["skip_test"]:
-        profile(hparams)
+        try:
+            profile(hparams)
+        except Exception:
+            logging.warning(
+                "Install ptflops and torchinfo to profile the model (e.g. `pip install ptflops torchinfo`)"
+            )    
 
 
 def train(hparams, run_opts):
@@ -284,7 +287,7 @@ def train(hparams, run_opts):
 
     # Testing
     test(
-        hparams, run_opts, hparams["old_locales"], f"wer_test_before.txt",
+        hparams, run_opts, hparams["base_locales"], f"wer_test_before.txt",
     )
 
     # Train on new locales
@@ -292,7 +295,7 @@ def train(hparams, run_opts):
     run_on_main(
         prepare_common_voice,
         kwargs={
-            "locales": hparams["old_locales"] + hparams["new_locales"],
+            "locales": hparams["base_locales"] + hparams["new_locales"],
             "data_dir": hparams["data_dir"],
             "max_durations": hparams["max_durations"],
         },
@@ -336,12 +339,15 @@ def train(hparams, run_opts):
     test(
         hparams,
         run_opts,
-        hparams["old_locales"] + hparams["new_locales"],
+        hparams["base_locales"] + hparams["new_locales"],
         f"wer_test_after.txt",
     )
 
 
 def profile(hparams):
+    import ptflops
+    import torchinfo
+    
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()

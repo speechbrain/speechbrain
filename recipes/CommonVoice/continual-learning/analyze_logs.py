@@ -70,7 +70,7 @@ def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
 def compute_cl_metrics(
     all_wers: "Dict[str, ndarray]",
     # fmt: off
-    old_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+    base_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
     new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
     # fmt: on
 ):
@@ -84,9 +84,9 @@ def compute_cl_metrics(
     all_wers:
         The word error rates, i.e. a dict that maps
         names of the per-log word error rates to their
-        corresponding values (old + new locales).
-    old_locales:
-        The old locales.
+        corresponding values (base + new locales).
+    base_locales:
+        The base locales.
     new_locales:
         The new locales.
 
@@ -124,8 +124,8 @@ def compute_cl_metrics(
                     # Fewer languages than expected
                     break
                 if j == 0:
-                    A[k, j] = wers[idx : idx + len(old_locales)].mean() / 100
-                    idx += len(old_locales)
+                    A[k, j] = wers[idx : idx + len(base_locales)].mean() / 100
+                    idx += len(base_locales)
                 else:
                     A[k, j] = wers[idx] / 100
                     idx += 1
@@ -160,7 +160,7 @@ def plot_wer(
     wers: "ndarray",
     output_image: "str",
     # fmt: off
-    old_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+    base_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
     new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
     # fmt: on
     title: "Optional[str]" = None,
@@ -175,11 +175,11 @@ def plot_wer(
     Parameters
     ----------
     wers:
-        The word error rates (old + new locales).
+        The word error rates (base + new locales).
     output_image:
         The path to the output image.
-    old_locales:
-        The old locales.
+    base_locales:
+        The base locales.
     new_locales:
         The new locales.
     title:
@@ -226,7 +226,7 @@ def plot_wer(
                 ),
             )
             fig = plt.figure(figsize=figsize)
-            locales = list(old_locales)
+            locales = list(base_locales)
             j = 0
             for i, new_locale in enumerate([None] + list(new_locales)):
                 if new_locale is not None:
@@ -265,7 +265,7 @@ def plot_wer(
         from plotly import graph_objects as go
 
         fig = go.Figure()
-        locales = list(old_locales)
+        locales = list(base_locales)
         j = 0
         for i, new_locale in enumerate([None] + list(new_locales)):
             if new_locale is not None:
@@ -327,7 +327,7 @@ def plot_cl_metrics(
     all_wers: "Dict[str, ndarray]",
     output_dir: "str",
     # fmt: off
-    old_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+    base_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
     new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
     # fmt: on
     figsize: "Tuple[float, float]" = (7.5, 6.0),
@@ -345,11 +345,11 @@ def plot_cl_metrics(
     all_wers:
         The word error rates, i.e. a dict that maps
         names of the per-log word error rates to their
-        corresponding values (old + new locales).
+        corresponding values (base + new locales).
     output_dir:
         The path to the output directory.
-    old_locales:
-        The old locales.
+    base_locales:
+        The base locales.
     new_locales:
         The new locales.
     figsize:
@@ -376,7 +376,7 @@ def plot_cl_metrics(
     """
     # Compute performance metrics
     avg_As, avg_Fs, avg_Ls = compute_cl_metrics(
-        all_wers, old_locales, new_locales
+        all_wers, base_locales, new_locales
     )
 
     # Save performance metrics
@@ -718,13 +718,13 @@ if __name__ == "__main__":
         help="path to directory containing the train logs in continual learning format",
     )
     parser.add_argument(
-        "-o",
-        "--old_locales",
+        "-b",
+        "--base_locales",
         nargs="+",
         # fmt: off
         default=("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
         # fmt: on
-        help="old locales",
+        help="base locales",
     )
     parser.add_argument(
         "-n",
@@ -782,7 +782,7 @@ if __name__ == "__main__":
                 plot_wer(
                     wers,
                     output_image,
-                    old_locales=args.old_locales,
+                    base_locales=args.base_locales,
                     new_locales=new_locales,
                     figsize=args.figsize,
                     usetex=args.usetex,
@@ -795,7 +795,7 @@ if __name__ == "__main__":
     plot_cl_metrics(
         all_wers,
         args.input_dir,
-        old_locales=args.old_locales,
+        base_locales=args.base_locales,
         new_locales=args.new_locales,
         figsize=args.figsize,
         format=args.format,

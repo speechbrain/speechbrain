@@ -9,8 +9,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 skip_test: False
 
 # Data preparation
+base_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
-old_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 data_dir: !PLACEHOLDER
 max_durations: [36000, 3600, 3600]
 

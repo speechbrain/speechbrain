@@ -10,8 +10,8 @@ skip_test: False
 skip_ewc: False
 
 # Data preparation
+base_locales: [fi]
 new_locales: [or, ga-IE]
-old_locales: [fi]
 data_dir: !PLACEHOLDER
 max_durations: [600, 600, 600]
 
