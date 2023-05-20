@@ -17,14 +17,6 @@ import numpy as np
 from numpy import ndarray
 
 
-__all__ = [
-    "compute_cl_metrics",
-    "parse_train_log",
-    "plot_cl_metrics",
-    "plot_wer",
-]
-
-
 _DEFAULT_METRICS = [
     "epoch",
     "train loss",
@@ -108,7 +100,7 @@ def compute_cl_metrics(
     ----------
     .. [1] A. Chaudhry, P. K. Dokania, T. Ajanthan, and P. H. S. Torr.
            "Riemannian Walk for Incremental Learning: Understanding Forgetting and Intransigence".
-           In: ECCV. 2018.
+           In: European Conference on Computer Vision (ECCV). 2018.
            URL: https://arxiv.org/abs/1801.10112v3
 
     Examples
@@ -174,6 +166,7 @@ def plot_wer(
     title: "Optional[str]" = None,
     figsize: "Tuple[float, float]" = (7.5, 6.0),
     usetex: "bool" = False,
+    hide_legend: "bool" = False,
     style_file_or_name: "str" = "classic",
 ) -> "None":
     """Plot word error rates extracted from a single train log
@@ -195,6 +188,8 @@ def plot_wer(
         The figure size.
     usetex:
         True to render text with LaTeX, False otherwise.
+    hide_legend:
+        True to hide the legend, False otherwise.
     style_file_or_name:
         The path to a Matplotlib style file or the name of one
         of Matplotlib built-in styles
@@ -248,7 +243,8 @@ def plot_wer(
                     markersize=5,
                 )
                 j += len(locales)
-            plt.legend(fancybox=True)
+            if not hide_legend:
+                plt.legend(fancybox=True)
             plt.grid()
             plt.title(title)
             plt.xlim(-0.25, len(locales) - 1 + 0.25)
@@ -337,6 +333,7 @@ def plot_cl_metrics(
     figsize: "Tuple[float, float]" = (7.5, 6.0),
     format: "str" = "png",
     usetex: "bool" = False,
+    hide_legend: "bool" = False,
     style_file_or_name: "str" = "classic",
 ) -> "None":
     """Plot continual learning metrics from word error
@@ -361,6 +358,8 @@ def plot_cl_metrics(
         The image format.
     usetex:
         True to render text with LaTeX, False otherwise.
+    hide_legend:
+        True to hide the legend, False otherwise.
     style_file_or_name:
         The path to a Matplotlib style file or the name of one
         of Matplotlib built-in styles
@@ -383,28 +382,38 @@ def plot_cl_metrics(
     # Save performance metrics
     model = os.path.basename(output_dir).replace(".txt", "")
     with open(
-        os.path.join(output_dir, f"{model}_metrics.csv"), "w", encoding="utf-8"
+        os.path.join(output_dir, f"{model}_avg_wer.csv"), "w", encoding="utf-8"
     ) as f:
         csv_writer = csv.writer(f)
-        csv_writer.writerow(
-            ["name", "metric", "base"] + list(new_locales) + ["avg"]
-        )
-        for name, avg_A, avg_F, avg_L in zip(
-            all_wers.keys(), avg_As, avg_Fs, avg_Ls
-        ):
+        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
+        for name, avg_A in zip(all_wers.keys(), avg_As):
             csv_writer.writerow(
-                [name, "avg WER"]
-                + avg_A.tolist()
-                + [round(np.nanmean(avg_A), 2)]
+                [name] + avg_A.tolist() + [round(np.nanmean(avg_A), 2)]
             )
+    with open(
+        os.path.join(output_dir, f"{model}_avg_forgetting.csv"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
+        for name, avg_F in zip(all_wers.keys(), avg_Fs):
             csv_writer.writerow(
-                [name, "avg forgetting"]
+                [name]
                 + [float("NaN")]
                 + avg_F.tolist()
                 + [round(np.nanmean(avg_F), 2)]
             )
+    with open(
+        os.path.join(output_dir, f"{model}_avg_learning.csv"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
+        for name, avg_L in zip(all_wers.keys(), avg_Ls):
             csv_writer.writerow(
-                [name, "avg learning"]
+                [name]
                 + [float("NaN")]
                 + avg_L.tolist()
                 + [round(np.nanmean(avg_L), 2)]
@@ -418,6 +427,7 @@ def plot_cl_metrics(
             style_file_or_name = os.path.realpath(style_file_or_name)
 
         output_image = os.path.join(output_dir, f"{model}_avg_wer.{format}")
+        markers = ["o", "^", "d", "s", "p", "*", "+", 0, 1, 2, 3, 4] * 2
         with plt.style.context(style_file_or_name):
             # Customize style
             rc("text", usetex=usetex)
@@ -428,16 +438,23 @@ def plot_cl_metrics(
             rc("ytick", direction="in")
             rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
             fig = plt.figure(figsize=figsize)
+            markers_iter = iter(markers)
             for name, avg_A in zip(all_wers.keys(), avg_As):
-                name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
-                plt.plot(avg_A, label=name, marker="d", markersize=5)
-            plt.legend(loc="upper left", fancybox=True)
-            if len(all_wers) > 10:
-                plt.legend(loc="upper left", ncols=2, fancybox=True)
+                name = name.replace(".txt", "")
+                plt.plot(
+                    avg_A, label=name, marker=next(markers_iter), markersize=5
+                )
+            if not hide_legend:
+                plt.legend(
+                    loc="upper left",
+                    ncols=2 if len(all_wers) > 10 else 1,
+                    fancybox=True,
+                )
             plt.grid()
             plt.title(model)
             plt.xlim(-0.25, len(new_locales) + 0.25)
-            plt.ylim(-0.025 * 350.0, 350.0)
+            # plt.ylim(-0.025 * 160.0, 160.0)
+            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
             plt.xticks(
                 range(1 + len(new_locales)), ["base"] + list(new_locales)
             )
@@ -460,21 +477,26 @@ def plot_cl_metrics(
             rc("ytick", direction="in")
             rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
             fig = plt.figure(figsize=figsize)
+            markers_iter = iter(markers)
             for name, avg_F in zip(all_wers.keys(), avg_Fs):
-                name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+                name = name.replace(".txt", "")
                 plt.plot(
                     [float("NaN")] + avg_F.tolist(),
                     label=name,
-                    marker="d",
+                    marker=next(markers_iter),
                     markersize=5,
                 )
-            plt.legend(loc="upper left", fancybox=True)
-            if len(all_wers) > 10:
-                plt.legend(loc="upper left", ncols=2, fancybox=True)
+            if not hide_legend:
+                plt.legend(
+                    loc="upper left",
+                    ncols=2 if len(all_wers) > 10 else 1,
+                    fancybox=True,
+                )
             plt.grid()
             plt.title(model)
             plt.xlim(-0.25, len(new_locales) + 0.25)
-            plt.ylim(-0.025 * 350.0, 350.0)
+            # plt.ylim(-0.025 * 160.0, 160.0)
+            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
             plt.xticks(
                 range(1 + len(new_locales)), ["base"] + list(new_locales)
             )
@@ -501,21 +523,26 @@ def plot_cl_metrics(
             rc("ytick", direction="in")
             rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
             fig = plt.figure(figsize=figsize)
+            markers_iter = iter(markers)
             for name, avg_L in zip(all_wers.keys(), avg_Ls):
-                name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+                name = name.replace(".txt", "")
                 plt.plot(
                     [float("NaN")] + avg_L.tolist(),
                     label=name,
-                    marker="d",
+                    marker=next(markers_iter),
                     markersize=5,
                 )
-            plt.legend(loc="upper left", fancybox=True)
-            if len(all_wers) > 10:
-                plt.legend(loc="upper left", ncols=2, fancybox=True)
+            if not hide_legend:
+                plt.legend(
+                    loc="upper left",
+                    ncols=2 if len(all_wers) > 10 else 1,
+                    fancybox=True,
+                )
             plt.grid()
             plt.title(model)
             plt.xlim(-0.25, len(new_locales) + 0.25)
-            plt.ylim(-350.0, 0.025 * 350.0)
+            # plt.ylim(-160.0, 0.025 * 160.0)
+            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
             plt.xticks(
                 range(1 + len(new_locales)), ["base"] + list(new_locales)
             )
@@ -538,7 +565,7 @@ def plot_cl_metrics(
         output_image = os.path.join(output_dir, f"{model}_avg_wer.html")
         fig = go.Figure()
         for name, avg_A in zip(all_wers.keys(), avg_As):
-            name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+            name = name.replace(".txt", "")
             fig.add_trace(
                 go.Scatter(
                     x=list(range(len(avg_A) + 1)),
@@ -586,7 +613,7 @@ def plot_cl_metrics(
         output_image = os.path.join(output_dir, f"{model}_avg_forgetting.html")
         fig = go.Figure()
         for name, avg_F in zip(all_wers.keys(), avg_Fs):
-            name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+            name = name.replace(".txt", "")
             fig.add_trace(
                 go.Scatter(
                     x=list(range(len(avg_F) + 1)),
@@ -634,7 +661,7 @@ def plot_cl_metrics(
         output_image = os.path.join(output_dir, f"{model}_avg_learning.html")
         fig = go.Figure()
         for name, avg_L in zip(all_wers.keys(), avg_Ls):
-            name = name.replace(".txt", "").split("_", maxsplit=1)[-1]
+            name = name.replace(".txt", "")
             fig.add_trace(
                 go.Scatter(
                     x=list(range(len(avg_L) + 1)),
@@ -723,6 +750,9 @@ if __name__ == "__main__":
         "-u", "--usetex", action="store_true", help="render text with LaTeX",
     )
     parser.add_argument(
+        "-l", "--hide_legend", action="store_true", help="hide legend",
+    )
+    parser.add_argument(
         "--style",
         default="classic",
         help="path to a Matplotlib style file or name of one of Matplotlib built-in styles",
@@ -740,14 +770,23 @@ if __name__ == "__main__":
                 wers = metrics["test WER"]
                 all_wers[file] = wers
                 output_image = train_log.replace(".txt", f".{args.format}")
+                new_locales = args.new_locales
+                if "order=" in os.path.basename(train_log):
+                    new_locales = (
+                        os.path.basename(train_log)
+                        .replace(".txt", "")
+                        .split("order=")[1]
+                        .split(", ")
+                    )
                 # Plot WER
                 plot_wer(
                     wers,
                     output_image,
                     old_locales=args.old_locales,
-                    new_locales=args.new_locales,
+                    new_locales=new_locales,
                     figsize=args.figsize,
                     usetex=args.usetex,
+                    hide_legend=args.hide_legend,
                     style_file_or_name=args.style_file_or_name,
                 )
     all_wers = dict(sorted(all_wers.items()))
@@ -761,5 +800,6 @@ if __name__ == "__main__":
         figsize=args.figsize,
         format=args.format,
         usetex=args.usetex,
+        hide_legend=args.hide_legend,
         style_file_or_name=args.style_file_or_name,
     )
