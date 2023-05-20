@@ -311,7 +311,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         except Exception:
             logging.warning(
                 "Install ptflops and torchinfo to profile the model (e.g. `pip install ptflops torchinfo`)"
-            )    
+            )
 
 
 def train(hparams, run_opts):
