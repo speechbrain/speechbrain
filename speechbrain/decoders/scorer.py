@@ -25,7 +25,7 @@ class BaseScorerInterface:
         - speechbrain.decoders.scorer.LengthScorer
     """
 
-    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+    def score(self, inp_tokens, memory, candidates, attn):
         """This method scores tokens in vocabulary.
 
         Arguments
@@ -453,7 +453,7 @@ class CTCScorer(BaseScorerInterface):
         self.ctc_window_size = ctc_window_size
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+    def score(self, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         scores, memory = self.ctc_score.forward_step(
             inp_tokens, memory, candidates, attn
@@ -554,7 +554,7 @@ class RNNLMScorer(BaseScorerInterface):
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+    def score(self, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
@@ -660,7 +660,7 @@ class TransformerLMScorer(BaseScorerInterface):
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+    def score(self, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         with torch.no_grad():
             if memory is None:
@@ -719,7 +719,7 @@ class KenLMScorer(BaseScorerInterface):
             raise ValueError(MSG)
         self.id2char = token_list
 
-    def score(self, alived_hyps, inp_tokens, memory, candidates, attn):
+    def score(self, inp_tokens, memory, candidates, attn):
         """Specifies token scoring."""
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
@@ -867,7 +867,7 @@ class CoverageScorer(BaseScorerInterface):
         # Use time_step to normalize the coverage over steps
         self.time_step = 0
 
-    def score(self, alived_hyps, inp_tokens, coverage, candidates, attn):
+    def score(self, inp_tokens, coverage, candidates, attn):
         """Specifies token scoring."""
         n_bh = attn.size(0)
         self.time_step += 1
@@ -1103,7 +1103,7 @@ class ScorerBuilder:
         # score pruned tokens candidates
         for k, impl in self.partial_scorers.items():
             score, new_memory[k] = impl.score(
-                alived_hyps, inp_tokens, memory[k], candidates, attn
+                inp_tokens, memory[k], candidates, attn
             )
             log_probs += score * self.scorers_weights[k]
 
