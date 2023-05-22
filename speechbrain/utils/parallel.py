@@ -19,8 +19,186 @@ def _chunk_process_wrapper(fn, chunk):
     return list(map(fn, chunk))
 
 
+class CancelFuturesOnExit:
+    """Context manager that .cancel()s all elements of a list upon exit.
+    This is used to abort futures faster when raising an exception."""
+
+    def __init__(self, future_list):
+        self.future_list = future_list
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, _type, _value, _traceback):
+        for future in self.future_list:
+            future.cancel()
+
+
+class _ParallelMapper:
+    """Internal class for `parallel_map`, arguments match the constructor's."""
+
+    def __init__(
+        self,
+        fn: Callable[[Any], Any],
+        source: Iterable[Any],
+        process_count: int,
+        chunk_size: int,
+        queue_size: int,
+        executor: Optional[Executor],
+        progress_bar: bool,
+        progress_bar_kwargs: dict,
+    ):
+        self.future_chunks = deque()
+        self.cv = Condition()
+        self.just_finished_count = 0
+        """Number of jobs that were just done processing, guarded by
+        `self.cv`."""
+        self.remote_exception = None
+        """Set by a worker when it encounters an exception, guarded by
+        `self.cv`."""
+
+        self.fn = fn
+        self.source = source
+        self.process_count = process_count
+        self.chunk_size = chunk_size
+        self.queue_size = queue_size
+        self.executor = executor
+
+        self.known_len = len(source) if hasattr(source, "__len__") else None
+        self.source_it = iter(source)
+        self.depleted_source = False
+
+        if progress_bar:
+            tqdm_final_kwargs = {"total": self.known_len}
+            tqdm_final_kwargs.update(progress_bar_kwargs)
+            self.pbar = tqdm(**tqdm_final_kwargs)
+        else:
+            self.pbar = None
+
+    def run(self):
+        """Spins up an executor (if none were provided), then yields all
+        processed chunks in order."""
+        with CancelFuturesOnExit(self.future_chunks):
+            if self.executor is not None:
+                # just use the executor we were provided
+                yield from self._map_all()
+            else:
+                # start and shut down a process pool executor -- ok for
+                # long-running tasks
+                with ProcessPoolExecutor(
+                    max_workers=self.process_count
+                ) as pool:
+                    self.executor = pool
+                    yield from self._map_all()
+
+    def _bump_processed_count(self, future):
+        """Notifies the main thread of the finished job, bumping the number of
+        jobs it should requeue. Updates the progress bar based on the returned
+        chunk length.
+
+        Arguments
+        ---------
+        future: concurrent.futures.Future
+            A future holding a processed chunk (of type `list`).
+        """
+        if future.cancelled():
+            # the scheduler wants us to stop or something else happened, give up
+            return
+
+        future_exception = future.exception()
+
+        # wake up dispatcher thread to refill the queue
+        with self.cv:
+            if future_exception is not None:
+                # signal to the main thread that it should raise
+                self.remote_exception = future_exception
+
+            self.just_finished_count += 1
+            self.cv.notify()
+
+        if future_exception is None:
+            # update progress bar with the length of the output as the progress
+            # bar is over element count, not chunk count.
+            if self.pbar is not None:
+                self.pbar.update(len(future.result()))
+
+    def _enqueue_job(self):
+        """Pulls a chunk from the source iterable and submits it to the
+        pool; must be run from the main thread.
+
+        Returns
+        -------
+        `True` if any job was submitted (that is, if there was any chunk
+        left to process), `False` otherwise.
+        """
+        # immediately deplete the input stream of chunk_size elems (or less)
+        chunk = list(itertools.islice(self.source_it, self.chunk_size))
+
+        # empty chunk? then we finished iterating over the input stream
+        if len(chunk) == 0:
+            self.depleted_source = True
+            return False
+
+        future = self.executor.submit(_chunk_process_wrapper, self.fn, chunk)
+        future.add_done_callback(self._bump_processed_count)
+        self.future_chunks.append(future)
+
+        return True
+
+    def _map_all(self):
+        """Performs all the parallel mapping logic.
+
+        Arguments
+        ---------
+        executor: concurrent.futures.Executor
+            The executor to `.invoke` all jobs on. The executor is NOT shut down
+            at the end of processing.
+        """
+
+        # initial queue fill
+        for _ in range(self.queue_size):
+            if not self._enqueue_job():
+                break
+
+        # consume & requeue logic
+        while (not self.depleted_source) or (len(self.future_chunks) != 0):
+            with self.cv:
+                # if `cv.notify` was called by a worker _after_ the `with cv`
+                # block last iteration, then `just_finished_count` would be
+                # incremented, but this `cv.wait` would not wake up -- skip it.
+                while self.just_finished_count == 0:
+                    # wait to be woken up by a worker thread, which could mean:
+                    # - that a chunk was processed: try to yield any
+                    # - that a call failed with an exception: raise it
+                    # - nothing; it could be a spurious CV wakeup: keep looping
+                    self.cv.wait()
+
+                if self.remote_exception is not None:
+                    raise self.remote_exception
+
+                # store the amount to requeue, avoiding data races
+                to_queue_count = self.just_finished_count
+                self.just_finished_count = 0
+
+            # try to enqueue as many jobs as there were just finished.
+            # when the input is finished, the queue will not be refilled.
+            for _ in range(to_queue_count):
+                if not self._enqueue_job():
+                    break
+
+            # yield from left to right as long as there is enough ready
+            # e.g. | done | done | !done | done | !done | !done
+            # would yield from the first two. we might deplete the entire queue
+            # at that point, the `depleted_source` loop check is needed as such.
+            while len(self.future_chunks) != 0 and self.future_chunks[0].done():
+                yield from self.future_chunks.popleft().result()
+
+        if self.pbar is not None:
+            self.pbar.close()
+
+
 def parallel_map(
-    fn: Callable[[Any], None],
+    fn: Callable[[Any], Any],
     source: Iterable[Any],
     process_count: int = multiprocessing.cpu_count(),
     chunk_size: int = 8,
@@ -77,111 +255,14 @@ def parallel_map(
         `progress_bar == True`. Allows overriding the defaults or e.g.
         specifying `total` when it cannot be inferred from the source iterable.
     """
-    known_len = len(source) if hasattr(source, "__len__") else None
-    source_it = iter(source)
-
-    futures = deque()
-    cv = Condition()
-    just_finished_count = 0
-
-    if progress_bar:
-        tqdm_final_kwargs = {"total": known_len}
-        tqdm_final_kwargs.update(progress_bar_kwargs)
-        pbar = tqdm(**tqdm_final_kwargs)
-    else:
-        pbar = None
-
-    def _bump_processed_count(future):
-        """Notifies the main thread of the finished job, bumping the number of
-        jobs it should requeue. Updates the progress bar based on the returned
-        chunk length.
-
-        Arguments
-        ---------
-        future: concurrent.futures.Future
-            A future holding a processed chunk (of type `list`).
-        """
-        nonlocal just_finished_count
-
-        # update progress bar with the length of the output as the progress bar
-        # is over element count, not chunk count.
-        if pbar is not None:
-            pbar.update(len(future.result()))
-
-        # wake up dispatcher thread to refill the queue
-        with cv:
-            just_finished_count += 1
-            cv.notify()
-
-    def _map_all(executor: Executor):
-        """Performs all the parallel mapping logic.
-
-        Arguments
-        ---------
-        executor: concurrent.futures.Executor
-            The executor to `.invoke` all jobs on. The executor is NOT shut down
-            at the end of processing.
-            """
-        nonlocal just_finished_count
-
-        def _enqueue_job():
-            """Pulls a chunk from the source iterable and submits it to the
-            pool; must be run from the main thread.
-
-            Returns
-            -------
-            `True` if any job was submitted (that is, if there was any chunk
-            left to process), `False` otherwise.
-            """
-            # immediately deplete the input stream of chunk_size elems (or less)
-            chunk = list(itertools.islice(source_it, chunk_size))
-
-            # empty chunk? then we finished iterating over the input stream
-            if len(chunk) == 0:
-                return False
-
-            future = executor.submit(_chunk_process_wrapper, fn, chunk)
-            future.add_done_callback(_bump_processed_count)
-            futures.append(future)
-
-            return True
-
-        # initial queue fill
-        for _ in range(queue_size):
-            if not _enqueue_job():
-                break
-
-        # consume & requeue logic
-        while len(futures) != 0:
-            with cv:
-                # wait for new work to be ready. if `cv.notify` was called by a
-                # worker _after_ the `with cv` block, then we should not wait!
-                # a new wakeup may never actually happen (or later, when a
-                # different worker finishes).
-                while just_finished_count == 0:
-                    cv.wait()
-
-                # avoid data race on just_finished_count, we're still guarded by
-                # the lock here.
-                to_queue_count = just_finished_count
-                just_finished_count = 0
-
-            # try to enqueue as many jobs as there were just finished.
-            # when the input is finished, the queue will not be refilled.
-            for _ in range(to_queue_count):
-                if not _enqueue_job():
-                    break
-
-            # as we must yield in order, try to deplete as much futures from the
-            # start of the list as are currently available.
-            while len(futures) != 0 and futures[0].done():
-                yield from futures.popleft().result()
-
-        if pbar is not None:
-            pbar.close()
-
-    if executor is not None:
-        yield from _map_all(executor)
-    else:
-        with ProcessPoolExecutor(max_workers=process_count) as pool:
-            yield from _map_all(pool)
+    mapper = _ParallelMapper(
+        fn,
+        source,
+        process_count,
+        chunk_size,
+        queue_size,
+        executor,
+        progress_bar,
+        progress_bar_kwargs,
+    )
+    yield from mapper.run()
