@@ -781,6 +781,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             top_scores += scores
             top_log_probs += log_probs
             top_lengths += [len(hyp) for hyp in hyps]
+
+        top_scores = self._rescoring_step(top_scores, top_hyps)
+
         # Convert lists to tensors
         top_hyps = torch.nn.utils.rnn.pad_sequence(
             top_hyps, batch_first=True, padding_value=0

@@ -268,8 +268,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
-    tokenizer : speechbrain.tokenizers.SentencePiece
-        The tokenizer associated with the language model.
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
@@ -282,7 +280,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
         self,
         language_model,
         temperature=1.0,
-        tokenizer=None,
         bos_index=0,
         eos_index=0,
         pad_index=0,
@@ -292,10 +289,21 @@ class TransformerLMRescorer(BaseRescorerInterface):
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-        self.tokenizer = tokenizer
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
+
+        self.vocab = None
+
+    def set_vocab(self, vocab):
+        """This method sets the vocabulary of the language model.
+
+        Arguments
+        ---------
+        vocab : list of str
+            The vocabulary of the language model.
+        """
+        self.vocab = vocab
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -1051,6 +1059,11 @@ class ScorerBuilder:
             if k.endswith("Rescorer")
         ]
 
+        rescorer_names = [
+            impl.__class__.__name__.lower().split("rescorer")[0]
+            for impl in rescorers
+        ]
+
         # Have a default 0.0 weight for scorer not specified
         init_weights = {k: 0.0 for k in all_scorer_names}
         self.scorers_weights = {**init_weights, **scorer_weights}
@@ -1060,7 +1073,7 @@ class ScorerBuilder:
         # Have a default 0.0 weight for rescorer not specified, the first is alpha and the second beta.
         init_weights = {k: (0.0, 0.0) for k in all_rescorer_names}
         self.rescorers_weights = {**init_weights, **rescorers_weights}
-        self.rescorers = dict(zip(all_rescorer_names, rescorers))
+        self.rescorers = dict(zip(rescorer_names, rescorers))
 
         # Check if scorers are valid
         self._validate_scorer(all_scorer_names)
@@ -1122,6 +1135,7 @@ class ScorerBuilder:
         # TODO: from int to text here
         # <-----
         # TODO: change full_scores to rescorers
+        print("here")
         for k, impl in self.rescorers.items():
             if isinstance(impl, BaseRescorerInterface):
                 lm_score, enc_length = impl.rescore_hyps(hyps)
