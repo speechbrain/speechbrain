@@ -876,7 +876,7 @@ class Brain:
             )
         else:
             all_params = self.modules.parameters()
-        print(self.hparams.weight_decay)
+
         if self.opt_class is not None:
             self.optimizer = self.opt_class(all_params)
 
