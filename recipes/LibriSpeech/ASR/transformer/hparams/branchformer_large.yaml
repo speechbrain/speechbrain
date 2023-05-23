@@ -1,11 +1,11 @@
 # ############################################################################
 # Model: E2E ASR with Transformer
-# Encoder: Conformer Encoder
+# Encoder: Branchformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
+# Authors:  Titouan Parcollet
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
@@ -58,7 +58,6 @@ num_workers: 4
 # stage_one_epochs: 90
 lr_adam: 0.0005
 weight_decay: 0.01
-# lr_sgd: 0.000025
 
 # Feature parameters
 sample_rate: 16000
@@ -66,10 +65,10 @@ n_fft: 512
 n_mels: 80
 win_length: 32
 
-# This setup works well for V100 32GB GPU, adapts it to your needs.
+# This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 900
+max_batch_len: 500
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
