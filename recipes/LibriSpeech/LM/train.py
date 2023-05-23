@@ -44,49 +44,27 @@ class LM(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with torch.autocast(device_type=torch.device(self.device).type):
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
 
-            # Losses are excluded from mixed precision to avoid instabilities
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.lr_annealing(self.optimizer)
-        else:
-            if self.bfloat16_mix_prec:
-                with torch.autocast(
-                    device_type=torch.device(self.device).type,
-                    dtype=torch.bfloat16,
-                ):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            else:
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        (loss / self.hparams.accu_steps).backward()
 
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
+        if self.step % self.hparams.accu_steps == 0:
+            # gradient clipping & early stop if loss is not fini
+            self.check_gradients(loss)
+
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+            if isinstance(
+                self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
+            ) or isinstance(
+                self.hparams.lr_annealing,
+                sb.nnet.schedulers.CyclicCosineScheduler,
+            ):
                 self.hparams.lr_annealing(self.optimizer)
 
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
+        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -192,7 +170,6 @@ def dataio_prepare(hparams):
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
