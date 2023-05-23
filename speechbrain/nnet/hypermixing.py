@@ -126,6 +126,10 @@ class HyperMixing(nn.Module):
         hyp_input = out + self.positional_encoding(out)
         W1, W2 = self.hyper(hyp_input) # [bsize, num_heads, seq_len, hypernet_size // num_heads]
 
+        # mask the weights
+        W1 = W1 * float_mask.unsqueeze(1)
+        W2 = W2 * float_mask.unsqueeze(1)
+
         # reshape the num_heads into the batch dimension for parallelizing
         out = out.transpose(1,2) # [bsize, input_output_dim, seq_len]
         out = out.reshape((bsize * self.num_heads, self.input_output_dim // self.num_heads, seq_len)) # [bsize * num_heads, input_output_dim // num_heads, seq_len]
