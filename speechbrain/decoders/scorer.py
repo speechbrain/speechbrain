@@ -279,6 +279,8 @@ class TransformerLMRescorer(BaseRescorerInterface):
     def __init__(
         self,
         language_model,
+        tokenizer,
+        encode_fn=None,
         temperature=1.0,
         bos_index=0,
         eos_index=0,
@@ -286,6 +288,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ):
         self.lm = language_model
         self.lm.eval()
+        self.tokenizer = tokenizer
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
@@ -293,17 +296,17 @@ class TransformerLMRescorer(BaseRescorerInterface):
         self.eos_index = eos_index
         self.pad_index = pad_index
 
-        self.vocab = None
+        self.encode_fn = encode_fn
 
-    def set_vocab(self, vocab):
-        """This method sets the vocabulary of the language model.
+    def set_encode_fn(self, encode_fn):
+        """This method sets the encode_fn attribute.
 
         Arguments
         ---------
-        vocab : list of str
-            The vocabulary of the language model.
+        encode_fn : function
+            The function to be used to encode the text.
         """
-        self.vocab = vocab
+        self.encode_fn = encode_fn
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -313,32 +316,40 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
         Arguments
         ---------
-        text : list of str
+        text : str
             The text to be normalized.
         """
-        return [t.upper() for t in text]
+        return text.upper()
 
-    def preprocess_func(self, decoded_seq):
+    def preprocess_func(self, encoded_seq):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        decoded_seq : list of str
+        encoded_seq : list of str
             The hypotheses to be preprocessed.
         """
 
-        # normalize & encode text
+        # from ids to text
+        decoded_seq = self.encode_fn(encoded_seq)
+
+        # normalize 
+        decoded_seq = [
+            [self.normalize_text(seq)] for seq in decoded_seq
+        ]
+
+        # encode text
         enc_hyps = [
             torch.tensor(
                 [self.bos_index]
-                + self.tokenizer.encode_as_ids(self.normalize_text(seq))[0]
+                + self.tokenizer.encode_as_ids(seq)[0]
                 + [self.eos_index]
             )
             for seq in decoded_seq
         ]
 
         enc_hyps_length = [
-            enc_seq.shape[1] for enc_seq in enc_hyps
+            enc_seq.shape[0] for enc_seq in enc_hyps
         ]
 
         # pad sequences
@@ -357,13 +368,13 @@ class TransformerLMRescorer(BaseRescorerInterface):
         hyps : list of str
             The hypotheses to be rescored.
         """
-
+    
         # preprocess hypotheses
         padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
 
         if not next(self.lm.parameters()).is_cuda:
             self.lm.to(padded_hyps.device)
-
+   
         # compute scores
         logits = self.lm(padded_hyps)
         log_probs = self.softmax(logits / self.temperature)
@@ -1132,17 +1143,12 @@ class ScorerBuilder:
         hyps : Hypothesis
             The final hypotheses to rescore.
         """
-        # TODO: from int to text here
-        # <-----
-        # TODO: change full_scores to rescorers
-        print("here")
         for k, impl in self.rescorers.items():
             if isinstance(impl, BaseRescorerInterface):
                 lm_score, enc_length = impl.rescore_hyps(hyps)
-
-                exit()
-                # TODO: change how the score is computed i.e. alpha/beta scores. 
-                scores = [s + l for s, l in zip(scores, lm_score)]
+                rescorer_apha, rescorer_beta = self.rescorers_weights[k]
+                #  + rescorer_beta * e
+                scores = [s + rescorer_apha * l + rescorer_beta * e for s, l, e in zip(scores, lm_score, enc_length)]
         return scores
 
     def permute_scorer_mem(self, memory, index, candidates):
