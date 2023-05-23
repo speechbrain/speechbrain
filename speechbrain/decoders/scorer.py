@@ -405,6 +405,68 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
         return log_probs_scores, enc_hyps_length
 
+class HuggingFaceLMRescorer(BaseRescorerInterface):
+    def __init__(
+        self,
+        model_name,
+        temperature=1.0,
+        encode_fn=None,
+    ):
+        self.model_name = model_name
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+        self.encode_fn = encode_fn
+        self.temperature = temperature
+
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError:
+            raise ImportError("Please install transformers with: pip install transformers")
+        
+        self.lm = AutoModelForCausalLM.from_pretrained(self.model_name, is_decoder=True)
+        self.lm.eval().to("cuda")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+        self.pad_index = self.tokenizer.unk_token_id
+        self.bos_index = self.tokenizer.bos_token_id
+        self.eos_index = self.tokenizer.eos_token_id
+
+    @torch.no_grad()
+    def rescore_hyps(self, hyps):
+        # from ids to text
+        decoded_seq = self.encode_fn(hyps)
+        
+        enc_hyps = []
+        for sublist in decoded_seq:
+            encoded_text = self.tokenizer.encode(sublist, add_special_tokens=False)
+            enc_hyps.append(torch.tensor([self.bos_index] + encoded_text + [self.eos_index]))
+
+        enc_hyps_length = [
+            enc_seq.shape[0] for enc_seq in enc_hyps
+        ]
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(bool_mask, dtype=torch.bool, device="cuda")
+
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to("cuda")
+
+        # compute scores
+        logits = self.lm(input_ids=padded_hyps).logits
+        log_probs = self.softmax(logits / self.temperature)
+        
+
+        target_log_probs = log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
+        neural_lm_score = torch.sum(target_log_probs * bool_mask_tensor[:, 1:], dim=-1)
+
+        return neural_lm_score, enc_hyps_length
+
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
@@ -1144,11 +1206,9 @@ class ScorerBuilder:
             The final hypotheses to rescore.
         """
         for k, impl in self.rescorers.items():
-            if isinstance(impl, BaseRescorerInterface):
-                lm_score, enc_length = impl.rescore_hyps(hyps)
-                rescorer_apha, rescorer_beta = self.rescorers_weights[k]
-                #  + rescorer_beta * e
-                scores = [s + rescorer_apha * l + rescorer_beta * e for s, l, e in zip(scores, lm_score, enc_length)]
+            lm_score, enc_length = impl.rescore_hyps(hyps)
+            rescorer_apha, rescorer_beta = self.rescorers_weights[k]
+            scores = [s + rescorer_apha * l + rescorer_beta * e for s, l, e in zip(scores, lm_score, enc_length)]
         return scores
 
     def permute_scorer_mem(self, memory, index, candidates):
