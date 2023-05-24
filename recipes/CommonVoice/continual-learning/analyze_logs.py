@@ -112,11 +112,12 @@ def compute_cl_metrics(
     >>> compute_cl_metrics(all_wers)
 
     """
-    avg_As, avg_Fs, avg_Ls = [], [], []
+    avg_As, avg_Fs, avg_BWTs, avg_Ls = [], [], [], []
     for wers in all_wers.values():
         num_tasks = 1 + len(new_locales)
         A = np.full((num_tasks, num_tasks), -float("inf"))
         F = np.full((num_tasks, num_tasks), -float("inf"))
+        BWT = np.full((num_tasks, num_tasks), -float("inf"))
         idx = 0
         for k in range(num_tasks):
             for j in range(k + 1):
@@ -130,7 +131,9 @@ def compute_cl_metrics(
                     A[k, j] = wers[idx] / 100
                     idx += 1
                 if j < k:
-                    F[k, j] = (A[k, j] - A[:k, j]).max()
+                    F[k, j] = -1* (A[:k, j] - A[k, j]).max()
+                    # F[k, j] = (A[k, j] - A[:k, j]).max()
+                    BWT[k, j] = -1 * (A[k, j] - A[j, j])
 
         # Average learning
         avg_L = np.diag(A)[1:].copy()
@@ -149,11 +152,18 @@ def compute_cl_metrics(
         F[~mask] = 0
         avg_F = np.round(100 * F.sum(axis=-1) / mask.sum(axis=-1), 2)
 
+        # Average Backward Transfer
+        BWT = BWT[1:, :]
+        mask = ~np.isinf(BWT)
+        BWT[~mask] = 0
+        avg_BWT = np.round(100 * BWT.sum(axis=-1) / mask.sum(axis=-1), 2)
+
         avg_As.append(avg_A)
         avg_Fs.append(avg_F)
+        avg_BWTs.append(avg_BWT)
         avg_Ls.append(avg_L)
 
-    return avg_As, avg_Fs, avg_Ls
+    return avg_As, avg_Fs,avg_BWTs, avg_Ls
 
 
 def plot_wer(
@@ -375,7 +385,7 @@ def plot_cl_metrics(
 
     """
     # Compute performance metrics
-    avg_As, avg_Fs, avg_Ls = compute_cl_metrics(
+    avg_As, avg_Fs,avg_BWTs, avg_Ls = compute_cl_metrics(
         all_wers, base_locales, new_locales
     )
 
@@ -403,6 +413,20 @@ def plot_cl_metrics(
                 + [float("NaN")]
                 + avg_F.tolist()
                 + [round(np.nanmean(avg_F), 2)]
+            )
+    with open(
+        os.path.join(output_dir, f"{model}_avg_backwardTransfer.csv"),
+        "w",
+        encoding="utf-8",
+    ) as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
+        for name, avg_BWT in zip(all_wers.keys(), avg_BWTs):
+            csv_writer.writerow(
+                [name]
+                + [float("NaN")]
+                + avg_BWT.tolist()
+                + [round(np.nanmean(avg_BWT), 2)]
             )
     with open(
         os.path.join(output_dir, f"{model}_avg_learning.csv"),
@@ -505,6 +529,52 @@ def plot_cl_metrics(
                 "Average forgetting (\%)"
                 if usetex
                 else "Average forgetting (%)"
+            )
+            fig.tight_layout()
+            plt.savefig(output_image, bbox_inches="tight")
+            plt.close()
+
+        output_image = os.path.join(
+            output_dir, f"{model}_avg_bwt.{format}"
+        )
+        with plt.style.context(style_file_or_name):
+            # Customize style
+            rc("text", usetex=usetex)
+            rc("font", family="serif", serif=["Computer Modern"], size=13)
+            rc("axes", labelsize=15)
+            rc("legend", fontsize=12)
+            rc("xtick", direction="in")
+            rc("ytick", direction="in")
+            rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
+            fig = plt.figure(figsize=figsize)
+            markers_iter = iter(markers)
+            for name, avg_BWT in zip(all_wers.keys(), avg_BWTs):
+                name = name.replace(".txt", "")
+                plt.plot(
+                    [float("NaN")] + avg_BWT.tolist(),
+                    label=name,
+                    marker=next(markers_iter),
+                    markersize=5,
+                )
+            if not hide_legend:
+                plt.legend(
+                    loc="upper left",
+                    ncols=2 if len(all_wers) > 10 else 1,
+                    fancybox=True,
+                )
+            plt.grid()
+            plt.title(model)
+            plt.xlim(-0.25, len(new_locales) + 0.25)
+            # plt.ylim(-0.025 * 160.0, 160.0)
+            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
+            plt.xticks(
+                range(1 + len(new_locales)), ["base"] + list(new_locales)
+            )
+            plt.xlabel("Language")
+            plt.ylabel(
+                "Average BWT (\%)"
+                if usetex
+                else "Average BWT (%)"
             )
             fig.tight_layout()
             plt.savefig(output_image, bbox_inches="tight")
@@ -643,6 +713,54 @@ def plot_cl_metrics(
             },
             yaxis={
                 "title": "Average forgetting (%)",
+                "showline": True,
+                "ticks": "inside",
+                "zeroline": False,
+                "linewidth": 1.5,
+                "rangemode": "tozero",
+                "mirror": "all",
+                "gridcolor": "gray",
+                "griddash": "dot",
+            },
+            margin={"t": 60, "b": 60},
+        )
+        fig.write_html(
+            output_image, include_plotlyjs=True,
+        )
+
+        output_image = os.path.join(output_dir, f"{model}_avg_bwt.html")
+        fig = go.Figure()
+        for name, avg_BWT in zip(all_wers.keys(), avg_BWTs):
+            name = name.replace(".txt", "")
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(len(avg_BWT) + 1)),
+                    y=[float("NaN")] + avg_BWT.tolist(),
+                    marker={"size": 7},
+                    mode="lines+markers",
+                    name=name,
+                )
+            )
+        fig.update_layout(
+            title={"text": model},
+            legend={"traceorder": "normal"},
+            template="none",
+            font_size=20,
+            xaxis={
+                "title": "Language",
+                "ticktext": ["base"] + list(new_locales),
+                "tickvals": list(range(len(new_locales) + 1)),
+                "ticks": "inside",
+                "zeroline": False,
+                "linewidth": 1.5,
+                "range": [-0.25, len(new_locales) + 0.25],
+                "showline": True,
+                "mirror": "all",
+                "gridcolor": "gray",
+                "griddash": "dot",
+            },
+            yaxis={
+                "title": "Average BWT (%)",
                 "showline": True,
                 "ticks": "inside",
                 "zeroline": False,
