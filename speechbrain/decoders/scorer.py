@@ -372,6 +372,14 @@ class TransformerLMRescorer(BaseRescorerInterface):
         # preprocess hypotheses
         padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
 
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(bool_mask, dtype=torch.bool, device=padded_hyps.device)
+
+
         if not next(self.lm.parameters()).is_cuda:
             self.lm.to(padded_hyps.device)
    
@@ -379,6 +387,11 @@ class TransformerLMRescorer(BaseRescorerInterface):
         logits = self.lm(padded_hyps)
         log_probs = self.softmax(logits / self.temperature)
 
+
+        target_log_probs = log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
+        log_probs_scores = torch.sum(target_log_probs * bool_mask_tensor[:, 1:], dim=-1)
+
+        """
         # select only the log_probs of the tokens at t+1, 
         # e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
         mask = torch.zeros(
@@ -402,6 +415,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
             .view(log_probs.size(0), -1)
             .sum(dim=-1)
         )
+        """
 
         return log_probs_scores, enc_hyps_length
 
@@ -438,6 +452,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         
         enc_hyps = []
         for sublist in decoded_seq:
+            sublist = sublist.lower()
             encoded_text = self.tokenizer.encode(sublist, add_special_tokens=False)
             enc_hyps.append(torch.tensor([self.bos_index] + encoded_text + [self.eos_index]))
 
@@ -460,7 +475,6 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         # compute scores
         logits = self.lm(input_ids=padded_hyps).logits
         log_probs = self.softmax(logits / self.temperature)
-        
 
         target_log_probs = log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
         neural_lm_score = torch.sum(target_log_probs * bool_mask_tensor[:, 1:], dim=-1)
