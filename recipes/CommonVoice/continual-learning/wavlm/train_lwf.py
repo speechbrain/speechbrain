@@ -69,7 +69,7 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
-        logits = logits.float()  # Force float32
+        logits = logits.float()  # Force float32 when using mixed precision
         log_probs = logits.log_softmax(dim=-1)
         loss = self.hparams.ctc_loss(log_probs, tokens, wav_lens, tokens_lens)
 

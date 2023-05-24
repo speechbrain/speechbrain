@@ -61,7 +61,7 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
-        logits = logits.float()  # Force float32
+        logits = logits.float()  # Force float32 when using mixed precision
         log_probs = logits.log_softmax(dim=-1)
         loss = self.hparams.ctc_loss(log_probs, tokens, wav_lens, tokens_lens)
 
@@ -376,7 +376,7 @@ def train(hparams, run_opts):
     )
 
     # Train on new locales
-    all_ewc_params = []
+    # all_ewc_params = []
     for i, locale in enumerate(hparams["new_locales"]):
         # Remove old EWC parameters
         hparams.pop("all_ewc_params", None)
@@ -391,7 +391,8 @@ def train(hparams, run_opts):
                 ewc_params = compute_ewc_params(
                     hparams, run_opts, [hparams["new_locales"][i - 1]]
                 )
-            all_ewc_params.append(ewc_params)
+            # all_ewc_params.append(ewc_params)
+            all_ewc_params = [ewc_params]
             hparams["all_ewc_params"] = all_ewc_params
 
         # Multi-gpu (ddp) save data preparation
