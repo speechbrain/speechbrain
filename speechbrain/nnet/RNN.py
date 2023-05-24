@@ -1362,13 +1362,13 @@ class SLiGRU(torch.nn.Module):
     This model beat traditional LSTM/GRU models on the CommonVoice/LibriSpeech datasets (WER and efficiency).
 
     For more info see:
-    "Moumen, Adel and Parcollet, Titouan,
-    Stabilising and accelerating light gated recurrent units for automatic speech recognition,
-    in 2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)"
+    "Moumen, A., & Parcollet, T. (2023, June). Stabilising and accelerating light gated recurrent units for automatic speech recognition. 
+    In ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (pp. 1-5). IEEE."
     (https://arxiv.org/abs/2302.10144)
 
     To improve the speed of the model, it is recommended to use the torch just-in-time compiler (jit)
-    right before using it.
+    right before using it or you can use the custom implementation (CUDA+PyTorch) that is available
+    at https://github.com/Adel-Moumen/fast_ligru.
 
     You can compile it with:
     compiled_model = torch.jit.script(model)
@@ -1391,7 +1391,7 @@ class SLiGRU(torch.nn.Module):
         Every string different from batchnorm and layernorm will result
         in no normalization.
     recurrent_elementwise_affine : bool
-        A boolean value that when set to True, this module has learnable per-element affine parameters initialized to ones (for weights) and zeros (for biases).
+        A boolean value that when set to True will enable the learnable affine parameters.
     num_layers : int
         Number of layers to employ in the RNN architecture.
     bias : bool
@@ -1552,7 +1552,7 @@ class SLiGRU_Layer(torch.nn.Module):
         SLi-GRU (unlike Li-GRU) unconditionally applies layer normalization in
         the recurrent layers, which is unaffected by this parameter.
     recurrent_elementwise_affine : bool
-        A boolean value that when set to True, this module has learnable per-element affine parameters initialized to ones (for weights) and zeros (for biases).
+        A boolean value that when set to True will enable the learnable affine parameters.
     bias: bool
         If True, the additive bias b is adopted.
     bidirectional : bool
@@ -1662,8 +1662,7 @@ class SLiGRU_Layer(torch.nn.Module):
             h = self._sligru_cell(w, hx)
         else:
             # broadcast to include batch size, this makes torch.compile happier
-            h_init = self.h_init.broadcast_to(w.shape[0], self.h_init.shape[1])
-            h = self._sligru_cell(w, h_init)
+            h = self._ligru_cell(w, self.h_init)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
