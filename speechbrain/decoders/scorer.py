@@ -158,21 +158,24 @@ class RNNLMRescorer(BaseRescorerInterface):
     def __init__(
         self,
         language_model,
+        tokenizer,
+        encode_fn=None,
         temperature=1.0,
-        tokenizer=None,
         bos_index=0,
         eos_index=0,
         pad_index=0,
     ):
         self.lm = language_model
         self.lm.eval()
+        self.tokenizer = tokenizer
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
-        self.tokenizer = tokenizer
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
+
+        self.encode_fn = encode_fn
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -182,28 +185,43 @@ class RNNLMRescorer(BaseRescorerInterface):
 
         Arguments
         ---------
-        text : list of str
+        text : str
             The text to be normalized.
         """
-        return [t.upper() for t in text]
+        return text.upper()
 
-    def preprocess_func(self, decoded_seq):
+    def preprocess_func(self, encoded_seq):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        decoded_seq : list of str
+        encoded_seq : list of str
             The hypotheses to be preprocessed.
         """
 
-        # normalize & encode text
+        if self.encode_fn is None:
+            raise ValueError("encode_fn must be provided.")
+
+        # from ids to text
+        decoded_seq = self.encode_fn(encoded_seq)
+
+        # normalize 
+        decoded_seq = [
+            [self.normalize_text(seq)] for seq in decoded_seq
+        ]
+
+        # encode text
         enc_hyps = [
             torch.tensor(
                 [self.bos_index]
-                + self.tokenizer.encode_as_ids(self.normalize_text(seq))[0]
+                + self.tokenizer.encode_as_ids(seq)[0]
                 + [self.eos_index]
             )
             for seq in decoded_seq
+        ]
+
+        enc_hyps_length = [
+            enc_seq.shape[0] for enc_seq in enc_hyps
         ]
 
         # pad sequences
@@ -211,7 +229,7 @@ class RNNLMRescorer(BaseRescorerInterface):
             enc_hyps, batch_first=True, padding_value=self.pad_index
         ).to(self.lm.parameters().__next__().device)
 
-        return padded_hyps
+        return padded_hyps, enc_hyps_length
     
     @torch.no_grad()
     def rescore_hyps(self, hyps):
@@ -222,41 +240,29 @@ class RNNLMRescorer(BaseRescorerInterface):
         hyps : list of str
             The hypotheses to be rescored.
         """
-            # preprocess hypotheses
-        padded_hyps = self.preprocess_func(hyps)
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(bool_mask, dtype=torch.bool, device=padded_hyps.device)
+
 
         if not next(self.lm.parameters()).is_cuda:
             self.lm.to(padded_hyps.device)
-
+   
         # compute scores
-        logits, _ = self.lm(padded_hyps)
+        logits = self.lm(padded_hyps)
         log_probs = self.softmax(logits / self.temperature)
 
-        # select only the log_probs of the tokens at t+1, e.g.,
-        # log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
-        # and also it could have some errors in the decoding process
-        mask = torch.zeros(
-            (
-                padded_hyps[:, 1:].size(0),
-                padded_hyps[:, 1:].size(1),
-                log_probs.size(2),
-            ),
-            dtype=torch.bool,
-            device="cuda",
-        )
-        mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
 
-        # compute the mean of the log_probs of the tokens at t+1,
-        # doing the sum may harm the scores as we are summing over a large number of tokens
-        # and also it could have some errors in the decoding process
-        log_probs_scores = (
-            log_probs[:, :-1]
-            .masked_select(mask)
-            .view(log_probs.size(0), -1)
-            .sum(dim=-1)
-        )
+        target_log_probs = log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
+        log_probs_scores = torch.sum(target_log_probs * bool_mask_tensor[:, 1:], dim=-1)
 
-        return log_probs_scores
+        return log_probs_scores, enc_hyps_length
 
 class TransformerLMRescorer(BaseRescorerInterface):
     """A wrapper of TransformerLM based on the BaseRescorerInterface.
@@ -298,16 +304,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
         self.encode_fn = encode_fn
 
-    def set_encode_fn(self, encode_fn):
-        """This method sets the encode_fn attribute.
-
-        Arguments
-        ---------
-        encode_fn : function
-            The function to be used to encode the text.
-        """
-        self.encode_fn = encode_fn
-
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
 
@@ -329,6 +325,9 @@ class TransformerLMRescorer(BaseRescorerInterface):
         encoded_seq : list of str
             The hypotheses to be preprocessed.
         """
+
+        if self.encode_fn is None:
+            raise ValueError("encode_fn must be provided.")
 
         # from ids to text
         decoded_seq = self.encode_fn(encoded_seq)
@@ -390,32 +389,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
         target_log_probs = log_probs[:, :-1].gather(2, padded_hyps[:, 1:].unsqueeze(2)).squeeze(2)
         log_probs_scores = torch.sum(target_log_probs * bool_mask_tensor[:, 1:], dim=-1)
-
-        """
-        # select only the log_probs of the tokens at t+1, 
-        # e.g., log_probs[:, 0, tokens[0+1]] ... log_probs[:, t, tokens[t+1]], in a batched way
-        mask = torch.zeros(
-            (
-                padded_hyps[:, 1:].size(0),
-                padded_hyps[:, 1:].size(1),
-                log_probs.size(2),
-            ),
-            dtype=torch.bool,
-            device=padded_hyps.device,
-        )
-        mask.scatter_(2, padded_hyps[:, 1:].unsqueeze(2), 1)
-
-        # TODO: fix this doc
-        # compute the mean of the log_probs of the tokens at t+1, d
-        # oing the sum may harm the scores as we are summing over a large number of tokens
-        # and also it could have some errors in the decoding process
-        log_probs_scores = (
-            log_probs[:, :-1]
-            .masked_select(mask)
-            .view(log_probs.size(0), -1)
-            .sum(dim=-1)
-        )
-        """
 
         return log_probs_scores, enc_hyps_length
 
