@@ -28,7 +28,6 @@ pretrained_lm_tokenizer_path: speechbrain/asr-crdnn-rnnlm-librispeech
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder> # where to store noisy data for augment (change it if needed)
 
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
@@ -44,7 +43,7 @@ test_csv:
 # Training parameters
 number_of_epochs: 15
 number_of_ctc_epochs: 15
-batch_size: 8
+batch_size: 24
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
@@ -123,14 +122,6 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    sample_rate: !ref <sample_rate>
    n_fft: !ref <n_fft>
    n_mels: !ref <n_mels>
-
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-   openrir_folder: !ref <data_folder_rirs>
-   babble_prob: 0.0
-   reverb_prob: 0.0
-   noise_prob: 1.0
-   noise_snr_low: 0
-   noise_snr_high: 15
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
    sample_rate: !ref <sample_rate>
@@ -214,7 +205,6 @@ modules:
    ctc_lin: !ref <ctc_lin>
    seq_lin: !ref <seq_lin>
    normalize: !ref <normalize>
-   env_corrupt: !ref <env_corrupt>
    lm_model: !ref <lm_model>
 
 model: !new:torch.nn.ModuleList

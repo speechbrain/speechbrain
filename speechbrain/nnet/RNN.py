@@ -1662,7 +1662,7 @@ class SLiGRU_Layer(torch.nn.Module):
             h = self._sligru_cell(w, hx)
         else:
             # broadcast to include batch size, this makes torch.compile happier
-            h = self._ligru_cell(w, self.h_init)
+            h = self._sligru_cell(w, self.h_init)
 
         if self.bidirectional:
             h_f, h_b = h.chunk(2, dim=0)
