@@ -13,7 +13,7 @@ def rm_weight_decay_bias_and_norm_params(
     for name, param in modules.named_parameters():
         if not param.requires_grad:
             continue
-        if len(param.shape) == 1:
+        if len(param.shape) == 1 and ("bias" in name or "norm" in name):
             no_decay.append(param)
         else:
             decay.append(param)
