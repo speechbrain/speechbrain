@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
-learning fashion via Learning Without Forgetting (https://arxiv.org/abs/1606.09282).
+learning fashion via Learning without Forgetting (https://arxiv.org/abs/1606.09282).
 
 To run this recipe, do the following:
 > python train_lwf.py hparams/train_lwf.yaml
