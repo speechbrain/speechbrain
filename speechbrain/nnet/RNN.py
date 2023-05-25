@@ -1362,7 +1362,7 @@ class SLiGRU(torch.nn.Module):
     This model beat traditional LSTM/GRU models on the CommonVoice/LibriSpeech datasets (WER and efficiency).
 
     For more info see:
-    "Moumen, A., & Parcollet, T. (2023, June). Stabilising and accelerating light gated recurrent units for automatic speech recognition. 
+    "Moumen, A., & Parcollet, T. (2023, June). Stabilising and accelerating light gated recurrent units for automatic speech recognition.
     In ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (pp. 1-5). IEEE."
     (https://arxiv.org/abs/2302.10144)
 
