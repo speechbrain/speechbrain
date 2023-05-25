@@ -870,12 +870,6 @@ class Brain:
         """
 
         all_params = self.modules.parameters()
-        if hasattr(self, "hparams"):
-            if hasattr(self.hparams, "weight_decay"):
-                all_params = rm_weight_decay_bias_and_norm_params(
-                    self.modules, self.hparams.weight_decay
-                )
-
         if self.opt_class is not None:
 
             # We remove biases and normalization parameters from weight_decay
