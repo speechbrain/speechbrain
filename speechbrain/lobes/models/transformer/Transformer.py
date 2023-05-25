@@ -195,7 +195,6 @@ class TransformerInterface(nn.Module):
                     dropout=dropout,
                     activation=branchformer_activation,
                     kernel_size=kernel_size,
-                    causal=self.causal,
                     attention_type=self.attention_type,
                     csgu_linear_units=csgu_linear_units,
                     gate_activation=gate_activation,
