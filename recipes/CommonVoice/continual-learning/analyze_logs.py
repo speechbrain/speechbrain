@@ -11,7 +11,7 @@ import csv
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from numpy import ndarray
@@ -26,18 +26,45 @@ _DEFAULT_METRICS = [
 ]
 
 
-def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
-    """Parse train log to extract metric names and values.
+_COLORS = [
+    # Built-in colors
+    "#0000ff",
+    "#ff0000",
+    "#00ff00",
+    "#ffc0cb",
+    "#00ffff",
+    "#ff00ff",
+    "#add8e6",
+    "#800080",
+    "#ffff00",
+    "#000000",
+    "#a52a2a",
+    "#ffa500",
+    "#008080",
+    "#e6e6fa",
+    "#40e0d0",
+    "#006400",
+    "#d2b48c",
+    "#fa8072",
+    "#ffd700",
+    "#8b0000",
+    "#00008b",
+    "#008000",
+]
+
+
+def parse_train_log(train_log: "str") -> "Dict[str, ndarray]":
+    """Parse a train log to extract metric names and values.
 
     Parameters
     ----------
-    train_log_file:
-        The path to the train log file.
+    train_log:
+        The path to the train log.
 
     Returns
     -------
         The metrics, i.e. a dict that maps names of
-        the metrics to the metric values themselves.
+        the metrics to their corresponding values.
 
     Examples
     --------
@@ -45,7 +72,7 @@ def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
 
     """
     metrics = defaultdict(list)
-    with open(train_log_file, encoding="utf-8") as f:
+    with open(train_log, encoding="utf-8") as f:
         for line in f:
             line = line.strip().replace(" - ", ", ")
             if not line:
@@ -67,34 +94,162 @@ def parse_train_log(train_log_file: "str") -> "Dict[str, ndarray]":
     return metrics
 
 
-def compute_cl_metrics(
-    all_wers: "Dict[str, ndarray]",
-    # fmt: off
-    base_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
-    new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
-    # fmt: on
-):
-    """Compute continual learning metrics such as average
-    word error rate, average forgetting and average learning
-    from word error rates extracted from multiple train logs
-    in continual learning format.
+def compute_wer_matrix(
+    wers: "ndarray", num_base_locales: "int" = 10, num_new_locales: "int" = 10
+) -> "ndarray":
+    """Compute the word error rate matrix.
 
     Parameters
     ----------
-    all_wers:
-        The word error rates, i.e. a dict that maps
-        names of the per-log word error rates to their
-        corresponding values (base + new locales).
-    base_locales:
-        The base locales.
-    new_locales:
-        The new locales.
+    wers:
+        The word error rate for each locale.
+    num_base_locales:
+        The number of base locales.
+    num_new_locales:
+        The number of new locales.
 
     Returns
     -------
-        - The average word error rate;
-        - the average forgetting;
-        - the average learning.
+        The word error rate matrix.
+
+    Raises
+    ------
+    RuntimeError
+        If the number of locales is not consistent.
+
+    Examples
+    --------
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> wer_matrix = compute_wer_matrix(wers)
+
+    """
+    num_tasks = 1 + num_new_locales
+    wer_matrix = np.full((num_tasks, num_tasks), float("inf"))
+    idx = 0
+    for k in range(num_tasks):
+        for j in range(k + 1):
+            if idx > len(wers) - 1:
+                raise RuntimeError("Fewer locales than expected")
+            if j == 0:
+                wer_matrix[k, j] = (
+                    wers[idx : idx + num_base_locales].mean() / 100
+                )
+                idx += num_base_locales
+            else:
+                wer_matrix[k, j] = wers[idx] / 100
+                idx += 1
+    return wer_matrix
+
+
+def compute_awer(wer_matrix: "ndarray") -> "ndarray":
+    """Compute the average word error rate.
+
+    Parameters
+    ----------
+    wer_matrix:
+        The word error rate matrix.
+
+    Returns
+    -------
+        The average word error rate.
+
+    References
+    ----------
+    .. [1] D. Lopez-Paz and M. Ranzato.
+           "Gradient Episodic Memory for Continual Learning".
+           In: NeurIPS. 2017, pp. 6470-6479.
+           URL: https://arxiv.org/abs/1706.08840v6
+
+    Examples
+    --------
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> wer_matrix = compute_wer_matrix(wers)
+    >>> awer = compute_awer(wer_matrix)
+
+    """
+    wer_matrix = wer_matrix.copy()
+    mask = ~np.isinf(wer_matrix)
+    wer_matrix[~mask] = 0
+    awer = np.round(wer_matrix.sum(axis=-1) / mask.sum(axis=-1) * 100, 2)
+    return awer
+
+
+def compute_bwt(wer_matrix: "ndarray") -> "ndarray":
+    """Compute the backward transfer.
+
+    Parameters
+    ----------
+    wer_matrix:
+        The word error rate matrix.
+
+    Returns
+    -------
+        The backward transfer.
+
+    References
+    ----------
+    .. [1] D. Lopez-Paz and M. Ranzato.
+           "Gradient Episodic Memory for Continual Learning".
+           In: NeurIPS. 2017, pp. 6470-6479.
+           URL: https://arxiv.org/abs/1706.08840v6
+
+    Examples
+    --------
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> wer_matrix = compute_wer_matrix(wers)
+    >>> bwt = compute_bwt(wer_matrix)
+
+    """
+    wer_matrix = wer_matrix.copy()
+    num_tasks = len(wer_matrix)
+    bwt = np.full((num_tasks,), float("NaN"))
+    for k in range(1, num_tasks):
+        bwt[k] = (np.diag(wer_matrix[:k, :k] - wer_matrix[k, :k])).mean()
+    bwt[1:] = np.round(100 * bwt[1:], 2)
+    return bwt
+
+
+def compute_fwt(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
+    """Compute the forward transfer.
+
+    Parameters
+    ----------
+    wer_matrix:
+        The word error rate matrix.
+    refs:
+        The forward transfer references (single task fine-tuning).
+
+    Returns
+    -------
+        The forward transfer.
+
+    Examples
+    --------
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> wer_matrix = compute_wer_matrix(wers)
+    >>> fwt = compute_fwt(wer_matrix, np.zeros(len(wer_matrix) - 1))
+
+    """
+    wer_matrix = wer_matrix.copy()
+    num_tasks = len(wer_matrix)
+    fwt = np.full(num_tasks, float("NaN"))
+    fwt[1:] = np.round(refs - np.diag(wer_matrix)[1:] * 100, 2)
+    return fwt
+
+
+def compute_im(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
+    """Compute the intransigence measure.
+
+    Parameters
+    ----------
+    wer_matrix:
+        The word error rate matrix.
+    refs:
+        The intransigence measure references (joint fine-tuning).
+
+    Returns
+    -------
+        The intransigence measure.
 
     References
     ----------
@@ -105,82 +260,31 @@ def compute_cl_metrics(
 
     Examples
     --------
-    >>> all_wers = {
-    ...     "ft": parse_train_log("train_log_ft.txt")["test WER"],
-    ...     "ewc": parse_train_log("train_log_ewc.txt")["test WER"],
-    ... }
-    >>> compute_cl_metrics(all_wers)
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> wer_matrix = compute_wer_matrix(wers)
+    >>> im = compute_im(wer_matrix, np.zeros(len(wer_matrix) - 1))
 
     """
-    avg_As, avg_Fs, avg_BWTs, avg_Ls = [], [], [], []
-    for wers in all_wers.values():
-        num_tasks = 1 + len(new_locales)
-        A = np.full((num_tasks, num_tasks), -float("inf"))
-        F = np.full((num_tasks, num_tasks), -float("inf"))
-        BWT = np.full((num_tasks, num_tasks), -float("inf"))
-        idx = 0
-        for k in range(num_tasks):
-            for j in range(k + 1):
-                if idx > len(wers) - 1:
-                    # Fewer languages than expected
-                    break
-                if j == 0:
-                    A[k, j] = wers[idx : idx + len(base_locales)].mean() / 100
-                    idx += len(base_locales)
-                else:
-                    A[k, j] = wers[idx] / 100
-                    idx += 1
-                if j < k:
-                    F[k, j] = -1* (A[:k, j] - A[k, j]).max()
-                    # F[k, j] = (A[k, j] - A[:k, j]).max()
-                    BWT[k, j] = -1 * (A[k, j] - A[j, j])
-
-        # Average learning
-        avg_L = np.diag(A)[1:].copy()
-        mask = ~np.isinf(avg_L)
-        avg_L[~mask] = 0
-        avg_L = -np.round(avg_L * 100, 2)
-
-        # Average WER
-        mask = ~np.isinf(A)
-        A[~mask] = 0
-        avg_A = np.round(A.sum(axis=-1) / mask.sum(axis=-1) * 100, 2)
-
-        # Average forgetting
-        F = F[1:, :]
-        mask = ~np.isinf(F)
-        F[~mask] = 0
-        avg_F = np.round(100 * F.sum(axis=-1) / mask.sum(axis=-1), 2)
-
-        # Average Backward Transfer
-        BWT = BWT[1:, :]
-        mask = ~np.isinf(BWT)
-        BWT[~mask] = 0
-        avg_BWT = np.round(100 * BWT.sum(axis=-1) / mask.sum(axis=-1), 2)
-
-        avg_As.append(avg_A)
-        avg_Fs.append(avg_F)
-        avg_BWTs.append(avg_BWT)
-        avg_Ls.append(avg_L)
-
-    return avg_As, avg_Fs,avg_BWTs, avg_Ls
+    wer_matrix = wer_matrix.copy()
+    num_tasks = len(wer_matrix)
+    im = np.full(num_tasks, float("NaN"))
+    im[1:] = np.round(np.diag(wer_matrix)[1:] * 100 - refs, 2)
+    return im
 
 
 def plot_wer(
     wers: "ndarray",
     output_image: "str",
-    # fmt: off
-    base_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
-    new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
-    # fmt: on
-    title: "Optional[str]" = None,
+    base_locales: "Sequence[str]",
+    new_locales: "Sequence[str]",
     figsize: "Tuple[float, float]" = (7.5, 6.0),
+    title: "Optional[str]" = None,
     usetex: "bool" = False,
     hide_legend: "bool" = False,
     style_file_or_name: "str" = "classic",
 ) -> "None":
-    """Plot word error rates extracted from a single train log
-    in continual learning format.
+    """Plot word error rates extracted from a
+    continual learning train log.
 
     Parameters
     ----------
@@ -192,10 +296,10 @@ def plot_wer(
         The base locales.
     new_locales:
         The new locales.
-    title:
-        The plot title.
     figsize:
         The figure size.
+    title:
+        The plot title.
     usetex:
         True to render text with LaTeX, False otherwise.
     hide_legend:
@@ -207,10 +311,11 @@ def plot_wer(
 
     Examples
     --------
-    >>> metrics = parse_train_log("train_log.txt")
-    >>> plot_wer(metrics["test WER"], "train_log.png")
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> plot_wer(wers, "train_log.png")
 
     """
+    plot_title = title != ""
     if title is None:
         title = os.path.splitext(os.path.basename(output_image))[0]
 
@@ -229,12 +334,6 @@ def plot_wer(
             rc("legend", fontsize=12)
             rc("xtick", direction="in")
             rc("ytick", direction="in")
-            rc(
-                "axes",
-                prop_cycle=plt.cycler(
-                    "color", ((0.0, 0.0, 0.0),) + plt.cm.tab10.colors
-                ),
-            )
             fig = plt.figure(figsize=figsize)
             locales = list(base_locales)
             j = 0
@@ -242,23 +341,26 @@ def plot_wer(
                 if new_locale is not None:
                     locales += [new_locale]
                 current_wers = wers[j : j + len(locales)]
-                if len(locales) != len(current_wers):
-                    # Fewer languages than expected
-                    break
                 plt.plot(
                     range(len(locales)),
                     current_wers,
                     label=new_locale if new_locale is not None else "base",
                     marker="d",
                     markersize=5,
+                    color=_COLORS[i % len(_COLORS)],
                 )
                 j += len(locales)
             if not hide_legend:
                 plt.legend(fancybox=True)
             plt.grid()
-            plt.title(title)
+            if plot_title:
+                plt.title(title)
             plt.xlim(-0.25, len(locales) - 1 + 0.25)
-            plt.ylim(-0.025 * plt.ylim()[1])
+            # plt.ylim(-0.025 * plt.ylim()[1])
+            yrange = abs(plt.ylim()[0] - plt.ylim()[1])
+            plt.ylim(
+                plt.ylim()[0] - 0.025 * yrange, plt.ylim()[1] + 0.025 * yrange
+            )
             plt.xticks(range(len(locales)), locales)
             plt.xlabel("Language")
             plt.ylabel("WER (\%)" if usetex else "WER (%)")
@@ -281,21 +383,18 @@ def plot_wer(
             if new_locale is not None:
                 locales += [new_locale]
             current_wers = wers[j : j + len(locales)]
-            if len(locales) != len(current_wers):
-                # Fewer languages than expected
-                break
             fig.add_trace(
                 go.Scatter(
                     x=list(range(len(locales))),
                     y=current_wers,
-                    marker={"size": 7},
+                    marker={"size": 7, "color": _COLORS[i % len(_COLORS)]},
                     mode="lines+markers",
                     name=new_locale if new_locale is not None else "base",
                 )
             )
             j += len(locales)
         fig.update_layout(
-            title={"text": title},
+            title={"text": title if plot_title else None},
             legend={"traceorder": "normal"},
             template="none",
             font_size=20,
@@ -333,39 +432,39 @@ def plot_wer(
         )
 
 
-def plot_cl_metrics(
-    all_wers: "Dict[str, ndarray]",
-    output_dir: "str",
-    # fmt: off
-    base_locales: "Sequence[str]" = ("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
-    new_locales: "Sequence[str]" = ("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
-    # fmt: on
+def plot_metric(
+    metric_csv_file: "str",
+    output_image: "str",
+    xlabel: "Optional[str]" = None,
+    ylabel: "Optional[str]" = None,
+    xticks: "Optional[List[str]]" = None,
     figsize: "Tuple[float, float]" = (7.5, 6.0),
-    format: "str" = "png",
+    title: "Optional[str]" = None,
+    opacity: "float" = 0.5,
     usetex: "bool" = False,
     hide_legend: "bool" = False,
     style_file_or_name: "str" = "classic",
 ) -> "None":
-    """Plot continual learning metrics from word error
-    rates extracted from multiple train logs in continual
-    learning format.
+    """Plot a continual learning metric.
 
     Parameters
     ----------
-    all_wers:
-        The word error rates, i.e. a dict that maps
-        names of the per-log word error rates to their
-        corresponding values (base + new locales).
-    output_dir:
-        The path to the output directory.
-    base_locales:
-        The base locales.
-    new_locales:
-        The new locales.
+    metric_csv_file:
+        The path to the continual learning metric CSV file.
+    output_image:
+        The path to the output image.
+    xlabel:
+        The x-axis label.
+    ylabel:
+        The y-axis label.
+    xticks:
+        The x-ticks.
     figsize:
         The figure size.
-    format:
-        The image format.
+    title:
+        The plot title.
+    opacity:
+        The confidence interval opacity.
     usetex:
         True to render text with LaTeX, False otherwise.
     hide_legend:
@@ -377,71 +476,26 @@ def plot_cl_metrics(
 
     Examples
     --------
-    >>> all_wers = {
-    ...     "ft": parse_train_log("train_log_ft.txt")["test WER"],
-    ...     "ewc": parse_train_log("train_log_ewc.txt")["test WER"],
-    ... }
-    >>> plot_cl_metrics(all_wers, "plots")
+    >>> awer_file = "AWER.csv"
+    >>> plot_metric(awer_file, "AWER.png")
 
     """
-    # Compute performance metrics
-    avg_As, avg_Fs,avg_BWTs, avg_Ls = compute_cl_metrics(
-        all_wers, base_locales, new_locales
-    )
+    traces = []
+    with open(metric_csv_file, encoding="utf-8") as f:
+        csv_reader = csv.reader(f)
+        _ = next(csv_reader)
+        for line in csv_reader:
+            name, tasks, avg = line[0], line[1:-1], line[-1]
+            mean, stddev = [], []
+            for task in tasks:
+                m, s = task.split(" +- ")
+                mean.append(float(m))
+                stddev.append(float(s))
+            traces.append((name, mean, stddev))
 
-    # Save performance metrics
-    model = os.path.basename(output_dir).replace(".txt", "")
-    with open(
-        os.path.join(output_dir, f"{model}_avg_wer.csv"), "w", encoding="utf-8"
-    ) as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
-        for name, avg_A in zip(all_wers.keys(), avg_As):
-            csv_writer.writerow(
-                [name] + avg_A.tolist() + [round(np.nanmean(avg_A), 2)]
-            )
-    with open(
-        os.path.join(output_dir, f"{model}_avg_forgetting.csv"),
-        "w",
-        encoding="utf-8",
-    ) as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
-        for name, avg_F in zip(all_wers.keys(), avg_Fs):
-            csv_writer.writerow(
-                [name]
-                + [float("NaN")]
-                + avg_F.tolist()
-                + [round(np.nanmean(avg_F), 2)]
-            )
-    with open(
-        os.path.join(output_dir, f"{model}_avg_backwardTransfer.csv"),
-        "w",
-        encoding="utf-8",
-    ) as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
-        for name, avg_BWT in zip(all_wers.keys(), avg_BWTs):
-            csv_writer.writerow(
-                [name]
-                + [float("NaN")]
-                + avg_BWT.tolist()
-                + [round(np.nanmean(avg_BWT), 2)]
-            )
-    with open(
-        os.path.join(output_dir, f"{model}_avg_learning.csv"),
-        "w",
-        encoding="utf-8",
-    ) as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(["name", "base"] + list(new_locales) + ["avg"])
-        for name, avg_L in zip(all_wers.keys(), avg_Ls):
-            csv_writer.writerow(
-                [name]
-                + [float("NaN")]
-                + avg_L.tolist()
-                + [round(np.nanmean(avg_L), 2)]
-            )
+    plot_title = title != ""
+    if title is None:
+        title = os.path.splitext(os.path.basename(output_image))[0]
 
     # Plot performance metrics with Matplotlib
     try:
@@ -450,8 +504,6 @@ def plot_cl_metrics(
         if os.path.isfile(style_file_or_name):
             style_file_or_name = os.path.realpath(style_file_or_name)
 
-        output_image = os.path.join(output_dir, f"{model}_avg_wer.{format}")
-        markers = ["o", "^", "d", "s", "p", "*", "+", 0, 1, 2, 3, 4] * 2
         with plt.style.context(style_file_or_name):
             # Customize style
             rc("text", usetex=usetex)
@@ -460,166 +512,47 @@ def plot_cl_metrics(
             rc("legend", fontsize=12)
             rc("xtick", direction="in")
             rc("ytick", direction="in")
-            rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
             fig = plt.figure(figsize=figsize)
-            markers_iter = iter(markers)
-            for name, avg_A in zip(all_wers.keys(), avg_As):
-                name = name.replace(".txt", "")
-                plt.plot(
-                    avg_A, label=name, marker=next(markers_iter), markersize=5
-                )
-            if not hide_legend:
-                plt.legend(
-                    loc="upper left",
-                    ncols=2 if len(all_wers) > 10 else 1,
-                    fancybox=True,
-                )
-            plt.grid()
-            plt.title(model)
-            plt.xlim(-0.25, len(new_locales) + 0.25)
-            # plt.ylim(-0.025 * 160.0, 160.0)
-            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
-            plt.xticks(
-                range(1 + len(new_locales)), ["base"] + list(new_locales)
+            markers_iter = iter(
+                ["o", "^", "d", "s", "p", "P", "+", "*", 0, 1, 2, 3, 4] * 2
             )
-            plt.xlabel("Language")
-            plt.ylabel("Average WER (\%)" if usetex else "Average WER (%)")
-            fig.tight_layout()
-            plt.savefig(output_image, bbox_inches="tight")
-            plt.close()
-
-        output_image = os.path.join(
-            output_dir, f"{model}_avg_forgetting.{format}"
-        )
-        with plt.style.context(style_file_or_name):
-            # Customize style
-            rc("text", usetex=usetex)
-            rc("font", family="serif", serif=["Computer Modern"], size=13)
-            rc("axes", labelsize=15)
-            rc("legend", fontsize=12)
-            rc("xtick", direction="in")
-            rc("ytick", direction="in")
-            rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
-            fig = plt.figure(figsize=figsize)
-            markers_iter = iter(markers)
-            for name, avg_F in zip(all_wers.keys(), avg_Fs):
-                name = name.replace(".txt", "")
+            for i, (name, mean, stddev) in enumerate(traces):
                 plt.plot(
-                    [float("NaN")] + avg_F.tolist(),
+                    mean,
                     label=name,
                     marker=next(markers_iter),
                     markersize=5,
+                    color=_COLORS[i % len(_COLORS)],
+                )
+                shift = stddev
+                plt.fill_between(
+                    range(len(mean)),
+                    y1=[m - s for m, s in zip(mean, shift)],
+                    y2=[m + s for m, s in zip(mean, shift)],
+                    color=_COLORS[i % len(_COLORS)],
+                    alpha=opacity,
                 )
             if not hide_legend:
                 plt.legend(
                     loc="upper left",
-                    ncols=2 if len(all_wers) > 10 else 1,
+                    ncols=2 if len(traces) > 10 else 1,
                     fancybox=True,
                 )
             plt.grid()
-            plt.title(model)
-            plt.xlim(-0.25, len(new_locales) + 0.25)
+            if plot_title:
+                plt.title(title)
+            plt.xlim(-0.25, len(xticks) - 1 + 0.25)
             # plt.ylim(-0.025 * 160.0, 160.0)
-            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
-            plt.xticks(
-                range(1 + len(new_locales)), ["base"] + list(new_locales)
+            yrange = abs(plt.ylim()[0] - plt.ylim()[1])
+            plt.ylim(
+                plt.ylim()[0] - 0.025 * yrange, plt.ylim()[1] + 0.025 * yrange
             )
-            plt.xlabel("Language")
-            plt.ylabel(
-                "Average forgetting (\%)"
-                if usetex
-                else "Average forgetting (%)"
-            )
-            fig.tight_layout()
-            plt.savefig(output_image, bbox_inches="tight")
-            plt.close()
-
-        output_image = os.path.join(
-            output_dir, f"{model}_avg_bwt.{format}"
-        )
-        with plt.style.context(style_file_or_name):
-            # Customize style
-            rc("text", usetex=usetex)
-            rc("font", family="serif", serif=["Computer Modern"], size=13)
-            rc("axes", labelsize=15)
-            rc("legend", fontsize=12)
-            rc("xtick", direction="in")
-            rc("ytick", direction="in")
-            rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
-            fig = plt.figure(figsize=figsize)
-            markers_iter = iter(markers)
-            for name, avg_BWT in zip(all_wers.keys(), avg_BWTs):
-                name = name.replace(".txt", "")
-                plt.plot(
-                    [float("NaN")] + avg_BWT.tolist(),
-                    label=name,
-                    marker=next(markers_iter),
-                    markersize=5,
-                )
-            if not hide_legend:
-                plt.legend(
-                    loc="upper left",
-                    ncols=2 if len(all_wers) > 10 else 1,
-                    fancybox=True,
-                )
-            plt.grid()
-            plt.title(model)
-            plt.xlim(-0.25, len(new_locales) + 0.25)
-            # plt.ylim(-0.025 * 160.0, 160.0)
-            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
-            plt.xticks(
-                range(1 + len(new_locales)), ["base"] + list(new_locales)
-            )
-            plt.xlabel("Language")
-            plt.ylabel(
-                "Average BWT (\%)"
-                if usetex
-                else "Average BWT (%)"
-            )
-            fig.tight_layout()
-            plt.savefig(output_image, bbox_inches="tight")
-            plt.close()
-
-        output_image = os.path.join(
-            output_dir, f"{model}_avg_learning.{format}"
-        )
-        with plt.style.context(style_file_or_name):
-            # Customize style
-            rc("text", usetex=usetex)
-            rc("font", family="serif", serif=["Computer Modern"], size=13)
-            rc("axes", labelsize=15)
-            rc("legend", fontsize=12)
-            rc("xtick", direction="in")
-            rc("ytick", direction="in")
-            rc("axes", prop_cycle=plt.cycler("color", plt.cm.tab10.colors))
-            fig = plt.figure(figsize=figsize)
-            markers_iter = iter(markers)
-            for name, avg_L in zip(all_wers.keys(), avg_Ls):
-                name = name.replace(".txt", "")
-                plt.plot(
-                    [float("NaN")] + avg_L.tolist(),
-                    label=name,
-                    marker=next(markers_iter),
-                    markersize=5,
-                )
-            if not hide_legend:
-                plt.legend(
-                    loc="upper left",
-                    ncols=2 if len(all_wers) > 10 else 1,
-                    fancybox=True,
-                )
-            plt.grid()
-            plt.title(model)
-            plt.xlim(-0.25, len(new_locales) + 0.25)
-            # plt.ylim(-160.0, 0.025 * 160.0)
-            plt.ylim(0.975 * plt.ylim()[0], 1.025 * plt.ylim()[1])
-            plt.xticks(
-                range(1 + len(new_locales)), ["base"] + list(new_locales)
-            )
-            plt.xlabel("Language")
-            plt.ylabel(
-                "Average learning (\%)" if usetex else "Average learning (%)"
-            )
+            if xticks is not None:
+                plt.xticks(range(len(xticks)), xticks)
+            if xlabel is not None:
+                plt.xlabel(xlabel)
+            if ylabel is not None:
+                plt.ylabel(ylabel)
             fig.tight_layout()
             plt.savefig(output_image, bbox_inches="tight")
             plt.close()
@@ -628,96 +561,79 @@ def plot_cl_metrics(
             "Install Matplotlib to generate the performance metrics plots (e.g. `pip install matplotlib`)"
         )
 
-    # Plot performance metrics with Plotly
+    # Plot with Plotly
     try:
         from plotly import graph_objects as go
 
-        output_image = os.path.join(output_dir, f"{model}_avg_wer.html")
-        fig = go.Figure()
-        for name, avg_A in zip(all_wers.keys(), avg_As):
-            name = name.replace(".txt", "")
-            fig.add_trace(
-                go.Scatter(
-                    x=list(range(len(avg_A) + 1)),
-                    y=avg_A.tolist(),
-                    marker={"size": 7},
-                    mode="lines+markers",
-                    name=name,
-                )
+        def hex_to_rgb(hex_color: "str") -> "Tuple":
+            hex_color = hex_color.lstrip("#")
+            if len(hex_color) == 3:
+                hex_color = hex_color * 2
+            return (
+                int(hex_color[0:2], 16),
+                int(hex_color[2:4], 16),
+                int(hex_color[4:6], 16),
             )
-        fig.update_layout(
-            title={"text": model},
-            legend={"traceorder": "normal"},
-            template="none",
-            font_size=20,
-            xaxis={
-                "title": "Language",
-                "ticktext": ["base"] + list(new_locales),
-                "tickvals": list(range(len(new_locales) + 1)),
-                "ticks": "inside",
-                "zeroline": False,
-                "linewidth": 1.5,
-                "range": [-0.25, len(new_locales) + 0.25],
-                "showline": True,
-                "mirror": "all",
-                "gridcolor": "gray",
-                "griddash": "dot",
-            },
-            yaxis={
-                "title": "Average WER (%)",
-                "showline": True,
-                "ticks": "inside",
-                "zeroline": False,
-                "linewidth": 1.5,
-                "rangemode": "tozero",
-                "mirror": "all",
-                "gridcolor": "gray",
-                "griddash": "dot",
-            },
-            margin={"t": 60, "b": 60},
-        )
-        fig.write_html(
-            output_image, include_plotlyjs=True,
-        )
 
-        output_image = os.path.join(output_dir, f"{model}_avg_forgetting.html")
         fig = go.Figure()
-        for name, avg_F in zip(all_wers.keys(), avg_Fs):
-            name = name.replace(".txt", "")
+        for i, (name, mean, stddev) in enumerate(traces):
             fig.add_trace(
                 go.Scatter(
-                    x=list(range(len(avg_F) + 1)),
-                    y=[float("NaN")] + avg_F.tolist(),
+                    x=list(range(len(mean))),
+                    y=mean,
                     marker={"size": 7},
                     mode="lines+markers",
                     name=name,
                 )
             )
+            shift = stddev
+            scatter_kwargs = {
+                "legendgroup": i,
+                "line": {"width": 0},
+                "marker": {"color": _COLORS[i % len(_COLORS)]},
+                "mode": "lines",
+                "showlegend": False,
+            }
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(len(mean))),
+                    y=[m + s for m, s in zip(mean, shift)],
+                    **scatter_kwargs,
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(len(mean))),
+                    y=[m - s for m, s in zip(mean, shift)],
+                    fill="tonexty",
+                    fillcolor=f"rgba{hex_to_rgb(_COLORS[i % len(_COLORS)]) + (opacity,)}",
+                    **scatter_kwargs,
+                )
+            )
         fig.update_layout(
-            title={"text": model},
+            title={"text": title if plot_title else None},
             legend={"traceorder": "normal"},
             template="none",
             font_size=20,
             xaxis={
-                "title": "Language",
-                "ticktext": ["base"] + list(new_locales),
-                "tickvals": list(range(len(new_locales) + 1)),
+                "title": xlabel,
+                "ticktext": xticks,
+                "tickvals": list(range(len(xticks))),
                 "ticks": "inside",
                 "zeroline": False,
                 "linewidth": 1.5,
-                "range": [-0.25, len(new_locales) + 0.25],
+                "range": [-0.25, len(xticks) - 1 + 0.25],
                 "showline": True,
                 "mirror": "all",
                 "gridcolor": "gray",
                 "griddash": "dot",
             },
             yaxis={
-                "title": "Average forgetting (%)",
+                "title": ylabel.replace("\\", ""),
                 "showline": True,
                 "ticks": "inside",
                 "zeroline": False,
                 "linewidth": 1.5,
-                "rangemode": "tozero",
                 "mirror": "all",
                 "gridcolor": "gray",
                 "griddash": "dot",
@@ -725,107 +641,11 @@ def plot_cl_metrics(
             margin={"t": 60, "b": 60},
         )
         fig.write_html(
-            output_image, include_plotlyjs=True,
-        )
-
-        output_image = os.path.join(output_dir, f"{model}_avg_bwt.html")
-        fig = go.Figure()
-        for name, avg_BWT in zip(all_wers.keys(), avg_BWTs):
-            name = name.replace(".txt", "")
-            fig.add_trace(
-                go.Scatter(
-                    x=list(range(len(avg_BWT) + 1)),
-                    y=[float("NaN")] + avg_BWT.tolist(),
-                    marker={"size": 7},
-                    mode="lines+markers",
-                    name=name,
-                )
-            )
-        fig.update_layout(
-            title={"text": model},
-            legend={"traceorder": "normal"},
-            template="none",
-            font_size=20,
-            xaxis={
-                "title": "Language",
-                "ticktext": ["base"] + list(new_locales),
-                "tickvals": list(range(len(new_locales) + 1)),
-                "ticks": "inside",
-                "zeroline": False,
-                "linewidth": 1.5,
-                "range": [-0.25, len(new_locales) + 0.25],
-                "showline": True,
-                "mirror": "all",
-                "gridcolor": "gray",
-                "griddash": "dot",
-            },
-            yaxis={
-                "title": "Average BWT (%)",
-                "showline": True,
-                "ticks": "inside",
-                "zeroline": False,
-                "linewidth": 1.5,
-                "rangemode": "tozero",
-                "mirror": "all",
-                "gridcolor": "gray",
-                "griddash": "dot",
-            },
-            margin={"t": 60, "b": 60},
-        )
-        fig.write_html(
-            output_image, include_plotlyjs=True,
-        )
-
-        output_image = os.path.join(output_dir, f"{model}_avg_learning.html")
-        fig = go.Figure()
-        for name, avg_L in zip(all_wers.keys(), avg_Ls):
-            name = name.replace(".txt", "")
-            fig.add_trace(
-                go.Scatter(
-                    x=list(range(len(avg_L) + 1)),
-                    y=[float("NaN")] + avg_L.tolist(),
-                    marker={"size": 7},
-                    mode="lines+markers",
-                    name=name,
-                )
-            )
-        fig.update_layout(
-            title={"text": model},
-            legend={"traceorder": "normal"},
-            template="none",
-            font_size=20,
-            xaxis={
-                "title": "Language",
-                "ticktext": ["base"] + list(new_locales),
-                "tickvals": list(range(len(new_locales) + 1)),
-                "ticks": "inside",
-                "zeroline": False,
-                "linewidth": 1.5,
-                "range": [-0.25, len(new_locales) + 0.25],
-                "showline": True,
-                "mirror": "all",
-                "gridcolor": "gray",
-                "griddash": "dot",
-            },
-            yaxis={
-                "title": "Average learning (%)",
-                "showline": True,
-                "ticks": "inside",
-                "zeroline": False,
-                "linewidth": 1.5,
-                "rangemode": "tozero",
-                "mirror": "all",
-                "gridcolor": "gray",
-                "griddash": "dot",
-            },
-            margin={"t": 60, "b": 60},
-        )
-        fig.write_html(
-            output_image, include_plotlyjs=True,
+            f"{output_image.rsplit('.', 1)[0]}.html", include_plotlyjs=True,
         )
     except ImportError:
         logging.warning(
-            "Install Plotly to generate the interactive performance metrics plots (e.g. `pip install plotly`)"
+            "Install Plotly to generate the interactive WER plot (e.g. `pip install plotly`)"
         )
 
 
@@ -833,25 +653,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze logs")
     parser.add_argument(
         "input_dir",
-        help="path to directory containing the train logs in continual learning format",
+        help="path to directory containing the continual learning train logs. Filenames must be formatted as "
+        "<method-name>_base=<comma-separated-base-locales>_new=<comma-separated-new-locales>",
     )
     parser.add_argument(
-        "-b",
-        "--base_locales",
-        nargs="+",
+        "--fwt_refs",
         # fmt: off
-        default=("en", "zh-CN", "de", "es", "ru", "fr", "pt", "ja", "tr", "pl"),
+        default='{"ab": 58.96, "ckb": 54.51, "eo": 18.45, "fy-NL": 28.26, "ia": 15.22, "kab": 64.51, "kmr": 39.84, "lg": 55.72, "mhr": 31.64, "rw": 67.04}',
         # fmt: on
-        help="base locales",
+        help="forward transfer references",
     )
     parser.add_argument(
-        "-n",
-        "--new_locales",
-        nargs="+",
+        "--im_refs",
         # fmt: off
-        default=("rw", "eo", "kab", "lg", "mhr", "ckb", "ab", "kmr", "fy-NL", "ia"),
+        default='{"ab": 64.33, "ckb": 57.51, "eo": 20.14, "fy-NL": 35.01, "ia": 18.70, "kab": 73.57, "kmr": 47.28, "lg": 60.31, "mhr": 37.94, "rw": 69.22}',
         # fmt: on
-        help="new locales",
+        help="intransigence measure references",
+    )
+    parser.add_argument(
+        "-f", "--format", default="png", help="image format",
     )
     parser.add_argument(
         "-s",
@@ -862,13 +682,16 @@ if __name__ == "__main__":
         help="figure size",
     )
     parser.add_argument(
-        "-f", "--format", default="png", help="image format",
+        "-t", "--title", default=None, help="title",
+    )
+    parser.add_argument(
+        "-o", "--opacity", default=0.15, help="confidence interval opacity",
+    )
+    parser.add_argument(
+        "--hide_legend", action="store_true", help="hide legend",
     )
     parser.add_argument(
         "-u", "--usetex", action="store_true", help="render text with LaTeX",
-    )
-    parser.add_argument(
-        "-l", "--hide_legend", action="store_true", help="hide legend",
     )
     parser.add_argument(
         "--style",
@@ -878,46 +701,106 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Retrieve all train logs in the given directory
-    all_wers = {}
+    # Retrieve all continual learning train logs in the input directory
+    train_logs = []
     for root, dirs, files in os.walk(args.input_dir):
         for file in files:
             if file.endswith(".txt"):
                 train_log = os.path.join(root, file)
-                metrics = parse_train_log(train_log)
-                wers = metrics["test WER"]
-                all_wers[file] = wers
-                output_image = train_log.replace(".txt", f".{args.format}")
-                new_locales = args.new_locales
-                if "order=" in os.path.basename(train_log):
-                    new_locales = (
-                        os.path.basename(train_log)
-                        .replace(".txt", "")
-                        .split("order=")[1]
-                        .split(", ")
-                    )
-                # Plot WER
-                plot_wer(
-                    wers,
-                    output_image,
-                    base_locales=args.base_locales,
-                    new_locales=new_locales,
-                    figsize=args.figsize,
-                    usetex=args.usetex,
-                    hide_legend=args.hide_legend,
-                    style_file_or_name=args.style_file_or_name,
+                train_logs.append(train_log)
+    train_logs = sorted(train_logs)
+
+    # Group train logs by name
+    groups = {}
+    for train_log in train_logs:
+        filename = os.path.basename(train_log)
+        prefix = filename.split("_")[0]
+        if prefix not in groups:
+            groups[prefix] = []
+        groups[prefix].append(train_log)
+
+    # Compute metrics
+    metrics = defaultdict(lambda: defaultdict(list))
+    for group_name, train_logs in groups.items():
+        for train_log in train_logs:
+            # Extract base + new locales from file name
+            locales = (
+                os.path.basename(train_log).replace(".txt", "").split("_base=")
+            )[1]
+            base_locales, new_locales = locales.split("_new=")
+            base_locales = [x.strip() for x in base_locales.split(",")]
+            new_locales = [x.strip() for x in new_locales.split(",")]
+
+            # Compute metrics
+            wers = parse_train_log(train_log)["test WER"]
+            wer_matrix = compute_wer_matrix(
+                wers, len(base_locales), len(new_locales)
+            )
+            awer = compute_awer(wer_matrix)
+            metrics["Average WER"][group_name].append(awer)
+            bwt = compute_bwt(wer_matrix)
+            metrics["Backward transfer"][group_name].append(bwt)
+            fwt_refs = eval(args.fwt_refs)
+            fwt = compute_fwt(
+                wer_matrix, np.asarray([fwt_refs[k] for k in new_locales])
+            )
+            metrics["Forward transfer"][group_name].append(fwt)
+            im_refs = eval(args.im_refs)
+            im = compute_im(
+                wer_matrix, np.asarray([im_refs[k] for k in new_locales])
+            )
+            metrics["Intransigence measure"][group_name].append(im)
+
+            # Plot WERs
+            output_image = train_log.replace(".txt", f".{args.format}")
+            plot_wer(
+                wers,
+                output_image,
+                base_locales=base_locales,
+                new_locales=new_locales,
+                title=args.title,
+                figsize=args.figsize,
+                usetex=args.usetex,
+                hide_legend=args.hide_legend,
+                style_file_or_name=args.style_file_or_name,
+            )
+
+    # Store metrics
+    for name in metrics:
+        with open(
+            os.path.join(args.input_dir, f"{name}.csv"), "w", encoding="utf-8"
+        ) as f:
+            csv_writer = csv.writer(f)
+            csv_writer.writerow(
+                ["name", "base"]
+                + [str(i) for i in range(1, 1 + len(new_locales))]
+                + ["avg"]
+            )
+            for group_name, traces in metrics[name].items():
+                mean = np.mean(traces, axis=0)
+                stddev = np.std(traces, axis=0)
+                avg = np.nanmean(traces, axis=1)
+                avg_mean = np.mean(avg)
+                avg_stddev = np.std(avg)
+                csv_writer.writerow(
+                    [group_name]
+                    + [f"{m:.2f} +- {s:.2f}" for m, s in zip(mean, stddev)]
+                    + [f"{avg_mean:.2f} +- {avg_stddev:.2f}"]
                 )
-    all_wers = dict(sorted(all_wers.items()))
 
     # Plot metrics
-    plot_cl_metrics(
-        all_wers,
-        args.input_dir,
-        base_locales=args.base_locales,
-        new_locales=args.new_locales,
-        figsize=args.figsize,
-        format=args.format,
-        usetex=args.usetex,
-        hide_legend=args.hide_legend,
-        style_file_or_name=args.style_file_or_name,
-    )
+    for name in metrics:
+        metric_csv_file = os.path.join(args.input_dir, f"{name}.csv")
+        plot_metric(
+            metric_csv_file,
+            output_image=os.path.join(args.input_dir, f"{name}.{args.format}"),
+            xlabel="Language",
+            ylabel=f"{name} (\%)" if args.usetex else f"{name} (%)",
+            xticks=["base"] + [str(i) for i in range(1, 1 + len(new_locales))],
+            figsize=args.figsize,
+            title=args.title,
+            opacity=args.opacity,
+            usetex=args.usetex,
+            hide_legend=args.hide_legend,
+            style_file_or_name=args.style_file_or_name,
+        )

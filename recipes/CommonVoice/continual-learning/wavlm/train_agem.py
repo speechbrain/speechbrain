@@ -3,10 +3,6 @@
 """Recipe for fine-tuning a WavLM-based ASR system on Common Voice in a continual
 learning fashion via Averaged Gradient Episodic Memory (https://arxiv.org/abs/1812.00420).
 
-The following optimization tricks were used to improve performance:
-- improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- optionally use gradient checkpointing
-
 To run this recipe, do the following:
 > python train_agem.py hparams/train_agem.yaml
 

@@ -2,10 +2,6 @@
 
 """Recipe for pre-training a WavLM-based ASR system on Common Voice.
 
-The following optimization tricks were used to improve performance:
-- improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- optionally use gradient checkpointing
-
 To run this recipe, do the following:
 > python pretrain.py hparams/pretrain.yaml
 

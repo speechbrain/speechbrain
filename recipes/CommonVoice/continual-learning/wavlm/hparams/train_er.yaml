@@ -15,7 +15,7 @@ data_dir: !PLACEHOLDER
 max_durations: [36000, 3600, 3600]
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/clear/<seed>
+output_dir: !ref results/<wavlm_variant>/er/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters

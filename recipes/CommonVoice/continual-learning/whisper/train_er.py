@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
 
 """Recipe for fine-tuning a Whisper-based ASR system on Common Voice in a continual
-learning fashion via Experience Replay for Continual Learning (https://arxiv.org/abs/1811.11682).
-
-The following optimization tricks were used to improve performance:
-- use custom decoding implementation (faster than built-in searchers
-  and supports decoding with predicted batch of languages)
-- apply the correct padding tokens directly in the dataloader
-- use cross-entropy loss (with `ignore_index` correctly set) instead of log softmax + NLL
-- remove unnecessary `undo_padding` since padding tokens are now set correctly
-- improve memory usage during model recovery (see https://github.com/speechbrain/speechbrain/pull/1743)
-- optionally use gradient checkpointing
+learning fashion via Experience Replay (https://arxiv.org/abs/1811.11682).
 
 To run this recipe, do the following:
-> python train_clear.py hparams/train_clear.yaml
+> python train_er.py hparams/train_er.yaml
 
 Authors
  * Luca Della Libera 2023
