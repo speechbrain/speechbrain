@@ -393,6 +393,16 @@ class TransformerLMRescorer(BaseRescorerInterface):
         return log_probs_scores, enc_hyps_length
 
 class HuggingFaceLMRescorer(BaseRescorerInterface):
+    """A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    model_name : str
+        The name of the model to be loaded.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    """
     def __init__(
         self,
         model_name,
@@ -418,20 +428,63 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         self.bos_index = self.tokenizer.bos_token_id
         self.eos_index = self.tokenizer.eos_token_id
 
-    @torch.no_grad()
-    def rescore_hyps(self, hyps):
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+        """
+        return text.lower()
+
+    def preprocess_func(self, encoded_seq):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        encoded_seq : list of str
+            The hypotheses to be preprocessed.
+        """
+
+        if self.encode_fn is None:
+            raise ValueError("encode_fn must be provided.")
+
         # from ids to text
-        decoded_seq = self.encode_fn(hyps)
+        decoded_seq = self.encode_fn(encoded_seq)
+
+        # normalize 
+        decoded_seq = [
+            self.normalize_text(seq) for seq in decoded_seq
+        ]
+
         
-        enc_hyps = []
-        for sublist in decoded_seq:
-            sublist = sublist.lower()
-            encoded_text = self.tokenizer.encode(sublist, add_special_tokens=False)
-            enc_hyps.append(torch.tensor([self.bos_index] + encoded_text + [self.eos_index]))
+        # encode text
+        enc_hyps = [
+            torch.tensor(
+                [self.bos_index]
+                + self.tokenizer.encode(seq, add_special_tokens=False)
+                + [self.eos_index]
+            )
+            for seq in decoded_seq
+        ]
 
         enc_hyps_length = [
             enc_seq.shape[0] for enc_seq in enc_hyps
         ]
+
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps, enc_hyps_length
+
+    @torch.no_grad()
+    def rescore_hyps(self, hyps):
+        
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
 
         bool_mask = [
             [1 if i < length else 0 for i in range(max(enc_hyps_length))]
@@ -439,11 +492,6 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         ]
 
         bool_mask_tensor = torch.tensor(bool_mask, dtype=torch.bool, device="cuda")
-
-        # pad sequences
-        padded_hyps = torch.nn.utils.rnn.pad_sequence(
-            enc_hyps, batch_first=True, padding_value=self.pad_index
-        ).to("cuda")
 
         # compute scores
         logits = self.lm(input_ids=padded_hyps).logits
