@@ -6,8 +6,6 @@ to Capture Local and Global Context for Speech Recognition and Understanding"
 Source: Some parts of the code may be adapted from ESPNet.
 
 Authors
-* Jianyuan Zhong 2020
-* Samuele Cornell 2021
 * Titouan Parcollet 2023
 """
 
@@ -98,9 +96,6 @@ class BranchformerEncoderLayer(nn.Module):
         The expected size of the input embedding.
     nhead : int
         Number of attention heads.
-    causal: bool, optional
-        Whether the convolutions should be causal or not.
-        DOES NOT WORK WITH BRANCHFORMER FOR NOW.
     kernel_size : int, optional
         Kernel size of convolution model.
     kdim : int, optional
@@ -135,7 +130,6 @@ class BranchformerEncoderLayer(nn.Module):
         self,
         d_model,
         nhead,
-        causal=False,
         kernel_size=31,
         kdim=None,
         vdim=None,
@@ -162,7 +156,7 @@ class BranchformerEncoderLayer(nn.Module):
                 num_heads=nhead,
                 embed_dim=d_model,
                 dropout=dropout,
-                mask_pos_future=causal,
+                mask_pos_future=False,
             )
 
         self.convolution_branch = ConvolutionBranch(
@@ -251,8 +245,6 @@ class BranchformerEncoder(nn.Module):
          Activation function used in each Confomer layer.
     dropout : int, optional
         Dropout for the encoder.
-    causal: bool, optional
-        Whether the convolutions should be causal or not.
     attention_type: str, optional
         type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
     csgu_linear_units: int, optional
@@ -284,7 +276,6 @@ class BranchformerEncoder(nn.Module):
         vdim=None,
         activation=nn.GELU,
         dropout=0.0,
-        causal=False,
         attention_type="RelPosMHAXL",
         csgu_linear_units=3072,
         gate_activation=nn.Identity,
@@ -302,7 +293,6 @@ class BranchformerEncoder(nn.Module):
                     dropout=dropout,
                     activation=activation,
                     kernel_size=kernel_size,
-                    causal=causal,
                     attention_type=attention_type,
                     csgu_linear_units=csgu_linear_units,
                     gate_activation=gate_activation,
