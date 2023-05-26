@@ -1349,7 +1349,7 @@ class LiGRU_Layer(torch.nn.Module):
 
 
 class SLiGRU(torch.nn.Module):
-    """ This class implements a Stabilised Light GRU (Li-GRU).
+    """ This class implements a Stabilised Light GRU (SLi-GRU).
 
     SLi-GRU is single-gate GRU model based on batch-norm + relu
     activations + layer-norm on the recurrent connections + recurrent dropout.
