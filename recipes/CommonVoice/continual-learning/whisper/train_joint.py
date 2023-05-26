@@ -42,12 +42,7 @@ class ASR(sb.Brain):
             enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         hyps = None
-        if stage == sb.Stage.VALID:
-            hyps, _ = self.modules.whisper.generate(
-                audio_features=enc_out,
-                max_gen_tokens=self.hparams.max_gen_tokens,
-            )
-        elif stage == sb.Stage.TEST:
+        if stage != sb.Stage.TRAIN:
             hyps, _ = self.modules.whisper.generate(
                 audio_features=enc_out,
                 forced_decoder_locale=self.hparams.forced_decoder_locale,
@@ -340,10 +335,10 @@ def train(hparams, run_opts):
     )
 
     # Check if already in Whisper tokenizer's vocabulary
-    new_tokens = set(new_tokens) - set(tokenizer.get_vocab().keys())
+    new_tokens = sorted(list(set(new_tokens) - set(tokenizer.get_vocab().keys())))
 
     # Add to Whisper tokenizer's vocabulary
-    tokenizer.add_tokens(list(new_tokens))
+    tokenizer.add_tokens(new_tokens)
 
     # Log total number of tokens
     logging.info(
@@ -357,6 +352,9 @@ def train(hparams, run_opts):
     logging.info(
         f"Total number of tokens: {hparams['whisper'].model.decoder.embed_tokens.num_embeddings}"
     )
+
+    # Set forced decoder locale
+    hparams["forced_decoder_locale"] = None
 
     # Create datasets, tokenization and encoding
     train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
