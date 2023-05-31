@@ -69,7 +69,7 @@ class CategoricalEncoder:
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
     >>> dataset = [[x+1, x+2] for x in range(20)]
     >>> encoder = CategoricalEncoder()
-    >>> encoder .ignore_len()
+    >>> encoder.ignore_len()
     >>> encoder.update_from_iterable(dataset, sequence_input=True)
     >>> assert len(encoder) == 21 # there are only 21 unique elements 1-21
 
