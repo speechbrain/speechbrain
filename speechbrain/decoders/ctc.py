@@ -4,30 +4,22 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Sung-Lin Yeh 2020
+ * Adel Moumen 2023
 """
 import torch
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
-import torch.nn as nn
 import math
 import dataclasses
 import numpy as np
 import heapq 
 import logging 
 logger = logging.getLogger(__name__)
-from numba import jit
 
 from typing import (
-    TYPE_CHECKING,
-    Any,
-    Collection,
     Dict,
-    Iterable,
     List,
     Optional,
-    Tuple,
-    TypeVar,
-    Union,
 )
 
 # TODO: move CTCPrefixScore in scorer.py
@@ -497,9 +489,6 @@ class BeamSearchDecoderCTC:
             prune_history=False,
         ):
         from .language_model import (
-            AbstractLanguageModel,
-            AbstractLMState,
-            HotwordScorer,
             LanguageModel,
             load_unigram_set_from_arpa,
         )
