@@ -22,7 +22,6 @@ from typing import (
     Optional,
 )
 
-# TODO: move CTCPrefixScore in scorer.py
 class CTCPrefixScore:
     """This class implements the CTC prefix score of Algorithm 2 in
     reference: https://www.merl.com/publications/docs/TR2017-190.pdf.
@@ -403,9 +402,6 @@ class LMBeam(Beam):
 
     def __repr__(self):
         return f"LMBeam(text={self.text}, next_word={self.next_word}, partial_word={self.partial_word}, last_token={self.last_token}, last_idx_token={self.last_idx_token}, logit_score={self.logit_score}, lm_score={self.lm_score})"
-    
-EMPTY_START_BEAM: Beam = Beam("", "", "", None, None, 0.0)
-
 
 def _sort_and_trim_beams(beams: List[LMBeam], beam_width: int) -> List[LMBeam]:
     """Take top N beams by score."""
@@ -436,40 +432,6 @@ def _merge_beams(beams: List[Beam]) -> List[Beam]:
             )
     return list(beam_dict.values())
 
-
-def _prune_history(beams: List[LMBeam], lm_order: int) -> List[Beam]:
-    """Filter out beams that are the same over max_ngram history.
-
-    Since n-gram language models have a finite history when scoring a new token, we can use that
-    fact to prune beams that only differ early on (more than n tokens in the past) and keep only the
-    higher scoring ones. Note that this helps speed up the decoding process but comes at the cost of
-    some amount of beam diversity. If more than the top beam is used in the output it should
-    potentially be disabled.
-
-    Args:
-        beams: list of LMBeam
-        lm_order: int, the order of the n-gram model
-
-    Returns:
-        list of Beam
-    """
-    # let's keep at least 1 word of history
-    min_n_history = max(1, lm_order - 1)
-    seen_hashes = set()
-    filtered_beams = []
-    # for each beam after this, check if we need to add it
-    for lm_beam in beams:
-        # hash based on history that can still affect lm scoring going forward
-        hash_idx = (
-            tuple(lm_beam.text.split()[-min_n_history:]),
-            lm_beam.partial_word,
-            lm_beam.last_token,
-        )
-        if hash_idx not in seen_hashes:
-            filtered_beams.append(Beam.from_lm_beam(lm_beam))
-            seen_hashes.add(hash_idx)
-    return filtered_beams
-
 class BeamSearchDecoderCTC:
     def __init__(
             self, 
@@ -485,10 +447,8 @@ class BeamSearchDecoderCTC:
             prune_frames_thresh=0.95, 
             prune_vocab=-5.0, 
             prune_beams=-10.0,
-            scorer=None,
-            prune_history=False,
         ):
-        from .language_model import (
+        from speechbrain.decoders.language_model import (
             LanguageModel,
             load_unigram_set_from_arpa,
         )
@@ -505,6 +465,7 @@ class BeamSearchDecoderCTC:
                     "kenlm python bindings are not installed. To install it use: "
                     "pip install https://github.com/kpu/kenlm/archive/master.zip"
                 )
+
         self.kenlm_model = None if kenlm_model_path is None else kenlm.Model(kenlm_model_path)
         
         if kenlm_model_path is not None and kenlm_model_path.endswith(".arpa"):
@@ -526,8 +487,7 @@ class BeamSearchDecoderCTC:
             )
         else:
             self.lm = None
-        print(f"BeamSearchDecoderCTC: lm={self.lm}")
-        
+            
         self.prune_vocab = prune_vocab
         self.prune_beams = prune_beams
         self.space_id = space_id
@@ -535,21 +495,13 @@ class BeamSearchDecoderCTC:
         self.prune_frames = prune_frames
         self.prune_frames_thresh = math.log(prune_frames_thresh)
         self.beam_size_token = beam_size_token
+
         # sentencepiece
         self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab])
-        self.prune_history = prune_history
-
-        self.scorer = scorer
-        if self.scorer is not None:
-            print(f"BeamSearchDecoderCTC: scorer={self.scorer}")
-
-        if self.scorer is not None and len(self.scorer.lattice_scorers) > 0 and self.prune_history is True:
-            raise ValueError("BeamSearchDecoderCTC: prune_history is not compatible with scorer as prune_history is elaging too much")
 
         if not self.is_spm and space_id == -1:
             raise ValueError("Space id must be set")
-        print(f"BeamSearchDecoderCTC: is_spm={self.is_spm}")
 
     def _get_lm_beams(
         self,
@@ -711,12 +663,7 @@ class BeamSearchDecoderCTC:
             scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.prune_beams]
            
             trimmed_beams = _sort_and_trim_beams(scored_beams, self.beam_size)
-
-            if self.prune_history:
-                lm_order = 1 if self.lm is None else self.lm.order
-                beams = _prune_history(trimmed_beams, lm_order)
-            else:
-                beams = [Beam.from_lm_beam(b) for b in trimmed_beams]
+            beams = [Beam.from_lm_beam(b) for b in trimmed_beams]
 
         new_beams = []
         for beam in beams:
@@ -739,22 +686,6 @@ class BeamSearchDecoderCTC:
             cached_p_lm_scores,
             is_eos=True,
         )
-
-        if self.scorer is not None and len(self.scorer.lattice_scorers) > 0:
-            beams_to_score = [[b.text] for b in scored_beams]
-            beams_scores = torch.tensor([[b.lm_score] for b in scored_beams])
-            new_lm_scores = self.scorer.lattice_rescoring(beams_scores, beams_to_score)
-            
-            scored_beams = [LMBeam(
-                text=b.text,
-                next_word=b.next_word,
-                partial_word=b.partial_word,
-                last_token=b.last_token,
-                last_idx_token=b.last_idx_token,
-                logit_score=b.logit_score,
-                lm_score=new_lm_scores[i].item()) 
-                for i, b in enumerate(scored_beams)
-            ]
 
         beams = _sort_and_trim_beams(scored_beams, self.beam_size)
         return beams
