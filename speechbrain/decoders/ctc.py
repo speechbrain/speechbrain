@@ -407,7 +407,7 @@ def _sort_and_trim_beams(beams: List[LMBeam], beam_width: int) -> List[LMBeam]:
     """Take top N beams by score."""
     return heapq.nlargest(beam_width, beams, key=lambda x: x.lm_score)
 
-def _merge_tokens(token_1: str, token_2: str) -> str:
+def _merge_tokens(token_1, token_2):
     """Fast, whitespace safe merging of tokens."""
     if len(token_2) == 0:
         text = token_1
@@ -417,7 +417,7 @@ def _merge_tokens(token_1: str, token_2: str) -> str:
         text = token_1 + " " + token_2
     return text
 
-def _merge_beams(beams: List[Beam]) -> List[Beam]:
+def _merge_beams(beams):
     """Merge beams with same prefix together."""
     beam_dict = {}
     for beam in beams:
@@ -426,7 +426,7 @@ def _merge_beams(beams: List[Beam]) -> List[Beam]:
         if hash_idx not in beam_dict:
             beam_dict[hash_idx] = beam
         else:
-            # We've already seen this text - we want to combine the scores
+            # merge same prefix beams
             beam_dict[hash_idx] = dataclasses.replace(
                 beam, logit_score=np.logaddexp(beam_dict[hash_idx].logit_score, beam.logit_score)
             )
@@ -569,16 +569,8 @@ class BeamSearchDecoderCTC:
     def _decode_logits(
             self, 
             logits: torch.Tensor,
-            lm_start_state=None,
         ):
-        if self.lm is None:
-            cached_lm_scores = {}
-        else:
-            if lm_start_state is None:
-                start_state = self.lm.get_start_state()
-            else:
-                start_state = lm_start_state
-            cached_lm_scores = {("", False): (0.0, start_state)}
+        cached_lm_scores = {}
         cached_p_lm_scores: Dict[str, float] = {}
 
         # Initialize beams
