@@ -52,18 +52,6 @@ class KenlmState(AbstractLMState):
         """Get the raw state object."""
         return self._state
 
-
-class MultiLanguageModelState(AbstractLMState):
-    def __init__(self, states: Sequence[AbstractLMState]) -> None:
-        """State for a multilanguage model."""
-        self._states = states
-
-    @property
-    def states(self) -> Sequence[AbstractLMState]:
-        """Access the state objects."""
-        return self._states
-
-
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     """Read unigrams from arpa file."""
     unigrams = set()
@@ -83,7 +71,6 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
         raise ValueError("No unigrams found in arpa file. Something is wrong with the file.")
     return unigrams
 
-
 def _prepare_unigram_set(unigrams: Collection[str], kenlm_model: "kenlm.Model") -> Set[str]:
     """Filter unigrams down to vocabulary that exists in kenlm_model."""
     if len(unigrams) < 1000:
@@ -102,7 +89,6 @@ def _prepare_unigram_set(unigrams: Collection[str], kenlm_model: "kenlm.Model") 
         )
     return unigram_set
 
-
 def _get_empty_lm_state() -> "kenlm.State":
     """Get unintialized kenlm state."""
     try:
@@ -111,123 +97,7 @@ def _get_empty_lm_state() -> "kenlm.State":
         raise ValueError("To use a language model, you need to install kenlm.")
     return kenlm_state
 
-
-class HotwordScorer:
-    def __init__(
-        self,
-        match_ptn: Pattern[str],
-        char_trie: CharTrie,
-        weight: float = DEFAULT_HOTWORD_WEIGHT,
-    ) -> None:
-        """Scorer for hotwords if provided.
-
-        Args:
-            match_ptn: match pattern for hotword unigrams
-            char_trie: trie for all hotwords to do partial matching
-            weight: weight for score increase
-        """
-        self._match_ptn = match_ptn
-        self._char_trie = char_trie
-        self._weight = weight
-
-    def __contains__(self, item: str) -> bool:
-        """Contains."""
-        return cast(bool, self._char_trie.has_node(item) > 0)
-
-    def score(self, text: str) -> float:
-        """Get total hotword score for input text."""
-        return self._weight * len(self._match_ptn.findall(text))
-
-    def score_partial_token(self, token: str) -> float:
-        """Get total hotword score for input text."""
-        if token in self:
-            # find shortest unigram starting with the given partial token
-            min_len = len(next(self._char_trie.iterkeys(token, shallow=True)))
-            # scale score by length of unigram matched so far
-            score = self._weight * len(token) / min_len
-        else:
-            score = 0.0
-        return score
-
-    @classmethod
-    def build_scorer(
-        cls, hotwords: Optional[Iterable[str]] = None, weight: float = DEFAULT_HOTWORD_WEIGHT
-    ) -> "HotwordScorer":
-        """Use hotword list to create regex pattern and character trie for scoring."""
-        # make sure we get an iterable
-        hotwords = hotwords or []
-        # remove whitespace
-        hotwords = [s.strip() for s in hotwords if len(s.strip()) > 0]
-        if len(hotwords) > 0:
-            hotword_unigrams = []
-            for ngram in hotwords:
-                # split ngrams to get words
-                for unigram in ngram.split():
-                    hotword_unigrams.append(unigram)
-
-            # create pattern to match full words
-            # sort by length to get longest possible match
-            # use lookahead and lookbehind to match on word boundary instead of '\b' to only match
-            # on space or bos/eos
-            match_ptn = re.compile(
-                r"|".join(
-                    [
-                        r"(?<!\S)" + re.escape(s) + r"(?!\S)"
-                        for s in sorted(hotword_unigrams, key=len, reverse=True)
-                    ]
-                )
-            )
-
-            # create trie for partial word matches
-            length_sorted_unigrams = sorted(hotword_unigrams, key=len)
-            char_trie = CharTrie.fromkeys(length_sorted_unigrams)
-        else:
-            # make an unmatchable pattern
-            match_ptn = re.compile(r"^\b$")
-            # empty trie
-            char_trie = CharTrie()
-        return cls(match_ptn, char_trie, weight)
-
-
-class AbstractLanguageModel(abc.ABC):
-    @property
-    @abc.abstractmethod
-    def order(self) -> int:
-        """Get the order of the n-gram language model."""
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def get_start_state(self) -> AbstractLMState:
-        """Get initial lm state."""
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def score_partial_token(self, partial_token: str) -> float:
-        """Get partial token score."""
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def score(
-        self, prev_state: AbstractLMState, word: str, is_last_word: bool = False
-    ) -> Tuple[float, AbstractLMState]:
-        """Score word conditional on previous lm state."""
-        raise NotImplementedError()
-
-    def save_to_dir(self, filepath: str) -> None:
-        """Save model to a directory."""
-        # this is deliberately not abstract
-        raise NotImplementedError()
-
-    @classmethod
-    def load_from_dir(cls, filepath: str) -> "AbstractLanguageModel":
-        """Load a model from a directory."""
-        raise NotImplementedError()
-
-    def reset_params(self, **params: Dict[str, Any]) -> None:
-        """Reset some of the parameters in place."""
-
-
-class LanguageModel(AbstractLanguageModel):
+class LanguageModel:
     # serializatoin constants
     # json attrs will get serialized into a single json file
     JSON_ATTRS = ("alpha", "beta", "unk_score_offset", "score_boundary")
@@ -450,53 +320,3 @@ class LanguageModel(AbstractLanguageModel):
 
         kenlm_model = kenlm.Model(filenames["kenlm"])
         return cls(kenlm_model, unigrams, **json_attrs)
-
-
-class MultiLanguageModel(AbstractLanguageModel):
-    def __init__(self, language_models: Sequence[AbstractLanguageModel]) -> None:
-        """Container for multiple language models.
-
-        Args:
-            language_models: list of language models
-        """
-        if len(language_models) < 2:
-            raise ValueError("This class is meant to contain at least 2 language models.")
-        self._language_models = language_models
-
-    @property
-    def order(self) -> int:
-        """Get the maximum order of the contained n-gram language model."""
-        return max([lm.order for lm in self._language_models])
-
-    def get_start_state(self) -> MultiLanguageModelState:
-        """Get initial lm state."""
-        return MultiLanguageModelState([lm.get_start_state() for lm in self._language_models])
-
-    def score_partial_token(self, partial_token: str) -> float:
-        """Get partial token score."""
-        return float(
-            np.mean([lm.score_partial_token(partial_token) for lm in self._language_models])
-        )
-
-    def score(
-        self, prev_state: AbstractLMState, word: str, is_last_word: bool = False
-    ) -> Tuple[float, MultiLanguageModelState]:
-        """Score word conditional on previous lm state."""
-        if not isinstance(prev_state, MultiLanguageModelState):
-            raise AssertionError(
-                f"Wrong input state type found. Expected MultiLanguageModelState, got "
-                f"{type(prev_state)}"
-            )
-        if len(prev_state.states) != len(self._language_models):
-            raise AssertionError(
-                f"Number of states ({len(prev_state.states)}) does not match number of language "
-                f"models ({len(self._language_models)})."
-            )
-        score = 0.0
-        end_state = []
-        for lm_prev_state, lm in zip(prev_state.states, self._language_models):
-            lm_score, lm_end_state = lm.score(lm_prev_state, word, is_last_word=is_last_word)
-            score += lm_score
-            end_state.append(lm_end_state)
-        score = score / len(self._language_models)
-        return score, MultiLanguageModelState(end_state)
