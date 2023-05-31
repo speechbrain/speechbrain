@@ -417,6 +417,39 @@ def _merge_tokens(token_1, token_2):
         text = token_1 + " " + token_2
     return text
 
+def _prune_history(beams: List[LMBeam], lm_order: int) -> List[Beam]:
+    """Filter out beams that are the same over max_ngram history.
+
+    Since n-gram language models have a finite history when scoring a new token, we can use that
+    fact to prune beams that only differ early on (more than n tokens in the past) and keep only the
+    higher scoring ones. Note that this helps speed up the decoding process but comes at the cost of
+    some amount of beam diversity. If more than the top beam is used in the output it should
+    potentially be disabled.
+
+    Args:
+        beams: list of LMBeam
+        lm_order: int, the order of the n-gram model
+
+    Returns:
+        list of Beam
+    """
+    # let's keep at least 1 word of history
+    min_n_history = max(1, lm_order - 1)
+    seen_hashes = set()
+    filtered_beams = []
+    # for each beam after this, check if we need to add it
+    for lm_beam in beams:
+        # hash based on history that can still affect lm scoring going forward
+        hash_idx = (
+            tuple(lm_beam.text.split()[-min_n_history:]),
+            lm_beam.partial_word,
+            lm_beam.last_token,
+        )
+        if hash_idx not in seen_hashes:
+            filtered_beams.append(Beam.from_lm_beam(lm_beam))
+            seen_hashes.add(hash_idx)
+    return filtered_beams
+
 def _merge_beams(beams):
     """Merge beams with same prefix together."""
     beam_dict = {}
@@ -447,6 +480,7 @@ class BeamSearchDecoderCTC:
             prune_frames_thresh=0.95, 
             prune_vocab=-5.0, 
             prune_beams=-10.0,
+            prune_history=False,
         ):
         from speechbrain.decoders.language_model import (
             LanguageModel,
@@ -456,17 +490,18 @@ class BeamSearchDecoderCTC:
         self.blank_id = blank_id
         self.beam_size = beam_size
         self.vocab = vocab
+        self.kenlm_model = None
 
         if kenlm_model_path is not None:
             try:
                 import kenlm  # type: ignore
             except ImportError:
-                logger.warning(
+                raise ImportError(
                     "kenlm python bindings are not installed. To install it use: "
                     "pip install https://github.com/kpu/kenlm/archive/master.zip"
                 )
-
-        self.kenlm_model = None if kenlm_model_path is None else kenlm.Model(kenlm_model_path)
+                
+            self.kenlm_model = kenlm.Model(kenlm_model_path)
         
         if kenlm_model_path is not None and kenlm_model_path.endswith(".arpa"):
             logger.info("Using arpa instead of binary LM file, decoder instantiation might be slow.")
@@ -495,6 +530,7 @@ class BeamSearchDecoderCTC:
         self.prune_frames = prune_frames
         self.prune_frames_thresh = math.log(prune_frames_thresh)
         self.beam_size_token = beam_size_token
+        self.prune_history = prune_history
 
         # sentencepiece
         self.spm_token = "▁"
@@ -569,8 +605,17 @@ class BeamSearchDecoderCTC:
     def _decode_logits(
             self, 
             logits: torch.Tensor,
+            lm_start_state = None,
         ):
-        cached_lm_scores = {}
+        language_model = self.lm
+        if language_model is None:
+            cached_lm_scores = {}
+        else:
+            if lm_start_state is None:
+                start_state = language_model.get_start_state()
+            else:
+                start_state = lm_start_state
+            cached_lm_scores = {("", False): (0.0, start_state)}
         cached_p_lm_scores: Dict[str, float] = {}
 
         # Initialize beams
@@ -655,7 +700,12 @@ class BeamSearchDecoderCTC:
             scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.prune_beams]
            
             trimmed_beams = _sort_and_trim_beams(scored_beams, self.beam_size)
-            beams = [Beam.from_lm_beam(b) for b in trimmed_beams]
+
+            if self.prune_history:
+                lm_order = 1 if self.lm is None else self.lm.order
+                beams = _prune_history(trimmed_beams, lm_order)
+            else:
+                beams = [Beam.from_lm_beam(b) for b in trimmed_beams]
 
         new_beams = []
         for beam in beams:

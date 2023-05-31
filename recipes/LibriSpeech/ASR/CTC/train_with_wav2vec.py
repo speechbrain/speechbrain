@@ -65,10 +65,7 @@ class ASR(sb.Brain):
         p_tokens = None
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
-        if stage != sb.Stage.TRAIN:
-            p_tokens = sb.decoders.ctc_greedy_decode(
-                p_ctc, wav_lens, blank_id=self.hparams.blank_index
-            )
+      
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -88,11 +85,12 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_words = [
-                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                for utt_seq in predicted_tokens
-            ]
+            predicted_words = []
+            for logs in p_ctc:
+                text = ctc_beam_search(logs.detach().cpu().numpy())[0].text
+                predicted_words.append(text.split(" "))
             target_words = [wrd.split(" ") for wrd in batch.wrd]
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -368,6 +366,22 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
+    from speechbrain.decoders import BeamSearchDecoderCTC
+    ind2lab = label_encoder.ind2lab
+    labels = [ind2lab[x] for x in range(len(ind2lab))]
+
+    ctc_beam_search = BeamSearchDecoderCTC(
+        blank_id=0,
+        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        beam_size=100,
+        prune_frames=False,
+        vocab=labels,
+        space_id=29,
+        prune_history=True,
+    )
+
+
+    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -376,6 +390,7 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
+    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc

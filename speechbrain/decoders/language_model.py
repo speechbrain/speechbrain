@@ -12,16 +12,7 @@ from typing import Any, Collection, Dict, Iterable, Optional, Pattern, Sequence,
 import numpy as np
 from pygtrie import CharTrie  # type: ignore
 
-from .constants import (
-    AVG_TOKEN_LEN,
-    DEFAULT_ALPHA,
-    DEFAULT_BETA,
-    DEFAULT_HOTWORD_WEIGHT,
-    DEFAULT_SCORE_LM_BOUNDARY,
-    DEFAULT_UNK_LOGP_OFFSET,
-    LOG_BASE_CHANGE_FACTOR,
-)
-
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +99,10 @@ class LanguageModel:
         self,
         kenlm_model: "kenlm.Model",
         unigrams: Optional[Collection[str]] = None,
-        alpha: float = DEFAULT_ALPHA,
-        beta: float = DEFAULT_BETA,
-        unk_score_offset: float = DEFAULT_UNK_LOGP_OFFSET,
-        score_boundary: bool = DEFAULT_SCORE_LM_BOUNDARY,
+        alpha: float = 0.5,
+        beta: float = 1.5,
+        unk_score_offset: float = -10.0,
+        score_boundary: bool = True,
     ) -> None:
         """Language model container class to consolidate functionality.
 
@@ -201,8 +192,8 @@ class LanguageModel:
             is_oov = int(self._char_trie.has_node(partial_token) == 0)
         unk_score = self.unk_score_offset * is_oov
         # if unk token length exceeds expected length then additionally decrease score
-        if len(partial_token) > AVG_TOKEN_LEN:
-            unk_score = unk_score * len(partial_token) / AVG_TOKEN_LEN
+        if len(partial_token) > 6:
+            unk_score = unk_score * len(partial_token) / 6
         return unk_score
 
     def score(
@@ -226,7 +217,7 @@ class LanguageModel:
         if is_last_word:
             # note that we want to return the unmodified end_state to keep extension capabilities
             lm_score = lm_score + self._get_raw_end_score(end_state)
-        lm_score = self.alpha * lm_score * LOG_BASE_CHANGE_FACTOR + self.beta
+        lm_score = self.alpha * lm_score * 1.0 / math.log10(math.e) + self.beta
         return lm_score, KenlmState(end_state)
 
     # Serialization stuff below
