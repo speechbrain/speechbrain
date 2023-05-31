@@ -215,7 +215,7 @@ SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021
 
 # Quick installation
 SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.
-SpeechBrain can be installed via PyPI. Moreover,  a local installation can be used by those users that what to run experiments and modify/customize the toolkit. SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
+SpeechBrain can be installed via PyPI. Moreover,  a local installation can be used by those users who want to run experiments and modify/customize the toolkit. SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
 
 
 ## Install via PyPI
