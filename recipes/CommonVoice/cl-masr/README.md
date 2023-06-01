@@ -12,7 +12,7 @@ leveraging shared knowledge from new tasks).
 
 ## 🛠️️ Installation
 
-Clone the repository, navigate to `<path-to-repository>/recipes/CommonVoice/continual-learning`,
+Clone the repository, navigate to `<path-to-repository>/recipes/CommonVoice/cl-masr`,
 open a terminal and run:
 
 ```bash
@@ -29,7 +29,7 @@ pip install -r extra-requirements.txt    # Install additional dependencies
 Manually download the required Common Voice 13 locales (`en`, `zh-CN`, `de`, `es`, `ru`, `fr`, `pt`, `ja`,
 `tr`, `pl`, `rw`, `eo`, `kab`, `lg`, `mhr`, `ckb`, `ab`, `kmr`, `fy-NL`, `ia`) from the [official
 website](https://commonvoice.mozilla.org/en/datasets) and extract them to a common directory.
-Navigate to `<path-to-repository>/recipes/CommonVoice/continual-learning/<model>`, open a terminal and run:
+Navigate to `<path-to-repository>/recipes/CommonVoice/cl-masr/<model>`, open a terminal and run:
 
 ```bash
 python train_<cl-method>.py hparams/train_<cl-method>.yaml --data_dir <path-to-data-directory>
@@ -42,7 +42,7 @@ python train_<cl-method>.py hparams/train_<cl-method>.yaml --data_dir <path-to-d
 Collect all `train_log.txt` files from each experiment, rename them according to the format
 `<method-name>_base=<comma-separated-base-locales>_new=<comma-separated-new-locales>` and copy them
 to a common directory.
-Navigate to `<path-to-repository>/recipes/CommonVoice/continual-learning`, open a terminal and run:
+Navigate to `<path-to-repository>/recipes/CommonVoice/cl-masr`, open a terminal and run:
 
 ```bash
 python analyze_logs.py <path-to-logs-directory>
