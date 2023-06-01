@@ -906,6 +906,7 @@ class EncoderClassifier(Pretrained):
     ...     source="speechbrain/spkrec-ecapa-voxceleb",
     ...     savedir=tmpdir,
     ... )
+    >>> classifier.hparams.label_encoder.ignore_len()
 
     >>> # Compute embeddings
     >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
