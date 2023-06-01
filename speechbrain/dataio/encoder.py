@@ -691,7 +691,6 @@ class CategoricalEncoder:
         >>> encoder.encode_label("a")
         0
         """
-        # TODO
         self.expected_len = expected_len
 
     def ignore_len(self):
