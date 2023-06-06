@@ -104,7 +104,8 @@ class HuggingFaceWhisper(nn.Module):
         self._hop_length = feature_extractor.hop_length
         self._n_samples = feature_extractor.n_samples
         self.register_buffer(
-            "_mel_filters", torch.as_tensor(feature_extractor.mel_filters)
+            "_mel_filters",
+            torch.as_tensor(feature_extractor.mel_filters, dtype=torch.float32),
         )
 
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
@@ -244,7 +245,7 @@ class HuggingFaceWhisper(nn.Module):
         magnitudes = stft[..., :-1].abs() ** 2
 
         filters = self._mel_filters
-        mel_spec = filters @ magnitudes
+        mel_spec = filters.transpose(0, 1) @ magnitudes
 
         log_spec = torch.clamp(mel_spec, min=1e-10).log10()
         log_spec = torch.maximum(
