@@ -14,7 +14,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
-model_version: !ref large-v2
+model_version: !PLACEHOLDER # !ref large-v2, tiny, base
 whisper_hub: !PLACEHOLDER # !ref ../../pre-trained/openai-whisper-<model_version>/
 whisper_folder: !PLACEHOLDER #!ref ../../pre-trained/openai-whisper-<model_version>/
 language: german
