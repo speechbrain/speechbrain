@@ -113,7 +113,7 @@ class ASR(sb.Brain):
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
-    def on_stage_end(self, stage, stage_loss, epoch, tr_time):
+    def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
@@ -134,11 +134,7 @@ class ASR(sb.Brain):
                 self.optimizer, new_lr_whisper
             )
             self.hparams.train_logger.log_stats(
-                stats_meta={
-                    "epoch": epoch,
-                    "time": tr_time,
-                    "lr_whisper": old_lr_whisper,
-                },
+                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )

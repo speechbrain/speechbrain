@@ -409,6 +409,7 @@ def data_cleaning(words):
     words = words.replace(
         "0000SS0000", "ß"
     )  # replace 0000SS0000 back to ß as its initial presence in the corpus
+    return words
 
 
 def strip_accents(text):
