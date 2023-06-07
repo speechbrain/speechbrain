@@ -615,6 +615,7 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.valid_step = 0
         self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
@@ -928,7 +929,8 @@ class Brain:
         -------
         detached loss
         """
-        should_step = self.step % self.grad_accumulation_factor == 0
+        valid_loss = False
+    
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.autocast(device_type=torch.device(self.device).type):
@@ -936,17 +938,24 @@ class Brain:
 
             # Losses are excluded from mixed precision to avoid instabilities
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
+
+            if self.check_gradients(loss):
+                valid_loss = True
+                self.valid_step+=1
+
+            should_step = self.valid_step % self.grad_accumulation_factor ==  0
+            if valid_loss:
+                with self.no_sync(not should_step):
+                    self.scaler.scale(
+                        loss / self.grad_accumulation_factor
+                    ).backward()
+                if should_step:
+                    self.scaler.unscale_(self.optimizer)
+                    self.clip_grad_norm()
                     self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
+                    self.scaler.update()
+                    self.zero_grad()
+                    self.optimizer_step += 1
         else:
             if self.bfloat16_mix_prec:
                 with torch.autocast(
@@ -959,13 +968,19 @@ class Brain:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
 
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
+            if self.check_gradients(loss): 
+                valid_loss = True
+                self.valid_step+=1
+
+            should_step = self.valid_step % self.grad_accumulation_factor ==  0
+            if valid_loss: 
+                with self.no_sync(not should_step):
+                    (loss / self.grad_accumulation_factor).backward()
+                if should_step:
+                    self.clip_grad_norm()
                     self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
+                    self.zero_grad()
+                    self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
@@ -988,9 +1003,7 @@ class Brain:
         pass
 
     def check_gradients(self, loss):
-        """Check if gradients are finite and not too large.
-
-        Automatically clips large gradients.
+        """Check if gradients are finite.
 
         Arguments
         ---------
@@ -1026,13 +1039,19 @@ class Brain:
                 )
                 return False
 
+        return True
+
+    def clip_grad_norm(self):
+        """
+        Automatically clips large gradients.
+        """
         # Clip gradient norm
         if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
             )
 
-        return True
+        return 
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
@@ -1124,6 +1143,7 @@ class Brain:
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
+        self.valid_step = 0
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage
