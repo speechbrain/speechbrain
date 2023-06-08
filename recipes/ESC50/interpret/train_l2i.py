@@ -181,7 +181,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
-        if not (batch is None):
+        if not batch is None:
             X_stft_phase_sb = torch.cat(
                 (
                     torch.cos(X_stft_phase).unsqueeze(-1),

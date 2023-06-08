@@ -40,7 +40,7 @@ def run_HF_check(
 
         # Checking all detected repos
         for repo in HF_repos:
-            if not (check_repo(repo)):
+            if not check_repo(repo):
                 check = False
     return check
 
