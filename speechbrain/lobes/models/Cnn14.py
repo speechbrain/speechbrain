@@ -47,7 +47,7 @@ class ConvBlock(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, norm_type):
-        super(ConvBlock, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -149,7 +149,7 @@ class Cnn14(nn.Module):
     """
 
     def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False):
-        super(Cnn14, self).__init__()
+        super().__init__()
         self.return_reps = return_reps
 
         self.norm_type = norm_type

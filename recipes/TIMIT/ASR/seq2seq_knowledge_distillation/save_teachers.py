@@ -27,7 +27,7 @@ import numpy as np
 # Define training procedure
 class ASR(sb.Brain):
     def __init__(self, tea_modules_list=None, hparams=None, run_opts=None):
-        super(ASR, self).__init__(
+        super().__init__(
             modules=None,
             opt_class=None,
             hparams=hparams,

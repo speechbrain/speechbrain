@@ -467,7 +467,7 @@ class ExponentialMovingAverage(nn.Module):
         trainable: bool = True,
         skip_transpose: bool = False,
     ):
-        super(ExponentialMovingAverage, self).__init__()
+        super().__init__()
         self._coeff_init = coeff_init
         self._per_channel = per_channel
         self.skip_transpose = skip_transpose
@@ -567,7 +567,7 @@ class PCEN(nn.Module):
         per_channel_smooth_coef: bool = True,
         skip_transpose: bool = False,
     ):
-        super(PCEN, self).__init__()
+        super().__init__()
         self._smooth_coef = smooth_coef
         self._floor = floor
         self._per_channel_smooth_coef = per_channel_smooth_coef

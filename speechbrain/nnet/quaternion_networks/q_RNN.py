@@ -230,7 +230,7 @@ class QLSTM_Layer(torch.nn.Module):
         autograd="true",
     ):
 
-        super(QLSTM_Layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size) // 4  # Express in term of quat
         self.input_size = int(input_size)
@@ -638,7 +638,7 @@ class QRNN_Layer(torch.nn.Module):
         autograd="true",
     ):
 
-        super(QRNN_Layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size) // 4  # Express in term of quat
         self.input_size = int(input_size)
@@ -1032,7 +1032,7 @@ class QLiGRU_Layer(torch.nn.Module):
         autograd=True,
     ):
 
-        super(QLiGRU_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size) // 4
         self.input_size = int(input_size)
         self.batch_size = batch_size

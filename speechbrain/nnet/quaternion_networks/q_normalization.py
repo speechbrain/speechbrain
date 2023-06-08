@@ -54,7 +54,7 @@ class QBatchNorm(torch.nn.Module):
         eps=1e-4,
         track_running_stats=True,
     ):
-        super(QBatchNorm, self).__init__()
+        super().__init__()
 
         self.num_features = input_size // 4
         self.gamma_init = gamma_init

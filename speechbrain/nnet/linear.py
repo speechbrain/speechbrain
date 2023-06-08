@@ -108,7 +108,7 @@ class LinearWithConstraint(Linear):
 
     def __init__(self, *args, max_norm=1, **kwargs):
         self.max_norm = max_norm
-        super(LinearWithConstraint, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def forward(self, x):
         """Returns the linear transformation of input tensor.
@@ -121,4 +121,4 @@ class LinearWithConstraint(Linear):
         self.w.weight.data = torch.renorm(
             self.w.weight.data, p=2, dim=0, maxnorm=self.max_norm
         )
-        return super(LinearWithConstraint, self).forward(x)
+        return super().forward(x)

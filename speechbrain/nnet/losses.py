@@ -119,7 +119,7 @@ class PitWrapper(nn.Module):
     """
 
     def __init__(self, base_loss):
-        super(PitWrapper, self).__init__()
+        super().__init__()
         self.base_loss = base_loss
 
     def _fast_pit(self, loss_mat):
@@ -915,7 +915,7 @@ class AngularMargin(nn.Module):
     """
 
     def __init__(self, margin=0.0, scale=1.0):
-        super(AngularMargin, self).__init__()
+        super().__init__()
         self.margin = margin
         self.scale = scale
 
@@ -966,7 +966,7 @@ class AdditiveAngularMargin(AngularMargin):
     """
 
     def __init__(self, margin=0.0, scale=1.0, easy_margin=False):
-        super(AdditiveAngularMargin, self).__init__(margin, scale)
+        super().__init__(margin, scale)
         self.easy_margin = easy_margin
 
         self.cos_m = math.cos(self.margin)
@@ -1032,7 +1032,7 @@ class LogSoftmaxWrapper(nn.Module):
     """
 
     def __init__(self, loss_fn):
-        super(LogSoftmaxWrapper, self).__init__()
+        super().__init__()
         self.loss_fn = loss_fn
         self.criterion = torch.nn.KLDivLoss(reduction="sum")
 

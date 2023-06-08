@@ -53,7 +53,7 @@ class LibrispeechLmConfig(datasets.BuilderConfig):
 
     def __init__(self, **kwargs):
         self.lm_corpus_path = kwargs.pop("lm_corpus_path", None)
-        super(LibrispeechLmConfig, self).__init__(**kwargs,)
+        super().__init__(**kwargs,)
 
     def __post_init__(self):
         if self.lm_corpus_path is None:

@@ -1182,7 +1182,7 @@ class InputNormalization(torch.nn.Module):
     def to(self, device):
         """Puts the needed tensors in the right device.
         """
-        self = super(InputNormalization, self).to(device)
+        self = super().to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)
         for spk in self.spk_dict_mean:

@@ -42,7 +42,7 @@ class S2SBaseSearcher(torch.nn.Module):
     def __init__(
         self, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
     ):
-        super(S2SBaseSearcher, self).__init__()
+        super().__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.min_decode_ratio = min_decode_ratio
@@ -358,7 +358,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
 
     def __init__(self, embedding, decoder, linear, **kwargs):
-        super(S2SRNNGreedySearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -469,7 +469,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         max_attn_shift=60,
         minus_inf=-1e20,
     ):
-        super(S2SBeamSearcher, self).__init__(
+        super().__init__(
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
@@ -1058,7 +1058,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
         temperature=1.0,
         **kwargs,
     ):
-        super(S2SRNNBeamSearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -1169,7 +1169,7 @@ class S2SRNNBeamSearchLM(S2SRNNBeamSearcher):
         temperature_lm=1.0,
         **kwargs,
     ):
-        super(S2SRNNBeamSearchLM, self).__init__(
+        super().__init__(
             embedding, decoder, linear, **kwargs
         )
 
@@ -1265,7 +1265,7 @@ class S2SRNNBeamSearchTransformerLM(S2SRNNBeamSearcher):
         temperature_lm=1.0,
         **kwargs,
     ):
-        super(S2SRNNBeamSearchTransformerLM, self).__init__(
+        super().__init__(
             embedding, decoder, linear, **kwargs
         )
 
@@ -1317,7 +1317,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     def __init__(
         self, modules, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
-        super(S2STransformerBeamSearch, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.model = modules[0]
         self.fc = modules[1]
@@ -1441,7 +1441,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         max_length=447,
         **kwargs,
     ):
-        super(S2SWhisperBeamSearch, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.model = module[0]
         if len(module) == 2:

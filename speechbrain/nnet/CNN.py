@@ -772,7 +772,7 @@ class Conv2dWithConstraint(Conv2d):
 
     def __init__(self, *args, max_norm=1, **kwargs):
         self.max_norm = max_norm
-        super(Conv2dWithConstraint, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -786,7 +786,7 @@ class Conv2dWithConstraint(Conv2d):
         self.conv.weight.data = torch.renorm(
             self.conv.weight.data, p=2, dim=0, maxnorm=self.max_norm
         )
-        return super(Conv2dWithConstraint, self).forward(x)
+        return super().forward(x)
 
 
 class ConvTranspose1d(nn.Module):
@@ -1252,7 +1252,7 @@ class GaborConv1d(nn.Module):
         use_legacy_complex=False,
         skip_transpose=False,
     ):
-        super(GaborConv1d, self).__init__()
+        super().__init__()
         self.filters = out_channels // 2
         self.kernel_size = kernel_size
         self.stride = stride
