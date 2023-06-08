@@ -310,10 +310,10 @@ def create_empty_metrics_md(n_src, subdir):
     elif subdir == "mix_both":
         for i in range(n_src):
             metrics_dataframe[f"source_{i + 1}_SNR"] = {}
-        metrics_dataframe[f"noise_SNR"] = {}
+        metrics_dataframe["noise_SNR"] = {}
     elif subdir == "mix_single":
         metrics_dataframe["source_1_SNR"] = {}
-        metrics_dataframe[f"noise_SNR"] = {}
+        metrics_dataframe["noise_SNR"] = {}
     return metrics_dataframe
 
 
@@ -328,10 +328,10 @@ def create_empty_mixture_md(n_src, subdir):
     elif subdir == "mix_both":
         for i in range(n_src):
             mixture_dataframe[f"source_{i + 1}_path"] = {}
-        mixture_dataframe[f"noise_path"] = {}
+        mixture_dataframe["noise_path"] = {}
     elif subdir == "mix_single":
         mixture_dataframe["source_1_path"] = {}
-        mixture_dataframe[f"noise_path"] = {}
+        mixture_dataframe["noise_path"] = {}
     mixture_dataframe["length"] = {}
     return mixture_dataframe
 
