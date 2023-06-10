@@ -1,14 +1,13 @@
 """
-Data preparation script for RescueSpeech dataset.
-This script prepares CSV files for automatic speech recognition
-(ASR) fine-tuning and multi-condition training. The prepared CSV
-files contain rows with the following fields:
+Data preparation script for RescueSpeech dataset. This
+script prepares CSV files for ASR and Speech Enhancement.
+In the generated CSV files the column-
 
 `clean_noisy_mix` : alternates between the paths to the clean and
 noisy speech recordings in the same order as they appear in the dataset.
 
-By using this script, you can easily prepare the necessary CSV files for training
-and evaluating ASR models on the RescueSpeech dataset.
+By using this script, you can easily prepare the necessary CSV files
+for training and evaluating ASR models on the RescueSpeech dataset.
 
 
 Author
@@ -17,12 +16,15 @@ Sangeet Sagar
 """
 
 import os
-import csv
 import re
+import csv
+import glob
 import logging
 import torchaudio
 import unicodedata
+from tqdm import tqdm
 from tqdm.contrib import tzip
+from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,8 @@ def prepare_RescueSpeech(
     test_tsv_file=None,
     accented_letters=False,
     skip_prep=False,
+    sample_rate=16000,
+    task="asr",
 ):
     """
     Prepares the csv files for RescueSpeech audio data.
@@ -109,9 +113,14 @@ def prepare_RescueSpeech(
         [train_tsv_file, dev_tsv_file, test_tsv_file],
         [save_csv_train, save_csv_dev, save_csv_test],
     )
-    for tsv_file, save_csv in file_pairs:
-        # Prepare CSV files
-        create_csv(tsv_file, save_csv, data_folder, accented_letters)
+    if task == "asr":
+        for tsv_file, save_csv in file_pairs:
+            # Prepare CSV files
+            create_asr_csv(tsv_file, save_csv, data_folder, accented_letters)
+    elif task == "enhance":
+        create_enhance_csv(data_folder, save_csv_train, "train", sample_rate)
+        create_enhance_csv(data_folder, save_csv_dev, "valid", sample_rate)
+        create_enhance_csv(data_folder, save_csv_test, "test", sample_rate)
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -140,7 +149,9 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     return skip
 
 
-def create_csv(orig_tsv_file, csv_file, data_folder, accented_letters=False):
+def create_asr_csv(
+    orig_tsv_file, csv_file, data_folder, accented_letters=False
+):
     """
     Creates the csv file given a list of wav files.
 
@@ -148,10 +159,10 @@ def create_csv(orig_tsv_file, csv_file, data_folder, accented_letters=False):
     ---------
     orig_tsv_file : str
         Path to the RescueSpeech tsv file (standard file).
+    csv_file: str
+        Path to csv file that will be saved.
     data_folder : str
         Path of the RescueSpeech domain dataset (clean, noisy, noise).
-    noisy_data_fp : str
-        Path to synthesized noisy RescueSpeech domain dataset.
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
@@ -346,6 +357,139 @@ def create_csv(orig_tsv_file, csv_file, data_folder, accented_letters=False):
     logger.info(msg)
 
 
+def create_enhance_csv(data_folder, csv_file, split, fs=16000):
+    """
+    Create CSV files for train, valid and test set.
+
+    Arguments:
+    ----------
+    data_folder :str
+        Path to synthesized RescuSpeech data for task enhancement
+    csv_file : str
+        Save csv_file path for prepared data.
+    split : str
+        CSV prepration for train/valid/test
+    fs : int
+        Sampling rate. Defaults to 16000.
+    """
+
+    clean_fullpaths = []
+    noise_fullpaths = []
+    noisy_fullpaths = []
+    language = []
+    lang = "de"
+
+    clean_f1_path = extract_files(
+        os.path.join(data_folder, split), type="clean"
+    )
+    noise_f1_path = extract_files(
+        os.path.join(data_folder, split), type="noise"
+    )
+    noisy_f1_path = extract_files(
+        os.path.join(data_folder, split), type="noisy"
+    )
+
+    language.extend([lang] * len(clean_f1_path))
+    clean_fullpaths.extend(clean_f1_path)
+    noise_fullpaths.extend(noise_f1_path)
+    noisy_fullpaths.extend(noisy_f1_path)
+
+    # Write CSV for train and dev
+    msg = "Writing " + split + " csv files"
+    logger.info(msg)
+    write2csv(
+        language,
+        clean_fullpaths,
+        noise_fullpaths,
+        noisy_fullpaths,
+        csv_file,
+        fs,
+    )
+
+
+def write2csv(
+    language,
+    clean_fullpaths,
+    noise_fullpaths,
+    noisy_fullpaths,
+    csv_file,
+    fs=16000,
+):
+    """
+    Write data to CSV file in an appropriate format.
+
+    Arguments
+    ---------
+    language : str
+        Language of audio file
+    clean_fullpaths : str
+        Path to clean audio files of a split in the train/valid-set
+    noise_fullpaths : str
+        Path to noise audio files of a split in the train/valid-set
+    noisy_fullpaths : str
+        Path to noisy audio files of a split in the train/valid-set
+    csv_file : str
+        Save csv_file path for prepared data.
+    fs : int
+        Sampling rate. Defaults to 16000.
+    """
+    csv_columns = [
+        "ID",
+        "language",
+        "duration",
+        "clean_wav",
+        "clean_wav_format",
+        "clean_wav_opts",
+        "noise_wav",
+        "noise_wav_format",
+        "noise_wav_opts",
+        "noisy_wav",
+        "noisy_wav_format",
+        "noisy_wav_opts",
+    ]
+
+    # Retreive duration of just one signal. It is assumed
+    # that all files have the same duration in MS-DNS dataset.
+
+    total_duration = 0
+    with open(csv_file, "w") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+        writer.writeheader()
+
+        for (i, (lang, clean_fp, noise_fp, noisy_fp),) in enumerate(
+            tqdm(
+                zip(language, clean_fullpaths, noise_fullpaths, noisy_fullpaths)
+            )
+        ):
+            signal = read_audio(clean_fp)
+            duration = signal.shape[0] / fs
+            total_duration += duration
+
+            row = {
+                "ID": i,
+                "language": lang,
+                "duration": duration,
+                "clean_wav": clean_fp,
+                "clean_wav_format": "wav",
+                "clean_wav_opts": None,
+                "noise_wav": noise_fp,
+                "noise_wav_format": "wav",
+                "noise_wav_opts": None,
+                "noisy_wav": noisy_fp,
+                "noisy_wav_format": "wav",
+                "noisy_wav_opts": None,
+            }
+            writer.writerow(row)
+
+    # Final prints
+    msg = "%s successfully created!" % (csv_file)
+    logger.info(msg)
+    msg = "Number of samples: %s " % (str(len(clean_fullpaths)))
+    logger.info(msg)
+    msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
+    logger.info(msg)
+
+
 def check_RescueSpeech_data_folders(data_folder):
     """
     Check if the data folder actually contains the RescueSpeech dataset.
@@ -362,14 +506,12 @@ def check_RescueSpeech_data_folders(data_folder):
         If data folder doesn't contain RescueSpeech dataset.
     """
 
-    files_str = "/audio_files"
-
     # Checking clips
-    if not os.path.exists(data_folder + files_str):
+    if not os.path.exists(data_folder):
 
         err_msg = (
             "the folder %s does not exist (it is expected in "
-            "the RescueSpeech dataset)" % (data_folder + files_str)
+            "the RescueSpeech dataset)" % (data_folder)
         )
         raise FileNotFoundError(err_msg)
 
@@ -421,3 +563,33 @@ def strip_accents(text):
     )
 
     return str(text)
+
+
+def extract_files(datapath, type=None):
+    """
+    Given a dir-path, it extracts full path of all wav files
+    and sorts them.
+
+    Arguments:
+    ----------
+    datapath :str
+        Path to synthesized SAR data
+    type : str
+        Type of split: clean, noisy, noise.
+
+    Returns
+    -------
+    list
+        Sorted list of all wav files found in the given path.
+    """
+    if type:
+        path = os.path.join(datapath, type)
+        files = glob.glob(path + "/*.wav")
+
+        # Sort all files based on the suffixed file_id (ascending order)
+        files.sort(key=lambda f: int(f.split("fileid_")[-1].strip(".wav")))
+    else:
+        # Sort all files by name
+        files = sorted(glob.glob(datapath + "/*.wav"))
+
+    return files
