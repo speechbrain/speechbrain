@@ -57,7 +57,14 @@ Please, cite SpeechBrain if you use it for your research or business.
   note={arXiv:2106.04624}
 }
 ```
-Citing the RescueSpeech dataset
-```
-paper bib goes here
+Citing the paper
+```bibtex
+@misc{sagar2023rescuespeech,
+    title={RescueSpeech: A German Corpus for Speech Recognition in Search and Rescue Domain},
+    author={Sangeet Sagar and Mirco Ravanelli and Bernd Kiefer and Ivana Kruijff Korbayova and Josef van Genabith},
+    year={2023},
+    eprint={2306.04054},
+    archivePrefix={arXiv},
+    primaryClass={eess.AS}
+}
 ```
