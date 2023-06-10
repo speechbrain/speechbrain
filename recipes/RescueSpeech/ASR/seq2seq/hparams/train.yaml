@@ -34,7 +34,6 @@ pretrained_asr: !PLACEHOLDER  # pre-trained model
 # pretrained_asr: !PLACEHOLDER  # clean trained
 # pretrained_asr: !PLACEHOLDER  # clean noisy mix trained
 
-# Data files
 # Dataset prep parameters
 data_folder: !PLACEHOLDER
 csv_dir: !ref ../../csv_files/Task_ASR
