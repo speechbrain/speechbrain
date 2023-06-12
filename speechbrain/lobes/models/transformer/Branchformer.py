@@ -185,7 +185,7 @@ class BranchformerEncoderLayer(nn.Module):
         """
         Arguments
         ----------
-        src : torch.Tensor
+        x : torch.Tensor
             The sequence to the encoder layer.
         src_mask : torch.Tensor, optional
             The mask for the src sequence.
