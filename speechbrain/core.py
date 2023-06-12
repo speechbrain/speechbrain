@@ -294,6 +294,12 @@ def parse_arguments(arg_list=None):
         help="Enable colored progress-bar in tqdm. If this is "
         "false, tqdm shall use default colors.",
     )
+    parser.add_argument(
+        "--remove_vector_weight_decay",
+        default=False,
+        action="store_true",
+        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -490,6 +496,7 @@ class Brain:
                 "valid": "MAGENTA",
                 "test": "CYAN",
             },
+            "remove_vector_weight_decay": False,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -868,17 +875,16 @@ class Brain:
 
         Override this class if there are multiple optimizers.
         """
+        
 
         all_params = self.modules.parameters()
+
         if self.opt_class is not None:
-
-            # We remove biases and normalization parameters from weight_decay
-            if hasattr(self.opt_class, "keywords"):
-                if "weight_decay" in self.opt_class.keywords:
-                    all_params = rm_weight_decay_bias_and_norm_params(
+            if self.remove_vector_weight_decay:
+                all_params = rm_weight_decay_bias_and_norm_params(
                         self.modules, self.hparams.weight_decay
-                    )
-
+                )
+                
             self.optimizer = self.opt_class(all_params)
 
             if self.checkpointer is not None:
