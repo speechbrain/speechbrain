@@ -117,9 +117,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
     """
 
     def __init__(self, dim, elementwise_affine=True, eps=1e-8):
-        super().__init__(
-            dim, elementwise_affine=elementwise_affine, eps=eps
-        )
+        super().__init__(dim, elementwise_affine=elementwise_affine, eps=eps)
 
     def forward(self, x):
         """Returns the normalized tensor.

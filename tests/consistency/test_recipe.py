@@ -206,7 +206,7 @@ def test_README_links(
                         for link in links:
                             if len(link) == 0:
                                 continue
-                            if not link in content:
+                            if link not in content:
                                 print(
                                     "\tERROR: The link to %s does not exist in %s. Please add it to %s!"
                                     % (link, row[readme_field], recipe_csvfile)

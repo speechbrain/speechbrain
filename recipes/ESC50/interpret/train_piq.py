@@ -99,13 +99,14 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs
         )
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if not batch is None:
+        if batch is not None:
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
 
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -190,7 +191,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(
@@ -284,14 +286,17 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.title("mask")
 
         out_folder = os.path.join(
-            self.hparams.output_folder, "reconstructions/" f"{batch.id[0]}",
+            self.hparams.output_folder,
+            "reconstructions/" f"{batch.id[0]}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"), format="png",
+            os.path.join(out_folder, "reconstructions.png"),
+            format="png",
         )
         plt.close()
 
@@ -597,7 +602,7 @@ def dataio_prep(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
 
-        wave_file = data_audio_folder + "/{:}".format(wav)
+        wave_file = data_audio_folder + f"/{:}".format(wav)
 
         sig, read_sr = torchaudio.load(wave_file)
 
@@ -658,7 +663,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 

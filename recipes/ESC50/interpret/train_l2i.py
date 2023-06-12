@@ -181,7 +181,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
-        if not batch is None:
+        if batch is not None:
             X_stft_phase_sb = torch.cat(
                 (
                     torch.cos(X_stft_phase).unsqueeze(-1),
@@ -200,7 +200,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -277,7 +278,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(
@@ -433,7 +435,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         def compute_inp_fidelity(wavs, predictions):
             """Computes top-1 input fidelity of interpreter."""
             X2 = self.interpret_sample(wavs[0].unsqueeze(0)).unsqueeze(0)
-            for (i, wav) in enumerate(wavs[1:, ...]):
+            for i, wav in enumerate(wavs[1:, ...]):
                 X2 = torch.cat(
                     (X2, self.interpret_sample(wav.unsqueeze(0)).unsqueeze(0)),
                     axis=0,
@@ -468,7 +470,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         @torch.no_grad()
         def compute_faithfulness(wavs, predictions):
             X2 = self.interpret_sample(wavs[0].unsqueeze(0)).unsqueeze(0)
-            for (i, wav) in enumerate(wavs[1:, ...]):
+            for i, wav in enumerate(wavs[1:, ...]):
                 X2 = torch.cat(
                     (X2, self.interpret_sample(wav.unsqueeze(0)).unsqueeze(0)),
                     axis=0,
@@ -586,7 +588,6 @@ class InterpreterESC50Brain(sb.core.Brain):
 
 
 if __name__ == "__main__":
-
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 
