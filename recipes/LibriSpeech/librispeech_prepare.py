@@ -15,15 +15,12 @@ from collections import Counter
 from dataclasses import dataclass
 import functools
 import logging
-import torchaudio
-from typing import List
-from tqdm.contrib import tzip
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     merge_csvs,
-    read_audio_info
+    read_audio_info,
 )
 from speechbrain.utils.parallel import parallel_map
 
@@ -288,7 +285,7 @@ def process_line(wav_file, text_dict) -> LSRow:
         spk_id=spk_id,
         duration=duration,
         file_path=wav_file,
-        words=wrds
+        words=wrds,
     )
 
 
@@ -328,10 +325,7 @@ def create_csv(
     csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     snt_cnt = 0
-    line_processor = functools.partial(
-        process_line,
-        text_dict=text_dict
-    )
+    line_processor = functools.partial(process_line, text_dict=text_dict)
     # Processing all the wav files in wav_lst
     for row in parallel_map(line_processor, wav_lst, chunk_size=8192):
         csv_line = [
@@ -339,7 +333,7 @@ def create_csv(
             str(row.duration),
             row.file_path,
             row.spk_id,
-            row.words
+            row.words,
         ]
 
         # Appending current file to the csv_lines list
@@ -350,7 +344,6 @@ def create_csv(
         # parallel_map guarantees element ordering so we're OK
         if snt_cnt == select_n_sentences:
             break
-
 
     # Writing the csv_lines
     with open(csv_file, mode="w") as csv_f:
