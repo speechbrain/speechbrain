@@ -327,6 +327,8 @@ def create_csv(
     snt_cnt = 0
     line_processor = functools.partial(process_line, text_dict=text_dict)
     # Processing all the wav files in wav_lst
+    # FLAC metadata reading is already fast, so we set a high chunk size
+    # to limit main thread CPU bottlenecks
     for row in parallel_map(line_processor, wav_lst, chunk_size=8192):
         csv_line = [
             row.snt_id,
