@@ -14,7 +14,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
-open_rir_folder: <data_folder>/RIRS # Change if needed
+# open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
 experiment_name: piq
@@ -48,9 +48,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 number_of_epochs: 200
 batch_size: 16
 lr: 0.0002
-base_lr: 0.00002
 max_lr: !ref <lr>
-step_size: 65000
 sample_rate: 16000
 use_vq: True
 rec_loss_coef: 1
@@ -61,11 +59,6 @@ device: "cuda"
 
 # Feature parameters
 n_mels: 80
-left_frames: 0
-right_frames: 0
-deltas: False
-amp_to_db: True
-normalize: True
 
 # Number of classes
 out_n_neurons: 50
@@ -81,18 +74,13 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 ## Data augmentation
 
-augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [100]
+# augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+#     sample_rate: !ref <sample_rate>
+#     speeds: [100]
 
-augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
-compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
-    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
-        margin: 0.2
-        scale: 30
+# augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+#     sample_rate: !ref <sample_rate>
+#     speeds: [95, 100, 105]
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -107,10 +95,6 @@ lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-error_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.classification_error
-        reduction: batch
-
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
@@ -119,9 +103,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 
 # Model and pre-processing
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
-    std_norm: False
+# mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+#     norm_type: sentence
+#     std_norm: False
 
 use_pretrained: True
 
@@ -146,9 +130,9 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         classifier: !ref <classifier_model_path>
 
 # Interpretation hyperparams
-T: 413
+# T: 413
 K: 1024
-FREQ: 513
+# FREQ: 513
 
 # pre-processing
 n_fft: 1024
@@ -162,7 +146,7 @@ compute_stft: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>
 
 compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: 80
+    n_mels: !ref <n_mels>
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
@@ -179,7 +163,6 @@ psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSI_Audio
     use_adapter: True
     adapter_reduce_dim: True
 
-k_fidelity: 3 # top-k fidelity
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
