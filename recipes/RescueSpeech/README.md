@@ -41,7 +41,21 @@ Please, cite SpeechBrain if you use it for your research or business.
 **Citing RescueSpeech**
 - Dataset
 ```bibtex
-{
+@misc{sagar_sangeet_2023_8030657,
+  author       = {Sagar, Sangeet and
+                  Kiefer, Bernd and
+                  Kruijff Korbayova, Ivana},
+  title        = {{RescueSpeech: A German Corpus for Speech
+                   Recognition in Search and Rescue Domain}},
+  month        = jun,
+  year         = 2023,
+  note         = {{Our work was supported under the project "A-DRZ:
+                   Setting up the German Rescue Robotics Center" and
+                   funded by the German Ministry of Education and
+                   Research (BMBF), grant No. I3N14856.}},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.8030657},
+  url          = {https://doi.org/10.5281/zenodo.8030657}
 }
 ```
 - Paper

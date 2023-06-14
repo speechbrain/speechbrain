@@ -1,1 +1,0 @@
-../../rescuespeech_prepare.py

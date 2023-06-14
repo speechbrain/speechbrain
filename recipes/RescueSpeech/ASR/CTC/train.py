@@ -4,7 +4,7 @@ The system employs wav2vec as its encoder. Decoding is performed with
 ctc greedy decoder.
 
 To run this recipe, do the following:
-> python train.py hparams/train_with_wav2vec.yaml --dataset RescueSpeech
+> python train.py hparams/train_with_wavlm.yaml
 
 The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens. It requires no LM.

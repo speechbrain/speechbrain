@@ -12,11 +12,9 @@ wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Path to pre-trained tokenizer, and wav2model
-# We use the tokenizer trained on CommonVoice dataset
-tokenizer_path: !PLACEHOLDER
+# URL for the large WavLM model.
 wav2vec2_hub: microsoft/wavlm-large
-pretrained_wav2vec2_path: !PLACEHOLDER
+pretrained_wav2vec2_path: !PLACEHOLDER # trained on German CommonVoice
 
 # Dataset prep parameters
 data_folder: !PLACEHOLDER
