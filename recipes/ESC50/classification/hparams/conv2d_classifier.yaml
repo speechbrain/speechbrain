@@ -15,7 +15,6 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
-open_rir_folder: <data_folder>/RIRS # Change if needed
 audio_data_folder: !ref <data_folder>/audio
 
 experiment_name: conv2dv2_classifier-16k
@@ -56,11 +55,6 @@ device: "cpu"
 
 # Feature parameters
 n_mels: 80
-left_frames: 0
-right_frames: 0
-deltas: False
-amp_to_db: True
-normalize: True
 
 # Number of classes
 out_n_neurons: 50
@@ -84,15 +78,6 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-
-augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [100]
-
-augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
-
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
@@ -109,7 +94,7 @@ compute_stft: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>
 
 compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: 80
+    n_mels: !ref <n_mels>
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
