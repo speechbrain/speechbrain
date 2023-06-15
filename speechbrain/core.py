@@ -880,9 +880,7 @@ class Brain:
 
         if self.opt_class is not None:
             if self.remove_vector_weight_decay:
-                all_params = rm_weight_decay_bias_and_norm_params(
-                    self.modules, self.hparams.weight_decay
-                )
+                all_params = rm_vector_weight_decay(self.modules)
 
             self.optimizer = self.opt_class(all_params)
 
