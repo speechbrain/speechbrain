@@ -835,7 +835,9 @@ if __name__ == "__main__":
             metric_csv_file,
             output_image=os.path.join(args.input_dir, f"{name}.{args.format}"),
             xlabel=None,
-            ylabel=f"{name} (\%)" if args.usetex else f"{name} (%)",  # noqa: W605
+            ylabel=f"{name} (\%)"
+            if args.usetex
+            else f"{name} (%)",  # noqa: W605
             xticks=["base"] + [f"L{i}" for i in range(1, 1 + len(new_locales))],
             figsize=args.figsize,
             title=args.title,

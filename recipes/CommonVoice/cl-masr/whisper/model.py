@@ -301,7 +301,9 @@ class ProgressiveWhisper(HuggingFaceWhisper):
             # B*
             alive_mask_unchanged = gen_token_ids != endoftext_id
             if not alive_mask_unchanged.all():
-                alive_mask[alive_mask == True] = alive_mask_unchanged  # noqa: E712
+                alive_mask[
+                    alive_mask == True
+                ] = alive_mask_unchanged  # noqa: E712
                 if not alive_mask.any():
                     break
                 # B* x S x F
@@ -483,7 +485,9 @@ class ProgressiveWhisper(HuggingFaceWhisper):
                 # B*
                 alive_mask_unchanged = end_idxes < beam_size
                 if not alive_mask_unchanged.all():
-                    alive_mask[alive_mask == True] = alive_mask_unchanged  # noqa: E712
+                    alive_mask[
+                        alive_mask == True
+                    ] = alive_mask_unchanged  # noqa: E712
                     if not alive_mask.any():
                         break
                     # N x B* x S x F
