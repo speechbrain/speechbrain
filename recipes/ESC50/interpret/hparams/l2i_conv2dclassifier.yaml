@@ -50,6 +50,9 @@ relevance_th: 0.2
 
 device: "cuda"
 
+# Feature parameters
+n_mels: 80
+
 use_melspectra: False
 
 # Number of classes
