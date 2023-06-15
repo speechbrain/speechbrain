@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Analyze logs.
+"""Analyze logs generated from continual learning experiments.
 
 Authors
  * Luca Della Libera 2023
@@ -11,10 +11,12 @@ import csv
 import logging
 import os
 from collections import defaultdict
+from itertools import cycle
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 from numpy import ndarray
+from tqdm import tqdm
 
 
 _DEFAULT_METRICS = [
@@ -25,7 +27,6 @@ _DEFAULT_METRICS = [
     "valid WER",
 ]
 
-
 _COLORS = [
     # Built-in colors
     "#0000ff",
@@ -34,6 +35,10 @@ _COLORS = [
     "#ffc0cb",
     "#00ffff",
     "#ff00ff",
+    "#ffa500",
+    "#ffff00",
+    "#40e0d0",
+    "#e6e6fa",
     "#add8e6",
     "#800080",
     "#ffff00",
@@ -41,8 +46,6 @@ _COLORS = [
     "#a52a2a",
     "#ffa500",
     "#008080",
-    "#e6e6fa",
-    "#40e0d0",
     "#006400",
     "#d2b48c",
     "#fa8072",
@@ -51,6 +54,8 @@ _COLORS = [
     "#00008b",
     "#008000",
 ]
+
+_MARKERS = ["o", "^", "p", "s", "d", "P", "v", "8", "<", "D", ">"]
 
 
 def parse_train_log(train_log: "str") -> "Dict[str, ndarray]":
@@ -209,6 +214,41 @@ def compute_bwt(wer_matrix: "ndarray") -> "ndarray":
     return bwt
 
 
+def compute_im(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
+    """Compute the intransigence measure.
+
+    Parameters
+    ----------
+    wer_matrix:
+        The word error rate matrix.
+    refs:
+        The intransigence measure references (joint fine-tuning).
+
+    Returns
+    -------
+        The intransigence measure.
+
+    References
+    ----------
+    .. [1] A. Chaudhry, P. K. Dokania, T. Ajanthan, and P. H. S. Torr.
+           "Riemannian Walk for Incremental Learning: Understanding Forgetting and Intransigence".
+           In: ECCV. 2018.
+           URL: https://arxiv.org/abs/1801.10112v3
+
+    Examples
+    --------
+    >>> wers = parse_train_log("train_log.txt")["test WER"]
+    >>> wer_matrix = compute_wer_matrix(wers)
+    >>> im = compute_im(wer_matrix, np.zeros(len(wer_matrix) - 1))
+
+    """
+    wer_matrix = wer_matrix.copy()
+    num_tasks = len(wer_matrix)
+    im = np.full(num_tasks, float("NaN"))
+    im[1:] = np.round(np.diag(wer_matrix)[1:] * 100 - refs, 2)
+    return im
+
+
 def compute_fwt(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
     """Compute the forward transfer.
 
@@ -237,46 +277,12 @@ def compute_fwt(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
     return fwt
 
 
-def compute_im(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
-    """Compute the intransigence measure.
-
-    Parameters
-    ----------
-    wer_matrix:
-        The word error rate matrix.
-    refs:
-        The intransigence measure references (joint fine-tuning).
-
-    Returns
-    -------
-        The intransigence measure.
-
-    References
-    ----------
-    .. [1] A. Chaudhry, P. K. Dokania, T. Ajanthan, and P. H. S. Torr.
-           "Riemannian Walk for Incremental Learning: Understanding Forgetting and Intransigence".
-           In: European Conference on Computer Vision (ECCV). 2018.
-           URL: https://arxiv.org/abs/1801.10112v3
-
-    Examples
-    --------
-    >>> wers = parse_train_log("train_log.txt")["test WER"]
-    >>> wer_matrix = compute_wer_matrix(wers)
-    >>> im = compute_im(wer_matrix, np.zeros(len(wer_matrix) - 1))
-
-    """
-    wer_matrix = wer_matrix.copy()
-    num_tasks = len(wer_matrix)
-    im = np.full(num_tasks, float("NaN"))
-    im[1:] = np.round(np.diag(wer_matrix)[1:] * 100 - refs, 2)
-    return im
-
-
 def plot_wer(
     wers: "ndarray",
     output_image: "str",
     base_locales: "Sequence[str]",
     new_locales: "Sequence[str]",
+    xlabel: "Optional[str]" = None,
     figsize: "Tuple[float, float]" = (7.5, 6.0),
     title: "Optional[str]" = None,
     usetex: "bool" = False,
@@ -296,6 +302,8 @@ def plot_wer(
         The base locales.
     new_locales:
         The new locales.
+    xlabel:
+        The x-axis label.
     figsize:
         The figure size.
     title:
@@ -327,14 +335,15 @@ def plot_wer(
             style_file_or_name = os.path.realpath(style_file_or_name)
 
         with plt.style.context(style_file_or_name):
-            # Custom style
+            # Customize style
             rc("text", usetex=usetex)
             rc("font", family="serif", serif=["Computer Modern"], size=13)
-            rc("axes", labelsize=15)
+            rc("axes", labelsize=15, titlesize=15)
             rc("legend", fontsize=12)
             rc("xtick", direction="in")
             rc("ytick", direction="in")
             fig = plt.figure(figsize=figsize)
+            markers_iter = cycle(_MARKERS)
             locales = list(base_locales)
             j = 0
             for i, new_locale in enumerate([None] + list(new_locales)):
@@ -345,8 +354,8 @@ def plot_wer(
                     range(len(locales)),
                     current_wers,
                     label=new_locale if new_locale is not None else "base",
-                    marker="d",
-                    markersize=5,
+                    marker=next(markers_iter),
+                    markersize=6,
                     color=_COLORS[i % len(_COLORS)],
                 )
                 j += len(locales)
@@ -356,20 +365,20 @@ def plot_wer(
             if plot_title:
                 plt.title(title)
             plt.xlim(-0.25, len(locales) - 1 + 0.25)
-            # plt.ylim(-0.025 * plt.ylim()[1])
             yrange = abs(plt.ylim()[0] - plt.ylim()[1])
             plt.ylim(
                 plt.ylim()[0] - 0.025 * yrange, plt.ylim()[1] + 0.025 * yrange
             )
-            plt.xticks(range(len(locales)), locales)
-            plt.xlabel("Language")
+            plt.xticks(range(len(locales)), locales, rotation=90)
+            if xlabel is not None:
+                plt.xlabel(xlabel)
             plt.ylabel("WER (\%)" if usetex else "WER (%)")
             fig.tight_layout()
             plt.savefig(output_image, bbox_inches="tight")
             plt.close()
     except ImportError:
         logging.warning(
-            "Install Matplotlib to generate the WER plot (e.g. `pip install matplotlib`)"
+            "Install Matplotlib to generate the WER plots (e.g. `pip install matplotlib`)"
         )
 
     # Plot with Plotly
@@ -387,7 +396,7 @@ def plot_wer(
                 go.Scatter(
                     x=list(range(len(locales))),
                     y=current_wers,
-                    marker={"size": 7, "color": _COLORS[i % len(_COLORS)]},
+                    marker={"size": 8, "color": _COLORS[i % len(_COLORS)]},
                     mode="lines+markers",
                     name=new_locale if new_locale is not None else "base",
                 )
@@ -399,9 +408,10 @@ def plot_wer(
             template="none",
             font_size=20,
             xaxis={
-                "title": "Language",
+                "title": xlabel,
                 "ticktext": locales,
                 "tickvals": list(range(len(locales))),
+                "tickangle": -90,
                 "ticks": "inside",
                 "zeroline": False,
                 "linewidth": 1.5,
@@ -428,7 +438,7 @@ def plot_wer(
         )
     except ImportError:
         logging.warning(
-            "Install Plotly to generate the interactive WER plot (e.g. `pip install plotly`)"
+            "Install Plotly to generate the interactive WER plots (e.g. `pip install plotly`)"
         )
 
 
@@ -508,20 +518,18 @@ def plot_metric(
             # Customize style
             rc("text", usetex=usetex)
             rc("font", family="serif", serif=["Computer Modern"], size=13)
-            rc("axes", labelsize=15)
+            rc("axes", labelsize=15, titlesize=15)
             rc("legend", fontsize=12)
             rc("xtick", direction="in")
             rc("ytick", direction="in")
             fig = plt.figure(figsize=figsize)
-            markers_iter = iter(
-                ["o", "^", "d", "s", "p", "P", "+", "*", 0, 1, 2, 3, 4] * 2
-            )
+            markers_iter = cycle(_MARKERS)
             for i, (name, mean, stddev) in enumerate(traces):
                 plt.plot(
                     mean,
                     label=name,
                     marker=next(markers_iter),
-                    markersize=5,
+                    markersize=6,
                     color=_COLORS[i % len(_COLORS)],
                 )
                 shift = stddev
@@ -542,13 +550,12 @@ def plot_metric(
             if plot_title:
                 plt.title(title)
             plt.xlim(-0.25, len(xticks) - 1 + 0.25)
-            # plt.ylim(-0.025 * 160.0, 160.0)
             yrange = abs(plt.ylim()[0] - plt.ylim()[1])
             plt.ylim(
                 plt.ylim()[0] - 0.025 * yrange, plt.ylim()[1] + 0.025 * yrange
             )
             if xticks is not None:
-                plt.xticks(range(len(xticks)), xticks)
+                plt.xticks(range(len(xticks)), xticks, rotation=90)
             if xlabel is not None:
                 plt.xlabel(xlabel)
             if ylabel is not None:
@@ -581,7 +588,7 @@ def plot_metric(
                 go.Scatter(
                     x=list(range(len(mean))),
                     y=mean,
-                    marker={"size": 7},
+                    marker={"size": 8},
                     mode="lines+markers",
                     name=name,
                 )
@@ -619,6 +626,7 @@ def plot_metric(
                 "title": xlabel,
                 "ticktext": xticks,
                 "tickvals": list(range(len(xticks))),
+                "tickangle": -90,
                 "ticks": "inside",
                 "zeroline": False,
                 "linewidth": 1.5,
@@ -645,7 +653,7 @@ def plot_metric(
         )
     except ImportError:
         logging.warning(
-            "Install Plotly to generate the interactive WER plot (e.g. `pip install plotly`)"
+            "Install Plotly to generate the interactive performance metrics plots (e.g. `pip install plotly`)"
         )
 
 
@@ -657,18 +665,28 @@ if __name__ == "__main__":
         "<method-name>_base=<comma-separated-base-locales>_new=<comma-separated-new-locales>",
     )
     parser.add_argument(
-        "--fwt_refs",
-        # fmt: off
-        default='{"ab": 58.96, "ckb": 54.51, "eo": 18.45, "fy-NL": 28.26, "ia": 15.22, "kab": 64.51, "kmr": 39.84, "lg": 55.72, "mhr": 31.64, "rw": 67.04}',
-        # fmt: on
-        help="forward transfer references",
-    )
-    parser.add_argument(
         "--im_refs",
         # fmt: off
+        # whisper-large-v2
         default='{"ab": 64.33, "ckb": 57.51, "eo": 20.14, "fy-NL": 35.01, "ia": 18.70, "kab": 73.57, "kmr": 47.28, "lg": 60.31, "mhr": 37.94, "rw": 69.22}',
+        # wavlm-large
+        # default='{"ab": 69.39, "ckb": 69.27, "eo": 36.53, "fy-NL": 52.00, "ia": 53.71, "kab": 83.05, "kmr": 66.22, "lg": 66.81, "mhr": 53.53, "rw": 82.34}',
+        # whisper-tiny
+        # default='{"ab": 77.22, "ckb": 71.33, "eo": 39.12, "fy-NL": 54.84, "ia": 37.24, "kab": 89.74, "kmr": 63.88, "lg": 74.23, "mhr": 54.08, "rw": 85.24}',
         # fmt: on
         help="intransigence measure references",
+    )
+    parser.add_argument(
+        "--fwt_refs",
+        # fmt: off
+        # whisper-large-v2
+        default='{"ab": 58.96, "ckb": 54.51, "eo": 18.45, "fy-NL": 28.26, "ia": 15.22, "kab": 64.51, "kmr": 39.84, "lg": 55.72, "mhr": 31.64, "rw": 67.04}',
+        # wavlm-large
+        # default='{"ab": 62.31, "ckb": 62.67, "eo": 30.04, "fy-NL": 43.82, "ia": 28.36, "kab": 72.80, "kmr": 50.60, "lg": 58.90, "mhr": 44.69, "rw": 74.70}',
+        # whisper-tiny
+        # default='{"ab": 70.66, "ckb": 63.18, "eo": 32.21, "fy-NL": 43.84, "ia": 24.74, "kab": 75.08, "kmr": 52.70, "lg": 69.43, "mhr": 45.23, "rw": 85.64}',
+        # fmt: on
+        help="forward transfer references",
     )
     parser.add_argument(
         "-f", "--format", default="png", help="image format",
@@ -677,7 +695,7 @@ if __name__ == "__main__":
         "-s",
         "--figsize",
         nargs=2,
-        default=(10, 6),
+        default=(7.50, 6.50),
         type=float,
         help="figure size",
     )
@@ -692,6 +710,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-u", "--usetex", action="store_true", help="render text with LaTeX",
+    )
+    parser.add_argument(
+        "--order",
+        nargs="+",
+        help="train log processing order e.g. `FT ER A-GEM PNN PB EWC LwF'",
     )
     parser.add_argument(
         "--style",
@@ -719,51 +742,65 @@ if __name__ == "__main__":
             groups[prefix] = []
         groups[prefix].append(train_log)
 
+    # Sort
+    if args.order is not None:
+        groups = {k: groups[k] for k in args.order}
+
     # Compute metrics
     metrics = defaultdict(lambda: defaultdict(list))
-    for group_name, train_logs in groups.items():
-        for train_log in train_logs:
-            # Extract base + new locales from file name
-            locales = (
-                os.path.basename(train_log).replace(".txt", "").split("_base=")
-            )[1]
-            base_locales, new_locales = locales.split("_new=")
-            base_locales = [x.strip() for x in base_locales.split(",")]
-            new_locales = [x.strip() for x in new_locales.split(",")]
+    with tqdm(total=len(groups)) as progress_bar:
+        for group_name, train_logs in groups.items():
+            progress_bar.set_description(group_name)
+            for train_log in train_logs:
+                # Extract base + new locales from file name
+                locales = (
+                    os.path.basename(train_log)
+                    .replace(".txt", "")
+                    .split("_base=")
+                )[1]
+                base_locales, new_locales = locales.split("_new=")
+                base_locales = [x.strip() for x in base_locales.split(",")]
+                new_locales = [x.strip() for x in new_locales.split(",")]
 
-            # Compute metrics
-            wers = parse_train_log(train_log)["test WER"]
-            wer_matrix = compute_wer_matrix(
-                wers, len(base_locales), len(new_locales)
-            )
-            awer = compute_awer(wer_matrix)
-            metrics["Average WER"][group_name].append(awer)
-            bwt = compute_bwt(wer_matrix)
-            metrics["Backward transfer"][group_name].append(bwt)
-            fwt_refs = eval(args.fwt_refs)
-            fwt = compute_fwt(
-                wer_matrix, np.asarray([fwt_refs[k] for k in new_locales])
-            )
-            metrics["Forward transfer"][group_name].append(fwt)
-            im_refs = eval(args.im_refs)
-            im = compute_im(
-                wer_matrix, np.asarray([im_refs[k] for k in new_locales])
-            )
-            metrics["Intransigence measure"][group_name].append(im)
+                # Compute metrics
+                wers = parse_train_log(train_log)["test WER"]
+                wer_matrix = compute_wer_matrix(
+                    wers, len(base_locales), len(new_locales)
+                )
 
-            # Plot WERs
-            output_image = train_log.replace(".txt", f".{args.format}")
-            plot_wer(
-                wers,
-                output_image,
-                base_locales=base_locales,
-                new_locales=new_locales,
-                title=args.title,
-                figsize=args.figsize,
-                usetex=args.usetex,
-                hide_legend=args.hide_legend,
-                style_file_or_name=args.style_file_or_name,
-            )
+                awer = compute_awer(wer_matrix)
+                metrics["Average WER"][group_name].append(awer)
+
+                bwt = compute_bwt(wer_matrix)
+                metrics["Backward transfer"][group_name].append(bwt)
+
+                im_refs = eval(args.im_refs)
+                im = compute_im(
+                    wer_matrix, np.asarray([im_refs[k] for k in new_locales])
+                )
+                metrics["Intransigence measure"][group_name].append(im)
+
+                fwt_refs = eval(args.fwt_refs)
+                fwt = compute_fwt(
+                    wer_matrix, np.asarray([fwt_refs[k] for k in new_locales])
+                )
+                metrics["Forward transfer"][group_name].append(fwt)
+
+                # Plot WERs
+                output_image = train_log.replace(".txt", f".{args.format}")
+                plot_wer(
+                    wers,
+                    output_image,
+                    base_locales=base_locales,
+                    new_locales=new_locales,
+                    xlabel=None,
+                    figsize=args.figsize,
+                    title=args.title,
+                    usetex=args.usetex,
+                    hide_legend=args.hide_legend,
+                    style_file_or_name=args.style_file_or_name,
+                )
+            progress_bar.update()
 
     # Store metrics
     for name in metrics:
@@ -781,7 +818,10 @@ if __name__ == "__main__":
                 stddev = np.std(traces, axis=0)
                 avg = np.nanmean(traces, axis=1)
                 avg_mean = np.mean(avg)
-                avg_stddev = np.std(avg)
+                # Assuming independence, sigma^2 = sum_1^n sigma_i^2 / n^2
+                avg_stddev = np.sqrt(
+                    np.nansum(stddev ** 2) / (~np.isnan(stddev)).sum() ** 2
+                )
                 csv_writer.writerow(
                     [group_name]
                     + [f"{m:.2f} +- {s:.2f}" for m, s in zip(mean, stddev)]
@@ -794,9 +834,9 @@ if __name__ == "__main__":
         plot_metric(
             metric_csv_file,
             output_image=os.path.join(args.input_dir, f"{name}.{args.format}"),
-            xlabel="Language",
+            xlabel=None,
             ylabel=f"{name} (\%)" if args.usetex else f"{name} (%)",
-            xticks=["base"] + [str(i) for i in range(1, 1 + len(new_locales))],
+            xticks=["base"] + [f"L{i}" for i in range(1, 1 + len(new_locales))],
             figsize=args.figsize,
             title=args.title,
             opacity=args.opacity,

@@ -255,8 +255,8 @@ def merge_tsv_files(
                 duration += float(row[-1])
                 num_added_rows += 1
                 tsv_writer.writerow(row)
-            _LOGGER.info(f"Total duration (s): {duration}",)
-            _LOGGER.info(f"Added {num_added_rows} rows")
+            _LOGGER.info(f"Total duration (s): {round(duration / 60)}",)
+        # _LOGGER.info(f"Added {num_added_rows} rows")
 
     _LOGGER.info(f"Writing output TSV file ({output_tsv_file})...")
     _LOGGER.info("Done!")
@@ -362,13 +362,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d",
         "--data_dir",
-        default="common_voice_13_cl",
+        default="common_voice_13_clmasr",
         help="path to the dataset directory",
     )
     parser.add_argument(
         "-m",
         "--max_durations",
         nargs=3,
+        type=float,
         help="maximum total durations in seconds to sample from each "
         "locale for train, dev and test splits, respectively."
         "Default to infinity",

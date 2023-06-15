@@ -45,6 +45,8 @@ dropout: 0.0
 bidirectional: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
+nonfinite_patience: 10
+max_grad_norm: 5.0
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600

@@ -334,7 +334,9 @@ def train(hparams, run_opts):
         tokenizer.to_language_codes.update({locale.lower(): locale.lower()})
 
         # Check if already in Whisper tokenizer's vocabulary
-        new_tokens = sorted(list(set(new_tokens) - set(tokenizer.get_vocab().keys())))
+        new_tokens = sorted(
+            list(set(new_tokens) - set(tokenizer.get_vocab().keys()))
+        )
 
         # Add to Whisper tokenizer's vocabulary
         tokenizer.add_tokens(new_tokens)

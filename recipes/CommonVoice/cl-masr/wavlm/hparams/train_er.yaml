@@ -19,7 +19,7 @@ output_dir: !ref results/<wavlm_variant>/er/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
-train_batch_size: 4
+train_batch_size: 8
 valid_batch_size: 16
 train_num_workers: 6
 valid_num_workers: 6
@@ -48,6 +48,8 @@ dropout: 0.0
 bidirectional: True
 
 max_target_length: 448  # Must be <= 448 (Whisper maximum target length)
+nonfinite_patience: 10
+max_grad_norm: 5.0
 auto_mix_prec: True
 gradient_checkpointing: False
 ckpt_interval_minutes: 600

@@ -1,12 +1,21 @@
 # CL-MASR: A Continual Learning Benchmark for Multilingual ASR
 
 This recipe includes scripts to train [Whisper](https://cdn.openai.com/papers/whisper.pdf) and
-[WavLM](https://arxiv.org/abs/2110.13900)-based ASR systems on Common Voice 13 in a continual learning fashion
-using a handful of methods including regularization-based, replay-based and parameter isolation approaches.
+[WavLM](https://arxiv.org/abs/2110.13900)-based ASR systems on a subset of Common Voice 13 in a continual learning
+fashion using a handful of methods including rehearsal-based, architecture-based, and regularization-based approaches.
+
 The goal is to continually learn new languages while limiting forgetting on the previously learnt ones.
 An ideal method should achieve both positive forward transfer (i.e. improve performance on new tasks leveraging
 shared knowledge from previous tasks) and positive backward transfer (i.e. improve performance on previous tasks
 leveraging shared knowledge from new tasks).
+
+The following algorithms have been implemented so far:
+- [Experience Replay (ER)](https://arxiv.org/abs/1811.11682)
+- [Averaged Gradient Episodic Memory (A-GEM)](https://arxiv.org/abs/1812.00420)
+- [Progressive Neural Networks (PNN)](https://arxiv.org/abs/1606.04671)
+- [Piggyback (PB)](https://arxiv.org/abs/1801.06519)
+- [Elastic Weight Consolidation (EWC)](https://arxiv.org/abs/1612.00796)
+- [Learning without Forgetting (LwF)](https://arxiv.org/abs/1606.09282)
 
 ---------------------------------------------------------------------------------------------------------
 
