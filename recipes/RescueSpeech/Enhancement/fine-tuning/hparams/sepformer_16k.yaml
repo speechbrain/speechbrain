@@ -16,7 +16,7 @@ train_log: !ref <output_folder>/train_log.txt
 save_folder: !ref <output_folder>/save
 
 # Dataset prep parameters
-data_folder: ../../dataset/Task_enhancement/
+data_folder: !PLACEHOLDER
 csv_dir: !ref ../../csv_files/Task_enhancement
 train_csv: !ref <csv_dir>/train.csv
 valid_csv: !ref <csv_dir>/dev.csv
@@ -29,7 +29,7 @@ dereverberate: False
 shuffle_train_data: True
 
 # Pretrained models
-pretrained_model_path: /netscratch/sagar/thesis/speechbrain/recipes/SAR/pre-trained/sepformer_dns_16k
+pretrained_model_path: !PLACEHOLDER # sepformer_dns_16k model
 
 # Basic parameters
 use_tensorboard: False

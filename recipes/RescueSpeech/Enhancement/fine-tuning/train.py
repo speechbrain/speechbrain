@@ -1,7 +1,9 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech enhancement system on
+"""Recipe for fine-tuning a neural speech enhancement system on
 RescueSpeech datasets using SepFormer. The system employs an encoder,
-a decoder, and a masking network.
+a decoder, and a masking network. It uses enhancement model pre-trained
+on 1200h of Deep noise suppression challenge (DNS) dataset.
+And further fine-tunes on our dataset.
 
 To run this recipe, do the following:
 > python train.py hparams/sepformer_16k.yaml

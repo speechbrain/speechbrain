@@ -65,7 +65,7 @@ def prepare_RescueSpeech(
     sample_rate: int, optional
         Sample rate of the wav files.
     task: str, optional
-        States the task for which data pre-pration is being done.
+        States the task for which data prepration is being done.
         It can either be 'asr' or 'enhance'
 
     """
