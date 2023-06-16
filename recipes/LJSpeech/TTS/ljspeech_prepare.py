@@ -642,7 +642,7 @@ def custom_clean(text):
     ]
     text = unidecode(text.lower())
     text = re.sub("[:;]", " - ", text)
-    text = re.sub('[)(\[\]"]', " ", text)
+    text = re.sub(r'[)(\[\]"]', " ", text)
     text = re.sub(" +", " ", text)
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
