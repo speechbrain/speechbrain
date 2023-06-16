@@ -34,6 +34,7 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
@@ -293,6 +294,12 @@ def parse_arguments(arg_list=None):
         help="Enable colored progress-bar in tqdm. If this is "
         "false, tqdm shall use default colors.",
     )
+    parser.add_argument(
+        "--remove_vector_weight_decay",
+        default=False,
+        action="store_true",
+        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -489,6 +496,7 @@ class Brain:
                 "valid": "MAGENTA",
                 "test": "CYAN",
             },
+            "remove_vector_weight_decay": False,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -867,8 +875,14 @@ class Brain:
 
         Override this class if there are multiple optimizers.
         """
+
+        all_params = self.modules.parameters()
+
         if self.opt_class is not None:
-            self.optimizer = self.opt_class(self.modules.parameters())
+            if self.remove_vector_weight_decay:
+                all_params = rm_vector_weight_decay(self.modules)
+
+            self.optimizer = self.opt_class(all_params)
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)

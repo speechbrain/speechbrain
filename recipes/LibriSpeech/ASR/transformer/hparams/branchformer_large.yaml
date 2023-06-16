@@ -1,17 +1,17 @@
 # ############################################################################
 # Model: E2E ASR with Transformer
-# Encoder: Conformer Encoder
+# Encoder: Branchformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
+# Authors:  Titouan Parcollet
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
 seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer_large/<seed>
+output_folder: !ref results/branchformer_large/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -57,11 +57,13 @@ num_workers: 4
 # stages related parameters
 # stage_one_epochs: 90
 lr_adam: 0.0005
+weight_decay: 0.01
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 400
+n_fft: 512
 n_mels: 80
+win_length: 32
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
@@ -94,9 +96,10 @@ test_dataloader_opts:
 # Transformer
 d_model: 512
 nhead: 8
-num_encoder_layers: 12
+num_encoder_layers: 18
 num_decoder_layers: 6
-d_ffn: 2048
+csgu_linear_units: 3072
+csgu_kernel_size: 31
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
@@ -135,10 +138,12 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     nhead: !ref <nhead>
     num_encoder_layers: !ref <num_encoder_layers>
     num_decoder_layers: !ref <num_decoder_layers>
-    d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
-    encoder_module: conformer
+    branchformer_activation: !ref <activation>
+    encoder_module: branchformer
+    csgu_linear_units: !ref <csgu_linear_units>
+    kernel_size: !ref <csgu_kernel_size>
     attention_type: RelPosMHAXL
     normalize_before: True
     causal: False
@@ -182,11 +187,11 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
-# define two optimizers here for two-stage training
-Adam: !name:torch.optim.Adam
+Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
+    weight_decay: !ref <weight_decay>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -230,7 +235,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 25000
+    n_warmup_steps: 30000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -250,7 +255,7 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask: True
     n_freq_mask: 2
     time_mask: True
-    n_time_mask: 2
+    n_time_mask: 3
     replace_with_zero: False
     freq_mask_width: 30
     time_mask_width: 40
@@ -262,6 +267,7 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
     n_mels: !ref <n_mels>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
