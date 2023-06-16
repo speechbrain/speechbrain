@@ -16,11 +16,13 @@ python train.py hparams/transformer.yaml
 installed in your environment (see extra-requirements.txt)**
 # Results
 
-| Release | hyperparams file | Test Clean WER | HuggingFace link | Model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 24-03-22 | transformer.yaml | 2.27 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1Nv1OLbHLqVeShyZ8LY9gjhYGE1DBFzFf?usp=sharing) | 4xV100 32GB |
-| 24-03-22 | conformer_small.yaml | 2.49 (**only 13.3M parameters**) | [HuggingFace](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1I4qntoodHCcj1JNbDrfwFHYcLyu1S5-l?usp=sharing) | 1xV100 32GB |
-| 06-12-23 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
+| Release | hyperparams file | Dev Clean WER (No LM) | Test Clean WER (Transformer LM) | Test Other WER (Transformer LM) | HuggingFace link | Model link | GPUs |
+|:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
+| 23-05-23 | branchformer_large.yaml | 2.85 | 2.22 | 5.13 | Not Avail. | Not Avail. | 4xV100 32GB |
+| 23-05-23 | conformer_large.yaml | 3.04 | 2.23 | 5.11 | Not Avail. | Not Avail. | 4xV100 32GB |
+| 24-03-22 | transformer.yaml | 3.32 | 2.27 | 5.53 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1Nv1OLbHLqVeShyZ8LY9gjhYGE1DBFzFf?usp=sharing) | 4xV100 32GB |
+| 24-03-22 | conformer_small.yaml | 4.05 | 2.49 | 6.1 (**only 13.3M parameters**) | [HuggingFace](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1I4qntoodHCcj1JNbDrfwFHYcLyu1S5-l?usp=sharing) | 1xV100 32GB |
+| 06-12-23 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | 1xA100 40GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
