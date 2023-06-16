@@ -12,7 +12,9 @@ for training and evaluating ASR models on the RescueSpeech dataset.
 
 Author
 ------
-Sangeet Sagar
+Sangeet Sagar 2023
+(while some functions have been
+adapted from the CommonVoice recipe)
 """
 
 import os
@@ -60,6 +62,11 @@ def prepare_RescueSpeech(
         transformed to the closest non-accented letters.
     skip_prep: bool
         If True, skip data preparation.
+    sample_rate: int, optional
+        Sample rate of the wav files.
+    task: str, optional
+        States the task for which data pre-pration is being done.
+        It can either be 'asr' or 'enhance'
 
     """
 
