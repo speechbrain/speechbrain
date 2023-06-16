@@ -2,13 +2,13 @@
 RescuSpeech is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models that have been developed and evaluated using RescuSpeech data. These models aim to enhance the performance of speech recognizers in challenging and noisy environments.
 
 This recipe supports training several models on the dataset
-- **Task: ASR**- CRDNN, Wav2vec2, WavLM, Whisper
+- **Task: ASR**- WavLM, Whisper
 - **Task: Speech enhancement**-  SepFormer
 
 # Training Strategies
 We have explored multiple training strategies to improve noise robust speech recognition using RescuSpeech. The following methods have been implemented and evaluated:
 
-1. A simple pipeline consisting solely of an ASR model,
+1. A simple pipeline consisting solely of an ASR model
     - Clean training
     - Multi-condition Training
 2. Pipeline combining ASR and Speech Enhancement model
