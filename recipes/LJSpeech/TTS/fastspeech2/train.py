@@ -22,7 +22,7 @@ from speechbrain.pretrained import HIFIGAN
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
-
+from speechbrain.pretrained import GraphemeToPhoneme
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,10 @@ class FastSpeech2Brain(sb.Brain):
         self.last_epoch = 0
         self.last_batch = None
         self.last_loss_stats = {}
+        self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
+        self.spn_token_encoded = (
+            self.input_encoder.encode_sequence_torch(["spn"]).int().item()
+        )
         return super().on_fit_start()
 
     def compute_forward(self, batch, stage):
@@ -50,7 +54,37 @@ class FastSpeech2Brain(sb.Brain):
         the model output
         """
         inputs, _ = self.batch_to_device(batch)
-        return self.hparams.model(*inputs)
+
+        tokens, durations, pitch, energy, no_spn_seqs, last_phonemes = inputs
+
+        # Forward pass for the silent token predictor module
+        spn_preds = self.hparams.modules["spn_predictor"](
+            no_spn_seqs, last_phonemes
+        )
+
+        # Forward pass for the FastSpeech2 module
+        (
+            predict_mel_post,
+            predict_postnet_output,
+            predict_durations,
+            predict_pitch,
+            predict_avg_pitch,
+            predict_energy,
+            predict_avg_energy,
+            predict_mel_lens,
+        ) = self.hparams.model(tokens, durations, pitch, energy)
+
+        return (
+            predict_mel_post,
+            predict_postnet_output,
+            predict_durations,
+            predict_pitch,
+            predict_avg_pitch,
+            predict_energy,
+            predict_avg_energy,
+            predict_mel_lens,
+            spn_preds,
+        )
 
     def fit_batch(self, batch):
         """Fits a single batch
@@ -83,7 +117,7 @@ class FastSpeech2Brain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         x, y, metadata = self.batch_to_device(batch, return_metadata=True)
-        self.last_batch = [x[0], y[-1], y[-2], predictions[0], *metadata]
+        self.last_batch = [x[0], y[-2], y[-3], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
         loss = self.hparams.criterion(predictions, y)
         self.last_loss_stats[stage] = scalarize(loss)
@@ -107,6 +141,7 @@ class FastSpeech2Brain(sb.Brain):
             energy,
             mel_lengths,
             input_lengths,
+            spn_labels,
             labels,
             wavs,
         ) = batch
@@ -115,10 +150,11 @@ class FastSpeech2Brain(sb.Brain):
             postnet_mel_out,
             predict_durations,
             predict_pitch,
-            average_pitch,
+            predict_avg_pitch,
             predict_energy,
-            average_energy,
+            predict_avg_energy,
             predict_mel_lens,
+            spn_preds,
         ) = predictions
         self.hparams.progress_sample_logger.remember(
             target=self.process_mel(spectogram, mel_lengths),
@@ -189,9 +225,19 @@ class FastSpeech2Brain(sb.Brain):
 
             if output_progress_sample:
                 logger.info("Saving predicted samples")
-                inference_mel, mel_lens = self.run_inference()
+                (
+                    inference_mel,
+                    mel_lens,
+                    inf_mel_spn_pred,
+                    mel_lens_spn_pred,
+                ) = self.run_inference()
                 self.hparams.progress_sample_logger.save(epoch)
-                self.run_vocoder(inference_mel, mel_lens)
+                self.run_vocoder(
+                    inference_mel, mel_lens, sample_type="with_spn"
+                )
+                self.run_vocoder(
+                    inf_mel_spn_pred, mel_lens_spn_pred, sample_type="no_spn"
+                )
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(
@@ -205,11 +251,13 @@ class FastSpeech2Brain(sb.Brain):
             )
 
     def run_inference(self):
-        """Produces a sample in inference mode with predicted durations."""
+        """Produces a sample in inference mode with predicted durations.
+        """
         if self.last_batch is None:
             return
-        tokens, *_ = self.last_batch
+        tokens, *_, labels, _ = self.last_batch
 
+        # Generates inference samples without using the silent phoneme predictor
         (
             _,
             postnet_mel_out,
@@ -220,14 +268,103 @@ class FastSpeech2Brain(sb.Brain):
             _,
             predict_mel_lens,
         ) = self.hparams.model(tokens)
+
         self.hparams.progress_sample_logger.remember(
             infer_output=self.process_mel(
                 postnet_mel_out, [len(postnet_mel_out[0])]
             )
         )
-        return postnet_mel_out, predict_mel_lens
 
-    def run_vocoder(self, inference_mel, mel_lens):
+        # Generates inference samples using the silent phoneme predictor
+
+        # Preprocessing required at the inference time for the input text
+        # "label" below contains input text
+        # "phoneme_labels" contain the phoneme sequences corresponding to input text labels
+        # "last_phonemes_combined" is used to indicate whether the index position is for a last phoneme of a word
+        phoneme_labels = list()
+        last_phonemes_combined = list()
+
+        for label in labels:
+            phoneme_label = list()
+            last_phonemes = list()
+
+            words = label.split()
+            words = [word.strip() for word in words]
+            words_phonemes = self.g2p(words)
+
+            for words_phonemes_seq in words_phonemes:
+                for phoneme in words_phonemes_seq:
+                    if not phoneme.isspace():
+                        phoneme_label.append(phoneme)
+                        last_phonemes.append(0)
+                last_phonemes[-1] = 1
+
+            phoneme_labels.append(phoneme_label)
+            last_phonemes_combined.append(last_phonemes)
+
+        # Inserts silent phonemes in the input phoneme sequence
+        all_tokens_with_spn = list()
+        max_seq_len = -1
+        for i in range(len(phoneme_labels)):
+            phoneme_label = phoneme_labels[i]
+            token_seq = (
+                self.input_encoder.encode_sequence_torch(phoneme_label)
+                .int()
+                .to(self.device)
+            )
+            last_phonemes = torch.LongTensor(last_phonemes_combined[i]).to(
+                self.device
+            )
+
+            # Runs the silent phoneme predictor
+            spn_preds = (
+                self.hparams.modules["spn_predictor"]
+                .infer(token_seq.unsqueeze(0), last_phonemes.unsqueeze(0))
+                .int()
+            )
+
+            spn_to_add = torch.nonzero(spn_preds).reshape(-1).tolist()
+
+            tokens_with_spn = list()
+
+            for token_idx in range(token_seq.shape[0]):
+                tokens_with_spn.append(token_seq[token_idx].item())
+                if token_idx in spn_to_add:
+                    tokens_with_spn.append(self.spn_token_encoded)
+
+            tokens_with_spn = torch.LongTensor(tokens_with_spn).to(self.device)
+            all_tokens_with_spn.append(tokens_with_spn)
+            if max_seq_len < tokens_with_spn.shape[-1]:
+                max_seq_len = tokens_with_spn.shape[-1]
+
+        # "tokens_with_spn_tensor" holds the input phoneme sequence with silent phonemes
+        tokens_with_spn_tensor = torch.LongTensor(
+            tokens.shape[0], max_seq_len
+        ).to(self.device)
+        tokens_with_spn_tensor.zero_()
+
+        for seq_idx, seq in enumerate(all_tokens_with_spn):
+            tokens_with_spn_tensor[seq_idx, : len(seq)] = seq
+
+        (
+            _,
+            postnet_mel_out_spn_pred,
+            _,
+            _,
+            _,
+            _,
+            _,
+            predict_mel_lens_spn_pred,
+        ) = self.hparams.model(tokens_with_spn_tensor)
+
+        return (
+            postnet_mel_out,
+            predict_mel_lens,
+            postnet_mel_out_spn_pred,
+            predict_mel_lens_spn_pred,
+        )
+
+    def run_vocoder(self, inference_mel, mel_lens, sample_type=""):
         """Uses a pretrained vocoder to generate audio from predicted mel
         spectogram. By default, uses speechbrain hifigan.
         Arguments
@@ -237,6 +374,8 @@ class FastSpeech2Brain(sb.Brain):
         mel_lens: torch.Tensor
             predicted mel lengths from fastspeech2 inference
             used to mask the noise from padding
+        sample_type: str
+            used for logging the type of the inference sample being generated
         """
         if self.last_batch is None:
             return
@@ -259,25 +398,26 @@ class FastSpeech2Brain(sb.Brain):
             inference_mel.transpose(2, 1), mel_lens, self.hparams.hop_length
         )
         for idx, wav in enumerate(waveforms):
-
             path = os.path.join(
                 self.hparams.progress_sample_path,
                 str(self.last_epoch),
-                f"pred_{Path(wavs[idx]).stem}.wav",
+                f"pred_{sample_type}_{Path(wavs[idx]).stem}.wav",
             )
             torchaudio.save(path, wav, self.hparams.sample_rate)
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
-        Arguments
-        ---------
-        batch: tuple
-            the batch to use
-        Returns
-        -------
-        batch: tuple
-            the batch on the correct device
-        """
+            Arguments
+            ---------
+            batch: tuple
+                the batch to use
+            return_metadata: bool
+                indicates whether the metadata should be returned
+            Returns
+            -------
+            batch: tuple
+                the batch on the correct device
+            """
 
         (
             text_padded,
@@ -290,6 +430,9 @@ class FastSpeech2Brain(sb.Brain):
             len_x,
             labels,
             wavs,
+            no_spn_seq_padded,
+            spn_labels_padded,
+            last_phonemes_padded,
         ) = batch
 
         durations = durations.to(self.device, non_blocking=True).long()
@@ -299,8 +442,23 @@ class FastSpeech2Brain(sb.Brain):
         pitch = pitch_padded.to(self.device, non_blocking=True).float()
         energy = energy_padded.to(self.device, non_blocking=True).float()
         mel_lengths = output_lengths.to(self.device, non_blocking=True).long()
-        x = (phonemes, durations, pitch, energy)
-        y = (spectogram, durations, pitch, energy, mel_lengths, input_lengths)
+        no_spn_seqs = no_spn_seq_padded.to(
+            self.device, non_blocking=True
+        ).long()
+        spn_labels = spn_labels_padded.to(self.device, non_blocking=True).long()
+        last_phonemes = last_phonemes_padded.to(
+            self.device, non_blocking=True
+        ).long()
+        x = (phonemes, durations, pitch, energy, no_spn_seqs, last_phonemes)
+        y = (
+            spectogram,
+            durations,
+            pitch,
+            energy,
+            mel_lengths,
+            input_lengths,
+            spn_labels,
+        )
         metadata = (labels, wavs)
         if return_metadata:
             return x, y, metadata
@@ -308,7 +466,6 @@ class FastSpeech2Brain(sb.Brain):
 
 
 def dataio_prepare(hparams):
-
     # Load lexicon
     lexicon = hparams["lexicon"]
     input_encoder = hparams.get("input_encoder")
@@ -319,20 +476,50 @@ def dataio_prepare(hparams):
 
     # load audio, text and durations on the fly; encode audio and text.
     @sb.utils.data_pipeline.takes(
-        "wav", "label_phoneme", "durations", "pitch", "start", "end"
+        "wav",
+        "label_phoneme",
+        "durations",
+        "pitch",
+        "start",
+        "end",
+        "spn_labels",
+        "last_phoneme_flags",
     )
     @sb.utils.data_pipeline.provides("mel_text_pair")
-    def audio_pipeline(wav, label_phoneme, dur, pitch, start, end):
+    def audio_pipeline(
+        wav,
+        label_phoneme,
+        dur,
+        pitch,
+        start,
+        end,
+        spn_labels,
+        last_phoneme_flags,
+    ):
 
         durs = np.load(dur)
         durs_seq = torch.from_numpy(durs).int()
         label_phoneme = label_phoneme.strip()
-        text_seq = input_encoder.encode_sequence_torch(
-            label_phoneme.split()
-        ).int()
+        label_phoneme = label_phoneme.split()
+        text_seq = input_encoder.encode_sequence_torch(label_phoneme).int()
         assert len(text_seq) == len(
             durs
         ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
+
+        no_spn_label, last_phonemes = list(), list()
+        for i in range(len(label_phoneme)):
+            if label_phoneme[i] != "spn":
+                no_spn_label.append(label_phoneme[i])
+                last_phonemes.append(last_phoneme_flags[i])
+
+        no_spn_seq = input_encoder.encode_sequence_torch(no_spn_label).int()
+
+        spn_labels = [
+            spn_labels[i]
+            for i in range(len(label_phoneme))
+            if label_phoneme[i] != "spn"
+        ]
+
         audio, fs = torchaudio.load(wav)
 
         audio = audio.squeeze()
@@ -344,7 +531,17 @@ def dataio_prepare(hparams):
         pitch = np.load(pitch)
         pitch = torch.from_numpy(pitch)
         pitch = pitch[: mel.shape[-1]]
-        return text_seq, durs_seq, mel, pitch, energy, len(text_seq)
+        return (
+            text_seq,
+            durs_seq,
+            mel,
+            pitch,
+            energy,
+            len(text_seq),
+            last_phonemes,
+            no_spn_seq,
+            spn_labels,
+        )
 
     # define splits and load it as sb dataset
     datasets = {}
@@ -356,7 +553,7 @@ def dataio_prepare(hparams):
             dynamic_items=[audio_pipeline],
             output_keys=["mel_text_pair", "wav", "label", "durations", "pitch"],
         )
-    return datasets
+    return datasets, input_encoder
 
 
 def main():
@@ -392,7 +589,7 @@ def main():
         },
     )
 
-    datasets = dataio_prepare(hparams)
+    datasets, input_encoder = dataio_prepare(hparams)
 
     # Brain class initialization
     fastspeech2_brain = FastSpeech2Brain(
@@ -402,6 +599,8 @@ def main():
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    fastspeech2_brain.input_encoder = input_encoder
     # Training
     fastspeech2_brain.fit(
         fastspeech2_brain.hparams.epoch_counter,

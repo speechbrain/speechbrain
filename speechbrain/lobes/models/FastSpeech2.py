@@ -18,6 +18,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
     get_key_padding_mask,
 )
 from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.nnet.losses import bce_loss
 
 
 class PositionalEmbedding(nn.Module):
@@ -261,6 +262,148 @@ class DurationPredictor(nn.Module):
         x = self.dropout2(x)
 
         return self.linear(x * x_mask)
+
+
+class SPNPredictor(nn.Module):
+
+    """
+    This module for the silent phoneme predictor. It receives phoneme sequences without any silent phoneme token as
+    input and predicts whether a silent phoneme should be inserted after a position. This is to avoid the issue of fast
+    pace at inference time due to having no silent phoneme tokens in the input sequence.
+
+    Arguments
+    ---------
+    enc_num_layers: int
+        number of transformer layers (TransformerEncoderLayer) in encoder
+    enc_num_head: int
+        number of multi-head-attention (MHA) heads in encoder transformer layers
+    enc_d_model: int
+        the number of expected features in the encoder
+    enc_ffn_dim: int
+        the dimension of the feedforward network model
+    enc_k_dim: int
+        the dimension of the key
+    enc_v_dim: int
+        the dimension of the value
+    enc_dropout: float
+        Dropout for the encoder
+    normalize_before: bool
+        whether normalization should be applied before or after MHA or FFN in Transformer layers.
+    ffn_type: str
+        whether to use convolutional layers instead of feed forward network inside tranformer layer
+    ffn_cnn_kernel_size_list: list of int
+        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
+    n_char: int
+        the number of symbols for the token embedding
+    padding_idx: int
+        the index for padding
+    """
+
+    def __init__(
+        self,
+        enc_num_layers,
+        enc_num_head,
+        enc_d_model,
+        enc_ffn_dim,
+        enc_k_dim,
+        enc_v_dim,
+        enc_dropout,
+        normalize_before,
+        ffn_type,
+        ffn_cnn_kernel_size_list,
+        n_char,
+        padding_idx,
+    ):
+        super().__init__()
+        self.enc_num_head = enc_num_head
+        self.padding_idx = padding_idx
+
+        self.encPreNet = EncoderPreNet(
+            n_char, padding_idx, out_channels=enc_d_model
+        )
+
+        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+            enc_d_model
+        )
+
+        self.spn_encoder = TransformerEncoder(
+            num_layers=enc_num_layers,
+            nhead=enc_num_head,
+            d_ffn=enc_ffn_dim,
+            d_model=enc_d_model,
+            kdim=enc_k_dim,
+            vdim=enc_v_dim,
+            dropout=enc_dropout,
+            activation=nn.ReLU,
+            normalize_before=normalize_before,
+            ffn_type=ffn_type,
+            ffn_cnn_kernel_size_list=ffn_cnn_kernel_size_list,
+        )
+
+        self.spn_linear = linear.Linear(n_neurons=1, input_size=enc_d_model)
+
+    def forward(self, tokens, last_phonemes):
+        """forward pass for the module
+        Arguments
+        ---------
+        tokens: torch.Tensor
+            input tokens without silent phonemes
+        last_phonemes: torch.Tensor
+            indicates if a phoneme at an index is the last phoneme of a word or not
+
+        Returns
+        ---------
+        spn_decision: torch.Tensor
+            indicates if a silent phoneme should be inserted after a phoneme
+        """
+        token_feats = self.encPreNet(tokens)
+        last_phonemes = torch.unsqueeze(last_phonemes, 2).repeat(
+            1, 1, token_feats.shape[2]
+        )
+
+        token_feats = token_feats + last_phonemes
+
+        srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
+        pos = self.sinusoidal_positional_embed_encoder(
+            token_feats.shape[1], srcmask, token_feats.dtype
+        )
+        token_feats = torch.add(token_feats, pos) * srcmask_inverted
+
+        spn_mask = (
+            torch.triu(
+                torch.ones(token_feats.shape[1], token_feats.shape[1]),
+                diagonal=1,
+            )
+            .to(token_feats.device)
+            .bool()
+            .repeat(self.enc_num_head * token_feats.shape[0], 1, 1)
+        )
+
+        spn_token_feats, _ = self.spn_encoder(
+            token_feats, src_mask=spn_mask, src_key_padding_mask=srcmask
+        )
+        spn_decision = self.spn_linear(spn_token_feats).squeeze()
+
+        return spn_decision
+
+    def infer(self, tokens, last_phonemes):
+        """inference function
+        Arguments
+        ---------
+        tokens: torch.Tensor
+            input tokens without silent phonemes
+        last_phonemes: torch.Tensor
+            indicates if a phoneme at an index is the last phoneme of a word or not
+
+        Returns
+        ---------
+        spn_decision: torch.Tensor
+            indicates if a silent phoneme should be inserted after a phoneme
+        """
+        spn_decision = self.forward(tokens, last_phonemes)
+        spn_decision = torch.sigmoid(spn_decision) > 0.5
+        return spn_decision
 
 
 class FastSpeech2(nn.Module):
@@ -758,19 +901,39 @@ class TextMelCollate:
         )
         max_input_len = input_lengths[0]
 
+        # Get max_no_spn_seq_len
+        no_spn_seq_lengths, no_spn_ids_sorted_decreasing = torch.sort(
+            torch.LongTensor([len(x[-2]) for x in batch]),
+            dim=0,
+            descending=True,
+        )
+        max_no_spn_seq_len = no_spn_seq_lengths[0]
+
         text_padded = torch.LongTensor(len(batch), max_input_len)
+        no_spn_seq_padded = torch.LongTensor(len(batch), max_no_spn_seq_len)
+        last_phonemes_padded = torch.LongTensor(len(batch), max_no_spn_seq_len)
         dur_padded = torch.LongTensor(len(batch), max_input_len)
+        spn_labels_padded = torch.FloatTensor(len(batch), max_no_spn_seq_len)
         text_padded.zero_()
+        no_spn_seq_padded.zero_()
+        last_phonemes_padded.zero_()
         dur_padded.zero_()
+        spn_labels_padded.zero_()
 
         for i in range(len(ids_sorted_decreasing)):
             text = batch[ids_sorted_decreasing[i]][0]
-
+            no_spn_seq = batch[ids_sorted_decreasing[i]][-2]
+            last_phonemes = torch.LongTensor(
+                batch[ids_sorted_decreasing[i]][-3]
+            )
             dur = batch[ids_sorted_decreasing[i]][1]
-            # print(text, dur)
-            dur_padded[i, : dur.size(0)] = dur
+            spn_labels = torch.LongTensor(batch[ids_sorted_decreasing[i]][-1])
+
             text_padded[i, : text.size(0)] = text
-            # print(dur_padded, text_padded)
+            no_spn_seq_padded[i, : no_spn_seq.size(0)] = no_spn_seq
+            last_phonemes_padded[i, : last_phonemes.size(0)] = last_phonemes
+            dur_padded[i, : dur.size(0)] = dur
+            spn_labels_padded[i, : spn_labels.size(0)] = spn_labels
 
         # Right zero-pad mel-spec
         num_mels = batch[0][2].size(0)
@@ -800,6 +963,7 @@ class TextMelCollate:
         len_x = [x[5] for x in batch]
         len_x = torch.Tensor(len_x)
         mel_padded = mel_padded.permute(0, 2, 1)
+
         return (
             text_padded,
             dur_padded,
@@ -811,6 +975,9 @@ class TextMelCollate:
             len_x,
             labels,
             wavs,
+            no_spn_seq_padded,
+            spn_labels_padded,
+            last_phonemes_padded,
         )
 
 
@@ -841,6 +1008,7 @@ class Loss(nn.Module):
         energy_loss_weight,
         mel_loss_weight,
         postnet_mel_loss_weight,
+        spn_loss_weight=1.0,
     ):
         super().__init__()
 
@@ -857,6 +1025,7 @@ class Loss(nn.Module):
         self.duration_loss_weight = duration_loss_weight
         self.pitch_loss_weight = pitch_loss_weight
         self.energy_loss_weight = energy_loss_weight
+        self.spn_loss_weight = spn_loss_weight
 
     def forward(self, predictions, targets):
         """Computes the value of the loss function and updates stats
@@ -878,6 +1047,7 @@ class Loss(nn.Module):
             target_energy,
             mel_length,
             phon_len,
+            spn_labels,
         ) = targets
         assert len(mel_target.shape) == 3
         (
@@ -889,6 +1059,7 @@ class Loss(nn.Module):
             predicted_energy,
             average_energy,
             mel_lens,
+            spn_preds,
         ) = predictions
 
         predicted_pitch = predicted_pitch.squeeze()
@@ -952,6 +1123,8 @@ class Loss(nn.Module):
         pitch_loss = torch.div(pitch_loss, len(mel_target))
         energy_loss = torch.div(energy_loss, len(mel_target))
 
+        spn_loss = bce_loss(spn_preds, spn_labels)
+
         total_loss = (
             ssim_loss * self.ssim_loss_weight
             + mel_loss * self.mel_loss_weight
@@ -959,6 +1132,7 @@ class Loss(nn.Module):
             + dur_loss * self.duration_loss_weight
             + pitch_loss * self.pitch_loss_weight
             + energy_loss * self.energy_loss_weight
+            + spn_loss * self.spn_loss_weight
         )
 
         loss = {
@@ -969,6 +1143,7 @@ class Loss(nn.Module):
             "dur_loss": dur_loss * self.duration_loss_weight,
             "pitch_loss": pitch_loss * self.pitch_loss_weight,
             "energy_loss": energy_loss * self.energy_loss_weight,
+            "spn_loss": spn_loss * self.spn_loss_weight,
         }
         return loss
 

@@ -1,8 +1,8 @@
 ############################################################################
 # Model: FastSpeech2
-# Input: Phonemes (ARPABET)
-# Dataset: LJSpeech
-# Authors: Sathvik Udupa, Pradnya Kandarkar, Yingzhi Wang
+# Tokens: Raw characters (English text)
+# Training: LJSpeech
+# Authors: Sathvik Udupa
 # ############################################################################
 
 ###################################
@@ -23,7 +23,7 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: !PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
+data_folder: #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
@@ -146,6 +146,21 @@ pitch_pred_kernel_size: 3
 energy_pred_kernel_size: 3
 variance_predictor_dropout: 0.5
 
+# silent phoneme token predictor
+spn_predictor: !new:speechbrain.lobes.models.FastSpeech2.SPNPredictor
+    enc_num_layers: !ref <enc_num_layers>
+    enc_num_head: !ref <enc_num_head>
+    enc_d_model: !ref <enc_d_model>
+    enc_ffn_dim: !ref <enc_ffn_dim>
+    enc_k_dim: !ref <enc_k_dim>
+    enc_v_dim: !ref <enc_v_dim>
+    enc_dropout: !ref <enc_dropout>
+    normalize_before: !ref <normalize_before>
+    ffn_type: !ref <ffn_type>
+    ffn_cnn_kernel_size_list: !ref <ffn_cnn_kernel_size_list>
+    n_char: !ref <n_symbols>
+    padding_idx: !ref <padding_idx>
+
 #model
 model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2
     enc_num_layers: !ref <enc_num_layers>
@@ -200,6 +215,7 @@ criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
     ssim_loss_weight: 1.0
     mel_loss_weight: 1.0
     postnet_mel_loss_weight: 1.0
+    spn_loss_weight: 1.0
 
 vocoder: "hifi-gan"
 pretrained_vocoder: True
@@ -207,18 +223,19 @@ vocoder_source: speechbrain/tts-hifigan-ljspeech
 vocoder_download_path: tmpdir_vocoder
 
 modules:
+    spn_predictor: !ref <spn_predictor>
     model: !ref <model>
 
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     drop_last: False  #True #False
-    num_workers: 16
+    num_workers: 0
     shuffle: True
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
-    num_workers: 4
+    num_workers: 0
     shuffle: False
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
 
@@ -245,6 +262,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
+        spn_predictor: !ref <spn_predictor>
         model: !ref <model>
         counter: !ref <epoch_counter>
 
