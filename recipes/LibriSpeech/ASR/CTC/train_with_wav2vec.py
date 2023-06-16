@@ -74,7 +74,10 @@ class ASR(sb.Brain):
             )
 
         p_ctc = self.hparams.log_softmax(logits)
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID or (
+            stage == sb.Stage.TEST and not self.hparams.use_language_modelling
+        ):
+
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
@@ -390,9 +393,7 @@ if __name__ == "__main__":
             ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
             decoder = build_ctcdecoder(
                 labels,
-                kenlm_model_path=hparams[
-                    "ngram_lm_path"
-                ],  # either .arpa or .bin file
+                kenlm_model_path=hparams["ngram_lm_path"],  # .arpa or .bin
                 alpha=0.5,  # Default by KenLM
                 beta=1.0,  # Default by KenLM
             )

@@ -11,7 +11,7 @@
 
 seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer_small/<seed>
+output_folder: !ref results/conformer_large/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -57,17 +57,16 @@ num_workers: 4
 # stages related parameters
 # stage_one_epochs: 90
 lr_adam: 0.0005
-# lr_sgd: 0.000025
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
-# This setup works well for V100 32GB GPU, adapts it to your needs.
+# This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 900
+max_batch_len: 500
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -188,11 +187,6 @@ Adam: !name:torch.optim.Adam
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
-
-#SGD: !name:torch.optim.SGD
-#    lr: !ref <lr_sgd>
-#    momentum: 0.99
-#    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]

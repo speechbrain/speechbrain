@@ -216,7 +216,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=10,
             )
 
         elif stage == sb.Stage.TEST:
@@ -486,13 +486,27 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in train_dataloader_opts:
+            collate_fn = train_dataloader_opts["collate_fn"]
+
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
 
+        if collate_fn is not None:
+            train_dataloader_opts["collate_fn"] = collate_fn
+
     if valid_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in valid_dataloader_opts:
+            collate_fn = valid_dataloader_opts["collate_fn"]
+
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(
