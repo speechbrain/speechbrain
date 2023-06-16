@@ -98,7 +98,6 @@ d_model: 512
 nhead: 8
 num_encoder_layers: 18
 num_decoder_layers: 6
-decoder_linear_units: 2048
 csgu_linear_units: 3072
 csgu_kernel_size: 31
 transformer_dropout: 0.1
