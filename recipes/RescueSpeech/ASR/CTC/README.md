@@ -2,7 +2,7 @@
 This folder contains the script to fine-tune WavLM-large CTC based model on the RescueSpeech dataset.
 The WavLM model is first trained on German CommonVoice10.0 corpus, and later fine-tuned on the RescueSpeech data.
 
-- [`microsoft/wavlm-large`](https://huggingface.co/microsoft/wavlm-large) : See *hf link* to use the model trained on German CommonVoice.
+- [`microsoft/wavlm-large`](https://huggingface.co/microsoft/wavlm-large) : See *hf link* to use the German CommonVoice fine-tuned model.
 - Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8030657.svg)](https://doi.org/10.5281/zenodo.8030657)
 - Language: German (DE)
 
@@ -10,17 +10,17 @@ The WavLM model is first trained on German CommonVoice10.0 corpus, and later fin
 # How to run
 We provide hyper-parameter file for WavLM-large. As discussed in the paper we use multiple training strategies  to create a robust speech recognition system that operates in the SAR (search and rescue) domain.
 
-1. **Pre-training**: Use the CommonVoice pre-trained WavLM model and directly infer on RescueSpeech dataset (clean/noisy inputs) without any fine-tuning.
+1. **Pre-training**: Use the CommonVoice fine-tuned WavLM model and directly infer on RescueSpeech dataset (clean/noisy inputs) without any fine-tuning.
     ```
     python train.py hparams/train_with_wavlm.yaml --number_of_epochs 0 --input_type clean_wav/noisy_wav
     ```
 
-2. **Clean-training**: Fine-tune the ASR model on RescueSpeech clean dataset.
+2. **Clean-training**: Now we fine-tune the ASR model (CommonVoice fine-tuned WavLM) on RescueSpeech clean dataset.
     ```
     python train.py hparams/train_with_wavlm.yaml --input_type clean_wav
     ```
 
-3. **Multi-condition training**: Fine-tune the ASR model on an equal mix of clean and noisy audio from the RescueSpeech noisy dataset.
+3. **Multi-condition training**: Now we fine-tune the ASR model (CommonVoice fine-tuned WavLM) on an equal mix of clean and noisy audio from the RescueSpeech noisy dataset.
     ```
     python train.py hparams/train_with_wavlm.yaml --input_type clean_noisy_mix
     ```
