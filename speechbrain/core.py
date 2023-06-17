@@ -930,7 +930,7 @@ class Brain:
         detached loss
         """
         valid_loss = False
-    
+
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.autocast(device_type=torch.device(self.device).type):
@@ -941,9 +941,9 @@ class Brain:
 
             if self.check_gradients(loss):
                 valid_loss = True
-                self.valid_step+=1
+                self.valid_step += 1
 
-            should_step = self.valid_step % self.grad_accumulation_factor ==  0
+            should_step = self.valid_step % self.grad_accumulation_factor == 0
             if valid_loss:
                 with self.no_sync(not should_step):
                     self.scaler.scale(
@@ -967,12 +967,12 @@ class Brain:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
 
-            if self.check_gradients(loss): 
+            if self.check_gradients(loss):
                 valid_loss = True
-                self.valid_step+=1
+                self.valid_step += 1
 
-            should_step = self.valid_step % self.grad_accumulation_factor ==  0
-            if valid_loss: 
+            should_step = self.valid_step % self.grad_accumulation_factor == 0
+            if valid_loss:
                 with self.no_sync(not should_step):
                     (loss / self.grad_accumulation_factor).backward()
                 if should_step:
