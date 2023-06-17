@@ -36,8 +36,6 @@ train_csv: !ref <csv_dir>/train.csv
 valid_csv: !ref <csv_dir>/dev.csv
 test_csv: !ref <csv_dir>/test.csv
 skip_prep: False
-# where to store noisy data for augment (change it if needed)
-data_folder_rirs: !ref /netscratch/sagar/data/RIRs  # !PLACEHOLDER
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
@@ -59,7 +57,7 @@ min_shift: -8000
 max_shift: 8000
 
 ## Training parameters- ASR
-number_of_epochs: 45
+number_of_epochs: 15
 lr_asr: 1.0
 lr_wav2vec: 0.0001
 sorting: ascending

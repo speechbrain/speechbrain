@@ -11,7 +11,6 @@ To run this recipe, do the following:
 The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens. It requires no LM. While the enhancement
 model is frozen to perform independent training.
-
 Authors
  * Sangeet Sagar 2023
  * Titouan Parcollet 2021
@@ -33,6 +32,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
@@ -86,12 +86,15 @@ class ASR(sb.core.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     noisy, clean = self.add_speed_perturb(clean, noisy_lens)
 
-                    # Reverb already added, not adding any reverb
-                    clean_rev = clean
-                    noisy = clean.sum(-1)
-                    # if we reverberate, we set the clean to be reverberant
-                    if not self.hparams.dereverberate:
-                        clean = clean_rev
+                    if "SAR" in self.hparams.data_folder:
+                        # Reverb already added, not adding any reverb
+                        clean_rev = clean
+                        noisy = clean.sum(-1)
+                        # if we reverberate, we set the clean to be reverberant
+                        if not self.hparams.dereverberate:
+                            clean = clean_rev
+                    else:
+                        noisy = clean.sum(-1)
 
                     noise = noise.to(self.device)
                     len_noise = noise.shape[1]
@@ -118,11 +121,11 @@ class ASR(sb.core.Brain):
             sep_h = noisy_w * est_mask
             est_source = self.hparams.resynth(torch.expm1(sep_h), noisy)
         else:
-            noisy_w = self.hparams.enhance_model["Encoder"](noisy)
+            noisy_w = self.modules.encoder(noisy)
             est_mask = self.modules.masknet(noisy_w)
 
             sep_h = noisy_w * est_mask
-            est_source = self.hparams.enhance_model["Decoder"](sep_h[0])
+            est_source = self.modules.decoder(sep_h[0])
 
         # T changed after conv1d in encoder, fix it here
         T_origin = noisy.size(1)
@@ -174,7 +177,7 @@ class ASR(sb.core.Brain):
             loss = self.hparams.enhance_loss(
                 clean.unsqueeze(-1), predicted_wavs.unsqueeze(-1)
             )
-        return loss.mean()
+        return loss
 
     def compute_feats(self, wavs):
         """Feature computation pipeline"""
@@ -185,46 +188,41 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        if self.auto_mix_prec:
 
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-
-            with torch.cuda.amp.autocast():
-                predictions, clean, outputs = self.compute_forward(
-                    batch, sb.Stage.TRAIN
-                )
-                # No need to compute enhancement loss
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-            self.scaler.scale(loss).backward()
-            if not self.hparams.wav2vec2.freeze:
-                self.scaler.unscale_(self.wav2vec_optimizer)
-            self.scaler.unscale_(self.model_optimizer)
-
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
-                    self.scaler.step(self.wav2vec_optimizer)
-                self.scaler.step(self.model_optimizer)
-
-            self.scaler.update()
-        else:
-            predictions, clean, outputs = self.compute_forward(
-                batch, sb.Stage.TRAIN
+        predictions, clean, outputs = self.compute_forward(
+            batch, sb.Stage.TRAIN
+        )
+        if self.hparams.sepformer_weight > 0:
+            enhance_loss = (
+                self.compute_objectives_enhance(predictions, clean)
+                * self.hparams.sepformer_weight
             )
-            # No need to compute enhancement loss
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss.backward()
+            if self.hparams.threshold_byloss:
+                th = self.hparams.threshold
+                loss_to_keep = enhance_loss[enhance_loss > th]
+                if loss_to_keep.nelement() > 0:
+                    enhance_loss = loss_to_keep.mean()
+            else:
+                enhance_loss = enhance_loss.mean()
 
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
-                    self.wav2vec_optimizer.step()
-                self.model_optimizer.step()
+        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss = torch.add(loss, enhance_loss)
+        loss.backward()
 
+        if self.hparams.clip_grad_norm >= 0:
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.hparams.clip_grad_norm
+            )
+        self.optimizer.step()
+
+        if self.check_gradients(loss):
             if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
+                self.wav2vec_optimizer.step()
+            self.model_optimizer.step()
+
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer.zero_grad()
+        self.model_optimizer.zero_grad()
 
         return loss.detach()
 
@@ -233,11 +231,37 @@ class ASR(sb.core.Brain):
         predictions, clean, outputs = self.compute_forward(batch, stage=stage)
         with torch.no_grad():
             loss = self.compute_objectives(outputs, batch, stage=stage)
+
+        if stage != sb.Stage.TRAIN:
+            self.pesq_metric.append(
+                ids=batch.id, predict=predictions[0].cpu(), target=clean.cpu()
+            )
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
+            # Define function taking (prediction, target) for parallel eval
+            def pesq_eval(pred_wav, target_wav):
+                """Computes the PESQ evaluation metric"""
+                psq_mode = (
+                    "wb" if self.hparams.enhance_sample_rate == 16000 else "nb"
+                )
+                try:
+                    return pesq(
+                        fs=self.hparams.enhance_sample_rate,
+                        ref=target_wav.numpy(),
+                        deg=pred_wav.numpy(),
+                        mode=psq_mode,
+                    )
+                except Exception:
+                    print("pesq encountered an error for this data item")
+                    return 0
+
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, n_jobs=1, batch_eval=False
+            )
+
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -255,6 +279,7 @@ class ASR(sb.core.Brain):
                     self.modules[model].train()
                     for p in self.modules[model].parameters():
                         p.requires_grad = True  # Model's weight will be updated
+                    print(model)
                 else:
                     self.modules[model].eval()
                     for p in self.modules[model].parameters():
@@ -286,6 +311,7 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
+            stage_stats["pesq"] = self.pesq_metric.summarize("average")
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
@@ -337,6 +363,7 @@ class ASR(sb.core.Brain):
                     "wav2vec_opt", self.wav2vec_optimizer
                 )
 
+        self.optimizer = self.hparams.optimizer(self.modules.parameters())
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
         )
@@ -513,6 +540,7 @@ class ASR(sb.core.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
+
                     # Apply Enhancement
                     noisy, noisy_len = batch.noisy_sig
                     snt_id = batch.id
@@ -796,6 +824,7 @@ if __name__ == "__main__":
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
+        opt_class=hparams["optimizer"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],

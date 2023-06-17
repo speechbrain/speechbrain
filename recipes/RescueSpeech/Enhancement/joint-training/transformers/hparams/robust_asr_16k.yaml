@@ -4,26 +4,29 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 4200
+seed: 8200
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/robust_asr/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Path to pre-trained tokenizer, and wav2model
-# We use the tokenizer trained on CommonVoice dataset
-tokenizer_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/wavlm_commonvoice # !PLACEHOLDER
-wav2vec2_hub: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/wavlm-large # !PLACEHOLDER
-pretrained_wav2vec2_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/wavlm_rescuspeech # !PLACEHOLDER
+# URL for the biggest whisper model.
+model_version: !ref large-v2
+whisper_hub: !ref /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/openai-whisper-<model_version>
+whisper_folder: !ref /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/openai-whisper-<model_version>
+language: german
+pretrained_whisper_model: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/whisper_large-v2_rescuespeech
 
 # Path to pre-trained enhancement model
 pretrained_enhance_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/sepformer_rescuespeech_16k # !PLACEHOLDER
 
-epochs_before_lr_drop: 0
+epochs_before_lr_drop: 1
 unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
-frozen_models: [encoder, decoder, masknet, wav2vec2, enc]
-unfrozen_models: [wav2vec2, enc]
+frozen_models: [encoder, decoder, masknet, whisper]
+unfrozen_models: [masknet, whisper]
+
+test_only: False
 
 # Dataset prep parameters
 data_folder: !ref ../../../dataset/Task_ASR # !PLACEHOLDER
@@ -57,9 +60,8 @@ min_shift: -8000
 max_shift: 8000
 
 ## Training parameters- ASR
-number_of_epochs: 45
-lr_asr: 1.0
-lr_wav2vec: 0.0001
+number_of_epochs: 7
+lr_whisper: 0.00003
 sorting: ascending
 auto_mix_prec: False
 asr_sample_rate: 16000
@@ -69,36 +71,49 @@ checkpoint_avg: 5
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 6 per GPU to fit 16GB of VRAM
-batch_size: 2
+batch_size: 1
 test_batch_size: 1
 dataloader_num_workers: 8
 test_num_workers: 8
 
-dataloader_options:
+
+# These values are only used for the searchers.
+# They needs to be hardcoded and should not be changed with Whisper.
+# They are used as part of the searching process.
+# The bos token of the searcher will be timestamp_index
+# and will be concatenated with the bos, language and task tokens.
+timestamp_index: 50363
+eos_index: 50257
+bos_index: 50258
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+test_beam_size: 8
+
+# Model parameters
+freeze_whisper: False
+
+train_loader_kwargs:
     batch_size: !ref <batch_size>
-    num_workers: !ref <dataloader_num_workers>
-test_dataloader_options:
+
+valid_loader_kwargs:
+    batch_size: !ref <batch_size>
+
+test_loader_kwargs:
     batch_size: !ref <test_batch_size>
-    num_workers: !ref <test_num_workers>
 
-# BPE parameters
-token_type: char  # ["unigram", "bpe", "char"]
-character_coverage: 1.0
+# Loss weights
+sepformer_weight: 0.1
 
-# ASR Model parameters
-# activation: !name:torch.nn.LeakyReLU
-dnn_neurons: 1024
-wav2vec_output_dim: !ref <dnn_neurons>
-freeze_wav2vec: False
-dropout: 0.15
-
-# Outputs
-output_neurons: 32  # BPE size, index(blank/eos/bos) = 0
-
-# Be sure that the bos and eos index match with the BPEs ones
-blank_index: 0
-bos_index: 1
-eos_index: 2
+# loss thresholding -- this thresholds the training loss
+threshold_byloss: True
+threshold: -30
+clip_grad_norm: 5
+loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr_enhance>
+    weight_decay: 0
 
 # Functions and classes
 speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
@@ -110,56 +125,52 @@ speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 
 enhance_model: !include:../models/sepformer.yaml
 
-asr_model: !include:../models/asr_model.yaml
-    output_neurons: !ref <output_neurons>
-
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
-    source: !ref <wav2vec2_hub>
-    output_norm: True
-    freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
-
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
-
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <asr_sample_rate>
     speeds: [95, 100, 105]
 
+whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+    source: !ref <whisper_hub>
+    freeze: !ref <freeze_whisper>
+    save_path: !ref <whisper_folder>
+    encoder_only: False
+    freeze_encoder: False
+
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
-# Enhanc loss
-enhance_loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
 
-# CTC loss
-ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
+whisper_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_whisper>
+    weight_decay: 0.01
 
-asr_enc: !ref <asr_model[enc]>
-ctc_lin: !ref <asr_model[ctc_lin]>
-model: !new:torch.nn.ModuleList
-    - [!ref <asr_enc>, !ref <ctc_lin>]
+valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
+    model: !ref <whisper>
+    bos_index: !ref <timestamp_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
 
-model_opt_class: !name:torch.optim.Adadelta
-    lr: !ref <lr_asr>
-    rho: 0.95
-    eps: 1.e-8
+test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
+    module: [!ref <whisper>]
+    bos_index: !ref <timestamp_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
 
-wav2vec_opt_class: !name:torch.optim.Adam
-    lr: !ref <lr_wav2vec>
-
-lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_asr>
-    improvement_threshold: 0.0025
-    annealing_factor: 0.8
-    patient: 0
-
-lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-    initial_value: !ref <lr_wav2vec>
+lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_whisper>
     improvement_threshold: 0.0025
     annealing_factor: 0.9
     patient: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Enhanc loss
+enhance_loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 
 # Change the path to use a local model instead of the remote one
 asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
@@ -168,22 +179,18 @@ asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
         encoder: !ref <enhance_model[Encoder]>
         masknet: !ref <enhance_model[MaskNet]>
         decoder: !ref <enhance_model[Decoder]>
-        wav2vec2: !ref <wav2vec2>
-        asr_model: !ref <model>
+        whisper: !ref <whisper>
     paths:
         encoder: !ref <pretrained_enhance_path>/encoder.ckpt
         decoder: !ref <pretrained_enhance_path>/decoder.ckpt
         masknet: !ref <pretrained_enhance_path>/masknet.ckpt
-        wav2vec2: !ref <pretrained_wav2vec2_path>/wav2vec2.ckpt
-        asr_model: !ref <pretrained_wav2vec2_path>/model.ckpt
+        whisper: !ref <pretrained_whisper_model>/whisper.ckpt
 
 modules:
     encoder: !ref <enhance_model[Encoder]>
     masknet: !ref <enhance_model[MaskNet]>
     decoder: !ref <enhance_model[Decoder]>
-    wav2vec2: !ref <wav2vec2>
-    enc: !ref <asr_model[enc]>
-    ctc_lin: !ref <asr_model[ctc_lin]>
+    whisper: !ref <whisper>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -191,12 +198,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         encoder: !ref <enhance_model[Encoder]>
         decoder: !ref <enhance_model[Decoder]>
         masknet: !ref <enhance_model[MaskNet]>
-        wav2vec2: !ref <wav2vec2>
-        model: !ref <model>
-        enc: !ref <asr_model[enc]>
-        ctc_lin: !ref <asr_model[ctc_lin]>
-        scheduler_model: !ref <lr_annealing_model>
-        scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+        whisper: !ref <whisper>
+        scheduler_whisper: !ref <lr_annealing_whisper>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

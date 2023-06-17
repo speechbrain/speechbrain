@@ -20,10 +20,10 @@ pretrained_wav2vec2_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpe
 # Path to pre-trained enhancement model
 pretrained_enhance_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/sepformer_rescuespeech_16k # !PLACEHOLDER
 
-epochs_before_lr_drop: 0
+epochs_before_lr_drop: 3
 unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
-frozen_models: [encoder, decoder, masknet, wav2vec2, enc]
-unfrozen_models: [wav2vec2, enc]
+frozen_models: [masknet, wav2vec2]
+unfrozen_models: [masknet, wav2vec2]
 
 # Dataset prep parameters
 data_folder: !ref ../../../dataset/Task_ASR # !PLACEHOLDER
@@ -46,7 +46,6 @@ dereverberate: False
 save_audio: True
 resample: False
 enhance_sample_rate: 16000
-lr_enhance: 0.00015
 limit_training_signal_len: False
 training_signal_len: 64000
 use_wavedrop: False
@@ -57,8 +56,8 @@ min_shift: -8000
 max_shift: 8000
 
 ## Training parameters- ASR
-number_of_epochs: 45
-lr_asr: 1.0
+number_of_epochs: 15
+lr_asr: 1
 lr_wav2vec: 0.0001
 sorting: ascending
 auto_mix_prec: False
@@ -99,6 +98,19 @@ output_neurons: 32  # BPE size, index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 1
 eos_index: 2
+
+# Loss weights
+sepformer_weight: 1
+
+# loss thresholding -- this thresholds the training loss
+threshold_byloss: True
+threshold: -30
+clip_grad_norm: 5
+loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
+lr_enhance: 0.00015
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr_enhance>
+    weight_decay: 0
 
 # Functions and classes
 speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
@@ -169,13 +181,13 @@ asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
         masknet: !ref <enhance_model[MaskNet]>
         decoder: !ref <enhance_model[Decoder]>
         wav2vec2: !ref <wav2vec2>
-        asr_model: !ref <model>
+        # asr_model: !ref <model>
     paths:
         encoder: !ref <pretrained_enhance_path>/encoder.ckpt
         decoder: !ref <pretrained_enhance_path>/decoder.ckpt
         masknet: !ref <pretrained_enhance_path>/masknet.ckpt
         wav2vec2: !ref <pretrained_wav2vec2_path>/wav2vec2.ckpt
-        asr_model: !ref <pretrained_wav2vec2_path>/model.ckpt
+        # asr_model: !ref <pretrained_wav2vec2_path>/model.ckpt
 
 modules:
     encoder: !ref <enhance_model[Encoder]>

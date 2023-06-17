@@ -1,20 +1,22 @@
-#!/usr/bin/env/python3
-"""Recipe for noise robust speech recognition. It provides a simple combination
-of a speech enhancement model (SepFormer already fine-tuned on noisy RescueSpeech)
-and a speech recognition model (fine-tuned on clean RescueSpeech). The ASR employs
-wav2vec2 as its encoder. Decoding is performed with ctc greedy decoder.
+#!/usr/bin/env python3
+"""Recipe for noise robust speech recognition. It provides a simple
+combination of a unfrozen speech enhancement model (SepFormer already
+fine-tuned on noisy RescueSpeech) and a speech recognition model
+(fine-tuned on clean RescueSpeech). The ASR employs Whisper encoder
+-decoder to fine-tune on the NLL.
+
+The training is performed jointly allowing both enhancement and
+ASR model to update its weight.
+
+This is an adaption from LibriSpeech Whisper recipe.
 
 To run this recipe, do the following:
-> python train_with_wav2vec.py hparams/train_with_wav2vec.yaml
-> python train_with_wav2vec.py hparams/train_with_wavlm.yaml
-
-The neural network is trained on CTC likelihood target and character units
-are used as basic recognition tokens. It requires no LM. While the enhancement
-model is frozen to perform independent training.
+> python train.py hparams/robust_asr_16k.yaml
 
 Authors
  * Sangeet Sagar 2023
- * Titouan Parcollet 2021
+ * Adel Moumen 2022
+ * Titouan Parcollet 2022
 """
 
 import os
@@ -31,9 +33,8 @@ import torchaudio
 import torch.nn.functional as F
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.processing.features import spectral_magnitude
+from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
@@ -46,26 +47,36 @@ class ASR(sb.core.Brain):
 
         batch = batch.to(self.device)
         wavs, wav_lens = batch.clean_sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        bos_tokens, bos_tokens_lens = batch.tokens_bos
 
         predictions, clean = self.compute_forward_enhance(batch, stage)
-        wavs = predictions[0]
 
-        # Fix the sampling rate after enhancement
-        if self.hparams.enhance_sample_rate != self.hparams.asr_sample_rate:
-            wavs = self.fix_sample_rate(wavs)
-
+        # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        # Forward pass
-        feats = self.modules.wav2vec2(wavs)
-        x = self.modules.enc(feats)
-        logits = self.modules.ctc_lin(x)
-        p_ctc = self.hparams.log_softmax(logits)
+        # We compute the padding mask and replace the values with the pad_token_id
+        # that the Whisper decoder expect to see.
+        abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
+        pad_mask = (
+            torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
+            < abs_tokens_lens[:, None]
+        )
+        bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
-        return predictions, clean, [p_ctc, wav_lens]
+        # Forward encoder + decoder
+        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+
+        log_probs = self.hparams.log_softmax(logits)
+
+        hyps = None
+        if stage == sb.Stage.VALID:
+            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+        elif stage == sb.Stage.TEST:
+            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+
+        return predictions, clean, [log_probs, hyps, wav_lens]
 
     def compute_forward_enhance(self, batch, stage):
         """Forward computations from the noisy to the separated signals.
@@ -86,12 +97,15 @@ class ASR(sb.core.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     noisy, clean = self.add_speed_perturb(clean, noisy_lens)
 
-                    # Reverb already added, not adding any reverb
-                    clean_rev = clean
-                    noisy = clean.sum(-1)
-                    # if we reverberate, we set the clean to be reverberant
-                    if not self.hparams.dereverberate:
-                        clean = clean_rev
+                    if "SAR" in self.hparams.data_folder:
+                        # Reverb already added, not adding any reverb
+                        clean_rev = clean
+                        noisy = clean.sum(-1)
+                        # if we reverberate, we set the clean to be reverberant
+                        if not self.hparams.dereverberate:
+                            clean = clean_rev
+                    else:
+                        noisy = clean.sum(-1)
 
                     noise = noise.to(self.device)
                     len_noise = noise.shape[1]
@@ -136,28 +150,45 @@ class ASR(sb.core.Brain):
         return [est_source, sep_h], clean.squeeze(-1)
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC) given predictions and targets."""
+        """Computes the loss NLL given predictions and targets."""
 
-        p_ctc, wav_lens = predictions
-
+        log_probs, hyps, wav_lens, = predictions
+        batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
 
-        loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
+        loss = self.hparams.nll_loss(
+            log_probs, tokens_eos, length=tokens_eos_lens,
+        )
 
         if stage != sb.Stage.TRAIN:
-            # Decode token terms to words
-            sequence = sb.decoders.ctc_greedy_decode(
-                p_ctc, wav_lens, blank_id=self.hparams.blank_index
-            )
+            tokens, tokens_lens = batch.tokens
 
-            predicted_words = self.tokenizer(sequence, task="decode_from_list")
+            # Decode token terms to words
+            predicted_words = self.tokenizer.batch_decode(
+                hyps, skip_special_tokens=True
+            )
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
-            target_words = self.tokenizer(target_words, task="decode_from_list")
+            target_words = self.tokenizer.batch_decode(
+                target_words, skip_special_tokens=True
+            )
 
+            if hasattr(self.hparams, "normalized_transcripts"):
+                predicted_words = [
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in predicted_words
+                ]
+
+                target_words = [
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in target_words
+                ]
+            else:
+                predicted_words = [text.split(" ") for text in predicted_words]
+
+                target_words = [text.split(" ") for text in target_words]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -176,68 +207,63 @@ class ASR(sb.core.Brain):
             )
         return loss.mean()
 
-    def compute_feats(self, wavs):
-        """Feature computation pipeline"""
-        feats = self.hparams.Encoder(wavs)
-        feats = spectral_magnitude(feats, power=0.5)
-        feats = torch.log1p(feats)
-        return feats
-
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        if self.auto_mix_prec:
 
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
+        predictions, clean, outputs = self.compute_forward(
+            batch, sb.Stage.TRAIN
+        )
+        enhance_loss = (
+            self.compute_objectives_enhance(predictions, clean)
+            * self.hparams.sepformer_weight
+        )
+        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss = torch.add(enhance_loss, loss)
 
-            with torch.cuda.amp.autocast():
-                predictions, clean, outputs = self.compute_forward(
-                    batch, sb.Stage.TRAIN
-                )
-                # No need to compute enhancement loss
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss.backward()
 
-            self.scaler.scale(loss).backward()
-            if not self.hparams.wav2vec2.freeze:
-                self.scaler.unscale_(self.wav2vec_optimizer)
-            self.scaler.unscale_(self.model_optimizer)
-
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
-                    self.scaler.step(self.wav2vec_optimizer)
-                self.scaler.step(self.model_optimizer)
-
-            self.scaler.update()
-        else:
-            predictions, clean, outputs = self.compute_forward(
-                batch, sb.Stage.TRAIN
-            )
-            # No need to compute enhancement loss
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss.backward()
-
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
-                    self.wav2vec_optimizer.step()
-                self.model_optimizer.step()
-
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
+        if self.check_gradients(loss):
+            self.optimizer.step()
+        self.optimizer.zero_grad()
 
         return loss.detach()
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
         predictions, clean, outputs = self.compute_forward(batch, stage=stage)
+
         with torch.no_grad():
             loss = self.compute_objectives(outputs, batch, stage=stage)
+
+        if stage != sb.Stage.TRAIN:
+            self.pesq_metric.append(
+                ids=batch.id, predict=predictions[0].cpu(), target=clean.cpu()
+            )
         return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
+            # Define function taking (prediction, target) for parallel eval
+            def pesq_eval(pred_wav, target_wav):
+                """Computes the PESQ evaluation metric"""
+                psq_mode = (
+                    "wb" if self.hparams.enhance_sample_rate == 16000 else "nb"
+                )
+                try:
+                    return pesq(
+                        fs=self.hparams.enhance_sample_rate,
+                        ref=target_wav.numpy(),
+                        deg=pred_wav.numpy(),
+                        mode=psq_mode,
+                    )
+                except Exception:
+                    print("pesq encountered an error for this data item")
+                    return 0
+
+            self.pesq_metric = MetricStats(
+                metric=pesq_eval, n_jobs=1, batch_eval=False
+            )
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -255,6 +281,7 @@ class ASR(sb.core.Brain):
                     self.modules[model].train()
                     for p in self.modules[model].parameters():
                         p.requires_grad = True  # Model's weight will be updated
+                    print(model)
                 else:
                     self.modules[model].eval()
                     for p in self.modules[model].parameters():
@@ -286,30 +313,21 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
+            stage_stats["pesq"] = self.pesq_metric.summarize("average")
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
-                stage_stats["loss"]
-            )
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+            old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
                 stage_stats["loss"]
             )
             sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
+                self.optimizer, new_lr_whisper
             )
-            if not self.hparams.wav2vec2.freeze:
-                sb.nnet.schedulers.update_learning_rate(
-                    self.wav2vec_optimizer, new_lr_wav2vec
-                )
+
             self.hparams.train_logger.log_stats(
-                stats_meta={
-                    "epoch": epoch,
-                    "lr_model": old_lr_model,
-                    "lr_wav2vec": old_lr_wav2vec,
-                },
+                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -323,26 +341,6 @@ class ASR(sb.core.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
-
-    def init_optimizers(self):
-        "Initializes the wav2vec2 optimizer and model optimizer"
-
-        # If the wav2vec encoder is unfrozen, we create the optimizer
-        if not self.hparams.wav2vec2.freeze:
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.wav2vec2.parameters()
-            )
-            if self.checkpointer is not None:
-                self.checkpointer.add_recoverable(
-                    "wav2vec_opt", self.wav2vec_optimizer
-                )
-
-        self.model_optimizer = self.hparams.model_opt_class(
-            self.hparams.model.parameters()
-        )
-
-        if self.checkpointer is not None:
-            self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
     def add_speed_perturb(self, clean, targ_lens):
         """
@@ -647,7 +645,7 @@ def dataio_prepare(hparams, tokenizer):
             key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["shuffle"] = False
+        hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
@@ -656,7 +654,7 @@ def dataio_prepare(hparams, tokenizer):
             key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["dataloader_options"]["shuffle"] = False
+        hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -707,12 +705,15 @@ def dataio_prepare(hparams, tokenizer):
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "tokens_list", "tokens_bos", "tokens_eos", "tokens"
+        "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        tokens_list = tokenizer.sp.encode_as_ids(wrd)
+        yield wrd
+        tokens_list = tokenizer.encode(wrd)
+        # avoid bos and eos tokens.
+        tokens_list = tokens_list[1:-1]
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
@@ -729,12 +730,14 @@ def dataio_prepare(hparams, tokenizer):
             "clean_sig",
             "noise_sig",
             "noisy_sig",
+            "tokens_list",
             "tokens_bos",
             "tokens_eos",
             "tokens",
             "noisy_wav",
         ],
     )
+
     return train_data, valid_data, test_data
 
 
@@ -775,16 +778,23 @@ if __name__ == "__main__":
     )
 
     # Defining tokenizer and loading it
-    tokenizer = SentencePiece(
-        model_dir=hparams["tokenizer_path"],
-        vocab_size=hparams["output_neurons"],
-        annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
-        model_type=hparams["token_type"],
-        character_coverage=hparams["character_coverage"],
+    tokenizer = hparams["whisper"].tokenizer
+    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
+
+    # we need to prepare the tokens for searchers
+    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
+        tokenizer.prefix_tokens
+    )
+    hparams["valid_greedy_searcher"].set_language_token(
+        tokenizer.prefix_tokens[1]
     )
 
-    # Create the datasets objects as well as tokenization and encoding :-D
+    hparams["test_beam_searcher"].set_decoder_input_tokens(
+        tokenizer.prefix_tokens
+    )
+    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
+
+    # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
 
     # Load pre-trained models
@@ -799,6 +809,7 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
+        opt_class=hparams["whisper_opt_class"],
     )
 
     # Adding objects to trainer.
@@ -809,20 +820,22 @@ if __name__ == "__main__":
     asr_brain.use_freq_domain = use_freq_domain
 
     # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["test_dataloader_options"],
-    )
+    if hparams["test_only"] is False:
+        # Training
+        asr_brain.fit(
+            asr_brain.hparams.epoch_counter,
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["train_loader_kwargs"],
+            valid_loader_kwargs=hparams["valid_loader_kwargs"],
+        )
 
     # Test
-    asr_brain.hparams.wer_file = hparams["wer_file"]
+    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
     asr_brain.evaluate(
         test_data,
         min_key="WER",
-        test_loader_kwargs=hparams["test_dataloader_options"],
+        test_loader_kwargs=hparams["test_loader_kwargs"],
     )
 
     # Eval
