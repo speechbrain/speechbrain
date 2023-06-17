@@ -951,7 +951,6 @@ class Brain:
                     ).backward()
                 if should_step:
                     self.scaler.unscale_(self.optimizer)
-                    self.clip_grad_norm()
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.zero_grad()
@@ -977,7 +976,6 @@ class Brain:
                 with self.no_sync(not should_step):
                     (loss / self.grad_accumulation_factor).backward()
                 if should_step:
-                    self.clip_grad_norm()
                     self.optimizer.step()
                     self.zero_grad()
                     self.optimizer_step += 1
@@ -1039,19 +1037,12 @@ class Brain:
                 )
                 return False
 
-        return True
-
-    def clip_grad_norm(self):
-        """
-        Automatically clips large gradients.
-        """
-        # Clip gradient norm
         if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
             )
 
-        return 
+        return True
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
