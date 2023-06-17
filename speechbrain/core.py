@@ -1001,7 +1001,8 @@ class Brain:
         pass
 
     def check_gradients(self, loss):
-        """Check if gradients are finite.
+        """Check if gradients are finite and not too large.
+        Automatically clips large gradients.
 
         Arguments
         ---------
