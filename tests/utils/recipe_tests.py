@@ -110,6 +110,7 @@ def prepare_test(
     test_check = {}
 
     # Loop over all recipe CSVs
+    print(f"\tfilters_fields={filters_fields} => filters={filters}")
     for recipe_csvfile in os.listdir(recipe_folder):
         # skip setup scripts; consider CSV files only
         if recipe_csvfile in __skip_list:
@@ -127,8 +128,7 @@ def prepare_test(
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
                     print(
-                        f"\tSkipped {recipe_id} - filters_fields={filters_fields}; filters={filters}"
-                        " - lacking test_field={test_field}"
+                        f"\tSkipped {recipe_id} - lacking test_field={test_field}"
                     )
                     continue
                 test_script[recipe_id] = row[script_field].strip()
@@ -406,6 +406,11 @@ def run_recipe_tests(
         filters=filters,
     )
 
+    # Early stop if there are no recipes to test
+    if len(test_script) == 0:
+        print("No recipes found for testing (please check recipe filters).")
+        return False
+
     # Download all upfront
     if download_only:
         for i, recipe_id in enumerate(test_script.keys()):
@@ -610,6 +615,11 @@ def load_yaml_test(
         "wav2vec2_hub": "facebook/wav2vec2-large-960h-lv60-self",  # this might not hold for all set-ups
         "root_data_folder": data_folder,
         "wav2vec2_folder": f"{output_folder}/wav2vec2_checkpoint",
+        # these will need refactoring at some point (recipe-depending values)
+        "pretrained_tokenizer_path": "speechbrain/asr-wav2vec2-switchboard",
+        "pretrained_lm_tokenizer_path": "speechbrain/asr-transformer-switchboard",
+        "channels_path": None,
+        "concepts_path": None,
     }
 
     # Read the csv recipe file and detect which tests we have to run
@@ -691,5 +701,9 @@ def load_yaml_test(
                 check = False
                 print("\tERROR: cannot load %s" % (hparam_file))
         if tag_custom_model is not None:
-            del sys.modules[tag_custom_model]
+            if tag_custom_model in sys.modules:
+                del sys.modules[tag_custom_model]
+            for tcm_key in list(sys.modules.keys()):
+                if tcm_key.startswith("recipes"):
+                    del sys.modules[tcm_key]
     return check

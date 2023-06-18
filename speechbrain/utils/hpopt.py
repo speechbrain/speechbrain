@@ -68,7 +68,7 @@ def hpopt_mode(mode):
     """
 
     def f(cls):
-        """"Call the function that registers and returns the reporter class"""
+        """ "Call the function that registers and returns the reporter class"""
         _hpopt_modes[mode] = cls
         return cls
 
@@ -269,11 +269,13 @@ def get_reporter(mode, *args, **kwargs):
     """
     reporter_cls = _hpopt_modes.get(mode)
     if reporter_cls is None:
-        logger.warn(f"hpopt_mode {mode} is not supported, reverting to generic")
+        logger.warning(
+            f"hpopt_mode {mode} is not supported, reverting to generic"
+        )
         reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
     reporter = reporter_cls(*args, **kwargs)
     if not reporter.is_available:
-        logger.warn("Reverting to a generic reporter")
+        logger.warning("Reverting to a generic reporter")
         reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
         reporter = reporter_cls(*args, **kwargs)
     return reporter

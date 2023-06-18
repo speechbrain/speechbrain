@@ -340,7 +340,7 @@ class TransducerLoss(Module):
     def forward(self, logits, labels, T, U):
         """Computes the transducer loss."""
         # Transducer.apply function take log_probs tensor.
-        if logits.device == labels.device == T.device == U.device == "cuda":
+        if all(t.is_cuda for t in (logits, labels, T, U)):
             log_probs = logits.log_softmax(-1)
             return self.loss(
                 log_probs, labels, T, U, self.blank, self.reduction
