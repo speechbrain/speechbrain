@@ -28,12 +28,9 @@ MULTIWOZ_21_DATASET_URL = (
 
 
 def prepare_mwoz_21(
-    data_folder: str,
-    save_folder: str,
-    replacements_path: str,
-    skip_prep=False,
+    data_folder: str, save_folder: str, replacements_path: str, skip_prep=False,
 ) -> None:
-    
+
     """
     This class prepares the json files for the MultiWOZ dataset.
     Download link: https://github.com/budzianowski/multiwoz/tree/master/data
@@ -52,24 +49,24 @@ def prepare_mwoz_21(
 
     Example
     -------
-    >>> data_folder = 'datasets/MultiWOZ'
+    >>> data_folder = 'data/MultiWOZ_2.1'
     >>> save_folder = 'MultiWOZ_prepared'
-    >>> prepare_mwoz_21(data_folder, save_folder)
+    >>> replacements_path = 'recipes/MultiWOZ/GPT/mapping.pair'
+    >>> prepare_mwoz_21(data_folder, save_folder, replacements_path)
     """
-
 
     if skip_prep:
         return
-    
+
     # Saving folder
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-    
+
     # Setting ouput files
     save_train = save_folder + "/train.json"
     save_dev = save_folder + "/dev.json"
     save_test = save_folder + "/test.json"
-    
+
     # If csv already exists, we skip the data preparation
     if skip(save_train, save_dev, save_test):
 
@@ -91,17 +88,13 @@ def prepare_mwoz_21(
     train_split, dev_split, test_split = get_splits(data_folder)
     # Creating json files for {train, dev, test} data
     file_pairs = zip(
-        [train_split, dev_split, test_split],
-        [save_train, save_dev, save_test],
+        [train_split, dev_split, test_split], [save_train, save_dev, save_test],
     )
 
     for split, save_file in file_pairs:
         build_dialogue_dataset(
-            data_path,
-            split,
-            save_file,
-            replacements_path,)
-
+            data_path, split, save_file, replacements_path,
+        )
 
 
 def check_multiwoz_folders(data_folder):
@@ -118,12 +111,13 @@ def check_multiwoz_folders(data_folder):
     """
     files_str = "/data.json"
     # Checking clips
-    if not os.path.exists(data_folder +files_str):
+    if not os.path.exists(data_folder + files_str):
         err_msg = (
             "the folder %s does not exist (it is expected in "
             "the MultiWOZ dataset)" % (data_folder + files_str)
         )
         raise FileNotFoundError(err_msg)
+
 
 def download_mwoz_21(destination):
     """Download dataset repo, unpack it, and remove unnecessary elements.
@@ -149,6 +143,7 @@ def download_mwoz_21(destination):
 
     shutil.rmtree(mwoz_21_repo)
 
+
 def skip(save_train, save_dev, save_test):
     """
     Detects if the MultiWOZ data preparation has been already done.
@@ -172,8 +167,11 @@ def skip(save_train, save_dev, save_test):
 
     return skip
 
+
 def get_splits(dataset_folder) -> Tuple[List[str], List[str], List[str]]:
-    mwoz_21_dialouges = get_json_object(os.path.join(dataset_folder, "data.json"))
+    mwoz_21_dialouges = get_json_object(
+        os.path.join(dataset_folder, "data.json")
+    )
     dialougues_keys: Set[str] = set(mwoz_21_dialouges.keys())
     tr_split: List[str] = []
     with open(os.path.join(dataset_folder, "valListFile.txt")) as f:
@@ -186,6 +184,7 @@ def get_splits(dataset_folder) -> Tuple[List[str], List[str], List[str]]:
             tr_split.append(key)
 
     return tr_split, dev_split, te_split
+
 
 def build_dialogue_dataset(
     data_path: str,
@@ -216,17 +215,15 @@ def build_dialogue_dataset(
     """
     logger.info(f"Prepare {save_file}")
     encode_dialogue_dataset(
-        save_file,
-        data_path,
-        data_split,
-        replacements_path,
+        save_file, data_path, data_split, replacements_path,
     )
+
 
 def encode_dialogue_dataset(
     save_file: str,
     data_path: str,
     data_split: List[str],
-    replacements_path: str ,
+    replacements_path: str,
 ) -> None:
     """
     Wrapper function that loads processed data stored at
@@ -256,6 +253,7 @@ def encode_dialogue_dataset(
     logger.info(f"Save dataset in {save_file}")
     save_dialogue_dataset(dataset, save_file)
 
+
 def get_replacements(
     replacements_path: str = "trade/utils/mapping.pair",
 ) -> List[Tuple[str, str]]:
@@ -279,10 +277,9 @@ def get_replacements(
             replacements.append((" " + tok_from + " ", " " + tok_to + " "))
     return replacements
 
+
 def load_dialogues(
-    data_path: str,
-    data_split: List[str],
-    replacements: List[Tuple[str, str]],
+    data_path: str, data_split: List[str], replacements: List[Tuple[str, str]],
 ) -> List[List[Dict[str, Any]]]:
     """
     Load dialogues from data_path, apply trade pre-processing, revert the
@@ -334,6 +331,7 @@ def load_dialogues(
         dialogues.append(dial)
     return dialogues
 
+
 def normalize(text, replacements):
     # lower case every word
     text = text.lower()
@@ -350,12 +348,12 @@ def normalize(text, replacements):
 
     # replace st.
     text = text.replace(";", ",")
-    text = re.sub("$\/", "", text)
+    text = re.sub(r"$\/", "", text)
     text = text.replace("/", " and ")
 
     # replace other special characters
     text = text.replace("-", " ")
-    text = re.sub('["\<>@\(\)]', "", text)  # remove
+    text = re.sub(r'["\<>@\(\)]', "", text)  # remove
 
     # insert white space before and after tokens:
     for token in ["?", ".", ",", "!"]:
@@ -366,9 +364,9 @@ def normalize(text, replacements):
 
     # replace it's, does't, you'd ... etc
     text = re.sub("^'", "", text)
-    text = re.sub("'$", "", text)
-    text = re.sub("'\s", " ", text)
-    text = re.sub("\s'", " ", text)
+    text = re.sub(r"'$", "", text)
+    text = re.sub(r"'\s", " ", text)
+    text = re.sub(r"\s'", " ", text)
     for fromx, tox in replacements:
         text = " " + text + " "
         text = text.replace(fromx, tox)[1:-1]
@@ -380,13 +378,14 @@ def normalize(text, replacements):
     tokens = text.split()
     i = 1
     while i < len(tokens):
-        if re.match("^\d+$", tokens[i]) and re.match("\d+$", tokens[i - 1]):
+        if re.match(r"^\d+$", tokens[i]) and re.match(r"\d+$", tokens[i - 1]):
             tokens[i - 1] += tokens[i]
             del tokens[i]
         else:
             i += 1
     text = " ".join(tokens)
     return text
+
 
 def insertSpace(token, text):
     sidx = 0
@@ -409,8 +408,15 @@ def insertSpace(token, text):
         sidx += 1
     return text
 
-TOKEN_EXCEPTIONS = {"childs": "children", "businesss": "businesses", "inchs": "inches"}
+
+TOKEN_EXCEPTIONS = {
+    "childs": "children",
+    "businesss": "businesses",
+    "inchs": "inches",
+}
 PATTERN_EXCEPTIONS = {"breakfasts": "b&bs"}
+
+
 def invert_trade_subtokenization(
     original_seq: str,
     trade_seq: str,
@@ -521,6 +527,7 @@ def invert_trade_subtokenization(
     # Good, no subtokens found: return trade seq
     return trade_seq
 
+
 def get_json_object(data_path: str) -> dict:
     """
     A function to read a json object and return the python
@@ -540,6 +547,7 @@ def get_json_object(data_path: str) -> dict:
         data = json.load(data_file)
 
     return data
+
 
 def create_dialogue_dataset(
     dialogues: List[List[Dict[str, Any]]]
@@ -620,6 +628,7 @@ def create_dialogue_dataset(
                 dataset[key] = dataset_entry
     return dataset
 
+
 def create_entry_key(turn: Dict[str, Any]) -> str:
     """
     Creates the entry key for a given entry by considering dialogue id
@@ -642,6 +651,7 @@ def create_entry_key(turn: Dict[str, Any]) -> str:
     turn_idx = turn["turn_idx"]
     return f"{dialogue_idx}_{turn_idx}"
 
+
 def save_dialogue_dataset(
     dataset: Dict[str, Dict[str, Any]], save_file: str
 ) -> None:
@@ -658,10 +668,3 @@ def save_dialogue_dataset(
     """
     with open(save_file, "w") as f:
         json.dump(dataset, f, indent=4)
-
-
-
-
-
-
-
