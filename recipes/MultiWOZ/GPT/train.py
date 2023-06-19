@@ -1,10 +1,10 @@
-import os
 import sys
 import speechbrain as sb
 import torch
 from itertools import chain
 from hyperpyyaml import load_hyperpyyaml
-
+from speechbrain.utils.distributed import run_on_main
+from multiwoz_prepare import prepare_mwoz_21
 from transformers import GPT2Tokenizer
 
 
@@ -278,6 +278,16 @@ if __name__ == "__main__":
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
+    )
+
+    run_on_main(
+        prepare_mwoz_21,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
+            "replacements_path": hparams["replacements_path"],
+            "skip_prep": hparams["skip_prep"],
+        },
     )
 
 
