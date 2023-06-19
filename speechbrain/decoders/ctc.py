@@ -15,6 +15,11 @@ import numpy as np
 import heapq 
 import logging 
 logger = logging.getLogger(__name__)
+import copy
+from collections.abc import MutableMapping
+from dataclasses import dataclass
+from operator import itemgetter
+from typing import Tuple
 
 from typing import (
     Dict,
@@ -371,7 +376,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
         batch_outputs.append(out)
     return batch_outputs
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Beam:
     """Contains all the info needed for decoding a beam."""
 
@@ -380,28 +385,83 @@ class Beam:
     partial_word: str
     last_token: Optional[str]
     last_idx_token: Optional[int]
-    logit_score: float
-        
-    def __repr__(self):
-        return f"Beam(text={self.text}, next_word={self.next_word}, partial_word={self.partial_word}, last_token={self.last_token},last_idx_token={self.last_idx_token}, logit_score={self.logit_score})"
-    
-    @classmethod
-    def from_lm_beam(cls, lm_beam):
-        return Beam(
-            text=lm_beam.text,
-            next_word=lm_beam.next_word,
-            partial_word=lm_beam.partial_word,
-            last_token=lm_beam.last_token,
-            last_idx_token=lm_beam.last_idx_token,
-            logit_score=lm_beam.logit_score,
-        )
 
-@dataclasses.dataclass(frozen=True)
+    p : float = - math.inf
+    p_b : float = - math.inf
+    p_nb : float = - math.inf
+
+    n_p_b: float = - math.inf
+    n_p_nb : float = - math.inf
+
+    score : float = - math.inf
+    score_lm : float = 0.0
+    score_ctc : float = - math.inf
+
+    def step(self):
+        self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
+        self.n_p_b = self.n_p_nb = - math.inf
+        self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
+        self.score = self.score_ctc + self.score_lm
+
+class Beams(MutableMapping):
+    def __init__(self):
+        self.beams = {(): Beam("", "", "", None, None)}
+        self.beams[()].p_b = 0.0
+        self.beams[()].score_ctc = 0.0
+
+    def __getitem__(self, key):
+        return self.getitem(key)
+    
+    def getitem(self, key, p=None, previous_beam=None):
+        if key in self.beams:
+            beam = self.beams[key]
+            if p and p > beam.p:
+                beam.p = p
+            return beam
+
+        new_beam = Beam("", "", "", None, None)
+        if previous_beam:
+            new_beam.p = p
+        self.beams[key] = new_beam
+        return new_beam
+
+    def __setitem__(self, key, value):
+        self.beams[key] = value
+
+    def __delitem__(self, key):
+        del self.beams[key]
+
+    def __len__(self):
+        return len(self.beams)
+
+    def __iter__(self):
+        return iter(self.beams)
+
+    def step(self):
+
+        for beam in self.beams.values():
+            beam.step()
+
+    def topk_(self, k):
+        """ Keep only the top k prefixes """
+        if len(self.beams) <= k:
+            return self
+
+        beams = list(self.beams.items())
+        indexes = np.argpartition([-v.score for k, v in beams], k)[:k].tolist()
+
+        self.beams = {k: v for k, v in itemgetter(*indexes)(beams)}
+
+        return self
+
+    def sort(self):
+        return sorted(self.beams.items(), key=lambda x: x[1].score, reverse=True)
+
 class LMBeam(Beam):
     lm_score: float
 
     def __repr__(self):
-        return f"LMBeam(text={self.text}, next_word={self.next_word}, partial_word={self.partial_word}, last_token={self.last_token}, last_idx_token={self.last_idx_token}, logit_score={self.logit_score}, lm_score={self.lm_score})"
+        return f"LMBeam(text={self.text}, next_word={self.next_word}, partial_word={self.partial_word}, last_token={self.last_token}, last_idx_token={self.last_idx_token}, logit_score={self.logit_score}, lm_score={self.lm_score}, p_blank={self.p_blank}, p_non_blank={self.p_non_blank})"
 
 def _sort_and_trim_beams(beams: List[LMBeam], beam_width: int) -> List[LMBeam]:
     """Take top N beams by score."""
@@ -538,88 +598,16 @@ class BeamSearchDecoderCTC:
 
         if not self.is_spm and space_id == -1:
             raise ValueError("Space id must be set")
-
-    def _get_lm_beams(
-        self,
-        beams: list,
-        cached_lm_scores,
-        cached_partial_token_scores: Dict[str, float],
-        is_eos: bool = False,
-    ):
-        if self.lm is None:
-            new_beams = []
-            
-            
-            for beam in beams:
-                new_text = _merge_tokens(beam.text, beam.next_word)
-
-                new_beams.append(
-                    LMBeam(
-                        text=new_text,
-                        next_word="",
-                        partial_word=beam.partial_word,
-                        last_token=beam.last_token,
-                        last_idx_token=beam.last_idx_token,
-                        logit_score=beam.logit_score,
-                        lm_score=beam.logit_score,
-                    )
-                )
-            return new_beams
-        else:
-            new_beams = []
-            for beam in beams:
-                # fast token merge
-                new_text = _merge_tokens(beam.text, beam.next_word)
-                cache_key = (new_text, is_eos)
-                if cache_key not in cached_lm_scores:
-                    prev_raw_lm_score, start_state = cached_lm_scores[(beam.text, False)]
-                    score, end_state = self.lm.score(
-                        start_state, beam.next_word, is_last_word=is_eos
-                    )
-                    raw_lm_score = prev_raw_lm_score + score
-                    cached_lm_scores[cache_key] = (raw_lm_score, end_state)
-                lm_score, _ = cached_lm_scores[cache_key]
-                word_part = beam.partial_word
-                if len(word_part) > 0:
-                    if word_part not in cached_partial_token_scores:
         
-                        cached_partial_token_scores[word_part] = self.lm.score_partial_token(
-                            word_part
-                        )
-                    lm_score += cached_partial_token_scores[word_part]
+        self.NUM_FLT_INF = math.inf
 
-                new_beams.append(
-                    LMBeam(
-                        text=new_text,
-                        next_word="",
-                        partial_word=word_part,
-                        last_token=beam.last_token,
-                        last_idx_token=beam.last_idx_token,
-                        logit_score=beam.logit_score,
-                        lm_score=beam.logit_score + lm_score,
-                    )
-                )
-
-            return new_beams
-        
     def _decode_logits(
             self, 
             logits: torch.Tensor,
             lm_start_state = None,
         ):
-        language_model = self.lm
-        if language_model is None:
-            cached_lm_scores = {}
-        else:
-            if lm_start_state is None:
-                start_state = language_model.get_start_state()
-            else:
-                start_state = lm_start_state
-            cached_lm_scores = {("", False): (0.0, start_state)}
-        cached_p_lm_scores: Dict[str, float] = {}
 
-        # Initialize beams
-        beams = [Beam("", "", "", None, None, 0.0)]
+        beams = Beams()
 
         # blank skip threshold
         if self.prune_frames:
@@ -628,109 +616,63 @@ class BeamSearchDecoderCTC:
             valid_frames = range(logits.shape[0])
 
         for frame_idx in valid_frames:
-            logit = logits[frame_idx]
+            log_probs = logits[frame_idx]
+            
+            # pruning step 
+            max_idx = log_probs.argmax()
+            
+            log_prob_idx = set(np.where(log_probs >= math.log(0.50))[0]) | {max_idx}
+            
+            curr_beams = list(beams.sort())
+            full_beam = False 
+            min_cutoff = -self.NUM_FLT_INF
+            num_prefixes = len(curr_beams)
+            
+            for token_index in log_prob_idx:
+                c = self.vocab[token_index]
+                p = log_probs[token_index]
 
-            max_idx = logit.argmax()
-            idx_list = set(np.where(logit >= self.prune_vocab)[0]) | {max_idx}
-            new_beams = []
-     
-
-            for idx_token in idx_list:
-                p_token = logit[idx_token]
-                token = self.vocab[idx_token]
-                for beam in beams:
-                    if idx_token == self.blank_id or beam.last_token == token:
-                        new_beams.append(
-                            Beam(
-                                text=beam.text,
-                                next_word=beam.next_word,
-                                partial_word=beam.partial_word,
-                                last_token=token,
-                                last_idx_token=idx_token,
-                                logit_score=beam.logit_score + p_token,
-                            )
-                        )
-                    elif self.is_spm and token[:1] == self.spm_token:
+                for prefix, beam in curr_beams:
+                    p_b, p_nb = beam.p_b, beam.p_nb
+                    
+                    if full_beam and p + beam.score_ctc < min_cutoff:
+                        break
                         
-                        clean_token = token[1:]
-                        new_beams.append(
-                            Beam(
-                                text=beam.text,
-                                next_word=beam.partial_word,
-                                partial_word=clean_token,
-                                last_token=token,
-                                last_idx_token=idx_token,
-                                logit_score=beam.logit_score + p_token,
-                            )
-                        )
+                    # blank case
+                    if token_index == self.blank_id:
+                        beam.n_p_b = np.logaddexp(beam.n_p_b, beam.score_ctc + p)
+                        continue
 
-                    elif not self.is_spm and idx_token == self.space_id:
-                        new_beams.append(
-                            Beam(
-                                text=beam.text,
-                                next_word=beam.partial_word,
-                                partial_word="",
-                                last_token=token,
-                                last_idx_token=idx_token,
-                                logit_score=beam.logit_score + p_token,
-                            )
-                        )
-                    else:
-                        new_beams.append(
-                            Beam(
-                                text=beam.text,
-                                next_word=beam.next_word ,
-                                partial_word=beam.partial_word + token,
-                                last_token=token,
-                                last_idx_token=idx_token,
-                                logit_score=beam.logit_score + p_token,
-                            )
-                        )
-            
-            new_beams = _merge_beams(new_beams)
-            
-            # scorer here
-            scored_beams = self._get_lm_beams(
-                new_beams,
-                cached_lm_scores,
-                cached_p_lm_scores,
-            )
-            # remove beam outliers
-            max_score = max([b.lm_score for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.prune_beams]
-           
-            trimmed_beams = _sort_and_trim_beams(scored_beams, self.beam_size)
+                    last_token_index = prefix[-1] if prefix else None
+                  
+                    # repeated token
+                    if token_index == last_token_index:
+                        beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p)
 
-            if self.prune_history:
-                lm_order = 1 if self.lm is None else self.lm.order
-                beams = _prune_history(trimmed_beams, lm_order)
-            else:
-                beams = [Beam.from_lm_beam(b) for b in trimmed_beams]
+                    n_prefix = prefix + (token_index, )
+                    # Must update state for prefix search
+                    n_beam = beams.getitem(n_prefix, p=p, previous_beam=beam)
 
-        new_beams = []
-        for beam in beams:
-            # we need to merge the last partial word
-            new_beams.append(
-                Beam(
-                    text=beam.text,
-                    next_word=beam.partial_word,
-                    partial_word="",
-                    last_token=None,
-                    last_idx_token=None,
-                    logit_score=beam.logit_score,
-                )
-            )
+                    n_p_nb = n_beam.n_p_nb
 
-        new_beams = _merge_beams(new_beams)
-        scored_beams = self._get_lm_beams(
-            new_beams,
-            cached_lm_scores,
-            cached_p_lm_scores,
-            is_eos=True,
-        )
+                    if token_index == last_token_index and p_b > -self.NUM_FLT_INF:
+                        # We don't include the previous probability of not ending in blank (p_nb)
+                        # if s is repeated at the end. The CTC algorithm merges characters not
+                        # separated by a blank.
+                        n_p_nb = np.logaddexp(n_p_nb, p_b + p)
+                    elif token_index != last_token_index:
+                        n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p)
+                    n_beam.n_p_nb = n_p_nb
 
-        beams = _sort_and_trim_beams(scored_beams, self.beam_size)
-        return beams
+            # Update the probabilities
+            beams.step()
+            # Trim the beam before moving on to the next time-step.
+            beams.topk_(self.beam_size)
+
+        for p, beam in beams.sort():
+            for token in p:
+                beam.text += self.vocab[token]
+            return beam.text
 
     def __call__(self, logits):
         return self._decode_logits(logits)   

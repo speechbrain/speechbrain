@@ -95,21 +95,6 @@ class ASR(sb.core.Brain):
             and current_epoch % self.hparams.valid_search_every == 0
         )
         is_test_search = stage == sb.Stage.TEST
-
-        if any([is_valid_search, is_test_search]):
-            # Note: For valid_search, for the sake of efficiency, we only perform beamsearch with
-            # limited capacity and no LM to give user some idea of how the AM is doing
-
-            # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
-
         return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
@@ -150,11 +135,22 @@ class ASR(sb.core.Brain):
             if current_epoch % valid_search_every == 0 or (
                 stage == sb.Stage.TEST
             ):
+                beam_search_result = decoder(p_ctc.detach().cpu())
+
+                predicted_tokens = [r[0].tokens.tolist() for r in beam_search_result] # [1:-1]
+              
                 # Decode token terms to words
                 predicted_words = [
-                    tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
+                    tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in predicted_tokens
                 ]
-                target_words = [wrd.split(" ") for wrd in batch.wrd]
+
+                # filter wrd with len > 0
+                predicted_words = [
+                    [w for w in utt if len(w) > 0] for utt in predicted_words
+                ]  
+
+                target_words = [wrd.split(" ") for wrd in batch.wrd]                       
+
                 self.wer_metric.append(ids, predicted_words, target_words)
 
             # compute the accuracy of the one-step-forward prediction
@@ -485,6 +481,38 @@ if __name__ == "__main__":
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
+    from speechbrain.decoders import BeamSearchDecoderCTC
+    labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
+
+    ctc_beam_search = BeamSearchDecoderCTC(
+        blank_id=0,
+        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        beam_size=100,
+        prune_frames=False,
+        vocab=labels,
+        # space_id=29,
+        prune_history=True,
+    )
+
+    from torchaudio.models.decoder import download_pretrained_files
+    
+    files = download_pretrained_files("librispeech-4-gram")
+
+    from torchaudio.models.decoder import ctc_decoder
+    
+    labels = [label for label in labels]
+    
+    decoder = ctc_decoder(
+        lexicon=None,
+        tokens=labels,
+        #lm=files.lm,
+        beam_size=100,
+        blank_token=labels[hparams["blank_index"]],
+        sil_token=labels[hparams["blank_index"]],
+        beam_size_token=5,
+        # lm_weight=3.23,
+    )   
+    
     if train_bsampler is not None:
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
@@ -494,6 +522,7 @@ if __name__ == "__main__":
     if valid_bsampler is not None:
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
+    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -502,6 +531,7 @@ if __name__ == "__main__":
         train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=valid_dataloader_opts,
     )
+    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc

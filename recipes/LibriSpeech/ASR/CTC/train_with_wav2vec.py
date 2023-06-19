@@ -26,7 +26,7 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-
+from speechbrain.decoders.ctc import filter_ctc_output
 logger = logging.getLogger(__name__)
 
 
@@ -86,11 +86,37 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
             predicted_words = []
-            for logs in p_ctc:
-                text = ctc_beam_search(logs.detach().cpu().numpy())[0].text
-                predicted_words.append(text.split(" "))
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
 
+            """
+            predicted_tokens = sb.decoders.ctc_greedy_decode(
+                p_ctc, wav_lens, self.hparams.blank_index
+            )
+            """
+
+
+            for logs in p_ctc:
+                text = ctc_beam_search_V1(logs.detach().cpu().numpy())[0].text
+                predicted_words.append(text.split(" "))
+
+            """
+            beam_search_result = decoder(p_ctc.detach().cpu())
+
+            predicted_tokens = [r[0].tokens for r in beam_search_result] # [1:-1]
+            
+            # print(predicted_tokens)
+            predicted_words = [
+                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
+                for utt_seq in predicted_tokens
+            ]   
+            """
+
+            # filter wrd with len > 0
+            predicted_words = [
+                [w for w in utt if len(w) > 0] for utt in predicted_words
+            ]
+
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
+   
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -366,13 +392,26 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
+    from speechbrain.decoders import BeamSearchDecoderCTCV1
+    ind2lab = label_encoder.ind2lab
+    labels = [ind2lab[x] for x in range(len(ind2lab))]
+    ctc_beam_search_V1 = BeamSearchDecoderCTCV1(
+        blank_id=0,
+        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        beam_size=100,
+        prune_frames=False,
+        vocab=labels,
+        space_id=29,
+        prune_history=False,
+    )
+
     from speechbrain.decoders import BeamSearchDecoderCTC
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
 
     ctc_beam_search = BeamSearchDecoderCTC(
         blank_id=0,
-        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
         beam_size=100,
         prune_frames=False,
         vocab=labels,
@@ -380,7 +419,23 @@ if __name__ == "__main__":
         prune_history=True,
     )
 
+    from torchaudio.models.decoder import download_pretrained_files
 
+    files = download_pretrained_files("librispeech-4-gram")
+
+    from torchaudio.models.decoder import ctc_decoder
+
+    labels = [label.lower() for label in labels]
+    decoder = ctc_decoder(
+        lexicon=None,
+        # lm="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/3-gram.arpa",
+        tokens=labels,
+        beam_size=1,
+        blank_token=labels[hparams["blank_index"]],
+        sil_token=labels[hparams["blank_index"]],
+        # beam_size_token=1,
+    )   
+    
     """
     # Training
     asr_brain.fit(
