@@ -1,16 +1,29 @@
+#!/usr/bin/env python3
+"""Recipe for training a gpt_based response generation model  with MultiWOZ.
+The system employs GPT2 (https://life-extension.github.io/2020/05/27/GPT%E6%8A%80%E6%9C%AF%E5%88%9D%E6%8E%A2/language-models.pdf).
+This recipe take the GPT2LMHeadModel to fine-tune for response generation task on the NLL.
+
+To run this recipe, do the following:
+> python train.py hparams/train_with_gpt.yaml
+
+Authors
+ * Pooneh Mousavi 2023 
+ * Simone Alghisi 2023
+"""
+
+
 import sys
 import speechbrain as sb
 import torch
 from itertools import chain
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from multiwoz_prepare import prepare_mwoz_21
 from transformers import GPT2Tokenizer
 
 
 class ResGenBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + emotion classifier.
+        """Computation pipeline based on a gpt decoder.
         """
         # Get required data from batch
         batch = batch.to(self.device)
@@ -29,14 +42,10 @@ class ResGenBrain(sb.Brain):
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
+        """Computes the NLL-loss using reply as label.
         """
         # Get required data from batch
         lm_labels, labels_lens = batch.lm_labels
-
-        # Calculate Loss function
-        # predictions_flatten = predictions.contiguous().view(-1, predictions.size(-1))
-        # lm_labels_flatten = lm_labels.contiguous().view(-1)
 
         loss = self.hparams.compute_cost(predictions, lm_labels, labels_lens)
 
@@ -77,8 +86,6 @@ class ResGenBrain(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         elif stage == sb.Stage.VALID:
-            
-
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -134,7 +141,7 @@ def dataio_prep(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined
     functions. We expect `prepare_mini_librispeech` to have been called before
-    this, so that the `train.json`, `valid.json`,  and `valid.json` manifest
+    this, so that the `train.json`, `dev.json`,  and `test.json` manifest
     files are available.
     Arguments
     ---------
@@ -280,6 +287,8 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Dataset prep (parsing MultiWOZ)
+    from multiwoz_prepare import prepare_mwoz_21
     run_on_main(
         prepare_mwoz_21,
         kwargs={

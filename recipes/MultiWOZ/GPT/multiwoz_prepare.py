@@ -12,12 +12,13 @@ from speechbrain.utils.data_utils import download_file
 """
 Data preparation.
 Download: https://github.com/budzianowski/multiwoz/tree/master/data
-Author
-------
-Pooneh Mousavi 2023
 
 The original one can be found at:
 https://github.com/jasonwu0731/trade-dst/blob/master/create_data.py
+Author
+------
+ * Pooneh Mousavi 2023
+ * Simone Alghisi 2023
 """
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,30 @@ def prepare_mwoz_21(
     replacements_path: str,
     skip_prep=False,
 ) -> None:
+    
+    """
+    This class prepares the json files for the MultiWOZ dataset.
+    Download link: https://github.com/budzianowski/multiwoz/tree/master/data
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original MultiWOZ dataset is stored.
+    save_folder : str
+        The directory where to store the json files.
+    replacements_path: str
+        File containing (from, to) pairs, one per line for preprocesing the text.
+    skip_prep: bool
+        If True, data preparation is skipped.
+
+
+    Example
+    -------
+    >>> data_folder = 'datasets/MultiWOZ'
+    >>> save_folder = 'MultiWOZ_prepared'
+    >>> prepare_mwoz_21(data_folder, save_folder)
+    """
+
 
     if skip_prep:
         return
@@ -59,7 +84,7 @@ def prepare_mwoz_21(
 
         return
 
-    # Additional checks to make sure the data folder contains Common Voice
+    # Additional checks to make sure the data folder containsMultiWOZ
     check_multiwoz_folders(data_folder)
 
     data_path = os.path.join(data_folder, "data.json")
@@ -81,7 +106,7 @@ def prepare_mwoz_21(
 
 def check_multiwoz_folders(data_folder):
     """
-    Check if the data folder actually contains the Common Voice dataset.
+    Check if the data folder actually contains the MultiWOZ dataset.
     If not, raises an error.
     Returns
     -------
@@ -89,7 +114,7 @@ def check_multiwoz_folders(data_folder):
     Raises
     ------
     FileNotFoundError
-        If data folder doesn't contain Common Voice dataset.
+        If data folder doesn't contain MultiWOZ dataset.
     """
     files_str = "/data.json"
     # Checking clips
@@ -174,14 +199,14 @@ def build_dialogue_dataset(
     Arguments
     ---------
     data_path: str
-        Path to the data pre-processed by trade.
+     Path to the folder where the original MultiWOZ dataset is stored.
     data_split: list of str
         List of string containing MultiWOZ 2.1 keys of the dialogues
         associated to a certain split (train, dev, test).
     save_file: str
-        Name of the file where the dataset will be saved..
+        Path of the file where the dataset will be saved.
     replacements_path: str
-        Path to TRADE file containing (from, to) pairs, one per line.
+        Path to file containing (from, to) pairs, one per line.
 
     Returns
     -------
@@ -211,14 +236,14 @@ def encode_dialogue_dataset(
     Arguments
     ---------
     save_file: str
-        Name of the file where the dataset will be saved.
+        Path of the file where the dataset will be saved..
     data_path: str
-        Path to the data pre-processed by trade.
+        Path to the folder where the original MultiWOZ dataset is stored.
     data_split: list of str
         List of string containing MultiWOZ 2.1 keys of the dialogues
         associated to a certain split (train, dev, test).
     replacements_path: str
-        Path to TRADE file containing (from, to) pairs, one per line.
+        Path to  file containing (from, to) pairs, one per line.
     """
 
     replacements = get_replacements(replacements_path)
@@ -629,7 +654,7 @@ def save_dialogue_dataset(
         Dataset, keys are str, values are dictionaries containing the
         dialogue history, the system reply, and the mean length.
     save_file: str
-        Name of the file where the dataset will be saved.
+        Path to the folder where the original MultiWOZ dataset is stored.
     """
     with open(save_file, "w") as f:
         json.dump(dataset, f, indent=4)

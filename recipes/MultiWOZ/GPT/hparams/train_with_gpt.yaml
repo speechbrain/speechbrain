@@ -1,9 +1,15 @@
+# ################################
+# Model: GPT2LMHeadModel +  NLL
+# Authors:
+    # Pooneh Mousavi 2023
+    # Simone Alghisi 2023
+# ################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1993
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset will be downloaded to the `data_original`
-data_folder: data/MultiWOZ_2.1
+data_folder: !PLACEHOLDER
 output_folder: !ref results/train_with_gpt2/<seed>
 replacements_path: recipes/MultiWOZ/GPT/mapping.pair
 save_folder: !ref <output_folder>/save
@@ -48,23 +54,25 @@ attr_to_special_tokens:
     "eos_token": !ref <eos_token>
     "additional_special_tokens": !ref <additional_special_tokens>
 
+# history_window, i.e. how many user-system exchanges consider as context.
+max_history: 2
+# Whether to append <end_of_entence> token.
+with_eos: True
+
+
 # Training parameters
 number_of_epochs: 2
 batch_size: 8
 lr: 1.97125e-4
-max_history: 2
-with_eos: True
 
 #freeze GPT model 
 freeze_gptmodel: False
 
-# Model parameters
-# [TODO] if any
 
 dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: True
-    num_workers: 2  # 2 on linux but 0 works on windows
+    num_workers: 2  
     drop_last: False
 
 # gpt model

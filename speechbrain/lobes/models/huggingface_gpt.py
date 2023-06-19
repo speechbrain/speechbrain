@@ -1,8 +1,25 @@
-import logging
+"""This lobe enables the integration of huggingface pretrained GPT2LMHeadModel model.
 
+Transformer from HuggingFace needs to be installed:
+https://huggingface.co/transformers/installation.html
+
+Authors
+ * Pooneh Mousavi 2023
+ * Simone Alghisi 2023
+"""
+
+import logging
 from torch import Tensor
 import torch
 import torch.nn as nn
+try:
+    from transformers import GPT2LMHeadModel
+except ImportError:
+    MSG = "Please install transformers from HuggingFace to use GPT2\n"
+    MSG += "E.G. run: pip install transformers"
+    raise ImportError(MSG)
+
+
 from transformers import GPT2LMHeadModel
 
 logger = logging.getLogger(__name__)
@@ -10,7 +27,15 @@ logger = logging.getLogger(__name__)
 
 class HuggingFaceGPT(nn.Module):
     """This lobe enables the integration of HuggingFace pretrained GPT model.
-      Arguments
+     Source paper whisper:
+        https://life-extension.github.io/2020/05/27/GPT%E6%8A%80%E6%9C%AF%E5%88%9D%E6%8E%A2/language-models.pdf
+    Transformer from HuggingFace needs to be installed:
+        https://huggingface.co/transformers/installation.html
+
+    The model can be finetuned. It will download automatically the model from
+    HuggingFace or use a local path.
+
+    Arguments
     ---------
     source : str
         HuggingFace hub name: e.g "gpt2"
@@ -35,14 +60,14 @@ class HuggingFaceGPT(nn.Module):
 
 
     def forward(self, input_ids: Tensor, token_type_ids: Tensor):
-        """ Takes an input  and return its corresponding reply.
+        """ Takes an input a history of conversation and return its corresponding reply.
 
         Arguments
         ---------
         input_ids : torch.Tensor ()
             A batch of input-id to transform to features.
         token_type_ids : torch.Tensor
-            This is necessary if we want to use the decoder.
+            Token Type(Speaker) for each token in input_ids.
         """
         
         with torch.set_grad_enabled(not self.freeze):
