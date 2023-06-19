@@ -32,11 +32,12 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
+test_splits: ["dev-clean", "test-clean", "test-other"]
 skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
+    - !ref <output_folder>/dev-clean.csv
     - !ref <output_folder>/test-clean.csv
     - !ref <output_folder>/test-other.csv
 
@@ -45,7 +46,7 @@ test_csv:
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 110
+number_of_epochs: 120
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 1
@@ -61,13 +62,14 @@ lr_adam: 0.001
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 400
+n_fft: 512
 n_mels: 80
+win_length: 32
 
-# This setup works well for V100 32GB GPU, adapts it to your needs.
+# This setup works well for V100 16GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 900
+max_batch_len: 500
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -184,7 +186,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # define two optimizers here for two-stage training
-Adam: !name:torch.optim.Adam
+Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
@@ -269,6 +271,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+    win_length: !ref <win_length>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
