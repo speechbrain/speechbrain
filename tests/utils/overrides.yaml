@@ -1,0 +1,29 @@
+LibriSpeech_data: !PLACEHOLDER
+CommonVoice_EN_data: !PLACEHOLDER
+CommonVoice_FR_data: !PLACEHOLDER
+IEMOCAP_data: !PLACEHOLDER
+
+new_interfaces_git: https://github.com/speechbrain/speechbrain
+new_interfaces_branch: hf-interface-testing
+new_interfaces_local_dir: tests/tmp/hf_interfaces
+
+# Filter HF repos (will be used in a local glob dir crawling)
+# glob_filter: "*wav2vec2*"
+# glob_filter: "*libri*"
+glob_filter: "*"
+
+# put False to test 'before' only, e.g. via override
+after: True
+
+LibriSpeech:
+  data_folder: !ref <LibriSpeech_data>
+  skip_prep: True
+
+CommonVoice_EN:
+  data_folder: !ref <CommonVoice_EN_data>
+
+CommonVoice_FR:
+  data_folder: !ref <CommonVoice_FR_data>
+
+IEMOCAP:
+  data_folder: !ref <IEMOCAP_data>

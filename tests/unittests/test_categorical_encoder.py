@@ -5,6 +5,7 @@ def test_categorical_encoder(device):
     from speechbrain.dataio.encoder import CategoricalEncoder
 
     encoder = CategoricalEncoder()
+    encoder.expect_len(4)
     encoder.update_from_iterable("abcd")
     integers = encoder.encode_sequence("dcba")
     assert all(isinstance(i, int) for i in integers)
@@ -23,6 +24,7 @@ def test_categorical_encoder(device):
     import torch
 
     encoder = CategoricalEncoder()
+    encoder.expect_len(4)
     encoder.update_from_iterable("abcd")
     result = encoder.decode_torch(
         torch.tensor([[0, 0], [1, 1], [2, 2], [3, 3]], device=device)
@@ -42,11 +44,13 @@ def test_categorical_encoder(device):
     assert result == [["a", "a"], ["b"], ["c", "c", "c"], []]
 
     encoder = CategoricalEncoder()
+    encoder.expect_len(3)
     encoder.limited_labelset_from_iterable("aabbbcccd", n_most_common=3)
     encoder.encode_sequence("abc")
     with pytest.raises(KeyError):
         encoder.encode_label("d")
     encoder = CategoricalEncoder()
+    encoder.expect_len(2)
     encoder.limited_labelset_from_iterable("aabbbcccd", min_count=3)
     encoder.encode_sequence("cbcb")
     with pytest.raises(KeyError):
@@ -54,6 +58,7 @@ def test_categorical_encoder(device):
     with pytest.raises(KeyError):
         encoder.encode_label("d")
     encoder = CategoricalEncoder()
+    encoder.expect_len(2)
     encoder.limited_labelset_from_iterable(
         "aabbbcccd", n_most_common=3, min_count=3
     )
@@ -64,6 +69,7 @@ def test_categorical_encoder(device):
         encoder.encode_label("d")
 
     encoder = CategoricalEncoder(unk_label="<unk>")
+    encoder.expect_len(4)
     encoder.update_from_iterable("abc")
     assert encoder.encode_label("a") == 1
     assert encoder.encode_label("d") == 0
@@ -83,6 +89,7 @@ def test_categorical_encoder_saving(tmpdir):
         assert False  # We should not get here!
     # Now, imagine a recovery:
     encoder = CategoricalEncoder()
+    encoder.expect_len(4)
     # The second time, the encoding is just loaded from file:
     if not encoder.load_if_possible(encoding_file):
         assert False  # We should not get here!
@@ -98,6 +105,7 @@ def test_categorical_encoder_saving(tmpdir):
     encoder.save(encoding_file)
     # Reload
     encoder = CategoricalEncoder()
+    encoder.expect_len(2)
     assert encoder.load_if_possible(encoding_file)
     assert encoder.encode_label((1, 2)) == -1
 
@@ -107,12 +115,14 @@ def test_categorical_encoder_saving(tmpdir):
     encoder.update_from_iterable("abc")
     encoder.save(encoding_file)
     encoder = CategoricalEncoder()
+    encoder.expect_len(4)
     assert encoder.load_if_possible(encoding_file)
     assert encoder.encode_label("a") == 1
     assert encoder.decode_ndim(encoder.encode_label("d")) == "UNKNOWN"
     # Even if set differently:
     encoder = CategoricalEncoder()
     encoder.add_unk()
+    encoder.expect_len(4)
     assert encoder.load_if_possible(encoding_file)
     assert encoder.encode_label("a") == 1
     assert encoder.decode_ndim(encoder.encode_label("d")) == "UNKNOWN"
@@ -140,8 +150,26 @@ def test_categorical_encoder_from_dataset():
     output_keys = ["words_t"]
     dataset = DynamicItemDataset(data, dynamic_items, output_keys)
     encoder.update_from_didataset(dataset, "words", sequence_input=True)
+    encoder.expect_len(7)
     assert dataset[0]["words_t"] == [0, 1]
     assert encoder.decode_ndim(dataset[0]["words_t"]) == ["hello", "world"]
+
+
+def test_categorical_encoder_length_check():
+    from speechbrain.dataio.encoder import CategoricalEncoder
+
+    encoder = CategoricalEncoder()
+    encoder.update_from_iterable("abcd")
+
+    encoder.expect_len(3)
+    with pytest.raises(RuntimeError):
+        encoder.encode_label("a")
+
+    encoder.ignore_len()
+    encoder.encode_label("a")
+
+    encoder.expect_len(4)
+    encoder.encode_label("a")
 
 
 def test_text_encoder(tmpdir):
@@ -154,6 +182,7 @@ def test_text_encoder(tmpdir):
         [["hello", "world"], ["how", "are", "you", "world"]],
         sequence_input=True,
     )
+    encoder.expect_len(7)
     encoded = encoder.encode_sequence(
         encoder.prepend_bos_label(["are", "you", "world"])
     )
@@ -164,6 +193,7 @@ def test_text_encoder(tmpdir):
     assert encoded[-1] == 1  # By default uses just one sentence_boundary marker
     encoder.save(encoding_file)
     encoder = TextEncoder()
+    encoder.expect_len(7)
     assert encoder.load_if_possible(encoding_file)
     encoded = encoder.encode_sequence(
         encoder.append_eos_label(["are", "you", "world"])
@@ -179,6 +209,7 @@ def test_ctc_encoder(tmpdir):
     from speechbrain.dataio.encoder import CTCTextEncoder
 
     encoder = CTCTextEncoder()
+    encoder.expect_len(9)  # "abcdef" + bos + eos + blank
     encoder.insert_bos_eos(
         bos_label="<s>", bos_index=0, eos_label="</s>", eos_index=1
     )
@@ -189,6 +220,7 @@ def test_ctc_encoder(tmpdir):
     assert encoded[0] == 0
     encoder.save(encoding_file)
     encoder = CTCTextEncoder()
+    encoder.expect_len(9)
     assert encoder.load_if_possible(encoding_file)
     assert (
         "".join(encoder.collapse_labels("_bb_aaa___bbbbb_b_eeee_____"))

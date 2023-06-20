@@ -1,0 +1,157 @@
+# ############################################################################
+# Based on:
+#   https://github.com/speechbrain/speechbrain/blob/develop/templates/speech_recognition/ASR/train.yaml
+#   https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/blob/main/hyperparams.yaml
+#   by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 2020
+#
+# Goal: more clarity on when, where & how to use
+#    speechbrain.utils.parameter_transfer.Pretrainer
+#    speechbrain.pretrained.interfaces.Pretrained
+#
+# Authors:  Andreas Nautsch 2023
+# # ############################################################################
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 40
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 2
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
+cnn_kernelsize: (3, 3)
+time_pooling_size: 4
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
+rnn_layers: 4
+rnn_neurons: 1024
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 512
+emb_size: 128
+dec_neurons: 1024
+output_neurons: 1000  # Number of tokens (same as LM)
+blank_index: 0
+bos_index: 0
+eos_index: 0
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+valid_beam_size: 8
+test_beam_size: 16
+eos_threshold: 1.5
+using_max_attn_shift: True
+max_attn_shift: 240
+lm_weight: 0.50
+ctc_weight_decode: 0.0
+coverage_penalty: 1.5
+temperature: 1.25
+temperature_lm: 1.25
+
+# Feature extraction
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+# Feature normalization (mean and std)
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+# The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
+encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    rnn_re_init: True
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+    use_rnnp: False
+
+# Embedding (from indexes to an embedding space of dimension emb_size).
+embedding: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+
+# Attention-based RNN decoder.
+decoder: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: !ref <dnn_neurons>
+    input_size: !ref <emb_size>
+    rnn_type: gru
+    attn_type: location
+    hidden_size: !ref <dec_neurons>
+    attn_dim: 1024
+    num_layers: 1
+    scaling: 1.0
+    channels: 10
+    kernel_size: 100
+    re_init: True
+    dropout: !ref <dropout>
+
+# Linear transformation on the top of the encoder.
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
+
+# Linear transformation on the top of the decoder.
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>
+
+# Final softmax (for log posteriors computation).
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+# Tokenizer initialization
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+# This is the RNNLM that is used according to the Huggingface repository
+# NB: It has to match the pre-trained RNNLM!!
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    activation: !name:torch.nn.LeakyReLU
+    dropout: 0.0
+    rnn_layers: 2
+    rnn_neurons: 2048
+    dnn_blocks: 1
+    dnn_neurons: 512
+    return_hidden: True  # For inference
+
+# The final decoding on the test set can be more computationally demanding.
+# In this case, we use the LM + CTC probabilities during decoding as well.
+# Please, remove this part if you need a faster decoder.
+test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
+    embedding: !ref <embedding>
+    decoder: !ref <decoder>
+    linear: !ref <seq_lin>
+    ctc_linear: !ref <ctc_lin>
+    language_model: !ref <lm_model>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    eos_threshold: !ref <eos_threshold>
+    using_max_attn_shift: !ref <using_max_attn_shift>
+    max_attn_shift: !ref <max_attn_shift>
+    coverage_penalty: !ref <coverage_penalty>
+    lm_weight: !ref <lm_weight>
+    ctc_weight: !ref <ctc_weight_decode>
+    temperature: !ref <temperature>
+    temperature_lm: !ref <temperature_lm>

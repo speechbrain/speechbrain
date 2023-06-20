@@ -9,7 +9,7 @@ import pandas as pd
 import argparse
 import torchaudio
 
-from recipes.WHAMandWHAMR.meta.wham_room import WhamRoom
+from wham_room import WhamRoom
 from scipy.signal import resample_poly
 import torch
 from speechbrain.pretrained.fetching import fetch

@@ -236,27 +236,29 @@ if __name__ == "__main__":
     # Prepare Musan
     from musan_prepare import prepare_musan
 
-    run_on_main(
-        prepare_musan,
-        kwargs={
-            "folder": hparams["musan_folder"],
-            "music_csv": hparams["music_csv"],
-            "noise_csv": hparams["noise_csv"],
-            "speech_csv": hparams["speech_csv"],
-            "max_noise_len": hparams["example_length"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_musan,
+            kwargs={
+                "folder": hparams["musan_folder"],
+                "music_csv": hparams["music_csv"],
+                "noise_csv": hparams["noise_csv"],
+                "speech_csv": hparams["speech_csv"],
+                "max_noise_len": hparams["example_length"],
+            },
+        )
 
     # Prepare common
     from commonlanguage_prepare import prepare_commonlanguage
 
-    run_on_main(
-        prepare_commonlanguage,
-        kwargs={
-            "folder": hparams["commonlanguage_folder"],
-            "csv_file": hparams["multilang_speech_csv"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_commonlanguage,
+            kwargs={
+                "folder": hparams["commonlanguage_folder"],
+                "csv_file": hparams["multilang_speech_csv"],
+            },
+        )
 
     # Dataset IO prep: creating Dataset objects
     train_data, valid_data, test_data = dataio_prep(hparams)

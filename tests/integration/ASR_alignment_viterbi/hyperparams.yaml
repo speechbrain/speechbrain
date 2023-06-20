@@ -8,6 +8,9 @@ lr: 0.004
 dataloader_options:
     batch_size: 1
 
+# Labels
+num_labels: 43  # 43 phonemes, no blank
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
@@ -42,7 +45,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 
 lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: 43  # 43 phonemes, no blank
+    n_neurons: !ref <num_labels>
     bias: False
 
 modules:

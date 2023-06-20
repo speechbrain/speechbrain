@@ -141,9 +141,9 @@ class LanguageBrain(sb.core.Brain):
 def dataio_prep_shards(hparams):
 
     # load the meta info json file
-    with wds.gopen.gopen(hparams["train_meta"], "rb") as f:
+    with wds.gopen(hparams["train_meta"], "rb") as f:
         train_meta = json.load(f)
-    with wds.gopen.gopen(hparams["val_meta"], "rb") as f:
+    with wds.gopen(hparams["val_meta"], "rb") as f:
         val_meta = json.load(f)
 
     # define the mapping functions in the data pipeline
