@@ -454,7 +454,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_width=100,
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
-        frames_prune_min_blank_logp=-0.01,
+        frames_prune_min_blank_logp=math.log(0.99),
         history_prune=False,
         topk=1,
     ):
@@ -469,6 +469,13 @@ class CTCBaseSearcher(torch.nn.Module):
         self.frames_prune_min_blank_logp = frames_prune_min_blank_logp
         self.history_prune = history_prune
         self.topk = topk
+
+        # sentencepiece
+        self.spm_token = "▁"
+        self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
+
+        if not self.is_spm and space_index == -1:
+            raise ValueError("Space id must be set")
 
     def partial_decode_step(self, **kwargs):
         raise NotImplementedError
