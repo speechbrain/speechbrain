@@ -123,8 +123,6 @@ class ASR(sb.core.Brain):
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
 
-        # now as training progresses we use real prediction from the prev step instead of teacher forcing
-
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
         ).sum()
