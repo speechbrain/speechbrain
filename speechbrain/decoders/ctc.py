@@ -505,6 +505,30 @@ class CTCBaseSearcher(torch.nn.Module):
     def full_decode(self, **kwargs):
         raise NotImplementedError
     
+    def _merge_tokens(self, token_1: str, token_2: str) -> str:
+        """Fast, whitespace safe merging of tokens."""
+        if len(token_2) == 0:
+            text = token_1
+        elif len(token_1) == 0:
+            text = token_2
+        else:
+            text = token_1 + " " + token_2
+        return text
+
+    def merge_beams(self, beams):
+        beam_dict = {}
+        for beam in beams:
+            new_text = self._merge_tokens(beam.text, beam.next_word)
+            hash_idx = (new_text, beam.partial_word, beam.last_char)
+            if hash_idx not in beam_dict:
+                beam_dict[hash_idx] = beam
+            else:
+                # We've already seen this text - we want to combine the scores
+                beam_dict[hash_idx] = dataclasses.replace(
+                    beam, logit_score=np.logaddexp(beam_dict[hash_idx].score, beam.score)
+                )
+        return list(beam_dict.values())
+
     def sort_beams(self, beams):
         return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
 
@@ -573,6 +597,44 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 last_token_index=token_index,
                                 text_frames=new_frame_list,
                                 partial_frames=(frame_index, frame_index + 1),
+                                score=beam.score + p_token,
+                            )
+                        )
+
+                    elif not self.is_spm and token_index == self.space_index:
+                        new_frame_list = (
+                            beam.text_frames
+                            if beam.partial_word == ""
+                            else beam.text_frames + [beam.partial_frames]
+                        )
+                        new_beams.append(
+                            CTCBeam(
+                                text=beam.text,
+                                next_word=beam.partial_word,
+                                partial_word="",
+                                last_token=token,
+                                last_token_index=token_index,
+                                text_frames=new_frame_list,
+                                partial_frames=(-1, -1),
+                                score=beam.score + p_token,
+                            )
+                        )
+                    else:
+                        new_part_frames = (
+                            (frame_index, frame_index + 1)
+                            if beam.partial_frames[0] < 0
+                            else (beam.partial_frames[0], frame_index + 1)
+                        )
+                                                
+                        new_beams.append(
+                            CTCBeam(
+                                text=beam.text,
+                                next_word=beam.next_word,
+                                partial_word=beam.partial_word + token,
+                                last_token=token,
+                                last_token_index=token_index,
+                                text_frames=beam.text_frames,
+                                partial_frames=new_part_frames,
                                 score=beam.score + p_token,
                             )
                         )
