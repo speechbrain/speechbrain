@@ -379,6 +379,68 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     return batch_outputs
 
 
+@dataclasses.dataclass(frozen=True)
+class CTCBeam:
+    """Contains all the info needed for decoding a beam."""
+
+    text: str
+    next_word: str
+    partial_word: str
+    last_token: Optional[str]
+    last_idx_token: Optional[int]
+    text_frames: Tuple[int, int]
+    partial_frames: Tuple[int, int]
+
+    p = -math.inf 
+    p_b = -math.inf
+    p_nb = -math.inf
+
+    p_b_prev = -math.inf
+    p_nb_prev = -math.inf
+
+    score: float = -math.inf
+    score_ctc: float = -math.inf
+
+    @classmethod
+    def from_lm_beam(cls, lm_beam):
+        return CTCBeam(
+            text=lm_beam.text,
+            next_word=lm_beam.next_word,
+            partial_word=lm_beam.partial_word,
+            last_token=lm_beam.last_token,
+            last_idx_token=lm_beam.last_idx_token,
+            text_frames=lm_beam.text_frames,
+            partial_frames=lm_beam.partial_frames,
+            p=lm_beam.p,
+            p_b=lm_beam.p_b,
+            p_nb=lm_beam.p_nb,
+            p_b_prev=lm_beam.p_b_prev,
+            p_nb_prev=lm_beam.p_nb_prev,
+            score=lm_beam.score,
+            score_ctc=lm_beam.score_ctc,
+        )
+
+@dataclasses.dataclass(frozen=True)
+class LMCTCBeam(CTCBeam):
+    lm_score: float
+
+@dataclasses.dataclass(frozen=True)
+class CTCHypothesis:
+    text: str
+    last_lm_state: None
+    text_frames: List[Tuple[str, Tuple[int, int]]]
+    score: float  # Cumulative logit score
+    lm_score: float  # Cumulative language model + logit score
+
+    def get_mp_safe_beam(self):
+        """Get a multiprocessing-safe version of the beam."""
+        if self.last_lm_state is None:
+            last_lm_state = None
+        else:
+            last_lm_state = self.last_lm_state.get_mp_safe_state()
+        return dataclasses.replace(self, last_lm_state=last_lm_state)
+
+
 class CTCBaseSearcher(torch.nn.Module):
     """ TODO: docstring
     TODO: integrate scorers for N-Gram (as it is already the case of n-best rescorers)
@@ -408,15 +470,6 @@ class CTCBaseSearcher(torch.nn.Module):
         self.history_prune = history_prune
         self.topk = topk
 
-    def prune_frames(self, **kwargs):
-        raise NotImplementedError
-
-    def prune_tokens(self, **kwargs):
-        raise NotImplementedError
-
-    def prune_beams(self, **kwargs):
-        raise NotImplementedError
-
     def partial_decode_step(self, **kwargs):
         raise NotImplementedError
 
@@ -428,3 +481,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def full_decode(self, **kwargs):
         raise NotImplementedError
+
+class CTCBeamSearch(CTCBaseSearcher):
+    def __init__(self, blank_index, vocab_list, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, frames_prune_min_blank_logp=-0.01, history_prune=False, topk=1):
+        super().__init__(blank_index, vocab_list, space_index, beam_width, beam_prune_logp, token_prune_min_logp, frames_prune_min_blank_logp, history_prune, topk)
