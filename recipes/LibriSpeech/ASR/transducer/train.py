@@ -180,9 +180,11 @@ class ASR(sb.Brain):
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
+            with torch.autocast(torch.device(self.device).type):
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+
+            # Losses are excluded from mixed precision to avoid instabilities
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 self.scaler.scale(
                     loss / self.grad_accumulation_factor
@@ -194,10 +196,20 @@ class ASR(sb.Brain):
                 self.scaler.update()
                 self.zero_grad()
                 self.optimizer_step += 1
-                self.hparams.lr_annealing(self.optimizer)
+                self.hparams.noam_annealing(self.optimizer)
         else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            if self.bfloat16_mix_prec:
+                with torch.autocast(
+                    device_type=torch.device(self.device).type,
+                    dtype=torch.bfloat16,
+                ):
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
+            else:
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
@@ -205,7 +217,7 @@ class ASR(sb.Brain):
                     self.optimizer.step()
                 self.zero_grad()
                 self.optimizer_step += 1
-                self.hparams.lr_annealing(self.optimizer)
+                self.hparams.noam_annealing(self.optimizer)
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
@@ -315,7 +327,12 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
+        if hparams["speed_perturb"]:
+            sig = sb.dataio.dataio.read_audio(wav)
+
+            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
+        else:
+            sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)

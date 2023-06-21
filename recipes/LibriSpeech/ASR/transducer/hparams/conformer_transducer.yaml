@@ -9,7 +9,7 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 3407
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_transducer_large/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -46,13 +46,13 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 40
+number_of_epochs: 60
 warmup_steps: 25000
 num_workers: 4
 batch_size_valid: 4
-lr: 0.0005
+lr: 0.0008
 weight_decay: 0.01
-number_of_ctc_epochs: 40
+number_of_ctc_epochs: 100
 ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
@@ -65,8 +65,9 @@ sorting: random
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 400
+n_fft: 512
 n_mels: 80
+win_length: 32
 
 # Dataloader options
 train_dataloader_opts:
@@ -92,20 +93,20 @@ dynamic_batch_sampler:
    num_buckets: !ref <num_bucket>
    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
    batch_ordering: random
-   max_batch_ex: 128
+   max_batch_ex: 256
 
 # Model parameters
 # Transformer
 d_model: 512
-joint_dim: 768
-nhead: 4
+joint_dim: 640
+nhead: 8
 num_encoder_layers: 12
 num_decoder_layers: 0
 d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
-dec_dim: 1024
+dec_dim: 512
 
 # Decoding parameters
 blank_index: 0
@@ -131,6 +132,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    sample_rate: !ref <sample_rate>
    n_fft: !ref <n_fft>
    n_mels: !ref <n_mels>
+   win_length: !ref <win_length>
 
 augmentation: !new:speechbrain.lobes.augment.SpecAugment
    time_warp: True
@@ -139,10 +141,14 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
    freq_mask: True
    n_freq_mask: 2
    time_mask: True
-   n_time_mask: 2
+   n_time_mask: 5
    replace_with_zero: False
    freq_mask_width: 30
-   time_mask_width: 40
+   time_mask_width: 20
+
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: [95, 100, 105]
 
 # Uncomment if interested in env corruption
 # env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
@@ -157,13 +163,13 @@ CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
    num_blocks: 2
    num_layers_per_block: 1
-   out_channels: (128, 64)
+   out_channels: (64, 32)
    kernel_sizes: (3, 3)
    strides: (2, 2)
    residuals: (False, False)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-   input_size: 1280
+   input_size: 640
    tgt_vocab: !ref <output_neurons>
    d_model: !ref <d_model>
    nhead: !ref <nhead>
@@ -213,16 +219,17 @@ dec: !new:speechbrain.nnet.RNN.LSTM
    hidden_size: !ref <dec_dim>
    num_layers: 1
    re_init: True
+   dropout: 0.1
 
 # For MTL with LM over the decoder
 dec_lin: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <dec_dim>
-   n_neurons: !ref <joint_dim>
+   input_size: !ref <joint_dim>
+   n_neurons: !ref <output_neurons>
    bias: False
 
 # For MTL
-#ce_cost: !name:speechbrain.nnet.losses.nll_loss
-#   label_smoothing: 0.1
+ce_cost: !name:speechbrain.nnet.losses.nll_loss
+   label_smoothing: 0.1
 
 Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
    joint: sum # joint [sum | concat]
@@ -304,7 +311,7 @@ opt_class: !name:torch.optim.AdamW
    eps: 1.e-8
    weight_decay: !ref <weight_decay>
 
-lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
    n_warmup_steps: !ref <warmup_steps>
 
@@ -312,7 +319,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
       model: !ref <model>
-      scheduler: !ref <lr_annealing>
+      scheduler: !ref <noam_annealing>
       normalizer: !ref <normalize>
       counter: !ref <epoch_counter>
 
