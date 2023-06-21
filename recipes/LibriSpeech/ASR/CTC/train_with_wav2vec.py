@@ -92,13 +92,11 @@ class ASR(sb.Brain):
             predicted_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, self.hparams.blank_index
             )
-            """
 
             for logs in p_ctc:
                 text = ctc_beam_search_V1(logs.detach().cpu().numpy())[0].text
                 predicted_words.append(text.split(" "))
 
-            """
             beam_search_result = decoder(p_ctc.detach().cpu())
 
             predicted_tokens = [r[0].tokens for r in beam_search_result] # [1:-1]
@@ -109,6 +107,10 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
             """
+
+            for logs in p_ctc:
+                text = decoder.full_decode(logs.detach().cpu().numpy())[0].text
+                predicted_words.append(text.split(" "))
 
             # filter wrd with len > 0
             predicted_words = [
@@ -392,6 +394,7 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
+    """
     from speechbrain.decoders import BeamSearchDecoderCTCV1
 
     ind2lab = label_encoder.ind2lab
@@ -437,6 +440,20 @@ if __name__ == "__main__":
         sil_token=labels[hparams["blank_index"]],
         # beam_size_token=1,
     )
+    """
+
+    from speechbrain.decoders import CTCBeamSearch
+
+
+    ind2lab = label_encoder.ind2lab
+    labels = [ind2lab[x] for x in range(len(ind2lab))]
+
+    decoder = CTCBeamSearch(
+        blank_index=0,
+        space_index=29,
+        vocab_list=labels,
+    )
+
 
     """
     # Training
