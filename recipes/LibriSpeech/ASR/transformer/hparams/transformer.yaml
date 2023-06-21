@@ -9,7 +9,7 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
-seed: 3407
+seed: 74443
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -47,7 +47,7 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 120
+number_of_epochs: 100
 batch_size: 32 # This works for 1x GPU with 40GB with no dynamic batching
 ctc_weight: 0.3
 grad_accumulation_factor: 1
@@ -64,7 +64,7 @@ eos_index: 2
 # This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 500
+max_batch_len: 600
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -77,13 +77,12 @@ dynamic_batch_sampler:
     max_batch_ex: 128
 
 # stages related parameters
-lr_adam: 0.0008
+lr_adam: 0.001
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 512
+n_fft: 400
 n_mels: 80
-win_length: 32
 
 # Dataloader options
 train_dataloader_opts:
@@ -119,7 +118,7 @@ output_neurons: 5000
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.1
+label_smoothing: 0.0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -192,7 +191,7 @@ model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # define two optimizers here for two-stage training
-Adam: !name:torch.optim.AdamW
+Adam: !name:torch.optim.Adam
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
@@ -277,7 +276,6 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
-    win_length: !ref <win_length>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
