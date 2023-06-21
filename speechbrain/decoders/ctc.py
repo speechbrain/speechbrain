@@ -14,7 +14,8 @@ import dataclasses
 import numpy as np
 import heapq
 import logging
-
+import functools
+import multiprocessing
 logger = logging.getLogger(__name__)
 import copy
 from collections.abc import MutableMapping
@@ -480,7 +481,7 @@ class CTCBaseSearcher(torch.nn.Module):
     def get_valid_pool(self, pool):
         """Return the pool if the pool is appropriate for multiprocessing."""
         if pool is not None and isinstance(
-            pool._ctx, mp.context.SpawnContext  # type: ignore [attr-defined] # pylint: disable=W0212
+            pool._ctx, multiprocessing.context.SpawnContext  # type: ignore [attr-defined] # pylint: disable=W0212
         ):
             logger.warning(
                 "Specified pool object has a spawn context, which is not currently supported. "
@@ -748,13 +749,32 @@ class CTCBeamSearch(CTCBaseSearcher):
         max_score = max([b.lm_score for b in scored_beams])
         scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
         return self.sort_beams(scored_beams)
+    
+    def decode_beams_batch(self, log_probs, pool):
+        valid_pool = self.get_valid_pool(pool)
+        if valid_pool is None:
+            return [
+                 self.decode_beams_mp_safe(log_prob) for log_prob in log_probs
+            ]
+        
+        p_decode = functools.partial(
+            self.decode_beams_mp_safe,
+        )
+        decoded_beams_list = valid_pool.map(p_decode, log_probs)
+        return decoded_beams_list
 
-    def full_decode(self, log_probs):
+    def decode_beams_mp_safe(self, log_probs):
+
+        decoded_beams = self.decode_beams(log_probs)
+
+        decoded_beams_mp_safe = [output_beam.get_mp_safe_beam() for output_beam in decoded_beams]
+
+        return decoded_beams_mp_safe[:self.topk]
+
+    def decode_beams(self, log_probs):
         cached_lm_scores = {}
         cached_p_lm_scores = {}
         
-        valid_pool = self.get_valid_pool(pool)
-
         beams = [
             CTCBeam(
                 text="",
