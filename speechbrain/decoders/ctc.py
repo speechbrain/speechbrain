@@ -387,7 +387,7 @@ class CTCBeam:
     next_word: str
     partial_word: str
     last_token: Optional[str]
-    last_idx_token: Optional[int]
+    last_token_index: Optional[int]
     text_frames: Tuple[int, int]
     partial_frames: Tuple[int, int]
 
@@ -408,7 +408,7 @@ class CTCBeam:
             next_word=lm_beam.next_word,
             partial_word=lm_beam.partial_word,
             last_token=lm_beam.last_token,
-            last_idx_token=lm_beam.last_idx_token,
+            last_token_index=lm_beam.last_token_index,
             text_frames=lm_beam.text_frames,
             partial_frames=lm_beam.partial_frames,
             p=lm_beam.p,
@@ -477,8 +477,24 @@ class CTCBaseSearcher(torch.nn.Module):
         if not self.is_spm and space_index == -1:
             raise ValueError("Space id must be set")
 
-    def partial_decode_step(self, **kwargs):
+    def partial_decode_step(
+            self, 
+            log_probs, 
+            beams, 
+            cached_lm_scores, 
+            cached_p_lm_scores,
+            processed_frames = 0,
+        ):
         raise NotImplementedError
+    
+    def one_decode_step(
+            self, 
+            log_probs, 
+            beams, 
+            cached_lm_scores, 
+            cached_p_lm_scores
+        ):
+            raise NotImplementedError
 
     def finalize_decode_step(self, **kwargs):
         raise NotImplementedError
@@ -488,7 +504,87 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def full_decode(self, **kwargs):
         raise NotImplementedError
+    
+    def sort_beams(self, beams):
+        return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
 
 class CTCBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, frames_prune_min_blank_logp=-0.01, history_prune=False, topk=1):
         super().__init__(blank_index, vocab_list, space_index, beam_width, beam_prune_logp, token_prune_min_logp, frames_prune_min_blank_logp, history_prune, topk)
+
+    def partial_decode_step(
+        self, 
+        log_probs,
+        beams,
+        cached_lm_scores,
+        cached_p_lm_scores,
+        processed_frames = 0,
+    ):
+
+        for frame_index, logit_col in enumerate(log_probs.shape[0], start=processed_frames):
+            max_index = logit_col.argmax()
+            tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
+            new_beams = []
+
+            for token_index in tokens_index_list:
+                p_token = logit_col[token_index]
+                token = self.vocab_list[token_index]
+
+                for beam in beams:
+                    
+                    if token_index == self.blank_index or beam.last_token == token:
+                        if token_index == self.blank_index:
+                            new_end_frame = beam.partial_frames[0]
+                        else:
+                            new_end_frame = frame_index + 1
+
+                        new_part_frames = (
+                            beam.partial_frames if token_index == self.blank_index else (beam.partial_frames[0], new_end_frame)
+                        )
+
+                        new_beams.append(
+                            CTCBeam(
+                                text=beam.text,
+                                next_word=token,
+                                partial_word=beam.partial_word,
+                                last_token=token,
+                                last_token_index=token_index,
+                                text_frames=beam.text_frames,
+                                partial_frames=new_part_frames,
+                                p=None,
+                                p_b=None,
+                                p_nb=None,
+                                p_b_prev=None,
+                                p_nb_prev=None,
+                                score=beam.score + p_token,
+                                score_ctc=None,
+                            )
+                        )
+
+                    elif self.is_spm and token[:1] == self.spm_token:
+                        clean_token = token[1:]    
+
+                        new_frame_list = (
+                            beam.text_frames
+                            if beam.partial_word == ""
+                            else beam.text_frames + [beam.partial_frames]
+                        )
+
+                        new_beams.append(
+                            CTCBeam(
+                                text=beam.text,
+                                next_word=beam.partial_word,
+                                partial_word=clean_token,
+                                last_token=token,
+                                last_token_index=token_index,
+                                text_frames=new_frame_list,
+                                partial_frames=(frame_index, frame_index + 1),
+                                p=None,
+                                p_b=None,
+                                p_nb=None,
+                                p_b_prev=None,
+                                p_nb_prev=None,
+                                score=beam.score + p_token,
+                                score_ctc=None,
+                            )
+                        )
