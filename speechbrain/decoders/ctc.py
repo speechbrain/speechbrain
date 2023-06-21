@@ -398,7 +398,7 @@ class CTCBeam:
     p_b_prev = -math.inf
     p_nb_prev = -math.inf
 
-    score: float = -math.inf
+    score: float
     score_ctc: float = -math.inf
 
     @classmethod
@@ -551,13 +551,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 last_token_index=token_index,
                                 text_frames=beam.text_frames,
                                 partial_frames=new_part_frames,
-                                p=None,
-                                p_b=None,
-                                p_nb=None,
-                                p_b_prev=None,
-                                p_nb_prev=None,
                                 score=beam.score + p_token,
-                                score_ctc=None,
                             )
                         )
 
@@ -579,12 +573,6 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 last_token_index=token_index,
                                 text_frames=new_frame_list,
                                 partial_frames=(frame_index, frame_index + 1),
-                                p=None,
-                                p_b=None,
-                                p_nb=None,
-                                p_b_prev=None,
-                                p_nb_prev=None,
                                 score=beam.score + p_token,
-                                score_ctc=None,
                             )
                         )
