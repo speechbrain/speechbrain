@@ -139,7 +139,7 @@ def main(device="cpu"):
     ctc_brain.evaluate(valid_data)
 
     # Check if model overfits for integration test
-    assert ctc_brain.train_loss < 1.1
+    assert ctc_brain.train_loss < 1.0
 
 
 if __name__ == "__main__":
