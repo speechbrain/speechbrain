@@ -7,7 +7,18 @@ import logging
 import os
 import re
 import shutil
-from typing import Any, Collection, Dict, Iterable, Optional, Pattern, Sequence, Set, Tuple, cast
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    Optional,
+    Pattern,
+    Sequence,
+    Set,
+    Tuple,
+    cast,
+)
 
 import numpy as np
 from pygtrie import CharTrie  # type: ignore
@@ -43,6 +54,7 @@ class KenlmState(AbstractLMState):
         """Get the raw state object."""
         return self._state
 
+
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     """Read unigrams from arpa file."""
     unigrams = set()
@@ -59,10 +71,15 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
                 if len(parts) == 3:
                     unigrams.add(parts[1])
     if len(unigrams) == 0:
-        raise ValueError("No unigrams found in arpa file. Something is wrong with the file.")
+        raise ValueError(
+            "No unigrams found in arpa file. Something is wrong with the file."
+        )
     return unigrams
 
-def _prepare_unigram_set(unigrams: Collection[str], kenlm_model: "kenlm.Model") -> Set[str]:
+
+def _prepare_unigram_set(
+    unigrams: Collection[str], kenlm_model: "kenlm.Model"
+) -> Set[str]:
     """Filter unigrams down to vocabulary that exists in kenlm_model."""
     if len(unigrams) < 1000:
         logger.warning(
@@ -71,7 +88,9 @@ def _prepare_unigram_set(unigrams: Collection[str], kenlm_model: "kenlm.Model") 
         )
     unigram_set = set(unigrams)
     unigram_set = set([t for t in unigram_set if t in kenlm_model])
-    retained_fraction = 1.0 if len(unigrams) == 0 else len(unigram_set) / len(unigrams)
+    retained_fraction = (
+        1.0 if len(unigrams) == 0 else len(unigram_set) / len(unigrams)
+    )
     if retained_fraction < 0.1:
         logger.warning(
             "Only %s%% of unigrams in vocabulary found in kenlm model-- this might mean that your "
@@ -80,6 +99,7 @@ def _prepare_unigram_set(unigrams: Collection[str], kenlm_model: "kenlm.Model") 
         )
     return unigram_set
 
+
 def _get_empty_lm_state() -> "kenlm.State":
     """Get unintialized kenlm state."""
     try:
@@ -87,6 +107,7 @@ def _get_empty_lm_state() -> "kenlm.State":
     except ImportError:
         raise ValueError("To use a language model, you need to install kenlm.")
     return kenlm_state
+
 
 class LanguageModel:
     # serializatoin constants
@@ -116,7 +137,9 @@ class LanguageModel:
         """
         self._kenlm_model = kenlm_model
         if unigrams is None:
-            logger.warning("No known unigrams provided, decoding results might be a lot worse.")
+            logger.warning(
+                "No known unigrams provided, decoding results might be a lot worse."
+            )
             unigram_set = set()
             char_trie = None
         else:
@@ -152,13 +175,17 @@ class LanguageModel:
         unk_score_offset = params.get("unk_score_offset")
         if unk_score_offset is not None:
             if not isinstance(unk_score_offset, float):
-                raise ValueError(f"unk_score_offset must be a float. Got {type(unk_score_offset)}.")
+                raise ValueError(
+                    f"unk_score_offset must be a float. Got {type(unk_score_offset)}."
+                )
             self.unk_score_offset = unk_score_offset
 
         score_boundary = params.get("score_boundary")
         if score_boundary is not None:
             if not isinstance(score_boundary, bool):
-                raise ValueError(f"score_boundary must be a bool. Got {type(score_boundary)}.")
+                raise ValueError(
+                    f"score_boundary must be a bool. Got {type(score_boundary)}."
+                )
             self.score_boundary = score_boundary
 
     @property
@@ -179,7 +206,9 @@ class LanguageModel:
         """Calculate final lm score."""
         if self.score_boundary:
             end_state = _get_empty_lm_state()
-            score: float = self._kenlm_model.BaseScore(start_state, "</s>", end_state)
+            score: float = self._kenlm_model.BaseScore(
+                start_state, "</s>", end_state
+            )
         else:
             score = 0.0
         return score
@@ -205,7 +234,9 @@ class LanguageModel:
                 f"Wrong input state type found. Expected KenlmState, got {type(prev_state)}"
             )
         end_state = _get_empty_lm_state()
-        lm_score = self._kenlm_model.BaseScore(prev_state.state, word, end_state)
+        lm_score = self._kenlm_model.BaseScore(
+            prev_state.state, word, end_state
+        )
         # override UNK prob. use unigram set if we have because it's faster
         if (
             len(self._unigram_set) > 0
@@ -236,16 +267,24 @@ class LanguageModel:
         for attr in LanguageModel.JSON_ATTRS:
             val = getattr(self, attr)
             if val is None:
-                raise ValueError(f"attribute {attr} not found. Cannot serialize")
+                raise ValueError(
+                    f"attribute {attr} not found. Cannot serialize"
+                )
             json_attrs[attr] = val
         return json_attrs
 
-    def save_to_dir(self, filepath: str, unigram_encoding: Optional[str] = None) -> None:
+    def save_to_dir(
+        self, filepath: str, unigram_encoding: Optional[str] = None
+    ) -> None:
         """Save to a directory."""
         json_attrs = self.serializable_attrs
         json_attr_path = os.path.join(filepath, self._ATTRS_SERIALIZED_FILENAME)
-        unigrams_path = os.path.join(filepath, self._UNIGRAMS_SERIALIZED_FILENAME)
-        kenlm_filename = os.path.split(self._kenlm_model.path.decode("utf-8"))[1]
+        unigrams_path = os.path.join(
+            filepath, self._UNIGRAMS_SERIALIZED_FILENAME
+        )
+        kenlm_filename = os.path.split(self._kenlm_model.path.decode("utf-8"))[
+            1
+        ]
         kenlm_path = os.path.join(filepath, kenlm_filename)
 
         with open(json_attr_path, "w") as fi:
@@ -267,13 +306,20 @@ class LanguageModel:
         """Check the contents of a directory for the correct files."""
         contents = os.listdir(filepath)
         # filter out hidden files
-        contents = [c for c in contents if not c.startswith(".") and not c.startswith("__")]
+        contents = [
+            c
+            for c in contents
+            if not c.startswith(".") and not c.startswith("__")
+        ]
         if len(contents) != 3:
             raise ValueError(
-                f"Found wrong number of files in directory. " f"Expected 3 files, found {contents}"
+                f"Found wrong number of files in directory. "
+                f"Expected 3 files, found {contents}"
             )
         if LanguageModel._ATTRS_SERIALIZED_FILENAME not in contents:
-            raise ValueError(f"did not find attributes file in files: {contents}")
+            raise ValueError(
+                f"did not find attributes file in files: {contents}"
+            )
         else:
             contents.remove(LanguageModel._ATTRS_SERIALIZED_FILENAME)
         if LanguageModel._UNIGRAMS_SERIALIZED_FILENAME not in contents:
@@ -287,8 +333,12 @@ class LanguageModel:
                 f"Explected kenlm file to end in `.arpa` or `.bin(ary)`. Found {kenlm_file}"
             )
         return {
-            "json_attrs": os.path.join(filepath, LanguageModel._ATTRS_SERIALIZED_FILENAME),
-            "unigrams": os.path.join(filepath, LanguageModel._UNIGRAMS_SERIALIZED_FILENAME),
+            "json_attrs": os.path.join(
+                filepath, LanguageModel._ATTRS_SERIALIZED_FILENAME
+            ),
+            "unigrams": os.path.join(
+                filepath, LanguageModel._UNIGRAMS_SERIALIZED_FILENAME
+            ),
             "kenlm": os.path.join(filepath, kenlm_file),
         }
 

@@ -137,19 +137,22 @@ class ASR(sb.core.Brain):
             ):
                 beam_search_result = decoder(p_ctc.detach().cpu())
 
-                predicted_tokens = [r[0].tokens.tolist() for r in beam_search_result] # [1:-1]
-              
+                predicted_tokens = [
+                    r[0].tokens.tolist() for r in beam_search_result
+                ]  # [1:-1]
+
                 # Decode token terms to words
                 predicted_words = [
-                    tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in predicted_tokens
+                    tokenizer.decode_ids(utt_seq).split(" ")
+                    for utt_seq in predicted_tokens
                 ]
 
                 # filter wrd with len > 0
                 predicted_words = [
                     [w for w in utt if len(w) > 0] for utt in predicted_words
-                ]  
+                ]
 
-                target_words = [wrd.split(" ") for wrd in batch.wrd]                       
+                target_words = [wrd.split(" ") for wrd in batch.wrd]
 
                 self.wer_metric.append(ids, predicted_words, target_words)
 
@@ -482,6 +485,7 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     from speechbrain.decoders import BeamSearchDecoderCTC
+
     labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
 
     ctc_beam_search = BeamSearchDecoderCTC(
@@ -495,24 +499,24 @@ if __name__ == "__main__":
     )
 
     from torchaudio.models.decoder import download_pretrained_files
-    
+
     files = download_pretrained_files("librispeech-4-gram")
 
     from torchaudio.models.decoder import ctc_decoder
-    
+
     labels = [label for label in labels]
-    
+
     decoder = ctc_decoder(
         lexicon=None,
         tokens=labels,
-        #lm=files.lm,
+        # lm=files.lm,
         beam_size=100,
         blank_token=labels[hparams["blank_index"]],
         sil_token=labels[hparams["blank_index"]],
         beam_size_token=5,
         # lm_weight=3.23,
-    )   
-    
+    )
+
     if train_bsampler is not None:
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,

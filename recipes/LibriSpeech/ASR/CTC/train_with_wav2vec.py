@@ -27,6 +27,7 @@ from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 from speechbrain.decoders.ctc import filter_ctc_output
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,7 +66,7 @@ class ASR(sb.Brain):
         p_tokens = None
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
-      
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -93,7 +94,6 @@ class ASR(sb.Brain):
             )
             """
 
-
             for logs in p_ctc:
                 text = ctc_beam_search_V1(logs.detach().cpu().numpy())[0].text
                 predicted_words.append(text.split(" "))
@@ -102,12 +102,12 @@ class ASR(sb.Brain):
             beam_search_result = decoder(p_ctc.detach().cpu())
 
             predicted_tokens = [r[0].tokens for r in beam_search_result] # [1:-1]
-            
+
             # print(predicted_tokens)
             predicted_words = [
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                 for utt_seq in predicted_tokens
-            ]   
+            ]
             """
 
             # filter wrd with len > 0
@@ -116,7 +116,7 @@ class ASR(sb.Brain):
             ]
 
             target_words = [wrd.split(" ") for wrd in batch.wrd]
-   
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -393,6 +393,7 @@ if __name__ == "__main__":
     asr_brain.tokenizer = label_encoder
 
     from speechbrain.decoders import BeamSearchDecoderCTCV1
+
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
     ctc_beam_search_V1 = BeamSearchDecoderCTCV1(
@@ -406,6 +407,7 @@ if __name__ == "__main__":
     )
 
     from speechbrain.decoders import BeamSearchDecoderCTC
+
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
 
@@ -434,8 +436,8 @@ if __name__ == "__main__":
         blank_token=labels[hparams["blank_index"]],
         sil_token=labels[hparams["blank_index"]],
         # beam_size_token=1,
-    )   
-    
+    )
+
     """
     # Training
     asr_brain.fit(
