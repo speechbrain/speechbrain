@@ -107,18 +107,19 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
             """
-            """
+            
             with multiprocessing.get_context("fork").Pool() as pool:
                 batch_hypo = decoder.decode_beams_batch(p_ctc.cpu().numpy(), pool)
             
             for hypo in batch_hypo:
                 predicted_words.append(hypo[0].text.split(" "))
-            """
             
+            """
             for logs in p_ctc:
                 text = decoder.decode_beams(logs.detach().cpu().numpy())[0].text
                 predicted_words.append(text.split(" "))
-            
+            """
+
             # filter wrd with len > 0
             predicted_words = [
                 [w for w in utt if len(w) > 0] for utt in predicted_words

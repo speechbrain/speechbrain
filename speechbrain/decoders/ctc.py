@@ -491,7 +491,7 @@ class CTCBaseSearcher(torch.nn.Module):
             return None
         return pool
 
-    def partial_decode_step(
+    def partial_decoding(
             self, 
             log_probs, 
             beams, 
@@ -513,7 +513,7 @@ class CTCBaseSearcher(torch.nn.Module):
         ):
             raise NotImplementedError
 
-    def finalize_decode_step(
+    def finalize_decoding(
             self, 
             beams, 
             cached_lm_scores,
@@ -589,7 +589,7 @@ class CTCBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, frames_prune_min_blank_logp=-0.01, history_prune=False, topk=1):
         super().__init__(blank_index, vocab_list, space_index, beam_width, beam_prune_logp, token_prune_min_logp, frames_prune_min_blank_logp, history_prune, topk)
 
-    def partial_decode_step(
+    def partial_decoding(
         self, 
         log_probs,
         beams,
@@ -708,7 +708,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         return beams
     
 
-    def finalize_decode_step(
+    def finalize_decoding(
             self, 
             beams, 
             cached_lm_scores,
@@ -770,6 +770,36 @@ class CTCBeamSearch(CTCBaseSearcher):
         decoded_beams_mp_safe = [output_beam.get_mp_safe_beam() for output_beam in decoded_beams]
 
         return decoded_beams_mp_safe[:self.topk]
+    
+
+    def partial_decode_beams(
+            self, 
+            log_probs,
+            cached_lm_scores,
+            cached_p_lm_scores,
+            beams,
+            processed_frames,
+            force_next_word = False, 
+            is_end = False, 
+        ):
+
+            beams = self.partial_decoding(
+                log_probs,
+                beams,
+                cached_lm_scores,
+                cached_p_lm_scores,
+                processed_frames=processed_frames,
+            )   
+
+            trimmed_beams = self.finalize_decoding(
+                beams,
+                cached_lm_scores,
+                cached_p_lm_scores,
+                force_next_word=force_next_word,
+                is_end=is_end,
+            )
+
+            return trimmed_beams
 
     def decode_beams(self, log_probs):
         cached_lm_scores = {}
@@ -788,14 +818,14 @@ class CTCBeamSearch(CTCBaseSearcher):
             )
         ]
 
-        beams = self.partial_decode_step(
+        beams = self.partial_decoding(
             log_probs,
             beams,
             cached_lm_scores,
             cached_p_lm_scores,
         )   
 
-        trimmed_beams = self.finalize_decode_step(
+        trimmed_beams = self.finalize_decoding(
             beams,
             cached_lm_scores,
             cached_p_lm_scores,
