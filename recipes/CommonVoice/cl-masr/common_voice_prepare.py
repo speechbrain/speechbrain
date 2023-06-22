@@ -16,6 +16,8 @@ from typing import Optional, Sequence
 
 import torchaudio
 
+from speechbrain.utils.data_utils import download_file
+
 
 __all__ = [
     "prepare_common_voice",
@@ -38,12 +40,17 @@ _SPLITS = ["train", "dev", "test"]
 
 # Random indices are not generated on the fly but statically read from a predefined
 # file to avoid reproducibility issues on different platforms and/or Python versions
-with open(
-    os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "random_idxes.txt"
-    ),
-    encoding="utf-8",
-) as f:
+_RANDOM_IDXES_URL = (
+    "https://www.dropbox.com/s/v07nprnob0fugoy/random_idxes.txt?dl=1"
+)
+
+_RANDOM_IDXES_PATH = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "random_idxes.txt"
+)
+
+download_file(_RANDOM_IDXES_URL, _RANDOM_IDXES_PATH)
+
+with open(_RANDOM_IDXES_PATH, encoding="utf-8") as f:
     _RANDOM_IDXES = [int(line) for line in f]
 
 # Default seed
@@ -255,8 +262,8 @@ def merge_tsv_files(
                 duration += float(row[-1])
                 num_added_rows += 1
                 tsv_writer.writerow(row)
-            _LOGGER.info(f"Total duration (s): {round(duration / 60)}",)
-        # _LOGGER.info(f"Added {num_added_rows} rows")
+            _LOGGER.info(f"Total duration (s): {duration}")
+            _LOGGER.info(f"Added {num_added_rows} rows")
 
     _LOGGER.info(f"Writing output TSV file ({output_tsv_file})...")
     _LOGGER.info("Done!")
@@ -362,7 +369,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-d",
         "--data_dir",
-        default="common_voice_13_clmasr",
+        default="CL-MASR",
         help="path to the dataset directory",
     )
     parser.add_argument(

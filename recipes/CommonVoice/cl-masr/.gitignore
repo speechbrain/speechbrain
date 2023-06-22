@@ -118,7 +118,14 @@ dmypy.json
 .idea/
 
 # Data
-common_voice_13_clmasr/
+CL-MASR/
 
 # Results
 results/
+
+# Tokenizer
+tokenizer.zip
+tokenizer/
+
+# Random indices
+random_idxes.txt

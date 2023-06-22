@@ -35,9 +35,8 @@ pip install -r extra-requirements.txt    # Install additional dependencies
 
 ### Running an experiment
 
-Manually download the required Common Voice 13 locales (`en`, `zh-CN`, `de`, `es`, `ru`, `fr`, `pt`, `ja`,
-`tr`, `pl`, `rw`, `eo`, `kab`, `lg`, `mhr`, `ckb`, `ab`, `kmr`, `fy-NL`, `ia`) from the [official
-website](https://commonvoice.mozilla.org/en/datasets) and extract them to a common directory.
+Download the CL-MASR benchmark data from [here](https://zenodo.org/record/8065754) and extract them
+to a data directory of your choice (`CL-MASR` by default).
 Navigate to `<path-to-repository>/recipes/CommonVoice/cl-masr/<model>`, open a terminal and run:
 
 ```bash
@@ -48,19 +47,36 @@ python train_<cl-method>.py hparams/train_<cl-method>.yaml --data_dir <path-to-d
 
 ### Analyzing the results
 
-Collect all `train_log.txt` files from each experiment, rename them according to the format
-`<method-name>_base=<comma-separated-base-locales>_new=<comma-separated-new-locales>` and copy them
-to a common directory.
 Navigate to `<path-to-repository>/recipes/CommonVoice/cl-masr`, open a terminal and run:
 
 ```bash
-python analyze_logs.py <path-to-logs-directory>
+python analyze_logs.py <path-to-directory-containing-model-logs>
 ```
 
-You can find the performance metrics summaries in `<path-to-logs-directory>`.
+This command will recursively retrieve and analyze all log files that are named according to the
+format `<cl-method>_base=<comma-separated-base-locales>_new=<comma-separated-new-locales>.txt`
+(this is the default naming convention followed in all the training scripts).
+You can find the resulting performance metric summaries and plots in `<path-to-directory-containing-model-logs>`.
 See the help (`python analyze_logs.py -h`) for advanced configuration options.
 
+**NOTE**: make sure to specify the `--im_refs` and `--fwt_refs` arguments that correspond to the given model (default to Whisper large-v2).
+
 **NOTE**: to plot the results (optional), install `matplotlib` and/or `plotly` as additional dependencies.
+
+---------------------------------------------------------------------------------------------------------
+
+## 📈️ Results
+
+Raw experiment logs are available [here](https://www.dropbox.com/scl/fo/5iedub8pie66y9bkhrexr/h?dl=0&rlkey=i6jy0r1ryg6oks4xs35wh6o1d).
+We do not include the checkpoints due to storage limits (each experiment with Whisper large-v2 generates ~125 GB of checkpoint data).
+
+Analyses generated via `analyze_logs.py` are available [here](https://www.dropbox.com/scl/fo/hsmowtbjdw4z17o5dhbwr/h?dl=0&rlkey=9yogen3bw8y8xmlupn2lxnn14).
+
+All the experiments were run on five CentOS Linux 7 machines with an Intel(R) Xeon(R) Silver 4216 Cascade Lake CPU
+with 32 cores @ 2.10 GHz, 64 GB RAM and an NVIDIA Tesla V100 SXM2 @ 32 GB with CUDA Toolkit 11.4.
+With the specified hardware configuration, approximately one week is necessary to complete all the experiments.
+
+**NOTE**: the checkpoint for WavLM large pretrained on the base languages is available [here](https://www.dropbox.com/scl/fo/f827hte231ddji0cl5d31/h?dl=0&rlkey=w8r2y01kbbv11041t0x6vvorh).
 
 ---------------------------------------------------------------------------------------------------------
 

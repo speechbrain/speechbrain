@@ -274,6 +274,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
         if hparams["skip_test"]:
             # Dummy test
+            train_log_backup = asr_brain.hparams.train_logger.save_file
             asr_brain.hparams.train_logger.save_file = (
                 asr_brain.hparams.wer_file
             ) = os.path.join(locale_dir, "tmp.txt")
@@ -285,9 +286,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
                 test_loader_kwargs=hparams["valid_dataloader_kwargs"],
             )
             os.remove(asr_brain.hparams.wer_file)
-            asr_brain.hparams.train_logger.save_file = os.path.join(
-                hparams["output_dir"], "train_log.txt"
-            )
+            asr_brain.hparams.train_logger.save_file = train_log_backup
             asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
         else:
             asr_brain.evaluate(
@@ -445,6 +444,12 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    hparams["train_logger"].save_file = hparams[
+        "train_logger"
+    ].save_file.replace(
+        ".txt",
+        f"_base={','.join(hparams['base_locales'])}_new={','.join(hparams['new_locales'])}.txt",
+    )
 
     # Create experiment directory
     sb.create_experiment_directory(

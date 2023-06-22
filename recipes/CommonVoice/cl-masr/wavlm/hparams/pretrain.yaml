@@ -3,6 +3,8 @@
 # Authors: Luca Della Libera 2023
 # ############################################################################
 
+experiment_name: pretrain
+
 seed: 0
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
@@ -14,7 +16,7 @@ data_dir: !PLACEHOLDER
 max_durations: [36000, 3600, 3600]
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/pretrain/<seed>
+output_dir: !ref results/<wavlm_variant>/<experiment_name>/<seed>
 save_dir: !ref <output_dir>/save
 
 # Training parameters
@@ -107,4 +109,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <output_dir>/train_log.txt
+    save_file: !ref <output_dir>/<experiment_name>.txt

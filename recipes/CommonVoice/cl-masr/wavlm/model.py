@@ -11,11 +11,19 @@ from torch import nn
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 from speechbrain.nnet.RNN import LSTM as SBLSTM
 from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import download_file
 
 
 __all__ = [
     "ProgressiveWavLM",
 ]
+
+
+_TOKENIZER_URL = (
+    "https://www.dropbox.com/sh/gxzzr2znd9z8tu1/AACQgjzSVG1PgoyIK_Og8Brda?dl=1"
+)
+
+_TOKENIZER_PATH = os.path.join(os.path.dirname(__file__), "tokenizer")
 
 
 class Decoder(nn.Module):
@@ -97,10 +105,14 @@ class ProgressiveWavLM(nn.Module):
         bidirectional=False,
     ):
         super().__init__()
+        download_file(
+            _TOKENIZER_URL,
+            f"{_TOKENIZER_PATH}.zip",
+            unpack=True,
+            dest_unpack=_TOKENIZER_PATH,
+        )
         self.tokenizer = SentencePiece(
-            model_dir=os.path.join(os.path.dirname(__file__), "tokenizer"),
-            vocab_size=4887,
-            model_type="char",
+            model_dir=_TOKENIZER_PATH, vocab_size=4887, model_type="char",
         ).sp
         vocab_size = self.tokenizer.vocab_size()
         encoder_kwargs = {

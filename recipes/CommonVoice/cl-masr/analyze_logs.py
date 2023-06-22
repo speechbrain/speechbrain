@@ -10,6 +10,7 @@ import argparse
 import csv
 import logging
 import os
+import re
 from collections import defaultdict
 from itertools import cycle
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -725,10 +726,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Retrieve all continual learning train logs in the input directory
+    pattern = re.compile(r".*_base=.*_new=.*.txt")
     train_logs = []
     for root, dirs, files in os.walk(args.input_dir):
         for file in files:
-            if file.endswith(".txt"):
+            if pattern.match(file):
                 train_log = os.path.join(root, file)
                 train_logs.append(train_log)
     train_logs = sorted(train_logs)
@@ -787,7 +789,12 @@ if __name__ == "__main__":
                 metrics["Forward transfer"][group_name].append(fwt)
 
                 # Plot WERs
-                output_image = train_log.replace(".txt", f".{args.format}")
+                output_image = os.path.join(
+                    args.input_dir,
+                    os.path.basename(train_log).replace(
+                        ".txt", f".{args.format}"
+                    ),
+                )
                 plot_wer(
                     wers,
                     output_image,
