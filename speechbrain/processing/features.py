@@ -154,8 +154,10 @@ class STFT(torch.nn.Module):
             self.pad_mode,
             self.normalized_stft,
             self.onesided,
-            return_complex=False,
+            return_complex=True,
         )
+
+        stft = torch.view_as_real(stft)
 
         # Retrieving the original dimensionality (batch,time, channels)
         if len(or_shape) == 3:
@@ -175,7 +177,7 @@ class STFT(torch.nn.Module):
 
 
 class ISTFT(torch.nn.Module):
-    """ Computes the Inverse Short-Term Fourier Transform (ISTFT)
+    """Computes the Inverse Short-Term Fourier Transform (ISTFT)
 
     This class computes the Inverse Short-Term Fourier Transform of
     an audio signal. It supports multi-channel audio inputs
@@ -257,7 +259,7 @@ class ISTFT(torch.nn.Module):
         self.window = window_fn(self.win_length)
 
     def forward(self, x, sig_length=None):
-        """ Returns the ISTFT generated from the input signal.
+        """Returns the ISTFT generated from the input signal.
 
         Arguments
         ---------
@@ -726,7 +728,10 @@ class DCT(torch.nn.Module):
     """
 
     def __init__(
-        self, input_size, n_out=20, ortho_norm=True,
+        self,
+        input_size,
+        n_out=20,
+        ortho_norm=True,
     ):
         super().__init__()
 
@@ -792,7 +797,9 @@ class Deltas(torch.nn.Module):
     """
 
     def __init__(
-        self, input_size, window_length=5,
+        self,
+        input_size,
+        window_length=5,
     ):
         super().__init__()
         self.n = (window_length - 1) // 2
@@ -800,9 +807,11 @@ class Deltas(torch.nn.Module):
 
         self.register_buffer(
             "kernel",
-            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
-                input_size, 1, 1
-            ),
+            torch.arange(
+                -self.n,
+                self.n + 1,
+                dtype=torch.float32,
+            ).repeat(input_size, 1, 1),
         )
 
     def forward(self, x):
@@ -833,7 +842,10 @@ class Deltas(torch.nn.Module):
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
             delta_coeff = delta_coeff.reshape(
-                or_shape[0], or_shape[1], or_shape[2], or_shape[3],
+                or_shape[0],
+                or_shape[1],
+                or_shape[2],
+                or_shape[3],
             )
         delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
 
@@ -865,7 +877,9 @@ class ContextWindow(torch.nn.Module):
     """
 
     def __init__(
-        self, left_frames=0, right_frames=0,
+        self,
+        left_frames=0,
+        right_frames=0,
     ):
         super().__init__()
         self.left_frames = left_frames
@@ -897,7 +911,10 @@ class ContextWindow(torch.nn.Module):
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
-                .view(x.shape[1] * self.context_len, self.kernel_len,)
+                .view(
+                    x.shape[1] * self.context_len,
+                    self.kernel_len,
+                )
                 .unsqueeze(1)
             )
 
@@ -1006,7 +1023,6 @@ class InputNormalization(torch.nn.Module):
         current_stds = []
 
         for snt_id in range(N_batches):
-
             # Avoiding padded time steps
             actual_size = torch.round(lengths[snt_id] * x.shape[1]).int()
 
@@ -1019,16 +1035,13 @@ class InputNormalization(torch.nn.Module):
             current_stds.append(current_std)
 
             if self.norm_type == "sentence":
-
                 x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
 
             if self.norm_type == "speaker":
-
                 spk_id = int(spk_ids[snt_id][0])
 
                 if self.training:
                     if spk_id not in self.spk_dict_mean:
-
                         # Initialization of the dictionary
                         self.spk_dict_mean[spk_id] = current_mean
                         self.spk_dict_std[spk_id] = current_std
@@ -1045,13 +1058,15 @@ class InputNormalization(torch.nn.Module):
                             self.weight = self.avg_factor
 
                         self.spk_dict_mean[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_mean[spk_id]
-                            + self.weight * current_mean
-                        )
+                            1 - self.weight
+                        ) * self.spk_dict_mean[
+                            spk_id
+                        ] + self.weight * current_mean
                         self.spk_dict_std[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_std[spk_id]
-                            + self.weight * current_std
-                        )
+                            1 - self.weight
+                        ) * self.spk_dict_std[
+                            spk_id
+                        ] + self.weight * current_std
 
                         self.spk_dict_mean[spk_id].detach()
                         self.spk_dict_std[spk_id].detach()
@@ -1076,7 +1091,6 @@ class InputNormalization(torch.nn.Module):
                 x = (x - current_mean.data) / (current_std.data)
 
             if self.norm_type == "global":
-
                 if self.training:
                     if self.count == 0:
                         self.glob_mean = current_mean
@@ -1133,8 +1147,7 @@ class InputNormalization(torch.nn.Module):
         return current_mean, current_std
 
     def _statistics_dict(self):
-        """Fills the dictionary containing the normalization statistics.
-        """
+        """Fills the dictionary containing the normalization statistics."""
         state = {}
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
@@ -1180,8 +1193,7 @@ class InputNormalization(torch.nn.Module):
         return state
 
     def to(self, device):
-        """Puts the needed tensors in the right device.
-        """
+        """Puts the needed tensors in the right device."""
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)
