@@ -97,15 +97,12 @@ class ASR(sb.core.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     noisy, clean = self.add_speed_perturb(clean, noisy_lens)
 
-                    if "SAR" in self.hparams.data_folder:
-                        # Reverb already added, not adding any reverb
-                        clean_rev = clean
-                        noisy = clean.sum(-1)
-                        # if we reverberate, we set the clean to be reverberant
-                        if not self.hparams.dereverberate:
-                            clean = clean_rev
-                    else:
-                        noisy = clean.sum(-1)
+                    # Reverb already added, not adding any reverb
+                    clean_rev = clean
+                    noisy = clean.sum(-1)
+                    # if we reverberate, we set the clean to be reverberant
+                    if not self.hparams.dereverberate:
+                        clean = clean_rev
 
                     noise = noise.to(self.device)
                     len_noise = noise.shape[1]
@@ -683,19 +680,31 @@ def dataio_prepare(hparams, tokenizer):
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_sig")
     def audio_pipeline_clean(wav):
+        info = torchaudio.info(wav)
         clean_sig = sb.dataio.dataio.read_audio(wav)
+        clean_sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["enhance_sample_rate"],
+        )(clean_sig)
         return clean_sig
 
     @sb.utils.data_pipeline.takes("noise_wav")
     @sb.utils.data_pipeline.provides("noise_sig")
     def audio_pipeline_noise(wav):
+        info = torchaudio.info(wav)
         noise_sig = sb.dataio.dataio.read_audio(wav)
+        noise_sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["enhance_sample_rate"],
+        )(noise_sig)
         return noise_sig
 
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_wav", "noisy_sig")
     def audio_pipeline_noisy(wav):
+        info = torchaudio.info(wav)
         noisy_sig = sb.dataio.dataio.read_audio(wav)
+        noisy_sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["enhance_sample_rate"],
+        )(noisy_sig)
         return wav, noisy_sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_clean)
