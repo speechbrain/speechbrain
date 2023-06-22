@@ -1,0 +1,20 @@
+This file compiles the 
+
+TASK LibriSpeech: 
+	LSTM
+	contextnet
+TASK IEMOCAP:
+	linear
+	ecapa_tdnn
+TASK VoxCeleb1:
+	ecapa_tdnn
+	Xvectors
+TASK Buckeye:
+	LSTM
+	contextnet
+TASK CommonVoice_ASR:
+	LSTM
+	linear 
+TASK SLURP:
+	linear
+	LSTM_linear
