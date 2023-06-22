@@ -35,6 +35,7 @@ Authors
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
+import speechbrain as sb
 from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d, Conv2d
 from torchaudio import transforms
 
@@ -115,6 +116,31 @@ def mel_spectogram(
 
     return mel
 
+
+def process_duration(code, code_feat):
+    uniq_code_count = []
+    uniq_code_feat = []
+    for i in range(code.size(0)):
+        _, count = torch.unique_consecutive(code[i, :], return_counts=True)
+        if len(count) > 2:
+            # remove first and last code as segment sampling may cause incomplete segment length
+            uniq_code_count.append(count[1:-1])
+            uniq_code_idx = count.cumsum(dim=0)[:-2]
+        else:
+            uniq_code_count.append(count)
+            uniq_code_idx = count.cumsum(dim=0) - 1
+        uniq_code_feat.append(code_feat[i, uniq_code_idx, :].view(-1, code_feat.size(2)))
+    uniq_code_count = torch.cat(uniq_code_count)
+
+    # collate feat
+    max_len = max(feat.size(0) for feat in uniq_code_feat)
+    out = uniq_code_feat[0].new_zeros((len(uniq_code_feat), max_len, uniq_code_feat[0].size(1)))
+    mask = torch.arange(max_len).repeat(len(uniq_code_feat), 1)
+    for i, v in enumerate(uniq_code_feat):
+        out[i, : v.size(0)] = v
+        mask[i, :] = mask[i, :] < v.size(0)
+
+    return out, mask.bool(), uniq_code_count.float()
 
 ##################################
 # Generator
@@ -458,10 +484,227 @@ class HifiganGenerator(torch.nn.Module):
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
         """
-        c = torch.nn.functional.pad(
-            c, (self.inference_padding, self.inference_padding), "replicate"
-        )
+        # c = torch.nn.functional.pad(
+        #     c, (self.inference_padding, self.inference_padding), "replicate"
+        # )
         return self.forward(c)
+
+
+class VariancePredictor(nn.Module):
+    def __init__(
+        self,
+        encoder_embed_dim,
+        var_pred_hidden_dim,
+        var_pred_kernel_size,
+        var_pred_dropout
+    ):
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            Conv1d(
+                in_channels=encoder_embed_dim,
+                out_channels=var_pred_hidden_dim,
+                kernel_size=var_pred_kernel_size,
+                padding="same",
+                skip_transpose=True,
+                weight_norm=True,
+            ),
+            nn.ReLU()
+        )
+        #self.ln1 = nn.LayerNorm(var_pred_hidden_dim)
+        self.dropout = var_pred_dropout
+        self.conv2 = nn.Sequential(
+            Conv1d(
+                in_channels=var_pred_hidden_dim,
+                out_channels=var_pred_hidden_dim,
+                kernel_size=var_pred_kernel_size,
+                padding="same",
+                skip_transpose=True,
+                weight_norm=True,
+            ),
+            nn.ReLU()
+        )
+        #self.ln2 = nn.LayerNorm(var_pred_hidden_dim)
+        self.proj = nn.Linear(var_pred_hidden_dim, 1)
+
+    def forward(self, x):
+        # Input: B x T x C; Output: B x T
+        x = self.conv1(x.transpose(1, 2)).transpose(1, 2)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.conv2(x.transpose(1, 2)).transpose(1, 2)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        return self.proj(x).squeeze(dim=2)
+
+
+class UnitHifiganGenerator(HifiganGenerator):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        resblock_type,
+        resblock_dilation_sizes,
+        resblock_kernel_sizes,
+        upsample_kernel_sizes,
+        upsample_initial_channel,
+        upsample_factors,
+        inference_padding=5,
+        cond_channels=0,
+        conv_post_bias=True,
+        num_embeddings=100,
+        embedding_dim=128,
+        duration_predictor=False,
+        var_pred_hidden_dim=128,
+        var_pred_kernel_size=3,
+        var_pred_dropout=0.5,
+        multi_speaker=False,
+        speaker_embedding=None,
+    ):
+        super().__init__(
+            in_channels,
+            out_channels,
+            resblock_type,
+            resblock_dilation_sizes,
+            resblock_kernel_sizes,
+            upsample_kernel_sizes,
+            upsample_initial_channel,
+            upsample_factors,
+            inference_padding,
+            cond_channels,
+            conv_post_bias,
+        )
+        self.unit_embedding = torch.nn.Embedding(num_embeddings, embedding_dim)
+        self.multi_speaker = multi_speaker
+        self.speaker_embedding = speaker_embedding
+        self.multi_emotion = multi_emotion
+        self.emotion_embedding = emotion_embedding
+        self.duration_predictor = duration_predictor
+        if duration_predictor:
+            self.var_predictor = VariancePredictor(
+                embedding_dim,
+                var_pred_hidden_dim,
+                var_pred_kernel_size,
+                var_pred_dropout,
+            )
+        self.f0 = f0
+        self.match_f0_length_to_input = match_f0_length_to_input
+
+    @staticmethod
+    def _upsample(signal, max_frames):
+        if signal.dim() == 3:
+            bsz, channels, cond_length = signal.size()
+        elif signal.dim() == 2:
+            signal = signal.unsqueeze(2)
+            bsz, channels, cond_length = signal.size()
+        else:
+            signal = signal.view(-1, 1, 1)
+            bsz, channels, cond_length = signal.size()
+
+        signal = signal.unsqueeze(3).repeat(1, 1, 1, max_frames // cond_length)
+
+        # pad zeros as needed (if signal's shape does not divide completely with max_frames)
+        reminder = (max_frames - signal.shape[2] * signal.shape[3]) // signal.shape[3]
+        if reminder > 0:
+            raise NotImplementedError('Padding condition signal - misalignment between condition features.')
+
+        signal = signal.view(bsz, channels, max_frames)
+        return signal
+
+    def forward(self, u, spk=None, emo=None, f0=None, g=None):
+        x = self.unit_embedding(u).transpose(1, 2)
+
+        log_dur = None
+        log_dur_pred = None
+        cat = [x]
+        
+        if self.duration_predictor:
+            uniq_code_feat, uniq_code_mask, dur = process_duration(
+                u, x.transpose(1, 2))
+            log_dur_pred = self.var_predictor(uniq_code_feat)
+            log_dur_pred = log_dur_pred[uniq_code_mask]
+            log_dur = torch.log(dur + 1)
+
+        if self.multi_speaker:
+            if self.speaker_embedding:
+                spk = self.speaker_embedding(spk).transpose(1, 2)
+            else:
+                spk = spk.unsqueeze(-1)
+            spk = self._upsample(spk, x.shape[-1])
+            cat.append(spk)
+            
+        if self.multi_emotion:
+            if self.emotion_embedding:
+                emo = self.emotion_embedding(emo).transpose(1, 2)
+            else:
+                emo = emo.unsqueeze(-1)
+            emo = self._upsample(emo, x.shape[-1])
+            cat.append(emo)
+
+        if self.f0:
+            if x.shape[-1] < f0.shape[-1] and self.match_f0_length_to_input:
+                f0 = F.interpolate(f0, x.shape[-1])
+            elif x.shape[-1] < f0.shape[-1]:
+                x = self._upsample(x, f0.shape[-1])
+            else:
+                f0 = self._upsample(f0, x.shape[-1])
+            cat.append(f0)
+
+        x = torch.cat(cat, dim=1)
+
+        return super().forward(x), (log_dur_pred, log_dur)
+
+    @torch.no_grad()
+    def inference(self, x, f0=None, spk=None, emo=None):
+        """The inference function performs a padding and runs the forward method.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, channel, time)
+            feature input tensor.
+        """
+        # c = torch.nn.functional.pad(
+        #     c, (self.inference_padding, self.inference_padding), "replicate"
+        # )
+
+        x = self.unit_embedding(x).transpose(1, 2)
+        cat = [x]
+        
+        if self.duration_predictor:
+            assert x.size(0) == 1, "only support single sample batch in inference"
+            log_dur_pred = self.var_predictor(x.transpose(1, 2))
+            dur_out = torch.clamp(
+                torch.round((torch.exp(log_dur_pred) - 1)).long(), min=1
+            )
+            # B x C x T
+            x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)
+            cat = [x]
+
+        if self.multi_speaker:
+            if self.speaker_embedding:
+                spk = self.speaker_embedding(spk).transpose(1, 2)
+            else:
+                spk = spk.unsqueeze(-1)
+            spk = self._upsample(spk, x.shape[-1])
+            cat.append(spk)
+            
+        if self.multi_emotion:
+            if self.emotion_embedding:
+                emo = self.emotion_embedding(emo).transpose(1, 2)
+            else:
+                emo = emo.unsqueeze(-1)
+            emo = self._upsample(emo, x.shape[-1])
+            cat.append(emo)
+
+        if self.f0:
+            if x.shape[-1] < f0.shape[-1] and self.match_f0_length_to_input:
+                f0 = F.interpolate(f0, x.shape[-1])
+            elif x.shape[-1] < f0.shape[-1]:
+                x = self._upsample(x, f0.shape[-1])
+            else:
+                f0 = self._upsample(f0, x.shape[-1])
+            cat.append(f0)
+
+        x = torch.cat(cat, dim=1)
+
+        return super().forward(x)
 
 
 ##################################
@@ -1135,6 +1378,8 @@ class GeneratorLoss(nn.Module):
         feat_match_loss_weight=0,
         l1_spec_loss=None,
         l1_spec_loss_weight=0,
+        mseg_dur_loss=None,
+        mseg_dur_loss_weight=0,
     ):
         super().__init__()
         self.stft_loss = stft_loss
@@ -1145,14 +1390,19 @@ class GeneratorLoss(nn.Module):
         self.feat_match_loss_weight = feat_match_loss_weight
         self.l1_spec_loss = l1_spec_loss
         self.l1_spec_loss_weight = l1_spec_loss_weight
+        self.mseg_dur_loss = mseg_dur_loss
+        self.mseg_dur_loss_weight = mseg_dur_loss_weight
 
     def forward(
         self,
+        stage,
         y_hat=None,
         y=None,
         scores_fake=None,
         feats_fake=None,
         feats_real=None,
+        log_dur_pred=None,
+        log_dur=None,
     ):
         """Returns a dictionary of generator losses and applies weights
 
@@ -1172,6 +1422,7 @@ class GeneratorLoss(nn.Module):
 
         gen_loss = 0
         adv_loss = 0
+        dur_loss = 0
         loss = {}
 
         # STFT Loss
@@ -1202,7 +1453,14 @@ class GeneratorLoss(nn.Module):
             feat_match_loss = self.feat_match_loss(feats_fake, feats_real)
             loss["G_feat_match_loss"] = feat_match_loss
             adv_loss = adv_loss + self.feat_match_loss_weight * feat_match_loss
-        loss["G_loss"] = gen_loss + adv_loss
+
+        # Duration loss
+        if self.mseg_dur_loss and stage == sb.Stage.TRAIN:
+            dur_loss = F.mse_loss(log_dur_pred, log_dur, reduction="mean")
+            loss["G_dur_loss"] = dur_loss
+            dur_loss *= self.mseg_dur_loss_weight
+
+        loss["G_loss"] = gen_loss + adv_loss + dur_loss
         loss["G_gen_loss"] = gen_loss
         loss["G_adv_loss"] = adv_loss
 

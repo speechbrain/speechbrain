@@ -1,0 +1,209 @@
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+model_name: !PLACEHOLDER
+output_folder: !ref results/<seed>/<model_name>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+epochs: 200
+keep_checkpoint_interval: 5
+
+use_wandb: True
+
+logger_opts:
+  initializer: !name:wandb.init
+    entity: jar0d
+    project: s2ut_cvss
+    name: !ref <model_name>
+    reinit: True
+    #yaml_config: Null
+    resume: False
+
+#################################
+# Data files and pre-processing #
+#################################
+audio_folder: /local_disk/apollon/jduret/corpus/CV4/fr/clips_16k
+units_folder: /local_disk/apollon/jduret/egs/cvss/data/units/mhubert/cvss_tgt_l11_k1000
+data_folder: /local_disk/apollon/jduret/egs/cvss/data
+
+train_json: !ref <data_folder>/train.json
+valid_json: !ref <data_folder>/test.json
+# test_json:
+
+splits: ["train", "valid"]
+
+lang: "fr" # ??
+vocab_size: 1003 # Kmeans
+
+sorting: random
+
+dynamic_batching: True
+max_batch_len: 250 #600
+max_batch_len_val: 250 #400 we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
+
+dynamic_batch_sampler:
+    max_batch_len: !ref <max_batch_len>
+    max_batch_len_val: !ref <max_batch_len_val>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+    max_batch_ex: 128
+
+# URL for the HuggingFace model we want to load (BASE here)
+wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-large #-large -base
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+
+# wav2vec 2.0 specific parameters
+wav2vec2_frozen: False
+
+# Training parameters
+number_of_epochs: 100
+lr: 0.0005 #5
+lr_wav2vec: 0.00001 #0.00001
+train_batch_size: 20
+test_batch_size: 20
+loss_reduction: batchmean
+
+num_workers: 4
+train_dataloader_opts:
+  batch_size: !ref <train_batch_size>
+  drop_last: False
+  num_workers: !ref <num_workers>
+  collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+    padding_kwargs:
+        value: !ref <pad_index>
+
+valid_dataloader_opts:
+  batch_size: !ref <test_batch_size>
+  num_workers: !ref <num_workers>
+  collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+    padding_kwargs:
+        value: !ref <pad_index>
+
+####################### Model parameters ###########################
+
+# Feature parameters (W2V2 etc)
+features_dim: 1024 # base wav2vec output dimension, for large replace by 1024
+
+#projection for w2v
+enc_kernel_size: 3
+enc_stride: 2
+
+# Transformer
+embedding_size: 512
+d_model: 512
+nhead: 8
+num_encoder_layers: 0
+num_decoder_layers: 6
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: !ref <vocab_size> # /!\ needs to be changed accordingly to the vocabulary
+attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
+
+# Outputs
+blank_index: 1002
+label_smoothing: 0.2
+bos_index: 1000
+eos_index: 1001
+pad_index: 1002
+
+# Decoding parameters
+valid_search_interval: 5
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+
+############################## models ################################
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: True
+    freeze: !ref <wav2vec2_frozen>
+    save_path: !ref <wav2vec2_folder>
+    apply_spec_augment : True
+    #layer_drop: 0.0
+
+enc: !new:speechbrain.nnet.CNN.Conv1d
+    input_shape: [null, null, !ref <features_dim>]
+    out_channels: !ref <embedding_size>
+    kernel_size: !ref <enc_kernel_size>
+    stride: !ref <enc_stride>
+
+transformer: !new:speechbrain.lobes.models.transformer.TransformerS2U.TransformerS2U # yamllint disable-line rule:line-length
+    input_size: !ref <embedding_size>
+    tgt_vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    attention_type: !ref <attention_type>
+    normalize_before: True
+    causal: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    enc: !ref <enc>
+    transformer: !ref <transformer>
+    seq_lin: !ref <seq_lin>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <transformer>, !ref <seq_lin>]
+
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+
+wav2vec_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_wav2vec>
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 10000 #2500
+
+wav2vec_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
+    modules: [!ref <transformer>, !ref <seq_lin>, null]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    temperature: 1.0
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    wav2vec2: !ref <wav2vec2>
+    counter: !ref <epoch_counter>
+    scheduler: !ref <noam_annealing>

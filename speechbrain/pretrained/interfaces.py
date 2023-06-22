@@ -2907,6 +2907,80 @@ class HIFIGAN(Pretrained):
         return self.decode_batch(spectrogram)
 
 
+class UnitHIFIGAN(Pretrained):
+    HPARAMS_NEEDED = ["generator"]
+
+    """
+    A ready-to-use wrapper for HiFiGAN (discrete units -> waveform).
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+        self.first_call = True
+
+    def decode_batch(self, unit, spk=None):
+        """Computes waveforms from a batch of discrete units
+        Arguments
+        ---------
+        unit: torch.tensor
+            Batch of discrete units [batch, units]
+        spk: torch.tensor
+            Batch of spks [batch, spk_dim]
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+        """
+        # Prepare for inference by removing the weight norm
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+        with torch.no_grad():
+            if spk:
+                spk.to(self.device)
+            waveform = self.infer(unit.to(self.device), spk=spk)
+        return waveform
+
+    def decode_unit(self, unit, f0=None, spk=None, emo=None):
+        """Computes waveforms from a single sequence of discrete units
+        Arguments
+        ---------
+        unit: torch.tensor
+            unit: [time]
+        spk: torch.tensor
+            spk: [spk_dim]
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> sample_rate = 22050
+        >>> torchaudio.save("test.wav", waveform, sample_rate)
+        """
+        # Prepare for inference by removing the weight norm
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+        with torch.no_grad():
+            if spk is not None:
+                spk = spk.unsqueeze(0).to(self.device)
+            if emo is not None:
+                emo = emo.unsqueeze(0).to(self.device)
+            if f0 is not None:
+                f0 = f0.unsqueeze(0).to(self.device)
+            waveform = self.infer(unit.unsqueeze(0).to(self.device), f0=f0, spk=spk, emo=emo)
+        return waveform.squeeze(0)
+
+    def forward(self, unit, spk=None):
+        return self.decode_batch(unit, spk)
+
+
 class WhisperASR(Pretrained):
     """A ready-to-use Whisper ASR model
 
@@ -3028,3 +3102,55 @@ class WhisperASR(Pretrained):
     def forward(self, wavs, wav_lens):
         """Runs full transcription - note: no gradients through decoding"""
         return self.transcribe_batch(wavs, wav_lens)
+
+
+class EncoderDecoderS2UT(Pretrained):
+    """A ready-to-use Encoder Decoder for speech-to-unit translation model
+
+    """
+    
+    HPARAMS_NEEDED = ["model"]
+    MODULES_NEEDED = ["encoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def translate_file(self, path):
+        """Translate the given audiofile into a sequence speech unit.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to transcribe.
+
+        Returns
+        -------
+        int[]
+            The audiofile translation produced by this speech-to-unit translation system.
+        """
+        waveform = self.load_audio(path, savedir='./tmpdir/audios')
+        waveform = waveform.to(self.device)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_tokens = self.translate_batch(batch, rel_length)
+        return predicted_tokens[0]
+
+    def encode_batch(self, wavs, wav_lens):
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
+        return encoder_out
+
+    def translate_batch(self, wavs, wav_lens):
+        with torch.no_grad():
+            wav_lens = wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            predicted_tokens, scores = self.mods.decoder(
+                encoder_out, wav_lens
+            )
+        return predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs the encoder"""
+        return self.encode_batch(wavs, wav_lens)

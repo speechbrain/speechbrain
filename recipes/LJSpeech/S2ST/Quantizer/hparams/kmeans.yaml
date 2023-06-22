@@ -1,0 +1,40 @@
+# ############################################################################
+# S2U: Train Kmeans to extract discrete units for HiFi-GAN
+# Training: LJSpeech
+# Authors:  Duret, Jarod 2022
+# ############################################################################
+
+
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+no_cuda: False
+output_folder: !PLACEHOLDER #!ref ../results/hifi_gan/<seed>
+train_log: !ref <output_folder>/train_log.txt
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: /local_disk/calypso/jduret/corpus/S2UT/16K
+ds: [LJ]
+splits: [metadata_train, metadata_test]
+
+# Features arguments
+feats_folder: !PLACEHOLDER
+sample_pct: 0.2
+
+# K-means arguments
+num_clusters: 100
+init: k-means++
+max_iter: 100
+batch_size: 10000
+tol: 0.0
+max_no_improvement: 100
+n_init: 20
+reassignment_ratio: 0.0
+out_kmeans_model_path: !ref <output_folder>/kmeans.cpt
+
+
+
