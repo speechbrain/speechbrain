@@ -728,10 +728,7 @@ class DCT(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        input_size,
-        n_out=20,
-        ortho_norm=True,
+        self, input_size, n_out=20, ortho_norm=True,
     ):
         super().__init__()
 
@@ -797,9 +794,7 @@ class Deltas(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        input_size,
-        window_length=5,
+        self, input_size, window_length=5,
     ):
         super().__init__()
         self.n = (window_length - 1) // 2
@@ -807,11 +802,9 @@ class Deltas(torch.nn.Module):
 
         self.register_buffer(
             "kernel",
-            torch.arange(
-                -self.n,
-                self.n + 1,
-                dtype=torch.float32,
-            ).repeat(input_size, 1, 1),
+            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
+                input_size, 1, 1
+            ),
         )
 
     def forward(self, x):
@@ -842,10 +835,7 @@ class Deltas(torch.nn.Module):
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
             delta_coeff = delta_coeff.reshape(
-                or_shape[0],
-                or_shape[1],
-                or_shape[2],
-                or_shape[3],
+                or_shape[0], or_shape[1], or_shape[2], or_shape[3],
             )
         delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
 
@@ -877,9 +867,7 @@ class ContextWindow(torch.nn.Module):
     """
 
     def __init__(
-        self,
-        left_frames=0,
-        right_frames=0,
+        self, left_frames=0, right_frames=0,
     ):
         super().__init__()
         self.left_frames = left_frames
@@ -911,10 +899,7 @@ class ContextWindow(torch.nn.Module):
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
-                .view(
-                    x.shape[1] * self.context_len,
-                    self.kernel_len,
-                )
+                .view(x.shape[1] * self.context_len, self.kernel_len,)
                 .unsqueeze(1)
             )
 
@@ -1058,15 +1043,13 @@ class InputNormalization(torch.nn.Module):
                             self.weight = self.avg_factor
 
                         self.spk_dict_mean[spk_id] = (
-                            1 - self.weight
-                        ) * self.spk_dict_mean[
-                            spk_id
-                        ] + self.weight * current_mean
+                            (1 - self.weight) * self.spk_dict_mean[spk_id]
+                            + self.weight * current_mean
+                        )
                         self.spk_dict_std[spk_id] = (
-                            1 - self.weight
-                        ) * self.spk_dict_std[
-                            spk_id
-                        ] + self.weight * current_std
+                            (1 - self.weight) * self.spk_dict_std[spk_id]
+                            + self.weight * current_std
+                        )
 
                         self.spk_dict_mean[spk_id].detach()
                         self.spk_dict_std[spk_id].detach()
