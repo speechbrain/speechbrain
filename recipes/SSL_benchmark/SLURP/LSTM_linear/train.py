@@ -177,8 +177,7 @@ def dataio_prep(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -203,14 +202,12 @@ def dataio_prep(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["csv_test"], replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -244,8 +241,7 @@ def dataio_prep(hparams):
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "scenario", "scenario_encoded"],
+        datasets, ["id", "sig", "scenario", "scenario_encoded"],
     )
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
@@ -253,9 +249,7 @@ def dataio_prep(hparams):
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file,
-        from_didatasets=[datasets[0]],
-        output_key="scenario",
+        path=lab_enc_file, from_didatasets=[datasets[0]], output_key="scenario",
     )
 
     return {"train": datasets[0], "valid": datasets[1], "test": datasets[2]}

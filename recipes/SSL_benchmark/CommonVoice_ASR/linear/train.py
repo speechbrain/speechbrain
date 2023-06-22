@@ -112,7 +112,7 @@ class ASR(sb.Brain):
                 self.weights_optimizer, new_lr_weights
             )
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_model": old_lr_model, },
+                stats_meta={"epoch": epoch, "lr_model": old_lr_model},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )

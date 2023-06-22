@@ -123,7 +123,7 @@ class ASR(sb.Brain):
             )
 
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_model": old_lr_model, },
+                stats_meta={"epoch": epoch, "lr_model": old_lr_model},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -278,6 +278,7 @@ if __name__ == "__main__":
     # Loading the labels for the LM decoding and the CTC decoder
     if "language_modelling" in hparams:
         from pyctcdecode import build_ctcdecoder
+
         if hparams["language_modelling"]:
             ind2lab = label_encoder.ind2lab
             labels = [ind2lab[x] for x in range(len(ind2lab))]

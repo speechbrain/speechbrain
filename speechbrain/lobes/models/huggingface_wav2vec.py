@@ -505,6 +505,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
 
         return src_key_padding_mask
 
+
 class WeightedSSLModel(torch.nn.Module):
     """This lobe enables the integration of use of weighted sum representations
     from different layers in a SSL encoder.
@@ -535,7 +536,7 @@ class WeightedSSLModel(torch.nn.Module):
         super().__init__()
         self.encoder = AutoModel.from_pretrained(hub, output_hidden_states=True)
         self.num_layers = num_layers
-        #Initializing the learnable weights
+        # Initializing the learnable weights
         zero_init = torch.cat([torch.zeros(self.num_layers)])
         self.weights = torch.nn.Parameter(zero_init, requires_grad=True)
         self.layernorm = layernorm
@@ -555,12 +556,12 @@ class WeightedSSLModel(torch.nn.Module):
             self.num_layers == hidden_states.shape[0]
         ), "Num layers not equal to num hidden states"
         norm_weights = torch.nn.functional.softmax(self.weights, dim=-1)
-        #Layernorming the layers representations if asked
+        # Layernorming the layers representations if asked
         if self.layernorm:
             hidden_states = [
                 F.layer_norm(t, (t.shape[-1],)) for t in hidden_states
             ]
-        #Summing the weighted layers
+        # Summing the weighted layers
         weighted_feats = hidden_states[0] * norm_weights[0]
         for i in range(1, len(hidden_states)):
             weighted_feats += hidden_states[i] * norm_weights[i]
