@@ -2,7 +2,7 @@
 """
 Recipe for "direct" (speech -> scenario) "Intent" classification using SLURP Dataset.
 18 Scenarios classes are present in SLURP (calendar, email ...)
-We encode input waveforms into features using a SSL encoder. 
+We encode input waveforms into features using a SSL encoder
 The probing is done using time-pooling followed with a linear classifier.
 Authors
  * Salah Zaiem 2023
@@ -13,7 +13,8 @@ import os
 import sys
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-import torch
+from speechbrain.utils.distributed import run_on_main
+
 
 class IntentIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
@@ -139,7 +140,6 @@ class IntentIdBrain(sb.Brain):
                 test_stats=stats,
             )
 
-
     def init_optimizers(self):
         "Initializes the weights optimizer and model optimizer"
         self.weights_optimizer = self.hparams.weights_opt_class(
@@ -212,7 +212,6 @@ def dataio_prep(hparams):
 
     datasets = [train_data, valid_data, test_data]
 
-
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -254,8 +253,7 @@ def dataio_prep(hparams):
         from_didatasets=[datasets[0]],
         output_key="scenario",
     )
-    
-    return {"train": datasets[0], "valid" : datasets[1], "test" : datasets[2]} 
+    return {"train": datasets[0], "valid" : datasets[1], "test" : datasets[2]}
 
 
 # RECIPE BEGINS!
@@ -291,7 +289,6 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-
 
     # Data preparation, to be run on only one process.
     # Create dataset objects "train", "valid", and "test".
