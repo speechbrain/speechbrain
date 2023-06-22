@@ -15,6 +15,14 @@ The YAML syntax offers an elegant way to specify the hyperparameters of a recipe
 In SpeechBrain, the YAML file is not a plain list of parameters, but for each parameter, we specify the function (or class) that is using it.
 This not only makes the specification of the parameters more transparent but also allows us to properly initialize all the entries by simply calling the `load_extended_yaml` (in `speechbrain.utils.data_utils`).
 
+### Security note
+Loading HyperPyYAML allows arbitrary code execution.
+This is a feature: HyperPyYAML allows you to construct *anything* and *everything*
+you need in your experiment.
+However, take care to verify any untrusted recipes' YAML files just as you would verify the Python code.
+
+### Features
+
 Let's now take a quick look at the extended YAML features, using an example:
 
 ```
