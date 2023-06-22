@@ -29,6 +29,10 @@ from typing import (
     Optional,
 )
 
+from speechbrain.decoders.language_model import (
+    LanguageModel,
+    load_unigram_set_from_arpa,
+)
 
 class CTCPrefixScore:
     """This class implements the CTC prefix score of Algorithm 2 in
@@ -452,6 +456,8 @@ class CTCBaseSearcher(torch.nn.Module):
         blank_index,
         vocab_list,
         space_index=-1,
+        kenlm_model_path=None,
+        unigrams=None,
         beam_width=100,
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
@@ -463,6 +469,8 @@ class CTCBaseSearcher(torch.nn.Module):
 
         self.blank_index = blank_index
         self.space_index = space_index
+        self.kenlm_model_path = kenlm_model_path
+        self.unigrams = unigrams
         self.vocab_list = vocab_list
         self.beam_width = beam_width
         self.beam_prune_logp = beam_prune_logp
@@ -477,6 +485,38 @@ class CTCBaseSearcher(torch.nn.Module):
 
         if not self.is_spm and space_index == -1:
             raise ValueError("space_index must be set")
+        
+
+        self.kenlm_model = None
+        if kenlm_model_path is not None:
+            try:
+                import kenlm  # type: ignore
+            except ImportError:
+                raise ImportError(
+                    "kenlm python bindings are not installed. To install it use: "
+                    "pip install https://github.com/kpu/kenlm/archive/master.zip"
+                )
+
+            self.kenlm_model = kenlm.Model(kenlm_model_path)
+
+        if kenlm_model_path is not None and kenlm_model_path.endswith(".arpa"):
+            logger.info(
+                "Using arpa instead of binary LM file, decoder instantiation might be slow."
+            )
+
+        if unigrams is None and kenlm_model_path is not None:
+            if kenlm_model_path.endswith(".arpa"):
+                unigrams = load_unigram_set_from_arpa(kenlm_model_path)
+            else:
+                logger.warning(
+                    "Unigrams not provided and cannot be automatically determined from LM file (only "
+                    "arpa format). Decoding accuracy might be reduced."
+                )
+
+        if self.kenlm_model is not None:
+            self.lm = LanguageModel(self.kenlm_model, unigrams)
+        else:
+            self.lm = None
 
     def get_valid_pool(self, pool):
         """Return the pool if the pool is appropriate for multiprocessing."""
@@ -566,28 +606,67 @@ class CTCBaseSearcher(torch.nn.Module):
         cached_partial_token_scores,
         is_eos= False,
     ):
-        new_beams = []
-        for beam in beams:
-            new_text = self.merge_tokens(beam.text, beam.next_word)
-            new_beams.append(
-                LMCTCBeam(
-                    text=new_text,
-                    next_word="",
-                    partial_word=beam.partial_word,
-                    last_token=beam.last_token,
-                    last_token_index=beam.last_token,                    
-                    text_frames=beam.text_frames,
-                    partial_frames=beam.partial_frames,
-                    score=beam.score,
-                    lm_score=beam.score,
+        if self.lm is None:
+            new_beams = []
+            for beam in beams:
+                new_text = self.merge_tokens(beam.text, beam.next_word)
+                new_beams.append(
+                    LMCTCBeam(
+                        text=new_text,
+                        next_word="",
+                        partial_word=beam.partial_word,
+                        last_token=beam.last_token,
+                        last_token_index=beam.last_token,                    
+                        text_frames=beam.text_frames,
+                        partial_frames=beam.partial_frames,
+                        score=beam.score,
+                        lm_score=beam.score,
+                    )
                 )
-            )
-        return new_beams
+            return new_beams
+        else:
+            new_beams = []
+            for beam in beams:
+                # fast token merge
+                new_text = self.merge_tokens(beam.text, beam.next_word)
+                cache_key = (new_text, is_eos)
+                if cache_key not in cached_lm_scores:
+                    prev_raw_lm_score, start_state = cached_lm_scores[
+                        (beam.text, False)
+                    ]
+                    score, end_state = self.lm.score(
+                        start_state, beam.next_word, is_last_word=is_eos
+                    )
+                    raw_lm_score = prev_raw_lm_score + score
+                    cached_lm_scores[cache_key] = (raw_lm_score, end_state)
+                lm_score, _ = cached_lm_scores[cache_key]
+                word_part = beam.partial_word
+                if len(word_part) > 0:
+                    if word_part not in cached_partial_token_scores:
 
+                        cached_partial_token_scores[
+                            word_part
+                        ] = self.lm.score_partial_token(word_part)
+                    lm_score += cached_partial_token_scores[word_part]
+
+                new_beams.append(
+                    LMCTCBeam(
+                        text=new_text,
+                        next_word="",
+                        partial_word=word_part,
+                        last_token=beam.last_token,
+                        last_token_index=beam.last_token,  
+                        text_frames=beam.text_frames,
+                        partial_frames=beam.partial_frames,                  
+                        score=beam.score,
+                        lm_score=beam.score + lm_score,
+                    )
+                )
+            return new_beams
 
 class CTCBeamSearch(CTCBaseSearcher):
-    def __init__(self, blank_index, vocab_list, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, frames_prune_min_blank_logp=-0.01, history_prune=False, topk=1):
-        super().__init__(blank_index, vocab_list, space_index, beam_width, beam_prune_logp, token_prune_min_logp, frames_prune_min_blank_logp, history_prune, topk)
+    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, frames_prune_min_blank_logp=-0.01, history_prune=False, topk=1):
+        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, frames_prune_min_blank_logp, history_prune, topk)
 
     def partial_decoding(
         self, 
@@ -596,8 +675,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         cached_lm_scores,
         cached_p_lm_scores,
         processed_frames = 0,
-    ):
-
+    ):        
         for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
             max_index = logit_col.argmax()
             tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
@@ -750,7 +828,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
         return self.sort_beams(scored_beams)
     
-    def decode_beams_batch(self, log_probs, pool):
+    def decode_beams_batch(self, log_probs, pool=None):
         valid_pool = self.get_valid_pool(pool)
         if valid_pool is None:
             return [
@@ -801,10 +879,21 @@ class CTCBeamSearch(CTCBaseSearcher):
 
             return trimmed_beams
 
-    def decode_beams(self, log_probs):
-        cached_lm_scores = {}
-        cached_p_lm_scores = {}
-        
+    def decode_beams(self, log_probs, lm_start_state=None):
+        return self.decode_log_probs(log_probs, lm_start_state)
+
+    def decode_log_probs(self, log_probs, lm_start_state = None):
+        language_model = self.lm
+        if language_model is None:
+            cached_lm_scores = {}
+        else:
+            if lm_start_state is None:
+                start_state = language_model.get_start_state()
+            else:
+                start_state = lm_start_state
+            cached_lm_scores = {("", False): (0.0, start_state)}
+        cached_p_lm_scores: Dict[str, float] = {}
+       
         beams = [
             CTCBeam(
                 text="",

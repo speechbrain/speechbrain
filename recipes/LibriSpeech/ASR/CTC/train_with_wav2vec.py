@@ -108,8 +108,8 @@ class ASR(sb.Brain):
             ]
             """
             
-            with multiprocessing.get_context("fork").Pool() as pool:
-                batch_hypo = decoder.decode_beams_batch(p_ctc.cpu().numpy(), pool)
+            # with multiprocessing.get_context("fork").Pool() as pool:
+            batch_hypo = decoder.decode_beams_batch(p_ctc.cpu().numpy()) # , pool
             
             for hypo in batch_hypo:
                 predicted_words.append(hypo[0].text.split(" "))
@@ -121,9 +121,9 @@ class ASR(sb.Brain):
             """
 
             # filter wrd with len > 0
-            predicted_words = [
-                [w for w in utt if len(w) > 0] for utt in predicted_words
-            ]
+            #predicted_words = [
+            #   [w for w in utt if len(w) > 0] for utt in predicted_words
+            #]
 
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
@@ -431,11 +431,6 @@ if __name__ == "__main__":
         space_id=29,
         prune_history=True,
     )
-
-    from torchaudio.models.decoder import download_pretrained_files
-
-    files = download_pretrained_files("librispeech-4-gram")
-
     from torchaudio.models.decoder import ctc_decoder
 
     labels = [label.lower() for label in labels]
@@ -450,6 +445,10 @@ if __name__ == "__main__":
     )
     """
 
+    from torchaudio.models.decoder import download_pretrained_files
+
+    files = download_pretrained_files("librispeech-4-gram")
+
     from speechbrain.decoders import CTCBeamSearch
 
 
@@ -458,6 +457,7 @@ if __name__ == "__main__":
 
     decoder = CTCBeamSearch(
         blank_index=0,
+        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
         space_index=29,
         vocab_list=labels,
     )
