@@ -109,7 +109,7 @@ The recipes released with speechbrain implement speech processing systems with c
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | wav2vec2 | WER=1.90% (test-clean) |
-| LibriSpeech      | Speech Recognition | CNN + Conformer | WER=2.2% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Conformer | WER=2.0% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
