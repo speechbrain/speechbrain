@@ -1,4 +1,8 @@
 # ################################
+# Script for training an ASR model evaluating an SSL representation
+# model on one language from the CommonVoice dataset. A SentencePiece tokenizer
+# with number of tokens equal to <output_neurons> is learned in a first phase
+# on the considered language.
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -11,7 +15,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: !PLACEHOLDER # e.g, /localscratch/cv-corpus-11.0-2022-09-21/<language> 
+data_folder: !PLACEHOLDER # e.g, /local/cv-corpus-11.0-2022-09-21/<language>
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
@@ -23,7 +27,7 @@ skip_prep: False # Skip data preparation
 
 avoid_if_longer_than: 10.0
 
-num_layers_ssl: 13  #Number of layers in the SSL model (should be 25 for large models and 13 for base or distilled)
+num_layers_ssl: 13  #Number of layers in the SSL model (should be 25 for large)
 ssl_hub: facebook/wav2vec2-base
 encoder_dim: 768
 
@@ -48,11 +52,11 @@ test_batch_size: 4
 train_dataloader_opts:
    batch_size: !ref <batch_size>
 dataloader_options:
-    batch_size: !ref <batch_size>
-    num_workers: 4
+   batch_size: !ref <batch_size>
+   num_workers: 4
 test_dataloader_options:
-    batch_size: !ref <test_batch_size>
-    num_workers: 4
+   batch_size: !ref <test_batch_size>
+   num_workers: 4
 
 
 valid_dataloader_opts:
@@ -62,7 +66,7 @@ valid_dataloader_opts:
 activation: !name:torch.nn.Sigmoid
 dnn_layers: 1
 dnn_neurons: 768
-freeze_encoder : True
+freeze_encoder: True
 
 # Outputs
 output_neurons: 100  # BPE size, index(blank/eos/bos) = 0
@@ -77,14 +81,14 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
    sample_rate: !ref <sample_rate>
    speeds: [95, 100, 105]
 
-weighted_ssl_model: !new:speechbrain.lobes.models.huggingface_wav2vec.WeightedSSLModel
+weighted_ssl_model: !new:speechbrain.lobes.models.huggingface_wav2vec.WeightedSSLModel # yamllint disable-line rule:line-length
    hub: !ref <ssl_hub>
    num_layers: !ref <num_layers_ssl>
 
 enc: !new:speechbrain.nnet.RNN.LSTM
-   input_shape:  [Null, Null, !ref <encoder_dim>]
+   input_shape: [Null, Null, !ref <encoder_dim>]
    num_layers: 2
-   bidirectional : True
+   bidirectional: True
    dropout: 0.2
    hidden_size: 1024
 
@@ -132,7 +136,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
       model: !ref <model>
       ssl_model: !ref <weighted_ssl_model>
       scheduler_model: !ref <lr_annealing_model>
-      scheduler_encoder : !ref <lr_annealing_weights>
+      scheduler_encoder: !ref <lr_annealing_weights>
       counter: !ref <epoch_counter>
       tokenizer: !ref <label_encoder>
 

@@ -3,7 +3,7 @@
 Script for training an ASR model evaluating an SSL representation
 model on one language from the CommonVoice dataset. A SentencePiece tokenizer
 with number of tokens equal to <output_neurons> is learned in a first phase, on
-the considered langauge.
+the considered language.
 """
 
 import sys

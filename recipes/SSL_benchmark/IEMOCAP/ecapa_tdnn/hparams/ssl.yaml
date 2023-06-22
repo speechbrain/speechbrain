@@ -1,8 +1,9 @@
 # ########################################
-# Recipe for training an emotion recognition system from speech data only using IEMOCAP and an SSL feature extractor
-#The system classifies 4 emotions ( anger, happiness, sadness, neutrality)
-#with an ECAPA-TDNN model.
-#Authors
+# Recipe for training an emotion recognition system from speech data
+# only using IEMOCAP and an SSL feature extractor
+# The system classifies 4 emotions ( anger, happiness, sadness, neutrality)
+# with an ECAPA-TDNN model.
+# Authors
 # * Salah Zaiem 2023
 # * Youcef Kemiche 2023
 # ########################################
@@ -22,7 +23,7 @@ train_log: !ref <output_folder>/train_log.txt
 # This allow you to have ~4% improvment
 
 ssl_hub: facebook/wav2vec2-base
-num_layers_ssl: 13  #Number of layers in the SSL model (should be 25 for large models and 13 for base or distilled)
+num_layers_ssl: 13  #Number of layers in the SSL model (should be 25 for large)
 encoder_dim: 768
 
 # different speakers for train, valid and test sets
@@ -55,21 +56,21 @@ out_n_neurons: 4 # (anger, happiness, sadness, neutral)
 
 # Dataloader options
 train_dataloader_opts:
-   batch_size: !ref <batch_size>
-   shuffle: True
-   num_workers: 2  # 2 on linux but 0 works on windows
-   drop_last: False
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: 2  # 2 on linux but 0 works on windows
+    drop_last: False
 
 valid_dataloader_opts:
-   batch_size: !ref <batch_size>
+    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: !ref <test_batch_size>
+    batch_size: !ref <test_batch_size>
 
 
-weighted_ssl_model: !new:speechbrain.lobes.models.huggingface_wav2vec.WeightedSSLModel
-   hub: !ref <ssl_hub>
-   num_layers: !ref <num_layers_ssl>
+weighted_ssl_model: !new:speechbrain.lobes.models.huggingface_wav2vec.WeightedSSLModel # yamllint disable-line rule:line-length
+    hub: !ref <ssl_hub>
+    num_layers: !ref <num_layers_ssl>
 
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     input_size: !ref <encoder_dim>

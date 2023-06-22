@@ -14,14 +14,7 @@ valid_annotation: !ref <output_folder>/dev.csv
 num_layers_ssl: 13
 ssl_hub: facebook/wav2vec2-base
 
-# Use the following links for the official voxceleb splits:
-# VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
-# VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
-# VoxCeleb1-E (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_all2.txt.
-# VoxCeleb1-E and VoxCeleb1-H lists are drawn from the VoxCeleb1 training set.
-# Therefore you cannot use any files in VoxCeleb1 for training if you are using these lists for testing.
 verification_file: !PLACEHOLDER #path/to/veri_test2.txt
-
 
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
@@ -37,8 +30,7 @@ lr_weights: 0.01
 sample_rate: 16000
 shuffle: True
 random_chunk: True
-
-sentence_len: 3 
+sentence_len: 3
 
 # Feature parameters
 
@@ -69,9 +61,9 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 
-weighted_ssl_model: !new:speechbrain.lobes.models.hugginface_wav2vec.WeightedSSLModel
-   hub: !ref <ssl_hub>
-   num_layers: !ref <num_layers_ssl>
+weighted_ssl_model: !new:speechbrain.lobes.models.hugginface_wav2vec.WeightedSSLModel # yamllint disable-line rule:line-length
+    hub: !ref <ssl_hub>
+    num_layers: !ref <num_layers_ssl>
 
 
 modules:
@@ -80,7 +72,7 @@ modules:
     classifier: !ref <classifier>
 
 model: !new:torch.nn.ModuleList
-   - [!ref <embedding_model>, !ref <classifier>]
+    - [!ref <embedding_model>, !ref <classifier>]
 
 
 # Cost + optimization
@@ -102,19 +94,17 @@ lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
     epoch_count: !ref <number_of_epochs>
 
 weights_opt_class: !name:torch.optim.Adam
-   lr: !ref <lr_weights>
+    lr: !ref <lr_weights>
 
 lr_annealing_weights: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr_weights>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.9
-   patient: 0
-
-
+    initial_value: !ref <lr_weights>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
 
 # Used to load the SB checkpoint of w2v2
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-   collect_in: !ref <save_folder>
+    collect_in: !ref <save_folder>
 
 
 # Logging + checkpoints
@@ -156,5 +146,3 @@ test_dataloader_opts:
 mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
-
-

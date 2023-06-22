@@ -24,7 +24,7 @@ test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
 
-num_layers_ssl: 13  #Number of layers in the SSL model (should be 25 for large models and 13 for base or distilled)
+num_layers_ssl: 13  #Number of layers in the SSL model (should be 25 for large)
 ssl_hub: facebook/wav2vec2-base
 encoder_dim: 768
 
@@ -58,23 +58,24 @@ test_dataloader_opts:
 activation: !name:torch.nn.Sigmoid
 dnn_layers: 1
 dnn_neurons: 768
-freeze_encoder : True
+freeze_encoder: True
 
 # Outputs
-output_neurons: 30  
-
+output_neurons: 30
 # Functions and classes
 #
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-weighted_ssl_model: !new:speechbrain.lobes.models.huggingface_wav2vec.WeightedSSLModel
+weighted_ssl_model: !new:speechbrain.lobes.models.huggingface_wav2vec.WeightedSSLModel # yamllint disable-line rule:line-length
    hub: !ref <ssl_hub>
    num_layers: !ref <num_layers_ssl>
 
 enc: !new:speechbrain.lobes.models.ContextNet.ContextNet
    input_shape: [null, null, !ref <encoder_dim>]
-   strides: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1] #only unitary strides to keep the frame rate
+   strides: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+# only unitary strides to keep the frame rate
 
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
@@ -120,7 +121,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
       model: !ref <model>
       ssl_model: !ref <weighted_ssl_model>
       scheduler_model: !ref <lr_annealing_model>
-      scheduler_encoder : !ref <lr_annealing_weights>
+      scheduler_encoder: !ref <lr_annealing_weights>
       counter: !ref <epoch_counter>
       tokenizer: !ref <label_encoder>
 
