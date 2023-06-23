@@ -461,7 +461,6 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_width=100,
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
-        frames_prune_min_blank_logp=math.log(0.99),
         history_prune=False,
         topk=1,
     ):
@@ -475,7 +474,6 @@ class CTCBaseSearcher(torch.nn.Module):
         self.beam_width = beam_width
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
-        self.frames_prune_min_blank_logp = frames_prune_min_blank_logp
         self.history_prune = history_prune
         self.topk = topk
 
@@ -505,6 +503,7 @@ class CTCBaseSearcher(torch.nn.Module):
             )
 
         if unigrams is None and kenlm_model_path is not None:
+            print("LOADING unigram set")
             if kenlm_model_path.endswith(".arpa"):
                 unigrams = load_unigram_set_from_arpa(kenlm_model_path)
             else:
@@ -514,6 +513,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
 
         if self.kenlm_model is not None:
+            print("LOADING lm")
             self.lm = LanguageModel(self.kenlm_model, unigrams)
         else:
             self.lm = None
@@ -665,8 +665,42 @@ class CTCBaseSearcher(torch.nn.Module):
             return new_beams
 
 class CTCBeamSearch(CTCBaseSearcher):
-    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, frames_prune_min_blank_logp=-0.01, history_prune=False, topk=1):
-        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, frames_prune_min_blank_logp, history_prune, topk)
+    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
+        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
+
+    def prune_history(self, beams, lm_order: int):
+        """Filter out beams that are the same over max_ngram history.
+
+        Since n-gram language models have a finite history when scoring a new token, we can use that
+        fact to prune beams that only differ early on (more than n tokens in the past) and keep only the
+        higher scoring ones. Note that this helps speed up the decoding process but comes at the cost of
+        some amount of beam diversity. If more than the top beam is used in the output it should
+        potentially be disabled.
+
+        Args:
+            beams: list of LMBeam
+            lm_order: int, the order of the n-gram model
+
+        Returns:
+            list of Beam
+        """
+        # let's keep at least 1 word of history
+        min_n_history = max(1, lm_order - 1)
+        seen_hashes = set()
+        filtered_beams = []
+        # for each beam after this, check if we need to add it
+        for lm_beam in beams:
+            # hash based on history that can still affect lm scoring going forward
+            hash_idx = (
+                tuple(lm_beam.text.split()[-min_n_history:]),
+                lm_beam.partial_word,
+                lm_beam.last_token,
+            )
+            if hash_idx not in seen_hashes:
+                filtered_beams.append(CTCBeam.from_lm_beam(lm_beam))
+                seen_hashes.add(hash_idx)
+        return filtered_beams
+
 
     def partial_decoding(
         self, 
@@ -677,6 +711,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         processed_frames = 0,
     ):        
         for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
+
             max_index = logit_col.argmax()
             tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
             new_beams = []
@@ -782,7 +817,12 @@ class CTCBeamSearch(CTCBaseSearcher):
 
             trimmed_beams = self.sort_beams(scored_beams)
 
-            beams = [CTCBeam.from_lm_beam(b) for b in trimmed_beams]
+            if self.history_prune:
+                lm_order = 1 if self.lm is None else self.lm.order
+                beams = self.prune_history(trimmed_beams, lm_order=lm_order)
+            else:
+                beams = [CTCBeam.from_lm_beam(b) for b in trimmed_beams]
+
         return beams
     
 
