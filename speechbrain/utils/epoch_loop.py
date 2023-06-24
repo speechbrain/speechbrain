@@ -91,11 +91,19 @@ class EpochCounterWithStopper(EpochCounter):
     >>> epoch_counter = EpochCounterWithStopper(limit, limit_to_stop, limit_warmup, direction)
     >>> for epoch in epoch_counter:
     ...     # Run training...
-    ...     # Track a validation metric,
+    ...     # Track a validation metric, (insert calculation here)
     ...     current_valid_metric = 0
-    ...     # get the current valid metric (get current_valid_metric)
-    ...     if epoch_counter.should_stop(current_metric=current_valid_metric):
-    ...         epoch_counter.current = epoch_counter.limit  # skipping unpromising epochs
+    ...     # Update epoch counter so that we stop at the appropriate time
+    ...     epoch_counter.update_metric(current_valid_metric)
+    ...     print(epoch)
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
     """
 
     def __init__(self, limit, limit_to_stop, limit_warmup, direction):
