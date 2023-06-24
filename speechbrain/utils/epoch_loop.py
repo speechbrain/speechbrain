@@ -138,7 +138,7 @@ class EpochCounterWithStopper(EpochCounter):
         """Update the state to reflect most recent value of the relevant metric.
 
         NOTE: Should be called only once per validation loop.
-        
+
         Arguments
         ---------
         current_metric : float
@@ -150,7 +150,11 @@ class EpochCounterWithStopper(EpochCounter):
             ):
                 self.best_limit = self.current
                 self.best_score = current_metric
-            self.should_stop = (self.current - self.best_limit) >= self.limit_to_stop
+
+            epochs_without_improvement = self.current - self.best_limit
+            self.should_stop = epochs_without_improvement >= self.limit_to_stop
             if self.should_stop:
-                logger.info(f"{self.current - self.best_limit} epochs without improvement.")
-                logger.info(f"Patience of {self.limit_to_stop} is exhausted, stopping.")
+                logger.info(
+                    f"{epochs_without_improvement} epochs without improvement.\n"
+                    f"Patience of {self.limit_to_stop} is exhausted, stopping."
+                )
