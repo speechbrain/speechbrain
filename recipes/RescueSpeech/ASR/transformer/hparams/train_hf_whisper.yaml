@@ -14,9 +14,9 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
-model_version: !PLACEHOLDER # !ref large-v2, tiny, base
-whisper_hub: !PLACEHOLDER # !ref ../../pre-trained/openai-whisper-<model_version>/
-whisper_folder: !PLACEHOLDER #!ref ../../pre-trained/openai-whisper-<model_version>/
+model_version: !ref large-v2 # !ref large-v2, tiny, base
+whisper_hub: !PLACEHOLDER
+whisper_folder: !PLACEHOLDER
 language: german
 
 # For inference
@@ -30,7 +30,7 @@ test_only: False # Set it to True if you only want to  do the evaluation
 
 # Data files
 # Dataset prep parameters
-data_folder: !PLACEHOLDER # !ref ../../dataset
+data_folder: !PLACEHOLDER
 csv_dir: !ref ../../csv_files/Task_ASR
 train_tsv_file: !ref <data_folder>/train.tsv
 dev_tsv_file: !ref <data_folder>/dev.tsv
@@ -44,7 +44,7 @@ skip_prep: False
 # Training parameters
 # when training: input_type- clean_wav/clean_noisy_mix
 # when inferring: input_type- clean_wav/noisy_wav
-input_type: !PLACEHOLDER
+input_type: clean_wav
 number_of_epochs: 5
 lr_whisper: 0.00003
 sorting: ascending
@@ -73,7 +73,8 @@ test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
-
+freeze_encoder_only: False
+freeze_encoder: True
 
 train_loader_kwargs:
     batch_size: !ref <batch_size>
@@ -99,8 +100,8 @@ whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
     save_path: !ref <whisper_folder>
-    encoder_only: False
-    freeze_encoder: False
+    encoder_only: !ref <freeze_encoder_only>
+    freeze_encoder: !ref <freeze_encoder>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
