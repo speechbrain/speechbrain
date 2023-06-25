@@ -1,5 +1,7 @@
 # RescueSpeech
-[https://doi.org/10.5281/zenodo.8077622](RescuSpeech) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models that have been developed and evaluated using RescuSpeech data. These models aim to enhance the performance of speech recognizers in challenging and noisy environments.
+[RescuSpeech](https://doi.org/10.5281/zenodo.8077622) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models that have been developed and evaluated using RescuSpeech data. These models aim to enhance the performance of speech recognizers in challenging and noisy environments.
+
+While our paper presents a comprehensive comparison of results on CRDNN, Wav2vec2, WavLM, Whisper and SepFormer, we only present our best-performing models. Please see below for each pre-trained model and the full model link.
 
 This recipe supports training several models on the dataset
 - **Task: ASR**- WavLM, Whisper
@@ -15,6 +17,19 @@ We have explored multiple training strategies to improve noise robust speech rec
     - Model-combination I: Independent Training
     - Model-combination II: Joint Training
 
+# Pretrained Models
+1. Pretrained models for **CRDNN** and **LM** (language model) on German CommonVoice10.0
+  - HuggingFace : *add hf link to sepformer_dns_16k*
+  - Full Model Link: *add drive link to sepformer_dns_16k*
+2. Pretrained models for **Wav2vec2** (`facebook/wav2vec2-large-xlsr-53-german`)  on German CommonVoice10.0
+  - HuggingFace : *add hf link to sepformer_dns_16k*
+  - Full Model Link: *add drive link to sepformer_dns_16k*
+3. Pretrained models for **WavLM** (`microsoft/wavlm-large`) on German CommonVoice10.0
+  - HuggingFace : *add hf link to sepformer_dns_16k*
+  - Full Model Link: *add drive link to sepformer_dns_16k*
+3. Pretrained models for **SepFormer** speech enhancement model on Microsof-DNS 4 dataset
+  - HuggingFace : *add hf link to sepformer_dns_16k*
+  - Full Model Link: *add drive link to sepformer_dns_16k*
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

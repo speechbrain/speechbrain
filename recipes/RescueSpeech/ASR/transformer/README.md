@@ -1,9 +1,9 @@
 # **RescueSpeech** ASR with Whisper model
 This folder contains the script to fine-tune a Whisper model ([openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2/tree/main)) on the RescueSpeech dataset.
-- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622)
+- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622) (`Task_ASR.tar.gz`)
 - Language: German (DE)
 
-# How to run
+## How to run
 As discussed in the paper we use multiple training strategies to create a robust speech recognition system that operates in the SAR (search and rescue) domain.
 
 1. **Pre-training**: Directly infer on RescueSpeech dataset (clean/noisy inputs) without any fine-tuning.
@@ -25,15 +25,15 @@ As discussed in the paper we use multiple training strategies to create a robust
 To ensure accurate inference on clean and noisy inputs, please modify the `pretrained_whisper_model` parameter in the `train_hf_whisper.yaml` file accordingly. When conducting inference for the clean training strategy, ensure that `pretrained_whisper_model` points to the best saved checkpoint obtained during clean training (similarly for multi-condition training). Additionally, it is recommended to perform inference on both clean and noisy test inputs for comprehensive evaluation.
 
 
-# Test Results
+## Test Results
 Here we show test WERs using different training strategies on clean and noisy speech inputs from RescueSpeech dataset.
 Clean WER and Noisy WER represent WER on clean and noisy test inputs respectively.
 
 | Release | Type                        |   Clean WER   |   Noisy WER   |   HuggingFace link    | Full Model link |
 |:--------|:----------------------------|:--------------|:--------------|:---------------------:|:----------------|
-|06-12-23 | Pre-training                |    27.01      |    76.14      |   *link*              | *link*          |
-|06-12-23 | Clean training              |    34.65      |    73.07      |   *link*              | *link*          |
-|06-12-23 | Multi condition training    |    40.73      |    78.02      |   *link*              | *link*          |
+|06-12-23 | Pre-training                |    27.01      |    50.85      |   *link*              | *link*          |
+|06-12-23 | Clean training              |    23.14      |    46.70      |   *link*              | *link*          |
+|06-12-23 | Multi condition training    |    24.11      |    45.84      |   *link*              | *link*          |
 
 
 # **About SpeechBrain**
@@ -41,8 +41,8 @@ Clean WER and Noisy WER represent WER on clean and noisy test inputs respectivel
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
-# **Citing**
-Please, cite SpeechBrain if you use it for your research or business.
+**Citing SpeechBrain**
+- Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
 @misc{speechbrain,
@@ -55,7 +55,27 @@ Please, cite SpeechBrain if you use it for your research or business.
   note={arXiv:2106.04624}
 }
 ```
-Citing the paper
+**Citing RescueSpeech**
+- Dataset
+```bibtex
+@misc{sagar_sangeet_2023_8077622,
+  author       = {Sagar, Sangeet and
+                  Kiefer, Bernd and
+                  Kruijff Korbayova, Ivana},
+  title        = {{RescueSpeech: A German Corpus for Speech
+                   Recognition in Search and Rescue Domain}},
+  month        = jun,
+  year         = 2023,
+  note         = {{Our work was supported under the project "A-DRZ:
+                   Setting up the German Rescue Robotics Center" and
+                   funded by the German Ministry of Education and
+                   Research (BMBF), grant No. I3N14856.}},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.8077622},
+  url          = {https://doi.org/10.5281/zenodo.8077622}
+}
+```
+- Paper
 ```bibtex
 @misc{sagar2023rescuespeech,
     title={RescueSpeech: A German Corpus for Speech Recognition in Search and Rescue Domain},
@@ -65,4 +85,3 @@ Citing the paper
     archivePrefix={arXiv},
     primaryClass={eess.AS}
 }
-```

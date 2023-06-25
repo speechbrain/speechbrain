@@ -1,14 +1,14 @@
 # **RescueSpeech** ASR with CTC models
 This folder contains the script to fine-tune WavLM-large CTC based model on the RescueSpeech dataset.
-The WavLM model is first trained on German CommonVoice10.0 corpus, and later fine-tuned on the RescueSpeech data.
+The WavLM model is first trained on German CommonVoice10.0 corpus and later fine-tuned on the RescueSpeech data.
 
 - [`microsoft/wavlm-large`](https://huggingface.co/microsoft/wavlm-large) : See *hf link* to use the German CommonVoice fine-tuned model.
-- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622)
+- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622) (`Task_ASR.tar.gz`)
 - Language: German (DE)
 
 
-# How to run
-We provide hyper-parameter file for WavLM-large. As discussed in the paper we use multiple training strategies  to create a robust speech recognition system that operates in the SAR (search and rescue) domain.
+## How to run
+We provide the hyper-parameter file for WavLM-large. As discussed in the paper we use multiple training strategies to create a robust speech recognition system that operates in the SAR (search and rescue) domain.
 
 1. **Pre-training**: Use the CommonVoice fine-tuned WavLM model and directly infer on RescueSpeech dataset (clean/noisy inputs) without any fine-tuning.
     ```
@@ -26,28 +26,31 @@ We provide hyper-parameter file for WavLM-large. As discussed in the paper we us
     ```
 
 *Note* <br>
-Please modify the `pretrained_wav2vec2_path` parameter in the `train_with_wavlm.yaml` file accordingly. When training, it should point the
-model trained on German CommonVoice (available at *wavlm-large-cv-trained hf link*). And when conducting inference for the clean training strategy, ensure that `pretrained_wav2vec2_path` points to the best saved checkpoint obtained during clean training (similarly for multi-condition training). Additionally, it is recommended to perform inference on both clean and noisy test inputs for comprehensive evaluation.
+Please modify the `pretrained_wav2vec2_path` parameter in the `train_with_wavlm.yaml` file accordingly. When training, it should point the model trained on German CommonVoice (see below for pre-trained model links). And when conducting inference for the clean training strategy, ensure that `pretrained_wav2vec2_path` points to the best saved checkpoint obtained during clean training (similarly for multi-condition training). Additionally, it is recommended to perform inference on both clean and noisy test inputs for comprehensive evaluation.
 
 
-# Test Results
+## Test Results
 Here we show test WERs on WavLM-large using different training strategies on clean and noisy speech inputs from RescueSpeech dataset.
 Clean WER and Noisy WER represent WER on clean and noisy test inputs respectively.
 
 | Release | Type                        |   Clean WER   |   Noisy WER   |   HuggingFace link    | Full Model link |
 |:--------|:----------------------------|:--------------|:--------------|:---------------------:|:----------------|
-|06-12-23 | Pre-training                |    46.31      |    87.42      |   *link*              | *link*          |
-|06-12-23 | Clean training              |    24.77      |    77.89      |   *link*              | *link*          |
-|06-12-23 | Multi condition training    |    25.41      |    72.52      |   *link*              | *link*          |
+|06-12-23 | Pre-training                |    46.28      |    73.84      |   *link*              | *link*          |
+|06-12-23 | Clean training              |    23.93      |    58.28      |   *link*              | *link*          |
+|06-12-23 | Multi condition training    |    25.22      |    52.75      |   *link*              | *link*          |
 
+## Pretrained Models
+Pretrained models for WavLM-large on German CommonVoice10.0 dataset can be found through:
+- HuggingFace : *add hf link to wavlm_commonvoice*
+- Full Model Link: *add drive link to wavlm_commonvoice*
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
-# **Citing**
-Please, cite SpeechBrain if you use it for your research or business.
+**Citing SpeechBrain**
+- Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
 @misc{speechbrain,
@@ -60,7 +63,27 @@ Please, cite SpeechBrain if you use it for your research or business.
   note={arXiv:2106.04624}
 }
 ```
-Citing the paper
+**Citing RescueSpeech**
+- Dataset
+```bibtex
+@misc{sagar_sangeet_2023_8077622,
+  author       = {Sagar, Sangeet and
+                  Kiefer, Bernd and
+                  Kruijff Korbayova, Ivana},
+  title        = {{RescueSpeech: A German Corpus for Speech
+                   Recognition in Search and Rescue Domain}},
+  month        = jun,
+  year         = 2023,
+  note         = {{Our work was supported under the project "A-DRZ:
+                   Setting up the German Rescue Robotics Center" and
+                   funded by the German Ministry of Education and
+                   Research (BMBF), grant No. I3N14856.}},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.8077622},
+  url          = {https://doi.org/10.5281/zenodo.8077622}
+}
+```
+- Paper
 ```bibtex
 @misc{sagar2023rescuespeech,
     title={RescueSpeech: A German Corpus for Speech Recognition in Search and Rescue Domain},
