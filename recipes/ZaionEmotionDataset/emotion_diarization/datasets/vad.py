@@ -9,7 +9,7 @@ def read_wave(path):
     """Reads a .wav file.
     Takes the path, and returns (PCM audio data, sample rate).
     """
-    with contextlib.closing(wave.open(path, 'rb')) as wf:
+    with contextlib.closing(wave.open(path, "rb")) as wf:
         num_channels = wf.getnchannels()
         assert num_channels == 1
         sample_width = wf.getsampwidth()
@@ -24,7 +24,7 @@ def write_wave(path, audio, sample_rate):
     """Writes a .wav file.
     Takes path, PCM audio data, and sample rate.
     """
-    with contextlib.closing(wave.open(path, 'wb')) as wf:
+    with contextlib.closing(wave.open(path, "wb")) as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
@@ -33,6 +33,7 @@ def write_wave(path, audio, sample_rate):
 
 class Frame(object):
     """Represents a "frame" of audio data."""
+
     def __init__(self, bytes, timestamp, duration):
         self.bytes = bytes
         self.timestamp = timestamp
@@ -50,17 +51,13 @@ def frame_generator(frame_duration_ms, audio, sample_rate):
     timestamp = 0.0
     duration = (float(n) / sample_rate) / 2.0
     while offset + n < len(audio):
-        yield Frame(audio[offset:offset + n], timestamp, duration)
+        yield Frame(audio[offset : offset + n], timestamp, duration)
         timestamp += duration
         offset += n
 
 
 def vad_collector(
-    sample_rate,
-    frame_duration_ms,
-    padding_duration_ms,
-    vad,
-    frames
+    sample_rate, frame_duration_ms, padding_duration_ms, vad, frames
 ):
     """generate vad segments
     """
@@ -75,7 +72,7 @@ def vad_collector(
     for frame in frames:
         is_speech = vad.is_speech(frame.bytes, sample_rate)
 
-        #sys.stdout.write('1' if is_speech else '0')
+        # sys.stdout.write('1' if is_speech else '0')
         if not triggered:
             ring_buffer.append((frame, is_speech))
             num_voiced = len([f for f, speech in ring_buffer if speech])
@@ -84,7 +81,7 @@ def vad_collector(
             # TRIGGERED state.
             if num_voiced > 0.9 * ring_buffer.maxlen:
                 triggered = True
-                #sys.stdout.write('+(%s)' % (ring_buffer[0][0].timestamp,))
+                # sys.stdout.write('+(%s)' % (ring_buffer[0][0].timestamp,))
                 # We want to yield all the audio we see from now until
                 # we are NOTTRIGGERED, but we have to start with the
                 # audio that's already in the ring buffer.
@@ -101,20 +98,20 @@ def vad_collector(
             # unvoiced, then enter NOTTRIGGERED and yield whatever
             # audio we've collected.
             if num_unvoiced > 0.9 * ring_buffer.maxlen:
-                #sys.stdout.write('-(%s)' % (frame.timestamp + frame.duration))
+                # sys.stdout.write('-(%s)' % (frame.timestamp + frame.duration))
                 triggered = False
-                yield b''.join([f.bytes for f in voiced_frames])
+                yield b"".join([f.bytes for f in voiced_frames])
                 # yield f in voiced_frames
                 ring_buffer.clear()
                 voiced_frames = []
     if triggered:
         pass
-    #sys.stdout.write('-(%s)' % (frame.timestamp + frame.duration))
-    #sys.stdout.write('\n')
+    # sys.stdout.write('-(%s)' % (frame.timestamp + frame.duration))
+    # sys.stdout.write('\n')
     # If we have any leftover voiced audio when we run out of input,
     # yield it.
     if voiced_frames:
-        yield b''.join([f.bytes for f in voiced_frames])
+        yield b"".join([f.bytes for f in voiced_frames])
         # yield f in voiced_frames
 
 
@@ -124,7 +121,7 @@ def vad_for_folder(input_path, out_path):
     files = os.listdir(input_path)
     for file in files:
         try:
-            audio, sample_rate = read_wave(input_path+file)
+            audio, sample_rate = read_wave(input_path + file)
         except Exception as e:
             print(e)
 
@@ -139,8 +136,9 @@ def vad_for_folder(input_path, out_path):
             total_segment += segment
 
         # abandon short emotions (< 0.2s)
-        if len(total_segment) > 6400: # 0.2 * 16000 * 2
+        if len(total_segment) > 6400:  # 0.2 * 16000 * 2
             write_wave(out_path + file, total_segment, sample_rate)
+
 
 def write_audio(input_path, out_path):
     """do vad and save the audio after vad
@@ -158,7 +156,7 @@ def write_audio(input_path, out_path):
 
     for i, segment in enumerate(segments):
         total_segment += segment
-    
+
     # abandon short emotions (< 0.2s)
-    if len(total_segment) > 6400: # 0.2 * 16000 * 2
+    if len(total_segment) > 6400:  # 0.2 * 16000 * 2
         write_wave(out_path, total_segment, sample_rate)

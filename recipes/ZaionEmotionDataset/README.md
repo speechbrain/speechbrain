@@ -1,6 +1,6 @@
 # Speech Emotion Diarization (SED)
 
-Speech Emotion Diarization ([arXiv link](to be added)) aims to predict the correct emotions and their temporal boundaries with in an utterance. 
+Speech Emotion Diarization ([arXiv link](to be added)) aims to predict the correct emotions and their temporal boundaries with in an utterance.
 
 ## Dependencies
 

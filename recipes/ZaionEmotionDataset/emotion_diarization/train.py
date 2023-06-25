@@ -13,6 +13,7 @@ import json
 import itertools
 from speechbrain.utils.EDER import EDER
 
+
 class EmoDiaBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + emotion classifier.
@@ -46,7 +47,7 @@ class EmoDiaBrain(sb.Brain):
 
             emoid_decoded = label_encoder.decode_ndim(emoid)
             preds_decoded = label_encoder.decode_ndim(preds)
-            
+
             self.load_ZED()
             with open(self.hparams.eder_file, "a") as w:
                 for i in range(len(batch.id)):
@@ -64,8 +65,16 @@ class EmoDiaBrain(sb.Brain):
                     w.write("    wav_id : " + batch.id[i] + "\n")
                     w.write(" reference : " + "".join(emoid_decoded[i]) + "\n")
                     w.write("prediction : " + "".join(preds_decoded[i]) + "\n")
-                    w.write(" ctc_label : " + "".join(del_adjacent(emoid_decoded[i])) + "\n")
-                    w.write("  ctc_pred : " + "".join(del_adjacent(preds_decoded[i])) + "\n")
+                    w.write(
+                        " ctc_label : "
+                        + "".join(del_adjacent(emoid_decoded[i]))
+                        + "\n"
+                    )
+                    w.write(
+                        "  ctc_pred : "
+                        + "".join(del_adjacent(preds_decoded[i]))
+                        + "\n"
+                    )
                     w.write("      EDER : " + str(eder) + "\n")
                     w.write("\n")
 
@@ -168,16 +177,16 @@ class EmoDiaBrain(sb.Brain):
                 test_stats={
                     "loss": stats["loss"],
                     "error_rate": stats["error_rate"],
-                    "EDER": sum(self.eder)/len(self.eder)},
+                    "EDER": sum(self.eder) / len(self.eder)},
             )
             # with open(self.hparams.cer_file, "a") as w:
             #     self.error_metrics.write_stats(w)
 
     def load_ZED(self):
-        with open(self.hparams.test_annotation, 'r') as f:
+        with open(self.hparams.test_annotation, "r") as f:
             ZED_data = json.load(f)
         self.ZED = ZED_data
-    
+
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
         self.wav2vec2_optimizer = self.hparams.wav2vec2_opt_class(
@@ -247,7 +256,7 @@ def dataio_prep(hparams):
         sequence_input=True,
     )
 
-    return datasets, label_encoder 
+    return datasets, label_encoder
 
 
 def threshold_tuning(batch_predictions, threshold):
@@ -321,7 +330,7 @@ if __name__ == "__main__":
 
     hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
     hparams["wav2vec2"] = hparams["wav2vec2"].to("cuda")
-    
+
     # freeze the feature extractor part when unfreezing
     if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:
         hparams["wav2vec2"].model.feature_extractor._freeze_parameters()

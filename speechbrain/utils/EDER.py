@@ -5,6 +5,7 @@ Authors
  * Yingzhi Wang 2023
 """
 
+
 def EDER(prediction, id, duration, emotion, window_length, stride):
     """ Calculates the EDER value
 
@@ -44,21 +45,21 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
         lol = distribute_overlap(lol)
 
     ref = reference_to_lol(id, duration, emotion)
-    
+
     good_preds = 0
     for i in ref:
-        candidates = [element for element in lol if element[3]==i[3]]
+        candidates = [element for element in lol if element[3] == i[3]]
         ref_interval = [i[1], i[2]]
 
         for candidate in candidates:
             overlap = getOverlap(ref_interval, [candidate[1], candidate[2]])
             good_preds += overlap
-    return 1 - good_preds/duration
+    return 1 - good_preds / duration
 
 
 def getOverlap(a, b):
     """ get the overlap length of two intervals
-    
+
     Arguments
     ---------
     a : list
@@ -110,7 +111,7 @@ def merge_ssegs_same_emotion_adjacent(lol):
     Example
     -------
     >>> from speechbrain.utils.EDER import merge_ssegs_same_emotion_adjacent
-    >>> lol=[['r1', 0.0, 7.0, 'a'],
+    >>> lol=[['u1', 0.0, 7.0, 'a'],
     ... ['u1', 7.0, 9.0, 'a'],
     ... ['u1', 9.0, 11.0, 'n'],
     ... ['u1', 11.0, 13.0, 'n'],
@@ -158,7 +159,9 @@ def reference_to_lol(id, duration, emotion):
     lol : list of list
         It has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
     """    
-    assert len(emotion) == 1, "NotImplementedError: The solution is only implemented for one-emotion utterance for now."
+    assert (
+        len(emotion) == 1
+    ), "NotImplementedError: The solution is only implemented for one-emotion utterance for now."
     lol = []
 
     start = emotion[0]["start"]
