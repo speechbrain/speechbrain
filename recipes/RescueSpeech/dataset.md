@@ -17,9 +17,8 @@ Bernd Kiefer: bernd.kiefer@dfki.de
 
 Other contact people
 --------------------
-- Sangeet Sagar: sangeetsagar2020@gmail.com
-- Mirco Ravanelli: mirco.ravanelli@gmail.com
 - Ivana Kruijf‑Korbayová: ivana.kruijff@rettungsrobotik.de
+- Sangeet Sagar: sangeetsagar2020@gmail.com
 
 ## Task: ASR- Dataset details
 ---------------
@@ -92,7 +91,7 @@ This table represents the number of recordings in each of the three sets (train,
 
 ## Task: Speech enhancement- Dataset details
 ---------------
-- Noises used:
+- Noises used: 
     - Static and radio noise
     - Emergency vehicle and siren noise
     - Engine
@@ -101,9 +100,9 @@ This table represents the number of recordings in each of the three sets (train,
 
 | Set       |   # wav files     |   Length      |
 |:----------|:------------------|:--------------|
-|Train      |   4500            |   7.2 HRS     |
-|Valid      |   1352            |   130 mins    |
-|Test       |   1352            |   130 mins    |
+|Train      |   4501            |   7.2 HRS     |
+|Valid      |   1351            |   130 mins    |
+|Test       |   1351            |   130 mins    |
 
 
 Thank You
