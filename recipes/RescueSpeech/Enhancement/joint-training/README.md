@@ -1,4 +1,4 @@
-# Noise robust speech recognition on **RescueSpeech** (independent training approach)
+# Noise robust speech recognition on **RescueSpeech** (joint training approach)
 This recipe outlines a method for developing a noise robust speech recognition system. The system consists of two components: a speech enhancement model and an Automatic Speech Recognition (ASR) model. The models are trained jointly and then combined to tackle noise interference. The speech enhancement model, based on the SepFormer architecture, enhances input speech by reducing background noise. The ASR system utilizes the WavLM and Whisper models.
 
 During training, both speech enhancement and ASR is kept unfrozen, allowing them to update their weight during training. By doing so, the model can learn from the ASR system's feedback and further refine its noise reduction capabilities based on the specific requirements of speech recognition.
