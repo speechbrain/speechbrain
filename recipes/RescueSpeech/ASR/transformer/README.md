@@ -1,6 +1,6 @@
 # **RescueSpeech** ASR with Whisper model
 This folder contains the script to fine-tune a Whisper model ([openai/whisper-large-v2](https://huggingface.co/openai/whisper-large-v2/tree/main)) on the RescueSpeech dataset.
-- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8030657.svg)](https://doi.org/10.5281/zenodo.8030657)
+- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622)
 - Language: German (DE)
 
 # How to run

@@ -1,5 +1,5 @@
 # RescueSpeech
-RescuSpeech is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models that have been developed and evaluated using RescuSpeech data. These models aim to enhance the performance of speech recognizers in challenging and noisy environments.
+[https://doi.org/10.5281/zenodo.8077622](RescuSpeech) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models that have been developed and evaluated using RescuSpeech data. These models aim to enhance the performance of speech recognizers in challenging and noisy environments.
 
 This recipe supports training several models on the dataset
 - **Task: ASR**- WavLM, Whisper
@@ -41,7 +41,7 @@ Please, cite SpeechBrain if you use it for your research or business.
 **Citing RescueSpeech**
 - Dataset
 ```bibtex
-@misc{sagar_sangeet_2023_8030657,
+@misc{sagar_sangeet_2023_8077622,
   author       = {Sagar, Sangeet and
                   Kiefer, Bernd and
                   Kruijff Korbayova, Ivana},
@@ -54,8 +54,8 @@ Please, cite SpeechBrain if you use it for your research or business.
                    funded by the German Ministry of Education and
                    Research (BMBF), grant No. I3N14856.}},
   publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.8030657},
-  url          = {https://doi.org/10.5281/zenodo.8030657}
+  doi          = {10.5281/zenodo.8077622},
+  url          = {https://doi.org/10.5281/zenodo.8077622}
 }
 ```
 - Paper

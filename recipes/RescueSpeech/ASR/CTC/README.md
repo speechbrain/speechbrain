@@ -3,7 +3,7 @@ This folder contains the script to fine-tune WavLM-large CTC based model on the 
 The WavLM model is first trained on German CommonVoice10.0 corpus, and later fine-tuned on the RescueSpeech data.
 
 - [`microsoft/wavlm-large`](https://huggingface.co/microsoft/wavlm-large) : See *hf link* to use the German CommonVoice fine-tuned model.
-- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8030657.svg)](https://doi.org/10.5281/zenodo.8030657)
+- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622)
 - Language: German (DE)
 
 
