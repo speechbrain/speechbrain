@@ -13,12 +13,12 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Path to pre-trained tokenizer, and wav2model
 # We use the tokenizer trained on CommonVoice dataset
-tokenizer_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/wavlm_commonvoice # !PLACEHOLDER
-wav2vec2_hub: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/wavlm-large # !PLACEHOLDER
-pretrained_wav2vec2_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/wavlm_rescuspeech # !PLACEHOLDER
+tokenizer_path: !PLACEHOLDER
+wav2vec2_hub: !PLACEHOLDER
+pretrained_wav2vec2_path: !PLACEHOLDER
 
 # Path to pre-trained enhancement model
-pretrained_enhance_path: /netscratch/sagar/thesis/speechbrain/recipes/RescueSpeech/pre-trained/sepformer_rescuespeech_16k # !PLACEHOLDER
+pretrained_enhance_path: !PLACEHOLDER
 
 epochs_before_lr_drop: 0
 unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
@@ -26,7 +26,7 @@ frozen_models: [encoder, decoder, masknet, wav2vec2, enc]
 unfrozen_models: [wav2vec2, enc]
 
 # Dataset prep parameters
-data_folder: !ref ../../../dataset/Task_ASR # !PLACEHOLDER
+data_folder: !PLACEHOLDER
 csv_dir: !ref csv_files
 train_tsv_file: !ref <data_folder>/train.tsv
 dev_tsv_file: !ref <data_folder>/dev.tsv
@@ -57,7 +57,7 @@ min_shift: -8000
 max_shift: 8000
 
 ## Training parameters- ASR
-number_of_epochs: 45
+number_of_epochs: 20
 lr_asr: 1.0
 lr_wav2vec: 0.0001
 sorting: ascending
@@ -70,9 +70,9 @@ checkpoint_avg: 5
 # With DDP batch_size is multiplied by N jobs
 # Must be 6 per GPU to fit 16GB of VRAM
 batch_size: 2
-test_batch_size: 1
-dataloader_num_workers: 8
-test_num_workers: 8
+test_batch_size: 2
+dataloader_num_workers: 4
+test_num_workers: 4
 
 dataloader_options:
     batch_size: !ref <batch_size>
