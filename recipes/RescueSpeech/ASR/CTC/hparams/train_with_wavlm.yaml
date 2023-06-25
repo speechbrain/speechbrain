@@ -6,15 +6,15 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 8200
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-dataset: !ref RescueSpeech
 output_folder: !ref results/train_wavlm_char/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the large WavLM model.
-wav2vec2_hub: microsoft/wavlm-large
-pretrained_wav2vec2_path: !PLACEHOLDER # trained on German CommonVoice
+tokenizer_path: !PLACEHOLDER
+wav2vec2_hub: !PLACEHOLDER
+pretrained_wav2vec2_path: !PLACEHOLDER
 
 # Dataset prep parameters
 data_folder: !PLACEHOLDER
