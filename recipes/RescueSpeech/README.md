@@ -19,17 +19,17 @@ We have explored multiple training strategies to improve noise robust speech rec
 
 # Pretrained Models
 1. Pretrained models for **CRDNN** and **LM** (language model) on German CommonVoice10.0
-  - HuggingFace : *add hf link to sepformer_dns_16k*
-  - Full Model Link: *add drive link to sepformer_dns_16k*
+    - HuggingFace : *add hf link to sepformer_dns_16k*
+    - Full Model Link: *add drive link to sepformer_dns_16k*
 2. Pretrained models for **Wav2vec2** (`facebook/wav2vec2-large-xlsr-53-german`)  on German CommonVoice10.0
-  - HuggingFace : *add hf link to sepformer_dns_16k*
-  - Full Model Link: *add drive link to sepformer_dns_16k*
+    - HuggingFace : *add hf link to sepformer_dns_16k*
+    - Full Model Link: *add drive link to sepformer_dns_16k*
 3. Pretrained models for **WavLM** (`microsoft/wavlm-large`) on German CommonVoice10.0
-  - HuggingFace : *add hf link to sepformer_dns_16k*
-  - Full Model Link: *add drive link to sepformer_dns_16k*
+    - HuggingFace : *add hf link to sepformer_dns_16k*
+    - Full Model Link: *add drive link to sepformer_dns_16k*
 3. Pretrained models for **SepFormer** speech enhancement model on Microsof-DNS 4 dataset
-  - HuggingFace : *add hf link to sepformer_dns_16k*
-  - Full Model Link: *add drive link to sepformer_dns_16k*
+    - HuggingFace : *add hf link to sepformer_dns_16k*
+    - Full Model Link: *add drive link to sepformer_dns_16k*
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
