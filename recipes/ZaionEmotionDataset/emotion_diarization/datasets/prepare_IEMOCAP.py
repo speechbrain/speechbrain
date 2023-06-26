@@ -94,7 +94,7 @@ def prepare_iemocap(
                     write_audio(file, destin_folder + f"{id}.wav")
                 if os.path.exists(destin_folder + f"{id}.wav"):
                     emotion_wavs.append(destin_folder + f"{id}.wav")
-                
+
             if line[3] == "neu":
                 dict[id] = "neutral"
                 file = get_path(data_folder, id)
@@ -149,7 +149,7 @@ def resampling_for_folder(in_folder, out_folder):
         try:
             sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format="wav")
+            sound.export(out_folder + file_name, format="wav")
         except Exception as e:
             logger.info(e)
 

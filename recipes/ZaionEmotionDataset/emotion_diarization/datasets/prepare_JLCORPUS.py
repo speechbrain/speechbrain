@@ -72,7 +72,7 @@ def resampling_for_folder(in_folder, out_folder):
         try:
             sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format="wav")
+            sound.export(out_folder + file_name, format="wav")
         except Exception as e:
             logger.info(e)
 

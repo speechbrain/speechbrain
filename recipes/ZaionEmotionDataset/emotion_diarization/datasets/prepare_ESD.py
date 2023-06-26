@@ -82,7 +82,7 @@ def resampling_for_folder(in_folder, out_folder):
         try:
             sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format="wav")
+            sound.export(out_folder + file_name, format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -212,7 +212,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": 0,
-                            "end": len(emotion_input) / 1000
+                            "end": len(emotion_input) / 1000,
                         }
                     ],
                 }
