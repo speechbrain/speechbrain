@@ -45,68 +45,24 @@ def prepare_iemocap(
             id = line[2]
             if line[3] == "hap":
                 dict[id] = "happy"
-                file = get_path(data_folder, id)
-                destin_folder = (
-                    data_folder + "processed/" + id[:5] + id[-4] + "/"
-                )
-                if not os.path.exists(destin_folder):
-                    os.makedirs(destin_folder)
-                if not os.path.exists(destin_folder + f"{id}.wav"):
-                    write_audio(file, destin_folder + f"{id}.wav")
-                if os.path.exists(destin_folder + f"{id}.wav"):
-                    emotion_wavs.append(destin_folder + f"{id}.wav")
+                append_path_after_vad(data_folder, id, emotion_wavs)
 
             if line[3] == "exc":
                 dict[id] = "happy"
-                file = get_path(data_folder, id)
-                destin_folder = (
-                    data_folder + "processed/" + id[:5] + id[-4] + "/"
-                )
-                if not os.path.exists(destin_folder):
-                    os.makedirs(destin_folder)
-                if not os.path.exists(destin_folder + f"{id}.wav"):
-                    write_audio(file, destin_folder + f"{id}.wav")
-                if os.path.exists(destin_folder + f"{id}.wav"):
-                    emotion_wavs.append(destin_folder + f"{id}.wav")
+                append_path_after_vad(data_folder, id, emotion_wavs)
 
             if line[3] == "sad":
                 dict[id] = "sad"
-                file = get_path(data_folder, id)
-                destin_folder = (
-                    data_folder + "processed/" + id[:5] + id[-4] + "/"
-                )
-                if not os.path.exists(destin_folder):
-                    os.makedirs(destin_folder)
-                if not os.path.exists(destin_folder + f"{id}.wav"):
-                    write_audio(file, destin_folder + f"{id}.wav")
-                if os.path.exists(destin_folder + f"{id}.wav"):
-                    emotion_wavs.append(destin_folder + f"{id}.wav")
+                append_path_after_vad(data_folder, id, emotion_wavs)
 
             if line[3] == "ang":
                 dict[id] = "angry"
-                file = get_path(data_folder, id)
-                destin_folder = (
-                    data_folder + "processed/" + id[:5] + id[-4] + "/"
-                )
-                if not os.path.exists(destin_folder):
-                    os.makedirs(destin_folder)
-                if not os.path.exists(destin_folder + f"{id}.wav"):
-                    write_audio(file, destin_folder + f"{id}.wav")
-                if os.path.exists(destin_folder + f"{id}.wav"):
-                    emotion_wavs.append(destin_folder + f"{id}.wav")
+                append_path_after_vad(data_folder, id, emotion_wavs)
 
             if line[3] == "neu":
                 dict[id] = "neutral"
-                file = get_path(data_folder, id)
-                destin_folder = (
-                    data_folder + "processed/" + id[:5] + id[-4] + "/"
-                )
-                if not os.path.exists(destin_folder):
-                    os.makedirs(destin_folder)
-                if not os.path.exists(destin_folder + f"{id}.wav"):
-                    write_audio(file, destin_folder + f"{id}.wav")
-                if os.path.exists(destin_folder + f"{id}.wav"):
-                    neutral_wavs.append(destin_folder + f"{id}.wav")
+                append_path_after_vad(data_folder, id, neutral_wavs)
+
     logger.info("VAD finished")
     logger.info("Start IEMOCAP concatenation ...")
     data_json = concat_wavs(
@@ -114,6 +70,29 @@ def prepare_iemocap(
     )
     logger.info("IEMOCAP concatenation finished ...")
     return data_json
+
+
+def append_path_after_vad(data_folder, id, list):
+    """do vad and append the new path into the list
+
+    Args:
+        data_folder (str): the path to IEMOCAP 
+        id (str): id d'utterance
+        list (list): which list to be put into
+
+    Returns:
+        list: new list after adding an element
+    """
+    file = get_path(data_folder, id)
+    destin_folder = (
+        data_folder + "processed/" + id[:5] + id[-4] + "/"
+    )
+    if not os.path.exists(destin_folder):
+        os.makedirs(destin_folder)
+    if not os.path.exists(destin_folder + f"{id}.wav"):
+        write_audio(file, destin_folder + f"{id}.wav")
+    if os.path.exists(destin_folder + f"{id}.wav"):
+        list.append(destin_folder + f"{id}.wav")
 
 
 def load_utterInfo(inputFile):
