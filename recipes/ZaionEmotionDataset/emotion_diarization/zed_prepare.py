@@ -204,9 +204,9 @@ def prepare_train(
             )
             all_dict[key]["frame_label"] = frame_label
             all_dict[key]["ctc_label"] = ctc_label
-        except:
+        except ValueError:
             logger.info(
-                f"Impossible to get labels for id {key}, window too large."
+                f"Impossible to get labels for id {key} because the window is too large."
             )
             bad_keys.append(key)
             continue
@@ -255,7 +255,7 @@ def prepare_test(
     try:
         with open(f"{ZED_folder}/ZED.json", "r") as f:
             all_dict = json.load(f)
-    except:
+    except OSError:
         logger.info(f"ZED.json can't be found under {ZED_folder}")
         return
 
@@ -270,9 +270,9 @@ def prepare_test(
             )
             all_dict[key]["frame_label"] = frame_label
             all_dict[key]["ctc_label"] = ctc_label
-        except:
+        except ValueError:
             logger.info(
-                f"Impossible to get labels for id {key}, window too large."
+                f"Impossible to get labels for id {key} because the window is too large."
             )
             bad_keys.append(key)
             continue
