@@ -702,6 +702,20 @@ class Brain:
         """
         pass
 
+    def on_stage_end_on_main(self, stage, stage_loss, epoch=None):
+        """Gets called at the end of a stage, but only on main thread.
+
+        Arguments
+        ---------
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+        stage_loss : float
+            The average loss over the completed stage.
+        epoch : int
+            The current epoch count.
+        """
+        pass
+
     def make_dataloader(
         self, dataset, stage, ckpt_prefix="dataloader-", **loader_kwargs
     ):
@@ -1144,8 +1158,11 @@ class Brain:
                         self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
 
-        # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
+        run_on_main(
+            self.on_stage_end_on_main,
+            args=[Stage.TRAIN, self.avg_train_loss, epoch],
+        )
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1180,9 +1197,10 @@ class Brain:
                 # Only run validation "on_stage_end" on main process
                 self.step = 0
                 run_on_main(
-                    self.on_stage_end,
+                    self.on_stage_end_on_main,
                     args=[Stage.VALID, avg_valid_loss, epoch],
                 )
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
         self,
@@ -1401,8 +1419,11 @@ class Brain:
 
             # Only run evaluation "on_stage_end" on main process
             run_on_main(
-                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
+                self.on_stage_end_on_main,
+                args=[Stage.TEST, avg_test_loss, None],
             )
+            self.on_stage_end(Stage.TEST, avg_test_loss)
+
         self.step = 0
         return avg_test_loss
 
