@@ -121,7 +121,7 @@ def merge_ssegs_same_emotion_adjacent(lol):
     [['u1', 0.0, 9.0, 'a'], ['u1', 9.0, 15.0, 'n'], ['u1', 15.0, 16.0, 'a']]
     """
     new_lol = []
-    
+
     # Start from the first sub-seg
     sseg = lol[0]
     flag = False
@@ -158,7 +158,7 @@ def reference_to_lol(id, duration, emotion):
     -------
     lol : list of list
         It has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
-    """    
+    """
     assert (
         len(emotion) == 1
     ), "NotImplementedError: The solution is only implemented for one-emotion utterance for now."

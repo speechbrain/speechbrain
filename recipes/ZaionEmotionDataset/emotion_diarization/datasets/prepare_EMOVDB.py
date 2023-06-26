@@ -54,7 +54,7 @@ def prepare_emovdb(
     for repo in repos:
         if not os.path.exists(data_folder + "converted/" + repo):
             os.makedirs(data_folder + "converted/" + repo)
-    
+
     for path in all_paths:
         convert_path = (
             data_folder + "converted/" + str(path).split("EmoV-DB/")[-1]
@@ -88,9 +88,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(in_folder + file_name, format='wav')
+            sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format='wav')
+            sound.export(out_folder + file_name,format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -174,7 +174,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": len(neutral_input) / 1000,
-                            "end": len(combined_input) / 1000
+                            "end": len(combined_input) / 1000,
                         }
                     ],
                 }
@@ -208,7 +208,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": 0,
-                            "end": len(emotion_input) / 1000
+                            "end": len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -249,7 +249,8 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": len(neutral_input_1) / 1000,
-                            "end": len(neutral_input_1) / 1000 + len(emotion_input) / 1000
+                            "end": len(neutral_input_1) / 1000
+                            + len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -261,7 +262,7 @@ def concat_wavs(data_folder, save_json):
                 emo_sample_1 = emotion_wavs[0]
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
-                
+
                 out_name = combine_path + emo_sample_1.split("/")[-1]
                 emotion_input_1.export(out_name, format="wav")
 
@@ -273,7 +274,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample_1),
                             "start": 0,
-                            "end": len(emotion_input_1) / 1000
+                            "end": len(emotion_input_1) / 1000,
                         }
                     ],
                 }

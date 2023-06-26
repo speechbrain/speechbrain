@@ -177,7 +177,8 @@ class EmoDiaBrain(sb.Brain):
                 test_stats={
                     "loss": stats["loss"],
                     "error_rate": stats["error_rate"],
-                    "EDER": sum(self.eder) / len(self.eder)},
+                    "EDER": sum(self.eder) / len(self.eder),
+                },
             )
             # with open(self.hparams.cer_file, "a") as w:
             #     self.error_metrics.write_stats(w)

@@ -52,9 +52,10 @@ def prepare_jlcorpus(
                 shutil.copyfile(
                     str(file), str(file).replace(data_folder, destin_folder)
                 )
-        
+
         resampling_for_folder(destin_folder, destin_folder)
         vad_for_folder(destin_folder, destin_folder)
+
     logger.info("vad and resampling finished")
     logger.info("Start JL-CORPUS concatenation ...")
     data_json = concat_wavs(data_folder, save_json)
@@ -69,9 +70,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(in_folder + file_name, format='wav')
+            sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format='wav')
+            sound.export(out_folder + file_name,format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -155,7 +156,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": len(neutral_input) / 1000,
-                            "end": len(combined_input) / 1000
+                            "end": len(combined_input) / 1000,
                         }
                     ],
                 }
@@ -189,7 +190,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": 0,
-                            "end": len(emotion_input) / 1000
+                            "end": len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -230,7 +231,8 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": len(neutral_input_1) / 1000,
-                            "end": len(neutral_input_1) / 1000 + len(emotion_input) / 1000
+                            "end": len(neutral_input_1) / 1000
+                            + len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -254,7 +256,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample_1),
                             "start": 0,
-                            "end": len(emotion_input_1) / 1000
+                            "end": len(emotion_input_1) / 1000,
                         }
                     ],
                 }

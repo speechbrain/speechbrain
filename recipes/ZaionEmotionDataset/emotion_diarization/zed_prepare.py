@@ -237,7 +237,7 @@ def prepare_train(
 
 def prepare_test(
     ZED_folder, save_json_test, win_len, stride,
-):  
+):
     """test(ZED) set preparation
 
     Args:

@@ -80,9 +80,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(in_folder + file_name, format='wav')
+            sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format='wav')
+            sound.export(out_folder + file_name,format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -111,7 +111,7 @@ def concat_wavs(data_folder, save_json):
     for repo in repos:
         emotion_wavs = []
         neutral_wavs = []
-        
+
         angry_files = os.listdir(
             data_folder + "processed/" + repo + "/" + "Angry/"
         )
@@ -149,7 +149,9 @@ def concat_wavs(data_folder, save_json):
             os.makedirs(combine_path)
 
         while len(emotion_wavs) > 0:
-            combination = np.random.choice(combinations, p=probabilities.ravel())
+            combination = np.random.choice(
+                combinations, p=probabilities.ravel()
+            )
             if combination == "neu_emo":
                 neutral_sample = neutral_wavs[0]
                 emo_sample = emotion_wavs[0]
@@ -176,7 +178,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": len(neutral_input) / 1000,
-                            "end": len(combined_input) / 1000
+                            "end": len(combined_input) / 1000,
                         }
                     ],
                 }
@@ -197,8 +199,8 @@ def concat_wavs(data_folder, save_json):
                 out_name = (
                     combine_path
                     + emo_sample.split("/")[-1][:-4]
-                    + "_" +
-                    neutral_sample.split("_")[-1]
+                    + "_"
+                    + neutral_sample.split("_")[-1]
                 )
                 combined_input.export(out_name, format="wav")
 
@@ -250,7 +252,8 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample),
                             "start": len(neutral_input_1) / 1000,
-                            "end": len(neutral_input_1) / 1000 + len(emotion_input) / 1000
+                            "end": len(neutral_input_1) / 1000
+                            + len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -274,7 +277,7 @@ def concat_wavs(data_folder, save_json):
                         {
                             "emo": get_emotion(emo_sample_1),
                             "start": 0,
-                            "end": len(emotion_input_1) / 1000
+                            "end": len(emotion_input_1) / 1000,
                         }
                     ],
                 }

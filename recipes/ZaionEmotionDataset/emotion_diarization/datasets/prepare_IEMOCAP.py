@@ -98,7 +98,9 @@ def prepare_iemocap(
             if line[3] == "neu":
                 dict[id] = "neutral"
                 file = get_path(data_folder, id)
-                destin_folder = data_folder + "processed/" + id[:5] + id[-4] + "/"
+                destin_folder = (
+                    data_folder + "processed/" + id[:5] + id[-4] + "/"
+                )
                 if not os.path.exists(destin_folder):
                     os.makedirs(destin_folder)
                 if not os.path.exists(destin_folder + f"{id}.wav"):
@@ -145,9 +147,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(in_folder + file_name, format='wav')
+            sound = AudioSegment.from_file(in_folder + file_name, format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name,format='wav')
+            sound.export(out_folder + file_name,format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -252,7 +254,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                         {
                             "emo": get_emotion(emo_sample, annotations),
                             "start": len(neutral_input) / 1000,
-                            "end": len(combined_input) / 1000
+                            "end": len(combined_input) / 1000,
                         }
                     ],
                 }
@@ -286,7 +288,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                         {
                             "emo": get_emotion(emo_sample, annotations),
                             "start": 0,
-                            "end": len(emotion_input) / 1000
+                            "end": len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -328,7 +330,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                             "emo": get_emotion(emo_sample, annotations),
                             "start": len(neutral_input_1) / 1000,
                             "end": len(neutral_input_1) / 1000
-                            + len(emotion_input) / 1000
+                            + len(emotion_input) / 1000,
                         }
                     ],
                 }
@@ -352,7 +354,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                         {
                             "emo": get_emotion(emo_sample_1, annotations),
                             "start": 0,
-                            "end": len(emotion_input_1) / 1000
+                            "end": len(emotion_input_1) / 1000,
                         }
                     ],
                 }
