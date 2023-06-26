@@ -30,7 +30,7 @@ from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
-pool = multiprocessing.get_context("fork").Pool()
+# pool = multiprocessing.get_context("fork").Pool()
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -110,7 +110,7 @@ class ASR(sb.Brain):
             ]
             """
             
-            batch_hypo = decoder.decode_beams_batch(p_ctc.cpu().numpy(), pool) # , pool
+            batch_hypo = decoder.decode_beams_batch(p_ctc.cpu().numpy()) # , pool
 
             for hypo in batch_hypo:
                 predicted_words.append(hypo[0].text.split(" "))
@@ -458,7 +458,7 @@ if __name__ == "__main__":
 
     decoder = CTCBeamSearch(
         blank_index=0,
-        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
         history_prune=True,
         space_index=29,
         vocab_list=labels,

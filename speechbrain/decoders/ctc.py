@@ -461,7 +461,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_width=100,
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
-        history_prune=False,
+        history_prune=True,
         topk=1,
     ):
         super().__init__()
@@ -598,7 +598,40 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def sort_beams(self, beams):
         return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
+    
+    def prune_history(self, beams, lm_order: int):
+        """Filter out beams that are the same over max_ngram history.
 
+        Since n-gram language models have a finite history when scoring a new token, we can use that
+        fact to prune beams that only differ early on (more than n tokens in the past) and keep only the
+        higher scoring ones. Note that this helps speed up the decoding process but comes at the cost of
+        some amount of beam diversity. If more than the top beam is used in the output it should
+        potentially be disabled.
+
+        Args:
+            beams: list of LMBeam
+            lm_order: int, the order of the n-gram model
+
+        Returns:
+            list of Beam
+        """
+        # let's keep at least 1 word of history
+        min_n_history = max(1, lm_order - 1)
+        seen_hashes = set()
+        filtered_beams = []
+        # for each beam after this, check if we need to add it
+        for lm_beam in beams:
+            # hash based on history that can still affect lm scoring going forward
+            hash_idx = (
+                tuple(lm_beam.text.split()[-min_n_history:]),
+                lm_beam.partial_word,
+                lm_beam.last_token,
+            )
+            if hash_idx not in seen_hashes:
+                filtered_beams.append(CTCBeam.from_lm_beam(lm_beam))
+                seen_hashes.add(hash_idx)
+        return filtered_beams
+    
     def get_lm_beams(
         self,
         beams,
@@ -664,42 +697,165 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
             return new_beams
 
+
+    def finalize_decoding(
+            self, 
+            beams, 
+            cached_lm_scores,
+            cached_p_lm_scores,
+            force_next_word=False, 
+            is_end=False
+        ):
+        if force_next_word or is_end:
+            new_beams = []
+            for beam in beams:
+                new_token_times = (
+                    beam.text_frames
+                    if beam.partial_word == ""
+                    else beam.text_frames + [beam.partial_frames]
+                )
+                new_beams.append(
+                    CTCBeam(
+                        text=beam.text,
+                        next_word=beam.partial_word,
+                        partial_word="",
+                        last_token=None,
+                        last_token_index=None,
+                        text_frames=new_token_times,
+                        partial_frames=(-1, -1),
+                        score=beam.score,
+                    )
+                )
+            new_beams = self.merge_beams(new_beams)
+        else:
+            new_beams = list(beams)
+        
+        scored_beams = self.get_lm_beams(
+            new_beams,
+            cached_lm_scores,
+            cached_p_lm_scores,
+        )
+        # remove beam outliers
+        max_score = max([b.lm_score for b in scored_beams])
+        scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
+        return self.sort_beams(scored_beams)
+
+    
+    def decode_beams_batch(self, log_probs, pool=None):
+        valid_pool = self.get_valid_pool(pool)
+        if valid_pool is None:
+            return [
+                 self.decode_beams_mp_safe(log_prob) for log_prob in log_probs
+            ]
+        
+        p_decode = functools.partial(
+            self.decode_beams_mp_safe,
+        )
+        decoded_beams_list = valid_pool.map(p_decode, log_probs)
+        return decoded_beams_list
+
+    def decode_beams_mp_safe(self, log_probs):
+
+        decoded_beams = self.decode_beams(log_probs)
+
+        decoded_beams_mp_safe = [output_beam.get_mp_safe_beam() for output_beam in decoded_beams]
+
+        return decoded_beams_mp_safe[:self.topk]
+    
+
+    def partial_decode_beams(
+            self, 
+            log_probs,
+            cached_lm_scores,
+            cached_p_lm_scores,
+            beams,
+            processed_frames,
+            force_next_word = False, 
+            is_end = False, 
+        ):
+
+            beams = self.partial_decoding(
+                log_probs,
+                beams,
+                cached_lm_scores,
+                cached_p_lm_scores,
+                processed_frames=processed_frames,
+            )   
+
+            trimmed_beams = self.finalize_decoding(
+                beams,
+                cached_lm_scores,
+                cached_p_lm_scores,
+                force_next_word=force_next_word,
+                is_end=is_end,
+            )
+
+            return trimmed_beams
+
+    def decode_beams(self, log_probs, lm_start_state=None):
+        return self.decode_log_probs(log_probs, lm_start_state)
+
+    def decode_log_probs(self, log_probs, lm_start_state = None):
+        language_model = self.lm
+        if language_model is None:
+            cached_lm_scores = {}
+        else:
+            if lm_start_state is None:
+                start_state = language_model.get_start_state()
+            else:
+                start_state = lm_start_state
+            cached_lm_scores = {("", False): (0.0, start_state)}
+        cached_p_lm_scores: Dict[str, float] = {}
+       
+        beams = [
+            CTCBeam(
+                text="",
+                next_word="",
+                partial_word="",
+                last_token=None,
+                last_token_index=None,
+                text_frames=[],
+                partial_frames=(-1, -1),
+                score=0.0,
+            )
+        ]
+
+        beams = self.partial_decoding(
+            log_probs,
+            beams,
+            cached_lm_scores,
+            cached_p_lm_scores,
+        )   
+
+        trimmed_beams = self.finalize_decoding(
+            beams,
+            cached_lm_scores,
+            cached_p_lm_scores,
+            force_next_word=True,
+            is_end=True,
+        )
+
+        # remove unnecessary information from beams
+        output_beams = [
+            CTCHypothesis(
+                text=self.normalize_whitespace(lm_beam.text),
+                last_lm_state=(
+                    cached_lm_scores[(lm_beam.text, True)][-1]
+                    if (lm_beam.text, True) in cached_lm_scores
+                    else None
+                ),
+                text_frames=list(zip(lm_beam.text.split(), lm_beam.text_frames)),
+                score=lm_beam.score,
+                lm_score=lm_beam.lm_score,
+            )
+            for lm_beam in trimmed_beams
+        ][:self.topk]
+
+        return output_beams
+    
 class CTCBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
         super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
-
-    def prune_history(self, beams, lm_order: int):
-        """Filter out beams that are the same over max_ngram history.
-
-        Since n-gram language models have a finite history when scoring a new token, we can use that
-        fact to prune beams that only differ early on (more than n tokens in the past) and keep only the
-        higher scoring ones. Note that this helps speed up the decoding process but comes at the cost of
-        some amount of beam diversity. If more than the top beam is used in the output it should
-        potentially be disabled.
-
-        Args:
-            beams: list of LMBeam
-            lm_order: int, the order of the n-gram model
-
-        Returns:
-            list of Beam
-        """
-        # let's keep at least 1 word of history
-        min_n_history = max(1, lm_order - 1)
-        seen_hashes = set()
-        filtered_beams = []
-        # for each beam after this, check if we need to add it
-        for lm_beam in beams:
-            # hash based on history that can still affect lm scoring going forward
-            hash_idx = (
-                tuple(lm_beam.text.split()[-min_n_history:]),
-                lm_beam.partial_word,
-                lm_beam.last_token,
-            )
-            if hash_idx not in seen_hashes:
-                filtered_beams.append(CTCBeam.from_lm_beam(lm_beam))
-                seen_hashes.add(hash_idx)
-        return filtered_beams
 
 
     def partial_decoding(
@@ -824,158 +980,3 @@ class CTCBeamSearch(CTCBaseSearcher):
                 beams = [CTCBeam.from_lm_beam(b) for b in trimmed_beams]
 
         return beams
-    
-
-    def finalize_decoding(
-            self, 
-            beams, 
-            cached_lm_scores,
-            cached_p_lm_scores,
-            force_next_word=False, 
-            is_end=False
-        ):
-        if force_next_word or is_end:
-            new_beams = []
-            for beam in beams:
-                new_token_times = (
-                    beam.text_frames
-                    if beam.partial_word == ""
-                    else beam.text_frames + [beam.partial_frames]
-                )
-                new_beams.append(
-                    CTCBeam(
-                        text=beam.text,
-                        next_word=beam.partial_word,
-                        partial_word="",
-                        last_token=None,
-                        last_token_index=None,
-                        text_frames=new_token_times,
-                        partial_frames=(-1, -1),
-                        score=beam.score,
-                    )
-                )
-            new_beams = self.merge_beams(new_beams)
-        else:
-            new_beams = list(beams)
-        
-        scored_beams = self.get_lm_beams(
-            new_beams,
-            cached_lm_scores,
-            cached_p_lm_scores,
-        )
-        # remove beam outliers
-        max_score = max([b.lm_score for b in scored_beams])
-        scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
-        return self.sort_beams(scored_beams)
-    
-    def decode_beams_batch(self, log_probs, pool=None):
-        valid_pool = self.get_valid_pool(pool)
-        if valid_pool is None:
-            return [
-                 self.decode_beams_mp_safe(log_prob) for log_prob in log_probs
-            ]
-        
-        p_decode = functools.partial(
-            self.decode_beams_mp_safe,
-        )
-        decoded_beams_list = valid_pool.map(p_decode, log_probs)
-        return decoded_beams_list
-
-    def decode_beams_mp_safe(self, log_probs):
-
-        decoded_beams = self.decode_beams(log_probs)
-
-        decoded_beams_mp_safe = [output_beam.get_mp_safe_beam() for output_beam in decoded_beams]
-
-        return decoded_beams_mp_safe[:self.topk]
-    
-
-    def partial_decode_beams(
-            self, 
-            log_probs,
-            cached_lm_scores,
-            cached_p_lm_scores,
-            beams,
-            processed_frames,
-            force_next_word = False, 
-            is_end = False, 
-        ):
-
-            beams = self.partial_decoding(
-                log_probs,
-                beams,
-                cached_lm_scores,
-                cached_p_lm_scores,
-                processed_frames=processed_frames,
-            )   
-
-            trimmed_beams = self.finalize_decoding(
-                beams,
-                cached_lm_scores,
-                cached_p_lm_scores,
-                force_next_word=force_next_word,
-                is_end=is_end,
-            )
-
-            return trimmed_beams
-
-    def decode_beams(self, log_probs, lm_start_state=None):
-        return self.decode_log_probs(log_probs, lm_start_state)
-
-    def decode_log_probs(self, log_probs, lm_start_state = None):
-        language_model = self.lm
-        if language_model is None:
-            cached_lm_scores = {}
-        else:
-            if lm_start_state is None:
-                start_state = language_model.get_start_state()
-            else:
-                start_state = lm_start_state
-            cached_lm_scores = {("", False): (0.0, start_state)}
-        cached_p_lm_scores: Dict[str, float] = {}
-       
-        beams = [
-            CTCBeam(
-                text="",
-                next_word="",
-                partial_word="",
-                last_token=None,
-                last_token_index=None,
-                text_frames=[],
-                partial_frames=(-1, -1),
-                score=0.0,
-            )
-        ]
-
-        beams = self.partial_decoding(
-            log_probs,
-            beams,
-            cached_lm_scores,
-            cached_p_lm_scores,
-        )   
-
-        trimmed_beams = self.finalize_decoding(
-            beams,
-            cached_lm_scores,
-            cached_p_lm_scores,
-            force_next_word=True,
-            is_end=True,
-        )
-
-        # remove unnecessary information from beams
-        output_beams = [
-            CTCHypothesis(
-                text=self.normalize_whitespace(lm_beam.text),
-                last_lm_state=(
-                    cached_lm_scores[(lm_beam.text, True)][-1]
-                    if (lm_beam.text, True) in cached_lm_scores
-                    else None
-                ),
-                text_frames=list(zip(lm_beam.text.split(), lm_beam.text_frames)),
-                score=lm_beam.score,
-                lm_score=lm_beam.lm_score,
-            )
-            for lm_beam in trimmed_beams
-        ][:self.topk]
-
-        return output_beams
