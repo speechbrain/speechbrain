@@ -66,7 +66,7 @@ dataloader_options:
     drop_last: False
 
 test_dataloader_opts:
-   batch_size: !ref <test_batch_size>
+    batch_size: !ref <test_batch_size>
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
