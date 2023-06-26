@@ -126,9 +126,9 @@ def prepare_train(
     check_and_prepare_dataset(
         emovdb_folder, "EMOV-DB", prepare_emovdb, all_dict, seed
     )
-    check_and_prepare_dataset(
-        esd_folder, "ESD", prepare_esd, all_dict, seed
-    )
+
+    check_and_prepare_dataset(esd_folder, "ESD", prepare_esd, all_dict, seed)
+
     check_and_prepare_dataset(
         iemocap_folder, "IEMOCAP", prepare_iemocap, all_dict, seed
     )
@@ -276,7 +276,9 @@ def create_json(data, json_file):
     logger.info(f"{json_file} successfully created!")
 
 
-def check_and_prepare_dataset(data_folder, data_name, prepare_function, dictonary, seed):
+def check_and_prepare_dataset(
+    data_folder, data_name, prepare_function, dictonary, seed
+):
     """check if the preparation is done, do it if not
 
     Args:

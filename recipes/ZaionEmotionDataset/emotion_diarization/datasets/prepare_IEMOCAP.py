@@ -76,7 +76,7 @@ def append_path_after_vad(data_folder, id, list):
     """do vad and append the new path into the list
 
     Args:
-        data_folder (str): the path to IEMOCAP 
+        data_folder (str): the path to IEMOCAP
         id (str): id d'utterance
         list (list): which list to be put into
 
@@ -84,9 +84,7 @@ def append_path_after_vad(data_folder, id, list):
         list: new list after adding an element
     """
     file = get_path(data_folder, id)
-    destin_folder = (
-        data_folder + "processed/" + id[:5] + id[-4] + "/"
-    )
+    destin_folder = data_folder + "processed/" + id[:5] + id[-4] + "/"
     if not os.path.exists(destin_folder):
         os.makedirs(destin_folder)
     if not os.path.exists(destin_folder + f"{id}.wav"):
