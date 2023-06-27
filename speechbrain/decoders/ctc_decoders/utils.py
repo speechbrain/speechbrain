@@ -1,4 +1,14 @@
+
 import torch
+import math 
+
+from typing import (
+    Dict,
+    List,
+    Optional,
+)
+import dataclasses
+from typing import Tuple
 
 from speechbrain.decoders.language_model import (
     LanguageModel,
@@ -8,6 +18,74 @@ from speechbrain.decoders.language_model import (
 import logging 
 
 logger = logging.getLogger(__name__)
+
+
+
+@dataclasses.dataclass
+class CTCBeam:
+    """Contains all the info needed for decoding a beam."""
+    text: str
+    next_word: str
+    partial_word: str
+    last_token: Optional[str]
+    last_token_index: Optional[int]
+    text_frames: Tuple[int, int]
+    partial_frames: Tuple[int, int]
+    
+    p: float = -math.inf
+    p_b: float = -math.inf
+    p_nb: float =  -math.inf
+
+    n_p_b: float =  -math.inf
+    n_p_nb : float=  -math.inf
+
+    score: float =  -math.inf
+    score_ctc: float = -math.inf
+
+    @classmethod
+    def from_lm_beam(cls, lm_beam):
+        return CTCBeam(
+            text=lm_beam.text,
+            next_word=lm_beam.next_word,
+            partial_word=lm_beam.partial_word,
+            last_token=lm_beam.last_token,
+            last_token_index=lm_beam.last_token_index,
+            text_frames=lm_beam.text_frames,
+            partial_frames=lm_beam.partial_frames,
+            p=lm_beam.p,
+            p_b=lm_beam.p_b,
+            p_nb=lm_beam.p_nb,
+            n_p_b=lm_beam.n_p_b,
+            n_p_nb=lm_beam.n_p_nb,
+            score=lm_beam.score,
+            score_ctc=lm_beam.score_ctc,
+        )
+    
+    def step(self):
+        self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
+        self.n_p_b = self.n_p_nb = -math.inf
+        self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
+        self.score = self.score_ctc + self.score
+
+@dataclasses.dataclass
+class LMCTCBeam(CTCBeam):
+    lm_score: float = -math.inf
+
+@dataclasses.dataclass
+class CTCHypothesis:
+    text: str
+    last_lm_state: None
+    text_frames: List[Tuple[str, Tuple[int, int]]]
+    score: float  # Cumulative logit score
+    lm_score: float  # Cumulative language model + logit score
+
+    def get_mp_safe_beam(self):
+        """Get a multiprocessing-safe version of the beam."""
+        if self.last_lm_state is None:
+            last_lm_state = None
+        else:
+            last_lm_state = self.last_lm_state.get_mp_safe_state()
+        return dataclasses.replace(self, last_lm_state=last_lm_state)
 
 class CTCBaseSearcher(torch.nn.Module):
     """ TODO: docstring

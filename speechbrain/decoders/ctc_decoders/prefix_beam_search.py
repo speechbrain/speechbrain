@@ -1,4 +1,4 @@
-from speechbrain.decoders.ctc.utils import CTCBaseSearcher
+from speechbrain.decoders.ctc_decoders.utils import CTCBaseSearcher
 import torch
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
@@ -40,72 +40,13 @@ class Beam:
     n_p_nb: float = -math.inf
 
     score: float = -math.inf
-    score_lm: float = 0.0
     score_ctc: float = -math.inf
 
-    def step(self):
+    def update_scores(self):
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
         self.score = self.score_ctc + self.score_lm
-
-
-class Beams(MutableMapping):
-    def __init__(self):
-        self.beams = {(): Beam("", "", "", None, None)}
-        self.beams[()].p_b = 0.0
-        self.beams[()].score_ctc = 0.0
-
-    def __getitem__(self, key):
-        return self.getitem(key)
-
-    def getitem(self, key, p=None, previous_beam=None):
-        if key in self.beams:
-            beam = self.beams[key]
-            if p and p > beam.p:
-                beam.p = p
-            return beam
-        
-        new_beam = Beam("", "", "", None, None)
-        if previous_beam:
-            new_beam.p = p
-        self.beams[key] = new_beam
-        return new_beam
-
-    def __setitem__(self, key, value):
-        self.beams[key] = value
-
-    def __delitem__(self, key):
-        del self.beams[key]
-
-    def __len__(self):
-        return len(self.beams)
-
-    def __iter__(self):
-        return iter(self.beams)
-
-    def step(self):
-
-        for beam in self.beams.values():
-            beam.step()
-
-    def topk_(self, k):
-        """ Keep only the top k prefixes """
-        if len(self.beams) <= k:
-            return self
-
-        beams = list(self.beams.items())
-        indexes = np.argpartition([-v.score for k, v in beams], k)[:k].tolist()
-
-        self.beams = {k: v for k, v in itemgetter(*indexes)(beams)}
-
-        return self
-
-    def sort(self):
-        return sorted(
-            self.beams.items(), key=lambda x: x[1].score, reverse=True
-        )
-
 
 class CTCPrefixBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):

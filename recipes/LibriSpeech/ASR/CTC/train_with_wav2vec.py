@@ -444,14 +444,16 @@ if __name__ == "__main__":
         sil_token=labels[hparams["blank_index"]],
         # beam_size_token=1,
     )
-    """
-
     from torchaudio.models.decoder import download_pretrained_files
 
     files = download_pretrained_files("librispeech-4-gram")
 
     from speechbrain.decoders import CTCPrefixBeamSearch, CTCBeamSearch
 
+    """
+
+
+    from speechbrain.decoders.ctc_decoders import CTCPrefixBeamSearch, CTCBeamSearch
 
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
