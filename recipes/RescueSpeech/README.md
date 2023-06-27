@@ -1,35 +1,38 @@
-# RescueSpeech
-[RescuSpeech](https://doi.org/10.5281/zenodo.8077622) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models that have been developed and evaluated using RescuSpeech data. These models aim to enhance the performance of speech recognizers in challenging and noisy environments.
+# Noise robust speech recognition on RescueSpeech dataset
+[RescuSpeech](https://doi.org/10.5281/zenodo.8077622) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models for the best setup that have been developed and evaluated using RescuSpeech data. This aim to enhance the performance of speech recognizers in challenging and noisy environments.
 
-While our paper presents a comprehensive comparison of results on CRDNN, Wav2vec2, WavLM, Whisper and SepFormer, we only present our best-performing models. Please see below for each pre-trained model and the full model link.
+Our paper compares ASR models (CRDNN, Wav2vec2, WavLM, Whisper) and speech-enhancement systems (SepFormer). But here we present our best-performing models achieved using the best strategy. See below for pre-trained model details and the full model link.
 
-This recipe supports training several models on the dataset
-- **Task: ASR**- WavLM, Whisper
-- **Task: Speech enhancement**-  SepFormer
+This recipe supports a simple combination of a speech enhancement model (**SepFormer**) and an ASR (**Whisper**) model. The models are trained jointly and then combined to tackle noise interference.
 
-# Training Strategies
-We have explored multiple training strategies to improve noise robust speech recognition using RescuSpeech. The following methods have been implemented and evaluated:
+- Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622)
+- Language: German (DE)
 
-1. A simple pipeline consisting solely of an ASR model
-    - Clean training
-    - Multi-condition Training
-2. Pipeline combining ASR and Speech Enhancement model
-    - Model-combination I: Independent Training
-    - Model-combination II: Joint Training
 
-# Pretrained Models
-1. Pretrained models for **CRDNN** and **LM** (language model) on German CommonVoice10.0
-    - HuggingFace : *add hf link to sepformer_dns_16k*
-    - Full Model Link: *add drive link to sepformer_dns_16k*
-2. Pretrained models for **Wav2vec2** (`facebook/wav2vec2-large-xlsr-53-german`)  on German CommonVoice10.0
-    - HuggingFace : *add hf link to sepformer_dns_16k*
-    - Full Model Link: *add drive link to sepformer_dns_16k*
-3. Pretrained models for **WavLM** (`microsoft/wavlm-large`) on German CommonVoice10.0
-    - HuggingFace : *add hf link to sepformer_dns_16k*
-    - Full Model Link: *add drive link to sepformer_dns_16k*
-3. Pretrained models for **SepFormer** speech enhancement model on Microsof-DNS 4 dataset
-    - HuggingFace : *add hf link to sepformer_dns_16k*
-    - Full Model Link: *add drive link to sepformer_dns_16k*
+## How to run
+```
+python train.py hparams/robust_asr_16k.yaml
+```
+
+## Results
+During training, both speech enhancement and ASR is kept unfrozen.
+
+| Model | SISNRi | SDRi | PESQ   | STOI  | *WER*   |
+|------ |--------|-------|-------|-------|----   |
+| Whisper (`large-v2`)| 7.334 | 7.871 | 2.085 | 0.857 | **24.20** |
+
+## Pretrained Models
+We initially perform fine-tuning of both the ASR model and SepFormer model using the CommonVoice dataset and the Microsoft-DNS dataset. Subsequently, we proceed with a second stage of fine-tuning on our RescueSpeech dataset. Here you can find links to the trained models.
+
+
+| Dataset        | CRDNN                                          | Wav2vec2                                       | wavLM                                          | Whisper                                        |
+|----------------|------------------------------------------------|------------------------------------------------|------------------------------------------------|------------------------------------------------|
+| German <br> CommonVoice10.0    | [HuggingFace](link_commonvoice_crdnn_hf)        | [HuggingFace](link_commonvoice_wav2vec2_hf)    | [HuggingFace](link_commonvoice_wavlm_hf)        | [HuggingFace](link_commonvoice_whisper_hf)      |
+|                | [Google Drive](link_commonvoice_crdnn_gd)       | [Google Drive](link_commonvoice_wav2vec2_gd)   | [Google Drive](link_commonvoice_wavlm_gd)       | [Google Drive](link_commonvoice_whisper_gd)     |
+| RescueSpeech   | [HuggingFace](link_rescuespeech_crdnn_hf)       | [HuggingFace](link_rescuespeech_wav2vec2_hf)   | [HuggingFace](link_rescuespeech_wavlm_hf)       | [HuggingFace](link_rescuespeech_whisper_hf)     |
+|                | [Google Drive](link_rescuespeech_crdnn_gd)      | [Google Drive](link_rescuespeech_wav2vec2_gd)  | [Google Drive](link_rescuespeech_wavlm_gd)      | [Google Drive](link_rescuespeech_whisper_gd)    |
+
+
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
