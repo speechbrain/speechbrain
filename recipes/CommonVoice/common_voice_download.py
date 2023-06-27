@@ -3,20 +3,22 @@ import requests
 from tqdm import tqdm
 import tarfile
 import argparse
+import logging
 
+logger = logging.getLogger(__name__)
 
 _SPLITS = ["train", "dev", "test"]
-def download_common_voice(data_folder,language):
-    download_dir = os.path.join(data_folder,language)
-    if not os.path.exists(data_folder):
-        os.mkdir(data_folder)
-    os.mkdir(download_dir)
-    archive = os.path.join(download_dir, "tmp.tar.gz")
+def download_common_voice(download_dir,language):
+    if not os.path.exists(download_dir):
+        os.mkdir(download_dir)
+    archive = os.path.join(download_dir, f"cv-corpus-13.0-2023-03-09-{language}.tar.gz")
     url = (
     "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com"
     f"/cv-corpus-13.0-2023-03-09/cv-corpus-13.0-2023-03-09-{language}.tar.gz"
 )
     try:
+        logger.log(logging.INFO, f"start downloading {language}")
+
         with requests.get(url, stream=True) as response:
             total_size = int(response.headers.get("content-length", 0))
             chunk_size = 1024 * 1024
@@ -26,24 +28,15 @@ def download_common_voice(data_folder,language):
                     progress_bar.update(len(data))
                     f.write(data)
                 progress_bar.close()
-        # logger.log(logging.INFO, "Done!")
-
-        # logger.log(logging.INFO, "Extracting data...")
-        with tarfile.open(archive) as tar:
-            for member in tar.getmembers():
-                name = os.path.basename(member.name)
-                if name.endswith(".mp3"):
-                    member.name = os.path.join(download_dir, "clips", name)
-                    tar.extract(member)
-                elif os.path.splitext(name)[0] in _SPLITS:
-                    member.name = os.path.join(download_dir, name)
-                    tar.extract(member)
-        os.remove(archive)
+        logger.log(logging.INFO, f"Complete downloading {language}")
 
     except Exception:
-        # shutil.rmtree(download_dir)
         raise RuntimeError(f"Could not download locale: {language}")
-    
+
+def make_tarfile(output_filename, source_dir):
+    with tarfile.open(output_filename, "w:gz") as tar:
+        tar.add(source_dir, arcname=os.path.basename(source_dir))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='download commonvoice 13.')
     parser.add_argument('data_path', type=str,
