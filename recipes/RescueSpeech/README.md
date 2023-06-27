@@ -15,7 +15,7 @@ python train.py hparams/robust_asr_16k.yaml
 ```
 
 ## Results
-During training, both speech enhancement and ASR is kept unfrozen.
+During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR and ehnance loss are backpropagated and weights are updated.
 
 | Model | SISNRi | SDRi | PESQ   | STOI  | *WER*   |
 |------ |--------|-------|-------|-------|----   |
