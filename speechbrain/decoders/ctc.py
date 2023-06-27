@@ -384,10 +384,9 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     return batch_outputs
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CTCBeam:
     """Contains all the info needed for decoding a beam."""
-
     text: str
     next_word: str
     partial_word: str
@@ -397,14 +396,14 @@ class CTCBeam:
     partial_frames: Tuple[int, int]
 
     p : float=  -math.inf
-    p_b : float =  -math.inf
+    p_b: float = -math.inf
     p_nb: float =  -math.inf
 
-    p_b_prev: float =  -math.inf
-    p_nb_prev : float=  -math.inf
+    n_p_b: float =  -math.inf
+    n_p_nb : float=  -math.inf
 
     score: float =  -math.inf
-    score_ctc: float =  -math.inf
+    score_ctc: float = -math.inf
 
     @classmethod
     def from_lm_beam(cls, lm_beam):
@@ -419,17 +418,23 @@ class CTCBeam:
             p=lm_beam.p,
             p_b=lm_beam.p_b,
             p_nb=lm_beam.p_nb,
-            p_b_prev=lm_beam.p_b_prev,
-            p_nb_prev=lm_beam.p_nb_prev,
+            n_p_b=lm_beam.n_p_b,
+            n_p_nb=lm_beam.n_p_nb,
             score=lm_beam.score,
             score_ctc=lm_beam.score_ctc,
         )
+    
+    def step(self):
+        self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
+        self.n_p_b = self.n_p_nb = -math.inf
+        self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
+        self.score = self.score_ctc + self.score
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
     lm_score: float = -math.inf
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CTCHypothesis:
     text: str
     last_lm_state: None
@@ -697,7 +702,6 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
             return new_beams
 
-
     def finalize_decoding(
             self, 
             beams, 
@@ -739,7 +743,6 @@ class CTCBaseSearcher(torch.nn.Module):
         max_score = max([b.lm_score for b in scored_beams])
         scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
         return self.sort_beams(scored_beams)
-
     
     def decode_beams_batch(self, log_probs, pool=None):
         valid_pool = self.get_valid_pool(pool)
@@ -762,7 +765,6 @@ class CTCBaseSearcher(torch.nn.Module):
 
         return decoded_beams_mp_safe[:self.topk]
     
-
     def partial_decode_beams(
             self, 
             log_probs,
@@ -817,6 +819,8 @@ class CTCBaseSearcher(torch.nn.Module):
                 text_frames=[],
                 partial_frames=(-1, -1),
                 score=0.0,
+                score_ctc=0.0,
+                p_b=0.0,
             )
         ]
 
@@ -840,9 +844,9 @@ class CTCBaseSearcher(torch.nn.Module):
             CTCHypothesis(
                 text=self.normalize_whitespace(lm_beam.text),
                 last_lm_state=(
-                    cached_lm_scores[(lm_beam.text, True)][-1]
-                    if (lm_beam.text, True) in cached_lm_scores
-                    else None
+                  cached_lm_scores[(lm_beam.text, True)][-1]
+                  if (lm_beam.text, True) in cached_lm_scores
+                  else None
                 ),
                 text_frames=list(zip(lm_beam.text.split(), lm_beam.text_frames)),
                 score=lm_beam.score,
@@ -856,7 +860,6 @@ class CTCBaseSearcher(torch.nn.Module):
 class CTCBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
         super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
-
 
     def partial_decoding(
         self, 
@@ -967,6 +970,94 @@ class CTCBeamSearch(CTCBaseSearcher):
                 cached_lm_scores,
                 cached_p_lm_scores,
             )
+            # remove beam outliers
+            max_score = max([b.lm_score for b in scored_beams])
+            scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
+
+            trimmed_beams = self.sort_beams(scored_beams)
+
+            if self.history_prune:
+                lm_order = 1 if self.lm is None else self.lm.order
+                beams = self.prune_history(trimmed_beams, lm_order=lm_order)
+            else:
+                beams = [CTCBeam.from_lm_beam(b) for b in trimmed_beams]
+
+        return beams
+
+
+class CTCPrefixBeamSearch(CTCBaseSearcher):
+    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
+        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
+
+
+    def partial_decoding(
+        self, 
+        log_probs,
+        beams,
+        cached_lm_scores,
+        cached_p_lm_scores,
+        processed_frames = 0,
+    ):        
+        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
+            max_index = logit_col.argmax()
+            tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
+            new_beams = []
+
+            for token_index in tokens_index_list:
+                p_token = logit_col[token_index]
+                token = self.vocab_list[token_index]
+
+                for beam in beams:
+                    p_b, p_nb = beam.p_b, beam.p_nb
+
+                    if token_index == self.blank_index:
+                        n_p_b = np.logaddexp(
+                            beam.n_p_b, beam.score_ctc + p_token
+                        )
+
+                        new_beams.append(
+                            CTCBeam(
+                                text=beam.text,
+                                next_word=beam.next_word,
+                                partial_word=beam.partial_word,
+                                last_token=token,
+                                last_token_index=token_index,
+                                text_frames=beam.text_frames,
+                                partial_frames=None,
+                                score=beam.score,
+                                n_p_b=n_p_b,
+                                n_p_nb=beam.n_p_nb, 
+                            )
+                        )
+                    elif beam.last_token == token:
+                        n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
+
+                        new_beams.append(
+                            CTCHypothesis(
+                                text=beam.text,
+                                next_word=beam.next_word,
+                                partial_word=beam.partial_word,
+                                last_token=token,
+                                last_token_index=token_index,
+                                text_frames=beam.text_frames,
+                                partial_frames=None,
+                                score=beam.score,
+                                n_p_b=beam.n_p_b,
+                                n_p_nb=n_p_nb,
+                            )
+                        )
+                    
+                    new_text = beam.text + token 
+                    print(beams)
+                    exit()
+                    
+            new_beams = self.merge_beams(new_beams)
+            scored_beams = self.get_lm_beams(
+                new_beams,
+                cached_lm_scores,
+                cached_p_lm_scores,
+            )
+            
             # remove beam outliers
             max_score = max([b.lm_score for b in scored_beams])
             scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]

@@ -450,7 +450,7 @@ if __name__ == "__main__":
 
     files = download_pretrained_files("librispeech-4-gram")
 
-    from speechbrain.decoders import CTCBeamSearch
+    from speechbrain.decoders import CTCPrefixBeamSearch, CTCBeamSearch
 
 
     ind2lab = label_encoder.ind2lab
