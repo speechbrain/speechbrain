@@ -1,6 +1,5 @@
 """Preprocessors for audio"""
 import torch
-import functools
 from speechbrain.processing.speech_augmentation import Resample
 
 
@@ -41,18 +40,22 @@ class AudioNormalizer:
         if mix not in ["avg-to-mono", "keep"]:
             raise ValueError(f"Unexpected mixing configuration {mix}")
         self.mix = mix
-        self._cached_resample = functools.lru_cache(maxsize=12)(Resample)
+        self._cached_resamplers = {}
 
     def __call__(self, audio, sample_rate):
         """Perform normalization
-
         Arguments
         ---------
         audio : tensor
             The input waveform torch tensor. Assuming [time, channels],
             or [time].
         """
-        resampler = self._cached_resample(sample_rate, self.sample_rate)
+        if sample_rate not in self._cached_resamplers:
+            # Create a Resample instance from this newly seen SR to internal SR
+            self._cached_resamplers[sample_rate] = Resample(
+                sample_rate, self.sample_rate
+            )
+        resampler = self._cached_resamplers[sample_rate]
         resampled = resampler(audio.unsqueeze(0)).squeeze(0)
         return self._mix(resampled)
 

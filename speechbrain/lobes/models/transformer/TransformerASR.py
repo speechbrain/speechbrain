@@ -60,6 +60,8 @@ class TransformerASR(TransformerInterface):
         Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
     conformer_activation: torch.nn.Module, optional
         Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
+    branchformer_activation: torch.nn.Module, optional
+        Activation module used within the Branchformer Encoder. E.g. Swish, ReLU etc. it has to be a torch Module.
     attention_type: str, optional
         Type of attention layer used in all Transformer or Conformer layers.
         e.g. regularMHA or RelPosMHA.
@@ -69,6 +71,15 @@ class TransformerASR(TransformerInterface):
     causal: bool, optional
         Whether the encoder should be causal or not (the decoder is always causal).
         If causal the Conformer convolutional layer is causal.
+    csgu_linear_units: int, optional
+        Number of neurons in the hidden linear units of the CSGU Module.
+        -> Branchformer
+    gate_activation: torch.nn.Module, optional
+        Activation function used at the gate of the CSGU module.
+        -> Branchformer
+    use_linear_after_conv: bool, optional
+        If True, will apply a linear transformation of size input_size//2.
+        -> Branchformer
 
     Example
     -------
@@ -101,9 +112,13 @@ class TransformerASR(TransformerInterface):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        branchformer_activation: Optional[nn.Module] = nn.GELU,
         attention_type: Optional[str] = "regularMHA",
         max_length: Optional[int] = 2500,
         causal: Optional[bool] = True,
+        csgu_linear_units: Optional[int] = 3072,
+        gate_activation: Optional[nn.Module] = nn.Identity,
+        use_linear_after_conv: Optional[bool] = False,
     ):
         super().__init__(
             d_model=d_model,
@@ -119,9 +134,13 @@ class TransformerASR(TransformerInterface):
             bias=bias,
             encoder_module=encoder_module,
             conformer_activation=conformer_activation,
+            branchformer_activation=branchformer_activation,
             attention_type=attention_type,
             max_length=max_length,
             causal=causal,
+            csgu_linear_units=csgu_linear_units,
+            gate_activation=gate_activation,
+            use_linear_after_conv=use_linear_after_conv,
         )
 
         self.custom_src_module = ModuleList(
@@ -183,13 +202,10 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
 
+        # Add positional encoding to the target before feeding the decoder.
         if self.attention_type == "RelPosMHAXL":
             # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            # FIXME we use pos embs also on enc output
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.positional_encoding_type == "fixed_abs_sine":
@@ -253,16 +269,12 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
-            # we use fixed positional encodings in the decoder
+            # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
-            # pos_embs_target = self.positional_encoding(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.positional_encoding_type == "fixed_abs_sine":
-            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
+            tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
 
