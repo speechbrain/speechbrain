@@ -20,8 +20,7 @@ class EmoDiaBrain(sb.Brain):
         """
         batch = batch.to(self.device)
 
-        self.modules = self.modules.to("cuda")
-        self.hparams.input_norm = self.hparams.input_norm.to("cuda")
+        self.modules = self.modules.to(self.device)
 
         wavs, lens = batch.sig
         wavs = self.hparams.input_norm(wavs, lens)
@@ -240,12 +239,9 @@ def dataio_prep(hparams):
     for dataset in ["train", "valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{dataset}_annotation"],
-            # replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "emo_encoded"],
         )
-
-    # sb.dataio.dataset.add_dynamic_item(datasets, label_pipeline)
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
 
@@ -253,7 +249,6 @@ def dataio_prep(hparams):
         path=lab_enc_file,
         from_didatasets=[datasets["train"]],
         output_key="frame_label",
-        # special_labels=special_labels,
         sequence_input=True,
     )
 
@@ -330,7 +325,6 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
 
     hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
-    hparams["wav2vec2"] = hparams["wav2vec2"].to("cuda")
 
     # freeze the feature extractor part when unfreezing
     if not hparams["freeze_wav2vec2"] and hparams["freeze_wav2vec2_conv"]:

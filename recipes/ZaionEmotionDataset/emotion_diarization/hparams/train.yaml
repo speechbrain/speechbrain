@@ -23,7 +23,7 @@ iemocap_folder: !PLACEHOLDER # e,g./path/to/IEMOCAP_full_release
 jlcorpus_folder: !PLACEHOLDER # e,g./path/to/JL_corpus
 ravdess_folder: !PLACEHOLDER # e,g./path/to/RAVDESS
 
-split_ratio: [80, 20]
+split_ratio: [90, 10]
 
 train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
