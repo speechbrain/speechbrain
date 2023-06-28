@@ -59,18 +59,18 @@ random.seed(0)
 
 def prepare_common_voice(
     locales: "Sequence[str]" = ("en",),
-    data_dir: "str" = "data",
+    data_folder: "str" = "data",
     max_durations: "Optional[Sequence[float]]" = None,
 ) -> "None":
     """Prepare data manifest CSV files for Common Voice dataset
     (see https://commonvoice.mozilla.org/en/datasets).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     locales:
         The locales to use (e.g. "en", "it", etc.).
-    data_dir:
-        The path to the dataset directory.
+    data_folder:
+        The path to the dataset folder.
     max_durations:
         The maximum total durations in seconds to sample from
         each locale for train, dev and test splits, respectively.
@@ -81,7 +81,7 @@ def prepare_common_voice(
     ValueError
         If an invalid argument value is given.
     RuntimeError
-        If a data directory is missing.
+        If a data folder is missing.
 
     Examples
     --------
@@ -102,13 +102,13 @@ def prepare_common_voice(
             "----------------------------------------------------------------------",
         )
         _LOGGER.info(f"Locale: {locale}")
-        locale_dir = os.path.join(data_dir, locale)
-        if not os.path.isdir(locale_dir):
+        locale_folder = os.path.join(data_folder, locale)
+        if not os.path.isdir(locale_folder):
             raise RuntimeError(
-                f'"{locale}" data directory not found. '
+                f'"{locale}" data folder not found. '
                 f"Download them from https://commonvoice.mozilla.org/en/datasets"
             )
-        compute_clip_durations(locale_dir)
+        compute_clip_durations(locale_folder)
 
     _LOGGER.info(
         "----------------------------------------------------------------------",
@@ -116,12 +116,12 @@ def prepare_common_voice(
     _LOGGER.info(f"Merging TSV files...")
     for split, max_duration in zip(_SPLITS, max_durations):
         tsv_files = [
-            os.path.join(data_dir, locale, f"{split}_with_duration.tsv")
+            os.path.join(data_folder, locale, f"{split}_with_duration.tsv")
             for locale in locales
         ]
         merge_tsv_files(
             tsv_files,
-            os.path.join(data_dir, f"{split}_with_duration.tsv"),
+            os.path.join(data_folder, f"{split}_with_duration.tsv"),
             max_duration,
         )
 
@@ -131,18 +131,18 @@ def prepare_common_voice(
     _LOGGER.info(f"Creating data manifest CSV files...")
     for split in _SPLITS:
         preprocess_tsv_file(
-            os.path.join(data_dir, f"{split}_with_duration.tsv"),
-            os.path.join(data_dir, f"{split}.csv"),
+            os.path.join(data_folder, f"{split}_with_duration.tsv"),
+            os.path.join(data_folder, f"{split}.csv"),
         )
 
 
-def compute_clip_durations(locale_dir: "str") -> "None":
+def compute_clip_durations(locale_folder: "str") -> "None":
     """Compute clip durations for a Common Voice dataset locale.
 
-    Parameters
-    ----------
-    locale_dir:
-        The path to the dataset locale directory.
+    Arguments
+    ---------
+    locale_folder:
+        The path to the dataset locale folder.
 
     Examples
     --------
@@ -151,8 +151,10 @@ def compute_clip_durations(locale_dir: "str") -> "None":
     """
     _LOGGER.info("Computing clip durations...")
     for split in _SPLITS:
-        input_tsv_file = os.path.join(locale_dir, f"{split}.tsv")
-        output_tsv_file = os.path.join(locale_dir, f"{split}_with_duration.tsv")
+        input_tsv_file = os.path.join(locale_folder, f"{split}.tsv")
+        output_tsv_file = os.path.join(
+            locale_folder, f"{split}_with_duration.tsv"
+        )
         if os.path.exists(output_tsv_file):
             _LOGGER.info(f"Clip durations for {split}.tsv already computed")
             continue
@@ -170,7 +172,7 @@ def compute_clip_durations(locale_dir: "str") -> "None":
                     row[i] = row[i].replace('"', "")
 
                 mp3 = row[1]
-                mp3 = os.path.join(locale_dir, "clips", mp3)
+                mp3 = os.path.join(locale_folder, "clips", mp3)
 
                 # NOTE: info returns incorrect num_frames on torchaudio==0.12.x
                 info = torchaudio.info(mp3)
@@ -188,8 +190,8 @@ def merge_tsv_files(
 ) -> "None":
     """Merge input TSV files into a single output TSV file.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     input_tsv_files:
         The paths to the input TSV files.
     output_tsv_file:
@@ -277,8 +279,8 @@ def preprocess_tsv_file(
     """Apply minimal Common Voice preprocessing (e.g. rename columns, remove unused columns,
     remove commas, special characters and empty sentences etc.) to each row of an input TSV file.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     input_tsv_file:
         The path to the input TSV file.
     output_csv_file:
@@ -368,9 +370,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-d",
-        "--data_dir",
+        "--data_folder",
         default="CL-MASR",
-        help="path to the dataset directory",
+        help="path to the dataset folder",
     )
     parser.add_argument(
         "-m",
@@ -384,5 +386,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     prepare_common_voice(
-        args.locales, args.data_dir, args.max_durations,
+        args.locales, args.data_folder, args.max_durations,
     )

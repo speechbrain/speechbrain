@@ -14,12 +14,12 @@ skip_ewc: False
 # Data preparation
 base_locales: [en, zh-CN, de, es, ru, fr, pt, ja, tr, pl]
 new_locales: [rw, eo, kab, lg, mhr, ckb, ab, kmr, fy-NL, ia]
-data_dir: !PLACEHOLDER
-max_durations: [36000, 3600, 3600]
+data_folder: !PLACEHOLDER
+max_durations: [36000, 3600, 3600]  # Maximum total durations in seconds for train, dev, and test splits for each locale
 
 # Output directories
-output_dir: !ref results/<wavlm_variant>/<experiment_name>/<seed>
-save_dir: !ref <output_dir>/save
+output_folder: !ref results/<wavlm_variant>/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
 
 # Training parameters
 train_batch_size: 8
@@ -69,7 +69,7 @@ valid_dataloader_kwargs:
 # Modules
 wavlm: !new:model.ProgressiveWavLM
     source: !ref microsoft/<wavlm_variant>
-    save_path: !ref <save_dir>/checkpoint
+    save_path: !ref <save_folder>/checkpoint
     output_norm: !ref <output_norm>
     freeze: !ref <freeze>
     freeze_encoder: !ref <freeze_encoder>
@@ -106,11 +106,11 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <num_epochs>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_dir>
+    checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <wavlm>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <output_dir>/<experiment_name>.txt
+    save_file: !ref <output_folder>/<experiment_name>.txt

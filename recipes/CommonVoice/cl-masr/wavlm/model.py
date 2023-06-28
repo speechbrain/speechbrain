@@ -6,6 +6,7 @@ Authors
 
 import os
 
+import torch
 from torch import nn
 
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
@@ -26,68 +27,44 @@ _TOKENIZER_URL = (
 _TOKENIZER_PATH = os.path.join(os.path.dirname(__file__), "tokenizer")
 
 
-class Decoder(nn.Module):
-    def __init__(
-        self,
-        input_size,
-        output_size,
-        hidden_size=1024,
-        num_layers=1,
-        dropout=0.0,
-        bidirectional=False,
-    ):
-        super().__init__()
-        self.layers = nn.ModuleList(
-            [
-                SBLSTM(
-                    hidden_size,
-                    input_size=input_size,
-                    num_layers=num_layers,
-                    dropout=dropout,
-                    bidirectional=bidirectional,
-                ),
-            ]
-        )
-        self.out_proj = nn.Linear(
-            (2 if bidirectional else 1) * hidden_size, output_size,
-        )
-
-    def forward(self, input, lengths=None):
-        output, state = self.layers[0](input, lengths=lengths)
-        for layer in self.layers[1:]:
-            output, state = layer(output, state, lengths=lengths)
-        output = self.out_proj(output)
-        return output
-
-
-class Model(nn.Module):
-    def __init__(
-        self,
-        source,
-        save_path,
-        vocab_size,
-        encoder_kwargs=None,
-        decoder_kwargs=None,
-    ):
-        super().__init__()
-        self.vocab_size = vocab_size
-        self.encoder = HuggingFaceWav2Vec2(
-            source, save_path, **(encoder_kwargs or {}),
-        )
-        self.decoder = Decoder(
-            self.encoder.model.config.hidden_size,
-            vocab_size,
-            **(decoder_kwargs or {}),
-        )
-        self.config = self.encoder.model.config
-
-    def forward(self, wav, wav_lens=None):
-        output = self.encoder(wav, wav_lens)
-        output = self.decoder(output, wav_lens)
-        return output
-
-
 class ProgressiveWavLM(nn.Module):
+    """WavLM + LSTM model with character-level SentencePiece tokenizer.
+
+    Arguments
+    ---------
+    source : str
+        HuggingFace hub name: e.g "microsoft/wavlm-base".
+    save_path : str
+        Path (dir) of the downloaded model.
+    output_norm : bool (default: False)
+        True to apply a layer norm (affine) to WavLM's output, False otherwise.
+    freeze : bool (default: False)
+        True to freeze the whole pipeline, False otherwise.
+    freeze_encoder : bool (default: False)
+        True to freeze WavLM, False otherwise.
+    freeze_feature_extractor : bool (default: False)
+        True to freeze WavLM's feature extractor, False otherwise.
+    apply_spec_augment : bool (default: False)
+        True to apply spec augment, False otherwise.
+    hidden_size : int (default: 1024)
+        The LSTM decoder hidden size.
+    num_layers : int (default: 1)
+        The LSTM decoder number of layers.
+    dropout : float (default: 0.0)
+        The LSTM decoder dropout probability.
+    bidirectional : bool (default: False)
+        True to use a bidirectional LSTM decoder, False otherwise.
+
+    Examples
+    --------
+    >>> inputs = torch.rand([10, 600])
+    >>> model_hub = "microsoft/wavlm-base"
+    >>> save_path = "savedir"
+    >>> model = ProgressiveWavLM(model_hub, save_path)
+    >>> logits = model(inputs)
+
+    """
+
     def __init__(
         self,
         # Encoder (WavLM)
@@ -135,5 +112,164 @@ class ProgressiveWavLM(nn.Module):
             self.model.requires_grad_(False)
 
     def forward(self, wav, wav_lens=None):
+        """Returns the output logits.
+
+        Arguments
+        ---------
+        wav : torch.Tensor
+            Input tensor.
+        wav_lens : torch.Tensor
+            Relative lengths of the input tensor.
+            Default to 1.
+
+        Returns
+        -------
+        torch.Tensor
+            The output logits.
+
+        """
         output = self.model(wav, wav_lens)
+        return output
+
+
+# ProgressiveWavLM building blocks
+class Model(nn.Module):
+    """WavLM + LSTM model.
+
+    Arguments
+    ---------
+    source : str
+        HuggingFace hub name: e.g "microsoft/wavlm-base".
+    save_path : str
+        Path (dir) of the downloaded model.
+    vocab_size : int
+        The vocabulary size (i.e. number of output neurons).
+    encoder_kwargs : dict
+        The WavLM encoder initialization keyword arguments.
+    decoder_kwargs : dict
+        The LSTM decoder initialization keyword arguments.
+
+    Examples
+    --------
+    >>> inputs = torch.rand([10, 600, 256])
+    >>> model = Decoder(256, 30)
+    >>> logits = model(inputs)
+
+    """
+
+    def __init__(
+        self,
+        source,
+        save_path,
+        vocab_size,
+        encoder_kwargs=None,
+        decoder_kwargs=None,
+    ):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.encoder = HuggingFaceWav2Vec2(
+            source, save_path, **(encoder_kwargs or {}),
+        )
+        self.decoder = Decoder(
+            self.encoder.model.config.hidden_size,
+            vocab_size,
+            **(decoder_kwargs or {}),
+        )
+        self.config = self.encoder.model.config
+
+    def forward(self, wav, wav_lens=None):
+        """Returns the output logits.
+
+        Arguments
+        ---------
+        wav : torch.Tensor
+            Input tensor.
+        wav_lens : torch.Tensor
+            Relative lengths of the input tensor.
+            Default to 1.
+
+        Returns
+        -------
+        torch.Tensor
+            The output logits.
+
+        """
+        output = self.encoder(wav, wav_lens)
+        output = self.decoder(output, wav_lens)
+        return output
+
+
+class Decoder(nn.Module):
+    """LSTM decoder.
+
+    Arguments
+    ---------
+    input_size : int
+        The LSTM decoder input size.
+    output_size : int
+        The LSTM decoder output size.
+    hidden_size : int (default: 1024)
+        The LSTM decoder hidden size.
+    num_layers : int (default: 1)
+        The LSTM decoder number of layers.
+    dropout : float (default: 0.0)
+        The LSTM decoder dropout probability.
+    bidirectional : bool (default: False)
+        True to use a bidirectional LSTM decoder,
+        False otherwise.
+
+    Examples
+    --------
+    >>> inputs = torch.rand([10, 600, 256])
+    >>> decoder = Decoder(256, 30)
+    >>> logits = decoder(inputs)
+
+    """
+
+    def __init__(
+        self,
+        input_size,
+        output_size,
+        hidden_size=1024,
+        num_layers=1,
+        dropout=0.0,
+        bidirectional=False,
+    ):
+        super().__init__()
+        self.layers = nn.ModuleList(
+            [
+                SBLSTM(
+                    hidden_size,
+                    input_size=input_size,
+                    num_layers=num_layers,
+                    dropout=dropout,
+                    bidirectional=bidirectional,
+                ),
+            ]
+        )
+        self.out_proj = nn.Linear(
+            (2 if bidirectional else 1) * hidden_size, output_size,
+        )
+
+    def forward(self, input, lengths=None):
+        """Returns the decoder output logits.
+
+        Arguments
+        ---------
+        input : torch.Tensor
+            Input tensor.
+        lengths : torch.Tensor
+            Relative lengths of the input tensor.
+            Default to 1.
+
+        Returns
+        -------
+        torch.Tensor
+            The decoder output logits.
+
+        """
+        output, state = self.layers[0](input, lengths=lengths)
+        for layer in self.layers[1:]:
+            output, state = layer(output, state, lengths=lengths)
+        output = self.out_proj(output)
         return output

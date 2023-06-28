@@ -1,6 +1,6 @@
 """Whisper model that supports decoding with predicted batch of languages,
-implements a more efficient decoding and whose tokenizer's vocabulary
-can be progressively extended by adding new tokens.
+implements a more efficient decoding and whose tokenizer's vocabulary can
+be progressively extended by adding new tokens.
 
 Authors
  * Luca Della Libera 2023
@@ -24,6 +24,18 @@ __all__ = [
 
 
 class ProgressiveWhisperTokenizer(WhisperTokenizer):
+    """Whisper tokenizer that can be progressively extended by adding new tokens.
+
+    See the documentation of `transformers.models.whisper.tokenization_whisper.WhisperTokenizer`.
+
+    Examples
+    --------
+    >>> model_hub = "openai/whisper-tiny"
+    >>> tokenizer = ProgressiveWhisperTokenizer.from_pretrained(model_hub)
+    >>> tokenizer.encode("Hello world!")
+
+    """
+
     # override
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -35,6 +47,7 @@ class ProgressiveWhisperTokenizer(WhisperTokenizer):
     # override
     @property
     def prefix_tokens(self):
+        """Return the prefix tokens."""
         # all_special_ids = self.all_special_ids
         bos_token_id = 50258  # all_special_ids[-106]
         translate_token_id = 50358  # all_special_ids[-6]
@@ -76,6 +89,23 @@ class ProgressiveWhisperTokenizer(WhisperTokenizer):
 
 
 class ProgressiveWhisper(HuggingFaceWhisper):
+    """Whisper model that supports decoding with predicted batch of languages,
+    implements a more efficient decoding and whose tokenizer's vocabulary can
+    be progressively extended by adding new tokens.
+
+    See the documentation of `speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper`.
+
+    Examples
+    --------
+    >>> model_hub = "openai/whisper-tiny"
+    >>> save_path = "savedir"
+    >>> model = ProgressiveWhisper(model_hub, save_path, sampling_rate=16000)
+    >>> inputs = torch.randn([2, 93680])
+    >>> tokens = torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id
+    >>> outputs = model(inputs, tokens)
+
+    """
+
     # override
     def __init__(
         self, source, save_path, **kwargs,
@@ -103,6 +133,48 @@ class ProgressiveWhisper(HuggingFaceWhisper):
             timestamp_tokens = [f"<|{ts:.2f}|>" for ts in timestamps]
             self.tokenizer.add_tokens(timestamp_tokens)
 
+    # override
+    def _log_mel_spectrogram(self, audio):
+        """Compute the Mel spectrogram of a batch of input waveforms.
+
+        Reference: adapted from
+        https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L92
+
+        Arguments
+        ---------
+        audio : torch.Tensor
+            A batch of audio waveforms in 16 kHz.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor that contains the batch of Mel spectrograms.
+
+        """
+        window = torch.hann_window(self._n_fft, device=audio.device)
+        stft = torch.stft(
+            audio,
+            self._n_fft,
+            self._hop_length,
+            window=window,
+            return_complex=True,
+        )
+        magnitudes = stft[..., :-1].abs() ** 2
+
+        filters = self._mel_filters
+        # Fix dependency issues with transformers>=4.29 in a backward compatible way
+        if filters.shape[-1] != magnitudes.shape[-2]:
+            filters = filters.T.to(dtype=magnitudes.dtype)
+        mel_spec = filters @ magnitudes
+
+        log_spec = torch.clamp(mel_spec, min=1e-10).log10()
+        log_spec = torch.maximum(
+            log_spec,
+            (log_spec.flatten(start_dim=1).max(dim=-1)[0] - 8.0)[:, None, None],
+        )
+        log_spec = (log_spec + 4.0) / 4.0
+        return log_spec
+
     # Wrap in torch.no_grad for more efficient inference
     def generate(
         self,
@@ -117,7 +189,7 @@ class ProgressiveWhisper(HuggingFaceWhisper):
     ):
         """Generate a transcription via greedy or beam search.
 
-        Parameters
+        Arguments
         ---------
         wav : torch.Tensor
             A batch of audio signals to transform to features.
@@ -125,25 +197,25 @@ class ProgressiveWhisper(HuggingFaceWhisper):
         audio_features : torch.Tensor
             A batch of features.
             Either `wav` or `audio_features` argument should be given.
-        forced_decoder_locale: str
+        forced_decoder_locale : str
             The locale (e.g. "en", "de", "it") to use for decoding
             (the same for all batch elements).
             If not specified, Whisper's predicted locale (one for
             each batch element) is used.
-        max_gen_tokens: int
+        max_gen_tokens : int
             The maximum number of tokens to generate.
             Low values of `max_gen_tokens` might result in truncated decoded
             sequences but reduce the amount of memory required for decoding
             (useful when `OutOfMemoryError` is raised).
-        beam_size: int
+        beam_size : int
             The beam size. Greedy search is used if `beam_size` is 1,
             beam search otherwise.
-        length_norm_coeff: float
+        length_norm_coeff : float
             The length normalization coefficient for beam search decoding
             (used only if `beam_size` > 1).
-        eos_threshold: float
+        eos_threshold : float
             The EOS threshold for beam search decoding (used only if `beam_size` > 1).
-        return_all: bool
+        return_all : bool
             True to return all the hypotheses (`beam_size` for each batch element),
             False to return only the one with the highest score.
 

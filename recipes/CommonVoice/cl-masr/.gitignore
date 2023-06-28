@@ -119,6 +119,7 @@ dmypy.json
 
 # Data
 CL-MASR/
+savedir/
 
 # Results
 results/

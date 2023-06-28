@@ -91,7 +91,7 @@ class ASR(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        """Gets called at the beginning of each epoch"""
+        """Gets called at the beginning of each epoch."""
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.wer_computer()
@@ -133,9 +133,11 @@ class ASR(sb.Brain):
 
 class EWCParamsComputer(ASR):
     def zero_grad(self, set_to_none=False):
+        """Do not reset gradients (required for EWC parameters computation)."""
         pass
 
     def fit_batch(self, batch):
+        """Fit one batch."""
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
         with self.no_sync(False):
@@ -145,6 +147,19 @@ class EWCParamsComputer(ASR):
 
 
 def compute_ewc_params(hparams, run_opts, locales):
+    """Compute EWC parameters (current parameter values + Fisher information matrix)
+    for the given locales.
+
+    Arguments
+    ---------
+    hparams : dict
+        The hyperparameters.
+    run_opts : dict
+        The runtime options.
+    locales : list[str]
+        The locales to consider.
+
+    """
     tokenizer = hparams["wavlm"].tokenizer
     batch_size = hparams["train_dataloader_kwargs"].get("batch_size", 1)
     max_grad_norm = hparams.get("max_grad_norm", 5.0)
@@ -160,7 +175,7 @@ def compute_ewc_params(hparams, run_opts, locales):
         prepare_common_voice,
         kwargs={
             "locales": locales,
-            "data_dir": hparams["data_dir"],
+            "data_folder": hparams["data_folder"],
             "max_durations": hparams["max_durations"],
         },
     )
@@ -204,8 +219,8 @@ def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["data_dir"], "train.csv"),
-        replacements={"data_root": hparams["data_dir"]},
+        csv_path=os.path.join(hparams["data_folder"], "train.csv"),
+        replacements={"data_root": hparams["data_folder"]},
     )
 
     if hparams["sorting"] in ["descending", "ascending"]:
@@ -225,8 +240,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # reverse=True to fail fast in case of out-of-memory error
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["data_dir"], "dev.csv"),
-        replacements={"data_root": hparams["data_dir"]},
+        csv_path=os.path.join(hparams["data_folder"], "dev.csv"),
+        replacements={"data_root": hparams["data_folder"]},
     ).filtered_sorted(
         sort_key="duration",
         reverse=True,
@@ -234,8 +249,8 @@ def dataio_prepare(hparams, tokenizer):
     )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=os.path.join(hparams["data_dir"], "test.csv"),
-        replacements={"data_root": hparams["data_dir"]},
+        csv_path=os.path.join(hparams["data_folder"], "test.csv"),
+        replacements={"data_root": hparams["data_folder"]},
     ).filtered_sorted(
         sort_key="duration",
         reverse=True,
@@ -285,6 +300,20 @@ def dataio_prepare(hparams, tokenizer):
 
 
 def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
+    """Test incrementally on the given locales.
+
+    Arguments
+    ---------
+    hparams : dict
+        The hyperparameters.
+    run_opts : dict
+        The runtime options.
+    locales : list[str]
+        The locales to test.
+    wer_file : str
+        The name of the file where WER results are saved.
+
+    """
     # Test on base + new locales
     for locale in locales:
         # Multi-gpu (ddp) save data preparation
@@ -292,7 +321,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             prepare_common_voice,
             kwargs={
                 "locales": [locale],
-                "data_dir": hparams["data_dir"],
+                "data_folder": hparams["data_folder"],
                 "max_durations": hparams["max_durations"],
             },
         )
@@ -322,15 +351,15 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
         asr_brain.tokenizer = tokenizer
 
         # Testing
-        locale_dir = os.path.join(hparams["output_dir"], locale)
-        os.makedirs(locale_dir, exist_ok=True)
-        asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+        locale_folder = os.path.join(hparams["output_folder"], locale)
+        os.makedirs(locale_folder, exist_ok=True)
+        asr_brain.hparams.wer_file = os.path.join(locale_folder, wer_file)
         if hparams["skip_test"]:
             # Dummy test
             train_log_backup = asr_brain.hparams.train_logger.save_file
             asr_brain.hparams.train_logger.save_file = (
                 asr_brain.hparams.wer_file
-            ) = os.path.join(locale_dir, "tmp.txt")
+            ) = os.path.join(locale_folder, "tmp.txt")
             test_data.data_ids = list(test_data.data.keys())[:1]
             test_data.data = {k: test_data.data[k] for k in test_data.data_ids}
             asr_brain.evaluate(
@@ -340,7 +369,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
             )
             os.remove(asr_brain.hparams.wer_file)
             asr_brain.hparams.train_logger.save_file = train_log_backup
-            asr_brain.hparams.wer_file = os.path.join(locale_dir, wer_file)
+            asr_brain.hparams.wer_file = os.path.join(locale_folder, wer_file)
         else:
             asr_brain.evaluate(
                 test_data,
@@ -351,7 +380,7 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
     # MACs not 100% accurate but still useful for comparisons
     if not hparams["skip_test"]:
         try:
-            profile(hparams)
+            profile(hparams, run_opts)
         except Exception:
             logging.warning(
                 "Install ptflops and torchinfo to profile the model (e.g. `pip install ptflops torchinfo`)"
@@ -359,6 +388,16 @@ def test(hparams, run_opts, locales, wer_file="wer_test.txt"):
 
 
 def train(hparams, run_opts):
+    """Train incrementally on the new locales.
+
+    Arguments
+    ---------
+    hparams : dict
+        The hyperparameters.
+    run_opts : dict
+        The runtime options.
+
+    """
     # Load checkpoint
     if hparams["pretrained_wavlm_path"] is not None:
         hparams["wavlm"].load_state_dict(
@@ -395,7 +434,7 @@ def train(hparams, run_opts):
             prepare_common_voice,
             kwargs={
                 "locales": [locale],
-                "data_dir": hparams["data_dir"],
+                "data_folder": hparams["data_folder"],
                 "max_durations": hparams["max_durations"],
             },
         )
@@ -412,9 +451,11 @@ def train(hparams, run_opts):
         train_data, valid_data, _ = dataio_prepare(hparams, tokenizer)
 
         # Trainer initialization
-        checkpoint_dir = os.path.join(hparams["save_dir"], locale)
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        hparams["checkpointer"].checkpoints_dir = pathlib.Path(checkpoint_dir)
+        checkpoint_folder = os.path.join(hparams["save_folder"], locale)
+        os.makedirs(checkpoint_folder, exist_ok=True)
+        hparams["checkpointer"].checkpoints_dir = pathlib.Path(
+            checkpoint_folder
+        )
         hparams["lr_annealing"].hyperparam_value = hparams["lr"]
         hparams["lr_annealing"].metric_values.clear()
         hparams["lr_annealing"].current_patient = 0
@@ -449,7 +490,17 @@ def train(hparams, run_opts):
         )
 
 
-def profile(hparams):
+def profile(hparams, run_opts):
+    """Measure MACs, memory and inference time.
+    
+    Arguments
+    ---------
+    hparams : dict
+        The hyperparameters.
+    run_opts : dict
+        The runtime options.
+    
+    """
     import ptflops
     import torchinfo
 
@@ -503,7 +554,7 @@ if __name__ == "__main__":
 
     # Create experiment directory
     sb.create_experiment_directory(
-        experiment_directory=hparams["output_dir"],
+        experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )

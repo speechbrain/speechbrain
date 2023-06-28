@@ -62,8 +62,8 @@ _MARKERS = ["o", "^", "p", "s", "d", "P", "v", "8", "<", "D", ">"]
 def parse_train_log(train_log: "str") -> "Dict[str, ndarray]":
     """Parse a train log to extract metric names and values.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     train_log:
         The path to the train log.
 
@@ -105,8 +105,8 @@ def compute_wer_matrix(
 ) -> "ndarray":
     """Compute the word error rate matrix.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     wers:
         The word error rate for each locale.
     num_base_locales:
@@ -150,8 +150,8 @@ def compute_wer_matrix(
 def compute_awer(wer_matrix: "ndarray") -> "ndarray":
     """Compute the average word error rate.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     wer_matrix:
         The word error rate matrix.
 
@@ -183,8 +183,8 @@ def compute_awer(wer_matrix: "ndarray") -> "ndarray":
 def compute_bwt(wer_matrix: "ndarray") -> "ndarray":
     """Compute the backward transfer.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     wer_matrix:
         The word error rate matrix.
 
@@ -218,8 +218,8 @@ def compute_bwt(wer_matrix: "ndarray") -> "ndarray":
 def compute_im(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
     """Compute the intransigence measure.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     wer_matrix:
         The word error rate matrix.
     refs:
@@ -253,8 +253,8 @@ def compute_im(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
 def compute_fwt(wer_matrix: "ndarray", refs: "ndarray") -> "ndarray":
     """Compute the forward transfer.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     wer_matrix:
         The word error rate matrix.
     refs:
@@ -293,8 +293,8 @@ def plot_wer(
     """Plot word error rates extracted from a
     continual learning train log.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     wers:
         The word error rates (base + new locales).
     output_image:
@@ -458,8 +458,8 @@ def plot_metric(
 ) -> "None":
     """Plot a continual learning metric.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     metric_csv_file:
         The path to the continual learning metric CSV file.
     output_image:
@@ -661,8 +661,8 @@ def plot_metric(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze logs")
     parser.add_argument(
-        "input_dir",
-        help="path to directory containing the continual learning train logs. Filenames must be formatted as "
+        "input_folder",
+        help="path to folder containing the continual learning train logs. Filenames must be formatted as "
         "<method-name>_base=<comma-separated-base-locales>_new=<comma-separated-new-locales>",
     )
     parser.add_argument(
@@ -725,10 +725,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Retrieve all continual learning train logs in the input directory
+    # Retrieve all continual learning train logs in the input folder
     pattern = re.compile(r".*_base=.*_new=.*.txt")
     train_logs = []
-    for root, dirs, files in os.walk(args.input_dir):
+    for root, dirs, files in os.walk(args.input_folder):
         for file in files:
             if pattern.match(file):
                 train_log = os.path.join(root, file)
@@ -790,7 +790,7 @@ if __name__ == "__main__":
 
                 # Plot WERs
                 output_image = os.path.join(
-                    args.input_dir,
+                    args.input_folder,
                     os.path.basename(train_log).replace(
                         ".txt", f".{args.format}"
                     ),
@@ -812,7 +812,9 @@ if __name__ == "__main__":
     # Store metrics
     for name in metrics:
         with open(
-            os.path.join(args.input_dir, f"{name}.csv"), "w", encoding="utf-8"
+            os.path.join(args.input_folder, f"{name}.csv"),
+            "w",
+            encoding="utf-8",
         ) as f:
             csv_writer = csv.writer(f)
             csv_writer.writerow(
@@ -837,10 +839,12 @@ if __name__ == "__main__":
 
     # Plot metrics
     for name in metrics:
-        metric_csv_file = os.path.join(args.input_dir, f"{name}.csv")
+        metric_csv_file = os.path.join(args.input_folder, f"{name}.csv")
         plot_metric(
             metric_csv_file,
-            output_image=os.path.join(args.input_dir, f"{name}.{args.format}"),
+            output_image=os.path.join(
+                args.input_folder, f"{name}.{args.format}"
+            ),
             xlabel=None,
             ylabel=f"{name} (\%)"
             if args.usetex
