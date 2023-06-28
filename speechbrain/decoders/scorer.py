@@ -390,7 +390,7 @@ class KenLMScorer(BaseScorerInterface):
         The tokens set.
     """
 
-    def __init__(self, lm_path, vocab_size, token_list=[]):
+    def __init__(self, lm_path, vocab_size, token_list):
         try:
             import kenlm
 
@@ -797,7 +797,7 @@ class ScorerBuilder:
         """
         for k, impl in self.full_scorers.items():
             # ctc scorer should always be scored by candidates
-            if k == "ctc":
+            if k == "ctc" or k == "kenlm":
                 memory[k] = impl.permute_mem(memory[k], candidates)
                 continue
             memory[k] = impl.permute_mem(memory[k], index)
