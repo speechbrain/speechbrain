@@ -181,14 +181,76 @@ class S2SGreedySearcher(S2SBaseSearcher):
             0, max_decode_steps
         )
 
+        has_ended = enc_states.new_zeros(batch_size).bool()
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
             log_probs_lst.append(log_probs)
             inp_tokens = log_probs.argmax(dim=-1)
+            log_probs[has_ended] = float("inf")
+            has_ended = has_ended | (inp_tokens == self.eos_index)
+            if has_ended.all():
+                break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
+
+        scores, predictions = log_probs.max(dim=-1)
+        mask = scores == float("inf")
+        scores[mask] = 0
+        predictions[mask] = self.eos_index
+        scores = scores.sum(dim=1).tolist()
+        predictions = batch_filter_seq2seq_output(
+            predictions, eos_id=self.eos_index
+        )
+
+        return predictions, scores
+
+
+class S2SWhisperGreedySearch(S2SGreedySearcher):
+    """
+    This class implements the greedy decoding
+    for Whisper neural nets made by OpenAI in
+    https://cdn.openai.com/papers/whisper.pdf.
+
+    Arguments
+    ---------
+    model : HuggingFaceWhisper
+        The Whisper model.
+    language_token : int
+        The language token to be used for the decoder input.
+    bos_token : int
+        The beginning of sentence token to be used for the decoder input.
+    task_token : int
+        The task token to be used for the decoder input.
+    timestamp_token : int
+        The timestamp token to be used for the decoder input.
+    max_length : int
+        The maximum decoding steps to perform.
+        The Whisper model has a maximum length of 448.
+    **kwargs
+        see S2SBaseSearcher, arguments are directly passed.
+    """
+
+    def __init__(
+        self,
+        model,
+        language_token=50259,
+        bos_token=50258,
+        task_token=50359,
+        timestamp_token=50363,
+        max_length=448,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.model = model
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+        self.decoder_input_tokens = None
+        self.language_token = language_token  # default language is english
+        self.bos_token = bos_token  # always this value
+        self.task_token = task_token  # default task is transcribe
+        self.timestamp_token = timestamp_token  # default is notimestamp
+        self.max_length = max_length - 3  # 3 tokens are added to the input
 
         scores, predictions = log_probs.max(dim=-1)
 
@@ -1283,6 +1345,46 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
             int(self.min_decode_ratio * self.max_length),
             int(self.max_decode_ratio * self.max_length),
         )
+
+
+class S2STransformerGreedySearch(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for Transformer.
+
+    Arguments
+    ---------
+    modules : list with the followings one:
+        model : torch.nn.Module
+            A TransformerASR model.
+        seq_lin : torch.nn.Module
+            A linear output layer for the seq2seq model.
+    temperature : float
+        Temperature to use during decoding.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(
+        self, modules, temperature=1.0, **kwargs,
+    ):
+        super(S2SGreedySearcher, self).__init__(**kwargs)
+
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search."""
+        return None
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented greedy searcher."""
+        memory = _update_mem(inp_tokens, memory)
+        pred, attn = self.model.decode(memory, enc_states)
+        prob_dist = self.softmax(self.fc(pred) / self.temperature)
+        return prob_dist[:, -1, :], memory, attn
 
 
 class S2SWhisperBeamSearch(S2SBeamSearcher):

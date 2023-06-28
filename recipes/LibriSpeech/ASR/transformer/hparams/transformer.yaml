@@ -56,6 +56,11 @@ loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
 
+# index
+pad_index: 0
+bos_index: 1
+eos_index: 2
+
 # This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
@@ -84,12 +89,21 @@ train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
     num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
 
 valid_dataloader_opts:
     batch_size: 1
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
 
 test_dataloader_opts:
     batch_size: 1
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
 
 ####################### Model parameters ###########################
 # Transformer
@@ -105,9 +119,6 @@ output_neurons: 5000
 # Outputs
 blank_index: 0
 label_smoothing: 0.0
-pad_index: 0
-bos_index: 1
-eos_index: 2
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -267,7 +278,9 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask_width: 15
     time_mask_width: 20
 
-speed_perturb: True
+speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: [95, 100, 105]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

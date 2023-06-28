@@ -2,11 +2,12 @@
 
 Authors
  * Mirco Ravanelli 2022
- * Andreas Nautsch 2022
+ * Andreas Nautsch 2022, 2023
 """
 import os
 import csv
 from speechbrain.utils.data_utils import download_file
+from tests.consistency.test_recipe import __skip_list
 
 
 def run_HF_check(
@@ -64,7 +65,7 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
 
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
-        if recipe_csvfile == "setup":
+        if recipe_csvfile in __skip_list:
             continue
 
         with open(
