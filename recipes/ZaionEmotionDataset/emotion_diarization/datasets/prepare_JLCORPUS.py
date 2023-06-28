@@ -1,3 +1,15 @@
+"""
+Data preparation for JL-Corpus.
+
+Dataset link: https://www.kaggle.com/datasets/tli725/jl-corpus?resource=download
+
+extra dependencies: pathlib, pydub, webrtcvad
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import numpy as np
 import os
 import random

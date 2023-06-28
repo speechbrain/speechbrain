@@ -1,3 +1,13 @@
+"""
+Vad for files/folders with webrtcvad.
+
+Credit: https://github.com/wiseman/py-webrtcvad/blob/master/example.py
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import collections
 import webrtcvad
 import contextlib

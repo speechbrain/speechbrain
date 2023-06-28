@@ -1,3 +1,15 @@
+"""
+Data preparation for Emov-DB dataset.
+
+Dataset link: https://openslr.org/115/
+
+extra dependencies: pathlib, pydub, webrtcvad
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import numpy as np
 import os
 import random

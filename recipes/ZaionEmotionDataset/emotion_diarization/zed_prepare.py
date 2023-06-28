@@ -1,3 +1,14 @@
+"""
+Data preparation for emotion diarization.
+
+Training set involves Emov-DB, ESD, IEMOCAP, JL-Corpus, RAVDESS
+Test set used is Zaion Emotion Dataset
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import os
 import random
 import json

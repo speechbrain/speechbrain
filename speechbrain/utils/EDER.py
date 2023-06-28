@@ -58,12 +58,23 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
 
 
 def getOverlap(a, b):
-    """ get the overlap length of two intervals
+    """ get the overlapped length of two intervals
 
     Arguments
     ---------
     a : list
     b : list
+
+    Returns:
+        float: overlapped length
+
+    Example
+    -------
+    >>> from speechbrain.utils.EDER import getOverlap
+    >>> interval1=[1.2, 3.4]
+    >>> interval2=[2.3, 4.5]
+    >>> getOverlap(interval1, interval2)
+    1.1
     """
     return max(0, min(a[1], b[1]) - max(a[0], b[0]))
 
@@ -158,6 +169,15 @@ def reference_to_lol(id, duration, emotion):
     -------
     lol : list of list
         It has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
+    
+    Example
+    -------
+    >>> from speechbrain.utils.EDER import reference_to_lol
+    >>> id="u1"
+    >>> duration=8.0
+    >>> emotion=[{'emo': 'angry', 'start': 1.016, 'end': 6.336}]
+    >>> reference_to_lol(id, duration, emotion)
+    [['u1', 0.0, 1.016, 'n'], ['u1', 1.016, 6.336, 'a'], ['u1', 6.336, 8.0, 'n']]
     """
     assert (
         len(emotion) == 1

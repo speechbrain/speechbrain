@@ -1,3 +1,15 @@
+"""
+Data preparation for IEMOCAP.
+
+Dataset link: https://sail.usc.edu/iemocap/iemocap_release.htm
+
+extra dependencies: pathlib, pydub, webrtcvad
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import numpy as np
 import re
 import os

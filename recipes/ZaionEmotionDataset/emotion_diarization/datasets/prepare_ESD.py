@@ -1,3 +1,15 @@
+"""
+Data preparation for Emotion Speech Dataset (ESD).
+
+Dataset link: https://github.com/HLTSingapore/Emotional-Speech-Data
+
+extra dependencies: pydub, webrtcvad
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import numpy as np
 import os
 import random

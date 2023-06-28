@@ -1,3 +1,15 @@
+"""
+Data preparation for RAVDESS.
+
+Dataset link: https://zenodo.org/record/1188976
+
+extra dependencies: pathlib, pydub, webrtcvad
+
+Author
+------
+Yingzhi Wang 2023
+"""
+
 import numpy as np
 import os
 import random
