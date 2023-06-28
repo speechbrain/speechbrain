@@ -169,7 +169,7 @@ def reference_to_lol(id, duration, emotion):
     -------
     lol : list of list
         It has each list structure as [rec_id, sseg_start, sseg_end, spkr_id].
-    
+
     Example
     -------
     >>> from speechbrain.utils.EDER import reference_to_lol
@@ -177,7 +177,7 @@ def reference_to_lol(id, duration, emotion):
     >>> duration=8.0
     >>> emotion=[{'emo': 'angry', 'start': 1.016, 'end': 6.336}]
     >>> reference_to_lol(id, duration, emotion)
-    [['u1', 0.0, 1.016, 'n'], ['u1', 1.016, 6.336, 'a'], ['u1', 6.336, 8.0, 'n']]
+    [['u1', 0, 1.016, 'n'], ['u1', 1.016, 6.336, 'a'], ['u1', 6.336, 8.0, 'n']]
     """
     assert (
         len(emotion) == 1

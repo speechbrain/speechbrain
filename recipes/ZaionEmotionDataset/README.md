@@ -47,7 +47,7 @@ The frame-wise classification result for each utterance can be found in `results
 
 ## Results
 
-The EDER (Emotion Diarization Error Rate) reported here was averaged on 5 different seeds 
+The EDER (Emotion Diarization Error Rate) reported here was averaged on 5 different seeds
 
 | model | EDER |
 |:-------------:|:---------------------------:|
