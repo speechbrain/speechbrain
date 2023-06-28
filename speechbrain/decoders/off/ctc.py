@@ -395,7 +395,6 @@ class CTCBeam:
     text_frames: Tuple[int, int]
     partial_frames: Tuple[int, int]
 
-    p : float=  -math.inf
     p_b: float = -math.inf
     p_nb: float =  -math.inf
 
@@ -1024,6 +1023,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                                 last_token_index=token_index,
                                 text_frames=beam.text_frames,
                                 partial_frames=None,
+                                score_ctc=np.logaddexp(self.p_b, self.p_nb)
                                 score=beam.score,
                                 n_p_b=n_p_b,
                                 n_p_nb=beam.n_p_nb, 

@@ -453,12 +453,12 @@ if __name__ == "__main__":
     """
 
 
-    from speechbrain.decoders.ctc_decoders import CTCPrefixBeamSearch, CTCBeamSearch
+    from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
 
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
 
-    decoder = CTCBeamSearch(
+    decoder = CTCPrefixBeamSearch(
         blank_index=0,
         # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
         history_prune=True,

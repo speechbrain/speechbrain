@@ -1,7 +1,7 @@
 
 import torch
 import math 
-
+import numpy as np
 from typing import (
     Dict,
     List,
@@ -16,10 +16,45 @@ from speechbrain.decoders.language_model import (
 )
 
 import logging 
+from itertools import groupby
 
 logger = logging.getLogger(__name__)
 
+def filter_ctc_output(string_pred, blank_id=-1):
+    """Apply CTC output merge and filter rules.
 
+    Removes the blank symbol and output repetitions.
+
+    Arguments
+    ---------
+    string_pred : list
+        A list containing the output strings/ints predicted by the CTC system.
+    blank_id : int, string
+        The id of the blank.
+
+    Returns
+    -------
+    list
+        The output predicted by CTC without the blank symbol and
+        the repetitions.
+
+    Example
+    -------
+    >>> string_pred = ['a','a','blank','b','b','blank','c']
+    >>> string_out = filter_ctc_output(string_pred, blank_id='blank')
+    >>> print(string_out)
+    ['a', 'b', 'c']
+    """
+
+    if isinstance(string_pred, list):
+        # Filter the repetitions
+        string_out = [i[0] for i in groupby(string_pred)]
+
+        # Filter the blank symbol
+        string_out = list(filter(lambda elem: elem != blank_id, string_out))
+    else:
+        raise ValueError("filter_ctc_out can only filter python lists")
+    return string_out
 
 @dataclasses.dataclass
 class CTCBeam:
