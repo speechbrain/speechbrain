@@ -4,7 +4,7 @@ This recipe includes scripts to train [Whisper](https://cdn.openai.com/papers/wh
 [WavLM](https://arxiv.org/abs/2110.13900)-based ASR systems on a subset of 20 languages selected from [Common Voice 13](https://commonvoice.mozilla.org/en/datasets)
 in a continual learning fashion using a handful of methods including rehearsal-based, architecture-based, and regularization-based approaches.
 
-The goal is to continually learn new languages while limiting forgetting on the previously learnt ones.
+The goal is to continually learn new languages while limiting forgetting the previously learned ones.
 An ideal method should achieve both positive forward transfer (i.e. improve performance on new tasks leveraging
 shared knowledge from previous tasks) and positive backward transfer (i.e. improve performance on previous tasks
 leveraging shared knowledge from new tasks).
@@ -18,6 +18,13 @@ The following algorithms have been implemented so far:
 - [Learning without Forgetting (LwF)](https://arxiv.org/abs/1606.09282)
 
 ---------------------------------------------------------------------------------------------------------
+
+## ⚡ Dataset [[download](https://zenodo.org/record/8065754)]
+The dataset used for the  CL-MASR benchmark is extracted from [Common Voice 13](https://commonvoice.mozilla.org/en/datasets), see [reference paper](https://arxiv.org/abs/1912.06670)).
+Each of the 20 languages in the dataset includes approximately 10 hours of training material, with an additional 1 hour designated for validation and another 1 hour for testing purposes.
+
+Download the dataset from [here](https://zenodo.org/record/8065754) and extract it to a data folder of your choice (`CL-MASR` by default).
+
 
 ## 🛠️️ Installation
 
@@ -35,8 +42,6 @@ pip install -r extra-requirements.txt    # Install additional dependencies
 
 ### Running an experiment
 
-Download the CL-MASR benchmark data (extracted from [Common Voice 13](https://commonvoice.mozilla.org/en/datasets), see [reference paper](https://arxiv.org/abs/1912.06670)) from [here](https://zenodo.org/record/8065754) and extract them
-to a data folder of your choice (`CL-MASR` by default).
 Navigate to `<path-to-repository>/recipes/CommonVoice/cl-masr/<model>`, open a terminal and run:
 
 ```bash
