@@ -423,14 +423,14 @@ def train(hparams, run_opts):
 
 def profile(hparams, run_opts):
     """Measure MACs, memory and inference time.
-    
+
     Arguments
     ---------
     hparams : dict
         The hyperparameters.
     run_opts : dict
         The runtime options.
-    
+
     """
     import ptflops
     import torchinfo

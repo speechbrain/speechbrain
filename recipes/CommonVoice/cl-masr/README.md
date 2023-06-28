@@ -1,7 +1,7 @@
 # CL-MASR: A Continual Learning Benchmark for Multilingual ASR
 
 This recipe includes scripts to train [Whisper](https://cdn.openai.com/papers/whisper.pdf) and
-[WavLM](https://arxiv.org/abs/2110.13900)-based ASR systems on a subset of [Common Voice 13](https://commonvoice.mozilla.org/en/datasets)
+[WavLM](https://arxiv.org/abs/2110.13900)-based ASR systems on a subset of 20 languages selected from [Common Voice 13](https://commonvoice.mozilla.org/en/datasets)
 in a continual learning fashion using a handful of methods including rehearsal-based, architecture-based, and regularization-based approaches.
 
 The goal is to continually learn new languages while limiting forgetting on the previously learnt ones.
