@@ -6,7 +6,6 @@ Authors
 
 import os
 
-import torch
 from torch import nn
 
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
