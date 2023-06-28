@@ -12,7 +12,6 @@ from speechbrain.decoders.utils import (
     inflate_tensor,
     mask_by_condition,
     _update_mem,
-    batch_filter_seq2seq_output,
 )
 
 
@@ -145,12 +144,13 @@ class S2SBaseSearcher(torch.nn.Module):
 
 
 class S2SGreedySearcher(S2SBaseSearcher):
-    """ This class implements the general forward-pass of
+    """This class implements the general forward-pass of
     greedy decoding approach. See also S2SBaseSearcher().
     """
 
     def forward(self, enc_states, wav_len):
         """This method performs a greedy search.
+
         Arguments
         ---------
         enc_states : torch.Tensor
@@ -192,17 +192,68 @@ class S2SGreedySearcher(S2SBaseSearcher):
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
-
         scores, predictions = log_probs.max(dim=-1)
         mask = scores == float("inf")
         scores[mask] = 0
         predictions[mask] = self.eos_index
-        scores = scores.sum(dim=1).tolist()
-        predictions = batch_filter_seq2seq_output(
-            predictions, eos_id=self.eos_index
+
+        (
+            top_hyps,
+            top_lengths,
+            top_scores,
+            top_log_probs,
+        ) = self._get_top_prediction(predictions, scores, log_probs)
+
+        return top_hyps, top_lengths, top_scores, top_log_probs
+
+    def _get_top_prediction(self, hyps, scores, log_probs):
+        """This method sorts the scores and return corresponding hypothesis and log probs.
+
+        Arguments
+        ---------
+        hyps_and_scores : list
+            To store generated hypotheses and scores.
+        topk : int
+            Number of hypothesis to return.
+
+        Returns
+        -------
+        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
+            This tensor stores the topk predicted hypothesis.
+        topk_scores : torch.Tensor (batch, topk)
+            The length of each topk sequence in the batch.
+        topk_lengths : torch.Tensor (batch, topk)
+            This tensor contains the final scores of topk hypotheses.
+        topk_log_probs : torch.Tensor (batch, topk, max length of token_id sequences)
+            The log probabilities of each hypotheses.
+        """
+        batch_size = hyps.size(0)
+        max_length = hyps.size(1)
+        top_lengths = [max_length] * batch_size
+
+        # Collect lengths of top hyps
+        for pred_index in range(batch_size):
+            pred = hyps[pred_index]
+            pred_length = (pred == self.eos_index).nonzero(as_tuple=False)
+            if len(pred_length) > 0:
+                top_lengths[pred_index] = pred_length[0].item()
+        # Convert lists to tensors
+        top_lengths = torch.tensor(
+            top_lengths, dtype=torch.float, device=hyps.device
         )
 
-        return predictions, scores
+        # Pick top log probabilities
+        top_log_probs = log_probs
+
+        # Use SpeechBrain style lengths
+        top_lengths = (top_lengths - 1) / max_length
+
+        return (
+            hyps.unsqueeze(1),
+            top_lengths.unsqueeze(1),
+            scores.unsqueeze(1),
+            top_log_probs.unsqueeze(1),
+        )
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):

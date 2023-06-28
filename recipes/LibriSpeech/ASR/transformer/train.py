@@ -101,8 +101,14 @@ class ASR(sb.core.Brain):
             # limited capacity and no LM to give user some idea of how the AM is doing
 
             # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
+            if stage == sb.Stage.VALID:
+                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
+            else:
+                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                    enc_out.detach(), wav_lens
+                )
 
             # Select the best hypothesis
             best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
