@@ -87,10 +87,15 @@ class ASR(sb.Brain):
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
         else:
-            # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-
-            topk_tokens, topk_lens, _, _ = search(x, wav_lens)
+            if stage == sb.Stage.VALID:
+                # Get token strings from index prediction
+                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                    x, wav_lens
+                )
+            else:
+                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                    x, wav_lens
+                )
 
             # Select the best hypothesis
             best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
