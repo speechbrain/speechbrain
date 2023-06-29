@@ -20,7 +20,7 @@ The following algorithms have been implemented so far:
 ---------------------------------------------------------------------------------------------------------
 
 ## ⚡ Dataset [[download](https://zenodo.org/record/8065754)]
-The dataset used for the  CL-MASR benchmark is extracted from [Common Voice 13](https://commonvoice.mozilla.org/en/datasets), see [reference paper](https://arxiv.org/abs/1912.06670)).
+The dataset used for the  CL-MASR benchmark is extracted from [Common Voice 13](https://commonvoice.mozilla.org/en/datasets) (see [reference paper](https://arxiv.org/abs/1912.06670)).
 Each of the 20 languages in the dataset includes approximately 10 hours of training material, with an additional 1 hour designated for validation and another 1 hour for testing purposes.
 
 Download the dataset from [here](https://zenodo.org/record/8065754) and extract it to a data folder of your choice (`CL-MASR` by default).
@@ -77,17 +77,17 @@ See the help (`python analyze_logs.py -h`) for advanced configuration options.
 | 07-06-23 |  whisper/hparams/train_ft.yaml  |    98.50     |   -84.58    |   -4.16    |    -0.83    | [Link](https://www.dropbox.com/sh/gjthcje9i2rztsk/AABWcxRpyVek5VVLy1UIU5JUa?dl=0) | 1xV100 32GB |
 | 07-06-23 |  whisper/hparams/train_er.yaml  |    50.83     |   -13.20    |   -0.81    |    -4.17    | [Link](https://www.dropbox.com/sh/3ykkqss8trf4mh0/AADKIGt_IbBpYy6z1zGMv9t5a?dl=0) | 1xV100 32GB |
 | 07-06-23 | whisper/hparams/train_agem.yaml |    81.08     |   -55.85    |    0.20    |    -5.19    | [Link](https://www.dropbox.com/sh/x3inrfmktk5eqeu/AAAltNoaaiexezOjYD3J2H0Qa?dl=0) | 1xV100 32GB |
-| 07-06-23 | whisper/hparams/train_pnn.yaml  |    44.12     |    0.00     |    3.18    |    -8.16    | [Link](https://www.dropbox.com/sh/k8zeoxpbh9yjngi/AACKXnZEIInWzNfN6aZWCd5ra?dl=0) | 1xV100 32GB |
-| 07-06-23 |  whisper/hparams/train_pb.yaml  |    43.95     |    0.00     |    3.51    |    -8.50    | [Link](https://www.dropbox.com/sh/load8e6dwwl31kc/AAAoROiJLCu6haFJqJcZ_uyya?dl=0) | 1xV100 32GB |
+| 07-06-23 | whisper/hparams/train_pnn.yaml  |    44.12     |     0.00    |    3.18    |    -8.16    | [Link](https://www.dropbox.com/sh/k8zeoxpbh9yjngi/AACKXnZEIInWzNfN6aZWCd5ra?dl=0) | 1xV100 32GB |
+| 07-06-23 |  whisper/hparams/train_pb.yaml  |    43.95     |     0.00    |    3.51    |    -8.50    | [Link](https://www.dropbox.com/sh/load8e6dwwl31kc/AAAoROiJLCu6haFJqJcZ_uyya?dl=0) | 1xV100 32GB |
 | 07-06-23 | whisper/hparams/train_ewc.yaml  |    98.04     |   -68.32    |    2.87    |    -7.85    | [Link](https://www.dropbox.com/sh/ve00u3jwru880x7/AAAl5tjVa3K1F_JelMC_uimpa?dl=0) | 1xV100 32GB |
 | 07-06-23 | whisper/hparams/train_lwf.yaml  |    95.76     |   -77.50    |    0.00    |    -4.98    | [Link](https://www.dropbox.com/sh/9z3ejbc371c36rk/AABypJbr782kVVOrqA0neEzxa?dl=0) | 1xV100 32GB |
-| 07-06-23 |   wavlm/hparams/train_ft.yaml   |    91.61     |   -54.67    |   -10.19   |    -0.21    | [Link](https://www.dropbox.com/sh/hluabvm3ph0j7ee/AAAZswrK0KjstZm1Q5bb29Xfa?dl=0) | 1xV100 32GB |
- | 07-06-23 |   wavlm/hparams/train_er.yaml   |    60.79     |    -8.96    |   -7.62    |    -2.77    | [Link](https://www.dropbox.com/sh/1den1zq0md5rfgv/AABrgM_1O85WwXSBvyMwxYkha?dl=0) | 1xV100 32GB |
- | 07-06-23 |  wavlm/hparams/train_agem.yaml  |    72.54     |    13.59    |   35.29    |   -45.69    | [Link](https://www.dropbox.com/sh/cn737pp6tpupsy2/AACf309ybWRFStrCbdytx16ja?dl=0) | 1xV100 32GB |
- | 07-06-23 |  wavlm/hparams/train_pnn.yaml   |    66.07     |    0.00     |   12.95    |   -23.34    | [Link](https://www.dropbox.com/sh/jz9a64xriifilmf/AADHQYrbuHNe1-rDkV28H298a?dl=0) | 1xV100 32GB |
- | 07-06-23 |   wavlm/hparams/train_pb.yaml   |    61.87     |    0.00     |    2.75    |   -13.15    | [Link](https://www.dropbox.com/sh/wfj83oh8u8xru8e/AAAqmMjMs1tK1X0I53Ldk7c5a?dl=0) | 1xV100 32GB |
- | 07-06-23 |  wavlm/hparams/train_ewc.yaml   |    86.98     |   -39.54    |   -4.26    |    -6.13    | [Link](https://www.dropbox.com/sh/poi5n6bmw3g9xs3/AABNozqigh54fKUdyWbf_WLOa?dl=0) | 1xV100 32GB |
- | 07-06-23 |  wavlm/hparams/train_lwf.yaml   |    87.17     |   -26.03    |   10.42    |   -20.82    | [Link](https://www.dropbox.com/sh/fggjafxdrtux68y/AADpdUV1Ny2may-G3pNwUrB6a?dl=0) | 1xV100 32GB |
+| 07-06-23 |   wavlm/hparams/train_ft.yaml   |    91.61     |   -54.67    |  -10.19    |    -0.21    | [Link](https://www.dropbox.com/sh/hluabvm3ph0j7ee/AAAZswrK0KjstZm1Q5bb29Xfa?dl=0) | 1xV100 32GB |
+| 07-06-23 |   wavlm/hparams/train_er.yaml   |    60.79     |    -8.96    |   -7.62    |    -2.77    | [Link](https://www.dropbox.com/sh/1den1zq0md5rfgv/AABrgM_1O85WwXSBvyMwxYkha?dl=0) | 1xV100 32GB |
+| 07-06-23 |  wavlm/hparams/train_agem.yaml  |    72.54     |    13.59    |   35.29    |   -45.69    | [Link](https://www.dropbox.com/sh/cn737pp6tpupsy2/AACf309ybWRFStrCbdytx16ja?dl=0) | 1xV100 32GB |
+| 07-06-23 |  wavlm/hparams/train_pnn.yaml   |    66.07     |     0.00    |   12.95    |   -23.34    | [Link](https://www.dropbox.com/sh/jz9a64xriifilmf/AADHQYrbuHNe1-rDkV28H298a?dl=0) | 1xV100 32GB |
+| 07-06-23 |   wavlm/hparams/train_pb.yaml   |    61.87     |     0.00    |    2.75    |   -13.15    | [Link](https://www.dropbox.com/sh/wfj83oh8u8xru8e/AAAqmMjMs1tK1X0I53Ldk7c5a?dl=0) | 1xV100 32GB |
+| 07-06-23 |  wavlm/hparams/train_ewc.yaml   |    86.98     |   -39.54    |   -4.26    |    -6.13    | [Link](https://www.dropbox.com/sh/poi5n6bmw3g9xs3/AABNozqigh54fKUdyWbf_WLOa?dl=0) | 1xV100 32GB |
+| 07-06-23 |  wavlm/hparams/train_lwf.yaml   |    87.17     |   -26.03    |   10.42    |   -20.82    | [Link](https://www.dropbox.com/sh/fggjafxdrtux68y/AADpdUV1Ny2may-G3pNwUrB6a?dl=0) | 1xV100 32GB |
 
 Raw experiment logs are available [here](https://www.dropbox.com/sh/y15vy2op74a5tbu/AACgtxN_uYRGfvCTtiUB7d_ma?dl=0).
 We do not include the checkpoints due to storage limits (each experiment with Whisper large-v2 generates ~125 GB of checkpoint data).
