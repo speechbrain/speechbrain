@@ -24,7 +24,7 @@ Dev. clean is evaluated with Greedy Decoding while the test sets are using Greed
 
 | Release | hyperparams file | Dev. Clean | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM| Test-other BAS+RNNLM | Model link | GPUs |
 |:-------------:|:---------------------------:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
-| 2020-10-22 | conformer_transducer.yaml | 3.0 | ... | ... | 2.8 | ... | Not Available | 4xA100 80GB |
+| 2020-10-22 | conformer_transducer.yaml | 2.8 | 3.0 | 7.1 | 2.8 | 6.8 | Not Available | 4xA100 80GB |
 
 
 
