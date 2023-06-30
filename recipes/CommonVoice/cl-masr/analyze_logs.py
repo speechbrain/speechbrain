@@ -812,7 +812,9 @@ if __name__ == "__main__":
     # Store metrics
     for name in metrics:
         with open(
-            os.path.join(args.input_folder, f"{name}.csv"),
+            os.path.join(
+                args.input_folder, f"{name.lower().replace(' ', '_')}.csv"
+            ),
             "w",
             encoding="utf-8",
         ) as f:
@@ -839,11 +841,14 @@ if __name__ == "__main__":
 
     # Plot metrics
     for name in metrics:
-        metric_csv_file = os.path.join(args.input_folder, f"{name}.csv")
+        metric_csv_file = os.path.join(
+            args.input_folder, f"{name.lower().replace(' ', '_')}.csv"
+        )
         plot_metric(
             metric_csv_file,
             output_image=os.path.join(
-                args.input_folder, f"{name}.{args.format}"
+                args.input_folder,
+                f"{name.lower().replace(' ', '_')}.{args.format}",
             ),
             xlabel=None,
             ylabel=f"{name} (\%)"
