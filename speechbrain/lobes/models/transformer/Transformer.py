@@ -12,6 +12,7 @@ import numpy as np
 
 
 from .Conformer import ConformerEncoder
+from .Branchformer import BranchformerEncoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 from speechbrain.nnet.CNN import Conv1d
@@ -38,7 +39,7 @@ class TransformerInterface(nn.Module):
     dropout: int, optional
         The dropout value.
     activation: torch.nn.Module, optional
-        The activation function for Feed-Forward Netowrk layer,
+        The activation function for Feed-Forward Network layer,
         e.g., relu or gelu or swish.
     custom_src_module: torch.nn.Module, optional
         Module that processes the src features to expected feature dim.
@@ -54,9 +55,11 @@ class TransformerInterface(nn.Module):
     bias: bool, optional
         Whether to use bias in Conformer convolutional layers.
     encoder_module: str, optional
-        Choose between Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
+        Choose between Branchformer, Conformer and Transformer for the encoder. The decoder is fixed to be a Transformer.
     conformer_activation: torch.nn.Module, optional
         Activation module used after Conformer convolutional layers. E.g. Swish, ReLU etc. it has to be a torch Module.
+    branchformer_activation: torch.nn.Module, optional
+        Activation module used within the Branchformer Encoder. E.g. Swish, ReLU etc. it has to be a torch Module.
     attention_type: str, optional
         Type of attention layer used in all Transformer or Conformer layers.
         e.g. regularMHA or RelPosMHA.
@@ -74,6 +77,15 @@ class TransformerInterface(nn.Module):
         Dimension of the key for the decoder.
     decoder_vdim: int, optional
         Dimension of the value for the decoder.
+    csgu_linear_units: int, optional
+        Number of neurons in the hidden linear units of the CSGU Module.
+        -> Branchformer
+    gate_activation: torch.nn.Module, optional
+        Activation function used at the gate of the CSGU module.
+        -> Branchformer
+    use_linear_after_conv: bool, optional
+        If True, will apply a linear transformation of size input_size//2.
+        -> Branchformer
     """
 
     def __init__(
@@ -93,6 +105,7 @@ class TransformerInterface(nn.Module):
         bias: Optional[bool] = True,
         encoder_module: Optional[str] = "transformer",
         conformer_activation: Optional[nn.Module] = Swish,
+        branchformer_activation: Optional[nn.Module] = nn.GELU,
         attention_type: Optional[str] = "regularMHA",
         max_length: Optional[int] = 2500,
         causal: Optional[bool] = False,
@@ -100,6 +113,9 @@ class TransformerInterface(nn.Module):
         encoder_vdim: Optional[int] = None,
         decoder_kdim: Optional[int] = None,
         decoder_vdim: Optional[int] = None,
+        csgu_linear_units: Optional[int] = 3072,
+        gate_activation: Optional[nn.Module] = nn.Identity,
+        use_linear_after_conv: Optional[bool] = False,
     ):
         super().__init__()
         self.causal = causal
@@ -168,6 +184,19 @@ class TransformerInterface(nn.Module):
                 assert (
                     conformer_activation is not None
                 ), "conformer_activation must not be None"
+            elif encoder_module == "branchformer":
+                self.encoder = BranchformerEncoder(
+                    nhead=nhead,
+                    num_layers=num_encoder_layers,
+                    d_model=d_model,
+                    dropout=dropout,
+                    activation=branchformer_activation,
+                    kernel_size=kernel_size,
+                    attention_type=self.attention_type,
+                    csgu_linear_units=csgu_linear_units,
+                    gate_activation=gate_activation,
+                    use_linear_after_conv=use_linear_after_conv,
+                )
 
         # initialize the decoder
         if num_decoder_layers > 0:
