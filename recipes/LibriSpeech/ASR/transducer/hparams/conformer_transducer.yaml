@@ -3,9 +3,9 @@
 # Encoder: Conformer
 # Decoder: LSTM + beamsearch + RNNLM
 # Tokens: BPE with unigram
-# losses: Transducer + CTC + CE
+# losses: Transducer + CTC (optional) + CE (optional)
 # Training: Librispeech 960h
-# Authors:  Titouan Parcollet 2022, Abdel HEBA, Mirco Ravanelli, Sung-Lin Yeh 2020
+# Authors:  Titouan Parcollet 2023, Abdel HEBA, Mirco Ravanelli, Sung-Lin Yeh 2020
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -58,7 +58,8 @@ ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 
-# Used if and only if dynamic batching is set to False
+# The batch size is used if and only if dynamic batching is set to False
+# Validation and testing are done with fixed batches and not dynamic batching.
 batch_size: 8
 grad_accumulation_factor: 1
 sorting: random
@@ -80,10 +81,10 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <batch_size_valid>
 
-# This setup works well for V100 32GB GPU, adapts it to your needs.
+# This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 900
+max_batch_len: 400
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -221,11 +222,11 @@ dec: !new:speechbrain.nnet.RNN.LSTM
    re_init: True
    dropout: 0.1
 
-# For MTL with LM over the decoder
-dec_lin: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <joint_dim>
-   n_neurons: !ref <output_neurons>
-   bias: False
+# For MTL with LM over the decoder (need to uncomment to activate)
+# dec_lin: !new:speechbrain.nnet.linear.Linear
+#   input_size: !ref <joint_dim>
+#   n_neurons: !ref <output_neurons>
+#   bias: False
 
 # For MTL
 ce_cost: !name:speechbrain.nnet.losses.nll_loss
@@ -275,7 +276,7 @@ modules:
    proj_ctc: !ref <proj_ctc>
    proj_dec: !ref <proj_dec>
    proj_enc: !ref <proj_enc>
-   dec_lin: !ref <dec_lin>
+#   dec_lin: !ref <dec_lin>
 
 # for MTL
 # update model if any HEAD module is added

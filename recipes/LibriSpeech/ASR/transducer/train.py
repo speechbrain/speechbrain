@@ -100,6 +100,7 @@ class ASR(sb.Brain):
                 # Output layer for ctc log-probabilities
                 out_ctc = self.modules.proj_ctc(x)
                 p_ctc = self.hparams.log_softmax(out_ctc)
+
             if self.hparams.ce_weight > 0.0:
                 # Output layer for ctc log-probabilities
                 p_ce = self.modules.dec_lin(h)
@@ -180,12 +181,13 @@ class ASR(sb.Brain):
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
         if self.auto_mix_prec:
-            with torch.autocast(torch.device(self.device).type):
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            # Losses are excluded from mixed precision to avoid instabilities
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             with self.no_sync(not should_step):
+                with torch.autocast(torch.device(self.device).type):
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+
+                # Losses are excluded from mixed precision to avoid instabilities
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+
                 self.scaler.scale(
                     loss / self.grad_accumulation_factor
                 ).backward()
@@ -208,8 +210,11 @@ class ASR(sb.Brain):
                         outputs, batch, sb.Stage.TRAIN
                     )
             else:
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                with self.no_sync(not should_step):
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
             with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
             if should_step:
@@ -241,7 +246,7 @@ class ASR(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
 
-            lr = self.hparams.lr_annealing.current_lr
+            lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
 
@@ -257,6 +262,7 @@ class ASR(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
+            # We save multiple checkpoints as we will average them!
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
@@ -269,6 +275,20 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
+
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint averge if needed"""
+        super().on_evaluate_start()
+
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model", device=self.device
+        )
+
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):

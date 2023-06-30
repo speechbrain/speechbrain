@@ -18,13 +18,14 @@ pip install numba
 python train.py train/train.yaml
 ```
 
-# Librispeech 100H Results
+# Librispeech Results
 
-| Release | hyperparams file | Val. CER | Val. WER | Test WER (test clean) | Model link | GPUs |
-|:-------------:|:---------------------------:| ------:| :-----------:| :------------------:| --------:| :-----------:|
-| 2020-10-22 | train.yaml |  5.2 | GS: 11.45 | BS (beam=4): 11.03 | Not Available | 1xRTX-8000 48GB |
+Dev. clean is evaluated with Greedy Decoding while the test sets are using Greedy Decoding OR a RNNLM + Beam Search.
 
-The output folder with the checkpoints and training logs is available [here](https://drive.google.com/drive/folders/17kEW0crU3tyP-8-u5TeoFom4ton_B-j2?usp=sharing).
+| Release | hyperparams file | Dev. Clean | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM| Test-other BAS+RNNLM | Model link | GPUs |
+|:-------------:|:---------------------------:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
+| 2020-10-22 | conformer_transducer.yaml | 3.0 | ... | ... | 2.8 | ... | Not Available | 4xA100 80GB |
+
 
 
 # **About SpeechBrain**
