@@ -1422,7 +1422,7 @@ class Brain:
                 self.on_stage_end_on_main,
                 args=[Stage.TEST, avg_test_loss, None],
             )
-            self.on_stage_end(Stage.TEST, avg_test_loss)
+            self.on_stage_end(Stage.TEST, avg_test_loss, None)
 
         self.step = 0
         return avg_test_loss

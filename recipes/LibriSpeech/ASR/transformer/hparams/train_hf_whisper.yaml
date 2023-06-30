@@ -23,8 +23,9 @@ normalized_transcripts: True
 test_only: False # Set it to True if you only want to  do the evaluation
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+data_folder: "/Users/N752624/Documents/Repositories/LibriSpeech" # !PLACEHOLDER # e,g./path/to/LibriSpeech
+#train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False

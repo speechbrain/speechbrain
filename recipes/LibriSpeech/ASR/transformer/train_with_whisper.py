@@ -113,7 +113,7 @@ class ASR(sb.Brain):
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
-    def on_stage_end(self, stage, stage_loss, epoch):
+    def on_stage_end_on_main(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
@@ -125,14 +125,7 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
-            old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
-                stage_stats["loss"]
-            )
-
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer, new_lr_whisper
-            )
+            old_lr_whisper, _ = self.hparams.lr_annealing_whisper(stage_loss)
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
                 train_stats=self.train_stats,
@@ -148,6 +141,14 @@ class ASR(sb.Brain):
             )
             with open(self.hparams.wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
+
+    def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of an epoch."""
+        if stage == sb.Stage.VALID:
+            _, new_lr_whisper = self.hparams.lr_annealing_whisper(stage_loss)
+            sb.nnet.schedulers.update_learning_rate(
+                self.optimizer, new_lr_whisper
+            )
 
 
 def dataio_prepare(hparams, tokenizer):
