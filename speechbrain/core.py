@@ -33,7 +33,6 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
@@ -1177,12 +1176,8 @@ class Brain:
                     if self.debug and self.step == self.debug_batches:
                         break
 
-                # Only run validation "on_stage_end" on main process
                 self.step = 0
-                run_on_main(
-                    self.on_stage_end,
-                    args=[Stage.VALID, avg_valid_loss, epoch],
-                )
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
         self,
@@ -1399,10 +1394,7 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-            # Only run evaluation "on_stage_end" on main process
-            run_on_main(
-                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
-            )
+            self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss
 

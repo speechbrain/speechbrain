@@ -4,10 +4,13 @@ Authors
  * Aku Rouhe 2020
  * Davide Borra 2021
 """
-from .checkpoints import register_checkpoint_hooks
-from .checkpoints import mark_as_saver
-from .checkpoints import mark_as_loader
 import logging
+from .distributed import run_on_main
+from .checkpoints import (
+    register_checkpoint_hooks,
+    mark_as_saver,
+    mark_as_loader,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,9 @@ class EpochCounter:
 
     @mark_as_saver
     def _save(self, path):
+        run_on_main(self._save_helper, args=[path])
+
+    def _save_helper(self, path):
         with open(path, "w") as fo:
             fo.write(str(self.current))
 

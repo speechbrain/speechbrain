@@ -36,12 +36,7 @@ Authors
 import math
 import torch
 import logging
-from speechbrain.utils.checkpoints import (
-    mark_as_saver,
-    mark_as_loader,
-    mark_as_transfer,
-    register_checkpoint_hooks,
-)
+from speechbrain.utils import checkpoints
 
 logger = logging.getLogger(__name__)
 
@@ -925,7 +920,7 @@ class ContextWindow(torch.nn.Module):
         return cw_x
 
 
-@register_checkpoint_hooks
+@checkpoints.register_checkpoint_hooks
 class InputNormalization(torch.nn.Module):
     """Performs mean and variance normalization of the input tensor.
 
@@ -1190,7 +1185,7 @@ class InputNormalization(torch.nn.Module):
             self.spk_dict_std[spk] = self.spk_dict_std[spk].to(device)
         return self
 
-    @mark_as_saver
+    @checkpoints.mark_as_saver
     def _save(self, path):
         """Save statistic dictionary.
 
@@ -1200,10 +1195,10 @@ class InputNormalization(torch.nn.Module):
             A path where to save the dictionary.
         """
         stats = self._statistics_dict()
-        torch.save(stats, path)
+        checkpoints.parallel_safe_save(stats, path)
 
-    @mark_as_transfer
-    @mark_as_loader
+    @checkpoints.mark_as_transfer
+    @checkpoints.mark_as_loader
     def _load(self, path, end_of_epoch=False, device=None):
         """Load statistic dictionary.
 

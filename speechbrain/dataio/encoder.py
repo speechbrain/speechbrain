@@ -11,11 +11,8 @@ import itertools
 import logging
 import warnings
 import speechbrain as sb
-from speechbrain.utils.checkpoints import (
-    mark_as_saver,
-    mark_as_loader,
-    register_checkpoint_hooks,
-)
+from speechbrain.utils import checkpoints
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +24,7 @@ DEFAULT_EOS = "<eos>"
 DEFAULT_BLANK = "<blank>"
 
 
-@register_checkpoint_hooks
+@checkpoints.register_checkpoint_hooks
 class CategoricalEncoder:
     """Encode labels of a discrete set.
 
@@ -572,7 +569,7 @@ class CategoricalEncoder:
         except TypeError:  # Not an iterable, bottom level!
             return self.ind2lab[int(x)]
 
-    @mark_as_saver
+    @checkpoints.mark_as_saver
     def save(self, path):
         """Save the categorical encoding for later use and recovery
 
@@ -585,7 +582,7 @@ class CategoricalEncoder:
             Where to save. Will overwrite.
         """
         extras = self._get_extras()
-        self._save_literal(path, self.lab2ind, extras)
+        run_on_main(self._save_literal, args=[path, self.lab2ind, extras])
 
     def load(self, path):
         """Loads from the given path.
@@ -612,7 +609,7 @@ class CategoricalEncoder:
         # If we're here, load was a success!
         logger.debug(f"Loaded categorical encoding from {path}")
 
-    @mark_as_loader
+    @checkpoints.mark_as_loader
     def load_if_possible(self, path, end_of_epoch=False, device=None):
         """Loads if possible, returns a bool indicating if loaded or not.
 
