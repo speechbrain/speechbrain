@@ -123,8 +123,6 @@ class ASR(sb.core.Brain):
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
 
-        # now as training progresses we use real prediction from the prev step instead of teacher forcing
-
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
         ).sum()
@@ -350,7 +348,7 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if hparams["speed_perturb"]:
+        if hasattr(hparams, "speed_perturb"):
             sig = sb.dataio.dataio.read_audio(wav)
 
             sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
