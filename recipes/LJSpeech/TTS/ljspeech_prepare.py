@@ -15,6 +15,7 @@ import logging
 import torchaudio
 import numpy as np
 from tqdm import tqdm
+from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 import tgt
 from speechbrain.pretrained import GraphemeToPhoneme
@@ -125,9 +126,16 @@ def prepare_ljspeech(
     # Setting up additional folders required for FastSpeech2
     if model_name == "FastSpeech2":
         # This step requires phoneme alignements to be present in the data_folder
+        # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
+        alignment_URL = (
+            "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
+        )
         phoneme_alignments_folder = os.path.join(
             data_folder, "TextGrid", "LJSpeech"
+        )
+        download_file(
+            alignment_URL, data_folder + "/alligments.zip", unpack=True
         )
 
         duration_folder = os.path.join(data_folder, "durations")
@@ -557,7 +565,6 @@ def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
 
 
 def get_last_phoneme_info(words_seq, phones_seq):
-
     """This function takes word and phoneme tiers from a TextGrid file as input
   and provides a list of tuples for the phoneme sequence indicating whether
   each of the phonemes is the last phoneme of a word or not.
