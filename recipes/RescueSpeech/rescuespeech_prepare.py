@@ -524,7 +524,19 @@ def check_RescueSpeech_data_folders(data_folder):
 
 
 def unicode_normalisation(text):
+    """
+    Normalizes the Unicode representation of a given text.
 
+    Arguments
+    ---------
+    text : str
+        The text to be normalized.
+
+    Returns
+    -------
+    str
+        The normalized text.
+    """
     try:
         text = unicode(text, "utf-8")
     except NameError:  # unicode is a default on python 3
@@ -562,6 +574,19 @@ def data_cleaning(words):
 
 
 def strip_accents(text):
+    """
+    Strips accents from a given text string.
+
+    Arguments:
+    ----------
+    text : str
+        The text from which accents are to be stripped.
+
+    Returns
+    -------
+    str
+        The text with accents stripped.
+    """
 
     text = (
         unicodedata.normalize("NFD", text)

@@ -185,7 +185,7 @@ asr_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
         encoder: !ref <pretrained_enhance_path>/encoder.ckpt
         decoder: !ref <pretrained_enhance_path>/decoder.ckpt
         masknet: !ref <pretrained_enhance_path>/masknet.ckpt
-        whisper: !ref <pretrained_whisper_model>/whisper.ckpt
+        whisper: !ref <pretrained_whisper_path>/whisper.ckpt
 
 modules:
     encoder: !ref <enhance_model[Encoder]>
