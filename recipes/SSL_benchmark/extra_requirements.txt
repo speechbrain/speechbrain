@@ -1,3 +1,0 @@
-kenlm
-# If you want to use an n-gram language modelling during decoding for english ASR
-pyctcdecode
