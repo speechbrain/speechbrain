@@ -23,15 +23,15 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 
 
 ## Fine-tuned models
-1. Firstly, the SepFormer model is trained on the Microsoft-DNS dataset. Subsequently, it undergoes fine-tuning with our RescueSpeech dataset (first row in the table below).
-2. The Whisper ASR is fine-tuned on the RescueSpeech dataset (second row in the table below).
-3. Finally, the fine-tuned SepFormer and Whisper ASR models are jointly fine-tuned using our RescueSpeech dataset. This represents the best model reported in the table above, with its pretrained models and logs accessible in the third row of the table below.
+1. Firstly, the SepFormer enhancement model is trained on the Microsoft-DNS dataset. Subsequently, it undergoes fine-tuning with our RescueSpeech *enhancement* dataset (first row in the table below).
+2. The Whisper ASR is fine-tuned on the RescueSpeech *ASR* dataset (second row in the table below).
+3. Finally, the fine-tuned SepFormer and Whisper ASR models are jointly fine-tuned using our RescueSpeech *ASR* dataset. This represents the best model reported in the table above, with its pretrained models and logs accessible in the third row of the table below.
 
-|  Model        | HuggingFace link                               | Full Model link                                |
-|----------------|------------------------------------------------|------------------------------------------------|
-| Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/45wk44h8e0wkc5f/AABjEJJJ_OJp2fDYz3zEihmPa?dl=0)             |
-| Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/02c3wesc65402f6/AAApoxBApft-JwqHK-bddedBa?dl=0)            |
-| Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)            |
+|S. No. |  Model        | HuggingFace link                               | Full Model link                                |
+|---|----------------|------------------------------------------------|------------------------------------------------|
+| 1. | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/45wk44h8e0wkc5f/AABjEJJJ_OJp2fDYz3zEihmPa?dl=0)             |
+| 2. | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/02c3wesc65402f6/AAApoxBApft-JwqHK-bddedBa?dl=0)            |
+| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)            |
 
 
 # **About SpeechBrain**
