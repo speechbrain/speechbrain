@@ -1,9 +1,7 @@
 # Noise robust speech recognition on RescueSpeech dataset
-[RescuSpeech](https://doi.org/10.5281/zenodo.8077622) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models for the best setup that have been developed and evaluated using RescuSpeech data. This aim to enhance the performance of speech recognizers in challenging and noisy environments.
+[RescuSpeech](https://doi.org/10.5281/zenodo.8077622) is a dataset specifically designed for performing noise robust speech recognition in the Search and Rescue domain. In this repository, we provide training recipes and pre-trained models for the best setup that have been developed and evaluated using RescuSpeech data. This aims to enhance the performance of speech recognizers in challenging and noisy environments.
 
-Our paper compares ASR models (CRDNN, Wav2vec2, WavLM, Whisper) and speech-enhancement systems (SepFormer). But here we present our best-performing models achieved using the best strategy. See below for pre-trained model details and the full model link.
-
-This recipe supports a simple combination of a speech enhancement model (**SepFormer**) and an ASR (**Whisper**) model. The models are trained jointly and then combined to tackle noise interference.
+Our [paper](https://arxiv.org/abs/2306.04054) compares ASR models (CRDNN, Wav2vec2, WavLM, Whisper) and speech-enhancement systems (SepFormer). This recipe contains the best-performing model, which is based on a simple combination of a speech enhancement model (**SepFormer**) and an ASR (**Whisper**) model. The models are trained jointly and then combined to tackle noise interference.
 
 - Link to dataset: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8077622.svg)](https://doi.org/10.5281/zenodo.8077622)
 - Language: German (DE)
@@ -13,7 +11,7 @@ This recipe supports a simple combination of a speech enhancement model (**SepFo
 ```
 python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path>
 ```
-Here the data path should be the path to uncompressed `Task_ASR.tar.gz` downloaded from link above.
+Here the data path should be the path to **uncompressed `Task_ASR.tar.gz`** downloaded from link above.
 
 ## Results
 During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR and ehnance loss are backpropagated and weights are updated.
@@ -22,15 +20,17 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 |------ |--------|-------|-------|-------|----   |
 | Whisper (`large-v2`)| 7.334 | 7.871 | 2.085 | 0.857 | **24.20** |
 
-The final models for nosie robust speech recognition can be found here: [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech) and [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)
 
 ## Fine-tuned models
-Initially, only the SepFormer model is trained on the Microsoft-DNS dataset. Then, we fine-tune both the Whisper ASR and SepFormer enhancement models using our RescueSpeech dataset. Here, you can access the links to these fine-tuned models.
+1. Firstly, the SepFormer model is trained on the Microsoft-DNS dataset. Subsequently, it undergoes fine-tuning with our RescueSpeech dataset (first row in the table below).
+2. The Whisper ASR is fine-tuned on the RescueSpeech dataset (second row in the table below).
+3. Finally, the fine-tuned SepFormer and Whisper ASR models are jointly fine-tuned using our RescueSpeech dataset. This represents the best model reported in the table above, with its pretrained models and logs accessible in the third row of the table below.
 
 |  Model        | HuggingFace link                               | Full Model link                                |
 |----------------|------------------------------------------------|------------------------------------------------|
 | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/45wk44h8e0wkc5f/AABjEJJJ_OJp2fDYz3zEihmPa?dl=0)             |
 | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/02c3wesc65402f6/AAApoxBApft-JwqHK-bddedBa?dl=0)            |
+| Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)            |
 
 
 # **About SpeechBrain**
