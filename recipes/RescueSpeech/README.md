@@ -9,6 +9,7 @@ Our [paper](https://arxiv.org/abs/2306.04054) compares ASR models (CRDNN, Wav2ve
 
 ## How to run
 ```
+cd RescueSpeech/ASR/noise-robust
 python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path>
 ```
 Here the data path should be the path to **uncompressed `Task_ASR.tar.gz`** downloaded from link above.
