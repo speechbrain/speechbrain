@@ -777,7 +777,7 @@ if __name__ == "__main__":
         prepare_RescueSpeech,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["csv_dir"],
+            "save_folder": hparams["output_folder"],
             "train_tsv_file": hparams["train_tsv_file"],
             "dev_tsv_file": hparams["dev_tsv_file"],
             "test_tsv_file": hparams["test_tsv_file"],

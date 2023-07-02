@@ -11,8 +11,9 @@ This recipe supports a simple combination of a speech enhancement model (**SepFo
 
 ## How to run
 ```
-python train.py hparams/robust_asr_16k.yaml
+python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path>
 ```
+Here the data path should be the path to uncompressed `Task_ASR.tar.gz` downloaded from link above.
 
 ## Results
 During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR and ehnance loss are backpropagated and weights are updated.
@@ -21,17 +22,15 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 |------ |--------|-------|-------|-------|----   |
 | Whisper (`large-v2`)| 7.334 | 7.871 | 2.085 | 0.857 | **24.20** |
 
-## Pretrained Models
-We initially perform fine-tuning of both the ASR model and SepFormer model using the CommonVoice dataset and the Microsoft-DNS dataset. Subsequently, we proceed with a second stage of fine-tuning on our RescueSpeech dataset. Here you can find links to the trained models.
+The final models for nosie robust speech recognition can be found here: [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech) and [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)
 
+## Fine-tuned models
+Initially, only the SepFormer model is trained on the Microsoft-DNS dataset. Then, we fine-tune both the Whisper ASR and SepFormer enhancement models using our RescueSpeech dataset. Here, you can access the links to these fine-tuned models.
 
-| Dataset        | CRDNN                                          | Wav2vec2                                       | wavLM                                          | Whisper                                        |
-|----------------|------------------------------------------------|------------------------------------------------|------------------------------------------------|------------------------------------------------|
-| German <br> CommonVoice10.0    | [HuggingFace](link_commonvoice_crdnn_hf)        | [HuggingFace](link_commonvoice_wav2vec2_hf)    | [HuggingFace](link_commonvoice_wavlm_hf)        | [HuggingFace](link_commonvoice_whisper_hf)      |
-|                | [Google Drive](link_commonvoice_crdnn_gd)       | [Google Drive](link_commonvoice_wav2vec2_gd)   | [Google Drive](link_commonvoice_wavlm_gd)       | [Google Drive](link_commonvoice_whisper_gd)     |
-| RescueSpeech   | [HuggingFace](link_rescuespeech_crdnn_hf)       | [HuggingFace](link_rescuespeech_wav2vec2_hf)   | [HuggingFace](link_rescuespeech_wavlm_hf)       | [HuggingFace](link_rescuespeech_whisper_hf)     |
-|                | [Google Drive](link_rescuespeech_crdnn_gd)      | [Google Drive](link_rescuespeech_wav2vec2_gd)  | [Google Drive](link_rescuespeech_wavlm_gd)      | [Google Drive](link_rescuespeech_whisper_gd)    |
-
+|  Model        | HuggingFace link                               | Full Model link                                |
+|----------------|------------------------------------------------|------------------------------------------------|
+| Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/45wk44h8e0wkc5f/AABjEJJJ_OJp2fDYz3zEihmPa?dl=0)             |
+| Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/02c3wesc65402f6/AAApoxBApft-JwqHK-bddedBa?dl=0)            |
 
 
 # **About SpeechBrain**

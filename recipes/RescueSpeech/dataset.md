@@ -91,7 +91,7 @@ This table represents the number of recordings in each of the three sets (train,
 
 ## Task: Speech enhancement- Dataset details
 ---------------
-- Noises used: 
+- Noises used:
     - Static and radio noise
     - Emergency vehicle and siren noise
     - Engine
@@ -111,4 +111,3 @@ Thank You
 ## Acknowledgment
 ---------------
 This work was supported under the project A-DRZ: Setting up the German Rescue Robotics Center and funded by the German Ministry of Education and Research (BMBF), grant No. I3N14856.
-

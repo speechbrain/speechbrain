@@ -12,14 +12,14 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest whisper model.
-model_version: !ref large-v2
-whisper_hub: !ref openai/whisper-<model_version>
-whisper_folder: !PLACEHOLDER
+whisper_hub: !ref openai/whisper-large-v2
+whisper_folder: !ref <save_folder>/whisper_checkpoint
 language: german
-pretrained_whisper_model: !PLACEHOLDER
 
-# Path to pre-trained enhancement model
-pretrained_enhance_path: !PLACEHOLDER
+
+# Path to pre-trained models
+pretrained_whisper_path: speechbrain/whisper_rescuespeech
+pretrained_enhance_path: speechbrain/sepformer_rescuespeech
 
 epochs_before_lr_drop: 0
 unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
@@ -30,14 +30,13 @@ test_only: False
 
 # Dataset prep parameters
 data_folder: !PLACEHOLDER
-csv_dir: !ref csv_files
 train_tsv_file: !ref <data_folder>/train.tsv
 dev_tsv_file: !ref <data_folder>/dev.tsv
 test_tsv_file: !ref <data_folder>/test.tsv
 accented_letters: True
-train_csv: !ref <csv_dir>/train.csv
-valid_csv: !ref <csv_dir>/dev.csv
-test_csv: !ref <csv_dir>/test.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
 skip_prep: False
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
@@ -91,7 +90,7 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 test_beam_size: 8
 
-# Model parameters
+# Whisper model parameters
 freeze_whisper: False
 freeze_encoder_only: False
 freeze_encoder: True
@@ -171,7 +170,7 @@ lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# Enhanc loss
+# Enhance loss
 enhance_loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
 
 # Change the path to use a local model instead of the remote one
