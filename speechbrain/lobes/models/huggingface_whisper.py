@@ -245,7 +245,10 @@ class HuggingFaceWhisper(nn.Module):
         magnitudes = stft[..., :-1].abs() ** 2
 
         filters = self._mel_filters
-        mel_spec = filters.transpose(0, 1) @ magnitudes
+        # Fix dependency issues with transformers>=4.29 in a backward compatible way
+        if filters.shape[-1] != magnitudes.shape[-2]:
+            filters = filters.T.to(dtype=magnitudes.dtype)
+        mel_spec = filters @ magnitudes
 
         log_spec = torch.clamp(mel_spec, min=1e-10).log10()
         log_spec = torch.maximum(
