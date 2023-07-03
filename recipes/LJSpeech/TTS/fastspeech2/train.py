@@ -473,6 +473,7 @@ def dataio_prepare(hparams):
     # add a dummy symbol for idx 0 - used for padding.
     lexicon = ["@@"] + lexicon
     input_encoder.update_from_iterable(lexicon, sequence_input=False)
+    input_encoder.add_unk()
 
     # load audio, text and durations on the fly; encode audio and text.
     @sb.utils.data_pipeline.takes(
@@ -502,6 +503,7 @@ def dataio_prepare(hparams):
         label_phoneme = label_phoneme.strip()
         label_phoneme = label_phoneme.split()
         text_seq = input_encoder.encode_sequence_torch(label_phoneme).int()
+
         assert len(text_seq) == len(
             durs
         ), f"{len(text_seq)}, {len(durs), len(label_phoneme)}, ({label_phoneme})"  # ensure every token has a duration
