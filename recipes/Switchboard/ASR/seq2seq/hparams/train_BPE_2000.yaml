@@ -263,6 +263,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
    scorer: !ref <scorer>
+   temperature: !ref <temperature>
 
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
@@ -277,6 +278,7 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
    scorer: !ref <scorer>
+   temperature: !ref <temperature>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
