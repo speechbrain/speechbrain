@@ -171,10 +171,14 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     blank_index: !ref <blank_index>
     ctc_fc: !ref <ctc_lin>
 
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
+    language_model: !ref <lm_model>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-    full_scorers: [!ref <ctc_scorer>]
+    full_scorers: [!ref <rnnlm_scorer>,
+                   !ref <ctc_scorer>]
     weights:
+        rnnlm: !ref <lm_weight>
         ctc: !ref <ctc_weight_decode>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
