@@ -61,7 +61,6 @@ bos_index: 50258
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
