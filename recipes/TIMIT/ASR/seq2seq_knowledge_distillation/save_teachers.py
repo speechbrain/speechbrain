@@ -323,8 +323,10 @@ if __name__ == "__main__":
         prepare_timit,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "splits": ["train", "dev", "test"],
-            "save_folder": hparams["data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

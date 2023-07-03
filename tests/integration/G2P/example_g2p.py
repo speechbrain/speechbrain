@@ -97,6 +97,7 @@ def data_prep(data_folder, hparams):
     char_encoder.insert_bos_eos(bos_index=hparams["bos_index"])
     char_encoder.update_from_didataset(train_data, output_key="char_list")
     char_encoder.update_from_didataset(valid_data, output_key="char_list")
+    char_encoder.expect_len(hparams["num_chars"])
 
     # 4. Define char pipeline:
     @sb.utils.data_pipeline.takes("phn")
@@ -119,6 +120,7 @@ def data_prep(data_folder, hparams):
     phn_encoder.insert_bos_eos(bos_index=hparams["bos_index"])
     phn_encoder.update_from_didataset(train_data, output_key="phn_list")
     phn_encoder.update_from_didataset(valid_data, output_key="phn_list")
+    phn_encoder.expect_len(hparams["num_phns"])
 
     # 6. Set output:
     sb.dataio.dataset.set_output_keys(

@@ -21,6 +21,7 @@ libritts_subsets: ["train-clean-100", "train-clean-360"]
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
+skip_prep: False
 
 splits: ["train", "valid"]
 split_ratio: [90, 10]
@@ -36,7 +37,7 @@ n_mel_channels: 80
 n_fft: 1024
 mel_fmin: 0.0
 mel_fmax: 8000
-mel_normalized: null
+mel_normalized: False
 power: 1
 norm: "slaney"
 mel_scale: "slaney"

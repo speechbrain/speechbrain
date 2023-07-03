@@ -4,12 +4,19 @@ statistics produced over the course of an experiment and summarizing them.
 Authors:
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
+ * Gaelle Laperriere 2021
+ * Sahar Ghannay 2021
 """
+
 import torch
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
-from speechbrain.dataio.dataio import merge_char, split_word
+from speechbrain.dataio.dataio import (
+    merge_char,
+    split_word,
+    extract_concepts_values,
+)
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
@@ -204,6 +211,14 @@ class ErrorRateStats(MetricStats):
         this represents character to split on after merge.
         Used with ``split_tokens`` the sequence is joined with
         this token in between, and then the whole sequence is split.
+    keep_values : bool
+        Whether to keep the values of the concepts or not.
+    extract_concepts_values : bool
+        Process the predict and target to keep only concepts and values.
+    tag_in : str
+        Start of the concept ('<' for exemple).
+    tag_out : str
+        End of the concept ('>' for exemple).
 
     Example
     -------
@@ -227,11 +242,24 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self, merge_tokens=False, split_tokens=False, space_token="_"):
+    def __init__(
+        self,
+        merge_tokens=False,
+        split_tokens=False,
+        space_token="_",
+        keep_values=True,
+        extract_concepts_values=False,
+        tag_in="",
+        tag_out="",
+    ):
         self.clear()
         self.merge_tokens = merge_tokens
         self.split_tokens = split_tokens
         self.space_token = space_token
+        self.extract_concepts_values = extract_concepts_values
+        self.keep_values = keep_values
+        self.tag_in = tag_in
+        self.tag_out = tag_out
 
     def append(
         self,
@@ -283,6 +311,22 @@ class ErrorRateStats(MetricStats):
         if self.split_tokens:
             predict = split_word(predict, space=self.space_token)
             target = split_word(target, space=self.space_token)
+
+        if self.extract_concepts_values:
+            predict = extract_concepts_values(
+                predict,
+                self.keep_values,
+                self.tag_in,
+                self.tag_out,
+                space=self.space_token,
+            )
+            target = extract_concepts_values(
+                target,
+                self.keep_values,
+                self.tag_in,
+                self.tag_out,
+                space=self.space_token,
+            )
 
         scores = wer_details_for_batch(ids, target, predict, True)
 

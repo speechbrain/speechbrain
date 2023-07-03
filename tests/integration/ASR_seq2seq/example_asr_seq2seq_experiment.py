@@ -97,6 +97,7 @@ def data_prep(data_folder, hparams):
     )
     datasets = [train_data, valid_data]
     label_encoder = sb.dataio.encoder.TextEncoder()
+    label_encoder.expect_len(hparams["num_labels"])
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")

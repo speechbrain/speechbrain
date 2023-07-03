@@ -3,7 +3,7 @@
 Authors
  * Mirco Ravanelli 2022
 """
-from speechbrain.utils.check_docstrings import check_docstrings
+from tests.utils.check_docstrings import check_docstrings
 
 
 def test_recipe_list(base_folder="."):

@@ -341,6 +341,8 @@ class Conv1d(nn.Module):
         to be removed with self.remove_weight_norm() at inference
     conv_init : str
         Weight initialization for the convolution network
+    default_padding: str or int
+        This sets the default padding mode that will be used by the pytorch Conv1d backend.
 
     Example
     -------
@@ -368,6 +370,7 @@ class Conv1d(nn.Module):
         skip_transpose=False,
         weight_norm=False,
         conv_init=None,
+        default_padding=0,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -392,7 +395,7 @@ class Conv1d(nn.Module):
             self.kernel_size,
             stride=self.stride,
             dilation=self.dilation,
-            padding=0,
+            padding=default_padding,
             groups=groups,
             bias=bias,
         )
@@ -401,6 +404,8 @@ class Conv1d(nn.Module):
             nn.init.kaiming_normal_(self.conv.weight)
         elif conv_init == "zero":
             nn.init.zeros_(self.conv.weight)
+        elif conv_init == "normal":
+            nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
