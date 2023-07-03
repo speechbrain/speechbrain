@@ -1507,6 +1507,15 @@ class VariationalAutoencoderLoss(nn.Module):
         return tensor.moveaxis(self.len_dim, 1)
 
 class AutoencoderLoss(nn.Module):
+    """An implementation of a standard (non-variational)
+    autoencoder loss
+    
+    Arguments
+    ---------
+    rec_loss: callable
+        the callable to compute the reconstruction loss
+    len_dim: torch.Tensor
+        the dimension index to be used for length"""
     def __init__(self, rec_loss=None, len_dim=1):
         super().__init__()
         self.rec_loss = rec_loss

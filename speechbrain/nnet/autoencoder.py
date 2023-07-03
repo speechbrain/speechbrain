@@ -50,6 +50,18 @@ class Autoencoder(nn.Module):
         raise NotImplementedError
 
     def forward(self, x):
+        """Performs the forward pass
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the input tensor
+            
+        Results
+        -------
+        result: torch.Tensor
+            the result
+        """
         return self.encode(x)
 
 

@@ -1319,11 +1319,39 @@ class GlobalNorm(torch.nn.Module):
         return x
 
     def normalize(self, x):
+        """Performs the normalization operation against the running
+        mean and standard deviation
+        
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor to normalize
+            
+        Returns
+        -------
+        result: torch.Tensor
+            the normalized tensor
+        """
         x = (x - self.running_mean) / self.running_std
         x = (x * self.norm_std) + self.norm_mean
         return x
 
     def get_mask(self, x, lengths):
+        """Returns the length mask for the specified tensor
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor for which the mask will be obtained
+
+        lengths: torch.Tensor
+            the length tensor
+
+        Returns
+        -------
+        mask: torch.Tensor
+            the mask tensor
+        """
         max_len = x.size(self.length_dim)
         mask = length_to_mask(lengths * max_len, max_len)
         for dim in range(1, x.dim()):

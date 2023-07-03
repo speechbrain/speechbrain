@@ -583,6 +583,17 @@ class LatentDiffusion(nn.Module):
         return self.diffusion.distort(latent)
 
     def sample(self, shape):
+        """Obtains a sample out of the diffusion model
+        
+        Arguments
+        ---------
+        shape: torch.Tensor
+        
+        Returns
+        -------
+        sample: torch.Tensor
+            the sample of the specified shape
+        """
         # TODO: Auto-compute the latent shape
         latent = self.diffusion.sample(shape)
         latent = self._pad_latent(latent)

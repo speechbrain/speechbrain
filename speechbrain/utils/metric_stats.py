@@ -1000,6 +1000,8 @@ class MultiMetricStats:
             self.metrics[key].append(ids, metric_scores)
 
     def eval_simple(self, *args, **kwargs):
+        """Evaluates the metric in a simple, sequential
+        manner"""
         scores = self.metric(*args, **kwargs)
         return {key: score.detach() for key, score in scores.items()}
 
@@ -1039,6 +1041,7 @@ def _dictify(f):
     has_asdict = None
 
     def wrapper(*args, **kwargs):
+        """The wrapper function"""
         nonlocal has_asdict
         result = f(*args, **kwargs)
         if has_asdict is None:
