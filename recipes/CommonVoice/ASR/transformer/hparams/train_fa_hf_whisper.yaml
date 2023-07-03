@@ -47,6 +47,7 @@ sample_rate: 16000
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 batch_size: 12
+test_batch_size: 8
 
 # These values are only used for the searchers.
 # They needs to be hardcoded and should not be changed with Whisper.
