@@ -16,7 +16,6 @@ import torch
 import tqdm
 import pathlib
 import speechbrain as sb
-from typing import tuple, list
 
 
 def undo_padding(batch, lengths):
@@ -346,7 +345,7 @@ def download_file(
 
 
 def pad_right_to(
-    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+    tensor: torch.Tensor, target_shape, mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
