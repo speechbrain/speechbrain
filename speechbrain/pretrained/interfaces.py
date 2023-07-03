@@ -2924,7 +2924,7 @@ class DIFFUSION_VOCODER(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if hasattr(self.hparams, "diffwave"):
-            self.infer = self.hparams.diffusion.diffwave_inference
+            self.infer = self.hparams.diffusion.inference
         else:
             raise NotImplementedError
 

@@ -172,7 +172,7 @@ class DiffWaveBrain(sb.Brain):
             x, y = self.last_batch
 
             # Preparing model for inference by removing weight norm)
-            sig_out = self.modules.diffusion.diffwave_inference(
+            sig_out = self.modules.diffusion.inference(
                 unconditional=self.hparams.unconditional,
                 scale=self.hparams.spec_hop_length,
                 condition=x,
