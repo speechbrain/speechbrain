@@ -71,7 +71,7 @@ def fetch(
     ---------
     filename : str
         Name of the file including extensions.
-    source : str
+    source : str or FetchSource
         Where to look for the file. This is interpreted in special ways:
         First, if the source begins with "http://" or "https://", it is
         interpreted as a web address and the file is downloaded.

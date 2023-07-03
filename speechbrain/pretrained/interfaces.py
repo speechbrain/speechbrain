@@ -46,6 +46,7 @@ def foreign_class(
     savedir=None,
     use_auth_token=False,
     download_only=False,
+    huggingface_cache_dir=None,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -66,7 +67,7 @@ def foreign_class(
 
     Arguments
     ---------
-    source : str
+    source : str or Path or FetchSource
         The location to use for finding the model. See
         ``speechbrain.pretrained.fetching.fetch`` for details.
     hparams_file : str
@@ -90,6 +91,8 @@ def foreign_class(
         default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
+    huggingface_cache_dir : str
+        Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
 
     Returns
     -------
@@ -106,6 +109,7 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
+        huggingface_cache_dir=huggingface_cache_dir,
     )
     pymodule_local_path = fetch(
         filename=pymodule_file,
@@ -115,6 +119,7 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
+        huggingface_cache_dir=huggingface_cache_dir,
     )
     sys.path.append(str(pymodule_local_path.parent))
 
@@ -316,6 +321,7 @@ class Pretrained(torch.nn.Module):
         use_auth_token=False,
         revision=None,
         download_only=False,
+        huggingface_cache_dir=None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -365,6 +371,12 @@ class Pretrained(torch.nn.Module):
             version of a model hosted at HuggingFace.
         download_only : bool (default: False)
             If true, class and instance creation is skipped.
+        revision : str
+            The model revision corresponding to the HuggingFace Hub model revision.
+            This is particularly useful if you wish to pin your code to a particular
+            version of a model hosted at HuggingFace.
+        huggingface_cache_dir : str
+            Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
         """
         if savedir is None:
             clsname = cls.__name__
@@ -377,6 +389,7 @@ class Pretrained(torch.nn.Module):
             save_filename=None,
             use_auth_token=use_auth_token,
             revision=revision,
+            huggingface_cache_dir=huggingface_cache_dir,
         )
         try:
             pymodule_local_path = fetch(
@@ -387,6 +400,7 @@ class Pretrained(torch.nn.Module):
                 save_filename=None,
                 use_auth_token=use_auth_token,
                 revision=revision,
+                huggingface_cache_dir=huggingface_cache_dir,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
