@@ -12,7 +12,6 @@ from speechbrain.decoders.utils import (
     inflate_tensor,
     mask_by_condition,
     _update_mem,
-    batch_filter_seq2seq_output,
 )
 
 
@@ -255,7 +254,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
         )
-    
+
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
