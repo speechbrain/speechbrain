@@ -153,8 +153,7 @@ class DiffusionBrain(sb.Brain):
                 batch, feats, lens
             )
             pred_done = self.modules.done_detector(
-                feats_done.squeeze(1),
-                lens_done
+                feats_done.squeeze(1), lens_done
             )
 
         # NOTE: lens can change because of the additional padding needed to account
@@ -433,10 +432,10 @@ class DiffusionBrain(sb.Brain):
         -------
         feats: torch.Tensor
             features (normalized spectrograms)
-        
+
         lens: torch.Tensor
             item lengths
-        
+
         done: torch.Tensor
             a tensor indicating whether the sequence/spectrogram
             is finished
@@ -455,8 +454,6 @@ class DiffusionBrain(sb.Brain):
             self.data_dist_stats_metric.append(
                 batch.file_name, feats_raw, mask=mask
             )
-
-        feats_done = None
 
         return feats, lens
 
@@ -498,14 +495,14 @@ class DiffusionBrain(sb.Brain):
             spectrogram features
         lens: torch.Tensor
             feature lengths
-        
+
         Returns
         -------
         feats_done: torch.Tensor
             features for the done detector (a concatenation)
         lens: torch.Tensor
             relative lengths of these features
-        
+
         """
         wavs_random, lens_random = batch.sig_random
         feats_random, _, lens_random = self.sig_to_feats(
@@ -580,7 +577,7 @@ class DiffusionBrain(sb.Brain):
                 pred_done.squeeze(-1),
                 lens_target,
                 length=lens_done,
-                reduction="batch",  
+                reduction="batch",
             )
 
         loss_autoencoder = None
@@ -653,7 +650,7 @@ class DiffusionBrain(sb.Brain):
         ---------
         samples: torch.Tensor
             a tensor of samples
-        
+
         wav: torch.Tensor
             a tensor of generated audio (optional)
 
@@ -663,7 +660,7 @@ class DiffusionBrain(sb.Brain):
             the raw output of the "done" predictor
         samples_cut: list
             a list of samples
-        
+
         """
         done_in = samples.squeeze(1)[:, :, : self.hparams.spec_n_mels]
         done_pred = self.modules.done_detector(done_in)
@@ -847,7 +844,7 @@ class DiffusionBrain(sb.Brain):
 
         This method accepts keywords arguments, and each argument
         becomes a key in the dictionary to be saved.
-        
+
         Arguments
         ---------
         path: str
@@ -876,12 +873,12 @@ class DiffusionBrain(sb.Brain):
 
     def denormalize(self, samples):
         """Undoes the normalization performed on spectrograms
-        
+
         Arguments
         ---------
         samples: torch.Tensor
             normalized samples
-        
+
         Returns
         -------
         result: torch.Tensor
@@ -1266,9 +1263,7 @@ class DiffusionBrain(sb.Brain):
                     f"{key_prefix}spectrogram", sample
                 )
             if wav_samples is not None:
-                max_len = max(
-                    sample.size(-1) for sample in wav_samples
-                )
+                max_len = max(sample.size(-1) for sample in wav_samples)
                 lens_full = (lens * max_len).int()
                 for wav_sample, sample_len in zip(wav_samples, lens_full):
                     self.tb_writer.add_audio(
@@ -1375,7 +1370,7 @@ def dataio_prep(hparams):
 
 def read_audio(wav, hparams):
     """Reads an audio file, applying random amplitude
-    
+
     Arguments
     ---------
     wav: str

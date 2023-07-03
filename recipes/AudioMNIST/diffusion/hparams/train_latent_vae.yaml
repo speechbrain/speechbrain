@@ -213,7 +213,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetVariationalAutencoder
     latent_mask_value: !ref <latent_mask_value>
     dropout: !ref <autoencoder_dropout>
     use_fixup_norm: !ref <autoencoder_use_fixup_norm>
-    latent_stochastic: false
+    latent_stochastic: False
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
 
@@ -249,7 +249,7 @@ done_detector: !new:custom_model.DoneDetector
         out: !new:torch.nn.Linear
             in_features: !ref <done_dnn_neurons>
             out_features: 1
-        act: !new:torch.nn.Sigmoid            
+        act: !new:torch.nn.Sigmoid
     out: !new:speechbrain.nnet.activations.Softmax
         apply_log: False
         dim: 1
@@ -301,7 +301,7 @@ opt_class_done: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True    
+    capturable: True
 
 
 # This function manages learning rate annealing over the epochs.
@@ -336,4 +336,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         compute_cost_autoencoder_rec: !ref <compute_cost_autoencoder_rec>
         global_norm: !ref <global_norm>
         done_detector: !ref <done_detector>
-

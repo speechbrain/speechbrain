@@ -770,26 +770,22 @@ def batch_shuffle(items, batch_size):
     return result
 
 
-import torch
-from numbers import Number
-
-
 def concat_padded_features(
     feats, lens, dim=1, feats_slice_start=None, feats_slice_end=None
 ):
     """Concatenates multiple padded feature tensors into a single
-    padded tensor in a vectorized manner without including the 
+    padded tensor in a vectorized manner without including the
     padding in the final tensor, adding padding only at the end.
     The function supports optional relative sicing of the tensors.
 
     One possible use case is to concatenate batches of spectrograms
     or audio.
-    
+
     Arguments
     ---------
     feats: list
         a list of padded tesnors
-    
+
     lens: list
         a list of length tensors
 
@@ -802,7 +798,7 @@ def concat_padded_features(
         offsets, relative to the end of the sequence, for each
         of the tensors being concatenated. This is useful if only
         a subsequence of some slices is included
-        
+
 
 
     Returns
@@ -811,7 +807,9 @@ def concat_padded_features(
         a concatenated tensor
     """
     first_item = feats[0]
-    item_lengths = torch.tensor([item.size(dim) for item in feats]).to(first_item.device)
+    item_lengths = torch.tensor([item.size(dim) for item in feats]).to(
+        first_item.device
+    )
     lens = torch.concat([len_rel.unsqueeze(0) for len_rel in lens])
     lens_abs = (lens * item_lengths.unsqueeze(-1)).int()
 
@@ -846,15 +844,15 @@ def _offset_to_tensor(offset, lengths):
     used by concat_padded_features. offset can be a tensor, a list of tensors (where
     each element is a tensor of relative offsets similar to lengths), a list of floats
     (in which case all batch elements are presumed to have the same offset)
-    
+
     Arguments
     ---------
     offset: list|torch.Tensor
         a list or tensor of offsets
-        
+
     lengths: torch.Tensor
         a length tensor
-        
+
     Returns
     -------
     result: torch.Tensor
@@ -883,8 +881,8 @@ def _lens_to_boundaries(
 ):
     """Converts a tensor of lengths to a tensor of start and end
     boundaries, used for concat_padded_features
-    
-    
+
+
     Arguments
     ---------
     lengths: torch.Tensor
@@ -892,10 +890,10 @@ def _lens_to_boundaries(
 
     slice_start: torch.Tensor
         a (component x batch) tensor of relative start offsets
-    
+
     slice_end: torch.Tensor
         a (component x batch) tensor of relative end offsets
-    
+
     cumultative: True
         if true, the start of a given component is assumed to
         be at the end of the previous component.
@@ -932,21 +930,21 @@ def _lens_to_boundaries(
 def _boundaries_to_mask(target, start, end, len_dim=1):
     """For a given features tensor and tensors of start and end indexes,
     computes the corresponding Boolean mask
-    
+
     Arguments
     ---------
     target: torch.Tensor
         the target tensor
-        
+
     start: torch.Tensor
         the tensor indicating the starting positions along the length
         dimension within each batch
     end: torch.Tensor
         the tensor indicating the final positions within each batch
-    
+
     len_dim: int
         the dimension used as the length
-        
+
     Returns
     -------
     mask: torch.Tensor
@@ -963,7 +961,7 @@ def unsqueeze_1d(value, dim, value_dim):
     """Unsqueezes a 1-D tensor to the specified number of
     dimension preserving one dimension and creating "dummy" dimensions
     elsewhere
-    
+
     Arguments
     ---------
     value: torch.Tensor
@@ -972,8 +970,8 @@ def unsqueeze_1d(value, dim, value_dim):
         the number of dimension
     value_dim: int
         the dimension that the value tensor represents
-        
-        
+
+
     Returns
     -------
     result: torch.Tensor
@@ -987,14 +985,14 @@ def unsqueeze_1d(value, dim, value_dim):
 def length_range(feats, len_dim):
     """Creates a tensor with a range in a single dimension to one matching the shape
     of a its tensor
-    
+
     Arguments
     ---------
     feats: torch.Tensor
         a features tensor of arbitrary shape
     len_dim: torch.Tensor
         the dimension used as length
-        
+
     Returns
     -------
     result: torch.Tensor

@@ -1321,12 +1321,12 @@ class GlobalNorm(torch.nn.Module):
     def normalize(self, x):
         """Performs the normalization operation against the running
         mean and standard deviation
-        
+
         Arguments
         ---------
         x: torch.Tensor
             the tensor to normalize
-            
+
         Returns
         -------
         result: torch.Tensor

@@ -40,7 +40,7 @@ class Softmax(torch.nn.Module):
             self.act = torch.nn.LogSoftmax(dim=dim)
         else:
             self.act = torch.nn.Softmax(dim=dim)
-        
+
         self.reshape = reshape
 
     def forward(self, x):

@@ -455,7 +455,7 @@ class LatentDiffusion(nn.Module):
         by. This is useful if the underlying model for the diffusion
         wrapper is based on a UNet-like architecture where the inputs
         are progressively downsampled and upsampled by factors of two
-    
+
     latent_pad_dims: int|list[int]
         the dimension(s) along which the latent space will be
         padded
@@ -466,7 +466,7 @@ class LatentDiffusion(nn.Module):
         autoencoder,
         diffusion,
         latent_downsample_factor=None,
-        latent_pad_dim=1
+        latent_pad_dim=1,
     ):
         super().__init__()
         self.autencoder = autoencoder
@@ -506,17 +506,17 @@ class LatentDiffusion(nn.Module):
 
     def _pad_latent(self, latent):
         """Pads the latent space to the desired dimension
-        
+
         Arguments
         ---------
         latent: torch.Tensor
             the latent representation
-            
+
         Returns
         -------
         result: torch.Tensor
             the latent representation, with padding"""
-        
+
         # TODO: Check whether masking will need to be adjusted
         if (
             self.latent_downsample_factor is not None
@@ -524,9 +524,7 @@ class LatentDiffusion(nn.Module):
         ):
             for dim in self.latent_pad_dim:
                 latent, _ = data_utils.pad_divisible(
-                    latent,
-                    factor=self.latent_downsample_factor,
-                    len_dim=dim
+                    latent, factor=self.latent_downsample_factor, len_dim=dim
                 )
         return latent
 
@@ -550,9 +548,7 @@ class LatentDiffusion(nn.Module):
             latent_mask_value=latent_mask_value,
         )
         latent = self._pad_latent(autoencoder_out.latent)
-        diffusion_train_sample = self.diffusion.train_sample(
-            latent, **kwargs
-        )
+        diffusion_train_sample = self.diffusion.train_sample(latent, **kwargs)
         return LatentDiffusionTrainSample(
             diffusion=diffusion_train_sample, autoencoder=autoencoder_out
         )
@@ -584,11 +580,11 @@ class LatentDiffusion(nn.Module):
 
     def sample(self, shape):
         """Obtains a sample out of the diffusion model
-        
+
         Arguments
         ---------
         shape: torch.Tensor
-        
+
         Returns
         -------
         sample: torch.Tensor

@@ -461,17 +461,17 @@ def set_output_keys(datasets, output_keys):
 
 
 def apply_overfit_test(hparams, dataset):
-    """Applies the overfit test to the specified dataset, 
+    """Applies the overfit test to the specified dataset,
     as configured in the hyperparameters file
-    
+
     Arguments
     ---------
     hparams: dict
         the hyperparameters dictionary
-    
+
     dataset: DynamicItemDataset
         the dataset
-        
+
     Returns
     -------
     dataset: DynamicItemDataset

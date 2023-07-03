@@ -6,6 +6,7 @@ Authors
 from torch import nn
 from speechbrain.dataio.dataio import length_to_mask
 
+
 class DoneDetector(nn.Module):
     """A wrapper for the done detector using a model (e.g. a CRDNN) and
     an output layer.
@@ -14,6 +15,7 @@ class DoneDetector(nn.Module):
     (e.g. Softmax) so that the model can't "cheat" by outputting probabilities
     in the masked area
     """
+
     def __init__(self, model, out):
         super().__init__()
         self.model = model
@@ -21,7 +23,7 @@ class DoneDetector(nn.Module):
 
     def forward(self, feats, length=None):
         """Computes the forward pass
-        
+
         Arguments
         ---------
         feats: torch.Tensor
@@ -33,7 +35,7 @@ class DoneDetector(nn.Module):
         -------
         preds: torch.Tensor
             predictions
-        """            
+        """
         out = self.model(feats)
         if length is not None:
             max_len = feats.size(1)

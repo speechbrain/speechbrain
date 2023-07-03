@@ -1461,7 +1461,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
         latent_mask_value=0.0,
         use_fixup_norm=False,
         latent_stochastic=True,
-        downsampling_padding=None
+        downsampling_padding=None,
     ):
         encoder_unet = EncoderUNetModel(
             in_channels=in_channels,
@@ -1481,7 +1481,7 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             use_fixup_init=use_fixup_norm,
         )
         if downsampling_padding is None:
-            downsampling_padding = 2 ** len(channel_mult)            
+            downsampling_padding = 2 ** len(channel_mult)
         encoder_pad = DownsamplingPadding(downsampling_padding)
 
         decoder = DecoderUNetModel(
@@ -1519,8 +1519,9 @@ class UNetVariationalAutencoder(VariationalAutoencoder):
             len_dim=len_dim,
             out_mask_value=out_mask_value,
             latent_mask_value=latent_mask_value,
-            latent_stochastic=latent_stochastic
+            latent_stochastic=latent_stochastic,
         )
+
 
 class UNetNormalizingAutoencoder(NormalizingAutoencoder):
     """A convenience class for a UNet-based Variational Autoencoder (VAE) -
@@ -1588,7 +1589,7 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
         out_mask_value=0.0,
         latent_mask_value=0.0,
         use_fixup_norm=False,
-        downsampling_padding=None
+        downsampling_padding=None,
     ):
         encoder_unet = EncoderUNetModel(
             in_channels=in_channels,
@@ -1615,11 +1616,11 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
                 in_channels=encoder_out_channels,
                 out_channels=latent_channels,
                 kernel_size=1,
-            )
-        )        
+            ),
+        )
         if downsampling_padding is None:
-            downsampling_padding = 2 ** len(channel_mult)            
-        
+            downsampling_padding = 2 ** len(channel_mult)
+
         encoder_pad = DownsamplingPadding(downsampling_padding)
 
         decoder = DecoderUNetModel(

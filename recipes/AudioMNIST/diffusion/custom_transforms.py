@@ -7,6 +7,7 @@ Authors
 import torch
 from torch import nn
 
+
 class MinLevelNorm(nn.Module):
     """A normalization for the decibel scale
 
@@ -61,6 +62,7 @@ class MinLevelNorm(nn.Module):
         x *= -self.min_level_db
         x += self.min_level_db
         return x
+
 
 class DynamicRangeCompression(nn.Module):
     """Dynamic range compression for audio signals

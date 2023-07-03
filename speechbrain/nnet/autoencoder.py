@@ -51,12 +51,12 @@ class Autoencoder(nn.Module):
 
     def forward(self, x):
         """Performs the forward pass
-        
+
         Arguments
         ---------
         x: torch.Tensor
             the input tensor
-            
+
         Results
         -------
         result: torch.Tensor
@@ -119,9 +119,9 @@ class VariationalAutoencoder(Autoencoder):
         latent_padding=None,
         mask_latent=True,
         mask_out=True,
-        out_mask_value=0.,
-        latent_mask_value=0.,
-        latent_stochastic=True
+        out_mask_value=0.0,
+        latent_mask_value=0.0,
+        latent_stochastic=True,
     ):
         super().__init__()
         self.encoder = encoder
@@ -225,9 +225,10 @@ class VariationalAutoencoder(Autoencoder):
         latent_sample = self.reparameterize(mean, log_var)
         if self.latent_padding is not None:
             latent_sample, latent_length = self.latent_padding(
-                latent_sample, length=length)
+                latent_sample, length=length
+            )
         else:
-            latent_length = length        
+            latent_length = length
         if self.mask_latent and length is not None:
             latent_sample = clean_padding(
                 latent_sample, latent_length, self.len_dim, latent_mask_value
@@ -236,32 +237,33 @@ class VariationalAutoencoder(Autoencoder):
         x_rec = trim_as(x_rec, x)
         if self.mask_out and length is not None:
             x_rec = clean_padding(x_rec, length, self.len_dim, out_mask_value)
-        
+
         if self.latent_stochastic:
             latent = latent_sample
         else:
-            latent, latent_length = self.latent_padding(
-                mean, length=length)
+            latent, latent_length = self.latent_padding(mean, length=length)
 
-        return VariationalAutoencoderOutput(x_rec, latent, mean, log_var, latent_sample, latent_length)
+        return VariationalAutoencoderOutput(
+            x_rec, latent, mean, log_var, latent_sample, latent_length
+        )
 
 
 VariationalAutoencoderOutput = namedtuple(
     "VariationalAutoencoderOutput",
-    ["rec", "latent", "mean", "log_var", "latent_sample", "latent_length"]
+    ["rec", "latent", "mean", "log_var", "latent_sample", "latent_length"],
 )
 
 AutoencoderOutput = namedtuple(
-    "AutoencoderOutput",
-    ["rec", "latent", "latent_length"]
+    "AutoencoderOutput", ["rec", "latent", "latent_length"]
 )
+
 
 class NormalizingAutoencoder(Autoencoder):
     """A classical (non-variational) autoencoder that
     does not use reparameterization but instead uses
     an ordinary normalization technique to constrain
     the latent space
-    
+
     Arguments
     ---------
     encoder: torch.nn.Module
@@ -277,6 +279,7 @@ class NormalizingAutoencoder(Autoencoder):
     out_mask_value: float
         the mask value used for the output
     """
+
     def __init__(
         self,
         encoder,
@@ -286,8 +289,8 @@ class NormalizingAutoencoder(Autoencoder):
         len_dim=1,
         mask_out=True,
         mask_latent=True,
-        out_mask_value=0.,
-        latent_mask_value=0.,
+        out_mask_value=0.0,
+        latent_mask_value=0.0,
     ):
         super().__init__()
         self.encoder = encoder
@@ -334,7 +337,7 @@ class NormalizingAutoencoder(Autoencoder):
             the decoded sample
         """
         return self.decoder(latent)
-        
+
     def train_sample(
         self, x, length=None, out_mask_value=None, latent_mask_value=None
     ):
@@ -365,8 +368,7 @@ class NormalizingAutoencoder(Autoencoder):
             latent_mask_value = self.latent_mask_value
         latent = self.encode(x, length=length)
         if self.latent_padding is not None:
-            latent, latent_length = self.latent_padding(
-                latent, length=length)
+            latent, latent_length = self.latent_padding(latent, length=length)
         else:
             latent_length = length
         if self.mask_latent and length is not None:
@@ -376,8 +378,6 @@ class NormalizingAutoencoder(Autoencoder):
         x_rec = self.decode(latent)
         x_rec = trim_as(x_rec, x)
         if self.mask_out and length is not None:
-            x_rec = clean_padding(
-                x_rec, length, self.len_dim, out_mask_value)
+            x_rec = clean_padding(x_rec, length, self.len_dim, out_mask_value)
 
         return AutoencoderOutput(x_rec, latent, latent_length)
-

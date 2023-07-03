@@ -601,37 +601,37 @@ def distance_diff_loss(
     targets,
     length=None,
     beta=0.25,
-    max_weight=100.,
-    reduction="mean"
+    max_weight=100.0,
+    reduction="mean",
 ):
     """A loss function that can be used in cases where a model outputs
-    an arbitrary probability distribution for a discrete variable on 
+    an arbitrary probability distribution for a discrete variable on
     an interval scale, such as the length of a sequence, and the ground
     truth is the precise values of the variable from a data sample.
 
-    The loss is defined as 
+    The loss is defined as
     loss_i = p_i * exp(beta * |i - y|) - 1.
 
     The loss can also be used where outputs aren't probabilities, so long
     as high values close to the ground truth position and low values away
     from it are desired
-    
+
     Arguments
     ---------
     predictions: torch.Tensor
         a (batch x max_len) tensor in which each element is a probability,
         weight or some other value at that position
-        
+
     targets: torch.Tensor
         a 1-D tensor in which each elemnent is thr ground truth
-    
+
     length: torch.Tensor
         lengths (for masking in padded batches)
-        
+
     beta: torch.Tensor
         a hyperparameter controlling the penalties. With a higher beta,
         penalties will increase faster
-    
+
     max_weight: torch.Tensor
         the maximum distance weight (for numerical stability in long sequences)
 
@@ -642,23 +642,25 @@ def distance_diff_loss(
     """
     return compute_masked_loss(
         functools.partial(
-            _distance_diff_loss, beta=beta, max_weight=max_weight),
+            _distance_diff_loss, beta=beta, max_weight=max_weight
+        ),
         predictions=predictions,
         targets=targets,
         length=length,
         reduction=reduction,
-        mask_shape="loss"
+        mask_shape="loss",
     )
+
 
 def _distance_diff_loss(predictions, targets, beta, max_weight):
     """Computes the raw (unreduced) distance difference loss
-    
+
     Arguments
     ---------
     predictions: torch.Tensor
         a (batch x max_len) tensor in which each element is a probability,
         weight or some other value at that position
-        
+
     targets: torch.Tensor
         a 1-D tensor in which each elemnent is thr ground truth
 
@@ -672,13 +674,11 @@ def _distance_diff_loss(predictions, targets, beta, max_weight):
 
     """
     batch_size, max_len = predictions.shape
-    pos_range = (
-        torch.arange(max_len)
-        .unsqueeze(0)
-        .repeat(batch_size, 1)
-    ).to(predictions.device)
+    pos_range = (torch.arange(max_len).unsqueeze(0).repeat(batch_size, 1)).to(
+        predictions.device
+    )
     diff_range = (pos_range - targets.unsqueeze(-1)).abs()
-    loss_weights = ((beta * diff_range).exp() - 1.).clamp(max=max_weight)
+    loss_weights = ((beta * diff_range).exp() - 1.0).clamp(max=max_weight)
     return (loss_weights * predictions).unsqueeze(-1)
 
 
@@ -739,7 +739,7 @@ def compute_masked_loss(
         One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
         single value and 'batch' returns one per item in the batch and
         'batchmean' is sum / batch_size and 'none' returns all.
-    """        
+    """
 
     # Compute, then reduce loss
     loss = loss_fn(predictions, targets)
@@ -1506,16 +1506,18 @@ class VariationalAutoencoderLoss(nn.Module):
     def _align_length_axis(self, tensor):
         return tensor.moveaxis(self.len_dim, 1)
 
+
 class AutoencoderLoss(nn.Module):
     """An implementation of a standard (non-variational)
     autoencoder loss
-    
+
     Arguments
     ---------
     rec_loss: callable
         the callable to compute the reconstruction loss
     len_dim: torch.Tensor
         the dimension index to be used for length"""
+
     def __init__(self, rec_loss=None, len_dim=1):
         super().__init__()
         self.rec_loss = rec_loss
@@ -1589,12 +1591,11 @@ def _reduce_autoencoder_loss(loss, length, reduction):
 
 VariationalAutoencoderLossDetails = namedtuple(
     "VariationalAutoencoderLossDetails",
-    ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"]
+    ["loss", "rec_loss", "dist_loss", "weighted_dist_loss"],
 )
 
 AutoencoderLossDetails = namedtuple(
-    "AutoencoderLossDetails",
-    ["loss", "rec_loss"]
+    "AutoencoderLossDetails", ["loss", "rec_loss"]
 )
 
 

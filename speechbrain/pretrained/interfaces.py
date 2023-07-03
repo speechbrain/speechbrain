@@ -3037,6 +3037,8 @@ class DIFFUSION_VOCODER(Pretrained):
     def forward(self, spectrogram):
         "Decodes the input spectrograms"
         return self.decode_batch(spectrogram)
+
+
 class WhisperASR(Pretrained):
     """A ready-to-use Whisper ASR model
 
