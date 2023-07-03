@@ -108,7 +108,6 @@ eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
 lm_weight: 0.50
-ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -226,6 +225,7 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 
 rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
    language_model: !ref <lm_model>
+   temperature: !ref <temperature_lm>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [!ref <rnnlm_scorer>,
@@ -246,6 +246,7 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    beam_size: !ref <valid_beam_size>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
+   max_attn_shift: !ref <max_attn_shift>
    temperature: !ref <temperature>
 
 test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
@@ -259,6 +260,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    beam_size: !ref <test_beam_size>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
+   max_attn_shift: !ref <max_attn_shift>
    temperature: !ref <temperature>
    scorer: !ref <scorer>
 
