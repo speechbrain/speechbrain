@@ -31,9 +31,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from data_augment import augment_data
-from lr_finder import LRFinder
 from itertools import chain
-import wandb
 import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
@@ -76,84 +74,6 @@ class VADBrain(sb.Brain):
         outputs = self.modules.dnn(outputs)
 
         return outputs, lens
-
-    def fit_batch(self, batch):
-        """Fit one batch, override to do multiple updates.
-
-        The default implementation depends on a few methods being defined
-        with a particular behavior:
-
-        * ``compute_forward()``
-        * ``compute_objectives()``
-
-        Also depends on having optimizers passed at initialization.
-
-        Arguments
-        ---------
-        batch : list of torch.Tensors
-            Batch of data to use for training. Default implementation assumes
-            this batch has two elements: inputs and targets.
-
-        Returns
-        -------
-        detached loss
-        """
-        should_step = self.step % self.grad_accumulation_factor == 0
-        grad_data = []
-        update_data = []
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-
-            with torch.no_grad():
-                for p in chain(self.hparams.cnn.parameters(), self.hparams.rnn.parameters(), self.hparams.dnn.parameters()):
-                    grad_data.extend((torch.abs(p.grad) / p).log10().flatten().cpu().numpy().tolist())
-                    update_data.extend((torch.abs(p.grad) * self.hparams.lr / p).log10().flatten().cpu().numpy().tolist())
-
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-
-            with torch.no_grad():
-                for p in chain(self.hparams.cnn.parameters(), self.hparams.rnn.parameters(), self.hparams.dnn.parameters()):
-                    grad_data.extend((torch.abs(p.grad) / torch.abs(p)).mean().log10().flatten().cpu().numpy().tolist())
-                    update_data.extend((torch.abs(p.grad) * self.hparams.lr / torch.abs(p)).mean().log10().flatten().cpu().numpy().tolist())
-
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.optimizer_step += 1
-
-        if self.step == 100:
-            import matplotlib.pyplot as plt
-
-            plt.title("Grad / Data ratio")
-            plt.plot(grad_data)
-            plt.savefig("grad_data.png")
-            plt.clf()
-            plt.title("Update / Data ratio")
-            plt.plot(update_data)
-            plt.savefig("update_data.png")
-
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
     
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the binary CE"
@@ -167,13 +87,12 @@ class VADBrain(sb.Brain):
         # print(torch.sigmoid(predictions).shape, targets.shape)
         # input()
 
-        self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets)
+        self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets[:, 3:])
         if stage != sb.Stage.TRAIN:
             self.valid_metrics.append(
-                batch.id, torch.sigmoid(predictions), targets
+                batch.id, torch.sigmoid(predictions), targets[:, 3:]
             )
         
-        wandb.log({"run/%s/loss" % str(stage).split('.')[-1].lower(): loss})
 
         return loss
 
@@ -291,7 +210,6 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-    wandb.init(project="reVAD", entity="ffpais")
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -300,7 +218,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    wandb.config = hparams
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -385,7 +302,6 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    wandb.watch([hparams["modules"]["cnn"], hparams["modules"]["rnn"], hparams["modules"]["dnn"]], log='all', log_freq=100)
 
     # Training/validation loop
     vad_brain.fit(
