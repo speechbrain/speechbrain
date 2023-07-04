@@ -11,7 +11,6 @@ import pathlib
 import logging
 from enum import Enum
 import huggingface_hub
-from typing import Union
 from collections import namedtuple
 from requests.exceptions import HTTPError
 
@@ -59,8 +58,6 @@ def fetch(
     use_auth_token=False,
     revision=None,
     huggingface_cache_dir=None,
-    cache_dir: Union[str, pathlib.Path, None] = None,
-    silent_local_fetch: bool = False,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -102,11 +99,6 @@ def fetch(
         version of a model hosted at HuggingFace.
     huggingface_cache_dir: str
         Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
-    cache_dir: str or Path (default: None)
-        Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
-    silent_local_fetch: bool (default: False)
-        Surpress logging messages (quiet mode).
-
     Returns
     -------
     pathlib.Path
@@ -132,9 +124,8 @@ def fetch(
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
         MSG = f"Destination {filename}: local file in {str(sourcepath)}."
-        if not silent_local_fetch:
-            logger.info(MSG)
         return sourcepath
+
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
         MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}."
@@ -142,8 +133,7 @@ def fetch(
         return destination
     if (
         str(source).startswith("http:") or str(source).startswith("https:")
-    ) or fetch_from is FetchFrom.URI:
-        # Interpret source as web address.
+    ) or fetch_from is FetchFrom.URI:  # Interpret source as web address.
         MSG = (
             f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."
         )
@@ -174,7 +164,6 @@ def fetch(
                 raise ValueError("File not found on HF hub")
             else:
                 raise
-
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
         _missing_ok_unlink(destination)
