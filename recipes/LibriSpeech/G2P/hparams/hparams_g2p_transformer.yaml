@@ -383,7 +383,7 @@ transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
 
 scorer_lm: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>, !ref <coverage_scorer>]
-    scorer_weights
+    scorer_weights:
         ctc: !ref <beam_search_ctc_weight_decode>
         transformerlm: !ref <beam_search_lm_weight>
         coverage: !ref <beam_search_coverage_penalty>
@@ -391,7 +391,7 @@ scorer_lm: !new:speechbrain.decoders.scorer.ScorerBuilder
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>, !ref <coverage_scorer>]
-    scorer_weights
+    scorer_weights:
         ctc: !ref <beam_search_ctc_weight_decode>
         coverage: !ref <beam_search_coverage_penalty>
 

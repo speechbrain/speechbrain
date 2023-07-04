@@ -245,7 +245,7 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [!ref <coverage_scorer>, !ref <ctc_scorer>]
-   scorer_weights
+   scorer_weights:
       coverage: !ref <coverage_penalty>
       ctc: !ref <ctc_weight_decode>
    scorer_beam_scale: !ref <scorer_beam_scale>

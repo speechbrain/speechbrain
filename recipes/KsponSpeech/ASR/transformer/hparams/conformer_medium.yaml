@@ -177,7 +177,7 @@ rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <rnnlm_scorer>,
                    !ref <ctc_scorer>]
-    scorer_weights
+    scorer_weights:
         rnnlm: !ref <lm_weight>
         ctc: !ref <ctc_weight_decode>
 

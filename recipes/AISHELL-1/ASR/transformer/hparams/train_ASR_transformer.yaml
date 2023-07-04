@@ -164,7 +164,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>]
-    scorer_weights
+    scorer_weights:
         ctc: !ref <ctc_decode_weight>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher

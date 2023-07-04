@@ -198,7 +198,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
   full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
-  scorer_weights
+  scorer_weights:
     transformerlm: !ref <lm_weight>
     ctc: !ref <ctc_weight_decode>
 
