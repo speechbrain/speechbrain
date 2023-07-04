@@ -477,7 +477,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             sequence_scores=torch.empty(self.n_bh, device=self.device)
             .fill_(self.minus_inf)
             .index_fill_(0, self.beam_offset, 0.0),
-            decoded_seq=None,
         )
 
     def _attn_weight_step(
