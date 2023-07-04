@@ -131,14 +131,26 @@ class S2SBaseSearcher(torch.nn.Module):
         """
         raise NotImplementedError
 
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return min_decode_steps, max_decode_steps
+
+    def set_n_out(self):
+        """set the number of output tokens.
+        Overrides this function if the fc layer is embedded
+        in the model, e.g., Whisper.
+        """
+        return self.fc.w.out_features
+
 
 class S2SGreedySearcher(S2SBaseSearcher):
-    """ This class implements the general forward-pass of
+    """This class implements the general forward-pass of
     greedy decoding approach. See also S2SBaseSearcher().
     """
 
     def forward(self, enc_states, wav_len):
         """This method performs a greedy search.
+
         Arguments
         ---------
         enc_states : torch.Tensor
@@ -180,7 +192,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
-
         scores, predictions = log_probs.max(dim=-1)
         mask = scores == float("inf")
         scores[mask] = 0
@@ -243,7 +254,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
         )
-
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
