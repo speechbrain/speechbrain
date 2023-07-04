@@ -562,7 +562,7 @@ class CTCScorer(BaseScorerInterface):
     ... )
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[ctc_scorer],
-    ...     weights={'ctc': 1.0}
+    ...     scorer_weights={'ctc': 1.0}
     ... )
     >>> searcher = S2STransformerBeamSearcher(
     ...     modules=[net, lin],
@@ -660,7 +660,7 @@ class RNNLMScorer(BaseScorerInterface):
     ... )
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[rnnlm_scorer],
-    ...     weights={'rnnlm': lm_weight}
+    ...     scorer_weights={'rnnlm': lm_weight}
     ... )
     >>> beam_size=5
     >>> searcher = S2SRNNBeamSearcher(
@@ -767,7 +767,7 @@ class TransformerLMScorer(BaseScorerInterface):
     >>> lm_weight=0.6
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, ctc_scorer],
-    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight}
+    ...     scorer_weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight}
     ... )
     >>> beam_size=5
     >>> searcher = S2STransformerBeamSearcher(
@@ -973,7 +973,7 @@ class CoverageScorer(BaseScorerInterface):
     >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[rnnlm_scorer, coverage_scorer],
-    ...     weights={'rnnlm': lm_weight, 'coverage': coverage_penalty}
+    ...     scorer_weights={'rnnlm': lm_weight, 'coverage': coverage_penalty}
     ... )
     >>> beam_size=5
     >>> searcher = S2SRNNBeamSearcher(
@@ -1065,7 +1065,7 @@ class ScorerBuilder:
 
     Arguments
     ---------
-    weights : dict
+    scorer_weights : dict
         Weights of full/partial scorers specified.
     full_scorers : list
         Scorers that score on full vocabulary set.
@@ -1124,7 +1124,7 @@ class ScorerBuilder:
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, coverage_scorer],
     ...     partial_scorers=[ctc_scorer],
-    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight, 'coverage': coverage_penalty}
+    ...     scorer_weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight, 'coverage': coverage_penalty}
     ... )
     >>> beam_size=5
     >>> searcher = S2STransformerBeamSearcher(
@@ -1149,14 +1149,14 @@ class ScorerBuilder:
 
     def __init__(
         self,
-        weights=dict(),
+        scorer_weights=dict(),
         rescorers_weights=dict(),
         full_scorers=list(),
         partial_scorers=list(),
         rescorers=list(),
         scorer_beam_scale=1.5,
     ):
-        assert len(weights) == len(full_scorers) + len(
+        assert len(scorer_weights) == len(full_scorers) + len(
             partial_scorers
         ), "Weights and scorers are not matched."
 
@@ -1194,7 +1194,7 @@ class ScorerBuilder:
 
         # Have a default 0.0 weight for scorer not specified
         init_weights = {k: 0.0 for k in all_scorer_names}
-        self.scorers_weights = {**init_weights, **weights}
+        self.scorers_weights = {**init_weights, **scorer_weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
 

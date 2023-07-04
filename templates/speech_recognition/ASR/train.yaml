@@ -271,7 +271,7 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
         !ref <rnnlm_scorer>,
         !ref <coverage_scorer>]
     partial_scorers: [!ref <ctc_scorer>]
-    weights:
+    scorer_weights
         rnnlm: !ref <lm_weight>
         coverage: !ref <coverage_penalty>
         ctc: !ref <ctc_decode_weight>

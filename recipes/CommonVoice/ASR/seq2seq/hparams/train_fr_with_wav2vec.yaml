@@ -196,7 +196,7 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <coverage_scorer>]
-    weights:
+    scorer_weights
         coverage: !ref <coverage_penalty>
 
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher

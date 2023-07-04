@@ -229,7 +229,7 @@ rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [!ref <rnnlm_scorer>,
                   !ref <coverage_scorer>]
-   weights:
+   scorer_weights
       rnnlm: !ref <lm_weight>
       coverage: !ref <coverage_penalty>
 
