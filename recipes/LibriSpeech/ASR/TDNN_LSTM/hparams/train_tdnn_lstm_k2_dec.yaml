@@ -187,7 +187,7 @@ add_speech_musan: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_high: -20
 # ------------ MUSAN Augmentation END ------------
 
-enc: !new:speechbrain.lobes.models.tdnn_lstm_model.TdnnLstm
+enc: !new:tdnn_lstm_model.TdnnLstm
    num_features: !ref <n_mels>
    num_classes: !ref <output_neurons>
    subsampling_factor: 3
