@@ -25,9 +25,17 @@ from speechbrain.dataio.dataio import length_to_mask, write_audio
 from speechbrain.dataio.dataset import apply_overfit_test
 from speechbrain.utils import data_utils
 from speechbrain.utils.train_logger import plot_spectrogram
-from speechbrain.utils.data_utils import match_shape, unsqueeze_as
 from enum import Enum
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.data_utils import (
+    dict_value_combinations,
+    dist_stats,
+    masked_mean,
+    masked_min,
+    masked_max,
+    masked_std,
+    match_shape,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1404,209 +1412,6 @@ def enhance_with_random(dataset, hparams):
         return wav_random, read_audio(wav_random, hparams)
 
     dataset.add_dynamic_item(extra_random_sample)
-
-
-def non_batch_dims(sample):
-    """Returns all dimensons of the specified tensor
-    except the batch dimension
-
-    Arguments
-    ---------
-    sample: torch.Tensor
-        an arbitrary tensor
-
-    Returns
-    -------
-    dims: list
-        a list of dimensions
-    """
-    return list(range(1, sample.dim()))
-
-
-def masked_mean(sample, mask=None):
-    """A metric function that computes the mean of each sample, excluding
-    padding
-
-    Arguments
-    ---------
-    samples: torch.Tensor
-        a tensor of spectrograms
-
-    mask: torch.Tensor
-        a length mask
-
-    Returns
-    -------
-    result: torch.Tensor
-        a tensor fo means
-    """
-    if mask is None:
-        mask = torch.ones_like(sample).bool()
-    dims = non_batch_dims(sample)
-    return (sample * mask).sum(dim=dims) / mask.expand_as(sample).sum(dim=dims)
-
-
-def masked_std(sample, mask=None):
-    """A metric function that computes the standard deviation of each
-    sample, excluding padding
-
-    Arguments
-    ---------
-    samples: torch.Tensor
-        a tensor of spectrograms
-
-    mask: torch.Tensor
-        a length mask
-
-    Returns
-    -------
-    result: torch.Tensor
-        a tensor fo means
-    """
-    if mask is None:
-        mask = torch.ones_like(sample).bool()
-    dims = non_batch_dims(sample)
-    mean = unsqueeze_as(masked_mean(sample, mask), sample)
-    diff_sq = ((sample - mean) * mask) ** 2
-    return (
-        diff_sq.sum(dim=dims) / (mask.expand_as(diff_sq).sum(dim=dims) - 1)
-    ).sqrt()
-
-
-def masked_min(sample, mask=None):
-    """A metric function that computes the minimum of each sample
-
-    Arguments
-    ---------
-    samples: torch.Tensor
-        a tensor of spectrograms
-
-    mask: torch.Tensor
-        a length mask
-
-    Returns
-    -------
-    result: torch.Tensor
-        a tensor fo means
-    """
-    if mask is None:
-        mask = torch.ones_like(sample).bool()
-    dims = non_batch_dims(sample)
-    return sample.masked_fill(~mask.bool(), torch.inf).amin(dim=dims)
-
-
-def masked_max(sample, mask=None):
-    """A metric function that computes the minimum of each sample
-
-    Arguments
-    ---------
-    samples: torch.Tensor
-        a tensor of spectrograms
-
-    mask: torch.Tensor
-        a length mask
-
-    Returns
-    -------
-    result: torch.Tensor
-        a tensor fo means
-    """
-    if mask is None:
-        mask = torch.ones_like(sample).bool()
-    dims = non_batch_dims(sample)
-    return sample.masked_fill(~mask.bool(), -torch.inf).amax(dim=dims)
-
-
-def dist_stats(sample, mask=None):
-    """Returns standard distribution statistics (mean, std, min, max)
-
-
-    Arguments
-    ---------
-    samples: torch.Tensor
-        a tensor of spectrograms
-
-    mask: torch.Tensor
-        a length mask
-
-    Returns
-    -------
-    result: torch.Tensor
-        a tensor fo means
-    """
-    return {
-        "mean": masked_mean(sample, mask),
-        "std": masked_std(sample, mask),
-        "min": masked_min(sample, mask),
-        "max": masked_max(sample, mask),
-    }
-
-
-def dict_value_combinations(values):
-    """Returns all possible key-value combinations from
-    the given dictionary
-
-    Arguments
-    ---------
-    values: dict
-        A dictionary with lists of values as values
-        Example:
-        {
-            "digit": [1,2,3],
-            "speaker": [10, 20]
-        }
-
-    keys: list
-        the keys to consider
-
-    Returns
-    -------
-    result: list
-        a list of dictionaries in which each dictionary
-        is a possible permitations
-    """
-    return [
-        item
-        for item in dict_value_combinations_gen(values, values.keys())
-        if len(item) == len(values)
-    ]
-
-
-def dict_value_combinations_gen(values, keys):
-    """Returns a generation of permutations of the specified
-    values dictionary
-
-    Arguments
-    ---------
-    values: dict
-        A dictionary with lists of values as values
-        Example:
-        {
-            "digit": [1,2,3],
-            "speaker": [10, 20]
-        }
-
-    keys: list
-        the keys to consider
-
-    Returns
-    -------
-    result: generator
-        a generator of dictionaries in which each dictionary
-        is a possible permitations
-    """
-    if not keys:
-        return
-    key, *rest = keys
-    key_values = values[key]
-    for value in key_values:
-        curr = {key: value}
-        for sub in dict_value_combinations_gen(values, rest):
-            item = dict(curr)
-            item.update(sub)
-            yield item
-        else:
-            yield curr
 
 
 def check_tensorboard(hparams):

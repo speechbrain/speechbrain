@@ -1385,6 +1385,7 @@ class GlobalNorm(torch.nn.Module):
         """Resumes updates to the running mean/std"""
         self.frozen = False
 
+
 class MinLevelNorm(torch.nn.Module):
     """A normalization for the decibel scale
 
