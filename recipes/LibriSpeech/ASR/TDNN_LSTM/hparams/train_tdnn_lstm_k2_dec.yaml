@@ -1,0 +1,238 @@
+# ################################
+# Model: TDNN-LSTM + K2 decoding
+# Augmentation: MUSAN + SpecAugment
+# Authors: Georgios Karakasidis 2023
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1111
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+device: "cuda:0,1,2"
+use_cuda: False
+
+output_folder: !ref results/train_k2_decoder_adamw/<seed>
+wer_file: !ref <output_folder>/wer.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data Augmentation (MUSAN) (check section below
+#   for the definition of the EnvCorrupt classes)
+# e.g, /path/to/musan (needs to be already downloaded)
+# If you don't want to use musan aug then pass an empty (or random)
+#  string here and set musan_aug_prob to zero.
+musan_folder: !PLACEHOLDER
+# Probability of augmenting a datapoint
+musan_aug_prob: 0.0
+# Output files for aug csvs
+music_csv: !ref <save_folder>/music.csv
+noise_csv: !ref <save_folder>/noise.csv
+speech_csv: !ref <save_folder>/speech.csv
+# maximum number of seconds each musan chunk can be.
+# the k2 recipe uses chunks of 5-10 seconds (so there is also a lower limit).
+example_length: 10
+musan_max_noise_len: 10
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+train_splits: ["train-clean-100, "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+ckpt_interval_minutes: 35 # save checkpoint every N min
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
+
+# Training parameters
+number_of_epochs: 20
+lr: 0.0001
+weight_decay: 0.0005
+# lr_wav2vec: 0.0001
+sorting: ascending
+# auto_mix_prec: False
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+
+############ K2 Decoding Area #########
+subsampling_factor: 3
+# Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
+# (less pruning). This is the default value; it may be modified by
+# `min_active_states` and `max_active_states`.
+search_beam: 20
+# Beam to prune output, similar to lattice-beam in Kaldi.  Relative
+# to best path of output.
+output_beam: 5
+# Minimum number of FSA states that are allowed to be active on any given
+# frame for any given intersection/composition task. This is advisory,
+# in that it will try not to have fewer than this number active.
+# Set it to zero if there is no constraint.
+min_active_states: 30
+# Maximum number of FSA states that are allowed to be active on any given
+# frame for any given intersection/composition task. This is advisory,
+# in that it will try not to exceed that but may not always succeed.
+# You can use a very large number if no constraint is needed.
+max_active_states: 10000
+
+decoding_method: whole-lattice-rescoring
+################ END ###################
+
+
+######### TOKENIZER/ LEXICON AREA ###########
+token_type: unigram  # one of bpe, unigram, char
+bpe_dir: !ref <save_folder>/lang_bpe_<output_neurons>/
+bpe_model_path: !ref <bpe_dir>/<output_neurons>-<token_type>.model
+tokenizer: !new:bpe_tokenizer.LibriSpeechTokenizer
+   data_folder: !ref <data_folder>
+   output_folder: !ref <bpe_dir>
+   splits: !ref <train_splits>
+   vocab_size: !ref <output_neurons>
+   token_type: !ref <token_type>
+   bos_id: -1
+   eos_id: -1
+   character_coverage: 1.0
+   split_by_whitespace: True
+   char_format_input: False
+   # max_sentencepiece_length: 10
+   # user_defined_symbols: None
+
+lexicon: !new:lexicon.LexiconBPE
+   librispeech_dir: !ref <data_folder>
+   train_sets: !ref <train_splits>
+   bpe_model_path: !ref <bpe_model_path>
+   use_disambig: True
+#################### END ######################
+
+########## TOPOLOGY (G, G_4gram) AREA ###########
+# These could probably be free variables but 
+# it may lead to errors if we change train.sh
+lm_path: <output_folder>/lm/G_3_gram.pt
+lm_path_4gram: <output_folder>/lm/G_4_gram.pt
+
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 3 per GPU to fit 32GB of VRAM
+batch_size: 6
+test_batch_size: 4
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+valid_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+
+test_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+dnn_layers: 2
+dnn_neurons: 1024
+# freeze_wav2vec: True
+
+# Outputs
+output_neurons: 500  # characters that ctc will map to
+
+# Decoding parameters
+# blank_index: 0
+use_language_modelling: False
+
+#
+# Functions and classes
+#
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+   norm_type: global
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+   sample_rate: !ref <sample_rate>
+   n_fft: !ref <n_fft>
+   n_mels: !ref <n_mels>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+   sample_rate: !ref <sample_rate>
+   speeds: [95, 100, 105]
+
+# ------------ MUSAN Augmentation START -------------
+add_noise_musan: !new:speechbrain.lobes.augment.EnvCorrupt
+    noise_csv: !ref <noise_csv>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: -15
+    noise_snr_high: -20
+
+add_music_musan: !new:speechbrain.lobes.augment.EnvCorrupt
+    noise_csv: !ref <music_csv>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: -15
+    noise_snr_high: -20
+
+add_speech_musan: !new:speechbrain.lobes.augment.EnvCorrupt
+    noise_csv: !ref <speech_csv>
+    babble_prob: 0.0
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: -15
+    noise_snr_high: -20
+# ------------ MUSAN Augmentation END ------------
+
+enc: !new:speechbrain.lobes.models.tdnn_lstm_model.TdnnLstm
+   num_features: !ref <n_mels>
+   num_classes: !ref <output_neurons>
+   subsampling_factor: 3
+
+modules:
+   enc: !ref <enc>
+   normalize: !ref <normalize>
+
+model: !new:torch.nn.ModuleList
+   # - [!ref <enc>, !ref <ctc_lin>]
+   - [!ref <enc>]
+
+# model: !new:torch.nn.Sequential
+#    - normalize: !ref <normalize>
+#    - enc: !ref <enc>
+
+# model_opt_class: !name:torch.optim.Adadelta
+#    lr: !ref <lr>
+#    rho: 0.95
+#    eps: 1.e-8
+
+model_opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr>
+   weight_decay: !ref <weight_decay>
+
+scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      # wav2vec2: !ref <wav2vec2>
+      model: !ref <model>
+      scheduler: !ref <scheduler>
+      normalizer: !ref <normalize>
+      counter: !ref <epoch_counter>
+      # tokenizer: !ref <tokenizer>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: True
