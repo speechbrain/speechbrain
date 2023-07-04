@@ -255,6 +255,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs.unsqueeze(1),
         )
 
+
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
     This class implements the greedy decoding

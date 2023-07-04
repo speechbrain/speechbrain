@@ -1059,8 +1059,6 @@ class LengthScorer(BaseScorerInterface):
         )
 
 
-# TODO: docstring
-# TODO: singular scorer
 class ScorerBuilder:
     """ Builds scorer instance for beamsearch.
     See speechbrain.decoders.seq2seq.S2SBeamSearcher()
@@ -1151,14 +1149,14 @@ class ScorerBuilder:
 
     def __init__(
         self,
-        scorer_weights=dict(),
+        weights=dict(),
         rescorers_weights=dict(),
         full_scorers=list(),
         partial_scorers=list(),
         rescorers=list(),
         scorer_beam_scale=1.5,
     ):
-        assert len(scorer_weights) == len(full_scorers) + len(
+        assert len(weights) == len(full_scorers) + len(
             partial_scorers
         ), "Weights and scorers are not matched."
 
@@ -1196,7 +1194,7 @@ class ScorerBuilder:
 
         # Have a default 0.0 weight for scorer not specified
         init_weights = {k: 0.0 for k in all_scorer_names}
-        self.scorers_weights = {**init_weights, **scorer_weights}
+        self.scorers_weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
 
