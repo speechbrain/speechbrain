@@ -60,7 +60,6 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
-from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -119,12 +118,7 @@ def torch_save(obj, path):
     state_dict = obj.state_dict()
     if not state_dict:
         logger.warning(f"Saving an empty state_dict for {obj} in {path}.")
-    parallel_safe_save(state_dict, path)
-
-
-def parallel_safe_save(data, path):
-    """Save in a parallel safe way (on only main processes)"""
-    run_on_main(torch.save, args=[data, path])
+    torch.save(state_dict, path)
 
 
 def torch_parameter_transfer(obj, path, device):
