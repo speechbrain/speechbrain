@@ -87,10 +87,15 @@ class ASR(sb.Brain):
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
         else:
-            # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-
-            topk_tokens, topk_lens, _, _ = search(x, wav_lens)
+            if stage == sb.Stage.VALID:
+                # Get token strings from index prediction
+                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                    x, wav_lens
+                )
+            else:
+                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                    x, wav_lens
+                )
 
             # Select the best hypothesis
             best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
@@ -372,7 +377,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(

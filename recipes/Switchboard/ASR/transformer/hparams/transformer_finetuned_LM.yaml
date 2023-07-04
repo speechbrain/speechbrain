@@ -185,6 +185,11 @@ Adam: !name:torch.optim.Adam
   betas: (0.9, 0.98)
   eps: 0.000000001
 
+
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+  language_model: !ref <lm_model>
+  temperature: !ref <temperature_lm>
+
 # Scorer
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
   eos_index: !ref <eos_index>
@@ -192,8 +197,9 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
   ctc_fc: !ref <ctc_lin>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-  full_scorers: [!ref <ctc_scorer>]
+  full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
   weights:
+    transformerlm: !ref <lm_weight>
     ctc: !ref <ctc_weight_decode>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher

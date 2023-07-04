@@ -194,6 +194,7 @@ Adam: !name:torch.optim.Adam
 
 transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
   language_model: !ref <lm_model>
+  temperature: !ref <temperature_lm>
 
 # Scorer
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
@@ -215,9 +216,12 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
   min_decode_ratio: !ref <min_decode_ratio>
   max_decode_ratio: !ref <max_decode_ratio>
   beam_size: !ref <valid_beam_size>
-  using_eos_threshold: False
+  using_eos_threshold: !ref <using_eos_threshold>
   length_normalization: False
+  using_max_attn_shift: !ref <using_max_attn_shift>
+  max_attn_shift: !ref <max_attn_shift>
   scorer: !ref <scorer>
+  temperature: !ref <temperature>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
   modules: [!ref <Transformer>, !ref <seq_lin>]
@@ -226,7 +230,11 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
   min_decode_ratio: !ref <min_decode_ratio>
   max_decode_ratio: !ref <max_decode_ratio>
   beam_size: !ref <test_beam_size>
-  using_eos_threshold: !ref <using_max_attn_shift>
+  using_eos_threshold: !ref <using_eos_threshold>
+  using_max_attn_shift: !ref <using_max_attn_shift>
+  max_attn_shift: !ref <max_attn_shift>
+  eos_threshold: !ref <eos_threshold>
+  temperature: !ref <temperature>
   length_normalization: !ref <length_normalization>
   scorer: !ref <scorer>
 

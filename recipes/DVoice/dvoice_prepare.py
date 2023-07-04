@@ -19,6 +19,7 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 import glob
+from speechbrain.dataio.dataio import read_audio_info
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +196,7 @@ def alffa_public_prepare(language, data_folder):
         for j in range(len(wavs)):
             if wavs[j].split("/")[-1] == file_name + ".wav":
                 wav = wavs[j]
-                info = torchaudio.info(wav)
+                info = read_audio_info(wav)
                 duration = info.num_frames / info.sample_rate
                 dic = {
                     "wav": wavs[j].replace(data_folder + "/", ""),
@@ -254,7 +255,7 @@ def swahili_prepare(data_folder):
         for j in range(len(wavs_alffa)):
             if wavs_alffa[j].split("/")[-1] == file_name + ".wav":
                 wav = wavs_alffa[j]
-                info = torchaudio.info(wav)
+                info = read_audio_info(wav)
                 duration = info.num_frames / info.sample_rate
                 dic = {
                     "wav": wavs_alffa[j].replace(data_folder + "/", ""),

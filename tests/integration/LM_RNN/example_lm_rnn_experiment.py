@@ -54,6 +54,7 @@ def data_prep(data_folder, hparams):
     )
     datasets = [train_data, valid_data]
     char_encoder = sb.dataio.encoder.TextEncoder()
+    char_encoder.expect_len(hparams["num_chars"])
 
     # 2. Define char pipeline:
     @sb.utils.data_pipeline.takes("char")

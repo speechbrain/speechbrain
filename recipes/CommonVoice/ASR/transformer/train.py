@@ -79,9 +79,22 @@ class ASR(sb.core.Brain):
             and current_epoch % self.hparams.valid_search_every == 0
         )
         is_test_search = stage == sb.Stage.TEST
-        if any([is_valid_search, is_test_search]):
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
+
+        if is_valid_search:
+            topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+
+            # Select the best hypothesis
+            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
+
+        elif is_test_search:
+            topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                enc_out.detach(), wav_lens
+            )
 
             # Select the best hypothesis
             best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
@@ -264,9 +277,7 @@ class ASR(sb.core.Brain):
 
         # Load latest checkpoint to check to current epoch number
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
         # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
@@ -278,9 +289,7 @@ class ASR(sb.core.Brain):
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
 
 # Define custom data procedure

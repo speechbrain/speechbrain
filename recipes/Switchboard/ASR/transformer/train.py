@@ -314,7 +314,7 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -523,7 +523,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript
     # for cleaner performance metrics

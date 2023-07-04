@@ -701,5 +701,9 @@ def load_yaml_test(
                 check = False
                 print("\tERROR: cannot load %s" % (hparam_file))
         if tag_custom_model is not None:
-            del sys.modules[tag_custom_model]
+            if tag_custom_model in sys.modules:
+                del sys.modules[tag_custom_model]
+            for tcm_key in list(sys.modules.keys()):
+                if tcm_key.startswith("recipes"):
+                    del sys.modules[tcm_key]
     return check

@@ -4,7 +4,7 @@ See config file for model definition.
 See the readme of the recipe for advices on the pretraining that may appear
 a bit challenging depending on your available resources.
 
-To run this recipe call python train.py hparams/train_wav2vec.yaml --find_unused_parameters --max_grad_norm 0.0
+To run this recipe call python train_sb_wav2vec2.py hparams/wav2vec2_base.yaml --find_unused_parameters --max_grad_norm 0.0
 
 Authors
     * Rudolf Braun 2022

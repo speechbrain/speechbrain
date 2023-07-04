@@ -36,7 +36,6 @@ Authors
 import math
 import torch
 import logging
-from packaging import version
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
     mark_as_loader,
@@ -145,31 +144,20 @@ class STFT(torch.nn.Module):
             x = x.transpose(1, 2)
             x = x.reshape(or_shape[0] * or_shape[2], or_shape[1])
 
-        if version.parse(torch.__version__) <= version.parse("1.6.0"):
-            stft = torch.stft(
-                x,
-                self.n_fft,
-                self.hop_length,
-                self.win_length,
-                self.window.to(x.device),
-                self.center,
-                self.pad_mode,
-                self.normalized_stft,
-                self.onesided,
-            )
-        else:
-            stft = torch.stft(
-                x,
-                self.n_fft,
-                self.hop_length,
-                self.win_length,
-                self.window.to(x.device),
-                self.center,
-                self.pad_mode,
-                self.normalized_stft,
-                self.onesided,
-                return_complex=False,
-            )
+        stft = torch.stft(
+            x,
+            self.n_fft,
+            self.hop_length,
+            self.win_length,
+            self.window.to(x.device),
+            self.center,
+            self.pad_mode,
+            self.normalized_stft,
+            self.onesided,
+            return_complex=True,
+        )
+
+        stft = torch.view_as_real(stft)
 
         # Retrieving the original dimensionality (batch,time, channels)
         if len(or_shape) == 3:
@@ -189,7 +177,7 @@ class STFT(torch.nn.Module):
 
 
 class ISTFT(torch.nn.Module):
-    """ Computes the Inverse Short-Term Fourier Transform (ISTFT)
+    """Computes the Inverse Short-Term Fourier Transform (ISTFT)
 
     This class computes the Inverse Short-Term Fourier Transform of
     an audio signal. It supports multi-channel audio inputs
@@ -271,7 +259,7 @@ class ISTFT(torch.nn.Module):
         self.window = window_fn(self.win_length)
 
     def forward(self, x, sig_length=None):
-        """ Returns the ISTFT generated from the input signal.
+        """Returns the ISTFT generated from the input signal.
 
         Arguments
         ---------
@@ -324,7 +312,9 @@ class ISTFT(torch.nn.Module):
         return istft
 
 
-def spectral_magnitude(stft, power=1, log=False, eps=1e-14):
+def spectral_magnitude(
+    stft, power: int = 1, log: bool = False, eps: float = 1e-14
+):
     """Returns the magnitude of a complex spectrogram.
 
     Arguments
@@ -1018,7 +1008,6 @@ class InputNormalization(torch.nn.Module):
         current_stds = []
 
         for snt_id in range(N_batches):
-
             # Avoiding padded time steps
             actual_size = torch.round(lengths[snt_id] * x.shape[1]).int()
 
@@ -1031,16 +1020,13 @@ class InputNormalization(torch.nn.Module):
             current_stds.append(current_std)
 
             if self.norm_type == "sentence":
-
                 x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
 
             if self.norm_type == "speaker":
-
                 spk_id = int(spk_ids[snt_id][0])
 
                 if self.training:
                     if spk_id not in self.spk_dict_mean:
-
                         # Initialization of the dictionary
                         self.spk_dict_mean[spk_id] = current_mean
                         self.spk_dict_std[spk_id] = current_std
@@ -1057,11 +1043,13 @@ class InputNormalization(torch.nn.Module):
                             self.weight = self.avg_factor
 
                         self.spk_dict_mean[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_mean[spk_id]
+                            (1 - self.weight)
+                            * self.spk_dict_mean[spk_id].to(current_mean)
                             + self.weight * current_mean
                         )
                         self.spk_dict_std[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_std[spk_id]
+                            (1 - self.weight)
+                            * self.spk_dict_std[spk_id].to(current_std)
                             + self.weight * current_std
                         )
 
@@ -1088,7 +1076,6 @@ class InputNormalization(torch.nn.Module):
                 x = (x - current_mean.data) / (current_std.data)
 
             if self.norm_type == "global":
-
                 if self.training:
                     if self.count == 0:
                         self.glob_mean = current_mean
@@ -1100,20 +1087,20 @@ class InputNormalization(torch.nn.Module):
                         else:
                             self.weight = self.avg_factor
 
-                        self.glob_mean = (
-                            1 - self.weight
-                        ) * self.glob_mean + self.weight * current_mean
+                        self.glob_mean = (1 - self.weight) * self.glob_mean.to(
+                            current_mean
+                        ) + self.weight * current_mean
 
-                        self.glob_std = (
-                            1 - self.weight
-                        ) * self.glob_std + self.weight * current_std
+                        self.glob_std = (1 - self.weight) * self.glob_std.to(
+                            current_std
+                        ) + self.weight * current_std
 
                     self.glob_mean.detach()
                     self.glob_std.detach()
 
                     self.count = self.count + 1
 
-                x = (x - self.glob_mean.data) / (self.glob_std.data)
+                x = (x - self.glob_mean.data.to(x)) / (self.glob_std.data.to(x))
 
         return x
 
@@ -1145,8 +1132,7 @@ class InputNormalization(torch.nn.Module):
         return current_mean, current_std
 
     def _statistics_dict(self):
-        """Fills the dictionary containing the normalization statistics.
-        """
+        """Fills the dictionary containing the normalization statistics."""
         state = {}
         state["count"] = self.count
         state["glob_mean"] = self.glob_mean
@@ -1176,24 +1162,23 @@ class InputNormalization(torch.nn.Module):
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}
         for spk in state["spk_dict_mean"]:
-            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk].to(
-                self.device_inp
-            )
+            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk]  # .to(
+            #    self.device_inp
+            # )
 
         # Loading the spk_dict_std in the right device
         self.spk_dict_std = {}
         for spk in state["spk_dict_std"]:
-            self.spk_dict_std[spk] = state["spk_dict_std"][spk].to(
-                self.device_inp
-            )
+            self.spk_dict_std[spk] = state["spk_dict_std"][spk]  # .to(
+            #    self.device_inp
+            # )
 
         self.spk_dict_count = state["spk_dict_count"]
 
         return state
 
     def to(self, device):
-        """Puts the needed tensors in the right device.
-        """
+        """Puts the needed tensors in the right device."""
         self = super(InputNormalization, self).to(device)
         self.glob_mean = self.glob_mean.to(device)
         self.glob_std = self.glob_std.to(device)
@@ -1216,16 +1201,15 @@ class InputNormalization(torch.nn.Module):
 
     @mark_as_transfer
     @mark_as_loader
-    def _load(self, path, end_of_epoch=False, device=None):
+    def _load(self, path, end_of_epoch=False):
         """Load statistic dictionary.
 
         Arguments
         ---------
         path : str
             The path of the statistic dictionary
-        device : str, None
-            Passed to torch.load(..., map_location=device)
         """
         del end_of_epoch  # Unused here.
+        device = "cpu"
         stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)

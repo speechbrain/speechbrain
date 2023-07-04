@@ -24,6 +24,7 @@ pip install -e .
 ```
 find recipes | grep extra | xargs cat | sort -u | grep -v \# | xargs -I {} pip install {}
 pip install fairseq
+conda install 'ffmpeg<4.4'
 ```
 7. Run the basic tests by typing:
 ```

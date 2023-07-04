@@ -1,10 +1,12 @@
 better-apidoc>=0.3.1
 ctc-segmentation>=1.7.0
 fairseq
+kenlm
 numba>=0.54.1
+pyctcdecode
 recommonmark>=0.7.1
 scikit-learn
 six
 sphinx-rtd-theme>=0.4.3
 Sphinx>=3.4.3
-transformers==4.13
+transformers

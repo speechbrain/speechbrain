@@ -28,7 +28,7 @@ class AlivedHypotheses(torch.nn.Module):
     """
 
     def __init__(
-        self, alived_seq, alived_log_probs, sequence_scores, decoded_seq=None
+        self, alived_seq, alived_log_probs, sequence_scores,
     ):
         super().__init__()
         self.alived_seq = alived_seq
@@ -161,16 +161,31 @@ class S2SGreedySearcher(S2SBaseSearcher):
         log_probs_lst = []
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
+
+        # the decoding steps can be based on the max number of tokens that a decoder can process
+        # (e.g., 448 for Whisper).
+        _, max_decode_steps = self.change_max_decoding_length(
+            0, max_decode_steps
+        )
+
+        has_ended = enc_states.new_zeros(batch_size).bool()
         for t in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
             log_probs_lst.append(log_probs)
             inp_tokens = log_probs.argmax(dim=-1)
+            log_probs[has_ended] = float("inf")
+            has_ended = has_ended | (inp_tokens == self.eos_index)
+            if has_ended.all():
+                break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
 
         scores, predictions = log_probs.max(dim=-1)
+        mask = scores == float("inf")
+        scores[mask] = 0
+        predictions[mask] = self.eos_index
 
         (
             top_hyps,
@@ -181,42 +196,40 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         return top_hyps, top_lengths, top_scores, top_log_probs
 
-    def _get_top_prediction(self, predictions, scores, log_probs):
-        """This method return the best prediction of the greedy search algorithm.
+    def _get_top_prediction(self, hyps, scores, log_probs):
+        """This method sorts the scores and return corresponding hypothesis and log probs.
 
         Arguments
         ---------
-        predictions : torch.Tensor (batch, max length of token_id sequences)
-            Index of the max probability.
-        scores : torch.Tensor (batch, max length of token_id sequences)
-            Max probability of the index.
-        log_probs : torch.Tensor (batch, seq_length, max length of token_id sequences)
-            Original CTC table.
+        hyps_and_scores : list
+            To store generated hypotheses and scores.
+        topk : int
+            Number of hypothesis to return.
 
         Returns
         -------
-        top_hyp : torch.Tensor (batch, 1, max length of token_id sequences)
-            This tensor stores the top predicted hypothesis.
-        top_lengths : torch.Tensor (batch, 1)
-            The length of each top sequence in the batch.
-        top_scores : torch.Tensor (batch, 1)
-            This tensor contains the final score of the best hypothesis.
-        top_log_probs : torch.Tensor (batch, 1, seq_length, max length of token_id sequences)
+        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
+            This tensor stores the topk predicted hypothesis.
+        topk_scores : torch.Tensor (batch, topk)
+            The length of each topk sequence in the batch.
+        topk_lengths : torch.Tensor (batch, topk)
+            This tensor contains the final scores of topk hypotheses.
+        topk_log_probs : torch.Tensor (batch, topk, max length of token_id sequences)
             The log probabilities of each hypotheses.
         """
-        batch_size = predictions.size(0)
-        max_length = predictions.size(1)
+        batch_size = hyps.size(0)
+        max_length = hyps.size(1)
         top_lengths = [max_length] * batch_size
 
         # Collect lengths of top hyps
         for pred_index in range(batch_size):
-            pred = predictions[pred_index]
+            pred = hyps[pred_index]
             pred_length = (pred == self.eos_index).nonzero(as_tuple=False)
             if len(pred_length) > 0:
                 top_lengths[pred_index] = pred_length[0].item()
         # Convert lists to tensors
         top_lengths = torch.tensor(
-            top_lengths, dtype=torch.float, device=predictions.device
+            top_lengths, dtype=torch.float, device=hyps.device
         )
 
         # Pick top log probabilities
@@ -224,8 +237,9 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         # Use SpeechBrain style lengths
         top_lengths = (top_lengths - 1) / max_length
+
         return (
-            predictions.unsqueeze(1),
+            hyps.unsqueeze(1),
             top_lengths.unsqueeze(1),
             scores.unsqueeze(1),
             top_log_probs.unsqueeze(1),
@@ -490,7 +504,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """This method call the scorers if scorer is not None."""
         if self.scorer is not None:
             log_probs, scorer_memory = self.scorer.score(
-                inp_tokens, scorer_memory, attn, log_probs, self.beam_size
+                inp_tokens, scorer_memory, attn, log_probs, self.beam_size,
             )
         return log_probs, scorer_memory
 
@@ -1258,6 +1272,46 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
             int(self.min_decode_ratio * self.max_length),
             int(self.max_decode_ratio * self.max_length),
         )
+
+
+class S2STransformerGreedySearch(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for Transformer.
+
+    Arguments
+    ---------
+    modules : list with the followings one:
+        model : torch.nn.Module
+            A TransformerASR model.
+        seq_lin : torch.nn.Module
+            A linear output layer for the seq2seq model.
+    temperature : float
+        Temperature to use during decoding.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(
+        self, modules, temperature=1.0, **kwargs,
+    ):
+        super(S2SGreedySearcher, self).__init__(**kwargs)
+
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search."""
+        return None
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented greedy searcher."""
+        memory = _update_mem(inp_tokens, memory)
+        pred, attn = self.model.decode(memory, enc_states)
+        prob_dist = self.softmax(self.fc(pred) / self.temperature)
+        return prob_dist[:, -1, :], memory, attn
 
 
 class S2SWhisperBeamSearch(S2SBeamSearcher):

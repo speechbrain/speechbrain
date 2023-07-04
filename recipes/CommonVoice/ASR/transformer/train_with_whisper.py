@@ -161,13 +161,18 @@ def dataio_prepare(hparams, tokenizer):
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
+        train_data = train_data.filtered_sorted(
+            sort_key="duration",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration",
+            reverse=True,
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_loader_kwargs"]["shuffle"] = False

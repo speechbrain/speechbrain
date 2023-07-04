@@ -814,7 +814,7 @@ class KenLMScorer(BaseScorerInterface):
         The tokens set.
     """
 
-    def __init__(self, lm_path, vocab_size, token_list=[]):
+    def __init__(self, lm_path, vocab_size, token_list):
         try:
             import kenlm
 

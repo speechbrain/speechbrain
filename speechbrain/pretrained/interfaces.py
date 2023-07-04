@@ -7,8 +7,8 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
- * Andreas Nautsch 2022
- * Pooneh Mousavi 20023
+ * Andreas Nautsch 2022, 2023
+ * Pooneh Mousavi 2023
 """
 import logging
 import hashlib
@@ -46,6 +46,7 @@ def foreign_class(
     savedir=None,
     use_auth_token=False,
     download_only=False,
+    huggingface_cache_dir=None,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -66,7 +67,7 @@ def foreign_class(
 
     Arguments
     ---------
-    source : str
+    source : str or Path or FetchSource
         The location to use for finding the model. See
         ``speechbrain.pretrained.fetching.fetch`` for details.
     hparams_file : str
@@ -90,6 +91,8 @@ def foreign_class(
         default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
+    huggingface_cache_dir : str
+        Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
 
     Returns
     -------
@@ -106,6 +109,7 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
+        huggingface_cache_dir=huggingface_cache_dir,
     )
     pymodule_local_path = fetch(
         filename=pymodule_file,
@@ -115,6 +119,7 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
+        huggingface_cache_dir=huggingface_cache_dir,
     )
     sys.path.append(str(pymodule_local_path.parent))
 
@@ -130,7 +135,7 @@ def foreign_class(
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
-        pretrainer.load_collected(device="cpu")
+        pretrainer.load_collected()
 
         # Import class and create instance
         module = import_from_path(pymodule_local_path)
@@ -316,6 +321,7 @@ class Pretrained(torch.nn.Module):
         use_auth_token=False,
         revision=None,
         download_only=False,
+        huggingface_cache_dir=None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -365,6 +371,12 @@ class Pretrained(torch.nn.Module):
             version of a model hosted at HuggingFace.
         download_only : bool (default: False)
             If true, class and instance creation is skipped.
+        revision : str
+            The model revision corresponding to the HuggingFace Hub model revision.
+            This is particularly useful if you wish to pin your code to a particular
+            version of a model hosted at HuggingFace.
+        huggingface_cache_dir : str
+            Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
         """
         if savedir is None:
             clsname = cls.__name__
@@ -377,6 +389,7 @@ class Pretrained(torch.nn.Module):
             save_filename=None,
             use_auth_token=use_auth_token,
             revision=revision,
+            huggingface_cache_dir=huggingface_cache_dir,
         )
         try:
             pymodule_local_path = fetch(
@@ -387,6 +400,7 @@ class Pretrained(torch.nn.Module):
                 save_filename=None,
                 use_auth_token=use_auth_token,
                 revision=revision,
+                huggingface_cache_dir=huggingface_cache_dir,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -411,7 +425,7 @@ class Pretrained(torch.nn.Module):
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
             # run_opts={"device": ...}
-            pretrainer.load_collected(device="cpu")
+            pretrainer.load_collected()
 
             # Now return the system
             return cls(hparams["modules"], hparams, **kwargs)
@@ -889,6 +903,7 @@ class EncoderClassifier(Pretrained):
     ...     source="speechbrain/spkrec-ecapa-voxceleb",
     ...     savedir=tmpdir,
     ... )
+    >>> classifier.hparams.label_encoder.ignore_len()
 
     >>> # Compute embeddings
     >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
@@ -1439,7 +1454,14 @@ class VAD(Pretrained):
         # Fix edge cases (when a speech starts in the last frames)
         if (prob_th == 1).nonzero().shape[0] % 2 == 1:
             prob_th = torch.cat(
-                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), dim=1
+                (
+                    prob_th,
+                    torch.Tensor([1.0])
+                    .unsqueeze(0)
+                    .unsqueeze(2)
+                    .to(self.device),
+                ),
+                dim=1,
             )
 
         # Where prob_th is 1 there is a change
@@ -2535,7 +2557,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         deps_pretrainer = getattr(self.hparams, "deps_pretrainer", None)
         if deps_pretrainer:
             deps_pretrainer.collect_files()
-            deps_pretrainer.load_collected(device=self.device)
+            deps_pretrainer.load_collected()
 
     def __call__(self, text):
         """A convenience callable wrapper - same as G2P
