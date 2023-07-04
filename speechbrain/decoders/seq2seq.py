@@ -1,7 +1,7 @@
 """Decoding methods for seq2seq autoregressive model.
 
 Authors
- * Adel Moumen 2022
+ * Adel Moumen 2022, 2023
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
@@ -656,6 +656,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps,
         )
 
+    def set_n_out(self):
+        """set the number of output tokens.
+        Overrides this function if the fc layer is embedded
+        in the model, e.g., Whisper.
+        """
+        return self.fc.w.out_features
+
     def init_beam_search_data(self, enc_states, wav_len):
         """ Initialize the beam search data."""
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
@@ -663,7 +670,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         self.device = enc_states.device
         self.batch_size = enc_states.shape[0]
         self.n_bh = self.batch_size * self.beam_size
-        self.n_out = self.fc.w.out_features
+        self.n_out = self.set_n_out()
 
         memory, scorer_memory = self._update_reset_memory(enc_states, enc_lens)
 
