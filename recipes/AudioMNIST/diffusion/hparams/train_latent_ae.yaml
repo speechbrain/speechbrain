@@ -151,14 +151,14 @@ compute_features: !new:speechbrain.nnet.containers.Sequential
         mel_scale: !ref <spec_mel_scale>
     amp2db: !new:torchaudio.transforms.AmplitudeToDB
 
-min_level_norm: !new:custom_transforms.MinLevelNorm
+min_level_norm: !new:speechbrain.processing.features.MinLevelNorm
     min_level_db: !ref <min_level_db>
 
 global_norm: !new:speechbrain.processing.features.GlobalNorm
     norm_mean: !ref <spec_norm_mean>
     norm_std: !ref <spec_norm_std>
 
-dynamic_range_compression: !new:custom_transforms.DynamicRangeCompression
+dynamic_range_compression: !new:speechbrain.processing.features.DynamicRangeCompression
 
 compute_cost_autoencoder_rec: !new:speechbrain.nnet.schedulers.ScheduledLoss
     schedule:
