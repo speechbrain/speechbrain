@@ -14,6 +14,7 @@ from speechbrain.decoders.utils import (
     _update_mem,
 )
 
+
 class AlivedHypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
 
@@ -24,7 +25,7 @@ class AlivedHypotheses(torch.nn.Module):
     alived_log_probs : torch.Tensor
         The log probabilities of each token for each hypothesis.
     sequence_scores : torch.Tensor
-        The sum of log probabilities for each hypothesis.    
+        The sum of log probabilities for each hypothesis.
     """
 
     def __init__(
@@ -34,7 +35,6 @@ class AlivedHypotheses(torch.nn.Module):
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
-        self.decoded_seq = decoded_seq
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -160,7 +160,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         log_probs_lst = []
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
-
 
         # the decoding steps can be based on the max number of tokens that a decoder can process
         # (e.g., 448 for Whisper).
@@ -384,7 +383,10 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         if self.scorer is not None:
             # Check length normalization
-            if length_normalization and self.scorer.scorers_weights["length"] > 0.0:
+            if (
+                length_normalization
+                and self.scorer.scorers_weights["length"] > 0.0
+            ):
                 raise ValueError(
                     "Length normalization is not compatible with length rewarding."
                 )
@@ -513,7 +515,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         if self.scorer is not None:
             top_scores = self.scorer.rescore_hyps(top_scores, hyps)
         return top_scores
-    
+
     def _set_eos_minus_inf_step(self, log_probs, step, min_decode_steps):
         """This method set the log_probs of eos to minus infinity if the step is less than min_decode_steps."""
         if step < min_decode_steps:
