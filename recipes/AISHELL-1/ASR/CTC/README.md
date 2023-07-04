@@ -24,7 +24,7 @@ Results are reported in terms of Character Error Rate (CER).
 |:--------------------------:|:-----:| :-----:| :-----:| :-----: |
 | train_with_wav2vec.yaml | No | 5.06 | 4.52 | 1xRTX 8000 Ti 48GB |
 
-You can checkout our results (models, training logs, etc,) [here](https://drive.google.com/drive/folders/1GTB5IzQPl57j-0I1IpmvKg722Ti4ahLz?usp=sharing)
+You can checkout our results (models, training logs, etc,) [here](https://www.dropbox.com/sh/e4bth1bylk7c6h8/AADFq3cWzBBKxuDv09qjvUMta?dl=0)
 
 # Training Time
 It takes about 2h on 1 RTX 8000 (48GB)
