@@ -314,7 +314,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--build-words", "-b",
-        type=bool,
         action="store_true",
         default=True,  # true by default since this is the only reason this file has a cli
         help="LibriSpeech training sets.",
@@ -324,6 +323,7 @@ if __name__ == "__main__":
         bpe_model_path=args.bpe_model_path,
         librispeech_dir=args.librispeech_dir,
         train_sets=ast.literal_eval(args.train_sets),
+        tokenizer=spm.SentencePieceProcessor(),  # dummy tokenizer
     )
     if args.build_words:
         lex.words_path  # create the words.txt file

@@ -7,11 +7,16 @@ seed=1112
 device="cuda:1,2,3"
 
 # TODO: Maybe download librispeech and musan here (similar to icefall's prep)
-data_folder="<path-to-LibriSpeech>"
-musan_folder="<path-to-musan>"
+data_folder=$ls_path
+musan_folder=$musan_path
 
 # if [[ ! -f $data_folder ]] ; then
-if [[ ! -f $data_folder || ! -f $musan_folder ]] ; then
+if [[ ! -d $data_folder || ! -d $musan_folder ]] ; then
+  if [[ ! -d $data_folder ]] ; then
+    echo "$0: no such file $data_folder"
+  else
+    echo "$0: no such file $musan_folder"
+  fi
   echo "$0: make sure to set data_folder and musan_folder inside this script."
   echo "$0: (musan is not really required so you could just comment this check if you don't want to use it)."
   exit 1;
@@ -89,7 +94,7 @@ if [ ! -f $dl_dir/lm/G_4_gram.fst.txt ] ; then
         $dl_dir/lm/4-gram.arpa > $dl_dir/lm/G_4_gram.fst.txt  || exit 1;
 fi
 
-python train_k2_decoder.py \
+python train_k2.py \
     hparams/train_tdnn_lstm_k2_dec.yaml \
     --data_folder=$data_folder \
     --musan_folder=$musan_folder \
@@ -104,4 +109,4 @@ python train_k2_decoder.py \
     --lm_path_4gram=$dl_dir/lm/G_4_gram.pt \
     --use_cuda=True \
     --device=$device \
-    --train_splits=$train_splits
+    --train_splits=$train_splits || exit 1;
