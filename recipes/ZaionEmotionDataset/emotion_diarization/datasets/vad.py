@@ -131,7 +131,7 @@ def vad_for_folder(input_path, out_path):
     files = os.listdir(input_path)
     for file in files:
         try:
-            audio, sample_rate = read_wave(input_path + file)
+            audio, sample_rate = read_wave(os.path.join(input_path, file))
         except Exception as e:
             print(e)
 
@@ -147,7 +147,7 @@ def vad_for_folder(input_path, out_path):
 
         # abandon short emotions (< 0.2s)
         if len(total_segment) > 6400:  # 0.2 * 16000 * 2
-            write_wave(out_path + file, total_segment, sample_rate)
+            write_wave(os.path.join(out_path, file), total_segment, sample_rate)
 
 
 def write_audio(input_path, out_path):

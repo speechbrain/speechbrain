@@ -56,7 +56,7 @@ def prepare_jlcorpus(
     logger.info("Applying VAD and resampling ...")
     for repo in repos:
         files = Path(data_folder).rglob(f"{repo}_*.wav")
-        destin_folder = data_folder + "processed/" + repo + "/"
+        destin_folder = os.path.join(data_folder, "processed", repo)
         if not os.path.exists(destin_folder):
             os.makedirs(destin_folder)
         for file in files:
@@ -82,9 +82,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(in_folder + file_name, format="wav")
+            sound = AudioSegment.from_file(os.path.join(in_folder, file_name), format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name, format="wav")
+            sound.export(os.path.join(out_folder, file_name), format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -112,7 +112,7 @@ def concat_wavs(data_folder, save_json):
         emotion_wavs = []
         neutral_wavs = []
 
-        paths = Path(data_folder + "processed/" + repo + "/")
+        paths = Path(os.path.join(data_folder, "processed", repo))
         angry_files = paths.rglob("*angry*.wav")
         happy_files = paths.rglob("*happy*.wav")
         excited_files = paths.rglob("*excited*.wav")
@@ -134,7 +134,7 @@ def concat_wavs(data_folder, save_json):
         random.shuffle(neutral_wavs)
         neutral_wavs = neutral_wavs * 10
 
-        combine_path = data_folder + "combined/" + repo + "/"
+        combine_path = os.path.join(data_folder, "combined", repo)
         if not os.path.exists(combine_path):
             os.makedirs(combine_path)
 
@@ -152,9 +152,9 @@ def concat_wavs(data_folder, save_json):
                 emotion_input += neutral_input.dBFS - emotion_input.dBFS
                 combined_input = neutral_input + emotion_input
 
-                out_name = (
-                    combine_path
-                    + neutral_sample.split("/")[-1][:-4]
+                out_name = os.path.join(
+                    combine_path,
+                    neutral_sample.split("/")[-1][:-4]
                     + "_"
                     + emo_sample.split("/")[-1]
                 )
@@ -186,9 +186,9 @@ def concat_wavs(data_folder, save_json):
                 neutral_input += emotion_input.dBFS - neutral_input.dBFS
                 combined_input = emotion_input + neutral_input
 
-                out_name = (
-                    combine_path
-                    + emo_sample.split("/")[-1][:-4]
+                out_name = os.path.join(
+                    combine_path,
+                    emo_sample.split("/")[-1][:-4]
                     + "_"
                     + neutral_sample.split("/")[-1]
                 )
@@ -225,9 +225,9 @@ def concat_wavs(data_folder, save_json):
                     neutral_input_1 + emotion_input + neutral_input_2
                 )
 
-                out_name = (
-                    combine_path
-                    + neutral_sample_1.split("/")[-1][:-4]
+                out_name = os.path.join(
+                    combine_path,
+                    neutral_sample_1.split("/")[-1][:-4]
                     + "_"
                     + emo_sample.split("/")[-1][:-4]
                     + "_"
@@ -257,7 +257,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
 
-                out_name = combine_path + emo_sample_1.split("/")[-1]
+                out_name = os.path.join(combine_path, emo_sample_1.split("/")[-1])
                 emotion_input_1.export(out_name, format="wav")
 
                 id = repo + "_" + out_name.split("/")[-1][:-4]

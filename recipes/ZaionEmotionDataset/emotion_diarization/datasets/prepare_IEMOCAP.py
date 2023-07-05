@@ -96,13 +96,13 @@ def append_path_after_vad(data_folder, id, list):
         list: new list after adding an element
     """
     file = get_path(data_folder, id)
-    destin_folder = data_folder + "processed/" + id[:5] + id[-4] + "/"
+    destin_folder = os.path.join(data_folder, "processed", id[:5] + id[-4])
     if not os.path.exists(destin_folder):
         os.makedirs(destin_folder)
-    if not os.path.exists(destin_folder + f"{id}.wav"):
-        write_audio(file, destin_folder + f"{id}.wav")
-    if os.path.exists(destin_folder + f"{id}.wav"):
-        list.append(destin_folder + f"{id}.wav")
+    if not os.path.exists(os.path.join(destin_folder, f"{id}.wav")):
+        write_audio(file, os.path.join(destin_folder, f"{id}.wav"))
+    if os.path.exists(os.path.join(destin_folder, f"{id}.wav")):
+        list.append(os.path.join(destin_folder, f"{id}.wav"))
 
 
 def load_utterInfo(inputFile):
@@ -136,9 +136,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(in_folder + file_name, format="wav")
+            sound = AudioSegment.from_file(os.path.join(in_folder, file_name), format="wav")
             sound = sound.set_frame_rate(16000)
-            sound.export(out_folder + file_name, format="wav")
+            sound.export(os.path.join(out_folder, file_name), format="wav")
         except Exception as e:
             logger.info(e)
 
@@ -149,23 +149,23 @@ def get_path(datafolder, id):
     """
     if "Ses01" in id:
         return (
-            datafolder + "Session1/sentences/wav/" + id[:-5] + "/" + id + ".wav"
+            os.path.join(datafolder, "Session1/sentences/wav", id[:-5], id + ".wav")
         )
     if "Ses02" in id:
         return (
-            datafolder + "Session2/sentences/wav/" + id[:-5] + "/" + id + ".wav"
+            os.path.join(datafolder, "Session2/sentences/wav", id[:-5], id + ".wav")
         )
     if "Ses03" in id:
         return (
-            datafolder + "Session3/sentences/wav/" + id[:-5] + "/" + id + ".wav"
+            os.path.join(datafolder, "Session3/sentences/wav", id[:-5], id + ".wav")
         )
     if "Ses04" in id:
         return (
-            datafolder + "Session4/sentences/wav/" + id[:-5] + "/" + id + ".wav"
+            os.path.join(datafolder, "Session4/sentences/wav", id[:-5], id + ".wav")
         )
     if "Ses05" in id:
         return (
-            datafolder + "Session5/sentences/wav/" + id[:-5] + "/" + id + ".wav"
+            os.path.join(datafolder, "Session5/sentences/wav", id[:-5], id + ".wav")
         )
 
 
@@ -208,7 +208,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
         random.shuffle(neutral_wavs)
         neutral_wavs = neutral_wavs * 10
 
-        combine_path = data_folder + "combined/" + repo + "/"
+        combine_path = os.path.join(data_folder, "combined", repo)
         if not os.path.exists(combine_path):
             os.makedirs(combine_path)
 
@@ -227,9 +227,9 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                 emotion_input += neutral_input.dBFS - emotion_input.dBFS
                 combined_input = neutral_input + emotion_input
 
-                out_name = (
-                    combine_path
-                    + neutral_sample.split("/")[-1][:-4]
+                out_name = os.path.join(
+                    combine_path,
+                    neutral_sample.split("/")[-1][:-4]
                     + "_"
                     + emo_sample.split("/")[-1]
                 )
@@ -261,9 +261,9 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                 neutral_input += emotion_input.dBFS - neutral_input.dBFS
                 combined_input = emotion_input + neutral_input
 
-                out_name = (
-                    combine_path
-                    + emo_sample.split("/")[-1][:-4]
+                out_name = os.path.join(
+                    combine_path,
+                    emo_sample.split("/")[-1][:-4]
                     + "_"
                     + neutral_sample.split("/")[-1]
                 )
@@ -300,9 +300,9 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
                     neutral_input_1 + emotion_input + neutral_input_2
                 )
 
-                out_name = (
-                    combine_path
-                    + neutral_sample_1.split("/")[-1][:-4]
+                out_name = os.path.join(
+                    combine_path,
+                    neutral_sample_1.split("/")[-1][:-4]
                     + "_"
                     + emo_sample.split("/")[-1][:-4]
                     + "_"
@@ -332,7 +332,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
 
-                out_name = combine_path + emo_sample_1.split("/")[-1]
+                out_name = os.path.join(combine_path, emo_sample_1.split("/")[-1])
                 emotion_input_1.export(out_name, format="wav")
 
                 id = out_name.split("/")[-1][:-4]

@@ -207,7 +207,8 @@ def prepare_test(
         return
 
     try:
-        with open(f"{ZED_folder}/ZED.json", "r") as f:
+        zed_json_path = os.path.join(ZED_folder, "ZED.json")
+        with open(zed_json_path, "r") as f:
             all_dict = json.load(f)
     except OSError:
         logger.info(f"ZED.json can't be found under {ZED_folder}")
@@ -300,15 +301,16 @@ def check_and_prepare_dataset(
         seed (int): the random seed for reproduction
     """
     if data_folder is not None:
-        if not os.path.exists(data_folder + f"{data_name}.json"):
+        if not os.path.exists(os.path.join(data_folder, f"{data_name}.json")):
             data = prepare_function(
-                data_folder, data_folder + f"{data_name}.json", seed
+                data_folder, os.path.join(data_folder, f"{data_name}.json"), seed
             )
         else:
+            json_path = os.path.join(data_folder, data_name + ".json")
             logger.info(
-                f"{data_folder}{data_name}.json exists, skipping f{data_name} preparation."
+                f"{json_path} exists, skipping f{data_name} preparation."
             )
-            with open(f"{data_folder}{data_name}.json", "r") as f:
+            with open(json_path, "r") as f:
                 data = json.load(f)
         dictonary.update(data.items())
     else:
