@@ -624,6 +624,23 @@ class RelPosMHAXL(nn.Module):
 
         attn_score = F.softmax(attn_score, dim=-1)
         attn_score = self.dropout_att(attn_score)
+
+        # it is possible for us to hit full NaN when using chunked training
+        # so reapply masks, except with 0.0 instead as we are after the softmax
+        # because -inf would output 0.0 regardless anyway
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_score = attn_score.masked_fill(
+                    attn_mask, 0.0
+                )
+            else:
+                assert False, "oopsie need to reimplement that"
+
+        if key_padding_mask is not None:
+            attn_score = attn_score.masked_fill(
+                key_padding_mask.view(bsz, 1, 1, klen), 0.0,
+            )
+
         x = torch.matmul(
             attn_score, value.transpose(1, 2)
         )  # (batch, head, time1, d_k)

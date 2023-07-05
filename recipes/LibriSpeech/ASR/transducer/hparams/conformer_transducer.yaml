@@ -71,6 +71,23 @@ n_fft: 512
 n_mels: 80
 win_length: 32
 
+# Streaming & dynamic chunk training options
+streaming: False  # controls all DCT & chunk size & left context mechanisms
+
+test_chunk_size: 8
+test_left_context_size: 64
+
+valid_chunk_size: -1
+valid_left_context_size: -1
+
+dynamic_chunk_thresh: 0.6
+dynamic_chunk_min: 8
+dynamic_chunk_max: 32
+
+dynamic_left_context_thresh: 0.75 # TODO: rename all to prob, makes more sense
+dynamic_left_context_min: 16
+dynamic_left_context_max: 64
+
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>

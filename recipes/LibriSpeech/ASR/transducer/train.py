@@ -69,6 +69,33 @@ class ASR(sb.Brain):
             )
 
         current_epoch = self.hparams.epoch_counter.current
+
+        transformer_chunk_size = -1
+        left_context_chunks = -1
+        if self.hparams.streaming:
+            if stage == sb.Stage.TRAIN:
+                if torch.rand((1, )).item() < self.hparams.dynamic_chunk_thresh:
+                    transformer_chunk_size = torch.randint(
+                        self.hparams.dynamic_chunk_min,
+                        self.hparams.dynamic_chunk_max + 1,
+                        (1, )
+                    ).item()
+                    # print("tfx chunk size", transformer_chunk_size)
+
+                if torch.rand((1, )).item() < self.hparams.dynamic_left_context_thresh:
+                    left_context_chunks = torch.randint(
+                        self.hparams.dynamic_left_context_min,
+                        self.hparams.dynamic_left_context_max + 1,
+                        (1, )
+                    ).item()
+            elif stage == sb.Stage.TEST:
+                transformer_chunk_size = self.hparams.test_chunk_size
+                left_context_chunks = self.hparams.test_left_context_size
+            elif stage == sb.Stage.VALID:
+                transformer_chunk_size = self.hparams.valid_chunk_size
+                left_context_chunks = self.hparams.valid_left_context_size
+
+        # logger.info(f"Batch uses tfx chunk size = {transformer_chunk_size}, frame chunk_size = {chunk_size}")
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
