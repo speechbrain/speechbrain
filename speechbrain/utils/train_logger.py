@@ -7,6 +7,7 @@ import logging
 import ruamel.yaml
 import torch
 import os
+from speechbrain.utils.distributed import if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +96,9 @@ class FileTrainLogger(TrainLogger):
             if stats is not None:
                 string_summary += " - " + self._stats_to_string(stats, dataset)
 
-        with open(self.save_file, "a") as fout:
-            print(string_summary, file=fout)
+        if if_main_process():
+            with open(self.save_file, "a") as fout:
+                print(string_summary, file=fout)
         if verbose:
             logger.info(string_summary)
 
@@ -133,15 +135,16 @@ class TensorboardLogger(TrainLogger):
     ):
         """See TrainLogger.log_stats()"""
         self.global_step["meta"] += 1
-        for name, value in stats_meta.items():
-            self.writer.add_scalar(name, value, self.global_step["meta"])
+        if if_main_process():
+            for name, value in stats_meta.items():
+                self.writer.add_scalar(name, value, self.global_step["meta"])
 
         for dataset, stats in [
             ("train", train_stats),
             ("valid", valid_stats),
             ("test", test_stats),
         ]:
-            if stats is None:
+            if stats is None or not if_main_process():
                 continue
             for stat, value_list in stats.items():
                 if stat not in self.global_step[dataset]:
@@ -210,9 +213,11 @@ class WandBLogger(TrainLogger):
             logs[dataset] = stats
 
         step = stats_meta.get("epoch", None)
-        if step is not None:  # Useful for continuing runs that crashed
+        if (
+            step is not None and if_main_process()
+        ):  # Useful for continuing runs that crashed
             self.run.log({**logs, **stats_meta}, step=step)
-        else:
+        elif if_main_process():
             self.run.log({**logs, **stats_meta})
 
 
