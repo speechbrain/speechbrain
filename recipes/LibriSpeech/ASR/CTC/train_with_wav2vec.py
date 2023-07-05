@@ -30,6 +30,8 @@ from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
+use_old_one = True 
+
 # Define training procedure
 class ASR(sb.Brain):
     
@@ -86,7 +88,7 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
-            predicted_words = []
+            predicted_words_2 = []
 
             """
             predicted_tokens = sb.decoders.ctc_greedy_decode(
@@ -107,30 +109,47 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
             """
-            
-            for logs in p_ctc:
-                text = decoder(logs.detach().cpu().numpy())
-                predicted_words.append(text.split(" "))
-            print(predicted_words)
-            exit()
+
+            """            
+            if use_old_one:
+                for logs in p_ctc:
+                    text = decoder_old(logs.detach().cpu().numpy())
+                    predicted_words_2.append(text.split(" "))
+                # exit()
+
+
+            # filter wrd with len > 0
+            predicted_words_2 = [
+               [w for w in utt if len(w) > 0] for utt in predicted_words_2
+            ]
+            """
 
             batch_hypo = decoder.decode_beams(p_ctc.cpu().numpy()) 
 
+            predicted_words = []
             for hypo in batch_hypo:
                 predicted_words.append(hypo[0].text.split(" "))
-            
+
+            """
+            # check if the two are the same
+            for i in range(len(predicted_words)):
+                if predicted_words[i] != predicted_words_2[i]:
+                    print(predicted_words[i])
+                    print(predicted_words_2[i])
+                    print("not the same")
+                    exit()
+            """
             """
             for logs in p_ctc:
                 text = decoder.decode_beams(logs.detach().cpu().numpy())[0].text
                 predicted_words.append(text.split(" "))
             """
 
+
             # filter wrd with len > 0
-            predicted_words = [
-               [w for w in utt if len(w) > 0] for utt in predicted_words
-            ]
-            print(predicted_words)
-            exit()
+            #predicted_words = [
+            #   [w for w in utt if len(w) > 0] for utt in predicted_words
+            #]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -470,15 +489,16 @@ if __name__ == "__main__":
         vocab_list=labels,
     )
 
-    from speechbrain.decoders.off.ctc_prefix_beam_search import BeamSearchDecoderCTC
+    if use_old_one:
+        from speechbrain.decoders.off.ctc_prefix_beam_search import BeamSearchDecoderCTC
 
-    ind2lab = label_encoder.ind2lab
-    labels = [ind2lab[x] for x in range(len(ind2lab))]
-    decoder = BeamSearchDecoderCTC(
-        blank_id=0,
-        space_id=29,
-        vocab=labels,
-    )
+        ind2lab = label_encoder.ind2lab
+        labels = [ind2lab[x] for x in range(len(ind2lab))]
+        decoder_old = BeamSearchDecoderCTC(
+            blank_id=0,
+            space_id=29,
+            vocab=labels,
+        )
 
 
     """

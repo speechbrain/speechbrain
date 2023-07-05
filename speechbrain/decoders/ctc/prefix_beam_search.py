@@ -72,15 +72,12 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         beam.n_p_b = np.logaddexp(
                             beam.n_p_b, beam.score_ctc + p_token
                         )
-                        beam.last_token_index = token_index
-                        beam.last_token = token
                         continue
 
                     if token == beam.last_token:
                         beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
-                        new_text = beam.text
-                    else:
-                        new_text = beam.text + token
+                     
+                    new_text = beam.text + token
 
                     new_beam = self._get_new_beam(
                         new_text, 
@@ -104,4 +101,5 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 beam.step()
 
             beams = sorted(beams, key=lambda x: x.score, reverse=True)[:self.beam_width]
+
         return beams
