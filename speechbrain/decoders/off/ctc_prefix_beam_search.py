@@ -243,16 +243,16 @@ class BeamSearchDecoderCTC:
                     last_token_index = prefix[-1] if prefix else None
 
                     # repeated token
-                    if token_index == last_token_index:
+                    if c == last_token_index:
                         beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p)
 
-                    n_prefix = prefix + (token_index,)
+                    n_prefix = prefix + (c,)
                     # Must update state for prefix search
                     n_beam = beams.getitem(n_prefix, p=p, previous_beam=beam)
                     n_p_nb = n_beam.n_p_nb
 
                     if (
-                        token_index == last_token_index
+                        c == last_token_index
                         and p_b > -self.NUM_FLT_INF
                     ):
                         # We don't include the previous probability of not ending in blank (p_nb)
@@ -260,7 +260,7 @@ class BeamSearchDecoderCTC:
                         # separated by a blank.
                         n_p_nb = np.logaddexp(n_p_nb, p_b + p)
                    
-                    elif token_index != last_token_index:
+                    elif c != last_token_index:
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p)
                     n_beam.n_p_nb = n_p_nb
 
@@ -271,8 +271,9 @@ class BeamSearchDecoderCTC:
 
         for p, beam in beams.sort():
             for token in p:
-                beam.text += self.vocab[token]
+                beam.text += token
             return beam.text
+            
 
     def __call__(self, logits):
         return self._decode_logits(logits)

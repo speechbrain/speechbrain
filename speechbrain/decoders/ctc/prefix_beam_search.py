@@ -36,9 +36,10 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
             last_token_index=last_token_index,
             text_frames=[],
             partial_frames=(-1, -1),
-            score=0.0,
-            score_ctc=0.0,
-            p_b=0.0,
+            score=-math.inf,
+            score_ctc=-math.inf,
+            lm_score=0.0,
+            p_b=-math.inf,
         )
         beams.append(new_beam)
         if previous_beam:
@@ -77,8 +78,9 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
                     if token == beam.last_token:
                         beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
-                    
-                    new_text = beam.text + token
+                        new_text = beam.text
+                    else:
+                        new_text = beam.text + token
 
                     new_beam = self._get_new_beam(
                         new_text, 

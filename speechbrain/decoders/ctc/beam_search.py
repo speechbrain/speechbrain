@@ -49,6 +49,7 @@ class CTCBeam:
 
     score: float =  -math.inf
     score_ctc: float = -math.inf
+    lm_score: float = -math.inf
 
     @classmethod
     def from_lm_beam(cls, lm_beam):
@@ -73,7 +74,7 @@ class CTCBeam:
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
-        self.score = self.score_ctc + self.score
+        self.score = self.score_ctc + self.lm_score
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):

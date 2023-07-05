@@ -108,6 +108,12 @@ class ASR(sb.Brain):
             ]
             """
             
+            for logs in p_ctc:
+                text = decoder(logs.detach().cpu().numpy())
+                predicted_words.append(text.split(" "))
+            print(predicted_words)
+            exit()
+
             batch_hypo = decoder.decode_beams(p_ctc.cpu().numpy()) 
 
             for hypo in batch_hypo:
@@ -462,6 +468,16 @@ if __name__ == "__main__":
         history_prune=True,
         space_index=29,
         vocab_list=labels,
+    )
+
+    from speechbrain.decoders.off.ctc_prefix_beam_search import BeamSearchDecoderCTC
+
+    ind2lab = label_encoder.ind2lab
+    labels = [ind2lab[x] for x in range(len(ind2lab))]
+    decoder = BeamSearchDecoderCTC(
+        blank_id=0,
+        space_id=29,
+        vocab=labels,
     )
 
 
