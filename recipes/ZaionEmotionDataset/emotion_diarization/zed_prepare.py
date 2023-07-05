@@ -303,7 +303,9 @@ def check_and_prepare_dataset(
     if data_folder is not None:
         if not os.path.exists(os.path.join(data_folder, f"{data_name}.json")):
             data = prepare_function(
-                data_folder, os.path.join(data_folder, f"{data_name}.json"), seed
+                data_folder,
+                os.path.join(data_folder, f"{data_name}.json"),
+                seed,
             )
         else:
             json_path = os.path.join(data_folder, data_name + ".json")

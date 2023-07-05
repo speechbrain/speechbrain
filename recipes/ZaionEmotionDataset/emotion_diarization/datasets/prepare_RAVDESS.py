@@ -94,7 +94,9 @@ def resampling_for_folder(in_folder, out_folder):
     files = os.listdir(in_folder)
     for file_name in files:
         try:
-            sound = AudioSegment.from_file(os.path.join(in_folder, file_name), format="wav")
+            sound = AudioSegment.from_file(
+                os.path.join(in_folder, file_name), format="wav"
+            )
             sound = sound.set_frame_rate(16000)
             sound.export(os.path.join(out_folder, file_name), format="wav")
         except Exception as e:
@@ -167,7 +169,7 @@ def concat_wavs(data_folder, save_json):
                     combine_path,
                     neutral_sample.split("/")[-1][:-4]
                     + "_"
-                    + emo_sample.split("/")[-1]
+                    + emo_sample.split("/")[-1],
                 )
                 combined_input.export(out_name, format="wav")
 
@@ -201,7 +203,7 @@ def concat_wavs(data_folder, save_json):
                     combine_path,
                     emo_sample.split("/")[-1][:-4]
                     + "_"
-                    + neutral_sample.split("/")[-1]
+                    + neutral_sample.split("/")[-1],
                 )
                 combined_input.export(out_name, format="wav")
 
@@ -242,7 +244,7 @@ def concat_wavs(data_folder, save_json):
                     + "_"
                     + emo_sample.split("/")[-1][:-4]
                     + "_"
-                    + neutral_sample_2.split("/")[-1]
+                    + neutral_sample_2.split("/")[-1],
                 )
                 combined_input.export(out_name, format="wav")
 
@@ -268,7 +270,9 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_input_1 = AudioSegment.from_wav(emo_sample_1)
 
-                out_name = os.path.join(combine_path, emo_sample_1.split("/")[-1])
+                out_name = os.path.join(
+                    combine_path, emo_sample_1.split("/")[-1]
+                )
                 emotion_input_1.export(out_name, format="wav")
 
                 id = out_name.split("/")[-1][:-4]
