@@ -1,10 +1,21 @@
 # Speech Emotion Diarization (SED)
 
-Speech Emotion Diarization ([arXiv link](https://arxiv.org/pdf/2211.01910.pdf)) aims to predict the correct emotions and their temporal boundaries within an utterance.
+Speech Emotion Diarization ([arXiv link](https://arxiv.org/pdf/2306.12991.pdf)) aims to predict the correct emotions and their temporal boundaries within an utterance. For now, the model was trained with audios that contain only 1 non-neutral emotion event. The output is a dictionary of emotion components (neutral/happy/angry/sad) and their boundaries such as: 
+
+```
+{
+   'example.wav':
+      [
+         {'start': 0.0, 'end': 1.94, 'emotion': 'n'}, # n -> neutral
+         {'start': 1.94, 'end': 4.48, 'emotion': 'h'} # h -> happy
+      ]
+}
+```
+
 
 ## Dependencies
 
-First, please install the extra dependencies, do  `pip install -r requirements.txt`
+First, please install the extra dependencies, do  `pip install -r extra_requirements.txt`
 
 
 ## Datasets
@@ -15,13 +26,13 @@ The test set is Zaion Emotion Dataset (ZED), which can be downloaded [here](http
 ### Training Set
 1. [RAVDESS](https://zenodo.org/record/1188976)
 
-   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/i954d87qqyl055e/RAVDESS.zip`
+   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/aancfsluvcyrxou/RAVDESS.zip`
 
    <!-- Unzip and rename the folder as "RAVDESS". -->
 
 2. [ESD](https://github.com/HLTSingapore/Emotional-Speech-Data)
 
-   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/d1xn0l1abroqmkj/ESD.zip`
+   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/e05ul8myqb5hkbj/ESD.zip`
    <!-- Unzip and rename the folder as "ESD". -->
 
 3. [IEMOCAP](https://sail.usc.edu/iemocap/iemocap_release.htm)
@@ -29,35 +40,33 @@ The test set is Zaion Emotion Dataset (ZED), which can be downloaded [here](http
 
 4. [JL-CORPUS](https://www.kaggle.com/datasets/tli725/jl-corpus?resource=download)
 
-   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/vb7anwzamhkp1yj/JL_corpus.zip`
+   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/4t3vlq5cv5e8wv6/JL_corpus.zip`
 
 5. [EmoV-DB](https://openslr.org/115/)
 
-   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/c7uwbh5iu9vfotf/EmoV-DB.zip`, where only `Amused, Neutral, Angry` emotions are kept.
+   A fast download can be done by `wget https://dl.dropboxusercontent.com/s/drvn10ph8q6aw8t/EmoV-DB.zip`, where only `Amused, Neutral, Angry` emotions are kept.
 
 
 ## Run the code
 
 First download the train/test datasets and unzip them.
 
-To run the code, do `python train_with_wav2vec.py hparams/train_with_wav2vec.yaml --zed_folder /path/to/ZED --emovdb_folder /path/to/EmoV-DB --esd_folder /path/to/ESD --iemocap_folder /path/to/IEMOCAP --jlcorpus_folder /path/to/JL_corpus --ravdess_folder /path/to/RAVDESS`.
+To run the code, do `python train.py hparams/train.yaml --zed_folder /path/to/ZED --emovdb_folder /path/to/EmoV-DB --esd_folder /path/to/ESD --iemocap_folder /path/to/IEMOCAP --jlcorpus_folder /path/to/JL_corpus --ravdess_folder /path/to/RAVDESS`.
 
 The frame-wise classification result for each utterance can be found in `results/eder.txt`.
 
 
 ## Results
 
-The EDER (Emotion Diarization Error Rate) reported here was averaged on 5 different seeds
+The EDER (Emotion Diarization Error Rate) reported here was averaged on 5 different seeds, results of other models (wav2vec2.0, HuBERT) can be found in the paper. You can find our training results (model, logs, etc) [here](https://www.dropbox.com/sh/woudm1v31a7vyp5/AADAMxpQOXaxf8E_1hX202GJa?dl=0).
 
 | model | EDER |
 |:-------------:|:---------------------------:|
-| Wav2vec2.0-large | 36.2 ± 1.14 |
-| HuBERT-large | 34.5 ± 0.81 |
 | WavLM-large | 30.2 ± 1.60 |
 
 ## Inference
 
-The pretrained models and a easy-inference interface can be found on [HuggingFace](to be added).
+The pretrained models and a easy-inference interface can be found on [HuggingFace](https://huggingface.co/speechbrain/emotion-diarization-wavlm-large).
 
 
 
