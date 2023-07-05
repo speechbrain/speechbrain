@@ -174,10 +174,10 @@ DEFAULT_SAVE_HOOKS = {
 }
 if version.parse(torch.__version__) < version.parse("2.0.0"):
     DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
-    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_save
 else:
     DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
-    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_save
 
 DEFAULT_SAVE_ALL_PROCS_HOOKS = {}
 
@@ -594,20 +594,20 @@ class Checkpointer:
             saved_paramfiles[name] = savepath
 
             # First see if object has custom save hook:
-            if name in self.custom_save_hooks and if_main_process():
-                self.custom_save_hooks[name](obj, savepath)
-                continue
             if name in self.custom_save_all_procs_hooks:
                 self.custom_save_all_procs_hooks[name](obj, savepath)
                 continue
+            if name in self.custom_save_hooks and if_main_process():
+                self.custom_save_hooks[name](obj, savepath)
+                continue
 
             # Otherwise find the default saver for that type:
-            default_hook = get_default_hook(obj, DEFAULT_SAVE_HOOKS)
-            if default_hook is not None and if_main_process():
-                default_hook(obj, savepath)
-                continue
             default_hook = get_default_hook(obj, DEFAULT_SAVE_ALL_PROCS_HOOKS)
             if default_hook is not None:
+                default_hook(obj, savepath)
+                continue
+            default_hook = get_default_hook(obj, DEFAULT_SAVE_HOOKS)
+            if default_hook is not None and if_main_process():
                 default_hook(obj, savepath)
                 continue
 
