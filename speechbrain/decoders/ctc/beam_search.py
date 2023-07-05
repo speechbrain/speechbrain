@@ -389,26 +389,11 @@ class CTCBaseSearcher(torch.nn.Module):
         scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
         return self.sort_beams(scored_beams)
     
-    def decode_beams_batch(self, log_probs, pool=None):
-        valid_pool = self.get_valid_pool(pool)
-        if valid_pool is None:
-            return [
-                 self.decode_beams_mp_safe(log_prob) for log_prob in log_probs
-            ]
-        
-        p_decode = functools.partial(
-            self.decode_beams_mp_safe,
-        )
-        decoded_beams_list = valid_pool.map(p_decode, log_probs)
-        return decoded_beams_list
+    def decode_beams(self, log_probs, lm_start_state=None):
+        return [
+            self.decode_log_probs(log_prob, lm_start_state)[:self.topk] for log_prob in log_probs
+        ]
 
-    def decode_beams_mp_safe(self, log_probs):
-
-        decoded_beams = self.decode_beams(log_probs)
-
-        decoded_beams_mp_safe = [output_beam.get_mp_safe_beam() for output_beam in decoded_beams]
-
-        return decoded_beams_mp_safe[:self.topk]
     
     def partial_decode_beams(
             self, 
@@ -438,9 +423,6 @@ class CTCBaseSearcher(torch.nn.Module):
             )
 
             return trimmed_beams
-
-    def decode_beams(self, log_probs, lm_start_state=None):
-        return self.decode_log_probs(log_probs, lm_start_state)
 
     def decode_log_probs(self, log_probs, lm_start_state = None):
         language_model = self.lm

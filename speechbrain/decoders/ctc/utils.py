@@ -100,7 +100,7 @@ class CTCBeam:
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
-        self.score = self.score_ctc + self.score
+        self.score = self.score_ctc # + self.score
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
@@ -113,14 +113,6 @@ class CTCHypothesis:
     text_frames: List[Tuple[str, Tuple[int, int]]]
     score: float  # Cumulative logit score
     lm_score: float  # Cumulative language model + logit score
-
-    def get_mp_safe_beam(self):
-        """Get a multiprocessing-safe version of the beam."""
-        if self.last_lm_state is None:
-            last_lm_state = None
-        else:
-            last_lm_state = self.last_lm_state.get_mp_safe_state()
-        return dataclasses.replace(self, last_lm_state=last_lm_state)
 
 class CTCBaseSearcher(torch.nn.Module):
     """ TODO: docstring

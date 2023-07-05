@@ -30,8 +30,6 @@ from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
-# pool = multiprocessing.get_context("fork").Pool()
-
 # Define training procedure
 class ASR(sb.Brain):
     
@@ -110,7 +108,7 @@ class ASR(sb.Brain):
             ]
             """
             
-            batch_hypo = decoder.decode_beams_batch(p_ctc.cpu().numpy()) # , pool
+            batch_hypo = decoder.decode_beams(p_ctc.cpu().numpy()) 
 
             for hypo in batch_hypo:
                 predicted_words.append(hypo[0].text.split(" "))
@@ -122,10 +120,11 @@ class ASR(sb.Brain):
             """
 
             # filter wrd with len > 0
-            #predicted_words = [
-            #   [w for w in utt if len(w) > 0] for utt in predicted_words
-            #]
-
+            predicted_words = [
+               [w for w in utt if len(w) > 0] for utt in predicted_words
+            ]
+            print(predicted_words)
+            exit()
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -457,7 +456,6 @@ if __name__ == "__main__":
 
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
-
     decoder = CTCPrefixBeamSearch(
         blank_index=0,
         # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",

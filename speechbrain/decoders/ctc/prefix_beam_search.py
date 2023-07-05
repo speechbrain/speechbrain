@@ -24,6 +24,8 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
             if beam.text == new_prefix:
                 if p and p > beam.p:
                     beam.p = p 
+                beam.last_token = last_token
+                beam.last_token_index = last_token_index
                 return beam 
         
         new_beam = CTCBeam(
@@ -50,16 +52,16 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_lm_scores,
         cached_p_lm_scores,
         processed_frames = 0,
-    ):        
+    ):  
         for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
             max_index = logit_col.argmax()
             tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
+            
+            curr_beams = beams.copy()
 
             for token_index in tokens_index_list:
                 p_token = logit_col[token_index]
                 token = self.vocab_list[token_index]
-
-                curr_beams = beams.copy()
 
                 for beam in curr_beams:
                     p_b, p_nb = beam.p_b, beam.p_nb
@@ -69,24 +71,23 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         beam.n_p_b = np.logaddexp(
                             beam.n_p_b, beam.score_ctc + p_token
                         )
-
                         beam.last_token_index = token_index
                         beam.last_token = token
                         continue
 
-                    if token_index == beam.last_token_index:
+                    if token == beam.last_token:
                         beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
-                        
-                                            
+                    
                     new_text = beam.text + token
+
                     new_beam = self._get_new_beam(
                         new_text, 
                         token,
                         token_index,
-                        beams, p=p_b + p_token, previous_beam=beam)
-                    
-                    new_beam.last_token_index = token_index
-                    new_beam.last_token = token
+                        beams,
+                        p=p_token, 
+                        previous_beam=beam
+                    )
 
                     n_p_nb = new_beam.n_p_nb
 
@@ -95,10 +96,10 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                     elif token_index != beam.last_token_index:
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
                     new_beam.n_p_nb = n_p_nb 
-                
+
+                    # max number of beams to consider during this step as an heuristic ? 
             for beam in beams:
                 beam.step()
 
             beams = sorted(beams, key=lambda x: x.score, reverse=True)[:self.beam_width]
-            print(beams[0])
-        exit()
+        return beams
