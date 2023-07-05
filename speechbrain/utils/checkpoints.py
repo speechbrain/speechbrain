@@ -60,6 +60,7 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
+from speechbrain.utils.distributed import if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -159,36 +160,26 @@ def torch_parameter_transfer(obj, path, device):
 
 
 # These dicts are indexed by class and hold the default checkpoints methods
+DEFAULT_LOAD_HOOKS = {
+    torch.nn.Module: torch_recovery,
+    torch.optim.Optimizer: torch_recovery,
+    torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
+    torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
+}
+DEFAULT_SAVE_HOOKS = {
+    torch.nn.Module: torch_save,
+    torch.optim.Optimizer: torch_save,
+    torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
+    torch.cuda.amp.grad_scaler.GradScaler: torch_save,
+}
 if version.parse(torch.__version__) < version.parse("2.0.0"):
-    DEFAULT_LOAD_HOOKS = {
-        torch.nn.Module: torch_recovery,
-        torch.optim.Optimizer: torch_recovery,
-        torch.optim.lr_scheduler._LRScheduler: torch_recovery,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
-    }
-    DEFAULT_SAVE_HOOKS = {
-        torch.nn.Module: torch_save,
-        torch.optim.Optimizer: torch_save,
-        torch.optim.lr_scheduler._LRScheduler: torch_save,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_save,
-    }
+    DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
 else:
-    DEFAULT_LOAD_HOOKS = {
-        torch.nn.Module: torch_recovery,
-        torch.optim.Optimizer: torch_recovery,
-        torch.optim.lr_scheduler.LRScheduler: torch_recovery,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
-    }
-    DEFAULT_SAVE_HOOKS = {
-        torch.nn.Module: torch_save,
-        torch.optim.Optimizer: torch_save,
-        torch.optim.lr_scheduler.LRScheduler: torch_save,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_save,
-    }
+    DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
+
+DEFAULT_SAVE_ALL_PROCS_HOOKS = {}
 
 DEFAULT_TRANSFER_HOOKS = {
     torch.nn.Module: torch_parameter_transfer,
@@ -223,6 +214,7 @@ def mark_as_saver(method):
         Method of the class to decorate. Must be callable with
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
+    main_process_only : bool
 
     Note
     ----
@@ -300,7 +292,7 @@ def mark_as_transfer(method):
     return method
 
 
-def register_checkpoint_hooks(cls):
+def register_checkpoint_hooks(cls, save_on_main_only=True):
     """Class decorator which registers the load, save and transfer hooks.
 
     The hooks must have been marked with mark_as_loader and mark_as_saver,
@@ -310,6 +302,10 @@ def register_checkpoint_hooks(cls):
     ---------
     cls : class
         Class to decorate
+    save_on_main_only : bool
+        By default, the saver is only run on a single process. This argument
+        provides the option to run the saver on all processes, needed
+        for some savers where data is first gathered before saving.
 
     Example
     -------
@@ -332,9 +328,13 @@ def register_checkpoint_hooks(cls):
     global DEFAULT_LOAD_HOOKS
     global DEFAULT_SAVE_HOOKS
     global DEFAULT_TRANSFER_HOOKS
+    global DEFAULT_SAVE_ALL_PROCS_HOOKS
     for name, method in cls.__dict__.items():
         if hasattr(method, "_speechbrain_saver"):
-            DEFAULT_SAVE_HOOKS[cls] = method
+            if save_on_main_only:
+                DEFAULT_SAVE_HOOKS[cls] = method
+            else:
+                DEFAULT_SAVE_ALL_PROCS_HOOKS[cls] = method
             logger.debug(f"Registered checkpoint save hook for {name}")
         if hasattr(method, "_speechbrain_loader"):
             DEFAULT_LOAD_HOOKS[cls] = method
@@ -429,6 +429,9 @@ class Checkpointer:
         function/method must be callable with
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
+    custom_save_all_procs_hooks : mapping, optional
+        Works the same as ``custom_save_hooks``, except gets called on
+        all processes instead of only the main process.
     allow_partial_load : bool, optional
         If True, allows loading a checkpoint where a savefile is not found
         for every registered recoverable. In that case, only the found
@@ -466,6 +469,7 @@ class Checkpointer:
         recoverables=None,
         custom_load_hooks=None,
         custom_save_hooks=None,
+        custom_save_all_procs_hooks=None,
         allow_partial_load=False,
     ):
         self.checkpoints_dir = pathlib.Path(checkpoints_dir)
@@ -479,10 +483,18 @@ class Checkpointer:
         self.custom_save_hooks = {}
         if custom_save_hooks is not None:
             self.custom_save_hooks.update(custom_save_hooks)
+        self.custom_save_all_procs_hooks = {}
+        if custom_save_all_procs_hooks is not None:
+            self.custom_save_all_procs_hooks.update(custom_save_all_procs_hooks)
         self.allow_partial_load = allow_partial_load
 
     def add_recoverable(
-        self, name, obj, custom_load_hook=None, custom_save_hook=None
+        self,
+        name,
+        obj,
+        custom_load_hook=None,
+        custom_save_hook=None,
+        custom_save_all_procs_hook=None,
     ):
         """Register a recoverable with possible custom hooks.
 
@@ -492,20 +504,25 @@ class Checkpointer:
             Unique name for recoverable. Used to map savefiles to objects.
         obj : instance
             The object to recover.
-        custom_load_hook : callable
+        custom_load_hook : callable, optional
             Called to load the object's savefile. The function/method must be
             callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def load(self, path):
-        custom_save_hook : callable
+        custom_save_hook : callable, optional
             Called to save the object's parameters. The function/method must
             be callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def saver(self, path):
+        custom_save_all_procs_hook : callable, optional
+            Works the same as ``custom_save_hook``, except gets called on
+            all processes instead of only the main process.
         """
         self.recoverables[name] = obj
         if custom_load_hook is not None:
             self.custom_load_hooks[name] = custom_load_hook
         if custom_save_hook is not None:
             self.custom_save_hooks[name] = custom_save_hook
+        if custom_save_all_procs_hook is not None:
+            self.custom_save_all_procs_hooks[name] = custom_save_all_procs_hook
 
     def add_recoverables(self, recoverables):
         """Update the recoverables dict from the given mapping.
@@ -575,15 +592,25 @@ class Checkpointer:
             objfname = f"{name}" + PARAMFILE_EXT
             savepath = ckpt_dir / objfname
             saved_paramfiles[name] = savepath
-            # First see if object has custom load hook:
-            if name in self.custom_save_hooks:
+
+            # First see if object has custom save hook:
+            if name in self.custom_save_hooks and if_main_process():
                 self.custom_save_hooks[name](obj, savepath)
                 continue
+            if name in self.custom_save_all_procs_hooks:
+                self.custom_save_all_procs_hooks[name](obj, savepath)
+                continue
+
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_SAVE_HOOKS)
+            if default_hook is not None and if_main_process():
+                default_hook(obj, savepath)
+                continue
+            default_hook = get_default_hook(obj, DEFAULT_SAVE_ALL_PROCS_HOOKS)
             if default_hook is not None:
                 default_hook(obj, savepath)
                 continue
+
             # If we got here, no custom hook or registered default hook
             MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
