@@ -14,7 +14,7 @@ def download_common_voice(download_dir,language):
     archive = os.path.join(download_dir, f"cv-corpus-13.0-2023-03-09-{language}.tar.gz")
     url = (
     "https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com"
-    f"/cv-corpus-13.0-2023-03-09/cv-corpus-13.0-2023-03-09-{language}.tar.gz"
+    f"/cv-corpus-14.0-2023-06-23/cv-corpus-14.0-2023-06-23-{language}.tar.gz"
 )
     try:
         logger.log(logging.INFO, f"start downloading {language}")
