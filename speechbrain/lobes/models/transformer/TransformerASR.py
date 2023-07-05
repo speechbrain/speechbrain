@@ -152,9 +152,10 @@ class TransformerASR(TransformerInterface):
             ),
             torch.nn.Dropout(dropout),
         )
-        self.custom_tgt_module = ModuleList(
-            NormalizedEmbedding(d_model, tgt_vocab)
-        )
+        if num_decoder_layers > 0:
+            self.custom_tgt_module = ModuleList(
+                NormalizedEmbedding(d_model, tgt_vocab)
+            )
 
         # reset parameters using xavier_normal_
         self._init_params()
