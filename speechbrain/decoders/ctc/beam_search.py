@@ -169,19 +169,6 @@ class CTCBaseSearcher(torch.nn.Module):
         else:
             self.lm = None
 
-    def get_valid_pool(self, pool):
-        """Return the pool if the pool is appropriate for multiprocessing."""
-        if pool is not None and isinstance(
-            pool._ctx, multiprocessing.context.SpawnContext  # type: ignore [attr-defined] # pylint: disable=W0212
-        ):
-            logger.warning(
-                "Specified pool object has a spawn context, which is not currently supported. "
-                "See https://github.com/kensho-technologies/pyctcdecode/issues/65."
-                "\nFalling back to sequential decoding."
-            )
-            return None
-        return pool
-
     def partial_decoding(
             self, 
             log_probs, 
@@ -191,18 +178,6 @@ class CTCBaseSearcher(torch.nn.Module):
             processed_frames = 0,
         ):
         raise NotImplementedError
-    
-    def on_start_decode(self, **kwargs):
-        raise NotImplementedError
-
-    def one_decode_step(
-            self, 
-            log_probs, 
-            beams, 
-            cached_lm_scores, 
-            cached_p_lm_scores
-        ):
-            raise NotImplementedError
 
     def finalize_decoding(
             self, 
@@ -212,12 +187,6 @@ class CTCBaseSearcher(torch.nn.Module):
             force_next_word=False, 
             is_end=False
             ):
-        raise NotImplementedError
-
-    def partial_decode(self, **kwargs):
-        raise NotImplementedError
-
-    def full_decode(self, log_probs):
         raise NotImplementedError
     
     def normalize_whitespace(self, text: str) -> str:

@@ -16,8 +16,8 @@ Authors
  * Abdel Heba 2020
  * Peter Plantinga 2020
  * Samuele Cornell 2020
+ * Adel Moumen 2023
 """
-import multiprocessing
 import os
 import sys
 import torch
@@ -26,7 +26,6 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from speechbrain.decoders.ctc import filter_ctc_output
 
 logger = logging.getLogger(__name__)
 
@@ -145,11 +144,6 @@ class ASR(sb.Brain):
                 predicted_words.append(text.split(" "))
             """
 
-
-            # filter wrd with len > 0
-            #predicted_words = [
-            #   [w for w in utt if len(w) > 0] for utt in predicted_words
-            #]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
             self.wer_metric.append(ids, predicted_words, target_words)
