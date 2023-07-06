@@ -3068,9 +3068,7 @@ class Speech_Emotion_Diarization(Pretrained):
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
-        frame_class = self.diarize_batch(
-            batch, rel_length, [path]
-        )
+        frame_class = self.diarize_batch(batch, rel_length, [path])
         return frame_class
 
     def encode_batch(self, wavs, wav_lens):
@@ -3159,7 +3157,7 @@ class Speech_Emotion_Diarization(Pretrained):
 
             lol = self.merge_ssegs_same_emotion_adjacent(lol)
             results[batch_id[i]] = [
-                {"start": k[1], "end":k[2], "emotion": k[3]} for k in lol
+                {"start": k[1], "end": k[2], "emotion": k[3]} for k in lol
             ]
             return results
 
@@ -3226,7 +3224,10 @@ class Speech_Emotion_Diarization(Pretrained):
         for i in range(1, len(lol)):
             next_sseg = lol[i]
             # IF sub-segments overlap AND has same emotion THEN merge
-            if self.is_overlapped(sseg[2], next_sseg[1]) and sseg[3] == next_sseg[3]:
+            if (
+                self.is_overlapped(sseg[2], next_sseg[1])
+                and sseg[3] == next_sseg[3]
+            ):
                 sseg[2] = next_sseg[2]  # just update the end time
                 # This is important. For the last sseg, if it is the same emotion then merge
                 # Make sure we don't append the last segment once more. Hence, set FLAG=True
