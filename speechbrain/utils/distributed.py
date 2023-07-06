@@ -104,6 +104,7 @@ def main_process_only(function):
 
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
+        """This decorated function runs only if this is the main process."""
         if if_main_process():
             return function(*args, **kwargs)
 
