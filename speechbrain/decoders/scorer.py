@@ -1220,6 +1220,8 @@ class ScorerBuilder:
             See BaseScorerInterface().
         log_probs : torch.Tensor
             (batch_size x beam_size, vocab_size). The log probs at this timestep.
+        beam_size : int
+            The beam size.
 
         Returns
         ---------
