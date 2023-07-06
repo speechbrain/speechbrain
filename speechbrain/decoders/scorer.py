@@ -35,8 +35,9 @@ class BaseScorerInterface:
         memory : No limit
             The scorer states for this timestep.
         candidates : torch.Tensor
-            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
-            scoring. If None, scorers will score on full vocabulary set.
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
 
