@@ -1,17 +1,15 @@
 # Speech Emotion Diarization (SED)
 
-Speech Emotion Diarization ([arXiv link](https://arxiv.org/pdf/2306.12991.pdf)) aims to predict the correct emotions and their temporal boundaries within an utterance. For now, the model was trained with audios that contain only 1 non-neutral emotion event. The output is a dictionary of emotion components (neutral/happy/angry/sad) and their boundaries such as: 
+[Speech Emotion Diarization](https://arxiv.org/pdf/2306.12991.pdf) is a technique that focuses on predicting emotions and their corresponding time boundaries within a speech recording. The model, described in the research paper titled "Speech Emotion Diarization" ([available here](https://arxiv.org/pdf/2306.12991.pdf)), has been trained using audio samples that include neutral and a non-neutral emotional event. The model's output takes the form of a dictionary comprising emotion components (*neutral*, *happy*, *angry*, and *sad*) along with their respective start and end boundaries, as exemplified below:
 
-```
+```python
 {
-   'example.wav':
-      [
-         {'start': 0.0, 'end': 1.94, 'emotion': 'n'}, # n -> neutral
-         {'start': 1.94, 'end': 4.48, 'emotion': 'h'} # h -> happy
-      ]
+   'example.wav': [
+      {'start': 0.0, 'end': 1.94, 'emotion': 'n'},  # 'n' denotes neutral
+      {'start': 1.94, 'end': 4.48, 'emotion': 'h'}   # 'h' denotes happy
+   ]
 }
 ```
-
 
 ## Dependencies
 
@@ -63,6 +61,8 @@ The EDER (Emotion Diarization Error Rate) reported here was averaged on 5 differ
 | model | EDER |
 |:-------------:|:---------------------------:|
 | WavLM-large | 30.2 ± 1.60 |
+
+It takes about 40 mins/epoch with 1xRTX8000(40G), reduce the batch size if OOM.
 
 ## Inference
 
