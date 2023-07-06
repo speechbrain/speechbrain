@@ -2,7 +2,7 @@
 Token scorer abstraction and specifications.
 
 Authors:
- * Adel Moumen 2023
+ * Adel Moumen 2022, 2023
  * Sung-Lin Yeh 2021
 """
 
