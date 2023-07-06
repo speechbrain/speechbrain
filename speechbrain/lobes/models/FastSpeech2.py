@@ -372,10 +372,13 @@ class SPNPredictor(nn.Module):
 
         spn_mask = (
             torch.triu(
-                torch.ones(token_feats.shape[1], token_feats.shape[1]),
+                torch.ones(
+                    token_feats.shape[1],
+                    token_feats.shape[1],
+                    device=token_feats.device,
+                ),
                 diagonal=1,
             )
-            .to(token_feats.device)
             .bool()
             .repeat(self.enc_num_head * token_feats.shape[0], 1, 1)
         )
