@@ -7,6 +7,7 @@ Authors:
 import os
 import torch
 import logging
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,20 @@ def if_main_process():
                 return True
             return False
     return True
+
+
+def main_process_only(function):
+    """Function decorator to ensure the function runs only on the main process.
+    This is useful for things like saving to the filesystem or logging
+    to a web address where you only want it to happen on a single process.
+    """
+
+    @wraps(function)
+    def main_proc_wrapped_func(*args, **kwargs):
+        if if_main_process():
+            return function(*args, **kwargs)
+
+    return main_proc_wrapped_func
 
 
 def ddp_barrier():
