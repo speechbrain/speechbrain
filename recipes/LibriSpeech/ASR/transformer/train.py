@@ -340,7 +340,7 @@ def dataio_prepare(hparams):
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration"
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
