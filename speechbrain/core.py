@@ -1,7 +1,7 @@
 """Core SpeechBrain code for running experiments.
 
 Authors
- * Peter Plantinga 2020
+ * Peter Plantinga 2020, 2023
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
@@ -11,7 +11,6 @@ Authors
 import os
 import sys
 import yaml
-import time
 import torch
 import shutil
 import logging
@@ -271,10 +270,10 @@ def parse_arguments(arg_list=None):
         help="This flag disables the data loop progressbars.",
     )
     parser.add_argument(
-        "--ckpt_interval_minutes",
-        type=float,
-        help="Amount of time between saving intra-epoch checkpoints "
-        "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
+        "--save_after_steps",
+        type=int,
+        help="Save an intra-epoch checkpoint after this many steps."
+        "If non-positive, intra-epoch checkpoints are not saved.",
     )
     parser.add_argument(
         "--grad_accumulation_factor",
@@ -428,9 +427,9 @@ class Brain:
             Default: ``3``.
         noprogressbar (bool)
             Whether to turn off progressbar when training. Default: ``False``.
-        ckpt_interval_minutes (float)
-            Amount of time between saving intra-epoch checkpoints,
-            in minutes, default: ``15.0``. If non-positive, these are not saved.
+        save_after_steps (int)
+            Number of steps between saving intra-epoch checkpoints.
+            If non-positive, these are not saved. Default: ``0``.
 
         Typically in a script this comes from ``speechbrain.parse_args``, which
         has different defaults than Brain. If an option is not defined here
@@ -486,7 +485,7 @@ class Brain:
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "noprogressbar": False,
-            "ckpt_interval_minutes": 0,
+            "save_after_steps": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
             "tqdm_colored_bar": False,
@@ -1098,8 +1097,7 @@ class Brain:
         ):
             self.train_sampler.set_epoch(epoch)
 
-        # Time since last intra-epoch checkpoint
-        last_ckpt_time = time.time()
+        steps_since_save = 0
         with tqdm(
             train_set,
             initial=self.step,
@@ -1112,6 +1110,7 @@ class Brain:
                     logger.info("Train iteration limit exceeded")
                     break
                 self.step += 1
+                steps_since_save += 1
                 loss = self.fit_batch(batch)
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
@@ -1129,19 +1128,11 @@ class Brain:
 
                 if (
                     self.checkpointer is not None
-                    and self.ckpt_interval_minutes > 0
-                    and time.time() - last_ckpt_time
-                    >= self.ckpt_interval_minutes * 60.0
+                    and steps_since_save >= self.save_after_steps
                 ):
-                    # This should not use run_on_main, because that
-                    # includes a DDP barrier. That eventually leads to a
-                    # crash when the processes'
-                    # time.time() - last_ckpt_time differ and some
-                    # processes enter this block while others don't,
-                    # missing the barrier.
-                    if sb.utils.distributed.if_main_process():
-                        self._save_intra_epoch_ckpt()
-                    last_ckpt_time = time.time()
+                    # Checkpointer handles running on main process only
+                    self._save_intra_epoch_ckpt()
+                    steps_since_save = 0
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
