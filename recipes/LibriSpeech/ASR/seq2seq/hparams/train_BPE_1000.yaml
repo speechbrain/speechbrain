@@ -107,6 +107,7 @@ test_beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 temperature: 1.25
+temperature_lm: 1.25
 
 # Scoring parameters
 lm_weight: 0.4
@@ -225,6 +226,7 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 
 rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
    language_model: !ref <lm_model>
+   temperature: !ref <temperature_lm>
 
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [!ref <rnnlm_scorer>,
