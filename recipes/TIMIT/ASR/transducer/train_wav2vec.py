@@ -17,7 +17,7 @@ import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -135,15 +135,16 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("Transducer loss stats:\n")
-                self.transducer_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "Transducer and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    w.write("Transducer loss stats:\n")
+                    self.transducer_metrics.write_stats(w)
+                    w.write("\nPER stats:\n")
+                    self.per_metrics.write_stats(w)
+                    print(
+                        "Transducer and PER stats written to file",
+                        self.hparams.wer_file,
+                    )
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
