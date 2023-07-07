@@ -13,6 +13,7 @@ from speechbrain.decoders.utils import (
     mask_by_condition,
     _update_mem,
 )
+from speechbrain.utils.data_utils import undo_padding
 
 
 class AlivedHypotheses(torch.nn.Module):
@@ -976,8 +977,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
 
-        # topk_hyps, topk_lengths, topk_scores, topk_log_probs,
-        return self._get_topk_prediction(finals_hyps_and_log_probs_scores)
+        (
+            topk_hyps,
+            topk_lengths,
+            topk_scores,
+            topk_log_probs,
+        ) = self._get_topk_prediction(finals_hyps_and_log_probs_scores)
+
+        # select the best hyps
+        best_hyps = topk_hyps[:, 0, :]
+        best_hyps_len = topk_lengths[:, 0]
+        best_topk_scores = topk_scores[:, 0]
+
+        # Convert best hypothesis to list
+        hyps = undo_padding(best_hyps, best_hyps_len)
+
+        return hyps, best_topk_scores
 
     def permute_mem(self, memory, index):
         """This method permutes the seq2seq model memory
