@@ -29,7 +29,7 @@ class seq2seqBrain(sb.Brain):
 
         seq = None
         if stage != sb.Stage.TRAIN:
-            seq, _ = self.hparams.searcher(x, wav_lens)
+            seq, _, _, _ = self.hparams.searcher(x, wav_lens)
 
         return outputs, seq
 
