@@ -198,14 +198,14 @@ class S2SGreedySearcher(S2SBaseSearcher):
         scores[mask] = 0
         predictions[mask] = self.eos_index
 
-        (
-            top_hyps,
-            top_lengths,
-            top_scores,
-            top_log_probs,
-        ) = self._get_top_prediction(predictions, scores, log_probs)
+        (top_hyps, top_lengths, top_scores, _,) = self._get_top_prediction(
+            predictions, scores, log_probs
+        )
 
-        return top_hyps, top_lengths, top_scores, top_log_probs
+        # Convert best hypothesis to list
+        hyps = undo_padding(top_hyps, top_lengths)
+
+        return hyps, top_scores
 
     def _get_top_prediction(self, hyps, scores, log_probs):
         """This method sorts the scores and return corresponding hypothesis and log probs.
@@ -977,20 +977,17 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
 
-        (
-            topk_hyps,
-            topk_lengths,
-            topk_scores,
-            topk_log_probs,
-        ) = self._get_topk_prediction(finals_hyps_and_log_probs_scores)
+        (topk_hyps, topk_lengths, topk_scores, _,) = self._get_topk_prediction(
+            finals_hyps_and_log_probs_scores
+        )
 
         # select the best hyps
         best_hyps = topk_hyps[:, 0, :]
-        best_len = topk_lengths[:, 0]
+        best_lens = topk_lengths[:, 0]
         best_scores = topk_scores[:, 0]
 
         # Convert best hypothesis to list
-        hyps = undo_padding(best_hyps, best_len)
+        hyps = undo_padding(best_hyps, best_lens)
 
         return hyps, best_scores
 
