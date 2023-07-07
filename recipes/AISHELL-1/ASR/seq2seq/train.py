@@ -8,7 +8,6 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
@@ -54,12 +53,7 @@ class ASR(sb.Brain):
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
         else:
-            topk_tokens, topk_lens, _, _ = self.hparams.beam_search(x, wav_lens)
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            p_tokens = undo_padding(best_hyps, best_lens)
+            p_tokens, _ = self.hparams.beam_search(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, p_tokens
 
