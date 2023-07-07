@@ -101,8 +101,14 @@ class ASR(sb.core.Brain):
             # limited capacity and no LM to give user some idea of how the AM is doing
 
             # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
+            if stage == sb.Stage.VALID:
+                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
+            else:
+                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                    enc_out.detach(), wav_lens
+                )
 
             # Select the best hypothesis
             best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
@@ -167,7 +173,7 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -334,7 +340,7 @@ def dataio_prepare(hparams):
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration"
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]

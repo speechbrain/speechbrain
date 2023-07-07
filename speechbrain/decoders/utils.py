@@ -83,10 +83,7 @@ def mask_by_condition(tensor, cond, fill_value):
     tensor([[1., 2., 0.],
             [4., 0., 0.]])
     """
-    tensor = torch.where(
-        cond, tensor, torch.Tensor([fill_value]).to(tensor.device)
-    )
-    return tensor
+    return torch.where(cond, tensor, fill_value)
 
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):

@@ -2,7 +2,7 @@
 Token scorer abstraction and specifications.
 
 Authors:
- * Adel Moumen 2023
+ * Adel Moumen 2022, 2023
  * Sung-Lin Yeh 2021
 """
 
@@ -35,8 +35,9 @@ class BaseScorerInterface:
         memory : No limit
             The scorer states for this timestep.
         candidates : torch.Tensor
-            (batch_size x beam_size, scorer_beam_size). The pruned tokens for
-            scoring. If None, scorers will score on full vocabulary set.
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
 
@@ -1220,6 +1221,8 @@ class ScorerBuilder:
             See BaseScorerInterface().
         log_probs : torch.Tensor
             (batch_size x beam_size, vocab_size). The log probs at this timestep.
+        beam_size : int
+            The beam size.
 
         Returns
         ---------
