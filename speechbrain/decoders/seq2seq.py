@@ -1061,7 +1061,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ... )
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> topk_hyps, topk_lengths, _, _ = searcher(enc, wav_len)
+    >>> hyps, scores = searcher(enc, wav_len)
     """
 
     def __init__(
