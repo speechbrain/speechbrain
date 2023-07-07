@@ -44,7 +44,7 @@ test_csv:
 # Training parameters
 number_of_epochs: 15
 number_of_ctc_epochs: 5
-batch_size: 4
+batch_size: 8
 lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
