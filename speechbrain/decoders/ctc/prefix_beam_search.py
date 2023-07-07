@@ -10,6 +10,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def remove_last_occurrence(string, pattern):
+    last_index = string.rfind(pattern)  # Find the last index of the pattern
+    if last_index != -1:
+        # Extract parts before and after the pattern
+        before = string[:last_index]
+        after = string[last_index + len(pattern):]
+        return before + after
+    return string
 
 class CTCPrefixBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
@@ -25,10 +33,12 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         if self.lm is None:
             new_beams = []
             for beam in beams:
+                new_text = self.merge_tokens(beam.full_text, beam.next_word)
                 new_beams.append(
                     LMCTCBeam(
                         text=beam.text,
-                        next_word=beam.next_word,
+                        full_text=new_text,
+                        next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
                         last_token_index=beam.last_token_index,                    
@@ -49,11 +59,11 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
             new_beams = []
             for beam in beams:
                 # fast token merge
-                new_text = self.merge_tokens(beam.text, beam.next_word)
+                new_text = self.merge_tokens(beam.full_text, beam.next_word)
                 cache_key = (new_text, is_eos)
                 if cache_key not in cached_lm_scores:
                     prev_raw_lm_score, start_state = cached_lm_scores[
-                        (beam.text, False)
+                        (beam.full_text, False)
                     ]
                     score, end_state = self.lm.score(
                         start_state, beam.next_word, is_last_word=is_eos
@@ -62,6 +72,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                     cached_lm_scores[cache_key] = (raw_lm_score, end_state)
                 lm_score, _ = cached_lm_scores[cache_key]
                 word_part = beam.partial_word
+               
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
 
@@ -72,32 +83,39 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
                 new_beams.append(
                     LMCTCBeam(
-                        text=new_text,
+                        text=beam.text,
+                        full_text=new_text,
                         next_word="",
-                        partial_word=word_part,
+                        partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token,  
+                        last_token_index=beam.last_token_index,                    
                         text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,                  
+                        partial_frames=beam.partial_frames,
+                        p=beam.p,
+                        p_b=beam.p_b,
+                        p_nb=beam.p_nb,
+                        n_p_b=beam.n_p_b,
+                        n_p_nb=beam.n_p_nb,
                         score=beam.score,
+                        score_ctc=beam.score_ctc,
                         lm_score=beam.score + lm_score,
                     )
                 )
             return new_beams
         
     def _get_new_beam(self, new_prefix, new_token, new_token_index, beams, p=None, previous_beam=None):
+        
         for beam in beams:
             if beam.text == new_prefix:
                 if p and p > beam.p:
                     beam.p = p 
-                beam.last_token = new_token
-                beam.last_token_index = new_token_index
                 return beam 
         
         if new_token_index == self.space_index:
             new_beam = CTCBeam(
                 text=new_prefix,
-                next_word=beam.partial_word,
+                full_text=previous_beam.full_text,
+                next_word=previous_beam.partial_word,
                 partial_word="",
                 last_token=new_token,
                 last_token_index=new_token_index,
@@ -106,13 +124,15 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
+                score_next_word=True,
             )     
             #print("next word = ", new_beam.next_word)  
-        elif new_token_index == beam.last_token_index:
+        elif new_token_index == previous_beam.last_token_index:
             new_beam = CTCBeam(
                 text=new_prefix,
+                full_text=previous_beam.full_text,
                 next_word="",
-                partial_word=beam.partial_word,
+                partial_word=previous_beam.partial_word,
                 last_token=new_token,
                 last_token_index=new_token_index,
                 text_frames=[],
@@ -124,8 +144,9 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         else: 
             new_beam = CTCBeam(
                 text=new_prefix,
+                full_text=previous_beam.full_text,
                 next_word="",
-                partial_word=beam.partial_word + new_token,
+                partial_word=previous_beam.partial_word + new_token,
                 last_token=new_token,
                 last_token_index=new_token_index,
                 text_frames=[],

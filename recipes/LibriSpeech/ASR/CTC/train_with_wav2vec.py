@@ -29,7 +29,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-use_old_one = True 
+use_old_one = False 
 
 # Define training procedure
 class ASR(sb.Brain):
@@ -84,6 +84,7 @@ class ASR(sb.Brain):
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
+
 
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
@@ -311,7 +312,7 @@ def dataio_prepare(hparams):
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
+            sort_key="duration", reverse=False
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
@@ -462,14 +463,13 @@ if __name__ == "__main__":
         sil_token=labels[hparams["blank_index"]],
         # beam_size_token=1,
     )
+
     from torchaudio.models.decoder import download_pretrained_files
 
     files = download_pretrained_files("librispeech-4-gram")
-
-    from speechbrain.decoders import CTCPrefixBeamSearch, CTCBeamSearch
-
+    print(files)
+    exit()
     """
-
 
     from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
 
@@ -477,10 +477,11 @@ if __name__ == "__main__":
     labels = [ind2lab[x] for x in range(len(ind2lab))]
     decoder = CTCPrefixBeamSearch(
         blank_index=0,
-        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
         history_prune=True,
         space_index=29,
         vocab_list=labels,
+        beam_width=100,
     )
 
     if use_old_one:
@@ -492,6 +493,8 @@ if __name__ == "__main__":
             blank_id=0,
             space_id=29,
             vocab=labels,
+
+            #kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
         )
 
 

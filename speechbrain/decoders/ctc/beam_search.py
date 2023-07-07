@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 class CTCBeam:
     """Contains all the info needed for decoding a beam."""
     text: str
+    full_text: str 
     next_word: str
     partial_word: str
     last_token: Optional[str]
@@ -50,10 +51,13 @@ class CTCBeam:
     score: float =  -math.inf
     score_ctc: float = -math.inf
 
+    score_next_word: bool = False
+
     @classmethod
     def from_lm_beam(cls, lm_beam):
         return CTCBeam(
             text=lm_beam.text,
+            full_text=lm_beam.full_text,
             next_word=lm_beam.next_word,
             partial_word=lm_beam.partial_word,
             last_token=lm_beam.last_token,
@@ -87,18 +91,9 @@ class CTCHypothesis:
     score: float  # Cumulative logit score
     lm_score: float  # Cumulative language model + logit score
 
-    def get_mp_safe_beam(self):
-        """Get a multiprocessing-safe version of the beam."""
-        if self.last_lm_state is None:
-            last_lm_state = None
-        else:
-            last_lm_state = self.last_lm_state.get_mp_safe_state()
-        return dataclasses.replace(self, last_lm_state=last_lm_state)
-
 
 class CTCBaseSearcher(torch.nn.Module):
     """ TODO: docstring
-    TODO: integrate scorers for N-Gram (as it is already the case of n-best rescorers)
     """
 
     def __init__(
@@ -167,6 +162,7 @@ class CTCBaseSearcher(torch.nn.Module):
             self.lm = LanguageModel(self.kenlm_model, unigrams)
         else:
             self.lm = None
+        print(f"LM: {self.lm}") 
 
     def partial_decoding(
             self, 
@@ -250,71 +246,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 filtered_beams.append(CTCBeam.from_lm_beam(lm_beam))
                 seen_hashes.add(hash_idx)
         return filtered_beams
-    
-    def get_lm_beams(
-        self,
-        beams,
-        cached_lm_scores,
-        cached_partial_token_scores,
-        is_eos= False,
-    ):
-        if self.lm is None:
-            new_beams = []
-            for beam in beams:
-                new_text = self.merge_tokens(beam.text, beam.next_word)
-                new_beams.append(
-                    LMCTCBeam(
-                        text=new_text,
-                        next_word="",
-                        partial_word=beam.partial_word,
-                        last_token=beam.last_token,
-                        last_token_index=beam.last_token,                    
-                        text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,
-                        score=beam.score,
-                        lm_score=beam.score,
-                    )
-                )
-            return new_beams
-        else:
-            new_beams = []
-            for beam in beams:
-                # fast token merge
-                new_text = self.merge_tokens(beam.text, beam.next_word)
-                cache_key = (new_text, is_eos)
-                if cache_key not in cached_lm_scores:
-                    prev_raw_lm_score, start_state = cached_lm_scores[
-                        (beam.text, False)
-                    ]
-                    score, end_state = self.lm.score(
-                        start_state, beam.next_word, is_last_word=is_eos
-                    )
-                    raw_lm_score = prev_raw_lm_score + score
-                    cached_lm_scores[cache_key] = (raw_lm_score, end_state)
-                lm_score, _ = cached_lm_scores[cache_key]
-                word_part = beam.partial_word
-                if len(word_part) > 0:
-                    if word_part not in cached_partial_token_scores:
 
-                        cached_partial_token_scores[
-                            word_part
-                        ] = self.lm.score_partial_token(word_part)
-                    lm_score += cached_partial_token_scores[word_part]
-
-                new_beams.append(
-                    LMCTCBeam(
-                        text=new_text,
-                        next_word="",
-                        partial_word=word_part,
-                        last_token=beam.last_token,
-                        last_token_index=beam.last_token,  
-                        text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,                  
-                        score=beam.score,
-                        lm_score=beam.score + lm_score,
-                    )
-                )
-            return new_beams
 
     def finalize_decoding(
             self, 
@@ -335,6 +267,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 new_beams.append(
                     CTCBeam(
                         text=beam.text,
+                        full_text=beam.full_text,
                         next_word=beam.partial_word,
                         partial_word="",
                         last_token=None,
@@ -344,6 +277,9 @@ class CTCBaseSearcher(torch.nn.Module):
                         score=beam.score,
                     )
                 )
+
+                print(beam.score)
+                exit()
             new_beams = self.merge_beams(new_beams)
         else:
             new_beams = list(beams)
@@ -409,6 +345,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beams = [
             CTCBeam(
                 text="",
+                full_text="",
                 next_word="",
                 partial_word="",
                 last_token=None,
@@ -451,13 +388,79 @@ class CTCBaseSearcher(torch.nn.Module):
             )
             for lm_beam in trimmed_beams
         ][:self.topk]
-
         return output_beams
     
 class CTCBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
         super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
 
+    def get_lm_beams(
+        self,
+        beams,
+        cached_lm_scores,
+        cached_partial_token_scores,
+        is_eos= False,
+    ):
+        if self.lm is None:
+            new_beams = []
+            for beam in beams:
+                new_text = self.merge_tokens(beam.text, beam.next_word)
+                new_beams.append(
+                    LMCTCBeam(
+                        text=new_text,
+                        full_text=beam.full_text,
+                        next_word="",
+                        partial_word=beam.partial_word,
+                        last_token=beam.last_token,
+                        last_token_index=beam.last_token,                    
+                        text_frames=beam.text_frames,
+                        partial_frames=beam.partial_frames,
+                        score=beam.score,
+                        lm_score=beam.score,
+                    )
+                )
+            return new_beams
+        else:
+            new_beams = []
+            for beam in beams:
+                # fast token merge
+                new_text = self.merge_tokens(beam.text, beam.next_word)
+                cache_key = (new_text, is_eos)
+                if cache_key not in cached_lm_scores:
+                    prev_raw_lm_score, start_state = cached_lm_scores[
+                        (beam.text, False)
+                    ]
+                    score, end_state = self.lm.score(
+                        start_state, beam.next_word, is_last_word=is_eos
+                    )
+                    raw_lm_score = prev_raw_lm_score + score
+                    cached_lm_scores[cache_key] = (raw_lm_score, end_state)
+                lm_score, _ = cached_lm_scores[cache_key]
+                word_part = beam.partial_word
+                if len(word_part) > 0:
+                    if word_part not in cached_partial_token_scores:
+
+                        cached_partial_token_scores[
+                            word_part
+                        ] = self.lm.score_partial_token(word_part)
+                    lm_score += cached_partial_token_scores[word_part]
+
+                new_beams.append(
+                    LMCTCBeam(
+                        text=new_text,
+                        full_text=beam.full_text,
+                        next_word="",
+                        partial_word=word_part,
+                        last_token=beam.last_token,
+                        last_token_index=beam.last_token,  
+                        text_frames=beam.text_frames,
+                        partial_frames=beam.partial_frames,                  
+                        score=beam.score,
+                        lm_score=beam.score + lm_score,
+                    )
+                )
+            return new_beams
+        
     def partial_decoding(
         self, 
         log_probs,
@@ -491,6 +494,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
+                                full_text=beam.full_text,
                                 next_word=beam.next_word,
                                 partial_word=beam.partial_word,
                                 last_token=token,
@@ -513,6 +517,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
+                                full_text=beam.full_text,
                                 next_word=beam.partial_word,
                                 partial_word=clean_token,
                                 last_token=token,
@@ -532,6 +537,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
+                                full_text=beam.full_text,
                                 next_word=beam.partial_word,
                                 partial_word="",
                                 last_token=token,
@@ -551,6 +557,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
+                                full_text=beam.full_text,
                                 next_word=beam.next_word,
                                 partial_word=beam.partial_word + token,
                                 last_token=token,
