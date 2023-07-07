@@ -48,16 +48,10 @@ class ASR(sb.Brain):
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         hyps = None
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+        if stage == sb.Stage.Valid:
+            hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
+        elif stage == sb.Stage.Test:
+            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return logits, hyps, wav_lens
 
