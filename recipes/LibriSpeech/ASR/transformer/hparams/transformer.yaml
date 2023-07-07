@@ -234,6 +234,7 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <test_beam_size>
     temperature: 1.15
     using_eos_threshold: False
+    length_normalization: True
     scorer: !ref <scorer>
 
 log_softmax: !new:torch.nn.LogSoftmax
