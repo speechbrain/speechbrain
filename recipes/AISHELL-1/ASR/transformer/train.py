@@ -13,8 +13,8 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         is_valid_search = (
             stage == sb.Stage.VALID
-            and current_epoch % self.hparams.valid_search_every == 0
+            and current_epoch % self.hparams.valid_search_interval == 0
         )
         is_test_search = stage == sb.Stage.TEST
 
