@@ -888,7 +888,6 @@ class Checkpointer:
         """
         return self._construct_checkpoint_objects(self._list_checkpoint_dirs())
 
-    # NOTE: * in arglist -> keyword only arguments
     def delete_checkpoints(
         self,
         *,
@@ -972,6 +971,7 @@ class Checkpointer:
                 Checkpointer._delete_checkpoint(ckpt, verbosity=verbosity)
 
     @staticmethod
+    @main_process_only
     def _delete_checkpoint(checkpoint, verbosity=logging.INFO):
         if not Checkpointer._is_checkpoint_dir(checkpoint.path):
             raise RuntimeError("Checkpoint does not appear valid for deletion.")
