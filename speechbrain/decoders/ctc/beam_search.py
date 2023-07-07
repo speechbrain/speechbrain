@@ -49,7 +49,6 @@ class CTCBeam:
 
     score: float =  -math.inf
     score_ctc: float = -math.inf
-    lm_score: float = -math.inf
 
     @classmethod
     def from_lm_beam(cls, lm_beam):
@@ -74,7 +73,7 @@ class CTCBeam:
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
-        self.score = self.score_ctc + self.lm_score
+        self.score = self.score_ctc # + self.lm_score
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
@@ -360,9 +359,10 @@ class CTCBaseSearcher(torch.nn.Module):
         return self.sort_beams(scored_beams)
     
     def decode_beams(self, log_probs, lm_start_state=None):
-        return [
-            self.decode_log_probs(log_prob, lm_start_state)[:self.topk] for log_prob in log_probs
+        hyps = [
+            self.decode_log_probs(log_prob, lm_start_state) for log_prob in log_probs
         ]
+        return hyps
 
     
     def partial_decode_beams(
