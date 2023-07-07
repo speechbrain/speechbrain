@@ -91,7 +91,7 @@ max_decode_ratio: 1.0 # 1.0
 valid_search_interval: 10
 valid_beam_size: 10
 test_beam_size: 10
-ctc_decode_weight: 0.40
+ctc_weight_decode: 0.40
 
 ############################## models ################################
 
@@ -164,7 +164,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
 scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>]
     weights:
-        ctc: !ref <ctc_decode_weight>
+        ctc: !ref <ctc_weight_decode>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]

@@ -111,7 +111,7 @@ lm_weight: 0.8
 temperature: 1.0
 
 # Scoring parameters
-ctc_decode_weight: 0.40
+ctc_weight_decode: 0.40
 coverage_penalty: 1.0
 
 
@@ -243,7 +243,7 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    weights:
       transformerlm: !ref <lm_weight>
       coverage: !ref <coverage_penalty>
-      ctc: !ref <ctc_decode_weight>
+      ctc: !ref <ctc_weight_decode>
 
 # Search
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher

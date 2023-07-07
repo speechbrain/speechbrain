@@ -321,11 +321,11 @@ class TransformerLMScorer(BaseScorerInterface):
     ...     language_model=lm_model,
     ...     temperature=1.15,
     ... )
-    >>> ctc_decode_weight=0.4
+    >>> ctc_weight_decode=0.4
     >>> lm_weight=0.6
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, ctc_scorer],
-    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight}
+    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_weight_decode}
     ... )
     >>> beam_size=5
     >>> searcher = S2STransformerBeamSearcher(
@@ -676,13 +676,13 @@ class ScorerBuilder:
     ...     temperature=1.15,
     ... )
     >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
-    >>> ctc_decode_weight=0.4
+    >>> ctc_weight_decode=0.4
     >>> lm_weight=0.6
     >>> coverage_penalty = 1.0
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, coverage_scorer],
     ...     partial_scorers=[ctc_scorer],
-    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight, 'coverage': coverage_penalty}
+    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_weight_decode, 'coverage': coverage_penalty}
     ... )
     >>> beam_size=5
     >>> searcher = S2STransformerBeamSearcher(
