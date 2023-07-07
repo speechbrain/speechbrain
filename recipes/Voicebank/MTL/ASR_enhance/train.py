@@ -119,15 +119,10 @@ class MTLbrain(sb.Brain):
                 predictions["ctc_pout"] = torch.log_softmax(out, dim=-1)
 
             if stage != sb.Stage.TRAIN:
-                topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
-                    embed.detach(), lens
-                )
-
-                # Select the best hypothesis
-                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+                hyps, _ = self.hparams.beam_searcher(embed.detach(), lens)
 
                 # Convert best hypothesis to list
-                predictions["hyps"] = undo_padding(best_hyps, best_lens)
+                predictions["hyps"] = hyps
 
         elif self.hparams.ctc_type is not None:
             if self.hparams.ctc_type == "clean":

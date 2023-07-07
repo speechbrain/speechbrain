@@ -45,7 +45,6 @@ import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -122,27 +121,11 @@ class ASR(sb.core.Brain):
             if current_epoch % self.hparams.valid_search_interval == 0:
                 # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
-                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
-
-                # Select the best hypothesis
-                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-                # Convert best hypothesis to list
-                hyps = undo_padding(best_hyps, best_lens)
+                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
         elif stage == sb.Stage.TEST:
             # for the sake of efficiency, we only perform beamsearch with limited capacity
             # and no LM to give user some idea of how the AM is doing
-            topk_tokens, topk_lens, _, _ = self.hparams.test_search(
-                enc_out.detach(), wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 

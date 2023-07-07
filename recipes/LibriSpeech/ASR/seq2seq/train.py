@@ -40,7 +40,6 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -89,19 +88,9 @@ class ASR(sb.Brain):
         else:
             if stage == sb.Stage.VALID:
                 # Get token strings from index prediction
-                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
-                    x, wav_lens
-                )
+                p_tokens, _ = self.hparams.valid_search(x, wav_lens)
             else:
-                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
-                    x, wav_lens
-                )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            p_tokens = undo_padding(best_hyps, best_lens)
+                p_tokens, _ = self.hparams.test_search(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, p_tokens
 

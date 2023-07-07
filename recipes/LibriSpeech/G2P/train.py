@@ -223,13 +223,7 @@ class G2PBrain(sb.Brain):
             )
 
             # hyps, scores = beam_searcher(encoder_out, char_lens)
-            topk_tokens, topk_lens, _, _ = beam_searcher(encoder_out, char_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _ = beam_searcher(encoder_out, char_lens)
 
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 

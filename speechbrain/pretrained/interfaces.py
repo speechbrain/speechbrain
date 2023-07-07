@@ -31,7 +31,6 @@ from speechbrain.dataio.batch import PaddedBatch, PaddedData
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
-from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -531,11 +530,7 @@ class EndToEndSLU(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            topk_tokens, topk_lens, _, _ = self.mods.beam_searcher(
-                encoder_out, wav_lens
-            )
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-            predicted_tokens = undo_padding(best_hyps, best_lens)
+            predicted_tokens, _ = self.mods.beam_searcher(encoder_out, wav_lens)
             predicted_words = [
                 self.tokenizer.decode_ids(token_seq)
                 for token_seq in predicted_tokens
@@ -651,11 +646,7 @@ class EncoderDecoderASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            topk_tokens, topk_lens, _, _ = self.mods.decoder(
-                encoder_out, wav_lens
-            )
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-            predicted_tokens = undo_padding(best_hyps, best_lens)
+            predicted_tokens, _ = self.mods.decoder(encoder_out, wav_lens)
             predicted_words = [
                 self.tokenizer.decode_ids(token_seq)
                 for token_seq in predicted_tokens

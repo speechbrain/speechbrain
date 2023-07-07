@@ -81,26 +81,10 @@ class ASR(sb.core.Brain):
         is_test_search = stage == sb.Stage.TEST
 
         if is_valid_search:
-            topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
-                enc_out.detach(), wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
 
         elif is_test_search:
-            topk_tokens, topk_lens, _, _ = self.hparams.test_search(
-                enc_out.detach(), wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 

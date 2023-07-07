@@ -22,7 +22,6 @@ import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.dataio.batch import PaddedBatch
@@ -63,17 +62,10 @@ class ASR(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage != sb.Stage.TRAIN:
-            # Decide searcher for inference: valid or test search
-            searcher = getattr(self.hparams, f"{stage.name}_searcher".lower())
-
-            topk_tokens, topk_lens, _, _ = searcher(x, wav_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+        if stage == sb.Stage.VALID:
+            hyps, _ = self.hparams.valid_searcher(x, wav_lens)
+        elif stage == sb.Stage.TEST:
+            hyps, _ = self.hparams.test_searcher(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 

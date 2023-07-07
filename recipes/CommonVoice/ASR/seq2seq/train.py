@@ -65,15 +65,7 @@ class ASR(sb.core.Brain):
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
         else:
-            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
-                x, wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            p_tokens = undo_padding(best_hyps, best_lens)
+            p_tokens, _ = self.hparams.beam_searcher(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, p_tokens
 

@@ -9,7 +9,6 @@ tiny dataset, the expected behavior is to overfit the training dataset
 """
 import pathlib
 import speechbrain as sb
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 
 
@@ -30,13 +29,7 @@ class seq2seqBrain(sb.Brain):
 
         seq = None
         if stage != sb.Stage.TRAIN:
-            topk_tokens, topk_lens, _, _ = self.hparams.searcher(x, char_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            seq = undo_padding(best_hyps, best_lens)
+            seq, _ = self.hparams.searcher(x, char_lens)
 
         return outputs, seq
 
