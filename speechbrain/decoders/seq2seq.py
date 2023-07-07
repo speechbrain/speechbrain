@@ -842,7 +842,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
         topk_log_probs = topk_log_probs.view(batch_size, self.topk, -1)
 
-        return topk_hyps, topk_lengths, topk_scores, topk_log_probs
+        return hyps, scores
 
     def search_step(
         self,
@@ -1158,7 +1158,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     ...     temperature=1.15,
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, torch.ones(batch_size))
+    >>> hyps, scores  = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(

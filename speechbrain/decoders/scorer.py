@@ -134,7 +134,7 @@ class CTCScorer(BaseScorerInterface):
     ...     scorer=scorer
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, torch.ones(batch_size))
+    >>> hyps, scores = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(
@@ -238,7 +238,7 @@ class RNNLMScorer(BaseScorerInterface):
     >>> batch_size=2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, scores  = searcher(enc, wav_len)
     """
 
     def __init__(self, language_model, temperature=1.0):
@@ -344,7 +344,7 @@ class TransformerLMScorer(BaseScorerInterface):
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, scores  = searcher(enc, wav_len)
     """
 
     def __init__(self, language_model, temperature=1.0):
@@ -551,7 +551,7 @@ class CoverageScorer(BaseScorerInterface):
     >>> batch_size=2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, scores  = searcher(enc, wav_len)
     """
 
     def __init__(self, vocab_size, threshold=0.5):
@@ -702,7 +702,7 @@ class ScorerBuilder:
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, scores  = searcher(enc, wav_len)
     """
 
     def __init__(
