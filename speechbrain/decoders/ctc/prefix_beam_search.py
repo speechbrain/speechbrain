@@ -42,8 +42,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 lm_score=0.0,
                 p_b=-math.inf,
             )     
-            print("partial wrd = ", beam.partial_word)       
-        else: 
+        elif new_token_index == beam.last_token_index:
             new_beam = CTCBeam(
                 text=new_prefix,
                 next_word="",
@@ -57,6 +56,21 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 lm_score=0.0,
                 p_b=-math.inf,
             )
+        else: 
+            new_beam = CTCBeam(
+                text=new_prefix,
+                next_word="",
+                partial_word=beam.partial_word + new_token,
+                last_token=new_token,
+                last_token_index=new_token_index,
+                text_frames=[],
+                partial_frames=(-1, -1),
+                score=-math.inf,
+                score_ctc=-math.inf,
+                lm_score=0.0,
+                p_b=-math.inf,
+            )
+        print("partial wrd = ", new_beam.partial_word)
         beams.append(new_beam)
         if previous_beam:
             new_beam.p = previous_beam.p
