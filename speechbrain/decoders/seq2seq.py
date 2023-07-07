@@ -842,7 +842,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
         topk_log_probs = topk_log_probs.view(batch_size, self.topk, -1)
 
-        return hyps, scores
+        return topk_hyps, topk_lengths, topk_scores, topk_log_probs
 
     def search_step(
         self,
