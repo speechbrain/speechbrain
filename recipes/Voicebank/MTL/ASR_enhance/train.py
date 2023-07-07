@@ -119,7 +119,7 @@ class MTLbrain(sb.Brain):
                 predictions["ctc_pout"] = torch.log_softmax(out, dim=-1)
 
             if stage != sb.Stage.TRAIN:
-                hyps, _ = self.hparams.beam_searcher(embed.detach(), lens)
+                hyps, _, _, _ = self.hparams.beam_searcher(embed.detach(), lens)
 
                 # Convert best hypothesis to list
                 predictions["hyps"] = hyps

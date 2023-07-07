@@ -67,9 +67,11 @@ class ASR(sb.core.Brain):
         is_test_search = stage == sb.Stage.TEST
 
         if is_valid_search:
-            hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
         elif is_test_search:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 

@@ -1065,7 +1065,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ... )
     >>> enc = torch.rand([2, 6, 7])
     >>> wav_len = torch.rand([2])
-    >>> hyps, scores = searcher(enc, wav_len)
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(
@@ -1162,7 +1162,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     ...     temperature=1.15,
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> hyps, scores  = searcher(enc, torch.ones(batch_size))
+    >>> hyps, _, _, _  = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(

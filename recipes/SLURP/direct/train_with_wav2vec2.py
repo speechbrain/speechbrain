@@ -55,7 +55,7 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            hyps, _ = self.hparams.beam_searcher(
+            hyps, _, _, _ = self.hparams.beam_searcher(
                 wav2vec2_out.detach(), wav_lens
             )
 

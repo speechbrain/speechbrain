@@ -58,9 +58,13 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             # Decide searcher for inference: valid or test search
             if stage == sb.Stage.VALID:
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
+                hyps, _, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
             else:
-                hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+                hyps, _, _, _ = self.hparams.test_search(
+                    enc_out.detach(), wav_lens
+                )
 
         return log_probs, hyps, wav_lens
 

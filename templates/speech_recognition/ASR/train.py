@@ -101,11 +101,11 @@ class ASR(sb.Brain):
 
         elif stage != sb.Stage.TRAIN:
             if stage == sb.Stage.Valid:
-                hyps, _ = self.hparams.valid_search(
+                hyps, _, _, _ = self.hparams.valid_search(
                     encoded_signal, self.feat_lens
                 )
             elif stage == sb.Stage.Test:
-                hyps, _ = self.hparams.test_search(
+                hyps, _, _, _ = self.hparams.test_search(
                     encoded_signal, self.feat_lens
                 )
 

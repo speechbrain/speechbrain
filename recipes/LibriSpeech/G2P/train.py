@@ -222,8 +222,7 @@ class G2PBrain(sb.Brain):
                 else self.beam_searcher
             )
 
-            # hyps, scores = beam_searcher(encoder_out, char_lens)
-            hyps, _ = beam_searcher(encoder_out, char_lens)
+            hyps, _, _, _ = beam_searcher(encoder_out, char_lens)
 
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 

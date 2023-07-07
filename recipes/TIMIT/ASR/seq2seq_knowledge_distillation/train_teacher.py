@@ -52,9 +52,9 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_searcher(x, wav_lens)
+            hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_searcher(x, wav_lens)
+            hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
