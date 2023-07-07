@@ -986,13 +986,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # select the best hyps
         best_hyps = topk_hyps[:, 0, :]
-        best_hyps_len = topk_lengths[:, 0]
-        best_topk_scores = topk_scores[:, 0]
+        best_len = topk_lengths[:, 0]
+        best_scores = topk_scores[:, 0]
 
         # Convert best hypothesis to list
-        hyps = undo_padding(best_hyps, best_hyps_len)
+        hyps = undo_padding(best_hyps, best_len)
 
-        return hyps, best_topk_scores
+        return hyps, best_scores
 
     def permute_mem(self, memory, index):
         """This method permutes the seq2seq model memory
