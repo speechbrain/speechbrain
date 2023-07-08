@@ -10,14 +10,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def remove_last_occurrence(string, pattern):
-    last_index = string.rfind(pattern)  # Find the last index of the pattern
-    if last_index != -1:
-        # Extract parts before and after the pattern
-        before = string[:last_index]
-        after = string[last_index + len(pattern):]
-        return before + after
-    return string
 
 class CTCPrefixBeamSearch(CTCBaseSearcher):
     def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
@@ -111,7 +103,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                     beam.p = p 
                 return beam 
         
-        if new_token_index == self.space_index:
+        if not self.is_spm and new_token_index == self.space_index:
             new_beam = CTCBeam(
                 text=new_prefix,
                 full_text=previous_beam.full_text,
@@ -124,9 +116,23 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
-                score_next_word=True,
             )     
-            #print("next word = ", new_beam.next_word)  
+        elif self.is_spm and new_token[:1] == self.spm_token:
+            clean_token = new_token[1:]
+            new_prefix = previous_beam.text + ' ' + clean_token
+            new_beam = CTCBeam(
+                text=new_prefix,
+                full_text=previous_beam.full_text,
+                next_word=previous_beam.partial_word,
+                partial_word=clean_token,
+                last_token=new_token,
+                last_token_index=new_token_index,
+                text_frames=[],
+                partial_frames=(-1, -1),
+                score=-math.inf,
+                score_ctc=-math.inf,
+                p_b=-math.inf,
+            )
         elif new_token_index == previous_beam.last_token_index:
             new_beam = CTCBeam(
                 text=new_prefix,

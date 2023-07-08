@@ -135,22 +135,12 @@ class ASR(sb.core.Brain):
             if current_epoch % valid_search_every == 0 or (
                 stage == sb.Stage.TEST
             ):
-                beam_search_result = decoder(p_ctc.detach().cpu())
 
-                predicted_tokens = [
-                    r[0].tokens.tolist() for r in beam_search_result
-                ]  # [1:-1]
+                beam_search_result = decoder.decode_beams(p_ctc.cpu().numpy()) 
 
-                # Decode token terms to words
-                predicted_words = [
-                    tokenizer.decode_ids(utt_seq).split(" ")
-                    for utt_seq in predicted_tokens
-                ]
-
-                # filter wrd with len > 0
-                predicted_words = [
-                    [w for w in utt if len(w) > 0] for utt in predicted_words
-                ]
+                predicted_words = []
+                for hypo in beam_search_result:
+                    predicted_words.append(hypo[0].text.split(" "))
 
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
 
@@ -484,6 +474,7 @@ if __name__ == "__main__":
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
+    """
     from speechbrain.decoders import BeamSearchDecoderCTC
 
     labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
@@ -515,6 +506,19 @@ if __name__ == "__main__":
         sil_token=labels[hparams["blank_index"]],
         beam_size_token=5,
         # lm_weight=3.23,
+    )
+    """
+
+    from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
+
+    labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
+
+    decoder = CTCBeamSearch(
+        blank_index=0,
+        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+        history_prune=True,
+        vocab_list=labels,
+        beam_width=100,
     )
 
     if train_bsampler is not None:

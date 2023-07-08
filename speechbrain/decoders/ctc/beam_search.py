@@ -278,8 +278,6 @@ class CTCBaseSearcher(torch.nn.Module):
                     )
                 )
 
-                print(beam.score)
-                exit()
             new_beams = self.merge_beams(new_beams)
         else:
             new_beams = list(beams)
