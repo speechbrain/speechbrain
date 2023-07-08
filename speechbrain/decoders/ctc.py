@@ -427,8 +427,6 @@ class CTCBeam:
     score: float =  -math.inf
     score_ctc: float = -math.inf
 
-    score_next_word: bool = False
-
     @classmethod
     def from_lm_beam(cls, lm_beam):
         return CTCBeam(
