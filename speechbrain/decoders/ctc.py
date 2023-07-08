@@ -483,6 +483,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
         history_prune=True,
+        blank_skip_threshold=math.log(0.99),
         topk=1,
     ):
         super().__init__()
@@ -496,6 +497,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
         self.history_prune = history_prune
+        self.blank_skip_threshold = blank_skip_threshold
         self.topk = topk
 
         # sentencepiece
@@ -668,13 +670,15 @@ class CTCBaseSearcher(torch.nn.Module):
         scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
         return self.sort_beams(scored_beams)
     
-    def decode_beams(self, log_probs, lm_start_state=None):
-        # check if it's a torch tensor and convert to numpy
-        if isinstance(log_probs, torch.Tensor):
-            log_probs = log_probs.cpu().numpy()
-
+    def decode_beams(self, log_probs, wav_lens =  None, lm_start_state=None):
+        if wav_lens is not None:
+            wav_lens = log_probs.shape[1] * wav_lens
+            wav_lens = wav_lens.cpu().numpy().astype(int)
+    
+        log_probs = log_probs.cpu().numpy()
+        
         hyps = [
-            self.decode_log_probs(log_prob, lm_start_state) for log_prob in log_probs
+            self.decode_log_probs(log_prob, wav_len, lm_start_state) for log_prob, wav_len in zip(log_probs, wav_lens)
         ]
         return hyps
 
@@ -708,7 +712,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
             return trimmed_beams
 
-    def decode_log_probs(self, log_probs, lm_start_state = None):
+    def decode_log_probs(self, log_probs, wav_len = None, lm_start_state = None):
         language_model = self.lm
         if language_model is None:
             cached_lm_scores = {}
@@ -738,6 +742,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
         beams = self.partial_decoding(
             log_probs,
+            wav_len,
             beams,
             cached_lm_scores,
             cached_p_lm_scores,
@@ -769,8 +774,8 @@ class CTCBaseSearcher(torch.nn.Module):
         return output_beams
     
 class CTCBeamSearch(CTCBaseSearcher):
-    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
-        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
+    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, blank_skip_threshold=math.log(0.99), topk=1):
+        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, blank_skip_threshold, topk)
 
     def get_lm_beams(
         self,
@@ -842,12 +847,19 @@ class CTCBeamSearch(CTCBaseSearcher):
     def partial_decoding(
         self, 
         log_probs,
+        wav_len,
         beams,
         cached_lm_scores,
         cached_p_lm_scores,
         processed_frames = 0,
     ):        
+        
         for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
+            if frame_index > wav_len:
+                break
+
+            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+                continue
 
             max_index = logit_col.argmax()
             tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
@@ -969,8 +981,8 @@ class CTCBeamSearch(CTCBaseSearcher):
 
 
 class CTCPrefixBeamSearch(CTCBaseSearcher):
-    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, topk=1):
-        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, topk)
+    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, blank_skip_threshold=math.log(0.99), topk=1):
+        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, blank_skip_threshold, topk)
 
     def get_lm_beams(
         self,
@@ -1126,12 +1138,19 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     def partial_decoding(
         self, 
         log_probs,
+        wav_len, 
         beams,
         cached_lm_scores,
         cached_p_lm_scores,
         processed_frames = 0,
     ):  
         for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
+            if frame_index > wav_len:
+                break
+    
+            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+                continue
+
             max_index = logit_col.argmax()
             tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
             
@@ -1222,6 +1241,7 @@ class TorchAudioCTCBeamSearch:
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
         return_topk: bool = False,
+        blank_skip_threshold: float = math.log(0.99),
     ):
         self.lexicon = lexicon
         self.tokens = tokens
@@ -1241,7 +1261,10 @@ class TorchAudioCTCBeamSearch:
         self.unk_word = unk_word
         self.using_cpu_decoder = using_cpu_decoder
         self.return_topk = return_topk
+        self.blank_skip_threshold = blank_skip_threshold
         # Note. Add that CUDA CTC can consummes a lot of memory and core dump
+        # TODO: train an AM with the same tokens as the LM
+
         print("USING CPU DECODER: ", self.using_cpu_decoder)
         if self.using_cpu_decoder:
             try: 
@@ -1284,16 +1307,17 @@ class TorchAudioCTCBeamSearch:
                 self.tokens, 
                 self.topk, 
                 self.beam_size, 
-                math.log(0.99)
+                self.blank_skip_threshold
             )
         
     def decode_beams(self, log_probs, wav_lengths = None):
+        # TODO: add top_k return 
 
         if wav_lengths is not None:
             enc_lengths = log_probs.size(1) * wav_lengths
         else:
             enc_lengths = torch.IntTensor([log_probs.size(1)] * log_probs.size(0))
-            
+
         if enc_lengths.dtype != torch.int32:
             enc_lengths = enc_lengths.to(torch.int32)
 
