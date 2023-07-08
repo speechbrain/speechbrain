@@ -17,6 +17,15 @@ class BaseScorerInterface:
     """A scorer abstraction to be inherited by other
     scoring approaches for beam search.
 
+    A scorer is a module that scores tokens in vocabulary
+    based on the current timestep input and the previous
+    scorer states. It can be used to score on full vocabulary
+    set (i.e., Full scorers) or a pruned set of tokens (i.e. Partial scorers)
+    to prevent computation overhead.
+
+    Inherit this class to implement your own scorer compatible with
+    speechbrain.decoders.seq2seq.S2SBeamSearcher().
+
     See:
         - speechbrain.decoders.scorer.CTCPrefixScorer
         - speechbrain.decoders.scorer.RNNLMScorer
