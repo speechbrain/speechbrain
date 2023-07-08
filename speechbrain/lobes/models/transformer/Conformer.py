@@ -145,6 +145,7 @@ class ConvolutionModule(nn.Module):
         # https://www.amazon.science/publications/dynamic-chunk-convolution-for-unified-streaming-and-non-streaming-conformer-asr
         # split the input into chunks of size `chunk_size`, but for each chunk
         # provide a left context for left chunk dependencies to be possible.
+
         if chunk_size >= 1:
             # chances are chunking+causal is unintended; i don't know where it
             # may make sense, but if it does to you, feel free to implement it.

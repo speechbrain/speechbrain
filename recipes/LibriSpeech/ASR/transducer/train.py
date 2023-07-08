@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
-        batch = batch.to(self.device)
+        batch = batch.to(self.device, non_blocking=True)
         wavs, wav_lens = batch.sig
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
@@ -297,7 +297,7 @@ class ASR(sb.Brain):
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
+            max_key=max_key, min_key=min_key,
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
             ckpts, recoverable_name="model"

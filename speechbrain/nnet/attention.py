@@ -591,17 +591,23 @@ class RelPosMHAXL(nn.Module):
             query + self.pos_bias_v.view(1, 1, self.num_heads, self.head_dim)
         ).transpose(1, 2)
 
+        # TODO: cite https://asherliu.github.io/docs/sc21a.pdf
+        # for the scaling prior to the matrix multiplication 
+        # should read more of the paper though
+        # TODO: check if this causes any difference beyond precision
+        # (it does not seem like it does)
+
         # (batch, head, qlen, klen)
-        matrix_ac = torch.matmul(q_with_bias_u, key.permute(0, 2, 3, 1))
+        matrix_ac = torch.matmul(q_with_bias_u * self.scale, key.permute(0, 2, 3, 1))
         # (batch, num_heads, klen, 2*klen-1)
-        matrix_bd = torch.matmul(q_with_bias_v, p_k.permute(0, 2, 3, 1))
+        matrix_bd = torch.matmul(q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1))
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
         # if klen != qlen:
         #   import ipdb
         #  ipdb.set_trace(
 
-        attn_score = (matrix_ac + matrix_bd) * self.scale
+        attn_score = (matrix_ac + matrix_bd) # already scaled above
 
         # compute attention probability
         if attn_mask is not None:
@@ -622,7 +628,7 @@ class RelPosMHAXL(nn.Module):
                 key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
-        attn_score = F.softmax(attn_score, dim=-1)
+        attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
         attn_score = self.dropout_att(attn_score)
 
         # it is possible for us to hit full NaN when using chunked training

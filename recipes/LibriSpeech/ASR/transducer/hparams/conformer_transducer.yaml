@@ -9,7 +9,7 @@
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 3407
+seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_transducer_large/<seed>
 output_wer_folder: !ref <output_folder>/
@@ -92,6 +92,7 @@ dynamic_left_context_max: 64
 train_dataloader_opts:
    batch_size: !ref <batch_size>
    num_workers: !ref <num_workers>
+   pin_memory: True
 
 valid_dataloader_opts:
    batch_size: !ref <batch_size_valid>
