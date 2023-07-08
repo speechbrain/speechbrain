@@ -1311,7 +1311,6 @@ class TorchAudioCTCBeamSearch:
             )
         
     def decode_beams(self, log_probs, wav_lengths = None):
-        # TODO: add top_k return 
 
         if wav_lengths is not None:
             enc_lengths = log_probs.size(1) * wav_lengths
@@ -1339,49 +1338,48 @@ class TorchAudioCTCBeamSearch:
         
         # Note. enc_lengths is required when using GPU decoder
         beam_search_results = self._ctc_decoder(log_probs, enc_lengths)
-        # print(beam_search_results)
+        results = beam_search_results
 
-        if self.using_cpu_decoder:
-            if self.return_topk == False:
+        tokens_preds = []
+        words_preds = []
+        scores_preds = []
+        timesteps_preds = []
 
-                predicted_tokens = [
-                    result[0].tokens.tolist() for result in beam_search_results
-                ] 
+        # over batch dim
+        for i in range(len(beam_search_results)):
+            # over topk dim
+    
+            if self.using_cpu_decoder:
 
-                predicted_tokens = [
-                    [self.tokens[token] for token in tokens] for tokens in predicted_tokens
-                ]
+                preds = [results[i][j].tokens.tolist() for j in range(len(results[i]))]
+                preds = [[self.tokens[token] for token in tokens] for tokens in preds]
+                tokens_preds.append(preds)
 
-                predicted_words = [
-                    result[0].words for result in beam_search_results
-                ]
+                timesteps = [results[i][j].timesteps.tolist() for j in range(len(results[i]))]
+                timesteps_preds.append(timesteps)
 
-                scores = [
-                    result[0].score for result in beam_search_results
-                ]
+            else:
+                preds = [results[i][j].tokens for j in range(len(results[i]))]
+                preds = [[self.tokens[token] for token in tokens] for tokens in preds]
+                tokens_preds.append(preds)
 
-                timesteps = [
-                    result[0].timesteps.tolist() for result in beam_search_results
-                ]
-        
-            return predicted_tokens, predicted_words, scores, timesteps
+                # no timesteps is available for CUDA CTC decoder
+
+            words = [results[i][j].words for j in range(len(results[i]))]
+            words_preds.append(words)
+
+            scores = [results[i][j].score for j in range(len(results[i]))]
+            scores_preds.append(scores)
+
+
+        if self.return_topk:
+            return tokens_preds, words_preds, scores_preds, timesteps_preds
         else:
-            if self.return_topk == False:
-
-                predicted_tokens = [
-                    result[0].tokens for result in beam_search_results
-                ] 
-
-                predicted_tokens = [
-                    [self.tokens[token] for token in tokens] for tokens in predicted_tokens
-                ]
-
-                predicted_words = [
-                    result[0].words for result in beam_search_results
-                ]
-
-                scores = [
-                    result[0].score for result in beam_search_results
-                ]
-
-            return predicted_tokens, predicted_words, scores, None
+            one_best_tokens = [tokens[0] for tokens in tokens_preds]
+            one_best_words = [words[0] for words in words_preds]
+            one_best_scores = [scores[0] for scores in scores_preds]
+            if self.using_cpu_decoder:
+                one_best_timesteps = [timesteps[0] for timesteps in timesteps_preds]
+            else:
+                one_best_timesteps = None
+            return one_best_tokens, one_best_words, one_best_scores, one_best_timesteps
