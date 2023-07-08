@@ -67,7 +67,8 @@ class ASR(sb.Brain):
         p_ctc = self.hparams.log_softmax(logits)
 
         if use_torch_audio:
-            p_tokens, _, _, _ = decoder.decode_beams(p_ctc, wav_lens) 
+
+            p_tokens, _, _, _ = decoder.decode_beams(p_ctc) 
         else:
             p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
 
@@ -442,7 +443,7 @@ if __name__ == "__main__":
         decoder = TorchAudioCTCBeamSearch(
             lexicon=None,
             tokens=labels,
-            beam_size=10,
+            beam_size=100,
             blank_index=hparams["blank_index"],
             sil_index=hparams["blank_index"],
             beam_size_token=5,

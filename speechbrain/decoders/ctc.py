@@ -36,7 +36,6 @@ from speechbrain.decoders.language_model import (
 
 from typing import (
     Dict,
-    List,
     Optional,
 )
 
@@ -404,19 +403,17 @@ class CTCBeam:
     partial_word: str
     last_token: Optional[str]
     last_token_index: Optional[int]
-    
     p: float = -math.inf
     p_b: float = -math.inf
     p_nb: float =  -math.inf
-
     n_p_b: float =  -math.inf
     n_p_nb : float=  -math.inf
-
     score: float =  -math.inf
     score_ctc: float = -math.inf
 
     @classmethod
     def from_lm_beam(cls, lm_beam):
+        """ Create a CTCBeam from a LMCTCBeam"""
         return CTCBeam(
             text=lm_beam.text,
             full_text=lm_beam.full_text,
@@ -452,7 +449,34 @@ class CTCHypothesis:
 
 
 class CTCBaseSearcher(torch.nn.Module):
-    """ TODO: docstring
+    """CTCBaseSearcher class to be inherited by other
+    CTC beam searchers.
+
+    Arguments
+    ---------
+    blank_index : int
+        The index of the blank token.
+    vocab_list : list
+        The list of the vocabulary tokens.
+    space_index : int
+        The index of the space token.
+    kenlm_model_path : str
+        The path to the kenlm model. Use .bin for a faster loading.
+    unigrams : dict
+        The unigram dictionary.
+    beam_width : int
+        The width of the beam.
+    beam_prune_logp : float
+        The pruning threshold for the beam.
+    token_prune_min_logp : float
+        The pruning threshold for the tokens.
+    history_prune : bool
+        Whether to prune the history.
+    blank_skip_threshold : float
+        The threshold for skipping the frames when the log probability
+        of the blank token is higher than this value.
+    topk : int
+        The number of top hypotheses to return.
     """
 
     def __init__(
@@ -509,7 +533,6 @@ class CTCBaseSearcher(torch.nn.Module):
             )
 
         if unigrams is None and kenlm_model_path is not None:
-            print("LOADING unigram set")
             if kenlm_model_path.endswith(".arpa"):
                 unigrams = load_unigram_set_from_arpa(kenlm_model_path)
             else:
@@ -519,11 +542,9 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
 
         if self.kenlm_model is not None:
-            print("LOADING lm")
             self.lm = LanguageModel(self.kenlm_model, unigrams)
         else:
             self.lm = None
-        print(f"LM: {self.lm}") 
 
     def partial_decoding(
             self, 
@@ -533,23 +554,43 @@ class CTCBaseSearcher(torch.nn.Module):
             cached_p_lm_scores,
             processed_frames = 0,
         ):
-        raise NotImplementedError
+        """ Perform a single step of decoding.
 
-    def finalize_decoding(
-            self, 
-            beams, 
-            cached_lm_scores,
-            cached_p_lm_scores,
-            force_next_word=False, 
-            is_end=False
-            ):
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the CTC output.
+        beams : list
+            The list of the beams.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_p_lm_scores : dict
+            The cached prefix language model scores.
+        processed_frames : int
+            The start frame of the current decoding step.
+        """
         raise NotImplementedError
     
-    def normalize_whitespace(self, text: str) -> str:
-        """Efficiently normalize whitespace."""
+    def normalize_whitespace(self, text):
+        """Efficiently normalize whitespace.
+
+        Arguments
+        ---------
+        text : str
+            The text to normalize.
+        """
         return " ".join(text.split()) 
 
-    def merge_tokens(self, token_1: str, token_2: str) -> str:
+    def merge_tokens(self, token_1, token_2):
+        """ Merge two tokens, and avoid empty ones.
+        
+        Arguments
+        ---------
+        token_1 : str
+            The first token.
+        token_2 : str
+            The second token.
+        """
         if len(token_2) == 0:
             text = token_1
         elif len(token_1) == 0:
@@ -559,6 +600,13 @@ class CTCBaseSearcher(torch.nn.Module):
         return text
 
     def merge_beams(self, beams):
+        """ Merge beams with the same text.
+
+        Arguments
+        ---------
+        beams : list
+            The list of the beams.
+        """
         beam_dict = {}
         for beam in beams:
             new_text = self.merge_tokens(beam.text, beam.next_word)
@@ -573,9 +621,16 @@ class CTCBaseSearcher(torch.nn.Module):
         return list(beam_dict.values())
 
     def sort_beams(self, beams):
+        """ Sort beams by lm_score.
+
+        Arguments
+        ---------
+        beams : list
+            The list of the beams.
+        """
         return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
     
-    def prune_history(self, beams, lm_order: int):
+    def prune_history(self, beams, lm_order):
         """Filter out beams that are the same over max_ngram history.
 
         Since n-gram language models have a finite history when scoring a new token, we can use that
@@ -584,12 +639,12 @@ class CTCBaseSearcher(torch.nn.Module):
         some amount of beam diversity. If more than the top beam is used in the output it should
         potentially be disabled.
 
-        Args:
-            beams: list of LMBeam
-            lm_order: int, the order of the n-gram model
-
-        Returns:
-            list of Beam
+        Arguments
+        ---------
+        beams : list
+            The list of the beams.
+        lm_order : int
+            The order of the language model.
         """
         # let's keep at least 1 word of history
         min_n_history = max(1, lm_order - 1)
@@ -617,6 +672,21 @@ class CTCBaseSearcher(torch.nn.Module):
             force_next_word=False, 
             is_end=False
         ):
+        """ Finalize the decoding process.
+
+        Arguments
+        ---------
+        beams : list
+            The list of the beams.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_p_lm_scores : dict
+            The cached prefix language model scores.
+        force_next_word : bool
+            Whether to force the next word.
+        is_end : bool
+            Whether the end of the sequence has been reached.
+        """
         if force_next_word or is_end:
             new_beams = []
             for beam in beams:
