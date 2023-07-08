@@ -36,7 +36,16 @@ class BaseScorerInterface:
     """
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """This method scores tokens in vocabulary.
+        """This method scores the new beams based on the
+        informations of the current timestep.
+
+        A score is a tensor of shape (batch_size x beam_size, vocab_size).
+        It is the log probability of the next token given the current
+        timestep input and the previous scorer states.
+
+        It can be used to score on pruned top-k candidates
+        to prevent computation overhead, or on full vocabulary set
+        when candidates is None.
 
         Arguments
         ---------
@@ -55,7 +64,8 @@ class BaseScorerInterface:
         ---------
         torch.Tensor
             (batch_size x beam_size, vocab_size), Scores for the next tokens.
-
+        memory : No limit
+            The memory variables input for this timestep.
         """
         raise NotImplementedError
 
@@ -82,7 +92,7 @@ class BaseScorerInterface:
         x : torch.Tensor
             The precomputed encoder states to be used when decoding.
             (ex. the encoded speech representation to be attended).
-        wav_len : torch.Tensor
+        enc_lens : torch.Tensor
             The speechbrain-style relative length.
         """
         return None
