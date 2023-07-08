@@ -55,12 +55,15 @@ class S2SBaseSearcher(torch.nn.Module):
 
     Returns
     -------
-    predictions
-        Outputs as Python list of lists, with "ragged" dimensions; padding
-        has been removed.
-    scores
-        The sum of log probabilities (and possibly
-        additional heuristic scores) for each prediction.
+    hyps
+        The predicted tokens, as a list of lists or, if return_topk is True,
+        a Tensor of shape (batch, topk, max length of token_id sequences).
+    top_lengths
+        The length of each topk sequence in the batch.
+    top_scores
+        This final scores of topk hypotheses.
+    top_log_probs
+        The log probabilities of each hypotheses.
     """
 
     def __init__(
@@ -345,8 +348,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The width of beam.
     scorer: speechbrain.decoders.scorers.ScorerBuilder
         Scorer instance. Default: None.
+    return_topk : bool
+        Whether to return topk hypotheses. The topk hypotheses will be
+        padded to the same length. Default: False.
     topk : int
-        The number of hypothesis to return. Default: 1.
+        If return_topk is True, then return topk hypotheses. Default: 1.
     using_eos_threshold : bool
         Whether to use eos threshold. Default: True.
     eos_threshold : float
@@ -375,6 +381,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         max_decode_ratio,
         beam_size,
         scorer=None,
+        return_topk=False,
         topk=1,
         using_eos_threshold=True,
         eos_threshold=1.5,
@@ -388,6 +395,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
         self.beam_size = beam_size
         self.scorer = scorer
+        self.return_topk = return_topk
         self.topk = topk
         self.length_normalization = length_normalization
         self.using_eos_threshold = using_eos_threshold
@@ -987,16 +995,19 @@ class S2SBeamSearcher(S2SBaseSearcher):
             topk_log_probs,
         ) = self._get_topk_prediction(finals_hyps_and_log_probs_scores)
 
-        # select the best hyps
-        best_hyps = topk_hyps[:, 0, :]
-        best_lens = topk_lengths[:, 0]
-        best_scores = topk_scores[:, 0]
-        best_log_probs = topk_log_probs[:, 0, :]
+        if self.return_topk:
+            return topk_hyps, topk_lengths, topk_scores, topk_log_probs
+        else:
+            # select the best hyps
+            best_hyps = topk_hyps[:, 0, :]
+            best_lens = topk_lengths[:, 0]
+            best_scores = topk_scores[:, 0]
+            best_log_probs = topk_log_probs[:, 0, :]
 
-        # Convert best hypothesis to list
-        hyps = undo_padding(best_hyps, best_lens)
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
 
-        return hyps, best_lens, best_scores, best_log_probs
+            return hyps, best_lens, best_scores, best_log_probs
 
     def permute_mem(self, memory, index):
         """This method permutes the seq2seq model memory
