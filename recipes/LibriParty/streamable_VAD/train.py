@@ -62,6 +62,8 @@ class VADBrain(sb.Brain):
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         feats = feats.detach()
+        
+        feats = F.pad(feats, (0, 0, 4, 0)) # add zeros to match shape after causality padding
         outputs = self.modules.cnn(feats)
 
         outputs = outputs.reshape(
@@ -87,10 +89,10 @@ class VADBrain(sb.Brain):
         # print(torch.sigmoid(predictions).shape, targets.shape)
         # input()
 
-        self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets[:, 3:])
+        self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets)
         if stage != sb.Stage.TRAIN:
             self.valid_metrics.append(
-                batch.id, torch.sigmoid(predictions), targets[:, 3:]
+                batch.id, torch.sigmoid(predictions), targets
             )
         
 
@@ -122,10 +124,10 @@ class VADBrain(sb.Brain):
             summary = self.valid_metrics.summarize(threshold=0.5)
 
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(epoch)
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+            # old_lr, new_lr = self.hparams.lr_annealing(epoch)
+            # sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
+                stats_meta={"epoch": epoch}, #, "lr": old_lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats={"loss": stage_loss, "summary": summary},
             )
@@ -208,7 +210,6 @@ def dataio_prep(hparams):
     return train_data, valid_data, test_data
 
 
-# Begin Recipe!
 if __name__ == "__main__":
 
     # CLI:

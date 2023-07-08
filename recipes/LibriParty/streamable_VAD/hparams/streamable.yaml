@@ -35,7 +35,7 @@ multilang_speech_csv: !ref <save_folder>/multilang_speech.csv
 skip_prep: False # Skip data preparation
 
 # Training parameters
-N_epochs: 200
+N_epochs: 150
 lr: 0.01
 lr_final: 0.001
 batch_size: 64
@@ -177,10 +177,10 @@ opt_class: !name:torch.optim.Adam
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
 
-lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
-    initial_value: !ref <lr>
-    final_value: !ref <lr_final>
-    epoch_count: !ref <N_epochs>
+# lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+      # initial_value: !ref <lr>
+      # final_value: !ref <lr_final>
+      # epoch_count: !ref <N_epochs>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
