@@ -525,7 +525,7 @@ if __name__ == "__main__":
 
     labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
   
-    use_torch_audio = True 
+    use_torch_audio = False 
 
     if use_torch_audio:
         decoder = TorchAudioCTCBeamSearch(
@@ -543,7 +543,7 @@ if __name__ == "__main__":
         import math
         decoder = CTCPrefixBeamSearch(
             blank_index=0,
-            kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+            # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
             history_prune=True,
             vocab_list=labels,
             beam_width=100,

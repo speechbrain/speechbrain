@@ -414,8 +414,6 @@ class CTCBeam:
     partial_word: str
     last_token: Optional[str]
     last_token_index: Optional[int]
-    text_frames: Tuple[int, int]
-    partial_frames: Tuple[int, int]
     
     p: float = -math.inf
     p_b: float = -math.inf
@@ -436,8 +434,6 @@ class CTCBeam:
             partial_word=lm_beam.partial_word,
             last_token=lm_beam.last_token,
             last_token_index=lm_beam.last_token_index,
-            text_frames=lm_beam.text_frames,
-            partial_frames=lm_beam.partial_frames,
             p=lm_beam.p,
             p_b=lm_beam.p_b,
             p_nb=lm_beam.p_nb,
@@ -461,7 +457,6 @@ class LMCTCBeam(CTCBeam):
 class CTCHypothesis:
     text: str
     last_lm_state: None
-    text_frames: List[Tuple[str, Tuple[int, int]]]
     score: float  # Cumulative logit score
     lm_score: float  # Cumulative language model + logit score
 
@@ -635,11 +630,6 @@ class CTCBaseSearcher(torch.nn.Module):
         if force_next_word or is_end:
             new_beams = []
             for beam in beams:
-                new_token_times = (
-                    beam.text_frames
-                    if beam.partial_word == ""
-                    else beam.text_frames + [beam.partial_frames]
-                )
                 new_beams.append(
                     CTCBeam(
                         text=beam.text,
@@ -648,8 +638,6 @@ class CTCBaseSearcher(torch.nn.Module):
                         partial_word="",
                         last_token=None,
                         last_token_index=None,
-                        text_frames=new_token_times,
-                        partial_frames=(-1, -1),
                         score=beam.score,
                     )
                 )
@@ -669,10 +657,11 @@ class CTCBaseSearcher(torch.nn.Module):
         return self.sort_beams(scored_beams)
     
     def decode_beams(self, log_probs, wav_lens =  None, lm_start_state=None):
+        # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
             wav_lens = log_probs.shape[1] * wav_lens
             wav_lens = wav_lens.cpu().numpy().astype(int)
-    
+
         log_probs = log_probs.cpu().numpy()
         
         hyps = [
@@ -730,8 +719,6 @@ class CTCBaseSearcher(torch.nn.Module):
                 partial_word="",
                 last_token=None,
                 last_token_index=None,
-                text_frames=[],
-                partial_frames=(-1, -1),
                 score=0.0,
                 score_ctc=0.0,
                 p_b=0.0,
@@ -763,7 +750,6 @@ class CTCBaseSearcher(torch.nn.Module):
                   if (lm_beam.text, True) in cached_lm_scores
                   else None
                 ),
-                text_frames=list(zip(lm_beam.text.split(), lm_beam.text_frames)),
                 score=lm_beam.score,
                 lm_score=lm_beam.lm_score,
             )
@@ -793,9 +779,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token,                    
-                        text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,
+                        last_token_index=beam.last_token,     
                         score=beam.score,
                         lm_score=beam.score,
                     )
@@ -833,9 +817,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=word_part,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token,  
-                        text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,                  
+                        last_token_index=beam.last_token,                   
                         score=beam.score,
                         lm_score=beam.score + lm_score,
                     )
@@ -870,14 +852,6 @@ class CTCBeamSearch(CTCBaseSearcher):
                 for beam in beams:
                     
                     if token_index == self.blank_index or beam.last_token == token:
-                        if token_index == self.blank_index:
-                            new_end_frame = beam.partial_frames[0]
-                        else:
-                            new_end_frame = frame_index + 1
-
-                        new_part_frames = (
-                            beam.partial_frames if token_index == self.blank_index else (beam.partial_frames[0], new_end_frame)
-                        )
 
                         new_beams.append(
                             CTCBeam(
@@ -887,8 +861,6 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 partial_word=beam.partial_word,
                                 last_token=token,
                                 last_token_index=token_index,
-                                text_frames=beam.text_frames,
-                                partial_frames=new_part_frames,
                                 score=beam.score + p_token,
                             )
                         )
@@ -896,11 +868,6 @@ class CTCBeamSearch(CTCBaseSearcher):
                     elif self.is_spm and token[:1] == self.spm_token:
                         clean_token = token[1:]    
 
-                        new_frame_list = (
-                            beam.text_frames
-                            if beam.partial_word == ""
-                            else beam.text_frames + [beam.partial_frames]
-                        )
 
                         new_beams.append(
                             CTCBeam(
@@ -910,18 +877,11 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 partial_word=clean_token,
                                 last_token=token,
                                 last_token_index=token_index,
-                                text_frames=new_frame_list,
-                                partial_frames=(frame_index, frame_index + 1),
                                 score=beam.score + p_token,
                             )
                         )
 
                     elif not self.is_spm and token_index == self.space_index:
-                        new_frame_list = (
-                            beam.text_frames
-                            if beam.partial_word == ""
-                            else beam.text_frames + [beam.partial_frames]
-                        )
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
@@ -930,17 +890,10 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 partial_word="",
                                 last_token=token,
                                 last_token_index=token_index,
-                                text_frames=new_frame_list,
-                                partial_frames=(-1, -1),
                                 score=beam.score + p_token,
                             )
                         )
                     else:
-                        new_part_frames = (
-                            (frame_index, frame_index + 1)
-                            if beam.partial_frames[0] < 0
-                            else (beam.partial_frames[0], frame_index + 1)
-                        )
                                                 
                         new_beams.append(
                             CTCBeam(
@@ -949,9 +902,6 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 next_word=beam.next_word,
                                 partial_word=beam.partial_word + token,
                                 last_token=token,
-                                last_token_index=token_index,
-                                text_frames=beam.text_frames,
-                                partial_frames=new_part_frames,
                                 score=beam.score + p_token,
                             )
                         )
@@ -1000,9 +950,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token_index,                    
-                        text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,
+                        last_token_index=beam.last_token_index,  
                         p=beam.p,
                         p_b=beam.p_b,
                         p_nb=beam.p_nb,
@@ -1047,9 +995,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token_index,                    
-                        text_frames=beam.text_frames,
-                        partial_frames=beam.partial_frames,
+                        last_token_index=beam.last_token_index, 
                         p=beam.p,
                         p_b=beam.p_b,
                         p_nb=beam.p_nb,
@@ -1078,8 +1024,6 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 partial_word="",
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=[],
-                partial_frames=(-1, -1),
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
@@ -1094,8 +1038,6 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 partial_word=clean_token,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=[],
-                partial_frames=(-1, -1),
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
@@ -1108,8 +1050,6 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 partial_word=previous_beam.partial_word,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=[],
-                partial_frames=(-1, -1),
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
@@ -1122,8 +1062,6 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 partial_word=previous_beam.partial_word + new_token,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=[],
-                partial_frames=(-1, -1),
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
@@ -1179,7 +1117,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         token_index,
                         beams,
                         p=p_token, 
-                        previous_beam=beam
+                        previous_beam=beam,
                     )
 
                     n_p_nb = new_beam.n_p_nb
