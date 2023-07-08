@@ -638,6 +638,15 @@ class LengthScorer(BaseScorerInterface):
 
 class ScorerBuilder:
     """ Builds scorer instance for beamsearch.
+
+    The ScorerBuilder class is responsible for building a scorer instance for
+    beam search. It takes weights for full and partial scorers, as well as
+    instances of full and partial scorer classes. It combines the scorers based
+    on the weights specified and provides methods for scoring tokens, permuting
+    scorer memory, and resetting scorer memory.
+
+    This is the class to be used for building scorer instances for beam search.
+
     See speechbrain.decoders.seq2seq.S2SBeamSearcher()
 
     Arguments
