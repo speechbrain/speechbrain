@@ -1208,7 +1208,7 @@ class TorchAudioCTCBeamSearch:
         tokens, 
         lm = None,
         lm_dict: Optional[str] = None,
-        nbest: int = 1,
+        topk: int = 1,
         beam_size: int = 50,
         beam_size_token: Optional[int] = None,
         beam_threshold: float = 50,
@@ -1220,13 +1220,14 @@ class TorchAudioCTCBeamSearch:
         blank_index: int = 0,
         sil_index: int = 0,
         unk_word: str = "<unk>",
-        using_cpu_decoder: bool = True
+        using_cpu_decoder: bool = True,
+        return_topk: bool = False,
     ):
         self.lexicon = lexicon
         self.tokens = tokens
         self.lm = lm
         self.lm_dict = lm_dict
-        self.nbest = nbest
+        self.topk = topk
         self.beam_size = beam_size
         self.beam_size_token = beam_size_token
         self.beam_threshold = beam_threshold
@@ -1239,7 +1240,9 @@ class TorchAudioCTCBeamSearch:
         self.sil_index = sil_index
         self.unk_word = unk_word
         self.using_cpu_decoder = using_cpu_decoder
-
+        self.return_topk = return_topk
+        # Note. Add that CUDA CTC can consummes a lot of memory and core dump
+        print("USING CPU DECODER: ", self.using_cpu_decoder)
         if self.using_cpu_decoder:
             try: 
                 from torchaudio.models.decoder import ctc_decoder
@@ -1253,7 +1256,7 @@ class TorchAudioCTCBeamSearch:
                 tokens=self.tokens,
                 lm=self.lm,
                 lm_dict=self.lm_dict,
-                nbest=self.nbest,
+                nbest=self.topk,
                 beam_size=self.beam_size,
                 beam_size_token=self.beam_size_token,
                 beam_threshold=self.beam_threshold,
@@ -1273,48 +1276,88 @@ class TorchAudioCTCBeamSearch:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the nightly version of torchaudio to use this decoder"
                 )
-            assert self.tokens[0] == "<blk>", "idx of blank token has to be zero"
+            assert self.blank_index == 0, "Index of blank token has to be 0"
+
+            print("Using CUDA CTC Decoder")
+
             self._ctc_decoder = cuda_ctc_decoder(
                 self.tokens, 
-                self.nbest, 
+                self.topk, 
                 self.beam_size, 
                 math.log(0.99)
             )
         
-    def decode_beams(self, log_probs, enc_lengths = None):
+    def decode_beams(self, log_probs, wav_lengths = None):
+
+        if wav_lengths is not None:
+            enc_lengths = log_probs.size(1) * wav_lengths
+        else:
+            enc_lengths = torch.IntTensor([log_probs.size(1)] * log_probs.size(0))
+            
+        if enc_lengths.dtype != torch.int32:
+            enc_lengths = enc_lengths.to(torch.int32)
+
         if log_probs.dtype != torch.float32:
             raise ValueError("log_probs must be float32.")
 
         # log_probs must be a cpu tensor
-        if log_probs.is_cuda:
+        if self.using_cpu_decoder == True and log_probs.is_cuda:
             log_probs = log_probs.cpu()
+
+        if self.using_cpu_decoder == True and enc_lengths.is_cuda:
+            enc_lengths = enc_lengths.cpu()
             
         if not log_probs.is_contiguous():
             raise RuntimeError("log_probs must be contiguous.")
 
-        if enc_lengths is not None and enc_lengths.is_cuda:
+        if self.using_cpu_decoder == True and enc_lengths is not None and enc_lengths.is_cuda:
             raise RuntimeError("enc_lengths must be a CPU tensor.")
         
-        beam_search_result = self._ctc_decoder(log_probs, enc_lengths)
+        # Note. enc_lengths is required when using GPU decoder
+        beam_search_results = self._ctc_decoder(log_probs, enc_lengths)
+        # print(beam_search_results)
+
+        if self.using_cpu_decoder:
+            if self.return_topk == False:
+
+                predicted_tokens = [
+                    result[0].tokens.tolist() for result in beam_search_results
+                ] 
+
+                predicted_tokens = [
+                    [self.tokens[token] for token in tokens] for tokens in predicted_tokens
+                ]
+
+                predicted_words = [
+                    result[0].words for result in beam_search_results
+                ]
+
+                scores = [
+                    result[0].score for result in beam_search_results
+                ]
+
+                timesteps = [
+                    result[0].timesteps.tolist() for result in beam_search_results
+                ]
         
-        predicted_tokens = [
-            result[0].tokens.tolist() for result in beam_search_result
-        ] 
+            return predicted_tokens, predicted_words, scores, timesteps
+        else:
+            if self.return_topk == False:
 
-        predicted_tokens = [
-            [self.tokens[token] for token in tokens] for tokens in predicted_tokens
-        ]
+                predicted_tokens = [
+                    result[0].tokens for result in beam_search_results
+                ] 
 
-        predicted_words = [
-            result[0].words for result in beam_search_result
-        ]
+                predicted_tokens = [
+                    [self.tokens[token] for token in tokens] for tokens in predicted_tokens
+                ]
 
-        scores = [
-            result[0].score for result in beam_search_result
-        ]
+                predicted_words = [
+                    result[0].words for result in beam_search_results
+                ]
 
-        timesteps = [
-            result[0].timesteps.tolist() for result in beam_search_result
-        ]
+                scores = [
+                    result[0].score for result in beam_search_results
+                ]
 
-        return predicted_tokens, predicted_words, scores, timesteps
+            return predicted_tokens, predicted_words, scores, None

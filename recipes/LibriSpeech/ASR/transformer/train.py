@@ -136,12 +136,16 @@ class ASR(sb.core.Brain):
                 stage == sb.Stage.TEST
             ):
                 if use_torch_audio:
-                    predicted_tokens, _, _, _ = decoder.decode_beams(p_ctc) 
+                    # TODO: move this bloc in compute_forward
+
+                    enc_lengths = p_ctc.size(1) * wav_lens
+                    predicted_tokens, _, _, _ = decoder.decode_beams(p_ctc, enc_lengths) 
 
                     predicted_words = [
                         tokenizer.decode_ids(utt_seq).split(" ")
                         for utt_seq in predicted_tokens
-                    ]
+                    ]  # TODO: use self.vocab instead of that
+
 
                 else:
                     beam_search_result = decoder.decode_beams(p_ctc) 
@@ -528,9 +532,10 @@ if __name__ == "__main__":
             lexicon=None,
             tokens=labels,
             beam_size=100,
-            blank_token=labels[hparams["blank_index"]],
-            sil_token=labels[hparams["blank_index"]],
+            blank_index=hparams["blank_index"],
+            sil_index=hparams["blank_index"],
             beam_size_token=5,
+            using_cpu_decoder=True,
         )
 
     else:
