@@ -135,12 +135,20 @@ class ASR(sb.core.Brain):
             if current_epoch % valid_search_every == 0 or (
                 stage == sb.Stage.TEST
             ):
+                if use_torch_audio:
+                    predicted_tokens, _, _, _ = decoder.decode_beams(p_ctc) 
 
-                beam_search_result = decoder.decode_beams(p_ctc.cpu().numpy()) 
+                    predicted_words = [
+                        tokenizer.decode_ids(utt_seq).split(" ")
+                        for utt_seq in predicted_tokens
+                    ]
 
-                predicted_words = []
-                for hypo in beam_search_result:
-                    predicted_words.append(hypo[0].text.split(" "))
+                else:
+                    beam_search_result = decoder.decode_beams(p_ctc) 
+
+                    predicted_words = []
+                    for hypo in beam_search_result:
+                        predicted_words.append(hypo[0].text.split(" "))
 
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
 
@@ -509,17 +517,30 @@ if __name__ == "__main__":
     )
     """
 
-    from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
+    from speechbrain.decoders import TorchAudioCTCBeamSearch, CTCPrefixBeamSearch, CTCBeamSearch
 
     labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
+  
+    use_torch_audio = True 
 
-    decoder = CTCBeamSearch(
-        blank_index=0,
-        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-        history_prune=True,
-        vocab_list=labels,
-        beam_width=100,
-    )
+    if use_torch_audio:
+        decoder = TorchAudioCTCBeamSearch(
+            lexicon=None,
+            tokens=labels,
+            beam_size=100,
+            blank_token=labels[hparams["blank_index"]],
+            sil_token=labels[hparams["blank_index"]],
+            beam_size_token=5,
+        )
+
+    else:
+        decoder = CTCBeamSearch(
+            blank_index=0,
+            #kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+            history_prune=True,
+            vocab_list=labels,
+            beam_width=100,
+        )
 
     if train_bsampler is not None:
         train_dataloader_opts = {

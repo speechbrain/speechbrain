@@ -471,7 +471,7 @@ if __name__ == "__main__":
     exit()
     """
 
-    from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
+    from speechbrain.decoders.off_2 import CTCPrefixBeamSearch, CTCBeamSearch
 
     ind2lab = label_encoder.ind2lab
     labels = [ind2lab[x] for x in range(len(ind2lab))]
