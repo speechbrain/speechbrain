@@ -128,14 +128,14 @@ class Separation(sb.Brain):
                 # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
+                    loss = loss[loss > th]
+                    if loss.nelement() > 0:
+                        loss = loss.mean()
                 else:
                     loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -161,14 +161,14 @@ class Separation(sb.Brain):
 
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
+                loss = loss[loss > th]
+                if loss.nelement() > 0:
+                    loss = loss.mean()
             else:
                 loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -554,7 +554,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.WHAMandWHAMR.prepare_data import prepare_wham_whamr_csv
+    from prepare_data import prepare_wham_whamr_csv
 
     run_on_main(
         prepare_wham_whamr_csv,
@@ -568,8 +568,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
-        from recipes.WHAMandWHAMR.prepare_data import create_whamr_rir_csv
-        from recipes.WHAMandWHAMR.meta.create_whamr_rirs import create_rirs
+        from prepare_data import create_whamr_rir_csv
+        from create_whamr_rirs import create_rirs
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):

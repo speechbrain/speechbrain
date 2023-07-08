@@ -345,6 +345,8 @@ class Conv1d(nn.Module):
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
+    default_padding: str or int
+        This sets the default padding mode that will be used by the pytorch Conv1d backend.
 
     Example
     -------
@@ -372,6 +374,7 @@ class Conv1d(nn.Module):
         skip_transpose=False,
         weight_norm=False,
         conv_init=None,
+        default_padding=0,
     ):
         super().__init__()
         self.kernel_size = kernel_size
@@ -396,13 +399,15 @@ class Conv1d(nn.Module):
             self.kernel_size,
             stride=self.stride,
             dilation=self.dilation,
-            padding=0,
+            padding=default_padding,
             groups=groups,
             bias=bias,
         )
 
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
+        if conv_init == "normal":
+            nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
@@ -532,8 +537,11 @@ class Conv2d(nn.Module):
         Dilation factor of the 2d convolutional filters over time and
         frequency axis.
     padding : str
-        (same, valid). If "valid", no padding is performed.
+        (same, valid, causal).
+        If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
+        If "causal" then proper padding is inserted to simulate causal convolution on the first spatial dimension.
+        (spatial dim 1 is dim 3 for both skip_transpose=False and skip_transpose=True)
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -543,8 +551,8 @@ class Conv2d(nn.Module):
     bias : bool
         If True, the additive bias b is adopted.
     skip_transpose : bool
-        If False, uses batch x time x channel convention of speechbrain.
-        If True, uses batch x channel x time convention.
+        If False, uses batch x spatial.dim2 x spatial.dim1 x channel convention of speechbrain.
+        If True, uses batch x channel x spatial.dim1 x spatial.dim2 convention.
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
@@ -649,7 +657,8 @@ class Conv2d(nn.Module):
 
         else:
             raise ValueError(
-                "Padding must be 'same' or 'valid'. Got " + self.padding
+                "Padding must be 'same','valid' or 'causal'. Got "
+                + self.padding
             )
 
         wx = self.conv(x)

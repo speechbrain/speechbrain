@@ -7,6 +7,8 @@ Authors:
  * Mirco Ravanelli 2020
  * Titouan Parcollet 2021
  * Abdel Heba 2021
+ * Andreas Nautsch 2022, 2023
+ * Pooneh Mousavi 2023
 """
 import logging
 import hashlib
@@ -19,6 +21,7 @@ from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
+from copy import copy
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 import torch.nn.functional as F
@@ -41,6 +44,7 @@ def foreign_class(
     overrides={},
     savedir=None,
     use_auth_token=False,
+    download_only=False,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -61,7 +65,7 @@ def foreign_class(
 
     Arguments
     ---------
-    source : str
+    source : str or Path or FetchSource
         The location to use for finding the model. See
         ``speechbrain.pretrained.fetching.fetch`` for details.
     hparams_file : str
@@ -79,7 +83,9 @@ def foreign_class(
         ./pretrained_models/<class-name>-hash(source).
     use_auth_token : bool (default: False)
         If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
-        default is False because majority of models are public.
+        default is False because the majority of models are public.
+    download_only : bool (default: False)
+        If true, class and instance creation is skipped.
 
     Returns
     -------
@@ -88,8 +94,24 @@ def foreign_class(
     """
     if savedir is None:
         savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
-    hparams_local_path = fetch(hparams_file, source, savedir, use_auth_token)
-    pymodule_local_path = fetch(pymodule_file, source, savedir, use_auth_token)
+    hparams_local_path = fetch(
+        filename=hparams_file,
+        source=source,
+        savedir=savedir,
+        overwrite=False,
+        save_filename=None,
+        use_auth_token=use_auth_token,
+        revision=None,
+    )
+    pymodule_local_path = fetch(
+        filename=pymodule_file,
+        source=source,
+        savedir=savedir,
+        overwrite=False,
+        save_filename=None,
+        use_auth_token=use_auth_token,
+        revision=None,
+    )
     sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
@@ -100,15 +122,18 @@ def foreign_class(
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
-    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    run_on_main(
+        pretrainer.collect_files, kwargs={"default_source": source},
+    )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
-    # run_opts={"device": ...}
-    pretrainer.load_collected(device="cpu")
+    if not download_only:
+        # run_opts={"device": ...}
+        pretrainer.load_collected(device="cpu")
 
-    # Import class and create instance
-    module = import_from_path(pymodule_local_path)
-    cls = getattr(module, classname)
-    return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
+        # Import class and create instance
+        module = import_from_path(pymodule_local_path)
+        cls = getattr(module, classname)
+        return cls(modules=hparams["modules"], hparams=hparams, **kwargs)
 
 
 class Pretrained(torch.nn.Module):
@@ -224,8 +249,8 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="."):
-        """Load an audio file with this model"s input spec
+    def load_audio(self, path, savedir="audio_cache", **kwargs):
+        """Load an audio file with this model's input spec
 
         When using a speech model, it is important to use the same type of data,
         as was used to train the model. This means for example using the same
@@ -235,8 +260,28 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(str(path), channels_first=False)
+        kwargs = copy(kwargs)  # shallow copy of references only
+        channels_first = kwargs.pop(
+            "channels_first", False
+        )  # False as default value: SB consistent tensor format
+        if kwargs:
+            fetch_kwargs = dict()
+            for key in [
+                "overwrite",
+                "save_filename",
+                "use_auth_token",
+                "revision",
+                "cache_dir",
+                "silent_local_fetch",
+            ]:
+                if key in kwargs:
+                    fetch_kwargs[key] = kwargs.pop(key)
+            path = fetch(fl, source=source, savedir=savedir, **fetch_kwargs)
+        else:
+            path = fetch(fl, source=source, savedir=savedir)
+        signal, sr = torchaudio.load(
+            str(path), channels_first=channels_first, **kwargs
+        )
         return self.audio_normalizer(signal, sr)
 
     def _compile_jit(self):
@@ -288,6 +333,7 @@ class Pretrained(torch.nn.Module):
         savedir=None,
         use_auth_token=False,
         revision=None,
+        download_only=False,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -307,7 +353,7 @@ class Pretrained(torch.nn.Module):
 
         Arguments
         ---------
-        source : str
+        source : str or Path or FetchSource
             The location to use for finding the model. See
             ``speechbrain.pretrained.fetching.fetch`` for details.
         hparams_file : str
@@ -330,21 +376,35 @@ class Pretrained(torch.nn.Module):
             ./pretrained_models/<class-name>-hash(source).
         use_auth_token : bool (default: False)
             If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
-            default is False because majority of models are public.
+            default is False because the majority of models are public.
         revision : str
             The model revision corresponding to the HuggingFace Hub model revision.
             This is particularly useful if you wish to pin your code to a particular
             version of a model hosted at HuggingFace.
+        download_only : bool (default: False)
+            If true, class and instance creation is skipped.
         """
         if savedir is None:
             clsname = cls.__name__
             savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
-            hparams_file, source, savedir, use_auth_token, revision
+            filename=hparams_file,
+            source=source,
+            savedir=savedir,
+            overwrite=False,
+            save_filename=None,
+            use_auth_token=use_auth_token,
+            revision=revision,
         )
         try:
             pymodule_local_path = fetch(
-                pymodule_file, source, savedir, use_auth_token, revision
+                filename=pymodule_file,
+                source=source,
+                savedir=savedir,
+                overwrite=False,
+                save_filename=None,
+                use_auth_token=use_auth_token,
+                revision=revision,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -365,17 +425,20 @@ class Pretrained(torch.nn.Module):
         pretrainer = hparams["pretrainer"]
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
-        run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+        run_on_main(
+            pretrainer.collect_files, kwargs={"default_source": source},
+        )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
-        # run_opts={"device": ...}
-        pretrainer.load_collected(device="cpu")
+        if not download_only:
+            # run_opts={"device": ...}
+            pretrainer.load_collected(device="cpu")
 
-        # Now return the system
-        return cls(hparams["modules"], hparams, **kwargs)
+            # Now return the system
+            return cls(hparams["modules"], hparams, **kwargs)
 
 
 class EndToEndSLU(Pretrained):
-    """A end-to-end SLU model.
+    """An end-to-end SLU model.
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire model (decode()) to map the speech to its semantics.
@@ -403,7 +466,7 @@ class EndToEndSLU(Pretrained):
             run_opts={"device": self.device},
         )
 
-    def decode_file(self, path):
+    def decode_file(self, path, **kwargs):
         """Maps the given audio file to a string representing the
         semantic dictionary for the utterance.
 
@@ -417,7 +480,7 @@ class EndToEndSLU(Pretrained):
         str
             The predicted semantics.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         waveform = waveform.to(self.device)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
@@ -430,10 +493,10 @@ class EndToEndSLU(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -441,7 +504,7 @@ class EndToEndSLU(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -455,10 +518,10 @@ class EndToEndSLU(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -493,7 +556,7 @@ class EncoderDecoderASR(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire encoder-decoder model
-    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    (transcribe()) to transcribe speech. The given YAML must contain the fields
     specified in the *_NEEDED[] lists.
 
     Example
@@ -515,7 +578,7 @@ class EncoderDecoderASR(Pretrained):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
 
-    def transcribe_file(self, path):
+    def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments
@@ -528,7 +591,7 @@ class EncoderDecoderASR(Pretrained):
         str
             The audiofile transcription produced by this ASR system.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -547,10 +610,10 @@ class EncoderDecoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -558,7 +621,7 @@ class EncoderDecoderASR(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -576,10 +639,10 @@ class EncoderDecoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -615,8 +678,7 @@ class WaveformEncoder(Pretrained):
     encode_file. They can be used to obtain the embeddings directly from an audio
     file or from a batch of audio tensors respectively.
 
-    The given YAML must contains the fields
-    specified in the *_NEEDED[] lists.
+    The given YAML must contain the fields specified in the *_NEEDED[] lists.
 
     Example
     -------
@@ -634,7 +696,7 @@ class WaveformEncoder(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def encode_file(self, path):
+    def encode_file(self, path, **kwargs):
         """Encode the given audiofile into a sequence of embeddings.
 
         Arguments
@@ -644,10 +706,10 @@ class WaveformEncoder(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The audiofile embeddings produced by this system.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -661,10 +723,10 @@ class WaveformEncoder(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -672,7 +734,7 @@ class WaveformEncoder(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -690,7 +752,7 @@ class EncoderASR(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire encoder + decoder function model
-    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    (transcribe()) to transcribe speech. The given YAML must contain the fields
     specified in the *_NEEDED[] lists.
 
     Example
@@ -713,7 +775,7 @@ class EncoderASR(Pretrained):
         self.tokenizer = self.hparams.tokenizer
         self.decoding_function = self.hparams.decoding_function
 
-    def transcribe_file(self, path):
+    def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments
@@ -726,7 +788,7 @@ class EncoderASR(Pretrained):
         str
             The audiofile transcription produced by this ASR system.
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -745,10 +807,10 @@ class EncoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -756,7 +818,7 @@ class EncoderASR(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         wavs = wavs.float()
@@ -774,10 +836,10 @@ class EncoderASR(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -844,6 +906,7 @@ class EncoderClassifier(Pretrained):
     ...     source="speechbrain/spkrec-ecapa-voxceleb",
     ...     savedir=tmpdir,
     ... )
+    >>> classifier.hparams.label_encoder.ignore_len()
 
     >>> # Compute embeddings
     >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
@@ -873,10 +936,10 @@ class EncoderClassifier(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -887,7 +950,7 @@ class EncoderClassifier(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         # Manage single waveforms in input
@@ -920,10 +983,10 @@ class EncoderClassifier(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -947,7 +1010,7 @@ class EncoderClassifier(Pretrained):
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_prob, score, index, text_lab
 
-    def classify_file(self, path):
+    def classify_file(self, path, **kwargs):
         """Classifies the given audiofile into the given set of labels.
 
         Arguments
@@ -967,7 +1030,7 @@ class EncoderClassifier(Pretrained):
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
-        waveform = self.load_audio(path)
+        waveform = self.load_audio(path, **kwargs)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
@@ -1055,7 +1118,7 @@ class SpeakerRecognition(EncoderClassifier):
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
-    def verify_files(self, path_x, path_y):
+    def verify_files(self, path_x, path_y, **kwargs):
         """Speaker verification with cosine distance
 
         Returns the score and the decision (0 different speakers,
@@ -1070,8 +1133,8 @@ class SpeakerRecognition(EncoderClassifier):
             The prediction is 1 if the two signals in input are from the same
             speaker and 0 otherwise.
         """
-        waveform_x = self.load_audio(path_x)
-        waveform_y = self.load_audio(path_y)
+        waveform_x = self.load_audio(path_x, **kwargs)
+        waveform_y = self.load_audio(path_y, **kwargs)
         # Fake batches:
         batch_x = waveform_x.unsqueeze(0)
         batch_y = waveform_y.unsqueeze(0)
@@ -1142,7 +1205,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        prob_vad: torch.tensor
+        prob_vad: torch.Tensor
             Tensor containing the frame-level speech probabilities for the
             input audio file.
         """
@@ -1158,7 +1221,7 @@ class VAD(Pretrained):
         long_chunk_len = int(sample_rate * large_chunk_size)
         small_chunk_len = int(sample_rate * small_chunk_size)
 
-        # Setting the step size of the small chunk (50% overapping windows are supported)
+        # Setting the step size of the small chunk (50% overlapping windows are supported)
         small_chunk_step = small_chunk_size
         if overlap_small_chunk:
             small_chunk_step = small_chunk_size / 2
@@ -1248,7 +1311,7 @@ class VAD(Pretrained):
         small chunks have a 50% overlap."""
 
         # Weighting the frame-level probabilities with a hamming window
-        # reduces uncertainnty when overlapping chunks are used.
+        # reduces uncertainty when overlapping chunks are used.
         hamming_window = torch.hamming_window(
             small_chunks_prob.shape[1], device=self.device
         )
@@ -1276,10 +1339,10 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels] or [batch, time]
             depending on the model. Make sure the sample rate is fs=16000 Hz.
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -1287,7 +1350,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         # Manage single waveforms in input
@@ -1329,7 +1392,7 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        vad_prob: torch.tensor
+        vad_prob: torch.Tensor
             Frame-level speech probabilities.
         activation_th:  float
             Threshold for starting a speech segment.
@@ -1338,7 +1401,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        vad_th: torch.tensor
+        vad_th: torch.Tensor
             Tensor containing 1 for speech regions and 0 for non-speech regions.
        """
         vad_activation = (vad_prob >= activation_th).int()
@@ -1366,16 +1429,16 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        prob_th: torch.tensor
+        prob_th: torch.Tensor
             Frame-level binary decisions (1 for speech frame, 0 for a
             non-speech one).  The tensor can be obtained from apply_threshold.
-        put_value: 'seconds' or 'samples'
+        output_value: 'seconds' or 'samples'
             When the option 'seconds' is set, the returned boundaries are in
             seconds, otherwise, it reports them in samples.
 
         Returns
         -------
-        boundaries: torch.tensor
+        boundaries: torch.Tensor
             Tensor containing the start second (or sample) of speech segments
             in even positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
@@ -1394,7 +1457,14 @@ class VAD(Pretrained):
         # Fix edge cases (when a speech starts in the last frames)
         if (prob_th == 1).nonzero().shape[0] % 2 == 1:
             prob_th = torch.cat(
-                (prob_th, torch.Tensor([1.0]).unsqueeze(0).unsqueeze(2)), dim=1
+                (
+                    prob_th,
+                    torch.Tensor([1.0])
+                    .unsqueeze(0)
+                    .unsqueeze(2)
+                    .to(self.device),
+                ),
+                dim=1,
             )
 
         # Where prob_th is 1 there is a change
@@ -1431,7 +1501,7 @@ class VAD(Pretrained):
             The new boundaries with the merged segments.
         """
 
-        new_boudaries = []
+        new_boundaries = []
 
         # Single segment case
         if boundaries.shape[0] == 0:
@@ -1446,26 +1516,26 @@ class VAD(Pretrained):
             beg_seg = boundaries[i, 0]
             segment_distance = beg_seg - prev_end_seg
 
-            # Mergin close segments
+            # Merging close segments
             if segment_distance <= close_th:
                 prev_end_seg = boundaries[i, 1]
 
             else:
                 # Appending new segments
-                new_boudaries.append([prev_beg_seg, prev_end_seg])
+                new_boundaries.append([prev_beg_seg, prev_end_seg])
                 prev_beg_seg = beg_seg
                 prev_end_seg = boundaries[i, 1]
 
-        new_boudaries.append([prev_beg_seg, prev_end_seg])
-        new_boudaries = torch.FloatTensor(new_boudaries).to(boundaries.device)
-        return new_boudaries
+        new_boundaries.append([prev_beg_seg, prev_end_seg])
+        new_boundaries = torch.FloatTensor(new_boundaries).to(boundaries.device)
+        return new_boundaries
 
     def remove_short_segments(self, boundaries, len_th=0.250):
         """Removes segments that are too short.
 
         Arguments
         ---------
-        boundaries : str
+        boundaries : torch.Tensor
             Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         len_th: float
@@ -1498,7 +1568,7 @@ class VAD(Pretrained):
 
         Arguments
         ---------
-        boundaries: torch.tensor
+        boundaries: torch.Tensor
             Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         save_path: path
@@ -1590,7 +1660,7 @@ class VAD(Pretrained):
         audio_file: path
             Path of the audio file containing the recording. The file is read
             with torchaudio.
-        boundaries : str
+        boundaries : torch.Tensor
             Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         activation_th: float
@@ -1824,7 +1894,7 @@ class VAD(Pretrained):
             )
             speech_prob = self.get_speech_prob_chunk(segment)
             if speech_prob.mean() > speech_th:
-                # Accept this a as a speech segment
+                # Accept this as a speech segment
                 new_boundaries.append([boundaries[i, 0], boundaries[i, 1]])
 
         # Convert boundaries from list to tensor
@@ -1920,7 +1990,7 @@ class VAD(Pretrained):
             The audio signal is processed in parallel within the small chunks.
             Note that large_chunk_size/small_chunk_size must be an integer.
         overlap_small_chunk: bool
-            If True, it creates overlapped small chunks (with 50% overal).
+            If True, it creates overlapped small chunks (with 50% overlap).
             The probabilities of the overlapped chunks are combined using
             hamming windows.
         apply_energy_VAD: bool
@@ -1931,7 +2001,7 @@ class VAD(Pretrained):
             The energy thresholds is  managed by activation_th and
             deactivation_th (see below).
         double_check: bool
-            If True, double checkis (using the neural VAD) that the candidate
+            If True, double checks (using the neural VAD) that the candidate
             speech segments actually contain speech. A threshold on the mean
             posterior probabilities provided by the neural network is applied
             based on the speech_th parameter (see below).
@@ -1958,7 +2028,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        boundaries: torch.tensor
+        boundaries: torch.Tensor
             Tensor containing the start second of speech segments in even
             positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
@@ -1984,7 +2054,7 @@ class VAD(Pretrained):
             deactivation_th=deactivation_th,
         ).float()
 
-        # Comupute the boundaries of the speech segments
+        # Compute the boundaries of the speech segments
         boundaries = self.get_boundaries(prob_th, output_value="seconds")
 
         # Apply energy-based VAD on the detected speech segments
@@ -2039,7 +2109,7 @@ class SepformerSeparation(Pretrained):
 
         Arguments
         ---------
-        mix : torch.tensor
+        mix : torch.Tensor
             The mixture of sources.
 
         Returns
@@ -2073,7 +2143,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="."):
+    def separate_file(self, path, savedir="audio_cache"):
         """Separate sources from file.
 
         Arguments
@@ -2149,7 +2219,7 @@ class SpectralMaskEnhancement(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             A batch of waveforms to convert to log spectral mags.
         """
         feats = self.hparams.compute_stft(wavs)
@@ -2161,14 +2231,14 @@ class SpectralMaskEnhancement(Pretrained):
 
         Arguments
         ---------
-        noisy : torch.tensor
+        noisy : torch.Tensor
             A batch of waveforms to perform enhancement on.
-        lengths : torch.tensor
+        lengths : torch.Tensor
             The lengths of the waveforms if the enhancement model handles them.
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             A batch of enhanced waveforms of the same shape as input.
         """
         noisy = noisy.to(self.device)
@@ -2184,7 +2254,7 @@ class SpectralMaskEnhancement(Pretrained):
         # Return resynthesized waveforms
         return self.hparams.resynth(torch.expm1(enhanced), noisy)
 
-    def enhance_file(self, filename, output_filename=None):
+    def enhance_file(self, filename, output_filename=None, **kwargs):
         """Enhance a wav file.
 
         Arguments
@@ -2194,7 +2264,7 @@ class SpectralMaskEnhancement(Pretrained):
         output_filename : str
             If provided, writes enhanced data to this file.
         """
-        noisy = self.load_audio(filename)
+        noisy = self.load_audio(filename, **kwargs)
         noisy = noisy.to(self.device)
 
         # Fake a batch:
@@ -2303,7 +2373,7 @@ class EncodeDecodePipelineMixin:
 
     def _get_value(self, data, key):
         """
-        Retrives the value associated with the specified key, dereferencing
+        Retrieves the value associated with the specified key, dereferencing
         .data where applicable
 
         Arguments
@@ -2332,7 +2402,7 @@ class EncodeDecodePipelineMixin:
 
         Returns
         -------
-        batch_intputs: bool
+        batch_inputs: bool
         """
         return self.hparams.encode_pipeline.get("batch", True)
 
@@ -2377,7 +2447,7 @@ class EncodeDecodePipelineMixin:
         input: dict
             the raw inputs
 
-        Results
+        Returns
         -------
         results: object
 
@@ -2402,7 +2472,7 @@ class EncodeDecodePipelineMixin:
         output: tuple
             raw model outputs
 
-        Results
+        Returns
         -------
         result: dict or list
             the output of the pipeline
@@ -2542,21 +2612,21 @@ class WaveformEnhancement(Pretrained):
 
         Arguments
         ---------
-        noisy : torch.tensor
+        noisy : torch.Tensor
             A batch of waveforms to perform enhancement on.
-        lengths : torch.tensor
+        lengths : torch.Tensor
             The lengths of the waveforms if the enhancement model handles them.
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             A batch of enhanced waveforms of the same shape as input.
         """
         noisy = noisy.to(self.device)
         enhanced_wav, _ = self.mods.enhance_model(noisy)
         return enhanced_wav
 
-    def enhance_file(self, filename, output_filename=None):
+    def enhance_file(self, filename, output_filename=None, **kwargs):
         """Enhance a wav file.
 
         Arguments
@@ -2566,7 +2636,7 @@ class WaveformEnhancement(Pretrained):
         output_filename : str
             If provided, writes enhanced data to this file.
         """
-        noisy = self.load_audio(filename)
+        noisy = self.load_audio(filename, **kwargs)
 
         # Fake a batch:
         batch = noisy.unsqueeze(0)
@@ -2594,9 +2664,9 @@ class SNREstimator(Pretrained):
 
         Arguments
         ---------
-        mix : torch.tensor
+        mix : torch.Tensor
             The mixture of sources of shape B X T
-        predictions : torch.tensor
+        predictions : torch.Tensor
             of size (B x T x C),
             where B is batch size
                   T is number of time points
@@ -2683,7 +2753,7 @@ class Tacotron2(Pretrained):
     >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_tts)
     >>> # Running the TTS
@@ -2702,7 +2772,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction
+        """Encodes raw text into a tensor with a customer text-to-sequence function
         """
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
@@ -2714,7 +2784,7 @@ class Tacotron2(Pretrained):
 
         Arguments
         ---------
-        text: List[str]
+        texts: List[str]
             texts to be encoded into spectrogram
 
         Returns
@@ -2735,7 +2805,7 @@ class Tacotron2(Pretrained):
             lens = [self.text_to_seq(item)[1] for item in texts]
             assert lens == sorted(
                 lens, reverse=True
-            ), "ipnut lengths must be sorted in decreasing order"
+            ), "input lengths must be sorted in decreasing order"
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
@@ -2769,7 +2839,7 @@ class HIFIGAN(Pretrained):
     >>> waveforms = hifi_gan.decode_batch(mel_specs)
 
     >>> # You can use the vocoder coupled with a TTS system
-    >>>	# Intialize TTS (tacotron2)
+    >>>	# Initialize TTS (tacotron2)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
@@ -2790,12 +2860,12 @@ class HIFIGAN(Pretrained):
 
         Arguments
         ---------
-        spectrogram: torch.tensor
+        spectrogram: torch.Tensor
             Batch of mel-spectrograms [batch, mels, time]
 
         Returns
         -------
-        waveforms: torch.tensor
+        waveforms: torch.Tensor
             Batch of mel-waveforms [batch, 1, time]
 
         """
@@ -2812,12 +2882,12 @@ class HIFIGAN(Pretrained):
 
         Arguments
         ---------
-        spectrogram: torch.tensor
+        spectrogram: torch.Tensor
             mel-spectrogram [mels, time]
 
         Returns
         -------
-        waveform: torch.tensor
+        waveform: torch.Tensor
             waveform [1, time]
 
         audio can be saved by:
@@ -2835,3 +2905,339 @@ class HIFIGAN(Pretrained):
     def forward(self, spectrogram):
         "Decodes the input spectrograms"
         return self.decode_batch(spectrogram)
+
+
+class WhisperASR(Pretrained):
+    """A ready-to-use Whisper ASR model
+
+    The class can be used  to  run the entire encoder-decoder whisper model
+    (transcribe()) to transcribe speech. The given YAML must contains the fields
+    specified in the *_NEEDED[] lists.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import WhisperASR
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,) # doctest: +SKIP
+    >>> asr_model.transcribe_file("speechbrain/asr-whisper-large-v2-commonvoice-fr/example-fr.mp3") # doctest: +SKIP
+    """
+
+    HPARAMS_NEEDED = ["language"]
+    MODULES_NEEDED = ["whisper", "decoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tokenizer = self.hparams.whisper.tokenizer
+        self.tokenizer.set_prefix_tokens(
+            self.hparams.language, "transcribe", False
+        )
+        self.hparams.decoder.set_decoder_input_tokens(
+            self.tokenizer.prefix_tokens
+        )
+
+    def transcribe_file(self, path):
+        """Transcribes the given audiofile into a sequence of words.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to transcribe.
+
+        Returns
+        -------
+        str
+            The audiofile transcription produced by this ASR system.
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words, predicted_tokens = self.transcribe_batch(
+            batch, rel_length
+        )
+        return predicted_words
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the input audio into a sequence of hidden states
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.tensor
+            The encoded batch
+        """
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        encoder_out = self.mods.whisper.forward_encoder(wavs)
+        return encoder_out
+
+    def transcribe_batch(self, wavs, wav_lens):
+        """Transcribes the input audio into a sequence of words
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch transcribed.
+        tensor
+            Each predicted token id.
+        """
+        with torch.no_grad():
+            wav_lens = wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
+            predicted_words = self.tokenizer.batch_decode(
+                predicted_tokens, skip_special_tokens=True
+            )
+            if self.hparams.normalized_transcripts:
+                predicted_words = [
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in predicted_words
+                ]
+
+        return predicted_words, predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
+
+
+class Speech_Emotion_Diarization(Pretrained):
+    """A ready-to-use SED interface (audio -> emotions and their durations)
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import Speech_Emotion_Diarization
+    >>> tmpdir = getfixture("tmpdir")
+    >>> sed_model = Speech_Emotion_Diarization.from_hparams(source="speechbrain/emotion-diarization-wavlm-large", savedir=tmpdir,) # doctest: +SKIP
+    >>> sed_model.diarize_file("speechbrain/emotion-diarization-wavlm-large/example.wav") # doctest: +SKIP
+    """
+
+    MODULES_NEEDED = ["input_norm", "wav2vec", "output_mlp"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def diarize_file(self, path):
+        """Get emotion diarization of a spoken utterance.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to diarize.
+
+        Returns
+        -------
+        dict
+            The emotions and their boundaries.
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        frame_class = self.diarize_batch(batch, rel_length, [path])
+        return frame_class
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes audios into fine-grained emotional embeddings
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.tensor
+            The encoded batch
+        """
+        if len(wavs.shape) == 1:
+            wavs = wavs.unsqueeze(0)
+
+        # Assign full length if wav_lens is not assigned
+        if wav_lens is None:
+            wav_lens = torch.ones(wavs.shape[0], device=self.device)
+
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+
+        wavs = self.mods.input_norm(wavs, wav_lens)
+        outputs = self.mods.wav2vec2(wavs)
+        return outputs
+
+    def diarize_batch(self, wavs, wav_lens, batch_id):
+        """Get emotion diarization of a batch of waveforms.
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+        batch_id : torch.tensor
+            id of each batch (file names etc.)
+
+        Returns
+        -------
+        torch.tensor
+            The frame-wise predictions
+        """
+        outputs = self.encode_batch(wavs, wav_lens)
+        averaged_out = self.hparams.avg_pool(outputs)
+        outputs = self.mods.output_mlp(averaged_out)
+        outputs = self.hparams.log_softmax(outputs)
+        score, index = torch.max(outputs, dim=-1)
+        preds = self.hparams.label_encoder.decode_torch(index)
+        results = self.preds_to_diarization(preds, batch_id)
+        return results
+
+    def preds_to_diarization(self, prediction, batch_id):
+        """Convert frame-wise predictions into a dictionary of
+        diarization results.
+
+        Returns
+        -------
+        dictionary
+            A dictionary with the start/end of each emotion
+        """
+        results = {}
+
+        for i in range(len(prediction)):
+            pred = prediction[i]
+            lol = []
+            for j in range(len(pred)):
+                start = round(self.hparams.stride * 0.02 * j, 2)
+                end = round(start + self.hparams.window_length * 0.02, 2)
+                lol.append([batch_id[i], start, end, pred[j]])
+
+            lol = self.merge_ssegs_same_emotion_adjacent(lol)
+            results[batch_id[i]] = [
+                {"start": k[1], "end": k[2], "emotion": k[3]} for k in lol
+            ]
+            return results
+
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
+
+    def is_overlapped(self, end1, start2):
+        """Returns True if segments are overlapping.
+
+        Arguments
+        ---------
+        end1 : float
+            End time of the first segment.
+        start2 : float
+            Start time of the second segment.
+
+        Returns
+        -------
+        overlapped : bool
+            True of segments overlapped else False.
+
+        Example
+        -------
+        >>> from speechbrain.processing import diarization as diar
+        >>> diar.is_overlapped(5.5, 3.4)
+        True
+        >>> diar.is_overlapped(5.5, 6.4)
+        False
+        """
+
+        if start2 > end1:
+            return False
+        else:
+            return True
+
+    def merge_ssegs_same_emotion_adjacent(self, lol):
+        """Merge adjacent sub-segs if they are the same emotion.
+        Arguments
+        ---------
+        lol : list of list
+            Each list contains [utt_id, sseg_start, sseg_end, emo_label].
+        Returns
+        -------
+        new_lol : list of list
+            new_lol contains adjacent segments merged from the same emotion ID.
+        Example
+        -------
+        >>> from speechbrain.utils.EDER import merge_ssegs_same_emotion_adjacent
+        >>> lol=[['u1', 0.0, 7.0, 'a'],
+        ... ['u1', 7.0, 9.0, 'a'],
+        ... ['u1', 9.0, 11.0, 'n'],
+        ... ['u1', 11.0, 13.0, 'n'],
+        ... ['u1', 13.0, 15.0, 'n'],
+        ... ['u1', 15.0, 16.0, 'a']]
+        >>> merge_ssegs_same_emotion_adjacent(lol)
+        [['u1', 0.0, 9.0, 'a'], ['u1', 9.0, 15.0, 'n'], ['u1', 15.0, 16.0, 'a']]
+        """
+        new_lol = []
+
+        # Start from the first sub-seg
+        sseg = lol[0]
+        flag = False
+        for i in range(1, len(lol)):
+            next_sseg = lol[i]
+            # IF sub-segments overlap AND has same emotion THEN merge
+            if (
+                self.is_overlapped(sseg[2], next_sseg[1])
+                and sseg[3] == next_sseg[3]
+            ):
+                sseg[2] = next_sseg[2]  # just update the end time
+                # This is important. For the last sseg, if it is the same emotion then merge
+                # Make sure we don't append the last segment once more. Hence, set FLAG=True
+                if i == len(lol) - 1:
+                    flag = True
+                    new_lol.append(sseg)
+            else:
+                new_lol.append(sseg)
+                sseg = next_sseg
+        # Add last segment only when it was skipped earlier.
+        if flag is False:
+            new_lol.append(lol[-1])
+        return new_lol

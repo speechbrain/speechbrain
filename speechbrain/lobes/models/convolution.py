@@ -2,18 +2,109 @@
 
 Authors
  * Jianyuan Zhong 2020
+ * Titouan Parcollet 2023
 """
 import torch
-from speechbrain.nnet.CNN import Conv2d
+from speechbrain.nnet.CNN import Conv2d, Conv1d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import LayerNorm
+
+
+class ConvolutionalSpatialGatingUnit(torch.nn.Module):
+    """This module implementing CSGU as defined in:
+    Branchformer: Parallel MLP-Attention Architectures
+    to Capture Local and Global Context for Speech Recognition
+    and Understanding"
+
+    The code is heavily inspired from the original ESPNet
+    implementation.
+
+    Arguments
+    ----------
+    input_size: int
+        Size of the feature (channel) dimension.
+    kernel_size: int, optional
+        Size of the kernel
+    dropout: float, optional
+        Dropout rate to be applied at the output
+    use_linear_after_conv: bool, optional
+        If True, will apply a linear transformation of size input_size//2
+    activation: torch.class, optional
+        Activation function to use on the gate, default is Identity.
+
+    Example
+    -------
+    >>> x = torch.rand((8, 30, 10))
+    >>> conv = ConvolutionalSpatialGatingUnit(input_size=x.shape[-1])
+    >>> out = conv(x)
+    >>> out.shape
+    torch.Size([8, 30, 5])
+    """
+
+    def __init__(
+        self,
+        input_size,
+        kernel_size=31,
+        dropout=0.0,
+        use_linear_after_conv=False,
+        activation=torch.nn.Identity,
+    ):
+        super().__init__()
+
+        self.input_size = input_size
+        self.use_linear_after_conv = use_linear_after_conv
+        self.activation = activation()
+
+        if self.input_size % 2 != 0:
+            raise ValueError("Input size must be divisible by 2!")
+
+        n_channels = input_size // 2  # split input channels
+        self.norm = LayerNorm(n_channels)
+        self.conv = Conv1d(
+            input_shape=(None, None, n_channels),
+            out_channels=n_channels,
+            kernel_size=kernel_size,
+            stride=1,
+            padding="same",
+            groups=n_channels,
+            conv_init="normal",
+            skip_transpose=False,
+        )
+
+        if self.use_linear_after_conv:
+            self.linear = torch.nn.Linear(n_channels, n_channels)
+            torch.nn.init.normal_(self.linear.weight, std=1e-6)
+            torch.nn.init.ones_(self.linear.bias)
+
+        torch.nn.init.ones_(self.conv.conv.bias)
+
+        self.dropout = torch.nn.Dropout(dropout)
+
+    def forward(self, x):
+        """
+        Arguments
+        ----------
+        x: torch.Tensor -> (B, T, D)
+
+        """
+
+        # We create two sequences where feat dim is halved
+        x1, x2 = x.chunk(2, dim=-1)
+
+        x2 = self.norm(x2)
+        x2 = self.conv(x2)
+        if self.use_linear_after_conv:
+            x2 = self.linear(x2)
+        x2 = self.activation(x2)
+
+        return self.dropout(x2 * x1)
 
 
 class ConvolutionFrontEnd(Sequential):
     """This is a module to ensemble a convolution (depthwise) encoder with or
     without residual connection.
 
-     Arguments
+    Arguments
     ----------
     out_channels: int
         Number of output channels of this model (default 640).

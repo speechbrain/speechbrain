@@ -37,7 +37,7 @@ class ASR(sb.Brain):
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
 
         # output layer for ctc log-probabilities
@@ -224,6 +224,10 @@ class ASR(sb.Brain):
                 "wav2vec_opt", self.wav2vec_optimizer
             )
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.adam_optimizer.zero_grad(set_to_none)
 
 
 def dataio_prep(hparams):

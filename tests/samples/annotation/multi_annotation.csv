@@ -1,0 +1,4 @@
+ID, duration, wav, wav_format, wav_opts, spk_id, spk_id_format, spk_id_opts, language
+example1, 3.260, tests/samples/lang/English/example1.wav, wav, , spk01, string,,English
+example2, 2.068, tests/samples/lang/French/example2.flac, flac, , spk02, string,,French
+example5, 1.000, tests/samples/lang/English/example5.wav, wav, start:10000 stop:26000, spk05, string,,English

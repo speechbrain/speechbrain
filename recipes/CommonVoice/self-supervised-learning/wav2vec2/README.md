@@ -14,7 +14,7 @@ The HuggingFace *transformers* library must be installed first.
 The idea is extremely simple. <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> provides a wav2vec 2.0 loss calculation. In practice, it means that forwarding throughout their wav2vec 2.0 models returns the loss. Hence, we simply use this interface as a lobes wrapper in SpeechBrain so anyone can fully pretrain a wav2vec 2.0 model.
 
 At a high level, the steps of this integration are:
-1. Indicate a <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> repository that stores the wav2vec 2.0 config file. This is necessary to determine the architecture of the model that will be instantiated (see `wav2vec2_hub` in the yaml). You can browse all the existing HUggingFace architectures online and use them! In practice, SpeechBrain will download the configuration file corresponding (or load it locally), and instantiate in PyTorch the wav2vec 2.0 model.
+1. Indicate a <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> repository that stores the wav2vec 2.0 config file. This is necessary to determine the architecture of the model that will be instantiated (see `wav2vec2_hub` in the yaml). You can browse all the existing HuggingFace architectures online and use them! In practice, SpeechBrain will download the configuration file corresponding (or load it locally), and instantiate in PyTorch the wav2vec 2.0 model.
 2. Train it using our wrapper and this recipe.
 3. Save it to be reused as a finetunable or frozen encoder with SpeechBrain recipes (as we already have for several task).
 
