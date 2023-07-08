@@ -29,8 +29,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-use_old_one = False 
-
 # Define training procedure
 class ASR(sb.Brain):
     
@@ -68,6 +66,11 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
+        if use_torch_audio:
+            p_tokens, _, _, _ = decoder.decode_beams(p_ctc, wav_lens) 
+        else:
+            p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -87,63 +90,15 @@ class ASR(sb.Brain):
 
 
         if stage != sb.Stage.TRAIN:
-            # Decode token terms to words
-            predicted_words_2 = []
-
-            """
-            predicted_tokens = sb.decoders.ctc_greedy_decode(
-                p_ctc, wav_lens, self.hparams.blank_index
-            )
-
-            for logs in p_ctc:
-                text = ctc_beam_search_V1(logs.detach().cpu().numpy())[0].text
-                predicted_words.append(text.split(" "))
-
-            beam_search_result = decoder(p_ctc.detach().cpu())
-
-            predicted_tokens = [r[0].tokens for r in beam_search_result] # [1:-1]
-
-            # print(predicted_tokens)
-            predicted_words = [
-                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                for utt_seq in predicted_tokens
-            ]
-            """
-
-            """            
-            if use_old_one:
-                for logs in p_ctc:
-                    text = decoder_old(logs.detach().cpu().numpy())
-                    predicted_words_2.append(text.split(" "))
-                # exit()
-
-
-            # filter wrd with len > 0
-            predicted_words_2 = [
-               [w for w in utt if len(w) > 0] for utt in predicted_words_2
-            ]
-            """
-
-            batch_hypo = decoder.decode_beams(p_ctc.cpu().numpy()) 
-
-            predicted_words = []
-            for hypo in batch_hypo:
-                predicted_words.append(hypo[0].text.split(" "))
-
-            """
-            # check if the two are the same
-            for i in range(len(predicted_words)):
-                if predicted_words[i] != predicted_words_2[i]:
-                    print(predicted_words[i])
-                    print(predicted_words_2[i])
-                    print("not the same")
-                    exit()
-            """
-            """
-            for logs in p_ctc:
-                text = decoder.decode_beams(logs.detach().cpu().numpy())[0].text
-                predicted_words.append(text.split(" "))
-            """
+            if use_torch_audio:
+                predicted_words = [
+                    "".join(utt_seq).split(" ")
+                    for utt_seq in predicted_tokens
+                ]  
+            else:
+                predicted_words = []
+                for hyp in predicted_tokens:
+                    predicted_words.append(hyp[0].text.split(" "))
 
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
@@ -471,30 +426,43 @@ if __name__ == "__main__":
     exit()
     """
 
-    from speechbrain.decoders.off_2 import CTCPrefixBeamSearch, CTCBeamSearch
+    use_torch_audio = True
 
-    ind2lab = label_encoder.ind2lab
-    labels = [ind2lab[x] for x in range(len(ind2lab))]
-    decoder = CTCPrefixBeamSearch(
-        blank_index=0,
-        kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-        history_prune=True,
-        space_index=29,
-        vocab_list=labels,
-        beam_width=100,
-    )
+    if use_torch_audio:
+        from speechbrain.decoders import TorchAudioCTCBeamSearch
+        from torchaudio.models.decoder import download_pretrained_files
+        files = download_pretrained_files("librispeech-4-gram")
+        #print(files)
+        #exit()
+        # files.lexicon
+        ind2lab = label_encoder.ind2lab
+        labels = [ind2lab[x] for x in range(len(ind2lab))]  
+        import math 
 
-    if use_old_one:
-        from speechbrain.decoders.off.ctc_prefix_beam_search import BeamSearchDecoderCTC
+        decoder = TorchAudioCTCBeamSearch(
+            lexicon=None,
+            tokens=labels,
+            beam_size=10,
+            blank_index=hparams["blank_index"],
+            sil_index=hparams["blank_index"],
+            beam_size_token=5,
+            using_cpu_decoder=True,
+        )
+
+    else:
+        from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
+        import math 
 
         ind2lab = label_encoder.ind2lab
         labels = [ind2lab[x] for x in range(len(ind2lab))]
-        decoder_old = BeamSearchDecoderCTC(
-            blank_id=0,
-            space_id=29,
-            vocab=labels,
-
+        decoder = CTCPrefixBeamSearch(
+            blank_index=0,
             #kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+            history_prune=True,
+            space_index=29,
+            vocab_list=labels,
+            beam_width=10,
+            blank_skip_threshold=math.log(1.0),
         )
 
 

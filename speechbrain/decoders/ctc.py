@@ -466,7 +466,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
         history_prune=True,
-        blank_skip_threshold=math.log(0.99),
+        blank_skip_threshold=math.log(1.0), # by default the pruning is not applied
         topk=1,
     ):
         super().__init__()
@@ -892,6 +892,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                                 next_word=beam.next_word,
                                 partial_word=beam.partial_word + token,
                                 last_token=token,
+                                last_token_index=token_index,
                                 score=beam.score + p_token,
                             )
                         )
@@ -1118,12 +1119,9 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
                     new_beam.n_p_nb = n_p_nb 
 
-            # here kenlm scorer
             for beam in beams:
                 beam.step()
 
-
-            # beams = sorted(beams, key=lambda x: x.score, reverse=True)[:self.beam_width]
 
             scored_beams = self.get_lm_beams(
                 beams, 
@@ -1237,11 +1235,11 @@ class TorchAudioCTCBeamSearch:
             )
         
     def decode_beams(self, log_probs, wav_lengths = None):
-
         if wav_lengths is not None:
             enc_lengths = log_probs.size(1) * wav_lengths
         else:
-            enc_lengths = torch.IntTensor([log_probs.size(1)] * log_probs.size(0))
+            # test this line
+            enc_lengths = torch.tensor([log_probs.size(1)] * log_probs.size(0))
 
         if enc_lengths.dtype != torch.int32:
             enc_lengths = enc_lengths.to(torch.int32)
@@ -1263,8 +1261,7 @@ class TorchAudioCTCBeamSearch:
             raise RuntimeError("enc_lengths must be a CPU tensor.")
         
         # Note. enc_lengths is required when using GPU decoder
-        beam_search_results = self._ctc_decoder(log_probs, enc_lengths)
-        results = beam_search_results
+        results = self._ctc_decoder(log_probs, enc_lengths)
 
         tokens_preds = []
         words_preds = []
@@ -1272,8 +1269,7 @@ class TorchAudioCTCBeamSearch:
         timesteps_preds = []
 
         # over batch dim
-        for i in range(len(beam_search_results)):
-            # over topk dim
+        for i in range(len(results)):
     
             if self.using_cpu_decoder:
 
@@ -1285,11 +1281,12 @@ class TorchAudioCTCBeamSearch:
                 timesteps_preds.append(timesteps)
 
             else:
+                # no timesteps is available for CUDA CTC decoder
+
                 preds = [results[i][j].tokens for j in range(len(results[i]))]
                 preds = [[self.tokens[token] for token in tokens] for tokens in preds]
                 tokens_preds.append(preds)
 
-                # no timesteps is available for CUDA CTC decoder
 
             words = [results[i][j].words for j in range(len(results[i]))]
             words_preds.append(words)
