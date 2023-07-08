@@ -216,7 +216,7 @@ def process_line(line, data_folder, language, accented_letters):
     chars = " ".join([char for char in chars][:])
 
     # Remove too short sentences (or empty):
-    if language in ["ja", "ch"]:
+    if language in ["ja", "zh-CN"]:
         if len(chars) < 3:
             return None
     else:
