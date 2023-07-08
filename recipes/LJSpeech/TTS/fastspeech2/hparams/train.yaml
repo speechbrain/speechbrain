@@ -108,7 +108,7 @@ lexicon:
     - ZH
     - spn
 
-n_symbols: 41 #fixed depending on symbols in the lexicon +1 for a dummy symbol used for padding
+n_symbols: 42 #fixed depending on symbols in the lexicon +1 for a dummy symbol used for padding
 padding_idx: 0
 
 # Encoder parameters
