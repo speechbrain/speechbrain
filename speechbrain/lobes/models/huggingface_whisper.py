@@ -103,9 +103,18 @@ class HuggingFaceWhisper(nn.Module):
         self._n_fft = feature_extractor.n_fft
         self._hop_length = feature_extractor.hop_length
         self._n_samples = feature_extractor.n_samples
+        # The following breaking changes were introduced in transformers>=4.29:
+        # 1) mel_filters.shape = (..., feature_extractor.feature_size) instead of (feature_extractor.feature_size, ...)
+        # 2) mel_filters.dtype = float64 instead of float32
+        # The following code fixes the issue in a backward compatible way
+        mel_filters = feature_extractor.mel_filters
+        if mel_filters.shape[0] != feature_extractor.feature_size:
+            mel_filters = mel_filters.T
+        assert mel_filters.shape[0] == feature_extractor.feature_size
         self.register_buffer(
-            "_mel_filters", torch.as_tensor(feature_extractor.mel_filters)
+            "_mel_filters", torch.as_tensor(mel_filters, dtype=torch.float32)
         )
+        #################################################################
 
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
 

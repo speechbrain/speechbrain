@@ -25,6 +25,7 @@ from speechbrain.dataio.dataio import length_to_mask
 # We check if transformers is installed.
 try:
     import transformers
+    from transformers import AutoModel
     from transformers import Wav2Vec2Model, HubertModel, WavLMModel
     from transformers import Wav2Vec2Config, HubertConfig, WavLMConfig
     from transformers import Wav2Vec2FeatureExtractor
@@ -503,3 +504,66 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
             src_key_padding_mask = length_to_mask(abs_len).bool()
 
         return src_key_padding_mask
+
+
+class WeightedSSLModel(torch.nn.Module):
+    """This lobe enables the integration of use of weighted sum representations
+    from different layers in a SSL encoder.
+
+    The model can be used as a fixed feature extractor for SSL benchmarking. It
+    will download automatically the model from HuggingFace or use a local path.
+
+    More details in recipes/SSL_benchmark
+
+    Arguments
+    ---------
+    hub : str
+        HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+    num_layers: int
+        Number of internal layers: e.g 13 for "Base" models.
+    layernorm: bool
+        Whether layer representations should be layernormed before sum
+    Example
+    -------
+    >>> inputs = torch.rand([10, 600])
+    >>> model_hub = "facebook/wav2vec2-base-960h"
+    >>> num_layers = 13
+    >>> model = HuggingFaceWav2Vec2(model_hub, num_layers)
+    >>> outputs = model(inputs)
+    """
+
+    def __init__(self, hub, num_layers, layernorm=False):
+        super().__init__()
+        self.encoder = AutoModel.from_pretrained(hub, output_hidden_states=True)
+        self.num_layers = num_layers
+        # Initializing the learnable weights
+        zero_init = torch.cat([torch.zeros(self.num_layers)])
+        self.weights = torch.nn.Parameter(zero_init, requires_grad=True)
+        self.layernorm = layernorm
+
+    def forward(self, wav, wav_lens=None):
+        """This method outputs a weighted sum of the layers representations of the SSL encoder
+        Arguments
+        ---------
+        wav : tensor
+            The wavs
+        """
+
+        feats = self.encoder(wav)
+        hidden_states = torch.stack(feats.hidden_states, dim=0).detach()
+        # First dimension should be equal to the number of layers in the hparams
+        assert (
+            self.num_layers == hidden_states.shape[0]
+        ), "Num layers not equal to num hidden states"
+        norm_weights = torch.nn.functional.softmax(self.weights, dim=-1)
+        # Layernorming the layers representations if asked
+        if self.layernorm:
+            hidden_states = [
+                F.layer_norm(t, (t.shape[-1],)) for t in hidden_states
+            ]
+        # Summing the weighted layers
+        weighted_feats = hidden_states[0] * norm_weights[0]
+        for i in range(1, len(hidden_states)):
+            weighted_feats += hidden_states[i] * norm_weights[i]
+
+        return weighted_feats
