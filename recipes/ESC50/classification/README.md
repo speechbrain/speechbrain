@@ -8,6 +8,8 @@ We have two main training scripts. Here's the breakdown, and how to run them:
 
 - *The training script for the conv2d-based model:* This script trains an simple convolutional classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link`](https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link).
 
+- Computing times: For CNN14, one epoch on ESC50 takes around 11 seconds. For the conv2d model, one epoch on ESC50 takes 15 seconds. Both of these numbers are obtained with a 3090 GPU.
+
 Note that:
   - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
   - all of the necessary models are downloaded automatically for each training script.
