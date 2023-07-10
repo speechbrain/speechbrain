@@ -262,6 +262,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         spn_predictor: !ref <spn_predictor>
         model: !ref <model>
+        lr_annealing: !ref <noam_annealing>
         counter: !ref <epoch_counter>
 
 input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
