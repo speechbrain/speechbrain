@@ -51,7 +51,7 @@ def prepare_mwoz_21(
     -------
     >>> data_folder = 'data/MultiWOZ_2.1'
     >>> save_folder = 'MultiWOZ_prepared'
-    >>> replacements_path = 'recipes/MultiWOZ/GPT/mapping.pair'
+    >>> replacements_path = 'recipes/MultiWOZ/response_generation/mapping.pair'
     >>> prepare_mwoz_21(data_folder, save_folder, replacements_path)
     """
 

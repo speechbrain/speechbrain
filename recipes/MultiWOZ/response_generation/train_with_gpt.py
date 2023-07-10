@@ -36,19 +36,27 @@ class ResGenBrain(sb.Brain):
         #  apply softmax if necessary
         outputs = self.hparams.log_softmax(outputs)
 
+
+
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the NLL-loss using reply as label.
         """
         # Get required data from batch
+        batch = batch.to(self.device)
         lm_labels, labels_lens = batch.lm_labels
+        input_ids, _ = batch.input_ids
 
         loss = self.hparams.compute_cost(predictions, lm_labels, labels_lens)
 
-        # TODO:
-        # add greedy and beamsearch for inference time
-        # add some scores suitable for response generation
+        if stage == sb.Stage.VALID:
+            # hyps = None
+            # current_epoch = self.hparams.epoch_counter.current
+            # if current_epoch % self.hparams.valid_search_interval == 0:
+            hyps = self.modules.gpt_model.generate(input_ids.detach())
+        elif stage == sb.Stage.TEST:
+            hyps = self.modules.gpt_model.generat(input_ids.detach(),'beam')
 
         return loss
 
