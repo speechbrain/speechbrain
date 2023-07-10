@@ -9,7 +9,7 @@ seed: 1995
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset will be downloaded to the `data_original`
-data_folder: data/MultiWOZ_2.1
+data_folder: !PLACEHOLDER
 output_folder: !ref results/train_with_gpt2/<seed>
 replacements_path: recipes/MultiWOZ/response_generation/mapping.pair
 save_folder: !ref <output_folder>/save
