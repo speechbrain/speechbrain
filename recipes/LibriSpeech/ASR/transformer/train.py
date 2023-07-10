@@ -123,8 +123,6 @@ class ASR(sb.core.Brain):
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
 
-        # now as training progresses we use real prediction from the prev step instead of teacher forcing
-
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
         ).sum()
@@ -216,7 +214,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=10,
             )
 
         elif stage == sb.Stage.TEST:
@@ -350,7 +348,7 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if hparams["speed_perturb"]:
+        if hasattr(hparams, "speed_perturb"):
             sig = sb.dataio.dataio.read_audio(wav)
 
             sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
@@ -486,13 +484,27 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in train_dataloader_opts:
+            collate_fn = train_dataloader_opts["collate_fn"]
+
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
 
+        if collate_fn is not None:
+            train_dataloader_opts["collate_fn"] = collate_fn
+
     if valid_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in valid_dataloader_opts:
+            collate_fn = valid_dataloader_opts["collate_fn"]
+
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(

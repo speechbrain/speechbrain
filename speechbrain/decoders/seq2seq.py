@@ -365,7 +365,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
-        """When doing greedy search, keep hidden state (hs) adn context vector (c)
+        """When doing greedy search, keep hidden state (hs) and context vector (c)
         as memory.
         """
         hs = None
@@ -1360,6 +1360,46 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         logits = self.lm_modules(memory)
         log_probs = self.softmax(logits / self.temperature_lm)
         return log_probs[:, -1, :], memory
+
+
+class S2STransformerGreedySearch(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for Transformer.
+
+    Arguments
+    ---------
+    modules : list with the followings one:
+        model : torch.nn.Module
+            A TransformerASR model.
+        seq_lin : torch.nn.Module
+            A linear output layer for the seq2seq model.
+    temperature : float
+        Temperature to use during decoding.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(
+        self, modules, temperature=1.0, **kwargs,
+    ):
+        super(S2SGreedySearcher, self).__init__(**kwargs)
+
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search."""
+        return None
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented greedy searcher."""
+        memory = _update_mem(inp_tokens, memory)
+        pred, attn = self.model.decode(memory, enc_states)
+        prob_dist = self.softmax(self.fc(pred) / self.temperature)
+        return prob_dist[:, -1, :], memory, attn
 
 
 class S2SWhisperBeamSearch(S2SBeamSearcher):

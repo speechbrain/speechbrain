@@ -34,6 +34,7 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
@@ -293,6 +294,12 @@ def parse_arguments(arg_list=None):
         help="Enable colored progress-bar in tqdm. If this is "
         "false, tqdm shall use default colors.",
     )
+    parser.add_argument(
+        "--remove_vector_weight_decay",
+        default=False,
+        action="store_true",
+        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -489,6 +496,7 @@ class Brain:
                 "valid": "MAGENTA",
                 "test": "CYAN",
             },
+            "remove_vector_weight_decay": False,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -615,6 +623,7 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.valid_step = 0
         self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
@@ -867,8 +876,14 @@ class Brain:
 
         Override this class if there are multiple optimizers.
         """
+
+        all_params = self.modules.parameters()
+
         if self.opt_class is not None:
-            self.optimizer = self.opt_class(self.modules.parameters())
+            if self.remove_vector_weight_decay:
+                all_params = rm_vector_weight_decay(self.modules)
+
+            self.optimizer = self.opt_class(all_params)
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
@@ -928,7 +943,8 @@ class Brain:
         -------
         detached loss
         """
-        should_step = self.step % self.grad_accumulation_factor == 0
+        valid_loss = False
+
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.autocast(device_type=torch.device(self.device).type):
@@ -936,17 +952,23 @@ class Brain:
 
             # Losses are excluded from mixed precision to avoid instabilities
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
+
+            if self.check_gradients(loss):
+                valid_loss = True
+                self.valid_step += 1
+
+            should_step = self.valid_step % self.grad_accumulation_factor == 0
+            if valid_loss:
+                with self.no_sync(not should_step):
+                    self.scaler.scale(
+                        loss / self.grad_accumulation_factor
+                    ).backward()
+                if should_step:
+                    self.scaler.unscale_(self.optimizer)
                     self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
+                    self.scaler.update()
+                    self.zero_grad()
+                    self.optimizer_step += 1
         else:
             if self.bfloat16_mix_prec:
                 with torch.autocast(
@@ -959,13 +981,18 @@ class Brain:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
 
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
+            if self.check_gradients(loss):
+                valid_loss = True
+                self.valid_step += 1
+
+            should_step = self.valid_step % self.grad_accumulation_factor == 0
+            if valid_loss:
+                with self.no_sync(not should_step):
+                    (loss / self.grad_accumulation_factor).backward()
+                if should_step:
                     self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
+                    self.zero_grad()
+                    self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
@@ -989,7 +1016,6 @@ class Brain:
 
     def check_gradients(self, loss):
         """Check if gradients are finite and not too large.
-
         Automatically clips large gradients.
 
         Arguments
@@ -1026,7 +1052,6 @@ class Brain:
                 )
                 return False
 
-        # Clip gradient norm
         if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
@@ -1124,6 +1149,7 @@ class Brain:
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
+        self.valid_step = 0
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage

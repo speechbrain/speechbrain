@@ -5,7 +5,7 @@ def test_deltas(device):
 
     from speechbrain.processing.features import Deltas
 
-    size = torch.Size([10, 101, 20], device=device)
+    size = [10, 101, 20]
     inp = torch.ones(size, device=device)
     compute_deltas = Deltas(input_size=20).to(device)
     out = torch.zeros(size, device=device)
