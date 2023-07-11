@@ -71,14 +71,15 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 
 # Performance summary
 
-[Speaker verification results with Voxceleb 1 + Voxceleb 2]
+[Speaker verification results, trained with Voxceleb 1 + Voxceleb 2 (7205 speakers)]
 | System          | Dataset    | EER  | Model/Log Link |
 |-----------------|------------|------| -----|
 | Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://drive.google.com/drive/folders/1TLKByLRkgkUiDV2coMrIh-OMHANrnOl-?usp=sharing |
 | ECAPA-TDNN      | Voxceleb 1,2 | 0.80% | https://drive.google.com/file/d/1EziERcHD_gyE6qc8DbxPKU1isVf7pbNl/view?usp=sharing  |
 
-[Speaker verification results with Voxceleb 2 development set, no score normalization ]
+[Speaker verification results (in EER), trained with Voxceleb 2 development set (5994 speakers), no score normalization]
 | System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
+|-----------------|------------|------|------|------| -----| 
 | ECAPA-TDNN      | VoxCeleb 2   | 1.30% | 1.98% | 3.62% | (to be updated) |
 
 
