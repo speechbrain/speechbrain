@@ -63,7 +63,27 @@ DiffusionPredictions = namedtuple(
 
 # Brain class for speech enhancement training
 class DiffusionBrain(sb.Brain):
-    """Class that manages the training loop. See speechbrain.core.Brain."""
+    """Class that manages the training loop. See speechbrain.core.Brain.
+    
+    Arguments
+    ---------
+    modules : dict of str:torch.nn.Module pairs
+        These modules are passed to the optimizer by default if they have
+        trainable parameters, and will have ``train()``/``eval()`` called on them.
+    opt_class : torch.optim class
+        A torch optimizer constructor that takes only the list of
+        parameters (e.g. a lambda or partial function definition). By default,
+        this will be passed all modules in ``modules`` at the
+        beginning of the ``fit()`` method. This behavior can be changed
+        by overriding the ``configure_optimizers()`` method.
+    hparams : dict
+        Each key:value pair should consist of a string key and a hyperparameter
+        that is used within the overridden methods. These will
+        be accessible via an ``hparams`` attribute, using "dot" notation:
+        e.g., self.hparams.model(x).
+    run_opts : dict
+        A set of options to change the runtime environment.    
+    """
 
     def __init__(
         self,
@@ -181,7 +201,18 @@ class DiffusionBrain(sb.Brain):
     def compute_latent_mask_value(self, mask_value):
         """Computes the value with which to mask the latent
         space. The core idea is that masked space should
-        not produce any sound"""
+        not produce any sound
+        
+        Arguments
+        ---------
+        mask_value: float
+            the value to be used for the mask in the original space
+
+        Returns
+        -------
+        latent_mask_value: float
+            the value that will be used in the latent space
+        """
         with torch.no_grad():
             fake_feats = (
                 torch.ones(
@@ -200,7 +231,18 @@ class DiffusionBrain(sb.Brain):
             return latent_mask_value
 
     def get_latent_mask_value(self, mask_value):
-        """Returns the latent mask value, recomputing it if necessary"""
+        """Returns the latent mask value, recomputing it if necessary
+        
+        Arguments
+        ---------
+        mask_value: float
+            the value to be used for the mask in the original space
+
+        Returns
+        -------
+        latent_mask_value: float
+            the value that will be used in the latent space
+        """
         if (
             not self.latent_mask_value
             or self.step < self.hparams.latent_mask_recompute_steps
@@ -333,12 +375,19 @@ class DiffusionBrain(sb.Brain):
         """
 
         out = self.compute_forward(batch, stage=stage)
-        loss, autoencoder_loss, done_loss = self.compute_objectives(
+        loss, _, _ = self.compute_objectives(
             out, batch, stage=stage
         )
         return loss.detach().cpu()
 
     def log_batch(self, predictions):
+        """Saves information from a single batch to the log
+        
+        Arguments
+        ---------
+        predictions: DiffusionPredictions
+            the predictions from compute_forward
+        """
         loss_stats = self.loss_metric.summarize()
         stats = {
             "loss": loss_stats["average"],
@@ -406,11 +455,13 @@ class DiffusionBrain(sb.Brain):
 
     def extract_dist_stats(self, dist_stats_metric, prefix):
         """Extracts stats from a MultiMetricStats instance with a dist_stats metric
-        into a flattened dictionary
+        into a flattened dictionary, converting the keys to <prefix>_<metric> for the average,
+        <prefix>_<metric>_(min|max) for the minimum and the maximum
 
         Arguments
         ---------
-
+        dist_stats_metric: speechbrain.utils.metric_stats.MultiMetricStats
+            the metric for which statistics will be extracted
         """
         dist_stats = dist_stats_metric.summarize()
         return {
@@ -421,6 +472,22 @@ class DiffusionBrain(sb.Brain):
         }
 
     def get_stat_key(self, prefix, stat, metric_key):
+        """Returns the statistics key for the specified metric and statistics
+        
+        Arguments
+        ---------
+        prefix: str
+            the prefix to be used
+        stat: str
+            the name of the statistic
+        metric_key: str
+            the metric key
+
+        Returns
+        -------
+        key: str
+            the key to be used        
+        """
         suffix = ""
         if metric_key != "average":
             suffix = "_" + metric_key.replace("_score", "")
@@ -466,6 +533,16 @@ class DiffusionBrain(sb.Brain):
         return feats, lens
 
     def sig_to_feats(self, wavs, lens):
+        """Performs feature extraction on the raw signal: MEL spectrogram +
+        normalization + padding to fit UNets
+
+        Arguments
+        ---------
+        wavs: torch.Tensor
+            raw waveforms
+        lens: torch.Tensor
+            feature lengths
+        """
         # Compute features
         feats = self.modules.compute_features(wavs)
         feats = feats.transpose(-1, -2)
@@ -508,7 +585,7 @@ class DiffusionBrain(sb.Brain):
         -------
         feats_done: torch.Tensor
             features for the done detector (a concatenation)
-        lens: torch.Tensor
+        lens_done: torch.Tensor
             relative lengths of these features
 
         """
@@ -954,6 +1031,8 @@ class DiffusionBrain(sb.Brain):
 
         Arguments
         ---------
+        samples: torch.Tensor
+            a tensor of samples
         """
         sample_ids = torch.arange(1, len(samples) + 1)
         self.sample_mean_metric.append(sample_ids, samples)
