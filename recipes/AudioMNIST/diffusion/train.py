@@ -64,7 +64,7 @@ DiffusionPredictions = namedtuple(
 # Brain class for speech enhancement training
 class DiffusionBrain(sb.Brain):
     """Class that manages the training loop. See speechbrain.core.Brain.
-    
+
     Arguments
     ---------
     modules : dict of str:torch.nn.Module pairs
@@ -82,7 +82,7 @@ class DiffusionBrain(sb.Brain):
         be accessible via an ``hparams`` attribute, using "dot" notation:
         e.g., self.hparams.model(x).
     run_opts : dict
-        A set of options to change the runtime environment.    
+        A set of options to change the runtime environment.
     """
 
     def __init__(
@@ -202,7 +202,7 @@ class DiffusionBrain(sb.Brain):
         """Computes the value with which to mask the latent
         space. The core idea is that masked space should
         not produce any sound
-        
+
         Arguments
         ---------
         mask_value: float
@@ -232,7 +232,7 @@ class DiffusionBrain(sb.Brain):
 
     def get_latent_mask_value(self, mask_value):
         """Returns the latent mask value, recomputing it if necessary
-        
+
         Arguments
         ---------
         mask_value: float
@@ -375,14 +375,12 @@ class DiffusionBrain(sb.Brain):
         """
 
         out = self.compute_forward(batch, stage=stage)
-        loss, _, _ = self.compute_objectives(
-            out, batch, stage=stage
-        )
+        loss, _, _ = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def log_batch(self, predictions):
         """Saves information from a single batch to the log
-        
+
         Arguments
         ---------
         predictions: DiffusionPredictions
@@ -473,7 +471,7 @@ class DiffusionBrain(sb.Brain):
 
     def get_stat_key(self, prefix, stat, metric_key):
         """Returns the statistics key for the specified metric and statistics
-        
+
         Arguments
         ---------
         prefix: str
@@ -486,7 +484,7 @@ class DiffusionBrain(sb.Brain):
         Returns
         -------
         key: str
-            the key to be used        
+            the key to be used
         """
         suffix = ""
         if metric_key != "average":
