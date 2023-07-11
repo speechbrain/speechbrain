@@ -921,7 +921,7 @@ class DiffusionBrain(sb.Brain):
             labels = range(len(samples))
         for label, sample in zip(labels, samples):
             spec_file_name = os.path.join(spec_sample_path, f"spec_{label}.png")
-            self.save_spectrogram_sample(sample, spec_file_name)
+            self.save_spectrogram_sample(sample, spec_file_name, label=label)
 
     def save_raw(self, path=".", **kwargs):
         """Saves generated audio samples and spectrograms in
@@ -941,7 +941,7 @@ class DiffusionBrain(sb.Brain):
         }
         torch.save(data, file_name)
 
-    def save_spectrogram_sample(self, sample, file_name):
+    def save_spectrogram_sample(self, sample, file_name, label=None):
         """Saves a single spectrogram sample as an image
 
         Arguments
@@ -952,8 +952,13 @@ class DiffusionBrain(sb.Brain):
             the destination file name
 
         """
-        fig = plot_spectrogram(sample)
+        fig = plot_spectrogram(sample.transpose(-1, -2))
         if fig is not None:
+            ax = fig.axes[0]
+            if label:
+                ax.set_title(f"Spectrogram Sample {label}")
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Features")
             fig.savefig(file_name)
 
     def denormalize(self, samples):
