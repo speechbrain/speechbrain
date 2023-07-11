@@ -6,7 +6,14 @@ https://arxiv.org/pdf/2006.11239.pdf
 
 
 # Training
-`python train.py hparams/train.yaml`
+For the unconditioned model, run the following:
+`python train.py hparams/train_unconditioned.yaml`
+
+For the model conditioned on the digit, run the following:
+`python train.py hparams/train_conditioned.yaml`
+
+For the latent diffusion model, run the following:
+`python train.py hparams/train_conditioned.yaml`
 
 The scripts will output the results to <output_folder>/samples, for every training epoch
 
