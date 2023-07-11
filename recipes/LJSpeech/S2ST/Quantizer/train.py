@@ -1,8 +1,8 @@
 """
-Script to train Kmeans clustering model
+Script to train K-means clustering model
 
 Authors
- * Duret Jarod 2021
+ * Duret Jarod 2023
 """
 
 # Adapted from https://github.com/facebookresearch/fairseq
@@ -21,6 +21,7 @@ import torch
 from sklearn.cluster import MiniBatchKMeans
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
+from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 
 from utils import extract_features, get_splits
 
@@ -91,16 +92,35 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    sys.path.append("../../")
+    from ljspeech_prepare import prepare_ljspeech
+
+    sb.utils.distributed.run_on_main(
+        prepare_ljspeech,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
+            "splits": hparams["splits"],
+            "seed": hparams["seed"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
+
     # Fetch device
     device = get_device(not hparams["no_cuda"])
 
-    # Features loading/extraction for K-means
-    logger.info(f"Extracting acoustic features from {hparams['feats_folder']} ...")
+    logger.info(f"Loading encoder model from HF hub: {hparams['encoder_hub']}")    
+    save_path = f"{hparams['output_folder']}/pretrained_models"
+    encoder = HuggingFaceWav2Vec2(hparams["encoder_hub"], save_path, output_all_hiddens=True, output_norm=False, freeze_feature_extractor=True, freeze=True).to(device)
     
-    splits = get_splits(hparams["data_folder"], hparams["ds"], hparams["splits"])
+    splits = get_splits(hparams["save_folder"], hparams["splits"])
+
+    # Features loading/extraction for K-means
+    logger.info(f"Extracting acoustic features ...")
 
     (features_batch, idx) = extract_features(
-        feats_folder=hparams["feats_folder"],
+        model=encoder,
+        layer=hparams["layer"],
         splits=splits,
         sample_pct=hparams["sample_pct"],
         flatten=True,
@@ -131,5 +151,4 @@ if __name__ == "__main__":
     logger.info(f"Total intertia: {round(inertia, 2)}\n")
 
     logger.info(f"Saving k-means model to {hparams['out_kmeans_model_path']}")
-
     joblib.dump(kmeans_model, open(hparams["out_kmeans_model_path"], "wb"))

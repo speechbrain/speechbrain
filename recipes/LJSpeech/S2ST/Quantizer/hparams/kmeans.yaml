@@ -1,7 +1,7 @@
 # ############################################################################
-# S2U: Train Kmeans to extract discrete units for HiFi-GAN
+# Model: K-means
 # Training: LJSpeech
-# Authors:  Duret, Jarod 2022
+# Authors:  Duret, Jarod 2023
 # ############################################################################
 
 
@@ -11,22 +11,31 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 no_cuda: False
-output_folder: !PLACEHOLDER #!ref ../results/hifi_gan/<seed>
+output_folder: !ref ./results/kmeans/<seed>
+save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: /local_disk/calypso/jduret/corpus/S2UT/16K
-ds: [LJ]
-splits: [metadata_train, metadata_test]
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+splits: [train, valid]
+split_ratio: [90, 10]
+skip_prep: False
+
+# URL for the HuggingFace model we want to load
+encoder_hub: voidful/mhubert-base #!PLACEHOLDER
 
 # Features arguments
-feats_folder: !PLACEHOLDER
+layer: 11 #!PLACEHOLDER
 sample_pct: 0.2
 
-# K-means arguments
-num_clusters: 100
+####################
+# Model Parameters #
+####################
+num_clusters: 1000
 init: k-means++
 max_iter: 100
 batch_size: 10000
