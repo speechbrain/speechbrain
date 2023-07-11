@@ -33,7 +33,7 @@ Authors
 from abc import abstractmethod
 
 from speechbrain.utils.data_utils import pad_divisible
-from .autoencoder import VariationalAutoencoder, NormalizingAutoencoder
+from .autoencoder import NormalizingAutoencoder
 
 
 import math
@@ -1391,136 +1391,6 @@ class DownsamplingPadding(nn.Module):
             if dim == self.len_dim:
                 updated_length = length_pad
         return x, updated_length
-
-
-# TODO: Get rid of all hard-coded constants
-class UNetVariationalAutencoder(VariationalAutoencoder):
-    """A convenience class for a UNet-based Variational Autoencoder (VAE) -
-    useful in constructing Latent Diffusion models
-
-    Arguments
-    ---------
-    in_channels: int
-        the number of input channels
-    model_channels: int
-        the number of channels in the convolutional layers of the
-        UNet encoder and decoder
-    encoder_out_channels: int
-        the number of channels the encoder will output
-    latent_channels: int
-        the number of channels in the latent space
-    encoder_num_res_blocks: int
-        the number of residual blocks in the encoder
-    encoder_attention_resolutions: list
-        the resolutions at which to apply attention layers in the encoder
-    decoder_num_res_blocks: int
-        the number of residual blocks in the decoder
-    decoder_attention_resolutions: list
-        the resolutions at which to apply attention layers in the encoder
-    dropout: float
-        the dropout probability
-    channel_mult: tuple
-        channel multipliers for each layer
-    dims: int
-        the convolution dimension to use (1, 2 or 3)
-    num_heads: int
-        the number of attention heads
-    num_head_channels: int
-        the number of channels in attention heads
-    num_heads_upsample: int
-        the number of upsampling heads
-    resblock_updown: bool
-        whether to use residual blocks for upsampling and downsampling
-    out_kernel_size: int
-        the kernel size for output convolution layers (if applicable)
-    use_fixup_norm: bool
-        whether to use FixUp normalization
-    """
-
-    def __init__(
-        self,
-        in_channels,
-        model_channels,
-        encoder_out_channels,
-        latent_channels,
-        encoder_num_res_blocks,
-        encoder_attention_resolutions,
-        decoder_num_res_blocks,
-        decoder_attention_resolutions,
-        dropout=0,
-        channel_mult=(1, 2, 4, 8),
-        dims=2,
-        num_heads=1,
-        num_head_channels=-1,
-        num_heads_upsample=-1,
-        norm_num_groups=32,
-        resblock_updown=False,
-        out_kernel_size=3,
-        len_dim=2,
-        out_mask_value=0.0,
-        latent_mask_value=0.0,
-        use_fixup_norm=False,
-        latent_stochastic=True,
-        downsampling_padding=None,
-    ):
-        encoder_unet = EncoderUNetModel(
-            in_channels=in_channels,
-            model_channels=model_channels,
-            out_channels=encoder_out_channels,
-            num_res_blocks=encoder_num_res_blocks,
-            attention_resolutions=encoder_attention_resolutions,
-            dropout=dropout,
-            channel_mult=channel_mult,
-            dims=dims,
-            num_heads=num_heads,
-            num_head_channels=num_head_channels,
-            num_heads_upsample=num_heads_upsample,
-            norm_num_groups=norm_num_groups,
-            resblock_updown=resblock_updown,
-            out_kernel_size=out_kernel_size,
-            use_fixup_init=use_fixup_norm,
-        )
-        if downsampling_padding is None:
-            downsampling_padding = 2 ** len(channel_mult)
-        encoder_pad = DownsamplingPadding(downsampling_padding)
-
-        decoder = DecoderUNetModel(
-            in_channels=latent_channels,
-            out_channels=in_channels,
-            model_channels=model_channels,
-            num_res_blocks=decoder_num_res_blocks,
-            attention_resolutions=decoder_attention_resolutions,
-            dropout=dropout,
-            channel_mult=list(channel_mult),
-            dims=dims,
-            num_heads=num_heads,
-            num_head_channels=num_head_channels,
-            num_heads_upsample=num_heads_upsample,
-            norm_num_groups=norm_num_groups,
-            resblock_updown=resblock_updown,
-            out_kernel_size=out_kernel_size,
-            use_fixup_init=use_fixup_norm,
-        )
-        mean, log_var = [
-            conv_nd(
-                dims=dims,
-                in_channels=encoder_out_channels,
-                out_channels=latent_channels,
-                kernel_size=1,
-            )
-            for _ in range(2)
-        ]
-        super().__init__(
-            encoder=encoder_unet,
-            decoder=decoder,
-            latent_padding=encoder_pad,
-            mean=mean,
-            log_var=log_var,
-            len_dim=len_dim,
-            out_mask_value=out_mask_value,
-            latent_mask_value=latent_mask_value,
-            latent_stochastic=latent_stochastic,
-        )
 
 
 class UNetNormalizingAutoencoder(NormalizingAutoencoder):
