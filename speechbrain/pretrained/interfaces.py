@@ -3241,3 +3241,132 @@ class Speech_Emotion_Diarization(Pretrained):
         if flag is False:
             new_lol.append(lol[-1])
         return new_lol
+
+
+class AudioClassifier(Pretrained):
+    """A ready-to-use class for utterance-level classification (e.g, speaker-id,
+    language-id, emotion recognition, keyword spotting, etc).
+
+    The class assumes that an encoder called "embedding_model" and a model
+    called "classifier" are defined in the yaml file. If you want to
+    convert the predicted index into a corresponding text label, please
+    provide the path of the label_encoder in a variable called 'lab_encoder_file'
+    within the yaml.
+
+    The class can be used either to run only the encoder (encode_batch()) to
+    extract embeddings or to run a classification step (classify_batch()).
+    ```
+
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import EncoderClassifier
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> tmpdir = getfixture("tmpdir")
+    >>> classifier = EncoderClassifier.from_hparams(
+    ...     source="speechbrain/spkrec-ecapa-voxceleb",
+    ...     savedir=tmpdir,
+    ... )
+    >>> classifier.hparams.label_encoder.ignore_len()
+
+    >>> # Compute embeddings
+    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
+    >>> embeddings = classifier.encode_batch(signal)
+
+    >>> # Classification
+    >>> prediction = classifier.classify_batch(signal)
+    """
+
+    MODULES_NEEDED = [
+        "compute_features",
+        "mean_var_norm",
+        "embedding_model",
+        "classifier",
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def classify_batch(self, wavs, wav_lens=None):
+        """Performs classification on the top of the encoded features.
+
+        It returns the posterior probabilities, the index and, if the label
+        encoder is specified it also the text label.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model. Make sure the sample rate is fs=16000 Hz.
+        wav_lens : torch.Tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        wavs = wavs.to(self.device)
+        X_stft = self.mods.compute_stft(wavs)
+        X_stft_power = speechbrain.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
+        )
+
+        if self.hparams.use_melspectra:
+            net_input = self.mods.compute_fbank(X_stft_power)
+        else:
+            net_input = torch.log1p(X_stft_power)
+
+        # Embeddings + sound classifier
+        embeddings = self.mods.embedding_model(net_input)
+        if embeddings.ndim == 4:
+            embeddings = embeddings.mean((-1, -2))
+
+        out_probs = self.mods.classifier(embeddings)
+        score, index = torch.max(out_probs, dim=-1)
+        text_lab = self.hparams.label_encoder.decode_torch(index)
+        return out_probs, score, index, text_lab
+
+    def classify_file(self, path, **kwargs):
+        """Classifies the given audiofile into the given set of labels.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file to classify.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        waveform = self.load_audio(path, **kwargs)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        emb = self.encode_batch(batch, rel_length)
+        out_prob = self.mods.classifier(emb).squeeze(1)
+        score, index = torch.max(out_prob, dim=-1)
+        text_lab = self.hparams.label_encoder.decode_torch(index)
+        return out_prob, score, index, text_lab
+
+    def forward(self, wavs, wav_lens=None):
+        """Runs the classification"""
+        return self.classify_batch(wavs, wav_lens)
