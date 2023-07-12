@@ -66,6 +66,9 @@ class ASR(sb.Brain):
                 )
                 batch.tokens_bos = tokens_with_bos, token_with_bos_lens
 
+            if hasattr(self.hparams, "speed_perturb"):
+                wavs = hparams["speed_perturb"](wavs)
+
         # Forward pass
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
@@ -80,7 +83,17 @@ class ASR(sb.Brain):
         x = self.modules.proj_enc(x)
 
         e_in = self.modules.emb(tokens_with_bos)
+        e_in = torch.nn.functional.dropout(
+            e_in,
+            self.hparams.dec_emb_dropout,
+            training=(stage == sb.Stage.TRAIN)
+        )
         h, _ = self.modules.dec(e_in)
+        h = torch.nn.functional.dropout(
+            h,
+            self.hparams.dec_dropout,
+            training=(stage == sb.Stage.TRAIN)
+        )
         h = self.modules.proj_dec(h)
 
         # Joint network
@@ -96,7 +109,10 @@ class ASR(sb.Brain):
             p_ctc = None
             p_ce = None
 
-            if self.hparams.ctc_weight > 0.0:
+            if (
+                self.hparams.ctc_weight > 0.0
+                and current_epoch <= self.hparams.number_of_ctc_epochs
+            ):
                 # Output layer for ctc log-probabilities
                 out_ctc = self.modules.proj_ctc(x)
                 p_ctc = self.hparams.log_softmax(out_ctc)
@@ -177,11 +193,11 @@ class ASR(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-
         should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with self.no_sync(not should_step):
+
+        with self.no_sync(not should_step):
+            # Managing automatic mixed precision
+            if self.auto_mix_prec:
                 with torch.autocast(torch.device(self.device).type):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
@@ -191,38 +207,37 @@ class ASR(sb.Brain):
                 self.scaler.scale(
                     loss / self.grad_accumulation_factor
                 ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            if self.bfloat16_mix_prec:
-                with torch.autocast(
-                    device_type=torch.device(self.device).type,
-                    dtype=torch.bfloat16,
-                ):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
+
+                if should_step:
+                    self.scaler.unscale_(self.optimizer)
+                    if self.check_gradients(loss):
+                        self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    self.zero_grad(set_to_none=True)
+                    self.optimizer_step += 1
+                    self.hparams.noam_annealing(self.optimizer)
             else:
-                with self.no_sync(not should_step):
+                if self.bfloat16_mix_prec:
+                    with torch.autocast(
+                        device_type=torch.device(self.device).type,
+                        dtype=torch.bfloat16,
+                    ):
+                        outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                        loss = self.compute_objectives(
+                            outputs, batch, sb.Stage.TRAIN
+                        )
+                else:
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                     loss = self.compute_objectives(
                         outputs, batch, sb.Stage.TRAIN
                     )
-            with self.no_sync(not should_step):
                 (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
+                if should_step:
+                    if self.check_gradients(loss):
+                        self.optimizer.step()
+                    self.zero_grad(set_to_none=True)
+                    self.optimizer_step += 1
+                    self.hparams.noam_annealing(self.optimizer)
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
@@ -266,7 +281,7 @@ class ASR(sb.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
-                num_to_keep=5,
+                num_to_keep=10,
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -347,12 +362,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        if hparams["speed_perturb"]:
-            sig = sb.dataio.dataio.read_audio(wav)
-
-            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
-        else:
-            sig = sb.dataio.dataio.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)

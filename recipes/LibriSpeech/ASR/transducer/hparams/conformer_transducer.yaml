@@ -39,20 +39,20 @@ test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
 skip_prep: False
-ckpt_interval_minutes: 15 # save checkpoint every N min
+ckpt_interval_minutes: 5 # save checkpoint every N min
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 60
+number_of_epochs: 100
 warmup_steps: 25000
 num_workers: 4
 batch_size_valid: 4
 lr: 0.0008
 weight_decay: 0.01
-number_of_ctc_epochs: 100
+number_of_ctc_epochs: 60
 ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
@@ -61,7 +61,7 @@ loss_reduction: 'batchmean'
 # The batch size is used if and only if dynamic batching is set to False
 # Validation and testing are done with fixed batches and not dynamic batching.
 batch_size: 8
-grad_accumulation_factor: 1
+grad_accumulation_factor: 4
 sorting: random
 
 # Feature parameters
@@ -81,11 +81,11 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <batch_size_valid>
 
-# This setup works well for A100 80GB GPU, adapts it to your needs.
+# This setup works well for 3090 24GB GPU, adapt it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 400
-max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_len: 150
+max_batch_len_val: 50 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
 dynamic_batch_sampler:
@@ -108,6 +108,8 @@ transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 1000
 dec_dim: 512
+dec_emb_dropout: 0.2
+dec_dropout: 0.1
 
 # Decoding parameters
 blank_index: 0
@@ -220,7 +222,6 @@ dec: !new:speechbrain.nnet.RNN.LSTM
    hidden_size: !ref <dec_dim>
    num_layers: 1
    re_init: True
-   dropout: 0.1
 
 # For MTL with LM over the decoder (need to uncomment to activate)
 # dec_lin: !new:speechbrain.nnet.linear.Linear
@@ -246,7 +247,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
    blank_index: !ref <blank_index>
-   use_torchaudio: True
+   use_torchaudio: False
 
 # This is the RNNLM that is used according to the Huggingface repository
 # NB: It has to match the pre-trained RNNLM!!
