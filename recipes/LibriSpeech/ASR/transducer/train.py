@@ -99,7 +99,13 @@ class ASR(sb.Brain):
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
-        x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
+        x = self.modules.enc(
+            src,
+            wav_lens,
+            pad_idx=self.hparams.pad_index,
+            chunk_size=transformer_chunk_size,
+            left_context_chunks=left_context_chunks
+        )
         x = self.modules.proj_enc(x)
 
         e_in = self.modules.emb(tokens_with_bos)

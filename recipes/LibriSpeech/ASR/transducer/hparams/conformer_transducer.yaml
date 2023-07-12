@@ -72,9 +72,9 @@ n_mels: 80
 win_length: 32
 
 # Streaming & dynamic chunk training options
-streaming: False  # controls all DCT & chunk size & left context mechanisms
+streaming: True  # controls all DCT & chunk size & left context mechanisms
 
-test_chunk_size: 8
+test_chunk_size: 16
 test_left_context_size: 64
 
 valid_chunk_size: -1

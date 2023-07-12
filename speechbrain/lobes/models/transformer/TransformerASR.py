@@ -333,7 +333,7 @@ class TransformerASR(TransformerInterface):
         )
         return prediction, multihead_attns[-1]
 
-    def encode(self, src, wav_len=None, pad_idx=0, chunk_size=None, left_context_chunks: int = -1):
+    def encode(self, src, wav_len=None, pad_idx=0, chunk_size=-1, left_context_chunks: int = -1):
         """
         Encoder forward pass
 
