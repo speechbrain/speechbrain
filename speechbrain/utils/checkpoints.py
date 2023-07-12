@@ -98,6 +98,7 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         obj.load_state_dict(torch.load(path, map_location=device))
 
 
+@main_process_only
 def torch_save(obj, path):
     """Saves the obj's parameters to path.
 
