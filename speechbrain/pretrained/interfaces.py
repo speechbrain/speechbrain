@@ -2958,9 +2958,9 @@ class FastSpeech2(Pretrained):
                 max_seq_len = tokens_with_spn.shape[-1]
 
         # "tokens_with_spn_tensor" holds the input phoneme sequence with silent phonemes
-        tokens_with_spn_tensor_padded = torch.LongTensor(len(texts), max_seq_len).to(
-            self.device
-        )
+        tokens_with_spn_tensor_padded = torch.LongTensor(
+            len(texts), max_seq_len
+        ).to(self.device)
         tokens_with_spn_tensor_padded.zero_()
 
         for seq_idx, seq in enumerate(all_tokens_with_spn):
@@ -2973,7 +2973,9 @@ class FastSpeech2(Pretrained):
             energy_rate=energy_rate,
         )
 
-    def encode_phoneme(self, phonemes, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+    def encode_phoneme(
+        self, phonemes, pace=1.0, pitch_rate=1.0, energy_rate=1.0
+    ):
         """Computes mel-spectrogram for a list of phoneme sequences
 
         Arguments
@@ -3013,10 +3015,15 @@ class FastSpeech2(Pretrained):
             tokens_padded[seq_idx, : len(seq)] = seq
 
         return self.encode_batch(
-            tokens_padded, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+            tokens_padded,
+            pace=pace,
+            pitch_rate=pitch_rate,
+            energy_rate=energy_rate,
         )
 
-    def encode_batch(self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+    def encode_batch(
+        self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
+    ):
         """Batch inference for a tensor of phoneme sequences
         Arguments
         ---------
