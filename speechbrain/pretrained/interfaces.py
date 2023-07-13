@@ -3260,29 +3260,17 @@ class AudioClassifier(Pretrained):
     Example
     -------
     >>> import torchaudio
-    >>> from speechbrain.pretrained import EncoderClassifier
-    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> from speechbrain.pretrained import AudioClassifier
     >>> tmpdir = getfixture("tmpdir")
-    >>> classifier = EncoderClassifier.from_hparams(
-    ...     source="speechbrain/spkrec-ecapa-voxceleb",
+    >>> classifier = AudioClassifier.from_hparams(
+    ...     source="cemsubakan/cnn14-esc50",
     ...     savedir=tmpdir,
     ... )
-    >>> classifier.hparams.label_encoder.ignore_len()
-
-    >>> # Compute embeddings
-    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav")
-    >>> embeddings = classifier.encode_batch(signal)
-
-    >>> # Classification
-    >>> prediction = classifier.classify_batch(signal)
+    >>> signal = torch.randn(1, 20000)
+    >>> prediction, _, _, text_lab = classifier.classify_batch(signal)
+    >>> print(prediction.shape)
+    torch.Size([1, 1, 50])
     """
-
-    MODULES_NEEDED = [
-        "compute_features",
-        "mean_var_norm",
-        "embedding_model",
-        "classifier",
-    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -3357,15 +3345,25 @@ class AudioClassifier(Pretrained):
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
-        waveform = self.load_audio(path, **kwargs)
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-        emb = self.encode_batch(batch, rel_length)
-        out_prob = self.mods.classifier(emb).squeeze(1)
-        score, index = torch.max(out_prob, dim=-1)
-        text_lab = self.hparams.label_encoder.decode_torch(index)
-        return out_prob, score, index, text_lab
+        batch, fs_file = torchaudio.load(path)
+        batch = batch.to(self.device)
+        fs_model = self.hparams.sample_rate
+
+        # resample the data if needed
+        if fs_file != fs_model:
+            print(
+                "Resampling the audio from {} Hz to {} Hz".format(
+                    fs_file, fs_model
+                )
+            )
+            tf = torchaudio.transforms.Resample(
+                orig_freq=fs_file, new_freq=fs_model
+            ).to(self.device)
+            batch = batch.mean(dim=0, keepdim=True)
+            batch = tf(batch)
+
+        out_probs, score, index, text_lab = self.classify_batch(batch)
+        return out_probs, score, index, text_lab
 
     def forward(self, wavs, wav_lens=None):
         """Runs the classification"""
