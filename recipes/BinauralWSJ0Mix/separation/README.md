@@ -47,7 +47,7 @@ Here are the SNRi results (in dB) as well as ITD and ILD errors as the metric fo
 * ConvTasnet-parallel-noise.yaml refers to the above Tasnet applied to 2 speakers with DEMAND noise.
 * ConvTasnet-parallel-reverb.yaml refers to the above Tasnet applied to 2 speakers with reverberance(RT60) from the [BRIR Sim Set](http://iosr.uk/software/index.php).
 
-The output folders with the checkpoints, logs, etc are available [here](https://drive.google.com/drive/folders/17FFwlIq6MQLHT9RXPgeYssti5TEeEXsx?usp=sharing)
+The output folders with the checkpoints, logs, etc are available [here](https://www.dropbox.com/sh/i7fhu7qswjb84gw/AABsX1zP-GOTmyl86PtU8GGua?dl=0)
 
 # Example calls for running the training scripts
 
