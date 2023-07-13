@@ -119,7 +119,7 @@ class FastSpeech2Brain(sb.Brain):
         x, y, metadata = self.batch_to_device(batch, return_metadata=True)
         self.last_batch = [x[0], y[-2], y[-3], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
-        loss = self.hparams.criterion(predictions, y)
+        loss = self.hparams.criterion(predictions, y, self.hparams.epoch_counter.current)
         self.last_loss_stats[stage] = scalarize(loss)
         return loss["total_loss"]
 

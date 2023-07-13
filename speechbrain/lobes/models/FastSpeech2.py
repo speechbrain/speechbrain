@@ -405,7 +405,7 @@ class SPNPredictor(nn.Module):
             indicates if a silent phoneme should be inserted after a phoneme
         """
         spn_decision = self.forward(tokens, last_phonemes)
-        spn_decision = torch.sigmoid(spn_decision) > 0.5
+        spn_decision = torch.sigmoid(spn_decision) > 0.8
         return spn_decision
 
 
@@ -1012,6 +1012,7 @@ class Loss(nn.Module):
         mel_loss_weight,
         postnet_mel_loss_weight,
         spn_loss_weight=1.0,
+        spn_loss_max_epochs=8,
     ):
         super().__init__()
 
@@ -1029,8 +1030,9 @@ class Loss(nn.Module):
         self.pitch_loss_weight = pitch_loss_weight
         self.energy_loss_weight = energy_loss_weight
         self.spn_loss_weight = spn_loss_weight
+        self.spn_loss_max_epochs = spn_loss_max_epochs
 
-    def forward(self, predictions, targets):
+    def forward(self, predictions, targets, current_epoch):
         """Computes the value of the loss function and updates stats
         Arguments
         ---------
@@ -1127,6 +1129,8 @@ class Loss(nn.Module):
         energy_loss = torch.div(energy_loss, len(mel_target))
 
         spn_loss = bce_loss(spn_preds, spn_labels)
+        if current_epoch > self.spn_loss_max_epochs:
+            self.spn_loss_weight = 0
 
         total_loss = (
             ssim_loss * self.ssim_loss_weight
