@@ -2832,20 +2832,20 @@ class FastSpeech2(Pretrained):
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts)
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"])
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
     ...   "How much wood would a woodchuck chuck?",
     ...   "Never odd or even"
     ... ]
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_batch(items)
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items)
     >>>
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
     >>> # Running the TTS
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text("Mary had a little lamb")
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"])
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_output)
     """
@@ -2866,13 +2866,13 @@ class FastSpeech2(Pretrained):
             self.input_encoder.encode_sequence_torch(["spn"]).int().item()
         )
 
-    def encode_batch(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+    def encode_text(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Computes mel-spectrogram for a list of texts
 
         Arguments
         ---------
         texts: List[str]
-            texts to be encoded into spectrogram
+            texts to be converted to spectrogram
         pace: float
             pace for the speech synthesis
         pitch_rate : float
@@ -2889,26 +2889,34 @@ class FastSpeech2(Pretrained):
         # "label" below contains input text
         # "phoneme_labels" contain the phoneme sequences corresponding to input text labels
         # "last_phonemes_combined" is used to indicate whether the index position is for a last phoneme of a word
+        # "punc_positions" is used to add back the silence for punctuations
         phoneme_labels = list()
         last_phonemes_combined = list()
+        punc_positions = list()
 
         for label in texts:
             phoneme_label = list()
             last_phonemes = list()
+            punc_position = list()
 
             words = label.split()
             words = [word.strip() for word in words]
             words_phonemes = self.g2p(words)
 
-            for words_phonemes_seq in words_phonemes:
+            for i in range(len(words_phonemes)):
+                words_phonemes_seq = words_phonemes[i]
                 for phoneme in words_phonemes_seq:
                     if not phoneme.isspace():
                         phoneme_label.append(phoneme)
                         last_phonemes.append(0)
+                        punc_position.append(0)
                 last_phonemes[-1] = 1
+                if words[i][-1] in ":;-,.!?":
+                    punc_position[-1] = 1
 
             phoneme_labels.append(phoneme_label)
             last_phonemes_combined.append(last_phonemes)
+            punc_positions.append(punc_position)
 
         # Inserts silent phonemes in the input phoneme sequence
         all_tokens_with_spn = list()
@@ -2933,6 +2941,10 @@ class FastSpeech2(Pretrained):
 
             spn_to_add = torch.nonzero(spn_preds).reshape(-1).tolist()
 
+            for j in range(len(punc_positions[i])):
+                if punc_positions[i][j] == 1:
+                    spn_to_add.append(j)
+
             tokens_with_spn = list()
 
             for token_idx in range(token_seq.shape[0]):
@@ -2946,19 +2958,82 @@ class FastSpeech2(Pretrained):
                 max_seq_len = tokens_with_spn.shape[-1]
 
         # "tokens_with_spn_tensor" holds the input phoneme sequence with silent phonemes
-        tokens_with_spn_tensor = torch.LongTensor(len(texts), max_seq_len).to(
+        tokens_with_spn_tensor_padded = torch.LongTensor(len(texts), max_seq_len).to(
             self.device
         )
-        tokens_with_spn_tensor.zero_()
+        tokens_with_spn_tensor_padded.zero_()
 
         for seq_idx, seq in enumerate(all_tokens_with_spn):
-            tokens_with_spn_tensor[seq_idx, : len(seq)] = seq
+            tokens_with_spn_tensor_padded[seq_idx, : len(seq)] = seq
 
+        return self.encode_batch(
+            tokens_with_spn_tensor_padded,
+            pace=pace,
+            pitch_rate=pitch_rate,
+            energy_rate=energy_rate,
+        )
+
+    def encode_phoneme(self, phonemes, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Computes mel-spectrogram for a list of phoneme sequences
+
+        Arguments
+        ---------
+        phonemes: List[List[str]]
+            phonemes to be converted to spectrogram
+        pace: float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        all_tokens = []
+        max_seq_len = -1
+        for phoneme in phonemes:
+            token_seq = (
+                self.input_encoder.encode_sequence_torch(phoneme)
+                .int()
+                .to(self.device)
+            )
+            if max_seq_len < token_seq.shape[-1]:
+                max_seq_len = token_seq.shape[-1]
+            all_tokens.append(token_seq)
+
+        tokens_padded = torch.LongTensor(len(phonemes), max_seq_len).to(
+            self.device
+        )
+        tokens_padded.zero_()
+
+        for seq_idx, seq in enumerate(all_tokens):
+            tokens_padded[seq_idx, : len(seq)] = seq
+
+        return self.encode_batch(
+            tokens_padded, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+        )
+
+    def encode_batch(self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Batch inference for a tensor of phoneme sequences
+        Arguments
+        ---------
+        tokens_padded : torch.Tensor
+            A sequence of encoded phonemes to be converted to spectrogram
+        pace : float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+        """
         with torch.no_grad():
 
             (
-                mel_outputs,
                 _,
+                post_mel_outputs,
                 durations,
                 pitch,
                 _,
@@ -2966,23 +3041,23 @@ class FastSpeech2(Pretrained):
                 _,
                 _,
             ) = self.hparams.model(
-                tokens_with_spn_tensor,
+                tokens_padded,
                 pace=pace,
                 pitch_rate=pitch_rate,
                 energy_rate=energy_rate,
             )
 
             # Transposes to make in compliant with HiFI GAN expected format
-            mel_outputs = mel_outputs.transpose(-1, 1)
+            post_mel_outputs = post_mel_outputs.transpose(-1, 1)
 
-        return mel_outputs, durations, pitch, energy
+        return post_mel_outputs, durations, pitch, energy
 
-    def encode_text(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
-        """Runs inference for a single text str
+    def forward(self, phon_seq, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Batch inference for a tensor of phoneme sequences
         Arguments
         ---------
-        text : str
-            text to be encoded into spectrogram
+        phon_seq : torch.Tensor
+            A sequence of encoded phonemes to be converted to spectrogram
         pace : float
             pace for the speech synthesis
         pitch_rate : float
@@ -2991,24 +3066,7 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme energies
         """
         return self.encode_batch(
-            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
-        )
-
-    def forward(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
-        """Encodes the input texts.
-        Arguments
-        ---------
-        texts : List[str]
-            texts to be encoded into spectrogram
-        pace : float
-            pace for the speech synthesis
-        pitch_rate : float
-            scaling factor for phoneme pitches
-        energy_rate : float
-            scaling factor for phoneme energies
-        """
-        return self.encode_batch(
-            texts, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+            phon_seq, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
         )
 
 
