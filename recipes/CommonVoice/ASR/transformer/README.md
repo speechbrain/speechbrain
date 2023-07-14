@@ -44,7 +44,7 @@ Following table contains whisper-finetuning results for 1 epoch using whisper_la
 | Serbian | 2023-01-10 | train_sr_hf_whisper.yaml | No | 8.92 | 27.12 |  7.60 | 23.63 | [model](https://drive.google.com/drive/folders/1QG67qoekEB29jBd9knt8stLJD4T_xgG7?usp=sharing) | 1xV100 16GB |
 | French | 2023-01-10 | train_fr_hf_whisper.yaml | No | 3.00 | 8.95 | 3.83 | 10.62 | [model](https://drive.google.com/drive/folders/1_iI_G-pMYNeyLsvmHPgNR6gPi8zazkF4?usp=sharing) | 1xV100 16GB |
 
-The output folders with checkpoints and logs can be found [here](https://drive.google.com/drive/folders/11NMzY0zV-NqJmPMyZfC3RtT64bYe-G_O?usp=sharing).
+The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/sh/852eq7pbt6d65ai/AACv4wAzk1pWbDo4fjVKLICYa?dl=0).
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
