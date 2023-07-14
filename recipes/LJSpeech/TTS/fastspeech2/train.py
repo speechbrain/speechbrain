@@ -24,6 +24,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
 from speechbrain.pretrained import GraphemeToPhoneme
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
 
 
@@ -58,9 +59,19 @@ class FastSpeech2Brain(sb.Brain):
         tokens, durations, pitch, energy, no_spn_seqs, last_phonemes = inputs
 
         # Forward pass for the silent token predictor module
-        spn_preds = self.hparams.modules["spn_predictor"](
-            no_spn_seqs, last_phonemes
-        )
+        if (
+            self.hparams.epoch_counter.current
+            > self.hparams.train_spn_predictor_epochs
+        ):
+            self.hparams.modules["spn_predictor"].eval()
+            with torch.no_grad():
+                spn_preds = self.hparams.modules["spn_predictor"](
+                    no_spn_seqs, last_phonemes
+                )
+        else:
+            spn_preds = self.hparams.modules["spn_predictor"](
+                no_spn_seqs, last_phonemes
+            )
 
         # Forward pass for the FastSpeech2 module
         (
