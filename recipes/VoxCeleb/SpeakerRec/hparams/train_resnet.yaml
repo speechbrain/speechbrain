@@ -33,7 +33,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 10
-batch_size: 32
+batch_size: 12
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
@@ -51,7 +51,7 @@ deltas: False
 
 # Number of speakers
 #　1211 for vox1, 5994 for vox2, 7205 for vox1+vox2
-out_n_neurons: 5994
+out_n_neurons: 7205
 
 dataloader_options:
     batch_size: !ref <batch_size>
