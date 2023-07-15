@@ -14,6 +14,30 @@ Note that:
   - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
   - all of the necessary models are downloaded automatically for each training script.
 
+- The huggingface repository of the CNN14 model can be accessed through [our huggingface repository](https://huggingface.co/speechbrain/cnn14-esc50/blob/main/README.md) If you use this model in your research please cite the following paper, as the encoder is originally trained for this paper.
+
+```bibtex
+@article{Wang_2022,
+	doi = {10.1109/lsp.2022.3229643},
+
+	url = {https://doi.org/10.1109%2Flsp.2022.3229643},
+
+	year = 2022,
+	publisher = {Institute of Electrical and Electronics Engineers ({IEEE})},
+
+	volume = {29},
+
+	pages = {2607--2611},
+
+	author = {Zhepei Wang and Cem Subakan and Xilin Jiang and Junkai Wu and Efthymios Tzinis and Mirco Ravanelli and Paris Smaragdis},
+
+	title = {Learning Representations for New Sound Classes With Continual Self-Supervised Learning},
+
+	journal = {{IEEE} Signal Processing Letters}
+}
+
+```
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
