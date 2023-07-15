@@ -8,7 +8,7 @@ We have two main training scripts. Here's the breakdown, and how to run them:
 
 - *The training script for the conv2d-based model:* This script trains an simple convolutional classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link`](https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link).
 
-- Performance and computing times: CNN14, and conv2d respectively obtains around 82% accuracy and 75% accuracy on an held-out set. For CNN14, one epoch on ESC50 takes around 11 seconds. For the conv2d model, one epoch on ESC50 takes 15 seconds. Both of these numbers are obtained with a 3090 GPU.
+- Performance and computing times: CNN14, and conv2d respectively obtain around 82% accuracy and 75% accuracy on an held-out set. For CNN14, one epoch on ESC50 takes around 11 seconds. For the conv2d model, one epoch on ESC50 takes 15 seconds. Both of these numbers are obtained with an NVIDIA RTX 3090 GPU.
 
 Note that:
   - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
@@ -19,23 +19,15 @@ Note that:
 ```bibtex
 @article{Wang_2022,
 	doi = {10.1109/lsp.2022.3229643},
-
 	url = {https://doi.org/10.1109%2Flsp.2022.3229643},
-
 	year = 2022,
 	publisher = {Institute of Electrical and Electronics Engineers ({IEEE})},
-
 	volume = {29},
-
 	pages = {2607--2611},
-
 	author = {Zhepei Wang and Cem Subakan and Xilin Jiang and Junkai Wu and Efthymios Tzinis and Mirco Ravanelli and Paris Smaragdis},
-
 	title = {Learning Representations for New Sound Classes With Continual Self-Supervised Learning},
-
 	journal = {{IEEE} Signal Processing Letters}
 }
-
 ```
 
 # **About SpeechBrain**
