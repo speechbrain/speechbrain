@@ -3264,7 +3264,7 @@ class AudioClassifier(Pretrained):
     >>> from speechbrain.pretrained import AudioClassifier
     >>> tmpdir = getfixture("tmpdir")
     >>> classifier = AudioClassifier.from_hparams(
-    ...     source="cemsubakan/cnn14-esc50",
+    ...     source="speechbrain/cnn14-esc50",
     ...     savedir=tmpdir,
     ... )
     >>> signal = torch.randn(1, 16000)
@@ -3383,7 +3383,7 @@ class PIQAudioInterpreter(Pretrained):
     >>> from speechbrain.pretrained import PIQAudioInterpreter
     >>> tmpdir = getfixture("tmpdir")
     >>> interpreter = PIQAudioInterpreter.from_hparams(
-    ...     source="/data2/PIQ-ESC50",
+    ...     source="speechbrain/PIQ-ESC50",
     ...     savedir=tmpdir,
     ... )
     >>> signal = torch.randn(1, 16000)
