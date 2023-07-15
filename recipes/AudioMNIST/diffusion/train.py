@@ -662,6 +662,8 @@ class DiffusionBrain(sb.Brain):
                 length=lens_done,
                 reduction="batch",
             )
+        else:
+            loss_done = None
 
         loss_autoencoder = None
         if (
@@ -1080,9 +1082,10 @@ class DiffusionBrain(sb.Brain):
         self.loss_metric = sb.utils.metric_stats.MetricStats(
             metric=self.hparams.compute_cost
         )
-        self.done_loss_metric = sb.utils.metric_stats.MetricStats(
-            metric=self.hparams.compute_cost_done
-        )
+        if self.use_done_detector:
+            self.done_loss_metric = sb.utils.metric_stats.MetricStats(
+                metric=self.hparams.compute_cost_done
+            )
 
         self.mask_value_norm = self.modules.min_level_norm(
             torch.tensor(self.hparams.pad_level_db, device=self.device)

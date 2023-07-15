@@ -148,8 +148,6 @@ compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
           steps: !ref <loss_l2_steps>
         - loss_fn: !name:speechbrain.nnet.losses.l1_loss
 
-compute_cost_done: !name:speechbrain.nnet.losses.distance_diff_loss
-
 use_cond_emb:
     speaker: !ref <speaker_conditioned>
     digit: !ref <digit_conditioned>
