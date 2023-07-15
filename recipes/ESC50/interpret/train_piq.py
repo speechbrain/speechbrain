@@ -54,7 +54,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_stft_logpower, X_stft, X_stft_power
 
     def classifier_forward(self, X_stft_logpower):
-        """the forward pass for the classifier"""
+        """The forward pass for the classifier"""
         hcat = self.hparams.embedding_model(X_stft_logpower)
         embeddings = hcat.mean((-1, -2))
         predictions = self.hparams.classifier(embeddings).squeeze(1)
@@ -63,7 +63,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return hcat, embeddings, predictions, class_pred
 
     def interpret_computation_steps(self, wavs, print_probability=False):
-        """computation steps to get the interpretation spectrogram"""
+        """Computation steps to get the interpretation spectrogram"""
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
         X_stft_phase = spectral_phase(X_stft)
 
@@ -93,7 +93,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, class_pred, X_stft_logpower, xhat
 
     def interpret_sample(self, wavs, batch=None):
-        """get the interpratation for a given wav file."""
+        """Get the interpratation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
@@ -141,7 +141,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """interpration test with overlapped audio"""
+        """Interpration test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
@@ -238,7 +238,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.close()
 
     def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs):
-        """the helper function to create debugging images"""
+        """The helper function to create debugging images"""
         X_stft_phase = spectral_phase(X_stft)
         temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
         Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
@@ -360,7 +360,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return predictions, xhat, hcat, z_q_x, garbage
 
     def compute_objectives(self, pred, batch, stage):
-        """helper function to compute the objectives"""
+        """Helper function to compute the objectives"""
         predictions, xhat, hcat, z_q_x, garbage = pred
 
         batch = batch.to(self.device)
@@ -434,7 +434,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
     def on_stage_start(self, stage, epoch=None):
-        """steps taken before stage start"""
+        """Steps taken before stage start"""
 
         @torch.no_grad()
         def accuracy_value(predict, target, length):
@@ -490,7 +490,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_rec_error(preds, specs, length=None):
-            """calculates the reconstruction error"""
+            """Calculates the reconstruction error"""
             if self.hparams.use_mask_output:
                 preds = specs * preds
 
@@ -498,7 +498,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_bern_ll(xhat, target_mask, length=None):
-            """computes bernoulli likelihood"""
+            """Computes bernoulli likelihood"""
             eps = 1e-10
             rec_loss = (
                 -target_mask * torch.log(xhat + eps)
