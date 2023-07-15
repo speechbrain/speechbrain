@@ -3267,7 +3267,7 @@ class AudioClassifier(Pretrained):
     ...     source="cemsubakan/cnn14-esc50",
     ...     savedir=tmpdir,
     ... )
-    >>> signal = torch.randn(1, 20000)
+    >>> signal = torch.randn(1, 16000)
     >>> prediction, _, _, text_lab = classifier.classify_batch(signal)
     >>> print(prediction.shape)
     torch.Size([1, 1, 50])
@@ -3386,7 +3386,7 @@ class PIQAudioInterpreter(Pretrained):
     ...     source="/data2/PIQ-ESC50",
     ...     savedir=tmpdir,
     ... )
-    >>> signal = torch.randn(1, 20000)
+    >>> signal = torch.randn(1, 16000)
     >>> interpretation, _ = interpreter.interpret_batch(signal)
     """
 
