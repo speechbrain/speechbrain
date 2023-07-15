@@ -3374,7 +3374,22 @@ class AudioClassifier(Pretrained):
         return self.classify_batch(wavs, wav_lens)
 
 
-class AudioInterpreter(Pretrained):
+class PIQAudioInterpreter(Pretrained):
+    """
+    This class implements the interface for the PIQ posthoc interpreter for an audio classifier.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import PIQAudioInterpreter
+    >>> tmpdir = getfixture("tmpdir")
+    >>> interpreter = PIQAudioInterpreter.from_hparams(
+    ...     source="/data2/PIQ-ESC50",
+    ...     savedir=tmpdir,
+    ... )
+    >>> signal = torch.randn(1, 20000)
+    >>> interpretation, _ = interpreter.interpret_batch(signal)
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
