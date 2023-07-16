@@ -1,29 +1,29 @@
 # Sound Classification - ESC50 Dataset
 
-This recipe trains a classifier (`train_classifier.py`) for the ESC50 multiclass sound classification dataset. This classification is mainly adapted from the Speechbrain UrbanSound8k recipe. 
+This recipe trains a classifier (`train_classifier.py`) for the ESC50 multiclass sound classification dataset. This classification is mainly adapted from the Speechbrain UrbanSound8k recipe.
 
 The classification recipe makes use of a [CNN14 model](https://arxiv.org/abs/1912.10211) and a convolutional encoder pretrained on the [VGG Sound](https://www.robots.ox.ac.uk/~vgg/data/vggsound/) dataset with self-supervised learning. The scripts offer the possibility to train both with log-spectra and log-mel audio features.
 
 We have two main training scripts. Here's the breakdown, and how to run them:
 
 ## Training script for CNN14 model
-This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command 
+This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command
 
-`python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. 
+`python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`.
 
 An example training run can be found in [here](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0).
 
 ## Training script for CONV2D model
-This script trains a simple convolutional classifier on the ESC50 dataset. To run this, you can use the command 
+This script trains a simple convolutional classifier on the ESC50 dataset. To run this, you can use the command
 
-`python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. 
+`python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`.
 
 An example training run can be found in [here][https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0).
 
 ## Performance and computing times
-The CNN14, and conv2d models respectively obtain around 82% accuracy and 75% accuracy on a held-out set. 
+The CNN14, and conv2d models respectively obtain around 82% accuracy and 75% accuracy on a held-out set.
 
-For CNN14, one epoch on ESC50 takes around 11 seconds. For the conv2d model, one epoch on ESC50 takes 15 seconds. 
+For CNN14, one epoch on ESC50 takes around 11 seconds. For the conv2d model, one epoch on ESC50 takes 15 seconds.
 
 Both of these numbers are obtained with an NVIDIA RTX 3090 GPU.
 
@@ -32,7 +32,7 @@ Both of these numbers are obtained with an NVIDIA RTX 3090 GPU.
   - all of the necessary models are downloaded automatically for each training script.
 
 ## Inference Interface (on HuggingFace)
--The huggingface repository of the CNN14 model with an easy inference interface can be accessed through [our huggingface repository](https://huggingface.co/speechbrain/cnn14-esc50/blob/main/README.md) 
+-The huggingface repository of the CNN14 model with an easy inference interface can be accessed through [our huggingface repository](https://huggingface.co/speechbrain/cnn14-esc50/blob/main/README.md)
 
 ```bibtex
 @article{Wang_2022,
