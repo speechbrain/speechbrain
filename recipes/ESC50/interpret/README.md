@@ -19,7 +19,7 @@ PIQ utilizes vector quantization on the classifier's representations to reconstr
 python train_piq.py hparams/piq.yaml --data_folder /yourpath/ESC50
 ```
 
-Check out an example training run [here](https://drive.google.com/drive/folders/10u78s0tUHT5GfuqmcRdqzdEPx6D965kt?usp=share_link). You can also find samples on the [companion website](https://piqinter.github.io/).
+Check out an example training run [here](https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0). You can also find samples on the [companion website](https://piqinter.github.io/).
 
 ### Listen to Interpret (L2I)
 
