@@ -29,7 +29,7 @@ L2I employs Non-Negative Matrix Factorization to reconstruct the classifier's hi
 python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50
 ```
 
-You can find an example training run [here](https://drive.google.com/drive/folders/1cUC5vpZVMuZi6bGhLHduoi6I-tuh4Bwu?usp=share_link).
+You can find an example training run [here](https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0).
 
 Additionally, we provide an L2I interpretation method for a convolutional classifier. To train this method on the ESC50 dataset, use the following command:
 
@@ -37,7 +37,7 @@ Additionally, we provide an L2I interpretation method for a convolutional classi
 python train_l2i.py hparams/l2i_conv2dclassifier.yaml --data_folder /yourpath/ESC50
 ```
 
-An example training run is available [here](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
+An example training run is available [here](https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0).
 
 Lastly, we offer the training script for the L2I interpretation method on CNN14. To run this, execute the following command:
 
