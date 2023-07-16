@@ -11,14 +11,14 @@ This script trains a CNN14 model on the ESC50 dataset. To run this, you can use 
 
 `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. 
 
-An example training run can be found in [`https://drive.google.com/drive/folders/1XLleSta8-GE47T7IFMK-i8apHOs-4NNT?usp=share_link`](https://drive.google.com/drive/folders/1XLleSta8-GE47T7IFMK-i8apHOs-4NNT?usp=share_link).
+An example training run can be found in [here](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0).
 
 ## Training script for CONV2D model
 This script trains a simple convolutional classifier on the ESC50 dataset. To run this, you can use the command 
 
 `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. 
 
-An example training run can be found in [`https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link`](https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link).
+An example training run can be found in [here][https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0).
 
 ## Performance and computing times
 The CNN14, and conv2d models respectively obtain around 82% accuracy and 75% accuracy on a held-out set. 
