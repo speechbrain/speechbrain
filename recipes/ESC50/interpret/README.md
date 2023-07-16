@@ -53,6 +53,12 @@ You can find an example training run in the [provided link](https://drive.google
 - All the necessary models are downloaded automatically for each training script.
 
 
+# Inference Interface (on HuggingFace)
+You can access the inference interface for the PIQ method [here](https://huggingface.co/speechbrain/PIQ-ESC50/). 
+
+You can notice that the interpreter requires an input signal (such as a complex audio recording containing multiple mixed sounds), and the output is another audio signal that aims to provide an explanation for the classifier's decision.
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
