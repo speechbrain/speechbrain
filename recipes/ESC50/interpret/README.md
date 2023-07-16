@@ -1,6 +1,6 @@
 # Postdoc interpretability - ESC50 Dataset
 
-The objective of postdoc interpretability is to offer an explanation regarding the decision made by a pre-trained classifier. 
+The objective of postdoc interpretability is to offer an explanation regarding the decision made by a pre-trained classifier.
 
 The interpreter is a neural network that generates an additional signal in its output, aiming to assist users in better comprehending why a specific prediction was made. You can find some examples [here](https://piqinter.github.io/).
 
@@ -54,7 +54,7 @@ You can find an example training run in the [provided link](https://drive.google
 
 
 # Inference Interface (on HuggingFace)
-You can access the inference interface for the PIQ method [here](https://huggingface.co/speechbrain/PIQ-ESC50/). 
+You can access the inference interface for the PIQ method [here](https://huggingface.co/speechbrain/PIQ-ESC50/).
 
 You can notice that the interpreter requires an input signal (such as a complex audio recording containing multiple mixed sounds), and the output is another audio signal that aims to provide an explanation for the classifier's decision.
 
