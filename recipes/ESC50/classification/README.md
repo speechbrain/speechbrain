@@ -18,7 +18,7 @@ This script trains a simple convolutional classifier on the ESC50 dataset. To ru
 
 `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`.
 
-An example training run can be found in [here][https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0).
+An example training run can be found in [here](https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0).
 
 ## Performance and computing times
 The CNN14, and conv2d models respectively obtain around 82% accuracy and 75% accuracy on a held-out set.
