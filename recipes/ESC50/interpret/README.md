@@ -1,22 +1,56 @@
-# Summary
+# Postdoc interpretability - ESC50 Dataset
 
-This recipe implements the following posthoc interpretability techniques. This trainings run on pre-trained models from `recipes/ESC50/classification/` automatically downloaded from HuggingFace Hub. If needed, you can train your own classifier with the instruction in the reference README.
+The objective of postdoc interpretability is to offer an explanation regarding the decision made by a pre-trained classifier. 
 
-* [Posthoc Interpretability via Quantization](https://arxiv.org/abs/2303.12659) which makes use of vector quantization on the classifier's representations to reconstruct the predictions. The companion website for PIQ is [here](https://piqinter.github.io/). The corresponding training script is `train_piq.py`.
+The interpreter is a neural network that generates an additional signal in its output, aiming to assist users in better comprehending why a specific prediction was made. You can find some examples [here](https://piqinter.github.io/).
 
-* *The training script for PIQ:* This script trains PIQ on a convolutional classifier working on the ESC50 dataset. To run this, you can use the command `python train_piq.py hparams/piq.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/10u78s0tUHT5GfuqmcRdqzdEPx6D965kt?usp=share_link`](https://drive.google.com/drive/folders/10u78s0tUHT5GfuqmcRdqzdEPx6D965kt?usp=share_link). Companion website with samples can be found [here](https://piqinter.github.io/).
-- [Listen to Interpret](https://arxiv.org/abs/2202.11479v2) which makes use of Non-Negative Matrix Factorization to reconstruct the classifier hidden representation in order to provide an interpretation audio signal for the classifier decision. The corresponding training script is `train_l2i.py`.
+![image](https://github.com/ycemsubakan/speechbrain-1/assets/16886998/8199f0fb-66ee-4f5a-87ee-349695f7e982)
 
-* *The training script NMF on ESC50:* This script trains an NMF model on the ESC50 dataset. To run this, you can use the command `python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50`. An example training run can be found in `[https://drive.google.com/drive/folders/1cUC5vpZVMuZi6bGhLHduoi6I-tuh4Bwu?usp=share_link`](https://drive.google.com/drive/folders/1cUC5vpZVMuZi6bGhLHduoi6I-tuh4Bwu?usp=share_link).
 
-* *The training script for L2I interpretation method on convolutional classifier:*: This script trains the L2I method on the ESC50 dataset, interpreting a convolutional model. To run this you can use the command `python train_l2i.py hparams/l2i_conv2dclassifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link`](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
+The recipes implements the posthoc interpretability techniques mentioned below. They utilize pre-trained models obtained from `recipes/ESC50/classification/`, which are automatically downloaded from [HuggingFace](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech). If necessary, you have the option to train your own classifier by following the instructions provided in the reference README.
 
-* *The training script for L2I interpretation method on CNN14:*: This script trains the L2I method on the ESC50 dataset, interpreting a CNN14 model. To run this you can use the command `python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link`](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
+## Supported Methods
 
-Note that:
-    - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
-    - all of the necessary models are downloaded automatically for each training script.
+### Posthoc Interpretability via Quantization (PIQ)
 
+PIQ utilizes vector quantization on the classifier's representations to reconstruct predictions. For more details, refer to the [PIQ paper](https://arxiv.org/abs/2303.12659). You can visit the companion website for PIQ [here](https://piqinter.github.io/). To train PIQ on a convolutional classifier using the ESC50 dataset, use the `train_piq.py` script. Run the following command:
+
+```python
+python train_piq.py hparams/piq.yaml --data_folder /yourpath/ESC50
+```
+
+Check out an example training run [here](https://drive.google.com/drive/folders/10u78s0tUHT5GfuqmcRdqzdEPx6D965kt?usp=share_link). You can also find samples on the [companion website](https://piqinter.github.io/).
+
+### Listen to Interpret (L2I)
+
+L2I employs Non-Negative Matrix Factorization to reconstruct the classifier's hidden representation and generate an interpretation audio signal for the classifier decision. Read more about L2I in the [L2I paper](https://arxiv.org/abs/2202.11479v2). To train an NMF model on the ESC50 dataset, use the `train_l2i.py` script. Run the command below:
+
+```python
+python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50
+```
+
+You can find an example training run [here](https://drive.google.com/drive/folders/1cUC5vpZVMuZi6bGhLHduoi6I-tuh4Bwu?usp=share_link).
+
+Additionally, we provide an L2I interpretation method for a convolutional classifier. To train this method on the ESC50 dataset, use the following command:
+
+```python
+python train_l2i.py hparams/l2i_conv2dclassifier.yaml --data_folder /yourpath/ESC50
+```
+
+An example training run is available [here](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
+
+Lastly, we offer the training script for the L2I interpretation method on CNN14. To run this, execute the following command:
+
+```python
+python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
+```
+
+You can find an example training run in the [provided link](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
+
+### Notes
+
+- The recipe automatically downloads the ESC50 dataset, so you only need to specify the download path.
+- All the necessary models are downloaded automatically for each training script.
 
 
 # **About SpeechBrain**
