@@ -45,7 +45,7 @@ Lastly, we offer the training script for the L2I interpretation method on CNN14.
 python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
 ```
 
-You can find an example training run in the [provided link](https://drive.google.com/drive/folders/1059ghU9MZOUx9cZ5velwkefD8MDsO1AK?usp=share_link).
+You can find an example training run in the [provided link](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0).
 
 ### Notes
 
