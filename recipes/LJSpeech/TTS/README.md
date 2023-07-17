@@ -20,17 +20,16 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 # FastSpeech2
 The subfolder "fastspeech2" contains the recipe for training the non-autoregressive transformer based TTS model [FastSpeech2](https://arxiv.org/abs/2006.04558).
 
-Training FastSpeech2 requires phoneme alignments. The LJSpeech phoneme alignments can be downloaded from here: [LJSpeech.zip](https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4)
-Extract the phoneme alignments in the ```--data_folder=/your_folder/LJSpeech-1.1```. As a result, the phoneme alignments should be stored at this location: ```/your_folder/LJSpeech-1.1/TextGrid```.
+Training FastSpeech2 requires pre-extracted phoneme alignments (durations). The LJSpeech phoneme alignments from Montreal Forced Aligner can be automatically downloaded, decompressed and stored at this location: ```/your_folder/LJSpeech-1.1/TextGrid```.
 
 To run this recipe, go into the "fastspeech2" folder and run:
 
 ```
-pip install -r extra-dependencies.txt
+pip install -r extra_requirements.txt
 
-python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
+python train.py --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
-Training takes about 12 hours on an nvidia RTX3090.
+Training takes about 3 minutes/epoch on 1 * V100 32G.
 
 The training logs are available [here](https://www.dropbox.com/sh/tqyp58ogejqfres/AAAtmq7cRoOR3XTsq0iSgyKBa?dl=0).
 
@@ -38,7 +37,7 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
-The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotroon 2).
+The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron 2).
 
 We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the yaml file, thus `Tensorboard` should be installed.
 
