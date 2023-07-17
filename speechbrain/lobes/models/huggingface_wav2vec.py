@@ -399,7 +399,7 @@ class HuggingFaceWav2Vec2Pretrain(nn.Module):
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "savedir"
     >>> model = HuggingFaceWav2Vec2Pretrain(model_hub, save_path)
-    >>> outputs, _ = model(inputs)
+    >>> outputs, _ = model(inputs, wav_lens=None)
     """
 
     def __init__(
@@ -528,7 +528,7 @@ class WeightedSSLModel(torch.nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> num_layers = 13
-    >>> model = HuggingFaceWav2Vec2(model_hub, num_layers)
+    >>> model = WeightedSSLModel(model_hub, num_layers)
     >>> outputs = model(inputs)
     """
 
