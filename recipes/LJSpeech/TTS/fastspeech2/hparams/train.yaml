@@ -14,6 +14,7 @@ output_folder: !ref results/fastspeech2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 epochs: 1000
+train_spn_predictor_epochs: 8
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_min_run: 10
@@ -216,7 +217,7 @@ criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
     mel_loss_weight: 1.0
     postnet_mel_loss_weight: 1.0
     spn_loss_weight: 1.0
-    spn_loss_max_epochs: 8
+    spn_loss_max_epochs: !ref <train_spn_predictor_epochs>
 
 vocoder: "hifi-gan"
 pretrained_vocoder: True

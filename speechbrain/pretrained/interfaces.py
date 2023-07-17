@@ -33,6 +33,7 @@ from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.processing.NMF import spectral_phase
 
 logger = logging.getLogger(__name__)
 
@@ -3310,3 +3311,495 @@ class WhisperASR(Pretrained):
     def forward(self, wavs, wav_lens):
         """Runs full transcription - note: no gradients through decoding"""
         return self.transcribe_batch(wavs, wav_lens)
+
+
+class Speech_Emotion_Diarization(Pretrained):
+    """A ready-to-use SED interface (audio -> emotions and their durations)
+
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import Speech_Emotion_Diarization
+    >>> tmpdir = getfixture("tmpdir")
+    >>> sed_model = Speech_Emotion_Diarization.from_hparams(source="speechbrain/emotion-diarization-wavlm-large", savedir=tmpdir,) # doctest: +SKIP
+    >>> sed_model.diarize_file("speechbrain/emotion-diarization-wavlm-large/example.wav") # doctest: +SKIP
+    """
+
+    MODULES_NEEDED = ["input_norm", "wav2vec", "output_mlp"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def diarize_file(self, path):
+        """Get emotion diarization of a spoken utterance.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to diarize.
+
+        Returns
+        -------
+        dict
+            The emotions and their boundaries.
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        frame_class = self.diarize_batch(batch, rel_length, [path])
+        return frame_class
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes audios into fine-grained emotional embeddings
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.tensor
+            The encoded batch
+        """
+        if len(wavs.shape) == 1:
+            wavs = wavs.unsqueeze(0)
+
+        # Assign full length if wav_lens is not assigned
+        if wav_lens is None:
+            wav_lens = torch.ones(wavs.shape[0], device=self.device)
+
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+
+        wavs = self.mods.input_norm(wavs, wav_lens)
+        outputs = self.mods.wav2vec2(wavs)
+        return outputs
+
+    def diarize_batch(self, wavs, wav_lens, batch_id):
+        """Get emotion diarization of a batch of waveforms.
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+        batch_id : torch.tensor
+            id of each batch (file names etc.)
+
+        Returns
+        -------
+        torch.tensor
+            The frame-wise predictions
+        """
+        outputs = self.encode_batch(wavs, wav_lens)
+        averaged_out = self.hparams.avg_pool(outputs)
+        outputs = self.mods.output_mlp(averaged_out)
+        outputs = self.hparams.log_softmax(outputs)
+        score, index = torch.max(outputs, dim=-1)
+        preds = self.hparams.label_encoder.decode_torch(index)
+        results = self.preds_to_diarization(preds, batch_id)
+        return results
+
+    def preds_to_diarization(self, prediction, batch_id):
+        """Convert frame-wise predictions into a dictionary of
+        diarization results.
+
+        Returns
+        -------
+        dictionary
+            A dictionary with the start/end of each emotion
+        """
+        results = {}
+
+        for i in range(len(prediction)):
+            pred = prediction[i]
+            lol = []
+            for j in range(len(pred)):
+                start = round(self.hparams.stride * 0.02 * j, 2)
+                end = round(start + self.hparams.window_length * 0.02, 2)
+                lol.append([batch_id[i], start, end, pred[j]])
+
+            lol = self.merge_ssegs_same_emotion_adjacent(lol)
+            results[batch_id[i]] = [
+                {"start": k[1], "end": k[2], "emotion": k[3]} for k in lol
+            ]
+            return results
+
+    def forward(self, wavs, wav_lens):
+        """Runs full transcription - note: no gradients through decoding"""
+        return self.transcribe_batch(wavs, wav_lens)
+
+    def is_overlapped(self, end1, start2):
+        """Returns True if segments are overlapping.
+
+        Arguments
+        ---------
+        end1 : float
+            End time of the first segment.
+        start2 : float
+            Start time of the second segment.
+
+        Returns
+        -------
+        overlapped : bool
+            True of segments overlapped else False.
+
+        Example
+        -------
+        >>> from speechbrain.processing import diarization as diar
+        >>> diar.is_overlapped(5.5, 3.4)
+        True
+        >>> diar.is_overlapped(5.5, 6.4)
+        False
+        """
+
+        if start2 > end1:
+            return False
+        else:
+            return True
+
+    def merge_ssegs_same_emotion_adjacent(self, lol):
+        """Merge adjacent sub-segs if they are the same emotion.
+        Arguments
+        ---------
+        lol : list of list
+            Each list contains [utt_id, sseg_start, sseg_end, emo_label].
+        Returns
+        -------
+        new_lol : list of list
+            new_lol contains adjacent segments merged from the same emotion ID.
+        Example
+        -------
+        >>> from speechbrain.utils.EDER import merge_ssegs_same_emotion_adjacent
+        >>> lol=[['u1', 0.0, 7.0, 'a'],
+        ... ['u1', 7.0, 9.0, 'a'],
+        ... ['u1', 9.0, 11.0, 'n'],
+        ... ['u1', 11.0, 13.0, 'n'],
+        ... ['u1', 13.0, 15.0, 'n'],
+        ... ['u1', 15.0, 16.0, 'a']]
+        >>> merge_ssegs_same_emotion_adjacent(lol)
+        [['u1', 0.0, 9.0, 'a'], ['u1', 9.0, 15.0, 'n'], ['u1', 15.0, 16.0, 'a']]
+        """
+        new_lol = []
+
+        # Start from the first sub-seg
+        sseg = lol[0]
+        flag = False
+        for i in range(1, len(lol)):
+            next_sseg = lol[i]
+            # IF sub-segments overlap AND has same emotion THEN merge
+            if (
+                self.is_overlapped(sseg[2], next_sseg[1])
+                and sseg[3] == next_sseg[3]
+            ):
+                sseg[2] = next_sseg[2]  # just update the end time
+                # This is important. For the last sseg, if it is the same emotion then merge
+                # Make sure we don't append the last segment once more. Hence, set FLAG=True
+                if i == len(lol) - 1:
+                    flag = True
+                    new_lol.append(sseg)
+            else:
+                new_lol.append(sseg)
+                sseg = next_sseg
+        # Add last segment only when it was skipped earlier.
+        if flag is False:
+            new_lol.append(lol[-1])
+        return new_lol
+
+
+class AudioClassifier(Pretrained):
+    """A ready-to-use class for utterance-level classification (e.g, speaker-id,
+    language-id, emotion recognition, keyword spotting, etc).
+
+    The class assumes that an encoder called "embedding_model" and a model
+    called "classifier" are defined in the yaml file. If you want to
+    convert the predicted index into a corresponding text label, please
+    provide the path of the label_encoder in a variable called 'lab_encoder_file'
+    within the yaml.
+
+    The class can be used either to run only the encoder (encode_batch()) to
+    extract embeddings or to run a classification step (classify_batch()).
+    ```
+
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import AudioClassifier
+    >>> tmpdir = getfixture("tmpdir")
+    >>> classifier = AudioClassifier.from_hparams(
+    ...     source="speechbrain/cnn14-esc50",
+    ...     savedir=tmpdir,
+    ... )
+    >>> signal = torch.randn(1, 16000)
+    >>> prediction, _, _, text_lab = classifier.classify_batch(signal)
+    >>> print(prediction.shape)
+    torch.Size([1, 1, 50])
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def classify_batch(self, wavs, wav_lens=None):
+        """Performs classification on the top of the encoded features.
+
+        It returns the posterior probabilities, the index and, if the label
+        encoder is specified it also the text label.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model. Make sure the sample rate is fs=16000 Hz.
+        wav_lens : torch.Tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        wavs = wavs.to(self.device)
+        X_stft = self.mods.compute_stft(wavs)
+        X_stft_power = speechbrain.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
+        )
+
+        if self.hparams.use_melspectra:
+            net_input = self.mods.compute_fbank(X_stft_power)
+        else:
+            net_input = torch.log1p(X_stft_power)
+
+        # Embeddings + sound classifier
+        embeddings = self.mods.embedding_model(net_input)
+        if embeddings.ndim == 4:
+            embeddings = embeddings.mean((-1, -2))
+
+        out_probs = self.mods.classifier(embeddings)
+        score, index = torch.max(out_probs, dim=-1)
+        text_lab = self.hparams.label_encoder.decode_torch(index)
+        return out_probs, score, index, text_lab
+
+    def classify_file(self, path, savedir="audio_cache"):
+        """Classifies the given audiofile into the given set of labels.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file to classify.
+
+        Returns
+        -------
+        out_prob
+            The log posterior probabilities of each class ([batch, N_class])
+        score:
+            It is the value of the log-posterior for the best class ([batch,])
+        index
+            The indexes of the best class ([batch,])
+        text_lab:
+            List with the text labels corresponding to the indexes.
+            (label encoder should be provided).
+        """
+        source, fl = split_path(path)
+        path = fetch(fl, source=source, savedir=savedir)
+
+        batch, fs_file = torchaudio.load(path)
+        batch = batch.to(self.device)
+        fs_model = self.hparams.sample_rate
+
+        # resample the data if needed
+        if fs_file != fs_model:
+            print(
+                "Resampling the audio from {} Hz to {} Hz".format(
+                    fs_file, fs_model
+                )
+            )
+            tf = torchaudio.transforms.Resample(
+                orig_freq=fs_file, new_freq=fs_model
+            ).to(self.device)
+            batch = batch.mean(dim=0, keepdim=True)
+            batch = tf(batch)
+
+        out_probs, score, index, text_lab = self.classify_batch(batch)
+        return out_probs, score, index, text_lab
+
+    def forward(self, wavs, wav_lens=None):
+        """Runs the classification"""
+        return self.classify_batch(wavs, wav_lens)
+
+
+class PIQAudioInterpreter(Pretrained):
+    """
+    This class implements the interface for the PIQ posthoc interpreter for an audio classifier.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import PIQAudioInterpreter
+    >>> tmpdir = getfixture("tmpdir")
+    >>> interpreter = PIQAudioInterpreter.from_hparams(
+    ...     source="speechbrain/PIQ-ESC50",
+    ...     savedir=tmpdir,
+    ... )
+    >>> signal = torch.randn(1, 16000)
+    >>> interpretation, _ = interpreter.interpret_batch(signal)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def preprocess(self, wavs):
+        """Pre-process wavs to calculate STFTs"""
+        X_stft = self.mods.compute_stft(wavs)
+        X_stft_power = speechbrain.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams.spec_mag_power
+        )
+        X_stft_logpower = torch.log1p(X_stft_power)
+
+        return X_stft_logpower, X_stft, X_stft_power
+
+    def classifier_forward(self, X_stft_logpower):
+        """the forward pass for the classifier"""
+        hcat = self.mods.embedding_model(X_stft_logpower)
+        embeddings = hcat.mean((-1, -2))
+        predictions = self.mods.classifier(embeddings).squeeze(1)
+        class_pred = predictions.argmax(1)
+        return hcat, embeddings, predictions, class_pred
+
+    def invert_stft_with_phase(self, X_int, X_stft_phase):
+        """Inverts STFT spectra given phase."""
+        X_stft_phase_sb = torch.cat(
+            (
+                torch.cos(X_stft_phase).unsqueeze(-1),
+                torch.sin(X_stft_phase).unsqueeze(-1),
+            ),
+            dim=-1,
+        )
+
+        X_stft_phase_sb = X_stft_phase_sb[:, : X_int.shape[1], :, :]
+        if X_int.ndim == 3:
+            X_int = X_int.unsqueeze(-1)
+        X_wpsb = X_int * X_stft_phase_sb
+        x_int_sb = self.mods.compute_istft(X_wpsb)
+        return x_int_sb
+
+    def interpret_batch(self, wavs):
+        """Classifies the given audio into the given set of labels.
+        It also provides the interpretation in the audio domain.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model. Make sure the sample rate is fs=16000 Hz.
+
+        Returns
+        -------
+        x_int_sound_domain
+            The interpretation in the waveform domain
+        text_lab:
+            The text label for the classification
+        fs_model:
+            The sampling frequency of the model. Useful to save the audio.
+        """
+        wavs = wavs.to(self.device)
+        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_phase = spectral_phase(X_stft)
+
+        # Embeddings + sound classifier
+        hcat, embeddings, predictions, class_pred = self.classifier_forward(
+            X_stft_logpower
+        )
+
+        if self.hparams.use_vq:
+            xhat, hcat, z_q_x = self.mods.psi(hcat, class_pred)
+        else:
+            xhat = self.mods.psi.decoder(hcat)
+        xhat = xhat.squeeze(1)
+        Tmax = xhat.shape[1]
+        if self.hparams.use_mask_output:
+            xhat = F.sigmoid(xhat)
+            X_int = xhat * X_stft_logpower[:, :Tmax, :]
+        else:
+            xhat = F.softplus(xhat)
+            th = xhat.max() * self.hparams.mask_th
+            X_int = (xhat > th) * X_stft_logpower[:, :Tmax, :]
+        X_int = torch.expm1(X_int)
+        x_int_sound_domain = self.invert_stft_with_phase(X_int, X_stft_phase)
+        text_lab = self.hparams.label_encoder.decode_torch(
+            class_pred.unsqueeze(0)
+        )
+
+        return x_int_sound_domain, text_lab
+
+    def interpret_file(self, path, savedir="audio_cache"):
+        """Classifies the given audiofile into the given set of labels.
+        It also provides the interpretation in the audio domain.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file to classify.
+
+        Returns
+        -------
+        x_int_sound_domain
+            The interpretation in the waveform domain
+        text_lab:
+            The text label for the classification
+        fs_model:
+            The sampling frequency of the model. Useful to save the audio.
+        """
+        source, fl = split_path(path)
+        path = fetch(fl, source=source, savedir=savedir)
+
+        batch, fs_file = torchaudio.load(path)
+        batch = batch.to(self.device)
+        fs_model = self.hparams.sample_rate
+
+        # resample the data if needed
+        if fs_file != fs_model:
+            print(
+                "Resampling the audio from {} Hz to {} Hz".format(
+                    fs_file, fs_model
+                )
+            )
+            tf = torchaudio.transforms.Resample(
+                orig_freq=fs_file, new_freq=fs_model
+            ).to(self.device)
+            batch = batch.mean(dim=0, keepdim=True)
+            batch = tf(batch)
+
+        x_int_sound_domain, text_lab = self.interpret_batch(batch)
+        return x_int_sound_domain, text_lab, fs_model
+
+    def forward(self, wavs, wav_lens=None):
+        """Runs the classification"""
+        return self.interpret_batch(wavs, wav_lens)
