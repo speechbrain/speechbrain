@@ -2848,7 +2848,7 @@ class FastSpeech2(Pretrained):
     >>> # Running the TTS
     >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"])
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_output)
+    >>> waveforms = hifi_gan.decode_batch(mel_outputs)
     """
 
     HPARAMS_NEEDED = ["spn_predictor", "model", "input_encoder"]
@@ -3060,12 +3060,12 @@ class FastSpeech2(Pretrained):
 
         return post_mel_outputs, durations, pitch, energy
 
-    def forward(self, phon_seq, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+    def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
         Arguments
         ---------
-        phon_seq : torch.Tensor
-            A sequence of encoded phonemes to be converted to spectrogram
+        text : str
+            A text to be converted to spectrogram
         pace : float
             pace for the speech synthesis
         pitch_rate : float
@@ -3073,8 +3073,8 @@ class FastSpeech2(Pretrained):
         energy_rate : float
             scaling factor for phoneme energies
         """
-        return self.encode_batch(
-            phon_seq, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+        return self.encode_text(
+            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
         )
 
 
