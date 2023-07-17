@@ -53,16 +53,16 @@ class HuggingFaceGPT(nn.Module):
     """
 
     def __init__(
-        self, source: str, save_path: str, freeze: bool = False, max_length: int = 50, min_length: int = 1,
+        self, source: str, save_path: str, freeze: bool = False, max_new_tokens: int = 200, min_length: int = 1,
           top_k: int = 45, top_p: float = 0.9,num_beams : int = 8, early_stopping: bool = True
     ) -> None:
         super().__init__()
         self.freeze = freeze
-        self.max_length = max_length,
-        self.min_length = min_length,
-        self.top_k = top_k,
-        self.top_p =top_p,
-        self.num_beams = num_beams,
+        self.max_new_tokens = max_new_tokens
+        self.min_length = min_length
+        self.top_k = top_k
+        self.top_p = top_p
+        self.num_beams = num_beams
         self.early_stopping = early_stopping
         self.model = GPT2LMHeadModel.from_pretrained(
             source, cache_dir=save_path
@@ -83,18 +83,17 @@ class HuggingFaceGPT(nn.Module):
         token_type_ids : torch.Tensor
             Token Type(Speaker) for each token in input_ids.
         """
-
         with torch.set_grad_enabled(not self.freeze):
             output = self.model.forward(
                 input_ids, token_type_ids=token_type_ids
             )
         return output
     
-    def generate(self, input_ids: Tensor, decoder_type='greedy'):
+    def generate(self, input_ids: Tensor,token_type_ids,decoder_type='greedy'):
         """ Takes an input a history of conversation and return its corresponding reply.
 
         Arguments
-        ---------
+        --------
         input_ids : torch.Tensor ()
             A batch of input-id   which are dialogue context tokens
         decoder_type : Str
@@ -105,17 +104,18 @@ class HuggingFaceGPT(nn.Module):
         with torch.no_grad():
             if decoder_type == 'beam':
                 #beam decoding based on the input_ids which are dialogue context tokens (here only history)
-                hyp = self.model.generate( 
+                hyp = self.model.generate(
                     input_ids = input_ids,
-                    do_sample = True, 
-                    max_length = self.max_length,
+                    token_type_ids=token_type_ids,
+                    do_sample = True,
+                    max_new_tokens = self.max_new_tokens,
                     min_length = self.min_length,
                     top_k = self.top_k,
-                    top_p =self.top_p,
-                    num_beams = 8,
+                    top_p = self.top_p,
+                    num_beams = self.num_beams,
                     num_return_sequences = 1,
                     early_stopping = self.early_stopping)
             else:
                 #greedy decoding based on the input_ids which are dialogue context tokens (here only history)
-                hyp = self.model.generate(input_ids, max_length=self.max_length)
+                hyp = self.model.generate(input_ids, token_type_ids=token_type_ids,max_new_tokens=self.max_new_tokens)
         return hyp

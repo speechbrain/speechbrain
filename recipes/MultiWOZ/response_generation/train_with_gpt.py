@@ -33,8 +33,7 @@ class ResGenBrain(sb.Brain):
         # Forward Pass
         outputs = self.modules.gpt_model(input_ids, token_type_ids,).logits
 
-        #  apply softmax if necessary
-        outputs = self.hparams.log_softmax(outputs)
+        #  apply softmax if necessary        outputs = self.hparams.log_softmax(outputs)
 
 
 
@@ -45,18 +44,33 @@ class ResGenBrain(sb.Brain):
         """
         # Get required data from batch
         batch = batch.to(self.device)
-        lm_labels, labels_lens = batch.lm_labels
-        input_ids, _ = batch.input_ids
+        ids = batch.id
+        lm_labels, labels_lens =  batch.lm_labels
+        history_bos, _ = batch.history_bos
+        reply_eos, reply_len = batch.reply_eos
+        history_token_type, _ = batch.history_token_type
+
 
         loss = self.hparams.compute_cost(predictions, lm_labels, labels_lens)
-
         if stage == sb.Stage.VALID:
             # hyps = None
             # current_epoch = self.hparams.epoch_counter.current
             # if current_epoch % self.hparams.valid_search_interval == 0:
-            hyps = self.modules.gpt_model.generate(input_ids.detach())
+            hyps = self.modules.gpt_model.generate(history_bos.detach(),history_token_type.detach())
         elif stage == sb.Stage.TEST:
-            hyps = self.modules.gpt_model.generat(input_ids.detach(),'beam')
+            hyps = self.modules.gpt_model.generate(history_bos.detach(),history_token_type.detach(),'beam')
+
+        
+        if stage != sb.Stage.TRAIN:
+            predicted_words = tokenizer.batch_decode(hyps[:,history_bos.shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            target_words = tokenizer.batch_decode(reply_eos, skip_special_tokens=True, clean_up_tokenization_spaces=True) 
+            self.blue_4_metric.append(ids, predicted_words, target_words)
+            self.blue_2_metric.append(ids, predicted_words, target_words)
+            if stage == sb.Stage.TEST:
+                self.hyps.extend(predicted_words)
+                self.references.extend(target_words)
+            
+
 
         return loss
 
@@ -71,6 +85,13 @@ class ResGenBrain(sb.Brain):
         self.optimizer.zero_grad()
 
         return loss.detach()
+    def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
+        if stage != sb.Stage.TRAIN:
+            self.blue_4_metric = self.hparams.blue_4_computer()
+            self.blue_2_metric = self.hparams.blue_2_computer()
+            self.hyps= []
+            self.references =[]
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -90,9 +111,11 @@ class ResGenBrain(sb.Brain):
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
-
+        else:
+            stage_stats["Blue_4"] = self.blue_4_metric.summarize("BLEU")
+            stage_stats["Blue_2"] = self.blue_2_metric.summarize("BLEU")
         # Perform end-of-iteration things, like annealing, logging, etc.
-        elif stage == sb.Stage.VALID:
+        if stage == sb.Stage.VALID:
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -101,7 +124,7 @@ class ResGenBrain(sb.Brain):
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
-                valid_stats={"loss": stage_loss},
+                valid_stats=stage_stats,
             )
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
@@ -113,8 +136,16 @@ class ResGenBrain(sb.Brain):
 
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats={"loss": stage_loss},
+                test_stats=stage_stats,
             )
+            with open(self.hparams.blue_4_file, "w") as w:
+                self.blue_4_metric.write_stats(w)
+                for i in range(len(self.hyps)):
+                    w.write('target: ' + str(self.references[i]) + '\n')
+                    w.write('predicted:' + str(self.hyps[i]) + '\n')
+                    w.write('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
+            
+
 
     def init_optimizers(self):
         "Initializes the model optimizer"
@@ -168,8 +199,8 @@ def dataio_prep(hparams, tokenizer):
     @sb.utils.data_pipeline.provides(
         "history",
         "history_tokens_lists",
-        "history_input_lists",
-        "history_token_type_lists",
+        "history_bos",
+        "history_token_type",
     )
     def history_pipeline(history):
         yield history
@@ -185,7 +216,10 @@ def dataio_prep(hparams, tokenizer):
             [user if i % 2 == 0 else system] + encoded_turn
             for i, encoded_turn in enumerate(history_tokens_lists)
         ]
-        yield history_input_lists
+        # add bos and to the history
+        history_bos = [[bos]] + history_input_lists[-history_window:]
+        history_bos = torch.LongTensor(list(chain(*history_bos)))
+        yield history_bos
 
         # create a mapping that associates each token in the input to a speaker
         # INPUT: [SPK_1 Hi    how   are   you? ], [SPK_2 I'm   fine, thanks]
@@ -194,15 +228,18 @@ def dataio_prep(hparams, tokenizer):
             [user if i % 2 == 0 else system] * len(encoded_turn)
             for i, encoded_turn in enumerate(history_input_lists)
         ]
-        yield history_token_type_lists
+        # history_token_lists = torch.LongTensor(history_token_type_lists)
+        history_token_type =  torch.LongTensor(list(chain(*([[system]] + history_token_type_lists[-history_window:]))))
+
+        yield history_token_type
 
     #  Define reply pipeline:
     @sb.utils.data_pipeline.takes("reply")
     @sb.utils.data_pipeline.provides(
         "reply",
         "reply_tokens_list",
-        "reply_input_list",
-        "reply_token_type_list",
+        "reply_eos",
+        "reply_token_type",
     )
     def reply_pipeline(reply):
         yield reply
@@ -212,69 +249,74 @@ def dataio_prep(hparams, tokenizer):
         yield reply_tokens_list
 
         # specify that the system will say the reply
-        reply_input_list = [system] + reply_tokens_list
-        yield reply_input_list
+        reply_input_list = [system] + reply_tokens_list  + [eos] if hparams["with_eos"] else []
+        reply_eos = torch.LongTensor(reply_input_list)
+        yield reply_eos
 
         # specify the speaker for each token in the reply
-        reply_token_type_list = [system] * len(reply_input_list)
-        yield reply_token_type_list
+        reply_token_type = torch.LongTensor([system] * len(reply_input_list))
+        yield reply_token_type
 
     # Define input_and_token_type_pipeline
     @sb.utils.data_pipeline.takes(
-        "history_input_lists",
-        "history_token_type_lists",
-        "reply_input_list",
-        "reply_token_type_list",
+        "history_bos",
+        "history_token_type",
+        "reply_eos",
+        "reply_token_type",
     )
-    @sb.utils.data_pipeline.provides("input_ids", "token_type_ids", "lm_labels")
+    @sb.utils.data_pipeline.provides("input_ids", "token_type_ids","lm_labels")
     def input_and_token_type_pipeline(
-        history_input_lists,
-        history_token_type_lists,
-        reply_input_list,
-        reply_token_type_list,
+        history_bos,
+        history_token_type,
+        reply_eos,
+        reply_token_type,
     ):
-        # optionally add eos to reply
-        reply_input_list = (
-            reply_input_list + [eos] if hparams["with_eos"] else []
-        )
+        # # optionally add eos to reply
+        # reply_input_list = (
+        #     reply_input_list + [eos] if hparams["with_eos"] else []
+        # )
 
         # add bos and to the history
-        history_input_lists = [[bos]] + history_input_lists[-history_window:]
+        # history_input_lists = [[bos]] + history_input_lists[-history_window:]
 
         # put history and reply together
-        input_sequence = history_input_lists + [reply_input_list]
+        # input_sequence = history_bos + reply_eos
+        input_ids = torch.cat((history_bos, reply_eos), -1)
 
         # concatenate every token into a single list
         # list(chain(*[[1, 2], [3, 4], [5]]))
         # >>> [1, 2, 3, 4, 5]
-        input_ids = list(chain(*input_sequence))
-        input_ids = torch.LongTensor(input_ids)
+        # input_ids = list(chain(*input_sequence))
+        # input_ids = torch.LongTensor(input_ids)
         yield input_ids
 
         # do the same for the token_type
-        reply_token_type_list = (
-            reply_token_type_list + [system] if hparams["with_eos"] else []
-        )
+        # reply_token_type_list = (
+        #     reply_token_type_list + [system] if hparams["with_eos"] else []
+        # )
 
         # bos token belongs to the system
-        history_token_type_lists = [[system]] + history_token_type_lists[
-            -history_window:
-        ]
+        # history_token_type_lists = [[system]] + history_token_type_lists[
+        #     -history_window:
+        # ]
 
-        token_type_ids = history_token_type_lists + [reply_token_type_list]
+        # token_type_ids = history_token_type_lists + [reply_token_type_list]
+        token_type_ids = torch.cat((history_token_type, reply_token_type), -1)
 
-        token_type_ids = list(chain(*token_type_ids))
-        token_type_ids = torch.LongTensor(token_type_ids)
+        # token_type_ids = list(chain(*token_type_ids))
+        # token_type_ids = torch.LongTensor(token_type_ids)
         yield token_type_ids
 
-        # create the language model label (ground truth) for the current input
-        # -100 is a special tokens that is ignored during the loss computation
-        # the idea is to mask everything except the reply (withouth the speaker token)
-        lm_labels = (
-            ([-100] * sum(len(s) for s in input_sequence[:-1]))
-            + [-100]
-            + input_sequence[-1][1:]
-        )
+        # # create the language model label (ground truth) for the current input
+        # # -100 is a special tokens that is ignored during the loss computation
+        # # the idea is to mask everything except the reply (withouth the speaker token)
+        # lm_labels = (
+        #     ([-100] * sum(len(s) for s in history_bos))
+        #     + [-100]
+        #     + input_sequence[-1][1:]
+        # )
+        lm_labels = ([-100] * history_bos.shape[0] + [-100] + reply_eos[1:].tolist())
+        #     + input_sequence[-1][1:]
         lm_labels = torch.LongTensor(lm_labels)
         yield lm_labels
 
@@ -295,7 +337,7 @@ def dataio_prep(hparams, tokenizer):
                 history_pipeline,
                 input_and_token_type_pipeline,
             ],
-            output_keys=["id", "input_ids", "token_type_ids", "lm_labels"],
+            output_keys=["id", "input_ids", "token_type_ids", "history_bos","reply_eos","history_token_type","reply_token_type","lm_labels"],
         )
 
     return datasets
@@ -356,6 +398,11 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+        # We load the pretrained whisper model
+    if "pretrainer" in hparams.keys():
+        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].load_collected(res_gen_brain.device)
 
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
