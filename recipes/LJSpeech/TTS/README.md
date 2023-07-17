@@ -32,7 +32,7 @@ python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/L
 ```
 Training takes about 12 hours on an nvidia RTX3090.
 
-The training logs are available [here](https://drive.google.com/drive/folders/1Yb8CDCrW7JF1_jg8Xc4U15z3W37VjrY5).
+The training logs are available [here](https://www.dropbox.com/sh/tqyp58ogejqfres/AAAtmq7cRoOR3XTsq0iSgyKBa?dl=0).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-ljspeech).
 
