@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Token scorer abstraction and specifications.
 
@@ -21,7 +20,12 @@ class BaseScorerInterface:
     based on the current timestep input and the previous
     scorer states. It can be used to score on full vocabulary
     set (i.e., Full scorers) or a pruned set of tokens (i.e. Partial scorers)
-    to prevent computation overhead.
+    to prevent computation overhead. In the latter case, the scorer
+    will be called after the full scorers. It will only scores the
+    top-k candidates extracted from the full scorers. The top-k
+    candidates are extracted based on the beam size and the
+    scorer_beam_scale such that the number of candidates is
+    int(beam_size * scorer_beam_scale).
 
     Inherit this class to implement your own scorer compatible with
     speechbrain.decoders.seq2seq.S2SBeamSearcher().
