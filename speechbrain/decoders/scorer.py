@@ -19,13 +19,14 @@ class BaseScorerInterface:
     A scorer is a module that scores tokens in vocabulary
     based on the current timestep input and the previous
     scorer states. It can be used to score on full vocabulary
-    set (i.e., Full scorers) or a pruned set of tokens (i.e. Partial scorers)
-    to prevent computation overhead. In the latter case, the scorer
+    set (i.e., full scorers) or a pruned set of tokens (i.e. partial scorers)
+    to prevent computation overhead. In the latter case, the partial scorers
     will be called after the full scorers. It will only scores the
-    top-k candidates extracted from the full scorers. The top-k
-    candidates are extracted based on the beam size and the
+    top-k candidates (i.e., pruned set of tokens) extracted from the full scorers.
+    The top-k candidates are extracted based on the beam size and the
     scorer_beam_scale such that the number of candidates is
-    int(beam_size * scorer_beam_scale).
+    int(beam_size * scorer_beam_scale). It can be very useful
+    when the full scorers are computationally expensive (e.g., KenLM scorer).
 
     Inherit this class to implement your own scorer compatible with
     speechbrain.decoders.seq2seq.S2SBeamSearcher().
@@ -105,6 +106,13 @@ class BaseScorerInterface:
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
+    This Scorer is used to provides the CTC label-synchronous scores
+    of the next input tokens. The implementation is based on
+    https://www.merl.com/publications/docs/TR2017-190.pdf.
+
+    See:
+        - speechbrain.decoders.scorer.CTCPrefixScore
+
     Arguments
     ---------
     ctc_fc : torch.nn.Module
@@ -170,19 +178,57 @@ class CTCScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        CTC scores computed over the time frames.
+
+        See:
+            - speechbrain.decoders.scorer.CTCPrefixScore
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         scores, memory = self.ctc_score.forward_step(
             inp_tokens, memory, candidates, attn
         )
         return scores, memory
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched CTC beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         r, psi = self.ctc_score.permute_mem(memory, index)
         return r, psi
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the CTC scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         logits = self.ctc_fc(x)
         x = self.softmax(logits)
         self.ctc_score = CTCPrefixScore(
@@ -193,6 +239,9 @@ class CTCScorer(BaseScorerInterface):
 
 class RNNLMScorer(BaseScorerInterface):
     """A wrapper of RNNLM based on BaseScorerInterface.
+
+    The RNNLMScorer is used to provide the RNNLM scores of the next input tokens
+    based on the current timestep input and the previous scorer states.
 
     Arguments
     ---------
