@@ -19,6 +19,7 @@ from itertools import chain
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from transformers import GPT2Tokenizer
+import math
 
 
 class ResGenBrain(sb.Brain):
@@ -31,9 +32,11 @@ class ResGenBrain(sb.Brain):
         token_type_ids, _ = batch.token_type_ids
 
         # Forward Pass
-        outputs = self.modules.gpt_model(input_ids, token_type_ids,).logits
+        padding_mask = self.hparams.padding_mask(input_ids,  pad_idx=0)
+        outputs = self.modules.gpt_model(input_ids, token_type_ids,padding_mask).logits
 
-        #  apply softmax if necessary        outputs = self.hparams.log_softmax(outputs)
+        #  apply softmax if necessary
+        outputs = self.hparams.log_softmax(outputs)
 
 
 
@@ -46,8 +49,8 @@ class ResGenBrain(sb.Brain):
         batch = batch.to(self.device)
         ids = batch.id
         lm_labels, labels_lens =  batch.lm_labels
-        history_bos, _ = batch.history_bos
-        reply_eos, reply_len = batch.reply_eos
+        history_bos, history_lens = batch.history_bos
+        reply_eos, reply_lens = batch.reply_eos
         history_token_type, _ = batch.history_token_type
 
 
@@ -56,14 +59,17 @@ class ResGenBrain(sb.Brain):
             # hyps = None
             # current_epoch = self.hparams.epoch_counter.current
             # if current_epoch % self.hparams.valid_search_interval == 0:
-            hyps = self.modules.gpt_model.generate(history_bos.detach(),history_token_type.detach())
+            padding_mask = self.hparams.padding_mask(history_bos,  pad_idx=0)
+            hyps = self.modules.gpt_model.generate(history_bos.detach(),history_token_type.detach(),padding_mask.detach())
         elif stage == sb.Stage.TEST:
-            hyps = self.modules.gpt_model.generate(history_bos.detach(),history_token_type.detach(),'beam')
+            padding_mask = self.hparams.padding_mask(history_bos,  pad_idx=0)
+            hyps = self.modules.gpt_model.generate(history_bos.detach(),history_token_type.detach(),padding_mask.detach(),'beam')
 
         
         if stage != sb.Stage.TRAIN:
+            reply_truncated=[reply_eos[i][:int(reply_lens[i].item()*reply_eos.shape[1]-1)].detach() for i in range(reply_eos.shape[0])]
             predicted_words = tokenizer.batch_decode(hyps[:,history_bos.shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-            target_words = tokenizer.batch_decode(reply_eos, skip_special_tokens=True, clean_up_tokenization_spaces=True) 
+            target_words = tokenizer.batch_decode(reply_truncated, skip_special_tokens=True, clean_up_tokenization_spaces=True) 
             self.blue_4_metric.append(ids, predicted_words, target_words)
             self.blue_2_metric.append(ids, predicted_words, target_words)
             if stage == sb.Stage.TEST:
@@ -109,6 +115,7 @@ class ResGenBrain(sb.Brain):
 
         # Store the train loss until the validation stage.
         stage_stats = {"loss": stage_loss}
+        stage_stats["PPL"] = math.exp(stage_loss)
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
@@ -377,7 +384,7 @@ if __name__ == "__main__":
     )
 
     # Load tokenizer and add special tokens
-    tokenizer = GPT2Tokenizer.from_pretrained(hparams["gpt_hub"])
+    tokenizer = GPT2Tokenizer.from_pretrained(hparams["gpt_hub"],pad_token = None)
 
     #  Load pretrained GPT
     hparams["gpt_model"] = hparams["gpt_model"].to(device=run_opts["device"])

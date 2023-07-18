@@ -73,7 +73,7 @@ class HuggingFaceGPT(nn.Module):
             for param in self.model.parameters():
                 param.requires_grad = False
 
-    def forward(self, input_ids: Tensor, token_type_ids: Tensor):
+    def forward(self, input_ids: Tensor, token_type_ids: Tensor, attention_mask: Tensor,):
         """ Takes an input a history of conversation and return its corresponding reply.
 
         Arguments
@@ -85,11 +85,11 @@ class HuggingFaceGPT(nn.Module):
         """
         with torch.set_grad_enabled(not self.freeze):
             output = self.model.forward(
-                input_ids, token_type_ids=token_type_ids
+                input_ids, token_type_ids=token_type_ids, attention_mask = attention_mask
             )
         return output
     
-    def generate(self, input_ids: Tensor,token_type_ids,decoder_type='greedy'):
+    def generate(self, input_ids: Tensor,token_type_ids, attention_mask: Tensor,decoder_type='greedy'):
         """ Takes an input a history of conversation and return its corresponding reply.
 
         Arguments
@@ -100,13 +100,13 @@ class HuggingFaceGPT(nn.Module):
             It shows strategy for autoregressive decoding either beam seach or greedy.
         """
 
-        print("Hi....................................")
         with torch.no_grad():
             if decoder_type == 'beam':
                 #beam decoding based on the input_ids which are dialogue context tokens (here only history)
                 hyp = self.model.generate(
                     input_ids = input_ids,
                     token_type_ids=token_type_ids,
+                    attention_mask = attention_mask,
                     do_sample = True,
                     max_new_tokens = self.max_new_tokens,
                     min_length = self.min_length,
@@ -114,8 +114,9 @@ class HuggingFaceGPT(nn.Module):
                     top_p = self.top_p,
                     num_beams = self.num_beams,
                     num_return_sequences = 1,
+                # pad_token_id=50256,
                     early_stopping = self.early_stopping)
             else:
                 #greedy decoding based on the input_ids which are dialogue context tokens (here only history)
-                hyp = self.model.generate(input_ids, token_type_ids=token_type_ids,max_new_tokens=self.max_new_tokens)
+                hyp = self.model.generate(input_ids, token_type_ids=token_type_ids,max_new_tokens=self.max_new_tokens,attention_mask = attention_mask)
         return hyp
