@@ -491,7 +491,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return cond
 
     def init_hypotheses(self):
-        """This method initializes the AlivedHypotheses object."""
+        """This method initializes the AlivedHypotheses object.
+
+        Returns
+        -------
+        AlivedHypotheses
+            The alived hypotheses filled with the initial values.
+        """
         return AlivedHypotheses(
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
             alived_log_probs=torch.empty(self.n_bh, 0, device=self.device),
