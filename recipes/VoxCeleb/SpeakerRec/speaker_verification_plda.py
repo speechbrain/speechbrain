@@ -29,7 +29,6 @@ from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
 
 
-# Compute embeddings from the waveforms
 def compute_embeddings(wavs, wav_lens):
     """Compute speaker embeddings.
 
@@ -156,7 +155,8 @@ def dataio_prep(params):
 
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["train_data"], replacements={"data_root": data_folder},
+        csv_path=params["train_data"],
+        replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
         sort_key="duration", select_n=params["n_train_snts"]
@@ -164,13 +164,15 @@ def dataio_prep(params):
 
     # Enrol data
     enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+        csv_path=params["enrol_data"],
+        replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["test_data"], replacements={"data_root": data_folder},
+        csv_path=params["test_data"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -209,7 +211,6 @@ def dataio_prep(params):
 
 
 if __name__ == "__main__":
-
     # Logger setup
     logger = logging.getLogger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))

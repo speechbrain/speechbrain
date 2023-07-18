@@ -4,7 +4,6 @@ Authors
  * Hwidong Na 2020
 """
 
-# import os
 import torch  # noqa: F401
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,7 +13,6 @@ from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
 
 
-# Skip transpose as much as possible for efficiency
 class Conv1d(_Conv1d):
     """1D convolution. Skip transpose is used to improve efficiency."""
 
@@ -77,7 +75,7 @@ class TDNNBlock(nn.Module):
         self.norm = BatchNorm1d(input_size=out_channels)
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         return self.norm(self.activation(self.conv(x)))
 
 
@@ -130,7 +128,7 @@ class Res2NetBlock(torch.nn.Module):
         self.scale = scale
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         y = []
         for i, x_i in enumerate(torch.chunk(x, self.scale, dim=1)):
             if i == 0:
@@ -179,7 +177,7 @@ class SEBlock(nn.Module):
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, lengths=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         L = x.shape[-1]
         if lengths is not None:
             mask = length_to_mask(lengths * L, max_len=L, device=x.device)
@@ -353,7 +351,7 @@ class SERes2NetBlock(nn.Module):
             )
 
     def forward(self, x, lengths=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         residual = x
         if self.shortcut:
             residual = self.shortcut(x)
@@ -400,7 +398,6 @@ class ECAPA_TDNN(torch.nn.Module):
     def __init__(
         self,
         input_size,
-        device="cpu",
         lin_neurons=192,
         activation=torch.nn.ReLU,
         channels=[512, 512, 512, 512, 1536],
@@ -412,7 +409,6 @@ class ECAPA_TDNN(torch.nn.Module):
         global_context=True,
         groups=[1, 1, 1, 1, 1],
     ):
-
         super().__init__()
         assert len(channels) == len(kernel_sizes)
         assert len(channels) == len(dilations)
@@ -539,7 +535,6 @@ class Classifier(torch.nn.Module):
         lin_neurons=192,
         out_neurons=1211,
     ):
-
         super().__init__()
         self.blocks = nn.ModuleList()
 
