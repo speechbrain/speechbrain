@@ -107,12 +107,14 @@ test_beam_size: 40
 using_eos_threshold: True
 eos_threshold: 1.5
 using_max_attn_shift: True
+max_attn_shift: 300
 lm_weight: 0.8
 temperature: 1.0
+ctc_window_size: 200
 
 # Scoring parameters
 ctc_weight_decode: 0.40
-coverage_penalty: 1.0
+coverage_penalty: 1.5
 
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -228,6 +230,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
    eos_index: !ref <eos_index>
    blank_index: !ref <blank_index>
    ctc_fc: !ref <ctc_lin>
+   ctc_window_size: !ref <ctc_window_size>
 
 coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
    vocab_size: !ref <output_neurons>
@@ -257,6 +260,7 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    beam_size: !ref <valid_beam_size>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
+   max_attn_shift: !ref <max_attn_shift>
    temperature: !ref <temperature>
 
 test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
@@ -270,6 +274,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    beam_size: !ref <test_beam_size>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
+   max_attn_shift: !ref <max_attn_shift>
    using_eos_threshold: !ref <using_eos_threshold>
    temperature: !ref <temperature>
    scorer: !ref <scorer>
