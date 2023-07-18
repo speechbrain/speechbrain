@@ -320,14 +320,39 @@ class RNNLMScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        RNNLM scores computed over the previous tokens.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
             log_probs = self.softmax(logits / self.temperature)
         return log_probs, hs
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         if isinstance(memory, tuple):
             memory_0 = torch.index_select(memory[0], dim=1, index=index)
             memory_1 = torch.index_select(memory[1], dim=1, index=index)
@@ -337,7 +362,17 @@ class RNNLMScorer(BaseScorerInterface):
         return memory
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the RNNLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         return None
 
 
