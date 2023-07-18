@@ -379,6 +379,10 @@ class RNNLMScorer(BaseScorerInterface):
 class TransformerLMScorer(BaseScorerInterface):
     """A wrapper of TransformerLM based on BaseScorerInterface.
 
+    The TransformerLMScorer is used to provide the TransformerLM scores
+    of the next input tokens based on the current timestep input and the
+    previous scorer states.
+
     Arguments
     ---------
     language_model : torch.nn.Module
