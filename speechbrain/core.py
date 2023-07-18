@@ -33,6 +33,7 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
+from speechbrain.utils.distributed import if_main_process
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
@@ -559,9 +560,10 @@ class Brain:
 
         if self.distributed_launch and self.ckpt_interval_minutes > 0:
             logger.warning(
-                "Saving an intra-epoch checkpoint based on the time sometimes "
-                "results in race conditions when running on multiple processes. "
-                "Consider switching to intervals based on # of steps with the "
+                "The --ckpt_interval_minutes option saves only on the main "
+                "process to avoid race conditions. If you need to save an "
+                "intra-epoch checkpoint on multiple processes (e.g. FSDP), "
+                "consider switching to intervals based on # of steps with the "
                 "argument --ckpt_interval_steps."
             )
 
@@ -1173,9 +1175,12 @@ class Brain:
 
         # Check if we've run for the requested amount of time
         if 0 < self.ckpt_interval_minutes * 60.0 < time.time() - last_ckpt_time:
-            return True
+            # Only save on the main process to avoid race conditions
+            return if_main_process()
 
-        # Save after requested # of steps
+        # Save after requested # of steps. This option is the only one that
+        # allows saving on multiple processes. The logic for whether saving
+        # is run only on the main process is handled by the checkpointer.
         return 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
     def _fit_valid(self, valid_set, epoch, enable):
