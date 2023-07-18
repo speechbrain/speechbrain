@@ -525,7 +525,19 @@ class TransformerLMScorer(BaseScorerInterface):
 
 
 class KenLMScorer(BaseScorerInterface):
-    """KenLM N-gram scorer
+    """KenLM N-gram scorer.
+
+    This scorer is based on KenLM, which is a fast and efficient
+    N-gram language model toolkit. It is used to provide the n-gram scores
+    of the next input tokens.
+
+    This scorer is dependent on the KenLM package. It can be installed
+    with the following command:
+            > pip install https://github.com/kpu/kenlm/archive/master.zip
+
+    Note: The KenLM scorer is computationally expensive. It is recommended
+    to use it as a partial scorer to score on the top-k candidates instead
+    of the full vocabulary set.
 
     Arguments
     ---------
@@ -535,6 +547,61 @@ class KenLMScorer(BaseScorerInterface):
         The total number of tokens.
     token_list : list
         The tokens set.
+
+    # Example
+    # -------
+    # >>> from speechbrain.nnet.linear import Linear
+    # >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
+    # >>> from speechbrain.decoders import S2SRNNBeamSearcher, KenLMScorer, ScorerBuilder
+    # >>> input_size=17
+    # >>> vocab_size=11
+    # >>> lm_path='path/to/kenlm_model.arpa' # or .bin
+    # >>> token_list=['<pad>', '<bos>', '<eos>', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    # >>> emb = torch.nn.Embedding(
+    # ...     embedding_dim=input_size,
+    # ...     num_embeddings=vocab_size,
+    # ... )
+    # >>> d_model=7
+    # >>> dec = AttentionalRNNDecoder(
+    # ...     rnn_type="gru",
+    # ...     attn_type="content",
+    # ...     hidden_size=3,
+    # ...     attn_dim=3,
+    # ...     num_layers=1,
+    # ...     enc_dim=d_model,
+    # ...     input_size=input_size,
+    # ... )
+    # >>> n_channels=3
+    # >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    # >>> kenlm_weight = 0.4
+    # >>> kenlm_model = KenLMScorer(
+    # ...     lm_path=lm_path,
+    # ...     vocab_size=vocab_size,
+    # ...     token_list=token_list,
+    # ... )
+    # >>> scorer = ScorerBuilder(
+    # ...     full_scorers=[kenlm_model],
+    # ...     weights={'kenlm': kenlm_weight}
+    # ... )
+    # >>> beam_size=5
+    # >>> searcher = S2SRNNBeamSearcher(
+    # ...     embedding=emb,
+    # ...     decoder=dec,
+    # ...     linear=seq_lin,
+    # ...     bos_index=1,
+    # ...     eos_index=2,
+    # ...     min_decode_ratio=0.0,
+    # ...     max_decode_ratio=1.0,
+    # ...     topk=2,
+    # ...     using_eos_threshold=False,
+    # ...     beam_size=beam_size,
+    # ...     temperature=1.25,
+    # ...     scorer=scorer
+    # ... )
+    # >>> batch_size=2
+    # >>> enc = torch.rand([batch_size, n_channels, d_model])
+    # >>> wav_len = torch.ones([batch_size])
+    # >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, lm_path, vocab_size, token_list):
