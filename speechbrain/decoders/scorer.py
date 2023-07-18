@@ -884,6 +884,9 @@ class LengthScorer(BaseScorerInterface):
     The LengthScorer is used to provide the length rewarding scores.
     It is used to prevent the beam search from favoring short hypotheses.
 
+    Note: length_normalization is not compatible with this scorer. Make sure
+    to set is to False when using LengthScorer.
+
     Arguments
     ---------
     vocab_size: int
