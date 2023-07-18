@@ -2,6 +2,7 @@
 # Model: Speaker Verification Baseline
 # Authors: Hwidong Na 2020
 #          Mirco Ravanelli 2020
+#          Xuechen Liu 2023
 # ################################
 
 seed: 1234
@@ -9,7 +10,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
-output_folder: results/voxceleb1_2/speaker_verification_ecapa
+output_folder: results/resnet/<seed>
 save_folder: !ref <output_folder>/save/
 
 # Use the following links for the official voxceleb splits:
@@ -24,7 +25,7 @@ verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-pretrain_path: speechbrain/spkrec-ecapa-voxceleb
+pretrain_path: speechbrain/spkrec-resnet-voxceleb
 
 # csv files
 train_data: !ref <save_folder>/train.csv
