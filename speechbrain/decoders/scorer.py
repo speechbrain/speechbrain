@@ -809,7 +809,22 @@ class CoverageScorer(BaseScorerInterface):
         self.time_step = 0
 
     def score(self, inp_tokens, coverage, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        Coverage scorer.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         n_bh = attn.size(0)
         self.time_step += 1
 
@@ -832,13 +847,33 @@ class CoverageScorer(BaseScorerInterface):
         return -1 * penalty / self.time_step, coverage
 
     def permute_mem(self, coverage, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         # Update coverage
         coverage = torch.index_select(coverage, dim=0, index=index)
         return coverage
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the RNNLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         self.time_step = 0
         return None
 
