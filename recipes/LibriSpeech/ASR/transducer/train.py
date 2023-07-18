@@ -86,13 +86,11 @@ class ASR(sb.Brain):
         e_in = torch.nn.functional.dropout(
             e_in,
             self.hparams.dec_emb_dropout,
-            training=(stage == sb.Stage.TRAIN)
+            training=(stage == sb.Stage.TRAIN),
         )
         h, _ = self.modules.dec(e_in)
         h = torch.nn.functional.dropout(
-            h,
-            self.hparams.dec_dropout,
-            training=(stage == sb.Stage.TRAIN)
+            h, self.hparams.dec_dropout, training=(stage == sb.Stage.TRAIN)
         )
         h = self.modules.proj_dec(h)
 
