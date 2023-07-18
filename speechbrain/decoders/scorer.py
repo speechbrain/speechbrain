@@ -816,7 +816,7 @@ class CoverageScorer(BaseScorerInterface):
         ---------
         inp_tokens : torch.Tensor
             The input tensor of the current timestep.
-        memory : No limit
+        coverage : No limit
             The scorer states for this timestep.
         candidates : torch.Tensor
             (batch_size x beam_size, scorer_beam_size).
@@ -853,7 +853,7 @@ class CoverageScorer(BaseScorerInterface):
 
         Arguments
         ---------
-        memory : No limit
+        coverage : No limit
             The memory variables input for this timestep.
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
@@ -881,17 +881,98 @@ class CoverageScorer(BaseScorerInterface):
 class LengthScorer(BaseScorerInterface):
     """A length rewarding scorer.
 
+    The LengthScorer is used to provide the length rewarding scores.
+    It is used to prevent the beam search from favoring short hypotheses.
+
     Arguments
     ---------
     vocab_size: int
         The total number of tokens.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.RNNLM import RNNLM
+    >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
+    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, CoverageScorer, ScorerBuilder
+    >>> input_size=17
+    >>> vocab_size=11
+    >>> emb = torch.nn.Embedding(
+    ...     num_embeddings=vocab_size,
+    ...     embedding_dim=input_size
+    ... )
+    >>> d_model=7
+    >>> dec = AttentionalRNNDecoder(
+    ...     rnn_type="gru",
+    ...     attn_type="content",
+    ...     hidden_size=3,
+    ...     attn_dim=3,
+    ...     num_layers=1,
+    ...     enc_dim=d_model,
+    ...     input_size=input_size,
+    ... )
+    >>> n_channels=3
+    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> lm_weight = 0.4
+    >>> length_weight = 1.0
+    >>> lm_model = RNNLM(
+    ...     embedding_dim=d_model,
+    ...     output_neurons=vocab_size,
+    ...     dropout=0.0,
+    ...     rnn_neurons=128,
+    ...     dnn_neurons=64,
+    ...     return_hidden=True,
+    ... )
+    >>> rnnlm_scorer = RNNLMScorer(
+    ...     language_model=lm_model,
+    ...     temperature=1.25,
+    ... )
+    >>> length_scorer = LengthScorer(vocab_size=vocab_size)
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[rnnlm_scorer, length_scorer],
+    ...     weights={'rnnlm': lm_weight, 'length': length_weight}
+    ... )
+    >>> beam_size=5
+    >>> searcher = S2SRNNBeamSearcher(
+    ...     embedding=emb,
+    ...     decoder=dec,
+    ...     linear=seq_lin,
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     topk=2,
+    ...     using_eos_threshold=False,
+    ...     beam_size=beam_size,
+    ...     temperature=1.25,
+    ...     scorer=scorer
+    ... )
+    >>> batch_size=2
+    >>> enc = torch.rand([batch_size, n_channels, d_model])
+    >>> wav_len = torch.ones([batch_size])
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, vocab_size):
         self.vocab_size = vocab_size
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        Length scorer.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         return (
             torch.tensor(
                 [1.0], device=inp_tokens.device, dtype=inp_tokens.dtype
