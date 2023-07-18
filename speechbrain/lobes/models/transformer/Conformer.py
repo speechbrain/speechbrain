@@ -5,10 +5,11 @@ Authors
 * Samuele Cornell 2021
 """
 
+from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
+from typing import Optional, List
 import speechbrain as sb
 import math
 import warnings
@@ -22,6 +23,17 @@ from speechbrain.nnet.attention import (
 from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.activations import Swish
+
+
+@dataclass
+class ConformerEncoderLayerStreamingContext:
+    mha_left_context: Optional[torch.Tensor]
+    dcconv_left_context: Optional[torch.Tensor]
+
+
+@dataclass
+class ConformerEncoderStreamingContext:
+    layers: List[ConformerEncoderLayerStreamingContext]
 
 
 class ConvolutionModule(nn.Module):
@@ -388,6 +400,13 @@ class ConformerEncoderLayer(nn.Module):
         return x, self_attn
 
 
+    def make_streaming_context(self):
+        return ConformerEncoderLayerStreamingContext(
+            mha_left_context=None,
+            dcconv_left_context=None
+        )
+
+
 class ConformerEncoder(nn.Module):
     """This class implements the Conformer encoder.
 
@@ -513,6 +532,38 @@ class ConformerEncoder(nn.Module):
         output = self.norm(output)
 
         return output, attention_lst
+
+    def forward_streaming(
+        self,
+        src,
+        context: ConformerEncoderStreamingContext,
+        pos_embs: Optional[torch.Tensor] = None
+    ):
+        if self.attention_type == "RelPosMHAXL":
+            if pos_embs is None:
+                raise ValueError(
+                    "The chosen attention type for the Conformer is RelPosMHAXL. For this attention type, the positional embeddings are mandatory"
+                )
+
+        output = src
+        attention_lst = []
+        for i, enc_layer in enumerate(self.layers):
+            output, attention = enc_layer(
+                output,
+                pos_embs=pos_embs,
+                context=context.layers[i]
+            )
+            attention_lst.append(attention)
+        output = self.norm(output)
+
+        return output, attention_lst
+
+    def make_streaming_context(self):
+        return ConformerEncoderStreamingContext(
+            layers=[
+                layer.make_streaming_context() for layer in self.layers
+            ]
+        )
 
 
 class ConformerDecoderLayer(nn.Module):

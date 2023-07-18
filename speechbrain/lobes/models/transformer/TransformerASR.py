@@ -4,9 +4,10 @@ Authors
 * Jianyuan Zhong 2020
 """
 
+from dataclasses import dataclass
 import torch  # noqa 42
 from torch import nn
-from typing import Optional
+from typing import Any, Optional
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -17,6 +18,20 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 from speechbrain.dataio.dataio import length_to_mask
+
+
+@dataclass
+class TransformerASRStreamingContext:
+    chunk_size: int
+    left_context_target_size: int
+    encoder: Any
+
+    @classmethod
+    def initial(cls, chunk_size, left_context_size):
+        return TransformerASRStreamingContext(
+            chunk_size=chunk_size,
+            left_context_target_size=left_context_size,
+        )
 
 
 class TransformerASR(TransformerInterface):
@@ -370,6 +385,38 @@ class TransformerASR(TransformerInterface):
             chunk_size=chunk_size,
         )
         return encoder_out
+
+    def encode_streaming(self, src, context: TransformerASRStreamingContext):
+        """
+        Streaming encoder forward pass
+        """
+        # TODO: docstring
+
+        if src.dim() == 4:
+            bz, t, ch1, ch2 = src.shape
+            src = src.reshape(bz, t, ch1 * ch2)
+
+        src = self.custom_src_module(src)
+        if self.attention_type == "RelPosMHAXL":
+            pos_embs_source = self.positional_encoding(src)
+
+        elif self.positional_encoding_type == "fixed_abs_sine":
+            src = src + self.positional_encoding(src)
+            pos_embs_source = None
+
+        encoder_out, _ = self.encoder.forward_streaming(
+            src=src,
+            pos_embs=pos_embs_source,
+            context=context.encoder
+        )
+        return encoder_out
+
+    def make_streaming_context(self, chunk_size, left_context_size, encoder_kwargs={}):
+        return TransformerASRStreamingContext(
+            chunk_size=chunk_size,
+            left_context_target_size=left_context_size,
+            encoder=self.encoder.make_streaming_context(**encoder_kwargs)
+        )
 
     def _init_params(self):
         for p in self.parameters():
