@@ -626,7 +626,22 @@ class KenLMScorer(BaseScorerInterface):
         self.id2char = token_list
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        n-gram scores.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
 
@@ -661,7 +676,17 @@ class KenLMScorer(BaseScorerInterface):
         return scores, (new_memory, new_scoring_table)
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         state, scoring_table = memory
 
         index = index.cpu().numpy()
@@ -682,7 +707,17 @@ class KenLMScorer(BaseScorerInterface):
         return state, scoring_table
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the KenLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         state = self.kenlm.State()
         self.lm.NullContextWrite(state)
         self.batch_index = np.arange(x.size(0))
