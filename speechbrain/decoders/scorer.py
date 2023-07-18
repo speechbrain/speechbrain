@@ -945,6 +945,7 @@ class LengthScorer(BaseScorerInterface):
     ...     using_eos_threshold=False,
     ...     beam_size=beam_size,
     ...     temperature=1.25,
+    ...     length_normalization=False,
     ...     scorer=scorer
     ... )
     >>> batch_size=2
