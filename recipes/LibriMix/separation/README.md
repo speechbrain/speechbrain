@@ -54,7 +54,7 @@ Here are the SI - SNRi results (in dB) on the test set of LibriMix dataset with 
 * Libri3Mix with dynamic mixing with WHAM! noise in the mixtures `python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mix/ --base_folder_dm yourpath/LibriSpeech_processed --dynamic_mixing True --use_wham_noise True`
 
 
-The output folder with the trained model and the logs can be found [here](https://drive.google.com/drive/folders/1DN49LtAs6cq1X0jZ8tRMlh2Pj6AecClz?usp=sharing) for 3-speaker mixtures and [here](https://drive.google.com/drive/folders/1NPTXw4i9Vmahhr5BSQQa-ZTTm45FwYJA?usp=sharing) for 2-speakers ones.
+The output folder with the trained model and the logs can be found [here](https://www.dropbox.com/sh/kmyz7tts9tyg198/AACsDcRwKvelXxEB-k5q1OaIa?dl=0?usp=sharing) for 3-speaker mixtures and [here](https://www.dropbox.com/sh/skkiozml92xtgdo/AAD0eJxgbCTK03kAaILytGtVa?dl=0?usp=sharing) for 2-speakers ones.
 
 # Multi-GPU training
 
