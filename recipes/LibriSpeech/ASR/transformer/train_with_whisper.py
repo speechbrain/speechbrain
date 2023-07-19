@@ -83,6 +83,10 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
+            hyps = torch.tensor(
+                [hyp[0] for hyp in hyps], dtype=torch.long, device=self.device
+            )
+
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
                 hyps, skip_special_tokens=True
