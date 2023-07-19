@@ -65,7 +65,7 @@ class ASR(sb.core.Brain):
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
         else:
-            p_tokens, _ = self.hparams.beam_searcher(x, wav_lens)
+            p_tokens, _, _, _ = self.hparams.beam_searcher(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, p_tokens
 

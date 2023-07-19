@@ -47,7 +47,7 @@ class SLU(sb.Brain):
         ):
             return p_seq, transcript_tokens_lens
         else:
-            p_tokens, _ = self.hparams.beam_searcher(
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, transcript_tokens_lens
             )
 

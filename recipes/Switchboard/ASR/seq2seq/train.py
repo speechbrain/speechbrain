@@ -111,9 +111,9 @@ class ASR(sb.Brain):
                 return p_seq, wav_lens
         else:
             if stage == sb.Stage.VALID:
-                p_tokens, _ = self.hparams.valid_search(x, wav_lens)
+                p_tokens, _, _, _ = self.hparams.valid_search(x, wav_lens)
             else:
-                p_tokens, _ = self.hparams.test_search(x, wav_lens)
+                p_tokens, _, _, _ = self.hparams.test_search(x, wav_lens)
 
             return p_seq, wav_lens, p_tokens
 

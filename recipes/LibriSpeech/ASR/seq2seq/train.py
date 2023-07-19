@@ -88,9 +88,9 @@ class ASR(sb.Brain):
         else:
             if stage == sb.Stage.VALID:
                 # Get token strings from index prediction
-                p_tokens, _ = self.hparams.valid_search(x, wav_lens)
+                p_tokens, _, _, _ = self.hparams.valid_search(x, wav_lens)
             else:
-                p_tokens, _ = self.hparams.test_search(x, wav_lens)
+                p_tokens, _, _, _ = self.hparams.test_search(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, p_tokens
 

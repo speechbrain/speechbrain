@@ -66,7 +66,9 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            p_tokens, _ = self.hparams.beam_searcher(encoder_out, wav_lens)
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
+                encoder_out, wav_lens
+            )
 
             return p_seq, wav_lens, p_tokens
 

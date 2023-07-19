@@ -63,7 +63,9 @@ class SLU(sb.Brain):
         # Compute outputs
         p_tokens = None
         if stage != sb.Stage.TRAIN:
-            p_tokens, _ = self.hparams.beam_searcher(encoder_out, wav_lens)
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
+                encoder_out, wav_lens
+            )
 
         return p_seq, wav_lens, p_tokens
 
