@@ -298,8 +298,9 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ... )
-    >>> enc = torch.rand([2, 6, 7])
-    >>> wav_len = torch.rand([2])
+    >>> batch_size = 2
+    >>> enc = torch.rand([batch_size, 6, 7])
+    >>> wav_len = torch.ones([batch_size])
     >>> top_hyps, top_lengths, _, _ = searcher(enc, wav_len)
     """
 
@@ -1410,8 +1411,9 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     beam_size=2,
     ...     scorer=scorer,
     ... )
-    >>> enc = torch.rand([2, 6, 7])
-    >>> wav_len = torch.rand([2])
+    >>> batch_size = 2
+    >>> enc = torch.rand([batch_size, 6, 7])
+    >>> wav_len = torch.ones([batch_size])
     >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
