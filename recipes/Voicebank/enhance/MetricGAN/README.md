@@ -25,7 +25,7 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 - https://huggingface.co/speechbrain/metricgan-plus-voicebank
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0?usp=sharing
+https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0
 
 
 

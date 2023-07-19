@@ -11,13 +11,13 @@ python train.py train/train.yaml
 
 | Release | hyperparams file | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:|
-| 20-05-22 | train.yaml | [model](https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0?usp=sharing) | 1xV100 32GB |
+| 20-05-22 | train.yaml | [model](https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0) | 1xV100 32GB |
 
 
 
 # PreTrained Model
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0?usp=sharing
+https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0
 
 
 # Training Time

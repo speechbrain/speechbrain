@@ -6,7 +6,7 @@ The dataset contains sequences of 1-minutes of LibiSpeech sentences
 corrupted by noise and reverberation. The dataset can be downloaded
 from here:
 
-https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0?usp=sharing
+https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 
 Authors
  * Mohamed Kleit 2021

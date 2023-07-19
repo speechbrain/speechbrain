@@ -1,8 +1,8 @@
 # Voice Activity Detection (VAD) with LibriParty
-This folder contains scripts for training a VAD with the [LibriParty dataset](https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0?usp=sharing).
+This folder contains scripts for training a VAD with the [LibriParty dataset](https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0).
 LibriParty contains sequences of 1 minute compose of speech sentences (sampled from LibriSpeech) corrupted by noise and reverberation.
 Data augmentation with open_rir, musan, CommonLanguge is used as well. Make sure you download all the datasets before staring the experiment:
-- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0?usp=sharing
+- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 - Musan: https://www.openslr.org/resources/17/musan.tar.gz
 - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
 
@@ -16,7 +16,7 @@ Run the following command to train the model:
 # Results
 | Release | hyperparams file | Test Precision | Test Recall. | Test F-Score | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| -----------:| -----------:|
-| 2021-09-09 | train.yaml |  0.9518 | 0.9437 | 0.9477 | [Model](https://www.dropbox.com/sh/6yguuzn4pybjasd/AABpUF8LAQ8d2TJyC8aK2OBga?dl=0?usp=sharing) | 1xV100 16GB |
+| 2021-09-09 | train.yaml |  0.9518 | 0.9437 | 0.9477 | [Model](https://www.dropbox.com/sh/6yguuzn4pybjasd/AABpUF8LAQ8d2TJyC8aK2OBga?dl=0) | 1xV100 16GB |
 
 
 # Training Time

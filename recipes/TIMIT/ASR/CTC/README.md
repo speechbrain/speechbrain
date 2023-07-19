@@ -8,9 +8,9 @@ python train.py hparams/train.yaml
 # Results
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml |  12.80 | 14.78 | https://www.dropbox.com/sh/xjh9qrat7v8ssuq/AAA4inQHBzRcbAeB_I8GSXi_a?dl=0?usp=sharing | 1xV100 16GB |
+| 20-05-22 | train.yaml |  12.80 | 14.78 | https://www.dropbox.com/sh/xjh9qrat7v8ssuq/AAA4inQHBzRcbAeB_I8GSXi_a?dl=0 | 1xV100 16GB |
 
-The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0?usp=sharing).
+The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0).
 
 # Training Time
 About 1 min and 30 sec for each epoch with a TESLA V100.

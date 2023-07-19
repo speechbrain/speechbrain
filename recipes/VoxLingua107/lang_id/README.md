@@ -73,7 +73,7 @@ Training is run for 40 epochs. One epoch takes one hour and 40 minutes on a NVid
 # Performance
 | Release | hyperparams file | Dev error rate | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| :-----------:|
-| 21-08-24 | train_ecapa.yaml | 6.7 |https://www.dropbox.com/sh/72gpuic5m4x8ztz/AAB5R-RVIEsXJtRH8SGkb_oCa?dl=0?usp=sharing | 1xA100 40GB |
+| 21-08-24 | train_ecapa.yaml | 6.7 |https://www.dropbox.com/sh/72gpuic5m4x8ztz/AAB5R-RVIEsXJtRH8SGkb_oCa?dl=0 | 1xA100 40GB |
 
 
 

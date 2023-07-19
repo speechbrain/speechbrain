@@ -116,7 +116,7 @@ evaluation, use `--beam_search_beam_size 1`.
 
 # Pretrained Models
 Pretrained models can be found on the following Google drive:
-https://www.dropbox.com/sh/3m4u7xda4xsh2ob/AAAYpOJHRhYbUHmuQtybgzrea?dl=0?usp=sharing
+https://www.dropbox.com/sh/3m4u7xda4xsh2ob/AAAYpOJHRhYbUHmuQtybgzrea?dl=0
 
 
 # **About SpeechBrain**

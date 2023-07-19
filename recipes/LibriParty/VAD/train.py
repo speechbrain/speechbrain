@@ -5,7 +5,7 @@ This code heavily relis on data augmentation with external datasets.
 (e.g, open_rir, musan, CommonLanguge is used as well).
 
 Make sure you download all the datasets before staring the experiment:
-- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0?usp=sharing
+- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 - Musan: https://www.openslr.org/resources/17/musan.tar.gz
 - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
 

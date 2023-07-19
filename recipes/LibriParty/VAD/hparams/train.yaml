@@ -3,7 +3,7 @@
 # This code heavily relis on on-the-fly data augmentation using external data.
 # Before running the code, please download the needed datasets:
 #
-# - LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0?usp=sharing
+# - LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 # - Musan: https://www.openslr.org/resources/17/musan.tar.gz
 # - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
 #

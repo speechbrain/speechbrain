@@ -23,7 +23,7 @@ Experiment Date | DNSMOS
 
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://www.dropbox.com/sh/h9akxmyel17sc8y/AAAP3Oz5MbXDfMlEXVjOBWV0a?dl=0?usp=sharing.
+https://www.dropbox.com/sh/h9akxmyel17sc8y/AAAP3Oz5MbXDfMlEXVjOBWV0a?dl=0.
 
 
 
