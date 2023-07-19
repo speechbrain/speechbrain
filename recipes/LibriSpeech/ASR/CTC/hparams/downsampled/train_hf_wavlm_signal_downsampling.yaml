@@ -43,8 +43,8 @@ sample_rate: 16000
 #Downsampling parameters
 downsampling_factor: 3
 upsampling: True
-use_language_modelling: True
-ngram_lm_path: https://www.openslr.org/resources/11/4-gram.arpa.gz
+use_language_modelling: False
+# ngram_lm_path: !PLACEHOLDER
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
