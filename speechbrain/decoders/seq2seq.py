@@ -184,7 +184,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         )
 
         has_ended = enc_states.new_zeros(batch_size).bool()
-        for t in range(max_decode_steps):
+        for _ in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
@@ -218,10 +218,12 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         Arguments
         ---------
-        hyps_and_scores : list
-            To store generated hypotheses and scores.
-        topk : int
-            Number of hypothesis to return.
+        hyps : torch.Tensor (batch, max length of token_id sequences)
+            This tensor stores the predicted hypothesis.
+        scores : torch.Tensor (batch)
+            The score of each hypotheses.
+        log_probs : torch.Tensor (batch, max length of token_id sequences)
+            The log probabilities of each hypotheses.
 
         Returns
         -------
@@ -253,7 +255,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         top_log_probs = log_probs
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1) / max_length
+        top_lengths = (top_lengths - 1).abs() / max_length
 
         return (
             hyps.unsqueeze(1),
@@ -1090,7 +1092,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1) / top_hyps.size(1)
+        top_lengths = (top_lengths - 1).abs() / top_hyps.size(1)
 
         # Get topk indices
         topk_scores, indices = top_scores.topk(self.topk, dim=-1)
