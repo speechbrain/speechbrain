@@ -61,6 +61,7 @@ bos_index: 50258
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
+test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
@@ -111,12 +112,13 @@ valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
-test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
-    model: !ref <whisper>
+test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
+    module: [!ref <whisper>]
     bos_index: !ref <timestamp_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_whisper>
