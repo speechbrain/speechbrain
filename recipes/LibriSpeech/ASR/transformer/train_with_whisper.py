@@ -84,7 +84,9 @@ class ASR(sb.Brain):
             tokens, tokens_lens = batch.tokens
 
             hyps = torch.tensor(
-                [hyp[0] for hyp in hyps], dtype=torch.long, device=self.device
+                [hyp[0] if len(hyp) > 0 else [] for hyp in hyps],
+                dtype=torch.long,
+                device=self.device,
             )
 
             # Decode token terms to words

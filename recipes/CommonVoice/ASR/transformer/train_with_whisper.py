@@ -48,11 +48,11 @@ class ASR(sb.Brain):
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
 
         hyps = None
-        if stage == sb.Stage.Valid:
+        if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.valid_search(
                 enc_out.detach(), wav_lens
             )
-        elif stage == sb.Stage.Test:
+        elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return logits, hyps, wav_lens
@@ -72,6 +72,12 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = torch.tensor(
+                [hyp[0] if len(hyp) > 0 else [] for hyp in hyps],
+                dtype=torch.long,
+                device=self.device,
+            )
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
