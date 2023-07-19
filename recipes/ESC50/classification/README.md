@@ -4,9 +4,9 @@ This recipe implements a classification training script (`train_classifier.py`) 
 
 We have two main training scripts. Here's the breakdown, and how to run them:
 
-- *The training script for CNN14 model:* This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/1XLleSta8-GE47T7IFMK-i8apHOs-4NNT?usp=share_link`](https://drive.google.com/drive/folders/1XLleSta8-GE47T7IFMK-i8apHOs-4NNT?usp=share_link);
+- *The training script for CNN14 model:* This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://www.dropbox.com/sh/kdt1oc51fm6at6g/AABP-TeDJbovlIro7toNkGmXa?dl=0?usp=share_link`](https://www.dropbox.com/sh/kdt1oc51fm6at6g/AABP-TeDJbovlIro7toNkGmXa?dl=0?usp=share_link);
 
-- *The training script for the conv2d-based model:* This script trains an simple convolutional classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link`](https://drive.google.com/drive/folders/14qanAjkMmsAk4AQeilGCkMJwdJWo1BF7?usp=share_link).
+- *The training script for the conv2d-based model:* This script trains an simple convolutional classifier on the ESC50 dataset. To run this, you can use the command `python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`. An example training run can be found in [`https://www.dropbox.com/sh/bpb5k2ksujn7vrc/AADM6LPICO9Q_aAJbY91ZbfEa?dl=0?usp=share_link`](https://www.dropbox.com/sh/bpb5k2ksujn7vrc/AADM6LPICO9Q_aAJbY91ZbfEa?dl=0?usp=share_link).
 
 Note that:
   - the recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it;
