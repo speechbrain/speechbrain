@@ -1,0 +1,4 @@
+pathlib>=1.0.1
+pydub>=0.25.1
+transformers>=4.26.0
+webrtcvad>=2.0.10
