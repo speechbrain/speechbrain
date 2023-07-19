@@ -5,6 +5,7 @@ Download: https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2
 Authors
  * Yingzhi WANG 2022
  * Sathvik Udupa 2022
+ * Pradnya Kandarkar 2023
 """
 
 import os
@@ -123,6 +124,9 @@ def prepare_ljspeech(
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)
 
+    phoneme_alignments_folder = None
+    duration_folder = None
+    pitch_folder = None
     # Setting up additional folders required for FastSpeech2
     if model_name == "FastSpeech2":
         # This step requires phoneme alignements to be present in the data_folder
