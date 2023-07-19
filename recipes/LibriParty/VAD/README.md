@@ -16,7 +16,7 @@ Run the following command to train the model:
 # Results
 | Release | hyperparams file | Test Precision | Test Recall. | Test F-Score | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| -----------:| -----------:|
-| 2021-09-09 | train.yaml |  0.9518 | 0.9437 | 0.9477 | [Model](https://drive.google.com/drive/folders/1YLYGuiyuTH0D7fXOOp6cMddfQoM74o-Y?usp=sharing) | 1xV100 16GB |
+| 2021-09-09 | train.yaml |  0.9518 | 0.9437 | 0.9477 | [Model](https://www.dropbox.com/sh/6yguuzn4pybjasd/AABpUF8LAQ8d2TJyC8aK2OBga?dl=0?usp=sharing) | 1xV100 16GB |
 
 
 # Training Time
