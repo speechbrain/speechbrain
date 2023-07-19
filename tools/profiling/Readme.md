@@ -190,7 +190,6 @@ Starting with the PyTorch profiler and benchmark visualisation:
 Where to go from here:
 - https://horace.io/brrr_intro.html (thanks for the xref: @RuABraun !)
 - https://pytorch-lightning.readthedocs.io/en/stable/advanced/profiler.html
-- https://docs.nvidia.com/deeplearning/frameworks/pyprof-user-guide/profile.html
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
