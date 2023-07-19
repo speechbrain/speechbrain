@@ -40,8 +40,8 @@ The following results were obtained on a 48 GB RTX 8000 (the recipe has also bee
 
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Word-F1 | Char-F1 | SLU-F1 | Training time | Model link |
 |:------:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
-| Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch | https://drive.google.com/drive/folders/103t4_zqBZNqa_gGlIfteIs8_mdKhn3Rd?usp=sharing |
-| Direct (HuBert) | 91.24 | 88.47 | 87.54 | 72.93 | 77.40 | 75.10 | 4 hours per epoch | https://drive.google.com/drive/folders/1LpcuFldRo_Va1OCGp1bLNdiaC7AQNJOb?usp=sharing |
+| Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch | https://www.dropbox.com/sh/c2rnjads9gfd7k2/AADtVZi616qH_jb_owKK7b9Ra?dl=0 |
+| Direct (HuBert) | 91.24 | 88.47 | 87.54 | 72.93 | 77.40 | 75.10 | 4 hours per epoch | https://www.dropbox.com/sh/uygyiir8rfajcmu/AACXbjhM34ZDy2UprWfg-uyVa?dl=0 |
 
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Training time |
 |:---:|:-----:|:-----:|:-----:|:-----:|
