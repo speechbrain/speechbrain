@@ -127,7 +127,7 @@ def prepare_ljspeech(
     if model_name == "FastSpeech2":
         # This step requires phoneme alignements to be present in the data_folder
         # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
-        # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
+        # Download and unzip LJSpeech phoneme alignments from here: https://www.dropbox.com/sh/647h69vuarms5zj/AABeCQxeyD4AiqIss5eJoX4Qa?dl=0
         alignment_URL = (
             "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
         )
