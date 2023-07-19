@@ -102,7 +102,7 @@ modules:
 
 whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
-    weight_decay: 0.0001
+    weight_decay: 0.000000001
 
 valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
