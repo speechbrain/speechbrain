@@ -45,7 +45,7 @@ downsampling_factor: 2
 downsampling_kernel_size: 21
 upsampling: False
 use_language_modelling: True
-ngram_lm_path: !PLACEHOLDER
+ngram_lm_path: https://www.openslr.org/resources/11/4-gram.arpa.gz
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
