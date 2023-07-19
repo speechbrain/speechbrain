@@ -14,7 +14,7 @@ python train.py --device=cuda:0 --max_grad_norm=1.0 --data_folder=/your_folder/L
 ```
 Training takes about X hours on an nvidia RTX8000.
 
-The training logs are available [here](https://drive.google.com/drive/folders/1CbkXPvtLFVrRBeeuMnmTmNCyagNKO6uX?usp=sharing).
+The training logs are available [here](https://www.dropbox.com/sh/t7jnnve1ofgxtqw/AAA3XiintGBcxss8SVshoz3ea?dl=0).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-tacotron2-ljspeech).
 
@@ -32,7 +32,7 @@ python train.py hparams/train.yaml --data_folder /path/to/LJspeech
 
 Training takes about X hours on an nvidia RTX8000.
 
-The training logs are available [here](https://drive.google.com/drive/folders/19sLwV7nAsnUuLkoTu5vafURA9Fo2WZgG?usp=sharing)
+The training logs are available [here](https://www.dropbox.com/sh/m2xrdssiroipn8g/AAD-TqPYLrSg6eNxUkcImeg4a?dl=0)
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-ljspeech).
 
