@@ -47,7 +47,7 @@ SpeechBrain provides a simple interface to transcribe audio files with pretraine
 can be found on the HuggingFace repositories corresponding to our models for KsponSpeech:
 
 - [Conformer + ctc + TransformerLM](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)
-- [Colab example](https://colab.research.google.com/drive/10N98aGoeLGfh6Hu6xOCH5BbjVTVYgCyB?usp=sharing)
+- [Colab example](https://colab.research.google.com/drive/10N98aGoeLGfh6Hu6xOCH5BbjVTVYgCyB)
 
 # Citing SpeechBrain
 Please, cite SpeechBrain if you use it for your research or business.

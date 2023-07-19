@@ -47,7 +47,9 @@ To run this recipe, go into the "vocoder/hifi_gan/" folder and run:
 python train.py hparams/train.yaml --data_folder /path/to/LJspeech
 ```
 
-The training logs are available [here](https://drive.google.com/drive/folders/19sLwV7nAsnUuLkoTu5vafURA9Fo2WZgG?usp=sharing)
+Training takes about X hours on an nvidia RTX8000.
+
+The training logs are available [here](https://www.dropbox.com/sh/m2xrdssiroipn8g/AAD-TqPYLrSg6eNxUkcImeg4a?dl=0)
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-ljspeech).
 

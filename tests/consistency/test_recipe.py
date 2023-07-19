@@ -172,7 +172,7 @@ def test_README_links(
     readme_field="Readme_file",
     must_link=["Result_url", "HF_repo"],
 ):
-    """This test checks if the README file contains the correct GDRIVE and HF repositories.
+    """This test checks if the README file contains the correct DropBox and HF repositories.
 
     Arguments
     ---------.
