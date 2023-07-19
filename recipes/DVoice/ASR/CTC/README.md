@@ -48,7 +48,7 @@ Here is a list of the different African languages and dialects that we tested:
 | Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-fongbe)
 | Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-amharic) |
 
-You can find our training results (models, logs, etc) [here](https://drive.google.com/drive/folders/1vNT7RjRuELs7pumBHmfYsrOp9m46D0ym?usp=sharing).
+You can find our training results (models, logs, etc) [here](https://www.dropbox.com/sh/pyu40jq1ebv6hcc/AADQO_lAD-F9Q0vlVq8KoXHqa?dl=0).
 
 # Performances of DVoice Multilingual on each language
 | Dataset Link | Language | Test WER |
