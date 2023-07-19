@@ -83,7 +83,7 @@ Per Class Accuracy:
  [ 3  1  4  2  0  1  3  6 79  1]
  [ 1  0  0  0  0  0  0  0  1 31]]
 
-Please, take a look [here](https://drive.google.com/drive/folders/1sItfg_WNuGX6h2dCs8JTGq2v2QoNTaUg?usp=sharing) for the full experiment folder (with pre-trained models).
+Please, take a look [here](https://www.dropbox.com/sh/f61325e3w8h5yy2/AADm3E3PXFi1NYA7-QW3H-Ata?dl=0?usp=sharing) for the full experiment folder (with pre-trained models).
 
 
 Classification performance and f-scores are output to the console and log file for each epoch using a passed validation set, and after training using the passed test set.
@@ -97,7 +97,7 @@ The default hyperparameter settings will output Tensorboard logs to `<output_fol
 You can find the pre-trained model with an easy-inference function on HuggingFace:
 - https://huggingface.co/speechbrain/urbansound8k_ecapa
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-- https://drive.google.com/drive/folders/1sItfg_WNuGX6h2dCs8JTGq2v2QoNTaUg?usp=sharing
+- https://www.dropbox.com/sh/f61325e3w8h5yy2/AADm3E3PXFi1NYA7-QW3H-Ata?dl=0?usp=sharing
 
 
 
