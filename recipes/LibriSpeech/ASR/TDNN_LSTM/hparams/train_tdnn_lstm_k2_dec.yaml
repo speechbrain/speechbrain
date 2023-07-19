@@ -8,7 +8,7 @@
 seed: 1111
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 device: "cuda:0,1,2"
-use_cuda: False
+use_cuda: True
 
 output_folder: !ref results/train_k2_decoder_adamw/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -63,7 +63,7 @@ subsampling_factor: 3
 # Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
 # (less pruning). This is the default value; it may be modified by
 # `min_active_states` and `max_active_states`.
-search_beam: 20
+search_beam: 15
 # Beam to prune output, similar to lattice-beam in Kaldi.  Relative
 # to best path of output.
 output_beam: 5
@@ -76,7 +76,7 @@ min_active_states: 30
 # frame for any given intersection/composition task. This is advisory,
 # in that it will try not to exceed that but may not always succeed.
 # You can use a very large number if no constraint is needed.
-max_active_states: 10000
+max_active_states: 5000
 
 decoding_method: whole-lattice-rescoring
 ################ END ###################

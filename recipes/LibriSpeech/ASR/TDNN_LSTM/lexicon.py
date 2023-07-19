@@ -286,6 +286,17 @@ class LexiconBPE:
         token2id: Dict[str, int] = {self.tokenizer.id_to_piece(i): i for i in range(self.tokenizer.vocab_size())}
 
         return lexicon, token2id
+    
+    def tokenize_to_ids(self, sentence: str) -> List[int]:
+        """Tokenize a sentence.
+
+        Args:
+          sentence:
+            A sentence to be tokenized.
+        Returns:
+          Return a list of token ids.
+        """
+        return self.tokenizer.encode(sentence, out_type=int)
 
     
     def __getitem__(self, word: str):

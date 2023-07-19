@@ -27,7 +27,7 @@ from speechbrain.utils.distributed import run_on_main
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.dataio.batch import PaddedBatch
-from icefall.decode import get_lattice, rescore_with_whole_lattice, rescore_with_n_best_list
+from icefall.decode import get_lattice, rescore_with_whole_lattice, rescore_with_n_best_list, one_best_decoding
 from icefall.utils import get_texts
 
 from librispeech_prepare import prepare_librispeech
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 SUBSAMPLING_FACTOR = 3  # NOTE: This is hacky. Make sure this is the same as the one used in hparams.
 
 
-class K2DecASR(sb.Brain):
+class K2ASR(sb.Brain):
     def __init__(
             self, 
             rank: int,
@@ -251,13 +251,13 @@ class K2DecASR(sb.Brain):
 
     def compute_objectives(
             self, 
-            predictions: Tuple[torch.Tensor, Optional[torch.Tensor]],
+            fw_outputs: Tuple[torch.Tensor, Optional[torch.Tensor]],
             batch: PaddedBatch, 
             stage: sb.Stage
         ):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        p_ctc, n_frames = predictions
+        p_ctc, n_frames = fw_outputs
         ids = batch["ids"]
         if "supervision_segments" not in batch:
             batch["supervision_segments"], batch["wrd"] = self.get_supervision_segments(
@@ -288,43 +288,55 @@ class K2DecASR(sb.Brain):
             "Loss should have requires_grad={} but got requires_grad={}".format(
                 stage == sb.Stage.TRAIN, loss.requires_grad
             )
+        self.update_results(p_ctc, batch, stage)
+        return loss
+    
+    def update_results(self, p_ctc: torch.Tensor, batch: PaddedBatch, stage: sb.Stage):
 
-        if stage != sb.Stage.TRAIN:
-
-            # Compute outputs
-            predicted_text = None
-            if stage == sb.Stage.VALID:
-                # TODO: Maybe do greedy decoding for the validation set and full-dec for testing
-                # predicted_text: dict = self.decode_batch(
-                #     batch, p_ctc=p_ctc
-                # )
-                wav_lens = batch["sig"][1]
-                p_tokens: List[List[int]] = sb.decoders.ctc_greedy_decode(
-                    p_ctc, wav_lens, blank_id=self.blank_index
-                )  # padding is already removed from here
-                predicted_words = [
-                    self.tokenizer.sp.decode_ids(utt_seq).split(" ")
-                    for utt_seq in p_tokens
-                ]
-                target_words = [sent.split(" ") for sent in wrd]  # TODO: wrong tokenization (?)
-                # print(f"{predicted_words[0]=}\n{target_words[0]=}")
-                self.wer_metrics[0].append(ids, predicted_words, target_words)
-                self.cer_metrics[0].append(ids, predicted_words, target_words)
-            elif stage == sb.Stage.TEST:
-                predicted_text: dict = self.decode_batch(
-                    batch, p_ctc=p_ctc
-                )
-                # predicted_words = self.tokenizer_decode(predicted_tokens)
-                predicted_words = predicted_text  # TODO: check if the outputs are tokens or words.
-                target_words = [sent.split(" ") for sent in wrd]  # TODO: wrong tokenization (?)
+        # Compute outputs
+        if stage == sb.Stage.VALID:
+            wav_lens = batch["sig"][1]
+            p_tokens: List[List[int]] = sb.decoders.ctc_greedy_decode(
+                p_ctc, wav_lens, blank_id=self.blank_index
+            )  # padding is already removed from here
+            predicted_words = [
+                self.tokenizer.sp.decode_ids(utt_seq).split(" ")
+                for utt_seq in p_tokens
+            ]
+            target_words = [sent.split(" ") for sent in batch["wrd"]]
+            # print(f"{predicted_words[0]=}\n{target_words[0]=}")
+            self.wer_metrics[0].append(batch["ids"], predicted_words, target_words)
+            self.cer_metrics[0].append(batch["ids"], predicted_words, target_words)
+        elif stage == sb.Stage.TEST:
+            wav_lens = batch["sig"][1]
+            predicted_words: dict = self.decode_batch(
+                batch, p_ctc=p_ctc
+            )
+            target_words = [sent.split(" ") for sent in batch["wrd"]]
+            if self.hparams.decoding_method == "1best":
+                self.wer_metrics[1].append(batch["ids"], list(predicted_words.values())[0], target_words)
+            else:
                 for i, lm_scale in enumerate(self.lm_scale_list):
                     key = f"lm_scale_{lm_scale:.1f}"
                     # index 0 is for the validation set's greedy decoding 
-                    self.wer_metrics[i+1].append(ids, predicted_words[key], target_words)
-                    self.cer_metrics[i+1].append(ids, predicted_words[key], target_words)
-        return loss
+                    self.wer_metrics[i+1].append(batch["ids"], predicted_words[key], target_words)
+                    self.cer_metrics[i+1].append(batch["ids"], predicted_words[key], target_words)
+            # Do greedy decoding for the test set, similar to the validation set
+            p_tokens: List[List[int]] = sb.decoders.ctc_greedy_decode(
+                p_ctc, wav_lens, blank_id=self.blank_index
+            )
+            predicted_words = [
+                self.tokenizer.sp.decode_ids(utt_seq).split(" ")
+                for utt_seq in p_tokens
+            ]
+            self.wer_metrics[-1].append(batch["ids"], predicted_words, target_words)
     
-    def get_supervision_segments(self, n_frames: torch.Tensor, seq_ids: List[int], wrds: List[str]):
+    def get_supervision_segments(
+            self, 
+            n_frames: torch.Tensor, 
+            seq_ids: List[int], 
+            wrds: Optional[List[str]] = None
+        ):
         """ Build the supervision segments which are required for building the FSA.
             NOTE: We assume that the audio does not contain segments and that all 
                   utterances start at duration 0.
@@ -332,7 +344,8 @@ class K2DecASR(sb.Brain):
                 n_frames: tensor of number of frames in each input segment
                 seq_ids: a list of the sequence ids (starting from 0, up to batch size)
                 wrds: A list of the transcriptions (reordered according to how the 
-                      supervision_segments are sorted).
+                      supervision_segments are sorted). If not provided, the function
+                      will return only the supervision_segments.
         """
         supervision_segments = torch.stack(
             (
@@ -350,7 +363,8 @@ class K2DecASR(sb.Brain):
         # Sort based on duration (longest to shortest) -> required by k2.DenseFsaVec
         indices = torch.argsort(supervision_segments[:, 2], descending=True)
         supervision_segments = supervision_segments[indices].to("cpu")
-
+        if wrds is None:
+            return supervision_segments
         wrds = [wrds[i] for i in indices]
         return supervision_segments, wrds
 
@@ -364,7 +378,13 @@ class K2DecASR(sb.Brain):
                 self.metrics_log_dir,
                 exist_ok=True
             )
-            for _ in range(len(self.lm_scale_list)+1):  # +1 for greedy decoding in valid
+            if self.hparams.decoding_method == "1best":
+                n_metrics_needs = 3
+            else:
+                n_metrics_needs = len(self.lm_scale_list) + 2    
+            # +1 for greedy decoding in valid
+            # +1 for greedy decoding in test
+            for _ in range(n_metrics_needs):
                 self.cer_metrics.append(self.hparams.cer_computer())
                 self.wer_metrics.append(self.hparams.error_rate_computer())
 
@@ -377,29 +397,33 @@ class K2DecASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             # best_wer: float = min([wer_metric.summarize("error_rate") for wer_metric in self.wer_metrics])
             # best_cer: float = min([cer_metric.summarize("error_rate") for cer_metric in self.cer_metrics])
-            best_wer, best_lm_scale_wer = 2000, ""
-            best_cer, best_lm_scale_cer = 2000, ""
-            for lm_scale, cer_metric, wer_metric in zip(
-                self.lm_scale_list, self.cer_metrics[1:], self.wer_metrics[1:]
-            ):
-                wer = wer_metric.summarize(
-                    "error_rate"
-                )
-                # stage_stats[f"WER_lm_scale_{lm_scale:.1f}"] = wer
-                cer = cer_metric.summarize(
-                    "error_rate"
-                )
-                # stage_stats[f"CER_lm_scale_{lm_scale:.1f}"] = cer
-                if wer < best_wer:
-                    best_wer = wer
-                    best_lm_scale_wer = lm_scale
-                if cer < best_cer:
-                    best_cer = cer
-                    best_lm_scale_cer = lm_scale
-            stage_stats["best_wer"] = best_wer
-            stage_stats["best_cer"] = best_cer
-            stage_stats["best_lm_scale_wer"] = best_lm_scale_wer
-            stage_stats["best_lm_scale_cer"] = best_lm_scale_cer
+            if self.hparams.decoding_method == "1best":
+                stage_stats["WER"] = self.wer_metrics[1].summarize("error_rate")
+            else:
+                best_wer, best_lm_scale_wer = 2000, ""
+                best_cer, best_lm_scale_cer = 2000, ""
+                for lm_scale, cer_metric, wer_metric in zip(
+                    self.lm_scale_list, self.cer_metrics[1:-1], self.wer_metrics[1:-1]
+                ):
+                    wer = wer_metric.summarize(
+                        "error_rate"
+                    )
+                    # stage_stats[f"WER_lm_scale_{lm_scale:.1f}"] = wer
+                    cer = cer_metric.summarize(
+                        "error_rate"
+                    )
+                    # stage_stats[f"CER_lm_scale_{lm_scale:.1f}"] = cer
+                    if wer < best_wer:
+                        best_wer = wer
+                        best_lm_scale_wer = lm_scale
+                    if cer < best_cer:
+                        best_cer = cer
+                        best_lm_scale_cer = lm_scale
+                stage_stats["best_wer"] = best_wer
+                stage_stats["best_cer"] = best_cer
+                stage_stats["best_lm_scale_wer"] = best_lm_scale_wer
+                stage_stats["best_lm_scale_cer"] = best_lm_scale_cer
+            stage_stats["greedy_WER"] = self.wer_metrics[-1].summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -431,12 +455,19 @@ class K2DecASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
+            # To allow multiple test set names and not override
             wer_pattern = getattr(self, "wer_file_pattern", "wer")
-            for lm_scale, wer_metric in zip(
-                self.lm_scale_list, self.wer_metrics[1:]
-            ):
-                with open(self.metrics_log_dir / "{}_test_lm_scale={}.txt".format(wer_pattern, lm_scale), "w") as w:
-                    wer_metric.write_stats(w)
+            if self.hparams.decoding_method == "1best":
+                with open(self.metrics_log_dir / "{}_test_1best.txt".format(wer_pattern), "w") as w:
+                    self.wer_metrics[1].write_stats(w)
+            else:
+                for lm_scale, wer_metric in zip(
+                    self.lm_scale_list, self.wer_metrics[1:-1]
+                ):
+                    with open(self.metrics_log_dir / "{}_test_lm_scale={}.txt".format(wer_pattern, lm_scale), "w") as w:
+                        wer_metric.write_stats(w)
+            with open(self.metrics_log_dir / "{}_greedy.txt".format(wer_pattern), "w") as w:
+                self.wer_metrics[-1].write_stats(w)
     
     def fit_batch(self, batch):
         """
@@ -478,7 +509,7 @@ class K2DecASR(sb.Brain):
         return HLG
 
     @property
-    def G(self):
+    def G_4gram(self):
         if self.hparams.decoding_method in ['nbest-rescoring', 'whole-lattice-rescoring']:
             return self.topology.G_4gram
         return None
@@ -506,12 +537,24 @@ class K2DecASR(sb.Brain):
             with torch.no_grad():
                 # Use train as the stage so that it won't try to do decoding
                 p_ctc, _ = self.compute_forward(batch, sb.Stage.TRAIN)
+        # print(p_ctc.shape)
+        # print(p_ctc.topk(2))
+        # p_ctc[:, :, 0] -= 20000
+        # print(p_ctc.shape)
+        # print(p_ctc.topk(2))
+        # print("="*100)
         return self._k2_decode_from_probs(batch, p_ctc)
     
-    def _k2_decode_from_probs(self, batch, p_ctc) -> Dict[str, List[List[str]]]:
+    def _k2_decode_from_probs(
+        self,
+        batch,
+        p_ctc,
+        decoding_method: Optional[str] = None
+    ) -> Dict[str, List[List[str]]]:
         """Decode using k2 library."""
         # TODO: this won't work
         supervision_segments = batch["supervision_segments"]
+        decoding_method = decoding_method or self.hparams.decoding_method
 
         # logger.info("Creating lattice...")
         try:
@@ -536,22 +579,41 @@ class K2DecASR(sb.Brain):
 
         # logger.info("Done creating lattice. Moving on to rescoring...")
 
-        if self.hparams.decoding_method == 'nbest-rescoring':
+
+        if decoding_method in ["1best", "nbest"]:
+            if decoding_method == "1best":
+                best_path = one_best_decoding(
+                    lattice=lattice, use_double_scores=True
+                )
+                key = "no_rescore"
+            # else:
+            #     best_path = nbest_decoding(
+            #         lattice=lattice,
+            #         num_paths=params.num_paths,
+            #         use_double_scores=params.use_double_scores,
+            #         nbest_scale=params.nbest_scale,
+            #     )
+            #     key = f"no_rescore-{params.num_paths}"
+            hyps = get_texts(best_path)
+            hyps = [[self.lexicon.word_table[i] for i in ids] for ids in hyps]
+            return {key: hyps}
+
+        elif decoding_method == 'nbest-rescoring':
             best_path_dict = rescore_with_n_best_list(
                 lattice=lattice,
-                G=self.G,
+                G=self.G_4gram,
                 num_paths=100,
                 lm_scale_list=self.lm_scale_list,
                 nbest_scale=0.5  # scale for lattice.scores
             )
-        elif self.hparams.decoding_method == 'whole-lattice-rescoring':
+        elif decoding_method == 'whole-lattice-rescoring':
             best_path_dict = rescore_with_whole_lattice(
                 lattice=lattice,
-                G_with_epsilon_loops=self.G,
+                G_with_epsilon_loops=self.G_4gram,
                 lm_scale_list=self.lm_scale_list
             )
         else:
-            raise NotImplementedError(f"Decoding method {self.hparams.decoding_method} not implemented.")
+            raise NotImplementedError(f"Decoding method {decoding_method} not implemented.")
         
         ans = {}
         for lm_scale_str, best_path in best_path_dict.items():
@@ -717,7 +779,7 @@ def run(rank, hparams, run_opts, world_size=1):
     )
     logger.info("Rank {} done preparing lexicon...".format(rank))
     # Trainer initialization
-    asr_brain = K2DecASR(
+    asr_brain = K2ASR(
         rank=rank,
         device=run_opts.get("device", hparams["device"]),
         lexicon=lexicon,
@@ -788,7 +850,7 @@ def setup_dist(
     else:
         dist.init_process_group("nccl")
 
-def test_decode(hparams, run_opts):
+def test_decode(hparams, run_opts, ASR=K2ASR):
     world_size = 1  # only on cpu
     run_opts["device"] = "cpu"
     tokenizer = hparams["tokenizer"]
@@ -799,7 +861,7 @@ def test_decode(hparams, run_opts):
         tokenizer=tokenizer.sp,
     )
     # Load the asr_brain model
-    asr_brain = K2DecASR(
+    asr_brain = ASR(
         rank=0,
         device=run_opts.get("device", hparams["device"]),
         lexicon=lexicon,
@@ -898,6 +960,9 @@ def main(hparams_file, run_opts, overrides):
     device = run_opts.get("device", hparams["device"])
     if not use_cuda:
         run_opts["device"] = "cpu"
+        device = "cpu"
+    if device == "cpu":
+        use_cuda = False
     n_devices = 1
     if device.startswith("cuda") and use_cuda:
         n_devices = len(device.split(','))
