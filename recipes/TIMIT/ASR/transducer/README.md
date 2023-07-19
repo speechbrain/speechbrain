@@ -25,7 +25,7 @@ python train.py hparams/train.yaml
 | 2021-02-06 | train.yaml |  13.11 | 14.12 | https://drive.google.com/drive/folders/1g3T6zK2o9XTEa_GTw0aoAkRqhg1_BVQ3?usp=sharing | 1xRTX6000 24GB |
 | 21-04-16 | train_wav2vec2.yaml |  7.97 | 8.91 | https://drive.google.com/drive/folders/1z8Ox3q2ntnnnh3PPk_eOcKhGeFgVeRcD?usp=sharing | 1xRTX6000 24Gb |
 
-The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://drive.google.com/drive/folders/1ZcME-Wf4stlzW3j_iJ3zGDCkSy1V_Wjs?usp=sharing).
+The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0?usp=sharing).
 
 # Training Time
 About 2 min and 40 sec for each epoch with a  RTX 6000.
