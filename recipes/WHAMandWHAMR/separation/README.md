@@ -52,8 +52,8 @@ Here are the SI - SNRi results (in dB) on the test set of WHAM!, WHAMR! datasets
 # Training time
 It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (32GB).
 
-The output folder with the logs for WHAMR! can be found [here](https://drive.google.com/drive/folders/1m1xfx2ojf7qgOyscJVVCQFRY0VRl0rdi?usp=sharing).
-The output folder with the logs for WHAM! can be found [here](https://drive.google.com/drive/folders/1dIAT8hZxvdJPZNUb8Zkk3BuN7GZ9-mZb?usp=sharing).
+The output folder with the logs for WHAMR! can be found [here](https://www.dropbox.com/sh/1sia32z01xbfgvu/AADditsqaTyfN3N6tzfEFPica?dl=0?usp=sharing).
+The output folder with the logs for WHAM! can be found [here](https://www.dropbox.com/sh/sfrgb3xivri432e/AACQodNmiDIKrB9vCeCFUDWUa?dl=0?usp=sharing).
 
 
 # Pretrained Models:

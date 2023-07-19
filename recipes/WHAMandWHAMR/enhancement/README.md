@@ -47,8 +47,8 @@ Here are the SI - SNR (in dB) and PESQ on the test set of WHAM!, WHAMR! datasets
 |DynamicMixing | 10.6 | 2.84 |
 
 
-The output folder with the model checkpoints and logs for WHAMR! is available [here](https://drive.google.com/drive/folders/1V0KwkEfWwomZ0Vjox0BTnQ694_uxgu8G?usp=sharing).
-The output folder with the model checkpoints and logs for WHAM! is available [here](https://drive.google.com/drive/folders/1bbQvaiN-R79M697NnekA7Rr0jIYtO6e3?usp=sharing).
+The output folder with the model checkpoints and logs for WHAMR! is available [here](https://www.dropbox.com/sh/kb0xrvi5k168ou2/AAAPB2U6HyyUT1gMoUH8gxQCa?dl=0?usp=sharing).
+The output folder with the model checkpoints and logs for WHAM! is available [here](https://www.dropbox.com/sh/pxz2xbj76ijd5ci/AAD3c3dHyszk4oHJaa26K1_ha?dl=0?usp=sharing).
 
 # Training time
 It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (32GB).
