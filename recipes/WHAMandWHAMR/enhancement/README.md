@@ -59,7 +59,7 @@ Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through h
 * https://huggingface.co/speechbrain/sepformer-wham-enhancement
 * https://huggingface.co/speechbrain/sepformer-whamr-enhancement
 * https://huggingface.co/speechbrain/sepformer-whamr16k
-* Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
+* Pretrained models with the training logs can be found on `https://www.dropbox.com/sh/e4bth1bylk7c6h8/AADFq3cWzBBKxuDv09qjvUMta?dl=0` also.
 
 
 # Example calls for running the training scripts
