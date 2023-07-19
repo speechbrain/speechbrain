@@ -23,7 +23,7 @@ Experiment Date | Hyperparams file | PESQ | STOI |
 -|-|-|-|
 2021-10-31 | train.yaml | 2.35 | 0.886 |
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://drive.google.com/drive/folders/1Bf-SL4gRpBdazBFuae3aFe0_EwL8v7jh?usp=sharing).
+You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://www.dropbox.com/sh/pw8aer8gcsrdbx7/AADknh7plHF5GBeTRK9VkIKga?dl=0?usp=sharing).
 
 ## Citation
 If you find the code useful in your research, please cite:
