@@ -68,7 +68,7 @@ Let's take a look at recipes: their structural outline & their testing definitio
   * Readme_file
     > _recipes/LibriSpeech/ASR/CTC/README.md_
   * Result_url (mandatory/optional?)
-    > _https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing_
+    > _https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0?usp=sharing_
   * HF_repo (optional)
     > _https://huggingface.co/speechbrain/asr-wav2vec2-librispeech_
   * test_debug_flags

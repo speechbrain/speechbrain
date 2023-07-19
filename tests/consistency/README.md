@@ -21,7 +21,7 @@ More specifically, you have to fill the following fields:
 - Readme_file (mandatory):
     Readme file describing the recipe (e.g., `recipes/LibriSpeech/ASR/CTC/README.md`)
 - Result_url (mandatory):
-    URL where the output folder is stored (e.g., `https://drive.google.com/drive/folders/1pg0QzW-LqAISG8Viw_lUTGjXwOqh7gkl?usp=sharing` ).
+    URL where the output folder is stored (e.g., `https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0?usp=sharing` ).
     Note that with SpeechBrain we would like to make available the full output folder to the users. The output folder contains the logs, checkpoints, etc that help users debug and reproduce the results.
     Make sure this URL is mentioned in the README file.
 - HF_repo (optional):
