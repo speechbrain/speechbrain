@@ -173,8 +173,14 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
 
 rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
     language_model: !ref <lm_model>
+    temperature: 1.25
 
-scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <ctc_scorer>]
+    weights:
+        ctc: !ref <ctc_weight_decode>
+
+test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <rnnlm_scorer>,
                    !ref <ctc_scorer>]
     weights:
@@ -190,7 +196,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
     length_normalization: False
-    scorer: !ref <scorer>
+    scorer: !ref <valid_scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
@@ -202,7 +208,7 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     temperature: 1.25
     using_eos_threshold: False
     length_normalization: True
-    scorer: !ref <scorer>
+    scorer: !ref <test_scorer>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
