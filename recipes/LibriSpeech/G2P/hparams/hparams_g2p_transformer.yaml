@@ -367,7 +367,7 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    betas: !ref (<adam_beta1>, <adam_beta2>)
+    betas: [!ref <adam_beta1>, !ref <adam_beta2>]
 
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
