@@ -22,9 +22,9 @@ python train.py train/train.yaml
 
 Dev. clean is evaluated with Greedy Decoding while the test sets are using Greedy Decoding OR a RNNLM + Beam Search.
 
-| Release | hyperparams file | Dev. Clean | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM| Test-other BAS+RNNLM | Model link | GPUs |
+| Release | Hyperparams file | Dev-clean Greedy | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM | Test-other BS+RNNLM | Model link | GPUs |
 |:-------------:|:---------------------------:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
-| 2020-10-22 | conformer_transducer.yaml | 2.8 | 3.0 | 7.1 | 2.8 | 6.8 | Not Available | 4xA100 80GB |
+| 2023-07-19 | conformer_transducer.yaml | 2.62 | 2.84 | 6.98 | 2.62 | 6.31 | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | 3x3090 24GB |
 
 
 
