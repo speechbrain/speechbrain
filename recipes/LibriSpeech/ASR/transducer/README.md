@@ -28,8 +28,6 @@ Dev. clean is evaluated with Greedy Decoding while the test sets are using Greed
 |:-------------:|:---------------------------:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
 | 2023-07-19 | conformer_transducer.yaml | 2.62 | 2.84 | 6.98 | 2.62 | 6.31 | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | 3x3090 24GB |
 
-
-
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/

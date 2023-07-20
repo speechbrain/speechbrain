@@ -63,7 +63,7 @@ class LinearNorm(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.Tacotron2 import Tacotron2
+    >>> from speechbrain.lobes.models.Tacotron2 import LinearNorm
     >>> layer = LinearNorm(in_dim=5, out_dim=3)
     >>> x = torch.randn(3, 5)
     >>> y = layer(x)
