@@ -83,6 +83,10 @@ out_channels: 256
 kernel_size: 16
 kernel_stride: 8
 
+# Other architectural parameters
+num_layers_intra: 8
+num_layers_inter: 8
+
 # Dataloader options
 # Set num_workers: 0 on MacOS due to behavior of the multiprocessing library
 dataloader_opts:
