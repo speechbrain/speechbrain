@@ -163,6 +163,8 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
+
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
                 hyps, skip_special_tokens=True
