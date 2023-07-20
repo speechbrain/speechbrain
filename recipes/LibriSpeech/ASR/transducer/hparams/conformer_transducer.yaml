@@ -125,6 +125,9 @@ state_beam: 2.3
 expand_beam: 2.3
 lm_weight: 0.50
 
+# If True uses torchaudio loss. Otherwise, the numba one
+use_torchaudio: False
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
@@ -248,7 +251,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
    blank_index: !ref <blank_index>
-   use_torchaudio: False
+   use_torchaudio: !ref <use_torchaudio>
 
 # This is the RNNLM that is used according to the Huggingface repository
 # NB: It has to match the pre-trained RNNLM!!
