@@ -83,6 +83,10 @@ out_channels: 256
 kernel_size: 16
 kernel_stride: 8
 
+# Other architectural parameters
+num_layers_intra: 8
+num_layers_inter: 8
+
 # Dataloader options
 # Set num_workers: 0 on MacOS due to behavior of the multiprocessing library
 dataloader_opts:
@@ -98,7 +102,7 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
 #longformer_intra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
 #intra: !new:speechbrain.lobes.models.efficient_separators.LongformerBlock
 intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
-    num_layers: 8
+    num_layers: !ref <num_layers_intra>
     d_model: !ref <N_encoder_out>
     nhead: 8
     d_ffn: 1024
@@ -107,7 +111,7 @@ intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
 
 
 inter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
-    num_layers: 8
+    num_layers: !ref <num_layers_inter>
     d_model: !ref <out_channels>
     nhead: 8
     d_ffn: 1024

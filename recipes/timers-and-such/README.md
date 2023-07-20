@@ -61,7 +61,7 @@ The third uses the "960 Hr" variant of wav2vec 2.0, which is finetuned on LibriS
 | wav2vec 2.0 "Base" | 92.7% ± 1.0% | none |
 | wav2vec 2.0 "960 Hr" | 94.0% ± 1.2% | none |
 
-You can find the output folders (model, logs, etc) [here](https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing)
+You can find the output folders (model, logs, etc) [here](https://www.dropbox.com/sh/gmmum179ig9wz0x/AAAOSOi11yVymGXHp9LzYNrqa?dl=0)
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr).
