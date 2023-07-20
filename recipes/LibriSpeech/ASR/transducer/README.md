@@ -17,7 +17,7 @@ pip install numba
 
 # How to run it
 ```shell
-python train.py train/conformer_transducer.yaml
+python train.py hparams/conformer_transducer.yaml
 ```
 
 # Librispeech Results
