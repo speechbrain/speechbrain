@@ -30,7 +30,7 @@ Results are reported in terms of Character Error Rate (CER). It is not clear fro
 | Base (keep spaces) | 7.51 |
 
 You can checkout our results (models, training logs, etc,) here:
-https://drive.google.com/drive/folders/1zlTBib0XEwWeyhaXDXnkqtPsIBI18Uzs?usp=sharing
+https://www.dropbox.com/sh/kefuzzf6jaljqbr/AADBRWRzHz74GCMDqJY9BES4a?dl=0
 
 # Training Time
 It takes about 1h 30 minutes on a NVIDIA V100 (32GB).

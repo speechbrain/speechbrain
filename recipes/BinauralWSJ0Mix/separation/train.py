@@ -700,7 +700,7 @@ if __name__ == "__main__":
             print("Download Datasets Generation scripts")
             fetch(
                 filename="main.zip",
-                source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
+                source="https://github.com/huangzj421/Binaural-WSJ0Mix/",
                 savedir=hparams["data_folder"],
                 save_filename="Binaural-WSJ0Mix-main.zip",
             )

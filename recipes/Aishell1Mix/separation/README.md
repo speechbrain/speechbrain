@@ -50,7 +50,7 @@ Here are the SI - SNRi results (in dB) on the test set of Aishell1Mix dataset wi
 | NoDynamicMixing | 8.1 |
 | DynamicMixing | 11.2 |
 
-The output folders with model checkpoints and logs is available [here](https://drive.google.com/drive/folders/1GvJiUxhdN5bfbuBdxclPzdAPd2op1PCZ?usp=sharing).
+The output folders with model checkpoints and logs is available [here](https://www.dropbox.com/sh/6x9356yuybj8lue/AABPlpS03Vcci_E3jA69oKoXa?dl=0).
 
 # Example calls for running the training scripts
 
@@ -69,7 +69,7 @@ You can run the following command to train the model using Distributed Data Para
 ```
  python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
 ```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 
 
 # **About SpeechBrain**

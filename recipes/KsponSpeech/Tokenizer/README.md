@@ -8,7 +8,7 @@ python train.py train/5K_unigram_subword_bpe.yaml
 # Model link
 - 5K unigram model: [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/tokenizer.ckpt)
 
-The output folder with the logs and the tokenizers is available [here](https://drive.google.com/drive/folders/1zNGKDvHlLjQdUPrqP66vpD5RN9IIX6RC?usp=sharing).
+The output folder with the logs and the tokenizers is available [here](https://www.dropbox.com/sh/xz31wvfujzkosex/AAAsYQMCnf24pb04aig3jv_ma?dl=0).
 
 # About SpeechBrain
 - Website: https://speechbrain.github.io/
