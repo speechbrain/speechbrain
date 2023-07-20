@@ -261,9 +261,7 @@ class ASR(sb.core.Brain):
                 if "momentum" not in group:
                     return
 
-                self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device)
-                )
+                self.checkpointer.recover_if_possible()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
