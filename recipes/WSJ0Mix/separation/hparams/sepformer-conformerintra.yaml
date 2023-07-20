@@ -99,9 +99,6 @@ Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
     kernel_size: !ref <kernel_size>
     out_channels: !ref <N_encoder_out>
 
-num_layers_intra: 8
-num_layers_inter: 8
-
 #longformer_intra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
 #intra: !new:speechbrain.lobes.models.efficient_separators.LongformerBlock
 intra: !new:speechbrain.lobes.models.dual_path.SBConformerEncoderBlock
