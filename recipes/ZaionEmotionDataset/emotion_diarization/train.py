@@ -239,6 +239,7 @@ def dataio_prep(hparams):
     for dataset in ["train", "valid", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{dataset}_annotation"],
+            replacements={"data_root": hparams["zed_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "emo_encoded"],
         )
@@ -293,34 +294,34 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    from zed_prepare import prepare_train, prepare_test
-
     # Data preparation, to be run on only one process.
-    sb.utils.distributed.run_on_main(
-        prepare_train,
-        kwargs={
-            "save_json_train": hparams["train_annotation"],
-            "save_json_valid": hparams["valid_annotation"],
-            "split_ratio": hparams["split_ratio"],
-            "win_len": hparams["window_length"] * 0.02,
-            "stride": hparams["stride"] * 0.02,
-            "seed": hparams["seed"],
-            "emovdb_folder": hparams["emovdb_folder"],
-            "esd_folder": hparams["esd_folder"],
-            "iemocap_folder": hparams["iemocap_folder"],
-            "jlcorpus_folder": hparams["jlcorpus_folder"],
-            "ravdess_folder": hparams["ravdess_folder"],
-        },
-    )
-    sb.utils.distributed.run_on_main(
-        prepare_test,
-        kwargs={
-            "ZED_folder": hparams["zed_folder"],
-            "save_json_test": hparams["test_annotation"],
-            "win_len": hparams["window_length"] * 0.02,
-            "stride": hparams["stride"] * 0.02,
-        },
-    )
+    if not hparams["skip_prep"]:
+        from zed_prepare import prepare_train, prepare_test
+        sb.utils.distributed.run_on_main(
+            prepare_train,
+            kwargs={
+                "save_json_train": hparams["train_annotation"],
+                "save_json_valid": hparams["valid_annotation"],
+                "split_ratio": hparams["split_ratio"],
+                "win_len": hparams["window_length"] * 0.02,
+                "stride": hparams["stride"] * 0.02,
+                "seed": hparams["seed"],
+                "emovdb_folder": hparams["emovdb_folder"],
+                "esd_folder": hparams["esd_folder"],
+                "iemocap_folder": hparams["iemocap_folder"],
+                "jlcorpus_folder": hparams["jlcorpus_folder"],
+                "ravdess_folder": hparams["ravdess_folder"],
+            },
+        )
+        sb.utils.distributed.run_on_main(
+            prepare_test,
+            kwargs={
+                "ZED_folder": hparams["zed_folder"],
+                "save_json_test": hparams["test_annotation"],
+                "win_len": hparams["window_length"] * 0.02,
+                "stride": hparams["stride"] * 0.02,
+            },
+        )
     # Create dataset objects "train", "valid", and "test".
     datasets, label_encoder = dataio_prep(hparams)
 

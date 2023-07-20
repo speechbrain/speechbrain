@@ -34,6 +34,7 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
     0.2704918032786885
     """
 
+    duration = float(duration) # for recipe tests
     lol = []
     for i in range(len(prediction)):
         start = stride * i
@@ -189,6 +190,8 @@ def reference_to_lol(id, duration, emotion):
     if start > 0:
         lol.append([id, 0, start, "n"])
     lol.append([id, start, end, emotion[0]["emo"][0]])
+
+    duration = float(duration) # for recipe tests
     if end < duration:
         lol.append([id, end, duration, "n"])
     return lol
