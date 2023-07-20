@@ -448,12 +448,13 @@ if __name__ == "__main__":
         train_set=datasets["train"],
         valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["test_dataloader_options"],
+
     )
 
     # Load the best checkpoint for evaluation
     test_stats = res_gen_brain.evaluate(
         test_set=datasets["test"],
         min_key="error_rate",
-        test_loader_kwargs=hparams["dataloader_options"],
+        test_loader_kwargs=hparams["test_dataloader_options"],
     )

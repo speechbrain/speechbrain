@@ -9,7 +9,7 @@ seed: 1995
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset will be downloaded to the `data_original`
-data_folder: !PLACEHOLDER
+data_folder: data/MultiWOZ_2.1
 output_folder: !ref results/train_with_gpt2/<seed>
 replacements_path: recipes/MultiWOZ/response_generation/mapping.pair
 save_folder: !ref <output_folder>/save
@@ -64,6 +64,7 @@ with_eos: True
 # Training parameters
 number_of_epochs: 2
 batch_size: 8
+test_batch_size: 8
 lr: 1.97125e-4
 
 #freeze GPT model 
@@ -79,6 +80,14 @@ dataloader_options:
     shuffle: True
     num_workers: 2  
     drop_last: False
+
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    shuffle: True
+    num_workers: 2  
+    drop_last: True
+
+
 
 # Masks
 padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
