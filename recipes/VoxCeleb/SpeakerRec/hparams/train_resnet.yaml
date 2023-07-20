@@ -34,7 +34,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 10
-batch_size: 32
+batch_size: 16
 lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
@@ -73,8 +73,8 @@ embedding_model: !new:speechbrain.lobes.models.ResNet.ResNet
     block_sizes: [3, 4, 6, 3]
     lin_neurons: 256
 
-classifier: !new:speechbrain.lobes.models.ResNet.Classifier
-    lin_neurons: 256
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    input_size: 256
     out_neurons: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
