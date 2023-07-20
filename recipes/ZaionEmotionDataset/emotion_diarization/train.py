@@ -297,6 +297,7 @@ if __name__ == "__main__":
     # Data preparation, to be run on only one process.
     if not hparams["skip_prep"]:
         from zed_prepare import prepare_train, prepare_test
+
         sb.utils.distributed.run_on_main(
             prepare_train,
             kwargs={
