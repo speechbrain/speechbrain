@@ -123,19 +123,20 @@ def fetch(
     ]:
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
-        MSG = f"Destination {filename}: local file in {str(sourcepath)}."
+        MSG = f"Destination {filename}: local file in {str(sourcepath)} ."
+        logger.info(MSG)
         return sourcepath
 
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
-        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}."
+        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)} ."
         logger.info(MSG)
         return destination
     if (
         str(source).startswith("http:") or str(source).startswith("https:")
     ) or fetch_from is FetchFrom.URI:  # Interpret source as web address.
         MSG = (
-            f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."
+            f"Fetch {filename}: Downloading from normal URL {str(sourcefile)} ."
         )
         logger.info(MSG)
         # Download
