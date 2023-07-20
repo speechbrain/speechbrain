@@ -171,7 +171,7 @@ ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     blank_index: !ref <blank_index>
     ctc_fc: !ref <ctc_lin>
 
-rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
     language_model: !ref <lm_model>
     temperature: 1.25
 
@@ -181,10 +181,10 @@ valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
         ctc: !ref <ctc_weight_decode>
 
 test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-    full_scorers: [!ref <rnnlm_scorer>,
+    full_scorers: [!ref <transformerlm_scorer>,
                    !ref <ctc_scorer>]
     weights:
-        rnnlm: !ref <lm_weight>
+        transformerlm: !ref <lm_weight>
         ctc: !ref <ctc_weight_decode>
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
