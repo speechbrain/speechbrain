@@ -62,12 +62,12 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
 * https://huggingface.co/speechbrain/resepformer-wsj02mix
 
-* The output folder (with logs and checkpoints) for SepFormer (hparams/sepformer.yaml) can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
-* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://drive.google.com/drive/folders/1rXOyPQ7OZZMUzg7wrP1Zsa_fjFKMqaeu?usp=sharing).
-* The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://drive.google.com/drive/folders/12_Df4zsRW18YvD4hPAJAT9y_mVWnNyBm?usp=sharing).
-* The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://drive.google.com/drive/folders/1Olq2077mXKqtqHluxECn1lMKIbo7xPFu?usp=sharing).
-* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://drive.google.com/drive/folders/12HqVPpMXY-OOMsZ3xTAtkN7kk5TZ2YaL?usp=sharing).
-* The output folder (with logs and checkpoints) for Sepformer with conformer block as intra model (hparams/sepformer-conformerintra.yaml) can be found [here](https://drive.google.com/drive/folders/1NcB7pKj7qWzDaI3ScDOyQwJLvRdW9rfl).
+* The output folder (with logs and checkpoints) for SepFormer (hparams/sepformer.yaml) can be found [here](https://www.dropbox.com/sh/9klsqadkhin6fw1/AADEqGdT98rcqxVgFlfki7Gva?dl=0).
+* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://www.dropbox.com/sh/obnu87zhubn1iia/AAAbn_jzqzIfeqaE9YQ7ujyQa?dl=0).
+* The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://www.dropbox.com/sh/hdpxj47signsay7/AABbDjGoyQesnFxjg0APxl7qa?dl=0).
+* The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://www.dropbox.com/sh/o8fohu5s07h4bnw/AADPNyR1E3Q4aRobg3FtXTwVa?dl=0).
+* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://www.dropbox.com/sh/zy0l5rc8abxdfp3/AAA2ngB74fugqpWXmjZo5v3wa?dl=0).
+* The output folder (with logs and checkpoints) for Sepformer with conformer block as intra model (hparams/sepformer-conformerintra.yaml) can be found [here](https://www.dropbox.com/sh/w27rbdfnrtntrc9/AABCMFFvnxxYkKTInYXtsow3a?dl=0).
 
 
 
@@ -91,7 +91,7 @@ You can run the following command to train the model using Distributed Data Para
 ```
  python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
 ```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 
 
 
