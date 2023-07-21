@@ -2,7 +2,7 @@
 Creates data manifest files for ESC50
 If the data does not exist in the specified --data_folder, we download the data automatically.
 
-https://urbansounddataset.weebly.com/urbansound8k.htm://github.com/karolpiczak/ESC-50
+https://github.com/karoldvl/ESC-50/
 
 Authors:
  * Cem Subakan 2022, 2023

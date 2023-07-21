@@ -1,8 +1,6 @@
 """
 Data preparation.
 
-Download: https://aihub.or.kr/aidata/105/download
-
 Author
 ------
 Dongwon Kim, Dongwoo Kim 2021
@@ -35,7 +33,6 @@ def prepare_ksponspeech(
 ):
     """
     This class prepares the csv files for the KsponSpeech dataset.
-    Download link: https://aihub.or.kr/aidata/105/download
 
     Arguments
     ---------
