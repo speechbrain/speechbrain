@@ -427,7 +427,7 @@ if __name__ == "__main__":
     exit()
     """
 
-    use_torch_audio = True
+    use_torch_audio = False
 
     if use_torch_audio:
         from speechbrain.decoders import TorchAudioCTCBeamSearch
@@ -438,14 +438,13 @@ if __name__ == "__main__":
         # files.lexicon
         ind2lab = label_encoder.ind2lab
         labels = [ind2lab[x] for x in range(len(ind2lab))]  
-        import math 
-
+        
         decoder = TorchAudioCTCBeamSearch(
             lexicon=None,
             tokens=labels,
             beam_size=100,
             blank_index=hparams["blank_index"],
-            sil_index=hparams["blank_index"],
+            sil_index=hparams["blank_index"],   
             beam_size_token=5,
             using_cpu_decoder=True,
         )
@@ -463,7 +462,7 @@ if __name__ == "__main__":
             space_index=29,
             vocab_list=labels,
             beam_width=10,
-            blank_skip_threshold=math.log(1.0),
+            # blank_skip_threshold=math.log(1.0),
         )
 
 

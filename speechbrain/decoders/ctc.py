@@ -446,7 +446,7 @@ class CTCHypothesis:
     last_lm_state: None
     score: float  # Cumulative logit score
     lm_score: float  # Cumulative language model + logit score
-
+    timesteps: list = None 
 
 class CTCBaseSearcher(torch.nn.Module):
     """CTCBaseSearcher class to be inherited by other
@@ -490,7 +490,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
         history_prune=True,
-        blank_skip_threshold=math.log(1.0), # by default the pruning is not applied
+        blank_skip_threshold=None, # by default the pruning is not applied
         topk=1,
     ):
         super().__init__()
@@ -818,8 +818,8 @@ class CTCBaseSearcher(torch.nn.Module):
         return output_beams
     
 class CTCBeamSearch(CTCBaseSearcher):
-    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, blank_skip_threshold=math.log(0.99), topk=1):
-        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, blank_skip_threshold, topk)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def get_lm_beams(
         self,
@@ -893,12 +893,12 @@ class CTCBeamSearch(CTCBaseSearcher):
         cached_p_lm_scores,
         processed_frames = 0,
     ):        
-        
-        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
-            if frame_index > wav_len:
-                break
+        # select only the valid frames i.e. the frames that are not padded
+        log_probs = log_probs[:wav_len]
 
-            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+        for _, logit_col in enumerate(log_probs, start=processed_frames):
+
+            if self.blank_skip_threshold is not None and logit_col[self.blank_index] >= self.blank_skip_threshold:
                 continue
 
             max_index = logit_col.argmax()
@@ -990,8 +990,8 @@ class CTCBeamSearch(CTCBaseSearcher):
 
 
 class CTCPrefixBeamSearch(CTCBaseSearcher):
-    def __init__(self, blank_index, vocab_list, kenlm_model_path=None, unigrams=None, space_index=-1, beam_width=100, beam_prune_logp=-10, token_prune_min_logp=-5, history_prune=True, blank_skip_threshold=math.log(0.99), topk=1):
-        super().__init__(blank_index, vocab_list, space_index, kenlm_model_path, unigrams, beam_width, beam_prune_logp, token_prune_min_logp, history_prune, blank_skip_threshold, topk)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def get_lm_beams(
         self,
@@ -1141,11 +1141,12 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_p_lm_scores,
         processed_frames = 0,
     ):  
-        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
-            if frame_index > wav_len:
-                break
-    
-            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+        # select only the valid frames i.e. the frames that are not padded
+        log_probs = log_probs[:wav_len]
+
+        for _, logit_col in enumerate(log_probs, start=processed_frames):
+
+            if self.blank_skip_threshold is not None and logit_col[self.blank_index] >= self.blank_skip_threshold:
                 continue
 
             max_index = logit_col.argmax()
@@ -1235,7 +1236,7 @@ class TorchAudioCTCBeamSearch:
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
         return_topk: bool = False,
-        blank_skip_threshold: float = math.log(0.99),
+        blank_skip_threshold: float = math.log(1.0),
     ):
         self.lexicon = lexicon
         self.tokens = tokens
