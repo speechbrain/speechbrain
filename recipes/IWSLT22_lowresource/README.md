@@ -14,6 +14,14 @@ For downloading the dataset used for this experiment, please run the following c
 git clone https://github.com/mzboito/IWSLT2022_Tamasheq_data.git
 ```
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## Training
 
 For training the model, please update the variables at hparams/train_w2v2_st.yaml.

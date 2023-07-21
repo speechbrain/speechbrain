@@ -1,6 +1,15 @@
 # Emotion recognition experiments with IEMOCAP (speech only)
 This folder contains scripts for running emotion recognition experiments with the IEMOCAP dataset (https://paperswithcode.com/dataset/iemocap).
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r ../extra_requirements.txt
+```
+
+
 # Training ECAPA-TDNN/wav2vec 2.0/HuBERT
 Run the following command to train the model:
 `python train.py hparams/train.yaml`

@@ -3,12 +3,15 @@ This folder contains some popular recipes for the [LibriMix Dataset](https://arx
 
 * This recipe supports train with several source separation models on LibriMix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
-Additional dependencies:
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
 ```
-pip install mir_eval
-pip install pyloudnorm
+pip install -r ../extra_requirements.txt
 ```
 
+## How to run
 To run it:
 
 ```

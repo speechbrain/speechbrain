@@ -5,6 +5,14 @@ This folder contains the recipes for training TTS systems (including vocoders) w
 The dataset can be downloaded from here:
 https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 # Tacotron 2
 The subfolder "tacotron2" contains the recipe for training the popular [tacotron2](https://arxiv.org/abs/1712.05884) TTS model.
 To run this recipe, go into the "tacotron2" folder and run:

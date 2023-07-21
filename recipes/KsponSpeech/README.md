@@ -26,6 +26,14 @@ pcm files need to be converted to wav for training. Run following script for the
 python conert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
 ```
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## How to run an ASR experiment with KsponSpeech
 
 To train a full speech recognition system the pipeline is the following:
