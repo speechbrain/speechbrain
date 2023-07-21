@@ -3,14 +3,6 @@ This folder contains the scripts to train a Transformer-based speech recognizer 
 
 You can download LibriSpeech at http://www.openslr.org/12
 
-## Installing Extra Dependencies
-
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
-
-```
-pip install -r extra_requirements.txt
-```
-
 # How to run
 ```shell
 python train_with_whisper.py hparams/train_hf_whisper.yaml

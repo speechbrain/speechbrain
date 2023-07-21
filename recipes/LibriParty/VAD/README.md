@@ -7,14 +7,6 @@ Data augmentation with open_rir, musan, CommonLanguge is used as well. Make sure
 - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
 
 
-## Installing Extra Dependencies
-
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
-
-```
-pip install -r extra_requirements.txt
-```
-
 # Training a RNN-based VAD
 Run the following command to train the model:
 `python train.py hparams/train.yaml --data_folder=/localscratch/LibriParty/dataset/ --musan_folder=/localscratch/musan/ --commonlanguage_folder=/localscratch/common_voice_kpd`
