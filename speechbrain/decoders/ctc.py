@@ -1241,11 +1241,70 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
 
 class TorchAudioCTCBeamSearch:
+    """TorchAudio CTC Beam Search Decoder.
+
+    This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
+    where you can either use the CPU or CUDA CTC decoder. The CPU decoder is slower but uses less
+    memory. The CUDA decoder is faster but uses more memory. The CUDA decoder is also only available
+    in the nightly version of torchaudio. A lot of features are missing in the CUDA decoder, such as
+    the ability to use a language model, constraint search, and more. If you want to use those features,
+    you have to use the CPU decoder.
+
+    For more information about the CPU decoder, please refer to the documentation of TorchAudio:
+    https://pytorch.org/audio/main/generated/torchaudio.models.decoder.ctc_decoder.html
+
+    Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
+    requires the nightly version of torchaudio and a lot of VRAM memory if you wants to use large beam size.
+
+    Arguments
+    ---------
+    tokens : list or str
+        The list of tokens or the path to the tokens file.
+        If this is a path, then the file should contain one token per line.
+    lexicon : str, optional
+        Lexicon file containing the possible words and corresponding spellings. Each line consists of a word and its space separated spelling. 
+        If None, uses lexicon-free decoding. (default: None)
+    lm : str, optional
+        A path containing KenLM language model or None if not using a language model. (default: None)
+    lm_dict : str, optional
+        File consisting of the dictionary used for the LM, with a word per line sorted by LM index. 
+        If decoding with a lexicon, entries in lm_dict must also occur in the lexicon file. 
+        If None, dictionary for LM is constructed using the lexicon file. (Default: None)
+    topk : int, optional
+        Number of top CTCHypothesis to return. (default: 1)
+    beam_size : int, optional
+        Numbers of hypotheses to hold after each decode step. (default: 50)
+    beam_size_token : int, optional
+        Max number of tokens to consider at each decode step. If None, it is set to the total number of tokens. (default: None)
+    beam_threshold : float, optional
+        Threshold for pruning hypothesis. (default: 50)
+    lm_weight : float, optional
+        Weight of language model. (default: 2)
+    word_score : float, optional
+        Word insertion score. (default: 0)
+    unk_score : float, optional
+        Unknown word insertion score. (default: float("-inf"))
+    sil_score : float, optional
+        Silence insertion score. (default: 0)
+    log_add : bool, optional
+        Whether to use use logadd when merging hypotheses. (default: False)
+    blank_index : int or str, optional
+        Index of the blank token. If tokens is a file path, then this should be an str. Otherwise, this should be a int. (default: 0)
+    sil_index : int or str, optional
+        Index of the silence token. If tokens is a file path, then this should be an str. Otherwise, this should be a int. (default: 0)
+    unk_word : str, optional
+        Unknown word token. (default: "<unk>")
+    using_cpu_decoder : bool, optional
+        Whether to use the CPU decoder. If False, then the CUDA decoder is used. (default: True)
+    blank_skip_threshold : float, optional
+        skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (Default: log(1.0)).
+        Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
+    """
     def __init__(
         self,
-        lexicon, # None or file path
         tokens, # list or file path
-        lm=None,
+        lexicon: Optional[str] = None, # None or file path
+        lm: Optional[str] = None, 
         lm_dict: Optional[str] = None,
         topk: int = 1,
         beam_size: int = 50,
@@ -1262,24 +1321,6 @@ class TorchAudioCTCBeamSearch:
         using_cpu_decoder: bool = True,
         blank_skip_threshold: float = math.log(1.0),
     ):
-        """TorchAudio CTC Beam Search Decoder.
-
-        This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
-        where you can either use the CPU or CUDA CTC decoder. The CPU decoder is slower but uses less
-        memory. The CUDA decoder is faster but uses more memory. The CUDA decoder is also only available
-        in the nightly version of torchaudio. A lot of features are missing in the CUDA decoder, such as
-        the ability to use a language model, constraint search, and more. If you want to use those features,
-        you have to use the CPU decoder.
-
-        For more information about the CPU decoder, please refer to the documentation of TorchAudio:
-        https://pytorch.org/audio/main/generated/torchaudio.models.decoder.ctc_decoder.html
-
-        Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
-        requires the nightly version of torchaudio and a lot of VRAM memory if you wants to use large beam size.
-
-        Arguments
-        ---------
-        """
         self.lexicon = lexicon
         self.tokens = tokens
         self.lm = lm
