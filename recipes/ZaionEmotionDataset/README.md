@@ -13,7 +13,7 @@
 
 ## Installing Extra Dependencies
 
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
 pip install -r emotion_diarization/extra_requirements.txt
@@ -54,7 +54,7 @@ First download the train/test datasets and unzip them.
 
 To run the code, do:
 
-`cd emotion_diarization/` 
+`cd emotion_diarization/`
 
 `python train.py hparams/train.yaml --zed_folder /path/to/ZED --emovdb_folder /path/to/EmoV-DB --esd_folder /path/to/ESD --iemocap_folder /path/to/IEMOCAP --jlcorpus_folder /path/to/JL_corpus --ravdess_folder /path/to/RAVDESS`.
 

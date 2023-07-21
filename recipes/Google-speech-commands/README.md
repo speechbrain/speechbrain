@@ -1,10 +1,10 @@
 # Google Speech Command v0.02 Dataset
 This folder contains recipes for command recognition with [Google Speech Command Dataset](https://www.tensorflow.org/datasets/catalog/speech_commands), including a sample recipe for the recent [LEAF audio frontend](https://openreview.net/forum?id=jM76BCb6F9m).
-The recipes supports 12 or 35 commands.  
+The recipes supports 12 or 35 commands.
 
 ## Installing Extra Dependencies
 
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
 pip install -r extra_requirements.txt

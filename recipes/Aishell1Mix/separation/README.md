@@ -5,7 +5,7 @@ This folder contains some popular recipes for the Aishell1Mix dataset similar to
 
 ## Installing Extra Dependencies
 
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 
 Make sure that SoX is installed on your machine.

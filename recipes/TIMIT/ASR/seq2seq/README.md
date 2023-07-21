@@ -4,7 +4,7 @@ TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC9
 
 ## Installing Extra Dependencies
 
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
 cd emotion_recognition

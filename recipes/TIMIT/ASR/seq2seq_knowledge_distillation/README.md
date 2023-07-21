@@ -16,7 +16,7 @@ The output folders with checkpoints and logs for TIMIT recipes can be found [her
 
 ## Installing Extra Dependencies
 
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
 pip install -r extra_requirements.txt
