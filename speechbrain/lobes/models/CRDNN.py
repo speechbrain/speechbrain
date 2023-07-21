@@ -314,7 +314,7 @@ class reCNN_Block(sb.nnet.containers.Sequential):
         using_2d_pool=False,
         pooling_size=2,
         dropout=0.15,
-        first=False
+        first=False,
     ):
         super().__init__(input_shape=input_shape)
         if not first:
@@ -335,11 +335,11 @@ class reCNN_Block(sb.nnet.containers.Sequential):
                 bias=False,
                 layer_name="conv_2",
                 groups=channels,
-                padding="causal"
+                padding="causal",
             )
             self.append(sb.nnet.normalization.LayerNorm, layer_name="norm_2")
             self.append(activation(), layer_name="act_2")
-        
+
         else:
             self.append(
                 sb.nnet.CNN.Conv2d,

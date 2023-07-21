@@ -188,9 +188,7 @@ class SincConv(nn.Module):
             )
         return in_channels
 
-    def _get_sinc_filters(
-        self,
-    ):
+    def _get_sinc_filters(self,):
         """This functions creates the sinc-filters to used for sinc-conv."""
         # Computing the low frequencies of the filters
         low = self.min_low_hz + torch.abs(self.low_hz_)
@@ -279,11 +277,7 @@ class SincConv(nn.Module):
         return 700 * (10 ** (mel / 2595) - 1)
 
     def _manage_padding(
-        self,
-        x,
-        kernel_size: int,
-        dilation: int,
-        stride: int,
+        self, x, kernel_size: int, dilation: int, stride: int,
     ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
@@ -455,11 +449,7 @@ class Conv1d(nn.Module):
         return wx
 
     def _manage_padding(
-        self,
-        x,
-        kernel_size: int,
-        dilation: int,
-        stride: int,
+        self, x, kernel_size: int, dilation: int, stride: int,
     ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
@@ -647,11 +637,11 @@ class Conv2d(nn.Module):
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
             )
-        
+
         elif self.padding == "causal":
             num_pad = (self.kernel_size[1] - 1) * self.dilation[1]
             x = F.pad(x, (0, 0, num_pad, 0))
-            
+
         elif self.padding == "valid":
             pass
 
@@ -1080,9 +1070,7 @@ class DepthwiseSeparableConv1d(nn.Module):
         )
 
         self.pointwise = Conv1d(
-            out_channels,
-            kernel_size=1,
-            input_shape=input_shape,
+            out_channels, kernel_size=1, input_shape=input_shape,
         )
 
     def forward(self, x):
@@ -1169,9 +1157,7 @@ class DepthwiseSeparableConv2d(nn.Module):
         )
 
         self.pointwise = Conv2d(
-            out_channels,
-            kernel_size=(1, 1),
-            input_shape=input_shape,
+            out_channels, kernel_size=(1, 1), input_shape=input_shape,
         )
 
     def forward(self, x):
@@ -1293,11 +1279,7 @@ class GaborConv1d(nn.Module):
 
         self.kernel = nn.Parameter(self._initialize_kernel())
         if bias:
-            self.bias = torch.nn.Parameter(
-                torch.ones(
-                    self.filters * 2,
-                )
-            )
+            self.bias = torch.nn.Parameter(torch.ones(self.filters * 2,))
         else:
             self.bias = None
 

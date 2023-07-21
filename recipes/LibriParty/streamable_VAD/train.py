@@ -17,7 +17,7 @@ python train.py hparams/streamable.yaml\
 --commonlanguage_folder=/path/to/commonlang
 
 Authors
- * Francesco Paissan, 2022
+ * Francesco Paissan, 2022, 2023
  * Mohamed Kleit 2021
  * Arjun V 2021
  * Mirco Ravanelli 2021
@@ -31,7 +31,6 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from data_augment import augment_data
-from itertools import chain
 import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
@@ -62,8 +61,10 @@ class VADBrain(sb.Brain):
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         feats = feats.detach()
-        
-        feats = F.pad(feats, (0, 0, 4, 0)) # add zeros to match shape after causality padding
+
+        feats = F.pad(
+            feats, (0, 0, 4, 0)
+        )  # add zeros to match shape after causality padding
         outputs = self.modules.cnn(feats)
 
         outputs = outputs.reshape(
@@ -76,7 +77,7 @@ class VADBrain(sb.Brain):
         outputs = self.modules.dnn(outputs)
 
         return outputs, lens
-    
+
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the binary CE"
         predictions, lens = predictions
@@ -94,7 +95,6 @@ class VADBrain(sb.Brain):
             self.valid_metrics.append(
                 batch.id, torch.sigmoid(predictions), targets
             )
-        
 
         return loss
 
@@ -115,7 +115,7 @@ class VADBrain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             self.valid_metrics = self.hparams.test_stats()
-    
+
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
@@ -127,7 +127,7 @@ class VADBrain(sb.Brain):
             # old_lr, new_lr = self.hparams.lr_annealing(epoch)
             # sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch}, #, "lr": old_lr},
+                stats_meta={"epoch": epoch},  # , "lr": old_lr},
                 train_stats={"loss": self.train_loss},
                 valid_stats={"loss": stage_loss, "summary": summary},
             )
@@ -219,7 +219,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -280,7 +279,6 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-
 
     # Training/validation loop
     vad_brain.fit(
