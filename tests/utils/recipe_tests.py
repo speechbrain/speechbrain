@@ -389,17 +389,6 @@ def run_recipe_tests(
     -------
     python -c 'from speechbrain.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Dataset", "Task"], filters=[["AISHELL-1", "CommonVoice"], "SSL"])) else print("TEST PASSED")'
     """
-    # Extract device from run_opts
-    pattern = r"--device=([^,\s]+)"
-    match = re.search(pattern, run_opts)
-    if match:
-        device_option = match.group(1)
-    else:
-        device_option = "cuda"
-
-    # Adding device information in the output folder
-    output_folder = os.path.join(output_folder, device_option)
-
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
     print("Test ouputs will be put in %s" % (output_folder))
