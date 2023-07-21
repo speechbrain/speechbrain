@@ -5,11 +5,15 @@ This folder contains some popular recipes for the WSJ0-Mix task (2/3 sources).
 
 **Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Seperation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
 
-Additional dependency:
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
 ```
-pip install mir_eval
+pip install -r ../extra_requirements.txt
 ```
 
+## How to run
 To run it:
 
 ```
