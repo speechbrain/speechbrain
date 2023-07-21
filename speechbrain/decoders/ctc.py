@@ -1299,6 +1299,10 @@ class TorchAudioCTCBeamSearch:
     blank_skip_threshold : float, optional
         skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (Default: log(1.0)).
         Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
+    
+    Example
+    -------
+    >>> # TODO: add example
     """
     def __init__(
         self,
