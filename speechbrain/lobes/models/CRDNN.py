@@ -302,7 +302,7 @@ class reCNN_Block(sb.nnet.containers.Sequential):
     >>> block = reCNN_Block(input_shape=inputs.shape, channels=32)
     >>> outputs = block(inputs)
     >>> outputs.shape
-    torch.Size([10, 15, 30, 32])
+    torch.Size([10, 13, 30, 32])
     """
 
     def __init__(
