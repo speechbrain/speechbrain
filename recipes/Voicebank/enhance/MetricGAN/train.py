@@ -455,6 +455,7 @@ class MetricGanBrain(sb.Brain):
                     ],
                 )
                 samples = round(len(dataset) * self.hparams.history_portion)
+                samples = max(samples, 1)  # Ensure there's at least one sample
             else:
                 samples = self.hparams.number_of_samples
 
