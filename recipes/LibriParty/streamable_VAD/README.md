@@ -22,24 +22,45 @@ Run the following command to train the model:
 # Training Time
 About 2 minutes for each epoch with a NVIDIA RTX 3090.
 
-# Inference
-The pre-trained model + easy inference is available on HuggingFace:
-- https://huggingface.co/speechbrain/vad-crdnn-libriparty
+## Environment setup
+To setup the environment, run:
+```
+pip install speechbrain
 
-### TODO: update link & reference tutorial
-
-Basically, you can run inference with only a few lines of code:
-
-```python
-from speechbrain.pretrained import VAD
-
-VAD = VAD.from_hparams(source="speechbrain/vad-crdnn-libriparty", savedir="pretrained_models/vad-crdnn-libriparty")
-boundaries = VAD.get_speech_segments("speechbrain/vad-crdnn-libriparty/example_vad.wav")
-
-# Print the output
-VAD.save_boundaries(boundaries)
+git clone https://github.com/speechbrain/speechbrain/
+cd speechbrain/recipes/LibriParty/streamable_VAD/
+pip install -r extra-dependencies.txt
 ```
 
+## Running realtime inference
+To run real-time inference, you can download and adapt the [inference script](https://huggingface.co/fpaissan/stream-vad-crdnn-libriparty/blob/main/inference.py).
+
+To download the inference script, run:
+```
+git clone https://github.com/speechbrain/speechbrain/
+```
+The inference script is located in `recipes/LibriParty/streamable_VAD/inference.py`.
+
+In order to run the script, you should insert the ID of your microphone, you can do so on your system following the next steps.
+
+**On Mac**
+To retrieve the ID of your microphone, run:
+```ffmpeg -hide_banner -list_devices true -f avfoundation -i dummy```
+and copy the ID of the microphone.
+
+**On Linux** -- TODO: finish testing
+To retrieve the ID of your microphone, run:
+```arecord -l```
+and copy the ID of the microphone.
+
+After retrieving your device ID, modify the script as follows you can run the inference script with 
+```
+cd speechbrain/recipes/LibriParty/streamable_VAD/
+python inference.py {MICROPHONE_ID}
+```
+
+This will open a window displaying the raw waveform on the top row, and the speech presence probability on the bottom row. You can close the demo via CTRL+C.
+After the execution, the script saves two images containing the processed waveform both offline (offline_processing.png) and realtime (streaming.png) for comparison.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
