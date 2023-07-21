@@ -272,28 +272,6 @@ if __name__ == "__main__":
     # Dataset IO prep: creating Dataset objects
     train_data, valid_data, test_data = dataio_prep(hparams)
 
-    # lr_finder = LRFinder(
-    #     VADBrain,
-    #     {"modules": hparams["modules"],
-    #     "opt_class": hparams["opt_class"],
-    #     "hparams": hparams,
-    #     "run_opts": run_opts,
-    #     "checkpointer": hparams["checkpointer"]},
-    #     [hparams["epoch_counter"],
-    #     train_data,
-    #     valid_data],
-    #     {"train_loader_kwargs": hparams["train_dataloader_opts"],
-    #     "valid_loader_kwargs": hparams["valid_dataloader_opts"]}
-    # )
-
-    # lri, lossi = lr_finder.test_lr_range(0.00001, 1.0)
-
-    # import matplotlib.pyplot as plt
-    # print(lri, lossi)
-    # plt.plot(lri, lossi)
-    # plt.savefig("lr_finder.png")
-    # quit()
-
     # Trainer initialization
     vad_brain = VADBrain(
         modules=hparams["modules"],
