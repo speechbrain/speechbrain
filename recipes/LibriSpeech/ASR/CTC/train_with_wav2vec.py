@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Define training procedure
 class ASR(sb.Brain):
-    
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
@@ -66,12 +65,8 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
-        if use_torch_audio:
-
-            p_tokens, _, _, _ = decoder.decode_beams(p_ctc) 
-        else:
-            p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
-
+        p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
+        
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -89,17 +84,11 @@ class ASR(sb.Brain):
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
-
         if stage != sb.Stage.TRAIN:
-            if use_torch_audio:
-                predicted_words = [
-                    "".join(utt_seq).split(" ")
-                    for utt_seq in predicted_tokens
-                ]  
-            else:
-                predicted_words = []
-                for hyp in predicted_tokens:
-                    predicted_words.append(hyp[0].text.split(" "))
+
+            predicted_words = []
+            for hyp in predicted_tokens:
+                predicted_words.append(hyp[0].text.split(" "))
 
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
@@ -427,44 +416,45 @@ if __name__ == "__main__":
     exit()
     """
 
-    use_torch_audio = False
+    use_torch_audio = True
 
     if use_torch_audio:
         from speechbrain.decoders import TorchAudioCTCBeamSearch
         from torchaudio.models.decoder import download_pretrained_files
+
         files = download_pretrained_files("librispeech-4-gram")
-        #print(files)
-        #exit()
+        # print(files)
+        # exit()
         # files.lexicon
         ind2lab = label_encoder.ind2lab
-        labels = [ind2lab[x] for x in range(len(ind2lab))]  
-        
+        labels = [ind2lab[x] for x in range(len(ind2lab))]
+
         decoder = TorchAudioCTCBeamSearch(
             lexicon=None,
             tokens=labels,
-            beam_size=100,
+            beam_size=10,
             blank_index=hparams["blank_index"],
-            sil_index=hparams["blank_index"],   
+            sil_index=hparams["blank_index"],
             beam_size_token=5,
-            using_cpu_decoder=True,
+            using_cpu_decoder=False,
+            topk=2,
         )
 
     else:
         from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
-        import math 
+        import math
 
         ind2lab = label_encoder.ind2lab
         labels = [ind2lab[x] for x in range(len(ind2lab))]
         decoder = CTCPrefixBeamSearch(
             blank_index=0,
-            #kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
+            # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
             history_prune=True,
             space_index=29,
             vocab_list=labels,
             beam_width=10,
             # blank_skip_threshold=math.log(1.0),
         )
-
 
     """
     # Training

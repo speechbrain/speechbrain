@@ -35,6 +35,7 @@ except ImportError:
         "pip install https://github.com/kpu/kenlm/archive/master.zip"
     )
 
+
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     """Read unigrams from arpa file."""
     unigrams = set()
@@ -55,6 +56,7 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
             "No unigrams found in arpa file. Something is wrong with the file."
         )
     return unigrams
+
 
 class KenlmState:
     def __init__(self, state: "kenlm.State") -> None:

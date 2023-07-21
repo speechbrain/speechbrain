@@ -14,6 +14,7 @@ import dataclasses
 import numpy as np
 import heapq
 import logging
+
 logger = logging.getLogger(__name__)
 import torch
 import math
@@ -43,6 +44,7 @@ from speechbrain.decoders.language_model import (
     LanguageModel,
     load_unigram_set_from_arpa,
 )
+
 
 class CTCPrefixScore:
     """This class implements the CTC prefix score of Algorithm 2 in
@@ -397,18 +399,19 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 @dataclasses.dataclass
 class CTCBeam:
     """Contains all the info needed for decoding a beam."""
+
     text: str
-    full_text: str 
+    full_text: str
     next_word: str
     partial_word: str
     last_token: Optional[str]
     last_token_index: Optional[int]
     p: float = -math.inf
     p_b: float = -math.inf
-    p_nb: float =  -math.inf
-    n_p_b: float =  -math.inf
-    n_p_nb : float=  -math.inf
-    score: float =  -math.inf
+    p_nb: float = -math.inf
+    n_p_b: float = -math.inf
+    n_p_nb: float = -math.inf
+    score: float = -math.inf
     score_ctc: float = -math.inf
 
     @classmethod
@@ -429,16 +432,18 @@ class CTCBeam:
             score=lm_beam.score,
             score_ctc=lm_beam.score_ctc,
         )
-    
+
     def step(self):
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
-        self.score = self.score_ctc # + self.lm_score
+        self.score = self.score_ctc  # + self.lm_score
+
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
     lm_score: float = -math.inf
+
 
 @dataclasses.dataclass
 class CTCHypothesis:
@@ -446,7 +451,8 @@ class CTCHypothesis:
     last_lm_state: None
     score: float  # Cumulative logit score
     lm_score: float  # Cumulative language model + logit score
-    timesteps: list = None 
+    timesteps: list = None
+
 
 class CTCBaseSearcher(torch.nn.Module):
     """CTCBaseSearcher class to be inherited by other
@@ -490,7 +496,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
         history_prune=True,
-        blank_skip_threshold=None, # by default the pruning is not applied
+        blank_skip_threshold=None,  # by default the pruning is not applied
         topk=1,
     ):
         super().__init__()
@@ -513,7 +519,6 @@ class CTCBaseSearcher(torch.nn.Module):
 
         if not self.is_spm and space_index == -1:
             raise ValueError("space_index must be set")
-        
 
         self.kenlm_model = None
         if kenlm_model_path is not None:
@@ -547,13 +552,13 @@ class CTCBaseSearcher(torch.nn.Module):
             self.lm = None
 
     def partial_decoding(
-            self, 
-            log_probs, 
-            beams, 
-            cached_lm_scores, 
-            cached_p_lm_scores,
-            processed_frames = 0,
-        ):
+        self,
+        log_probs,
+        beams,
+        cached_lm_scores,
+        cached_p_lm_scores,
+        processed_frames=0,
+    ):
         """ Perform a single step of decoding.
 
         Arguments
@@ -570,7 +575,7 @@ class CTCBaseSearcher(torch.nn.Module):
             The start frame of the current decoding step.
         """
         raise NotImplementedError
-    
+
     def normalize_whitespace(self, text):
         """Efficiently normalize whitespace.
 
@@ -579,11 +584,11 @@ class CTCBaseSearcher(torch.nn.Module):
         text : str
             The text to normalize.
         """
-        return " ".join(text.split()) 
+        return " ".join(text.split())
 
     def merge_tokens(self, token_1, token_2):
         """ Merge two tokens, and avoid empty ones.
-        
+
         Arguments
         ---------
         token_1 : str
@@ -616,7 +621,8 @@ class CTCBaseSearcher(torch.nn.Module):
             else:
                 # We've already seen this text - we want to combine the scores
                 beam_dict[hash_idx] = dataclasses.replace(
-                    beam, score=np.logaddexp(beam_dict[hash_idx].score, beam.score)
+                    beam,
+                    score=np.logaddexp(beam_dict[hash_idx].score, beam.score),
                 )
         return list(beam_dict.values())
 
@@ -629,7 +635,7 @@ class CTCBaseSearcher(torch.nn.Module):
             The list of the beams.
         """
         return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
-    
+
     def prune_history(self, beams, lm_order):
         """Filter out beams that are the same over max_ngram history.
 
@@ -663,15 +669,14 @@ class CTCBaseSearcher(torch.nn.Module):
                 seen_hashes.add(hash_idx)
         return filtered_beams
 
-
     def finalize_decoding(
-            self, 
-            beams, 
-            cached_lm_scores,
-            cached_p_lm_scores,
-            force_next_word=False, 
-            is_end=False
-        ):
+        self,
+        beams,
+        cached_lm_scores,
+        cached_p_lm_scores,
+        force_next_word=False,
+        is_end=False,
+    ):
         """ Finalize the decoding process.
 
         Arguments
@@ -705,61 +710,63 @@ class CTCBaseSearcher(torch.nn.Module):
             new_beams = self.merge_beams(new_beams)
         else:
             new_beams = list(beams)
-        
+
         scored_beams = self.get_lm_beams(
-            new_beams,
-            cached_lm_scores,
-            cached_p_lm_scores,
+            new_beams, cached_lm_scores, cached_p_lm_scores,
         )
         # remove beam outliers
         max_score = max([b.lm_score for b in scored_beams])
-        scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
+        scored_beams = [
+            b
+            for b in scored_beams
+            if b.lm_score >= max_score + self.beam_prune_logp
+        ]
         return self.sort_beams(scored_beams)
-    
-    def decode_beams(self, log_probs, wav_lens =  None, lm_start_state=None):
+
+    def decode_beams(self, log_probs, wav_lens=None, lm_start_state=None):
         # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
-            wav_lens = log_probs.shape[1] * wav_lens
+            wav_lens = log_probs.size(1) * wav_lens
             wav_lens = wav_lens.cpu().numpy().astype(int)
 
         log_probs = log_probs.cpu().numpy()
-        
+
         hyps = [
-            self.decode_log_probs(log_prob, wav_len, lm_start_state) for log_prob, wav_len in zip(log_probs, wav_lens)
+            self.decode_log_probs(log_prob, wav_len, lm_start_state)
+            for log_prob, wav_len in zip(log_probs, wav_lens)
         ]
         return hyps
 
-    
     def partial_decode_beams(
-            self, 
+        self,
+        log_probs,
+        cached_lm_scores,
+        cached_p_lm_scores,
+        beams,
+        processed_frames,
+        force_next_word=False,
+        is_end=False,
+    ):
+
+        beams = self.partial_decoding(
             log_probs,
+            beams,
             cached_lm_scores,
             cached_p_lm_scores,
+            processed_frames=processed_frames,
+        )
+
+        trimmed_beams = self.finalize_decoding(
             beams,
-            processed_frames,
-            force_next_word = False, 
-            is_end = False, 
-        ):
+            cached_lm_scores,
+            cached_p_lm_scores,
+            force_next_word=force_next_word,
+            is_end=is_end,
+        )
 
-            beams = self.partial_decoding(
-                log_probs,
-                beams,
-                cached_lm_scores,
-                cached_p_lm_scores,
-                processed_frames=processed_frames,
-            )   
+        return trimmed_beams
 
-            trimmed_beams = self.finalize_decoding(
-                beams,
-                cached_lm_scores,
-                cached_p_lm_scores,
-                force_next_word=force_next_word,
-                is_end=is_end,
-            )
-
-            return trimmed_beams
-
-    def decode_log_probs(self, log_probs, wav_len = None, lm_start_state = None):
+    def decode_log_probs(self, log_probs, wav_len=None, lm_start_state=None):
         language_model = self.lm
         if language_model is None:
             cached_lm_scores = {}
@@ -770,7 +777,7 @@ class CTCBaseSearcher(torch.nn.Module):
                 start_state = lm_start_state
             cached_lm_scores = {("", False): (0.0, start_state)}
         cached_p_lm_scores: Dict[str, float] = {}
-       
+
         beams = [
             CTCBeam(
                 text="",
@@ -786,12 +793,8 @@ class CTCBaseSearcher(torch.nn.Module):
         ]
 
         beams = self.partial_decoding(
-            log_probs,
-            wav_len,
-            beams,
-            cached_lm_scores,
-            cached_p_lm_scores,
-        )   
+            log_probs, wav_len, beams, cached_lm_scores, cached_p_lm_scores,
+        )
 
         trimmed_beams = self.finalize_decoding(
             beams,
@@ -806,17 +809,18 @@ class CTCBaseSearcher(torch.nn.Module):
             CTCHypothesis(
                 text=self.normalize_whitespace(lm_beam.text),
                 last_lm_state=(
-                  cached_lm_scores[(lm_beam.text, True)][-1]
-                  if (lm_beam.text, True) in cached_lm_scores
-                  else None
+                    cached_lm_scores[(lm_beam.text, True)][-1]
+                    if (lm_beam.text, True) in cached_lm_scores
+                    else None
                 ),
                 score=lm_beam.score,
                 lm_score=lm_beam.lm_score,
             )
             for lm_beam in trimmed_beams
-        ][:self.topk]
+        ][: self.topk]
         return output_beams
-    
+
+
 class CTCBeamSearch(CTCBaseSearcher):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -826,7 +830,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         beams,
         cached_lm_scores,
         cached_partial_token_scores,
-        is_eos= False,
+        is_eos=False,
     ):
         if self.lm is None:
             new_beams = []
@@ -839,7 +843,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token,     
+                        last_token_index=beam.last_token,
                         score=beam.score,
                         lm_score=beam.score,
                     )
@@ -877,32 +881,37 @@ class CTCBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=word_part,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token,                   
+                        last_token_index=beam.last_token,
                         score=beam.score,
                         lm_score=beam.score + lm_score,
                     )
                 )
             return new_beams
-        
+
     def partial_decoding(
-        self, 
+        self,
         log_probs,
         wav_len,
         beams,
         cached_lm_scores,
         cached_p_lm_scores,
-        processed_frames = 0,
-    ):        
+        processed_frames=0,
+    ):
         # select only the valid frames i.e. the frames that are not padded
         log_probs = log_probs[:wav_len]
 
         for _, logit_col in enumerate(log_probs, start=processed_frames):
 
-            if self.blank_skip_threshold is not None and logit_col[self.blank_index] >= self.blank_skip_threshold:
+            if (
+                self.blank_skip_threshold is not None
+                and logit_col[self.blank_index] >= self.blank_skip_threshold
+            ):
                 continue
 
             max_index = logit_col.argmax()
-            tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
+            tokens_index_list = set(
+                np.where(logit_col > self.token_prune_min_logp)[0]
+            ) | {max_index}
             new_beams = []
 
             for token_index in tokens_index_list:
@@ -910,8 +919,11 @@ class CTCBeamSearch(CTCBaseSearcher):
                 token = self.vocab_list[token_index]
 
                 for beam in beams:
-                    
-                    if token_index == self.blank_index or beam.last_token == token:
+
+                    if (
+                        token_index == self.blank_index
+                        or beam.last_token == token
+                    ):
 
                         new_beams.append(
                             CTCBeam(
@@ -926,8 +938,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                         )
 
                     elif self.is_spm and token[:1] == self.spm_token:
-                        clean_token = token[1:]    
-
+                        clean_token = token[1:]
 
                         new_beams.append(
                             CTCBeam(
@@ -954,7 +965,7 @@ class CTCBeamSearch(CTCBaseSearcher):
                             )
                         )
                     else:
-                                                
+
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
@@ -969,13 +980,15 @@ class CTCBeamSearch(CTCBaseSearcher):
 
             new_beams = self.merge_beams(new_beams)
             scored_beams = self.get_lm_beams(
-                new_beams,
-                cached_lm_scores,
-                cached_p_lm_scores,
+                new_beams, cached_lm_scores, cached_p_lm_scores,
             )
             # remove beam outliers
             max_score = max([b.lm_score for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
+            scored_beams = [
+                b
+                for b in scored_beams
+                if b.lm_score >= max_score + self.beam_prune_logp
+            ]
 
             trimmed_beams = self.sort_beams(scored_beams)
 
@@ -988,7 +1001,6 @@ class CTCBeamSearch(CTCBaseSearcher):
         return beams
 
 
-
 class CTCPrefixBeamSearch(CTCBaseSearcher):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -998,8 +1010,8 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         beams,
         cached_lm_scores,
         cached_partial_token_scores,
-        is_eos= False,
-    ):   
+        is_eos=False,
+    ):
         if self.lm is None:
             new_beams = []
             for beam in beams:
@@ -1011,7 +1023,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token_index,  
+                        last_token_index=beam.last_token_index,
                         p=beam.p,
                         p_b=beam.p_b,
                         p_nb=beam.p_nb,
@@ -1040,7 +1052,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                     cached_lm_scores[cache_key] = (raw_lm_score, end_state)
                 lm_score, _ = cached_lm_scores[cache_key]
                 word_part = beam.partial_word
-               
+
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
 
@@ -1056,7 +1068,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         next_word="",
                         partial_word=beam.partial_word,
                         last_token=beam.last_token,
-                        last_token_index=beam.last_token_index, 
+                        last_token_index=beam.last_token_index,
                         p=beam.p,
                         p_b=beam.p_b,
                         p_nb=beam.p_nb,
@@ -1068,15 +1080,23 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                     )
                 )
             return new_beams
-        
-    def _get_new_beam(self, new_prefix, new_token, new_token_index, beams, p=None, previous_beam=None):
-        
+
+    def _get_new_beam(
+        self,
+        new_prefix,
+        new_token,
+        new_token_index,
+        beams,
+        p=None,
+        previous_beam=None,
+    ):
+
         for beam in beams:
             if beam.text == new_prefix:
                 if p and p > beam.p:
-                    beam.p = p 
-                return beam 
-        
+                    beam.p = p
+                return beam
+
         if not self.is_spm and new_token_index == self.space_index:
             new_beam = CTCBeam(
                 text=new_prefix,
@@ -1088,10 +1108,10 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
-            )     
+            )
         elif self.is_spm and new_token[:1] == self.spm_token:
             clean_token = new_token[1:]
-            new_prefix = previous_beam.text + ' ' + clean_token
+            new_prefix = previous_beam.text + " " + clean_token
             new_beam = CTCBeam(
                 text=new_prefix,
                 full_text=previous_beam.full_text,
@@ -1115,7 +1135,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                 score_ctc=-math.inf,
                 p_b=-math.inf,
             )
-        else: 
+        else:
             new_beam = CTCBeam(
                 text=new_prefix,
                 full_text=previous_beam.full_text,
@@ -1131,27 +1151,32 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         if previous_beam:
             new_beam.p = previous_beam.p
         return new_beam
-        
+
     def partial_decoding(
-        self, 
+        self,
         log_probs,
-        wav_len, 
+        wav_len,
         beams,
         cached_lm_scores,
         cached_p_lm_scores,
-        processed_frames = 0,
-    ):  
+        processed_frames=0,
+    ):
         # select only the valid frames i.e. the frames that are not padded
         log_probs = log_probs[:wav_len]
 
         for _, logit_col in enumerate(log_probs, start=processed_frames):
 
-            if self.blank_skip_threshold is not None and logit_col[self.blank_index] >= self.blank_skip_threshold:
+            if (
+                self.blank_skip_threshold is not None
+                and logit_col[self.blank_index] >= self.blank_skip_threshold
+            ):
                 continue
 
             max_index = logit_col.argmax()
-            tokens_index_list = set(np.where(logit_col > self.token_prune_min_logp)[0]) | {max_index}
-            
+            tokens_index_list = set(
+                np.where(logit_col > self.token_prune_min_logp)[0]
+            ) | {max_index}
+
             curr_beams = beams.copy()
 
             for token_index in tokens_index_list:
@@ -1160,7 +1185,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
                 for beam in curr_beams:
                     p_b, p_nb = beam.p_b, beam.p_nb
-                    
+
                     # blank case
                     if token_index == self.blank_index:
                         beam.n_p_b = np.logaddexp(
@@ -1170,15 +1195,15 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
                     if token == beam.last_token:
                         beam.n_p_nb = np.logaddexp(beam.n_p_nb, p_nb + p_token)
-                     
+
                     new_text = beam.text + token
 
                     new_beam = self._get_new_beam(
-                        new_text, 
+                        new_text,
                         token,
                         token_index,
                         beams,
-                        p=p_token, 
+                        p=p_token,
                         previous_beam=beam,
                     )
 
@@ -1188,22 +1213,22 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         n_p_nb = np.logaddexp(n_p_nb, p_b + p_token)
                     elif token_index != beam.last_token_index:
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
-                    new_beam.n_p_nb = n_p_nb 
+                    new_beam.n_p_nb = n_p_nb
 
             for beam in beams:
                 beam.step()
 
-
             scored_beams = self.get_lm_beams(
-                beams, 
-                cached_lm_scores, 
-                cached_p_lm_scores,
+                beams, cached_lm_scores, cached_p_lm_scores,
             )
 
-            
             # remove beam outliers
             max_score = max([b.lm_score for b in scored_beams])
-            scored_beams = [b for b in scored_beams if b.lm_score >= max_score + self.beam_prune_logp]
+            scored_beams = [
+                b
+                for b in scored_beams
+                if b.lm_score >= max_score + self.beam_prune_logp
+            ]
             trimmed_beams = self.sort_beams(scored_beams)
 
             if self.history_prune:
@@ -1217,10 +1242,10 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
 class TorchAudioCTCBeamSearch:
     def __init__(
-        self, 
-        lexicon, 
-        tokens, 
-        lm = None,
+        self,
+        lexicon,
+        tokens,
+        lm=None,
         lm_dict: Optional[str] = None,
         topk: int = 1,
         beam_size: int = 50,
@@ -1235,7 +1260,6 @@ class TorchAudioCTCBeamSearch:
         sil_index: int = 0,
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
-        return_topk: bool = False,
         blank_skip_threshold: float = math.log(1.0),
     ):
         self.lexicon = lexicon
@@ -1255,14 +1279,12 @@ class TorchAudioCTCBeamSearch:
         self.sil_index = sil_index
         self.unk_word = unk_word
         self.using_cpu_decoder = using_cpu_decoder
-        self.return_topk = return_topk
         self.blank_skip_threshold = blank_skip_threshold
         # Note. Add that CUDA CTC can consummes a lot of memory and core dump
         # TODO: train an AM with the same tokens as the LM
 
-        print("USING CPU DECODER: ", self.using_cpu_decoder)
         if self.using_cpu_decoder:
-            try: 
+            try:
                 from torchaudio.models.decoder import ctc_decoder
             except ImportError:
                 raise ImportError(
@@ -1288,7 +1310,7 @@ class TorchAudioCTCBeamSearch:
                 unk_word=self.unk_word,
             )
         else:
-            try: 
+            try:
                 from torchaudio.models.decoder import cuda_ctc_decoder
             except ImportError:
                 raise ImportError(
@@ -1296,21 +1318,19 @@ class TorchAudioCTCBeamSearch:
                 )
             assert self.blank_index == 0, "Index of blank token has to be 0"
 
-            print("Using CUDA CTC Decoder")
-
             self._ctc_decoder = cuda_ctc_decoder(
-                self.tokens, 
-                self.topk, 
-                self.beam_size, 
-                self.blank_skip_threshold
+                self.tokens,
+                self.topk,
+                self.beam_size,
+                self.blank_skip_threshold,
             )
-        
-    def decode_beams(self, log_probs, wav_lengths = None):
+
+    def decode_beams(self, log_probs, wav_lengths=None):
         if wav_lengths is not None:
             enc_lengths = log_probs.size(1) * wav_lengths
         else:
             # test this line
-            enc_lengths = torch.tensor([log_probs.size(1)] * log_probs.size(0))
+            enc_lengths = torch.tensor([log_probs.size(1)] * log_probs.size(0), device=log_probs.device)
 
         if enc_lengths.dtype != torch.int32:
             enc_lengths = enc_lengths.to(torch.int32)
@@ -1324,13 +1344,17 @@ class TorchAudioCTCBeamSearch:
 
         if self.using_cpu_decoder == True and enc_lengths.is_cuda:
             enc_lengths = enc_lengths.cpu()
-            
+
         if not log_probs.is_contiguous():
             raise RuntimeError("log_probs must be contiguous.")
 
-        if self.using_cpu_decoder == True and enc_lengths is not None and enc_lengths.is_cuda:
+        if (
+            self.using_cpu_decoder == True
+            and enc_lengths is not None
+            and enc_lengths.is_cuda
+        ):
             raise RuntimeError("enc_lengths must be a CPU tensor.")
-        
+
         # Note. enc_lengths is required when using GPU decoder
         results = self._ctc_decoder(log_probs, enc_lengths)
 
@@ -1341,23 +1365,34 @@ class TorchAudioCTCBeamSearch:
 
         # over batch dim
         for i in range(len(results)):
-    
+
             if self.using_cpu_decoder:
 
-                preds = [results[i][j].tokens.tolist() for j in range(len(results[i]))]
-                preds = [[self.tokens[token] for token in tokens] for tokens in preds]
+                preds = [
+                    results[i][j].tokens.tolist()
+                    for j in range(len(results[i]))
+                ]
+                preds = [
+                    [self.tokens[token] for token in tokens] for tokens in preds
+                ]
                 tokens_preds.append(preds)
 
-                timesteps = [results[i][j].timesteps.tolist() for j in range(len(results[i]))]
+                timesteps = [
+                    results[i][j].timesteps.tolist()
+                    for j in range(len(results[i]))
+                ]
                 timesteps_preds.append(timesteps)
 
             else:
                 # no timesteps is available for CUDA CTC decoder
+                timesteps = [None for _ in range(len(results[i]))]
+                timesteps_preds.append(timesteps)
 
                 preds = [results[i][j].tokens for j in range(len(results[i]))]
-                preds = [[self.tokens[token] for token in tokens] for tokens in preds]
+                preds = [
+                    [self.tokens[token] for token in tokens] for tokens in preds
+                ]
                 tokens_preds.append(preds)
-
 
             words = [results[i][j].words for j in range(len(results[i]))]
             words_preds.append(words)
@@ -1365,15 +1400,21 @@ class TorchAudioCTCBeamSearch:
             scores = [results[i][j].score for j in range(len(results[i]))]
             scores_preds.append(scores)
 
-
-        if self.return_topk:
-            return tokens_preds, words_preds, scores_preds, timesteps_preds
-        else:
-            one_best_tokens = [tokens[0] for tokens in tokens_preds]
-            one_best_words = [words[0] for words in words_preds]
-            one_best_scores = [scores[0] for scores in scores_preds]
-            if self.using_cpu_decoder:
-                one_best_timesteps = [timesteps[0] for timesteps in timesteps_preds]
-            else:
-                one_best_timesteps = None
-            return one_best_tokens, one_best_words, one_best_scores, one_best_timesteps
+        hyps = []
+        for batch_index, (batch_text, batch_score, batch_timesteps) in enumerate(zip(
+            tokens_preds, scores_preds, timesteps_preds
+        )):
+            hyps.append([])
+            for text, score, timestep in zip(
+                batch_text, batch_score, batch_timesteps
+            ):
+                hyps[batch_index].append(
+                    CTCHypothesis(
+                        text=''.join(text),
+                        last_lm_state=None,
+                        score=score,
+                        lm_score=score,
+                        timesteps=timestep,
+                    )
+                )
+        return hyps

@@ -138,17 +138,18 @@ class ASR(sb.core.Brain):
                 if use_torch_audio:
                     # TODO: move this bloc in compute_forward
 
-                    #enc_lengths = p_ctc.size(1) * wav_lens
-                    predicted_tokens, _, _, _ = decoder.decode_beams(p_ctc, wav_lens) 
+                    # enc_lengths = p_ctc.size(1) * wav_lens
+                    predicted_tokens, _, _, _ = decoder.decode_beams(
+                        p_ctc, wav_lens
+                    )
 
                     predicted_words = [
                         tokenizer.decode_ids(utt_seq).split(" ")
                         for utt_seq in predicted_tokens
                     ]  # TODO: use self.vocab instead of that
 
-
                 else:
-                    beam_search_result = decoder.decode_beams(p_ctc, wav_lens) 
+                    beam_search_result = decoder.decode_beams(p_ctc, wav_lens)
 
                     predicted_words = []
                     for hypo in beam_search_result:
@@ -521,11 +522,15 @@ if __name__ == "__main__":
     )
     """
 
-    from speechbrain.decoders import TorchAudioCTCBeamSearch, CTCPrefixBeamSearch, CTCBeamSearch
+    from speechbrain.decoders import (
+        TorchAudioCTCBeamSearch,
+        CTCPrefixBeamSearch,
+        CTCBeamSearch,
+    )
 
     labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
-  
-    use_torch_audio = False 
+
+    use_torch_audio = False
 
     if use_torch_audio:
         decoder = TorchAudioCTCBeamSearch(
@@ -541,6 +546,7 @@ if __name__ == "__main__":
 
     else:
         import math
+
         decoder = CTCPrefixBeamSearch(
             blank_index=0,
             # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
