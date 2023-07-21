@@ -35,7 +35,10 @@ class RingBuffer:
 
 if __name__ == "__main__":
     # Load the VAD model
-    vad_interface = VAD.from_hparams(source="VAD_CRDNN", savedir="VAD_CRDNN")
+    vad_interface = VAD.from_hparams(
+        source="speechbrain/stream-vad-crdnn-libriparty",
+        savedir="pretrained_models/stream-vad-crdnn-libriparty",
+    )
 
     vad_interface.eval()
 
