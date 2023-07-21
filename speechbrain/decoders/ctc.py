@@ -476,7 +476,7 @@ class CTCBaseSearcher(torch.nn.Module):
         The pruning threshold for the beam.
     token_prune_min_logp : float
         The pruning threshold for the tokens.
-    history_prune : bool
+    prune_history : bool
         Whether to prune the history.
     blank_skip_threshold : float
         The threshold for skipping the frames when the log probability
@@ -495,7 +495,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_width=100,
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
-        history_prune=True,
+        prune_history=True,
         blank_skip_threshold=None,  # by default the pruning is not applied
         topk=1,
     ):
@@ -509,7 +509,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self.beam_width = beam_width
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
-        self.history_prune = history_prune
+        self.prune_history = prune_history
         self.blank_skip_threshold = blank_skip_threshold
         self.topk = topk
 
@@ -992,7 +992,7 @@ class CTCBeamSearch(CTCBaseSearcher):
 
             trimmed_beams = self.sort_beams(scored_beams)
 
-            if self.history_prune:
+            if self.prune_history:
                 lm_order = 1 if self.lm is None else self.lm.order
                 beams = self.prune_history(trimmed_beams, lm_order=lm_order)
             else:
@@ -1161,11 +1161,34 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_p_lm_scores,
         processed_frames=0,
     ):
-        # select only the valid frames i.e. the frames that are not padded
+        """Perform CTC Prefix Beam Search decoding. 
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the CTC input.
+            Shape: (seq_length, vocab_size)
+        wav_len : int
+            The length of the input sequence.
+        beams : list
+            The list of CTCBeam objects.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_p_lm_scores : dict
+            The cached prefix language model scores.
+        processed_frames : int
+            The start frame of the current decoding step.
+
+        Returns
+        -------
+        beams : list
+            The list of CTCBeam objects.
+        """
+        # select only the valid frames, i.e., the frames that are not padded
         log_probs = log_probs[:wav_len]
-
         for _, logit_col in enumerate(log_probs, start=processed_frames):
-
+            
+            # skip blank frames
             if (
                 self.blank_skip_threshold is not None
                 and logit_col[self.blank_index] >= self.blank_skip_threshold
@@ -1215,14 +1238,16 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
                         n_p_nb = np.logaddexp(n_p_nb, beam.score_ctc + p_token)
                     new_beam.n_p_nb = n_p_nb
 
+            # update the CTC probabilities
             for beam in beams:
                 beam.step()
 
+            # kenLM scores
             scored_beams = self.get_lm_beams(
                 beams, cached_lm_scores, cached_p_lm_scores,
             )
 
-            # remove beam outliers
+            # remove beams outliers
             max_score = max([b.lm_score for b in scored_beams])
             scored_beams = [
                 b
@@ -1231,7 +1256,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
             ]
             trimmed_beams = self.sort_beams(scored_beams)
 
-            if self.history_prune:
+            if self.prune_history:
                 lm_order = 1 if self.lm is None else self.lm.order
                 beams = self.prune_history(trimmed_beams, lm_order=lm_order)
             else:
@@ -1297,7 +1322,7 @@ class TorchAudioCTCBeamSearch:
     using_cpu_decoder : bool, optional
         Whether to use the CPU decoder. If False, then the CUDA decoder is used. (default: True)
     blank_skip_threshold : float, optional
-        skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (Default: log(1.0)).
+        Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (Default: log(1.0)).
         Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
     
     Example
