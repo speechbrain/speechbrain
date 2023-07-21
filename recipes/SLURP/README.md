@@ -1,6 +1,14 @@
 # SLU recipes for SLURP
 This folder contains recipes for spoken language understanding (SLU) with [SLURP](https://zenodo.org/record/4274930#.YEFCYHVKg5k).
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 ### Direct recipe
 The "direct" maps the input speech directly to semantics using a seq2seq model.
 
