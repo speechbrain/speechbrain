@@ -1,6 +1,6 @@
-tgt
-unidecode
 # Needed only with use_tensorboard=True
-tensorboard
 # torchvision is needed to save spectrograms
+tensorboard
+tgt
 torchvision
+unidecode
