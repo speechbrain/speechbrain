@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Performs realtime Voice Activity Detection (VAD) on a microphone input stream.
 At the end of the stream, is computes the offline values and plots the results for comparison.
@@ -9,11 +10,14 @@ from speechbrain.pretrained import VAD
 from torchaudio.io import StreamReader
 import matplotlib.pyplot as plt
 from drawnow import drawnow
+import platform
 import torch
+import sys
 
+assert platform.system() != "Windows", "Inference script not supported on Windows. PRs are welcome."
+MACOS = not ('Linux' == platform.system())
 
 eps = 1e-8
-
 
 class RingBuffer:
     """Handles a ring buffer for realtime inference. """
@@ -42,10 +46,15 @@ if __name__ == "__main__":
 
     vad_interface.eval()
 
+    # get microphone ID
+    if len(sys.argv) > 1: mic_id = eval(sys.argv[1])
+    else: mic_id = 0
+    print("Using microphone with ID %d." % mic_id)
+
     # Process the audio stream
     stream = StreamReader(
-        src=":2",  # here you should select the correct input device
-        format="avfoundation",
+        src=":%d" % mic_id,  # here you should select the correct input device
+        format="avfoundation" if MACOS else "alsa",
     )
 
     stream.add_basic_audio_stream(
