@@ -28,10 +28,6 @@ def create_rirs(output_dir, sr=8000):
 
     """
 
-    # assert (
-    #     pyroomacoustics.__version__ == "0.3.1"
-    # ), "The pyroomacoustics version needs to be 0.3.1"
-
     os.makedirs(output_dir)
 
     metafilesdir = os.path.dirname(os.path.realpath(__file__))
