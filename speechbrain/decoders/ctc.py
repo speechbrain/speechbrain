@@ -1013,6 +1013,28 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_partial_token_scores,
         is_eos=False,
     ):
+        """Score the beams with the language model if not None, and 
+        return the new beams.
+
+        This function is modified and adapted from
+        https://github.com/kensho-technologies/pyctcdecode
+
+        Arguments
+        ---------
+        beams : list
+            The list of the beams.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_partial_token_scores : dict
+            The cached partial token scores.
+        is_eos : bool
+            Whether the end of the sequence has been reached.
+
+        Returns
+        -------
+        new_beams : list
+            The list of the new beams.
+        """
         if self.lm is None:
             new_beams = []
             for beam in beams:
