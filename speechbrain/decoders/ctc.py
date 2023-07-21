@@ -27,6 +27,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Union
 )
 
 from speechbrain.decoders.language_model import (
@@ -1154,14 +1155,16 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
     def partial_decoding(
         self,
-        log_probs,
-        wav_len,
-        beams,
-        cached_lm_scores,
-        cached_p_lm_scores,
-        processed_frames=0,
+        log_probs: torch.Tensor,
+        wav_len: int,
+        beams: List[CTCBeam],
+        cached_lm_scores: dict,
+        cached_p_lm_scores: dict,
+        processed_frames: int =0,
     ):
         """Perform CTC Prefix Beam Search decoding. 
+
+        If self.lm is not None, the language model scores are computed and added to the CTC scores.
 
         Arguments
         ---------
@@ -1331,7 +1334,7 @@ class TorchAudioCTCBeamSearch:
     """
     def __init__(
         self,
-        tokens, 
+        tokens: Union[list, str], 
         lexicon: Optional[str] = None, 
         lm: Optional[str] = None, 
         lm_dict: Optional[str] = None,
@@ -1418,7 +1421,7 @@ class TorchAudioCTCBeamSearch:
                 blank_skip_threshold=self.blank_skip_threshold,
             )
 
-    def decode_beams(self, log_probs, wav_len=None):
+    def decode_beams(self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None):
         """Decode log_probs using TorchAudio CTC decoder.
 
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
