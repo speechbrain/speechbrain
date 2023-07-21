@@ -6,9 +6,13 @@ As usual, our goal at SpeechBrain remains to offer as much flexibility to the us
 
 **On CommonVoice, we officialy provide only a fully HuggingFace recipe. If you wish to use the HuggingFace pretraining, please go to our [LibriSpeech recipe](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/self-supervised-learning/wav2vec2)**
 
-# Requirements
-The HuggingFace *transformers* library must be installed first.
-`pip install -r extra_requirements.txt`
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
 
 # Principle
 The idea is extremely simple. <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> provides a wav2vec 2.0 loss calculation. In practice, it means that forwarding throughout their wav2vec 2.0 models returns the loss. Hence, we simply use this interface as a lobes wrapper in SpeechBrain so anyone can fully pretrain a wav2vec 2.0 model.
