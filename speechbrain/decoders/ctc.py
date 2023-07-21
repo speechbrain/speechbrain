@@ -1084,14 +1084,35 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
     def _get_new_beam(
         self,
-        new_prefix,
-        new_token,
-        new_token_index,
-        beams,
-        p=None,
-        previous_beam=None,
+        new_prefix: str,
+        new_token: str,
+        new_token_index: int,
+        beams: List[CTCBeam],
+        p: float,
+        previous_beam: CTCBeam,
     ):
+        """Create a new beam and add it to the list of beams.
 
+        Arguments
+        ---------
+        new_prefix : str
+            The new prefix.
+        new_token : str
+            The new token.
+        new_token_index : int
+            The index of the new token.
+        beams : list
+            The list of beams.
+        p : float
+            The probability of the new token.
+        previous_beam : CTCBeam
+            The previous beam.
+
+        Returns
+        -------
+        new_beam : CTCBeam
+            The new beam.
+        """
         for beam in beams:
             if beam.text == new_prefix:
                 if p and p > beam.p:
@@ -1160,7 +1181,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         beams: List[CTCBeam],
         cached_lm_scores: dict,
         cached_p_lm_scores: dict,
-        processed_frames: int =0,
+        processed_frames: int = 0,
     ):
         """Perform CTC Prefix Beam Search decoding. 
 
