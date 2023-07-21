@@ -436,7 +436,7 @@ if __name__ == "__main__":
             blank_index=hparams["blank_index"],
             sil_index=hparams["blank_index"],
             beam_size_token=5,
-            using_cpu_decoder=True,
+            using_cpu_decoder=False,
             topk=1,
         )
 

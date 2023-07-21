@@ -1316,13 +1316,13 @@ class TorchAudioCTCBeamSearch:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the nightly version of torchaudio to use this decoder"
                 )
-            assert self.blank_index == 0, "Index of blank token has to be 0"
+            assert self.blank_index == 0, "Index of blank token has to be 0 when using CUDA CTC decoder."
 
             self._ctc_decoder = cuda_ctc_decoder(
-                self.tokens,
-                self.topk,
-                self.beam_size,
-                self.blank_skip_threshold,
+                tokens=self.tokens,
+                nbest=self.topk,
+                beam_size=self.beam_size,
+                blank_skip_threshold=self.blank_skip_threshold,
             )
 
     def decode_beams(self, log_probs, wav_lengths=None):
