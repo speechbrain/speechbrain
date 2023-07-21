@@ -1,6 +1,15 @@
 # AISHELL-1 ASR with CTC.
 This folder contains a CTC-wav2vec2 recipe for speech recognition with [AISHELL-1](https://www.openslr.org/33/), a 150-hour Chinese ASR dataset.
 
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 ### How to run
 1- Tokenizer/Dataset
 A pretrained tokenizer from [huggingface](https://huggingface.co/bert-base-chinese) is used and can be downloaded
