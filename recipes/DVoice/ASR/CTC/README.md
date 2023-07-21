@@ -4,6 +4,14 @@ This folder contains scripts necessary to run an ASR experiment with the DVoice 
 # Data preparation
 [DVoice](https://zenodo.org/record/5482551) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 # How to run
 - Darija : Just download the DVoice dataset than run `python train_with_wav2vec2.py hparams/train_dar_with_wav2vec.yaml --data_folder=/localscratch/darija/`
 - Fongbe : Just download the ALFFA_PUBLIC dataset than run `python train_with_wav2vec2.py hparams/train_fon_with_wav2vec.yaml --data_folder=/localscratch/ALFFA_PUBLIC/ASR/FONGBE/data/`

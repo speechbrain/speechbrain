@@ -11,6 +11,14 @@ The eval2000/Hub5 English test set can be found at:
 Part 1 and part 2 of the Fisher corpus are available at:
 - https://catalog.ldc.upenn.edu/LDC2004T19
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 # How to run
 `python train_with_wav2vec.py hparams/<hparam_file>.yaml`
 

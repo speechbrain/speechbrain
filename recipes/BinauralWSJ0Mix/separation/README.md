@@ -2,12 +2,14 @@
 This folder contains some recipes for the Binaural-WSJ0Mix task (2/3 sources). Please refer to [Real-time binaural speech separation with preserved spatial cues](https://arxiv.org/abs/2002.06637) [1] for details.
 
 
-Additional dependency:
-```
-pip install mir_eval
-pip install pyroomacoustics==0.3.1
-```
+## Installing Extra Dependencies
 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r ../extra_requirements.txt
+
+```
 To run it:
 
 ```

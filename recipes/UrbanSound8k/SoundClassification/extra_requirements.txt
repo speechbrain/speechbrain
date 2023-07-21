@@ -1,4 +1,4 @@
-scikit-learn
 matplotlib
 pandas
+scikit-learn
 tensorboard

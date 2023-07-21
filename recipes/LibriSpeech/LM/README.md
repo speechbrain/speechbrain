@@ -6,9 +6,13 @@ large text corpora.
 
 You can download LibriSpeech at http://www.openslr.org/12
 
-# Extra Dependency:
-Make sure you have the HuggingFace dataset installed. If not, type:
-pip install datasets
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 # How to run:
 ```shell

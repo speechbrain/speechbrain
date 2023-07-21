@@ -3,6 +3,11 @@ This folder contains some popular recipes for the Aishell1Mix dataset similar to
 
 * This recipe supports train with several source separation models on Aishell1Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+
 Make sure that SoX is installed on your machine.
 
 * For windows :
@@ -15,7 +20,7 @@ conda install -c conda-forge sox
 ```
 Additional dependencies:
 ```
-pip install -r ../extra-dependencies.txt
+pip install -r ../extra-requirements.txt
 ```
 
 To run it:
