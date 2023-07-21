@@ -67,7 +67,7 @@ def create_dataframe(df, json):
                 for i in range(length):
                     temp_dict = json[session][sub][i]
                     temp_dict["session_id"] = session_id
-                    df = df._append([temp_dict])
+                    df = df.append([temp_dict])
         session_id += 1
 
     df = clean_dataframe(df)

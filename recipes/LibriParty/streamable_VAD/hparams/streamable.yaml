@@ -40,6 +40,7 @@ lr: 0.01
 lr_final: 0.001
 batch_size: 64
 example_length: 5 # in seconds
+max_norm_grad: 2.5
 sample_rate: 16000
 time_resolution: 0.01 # in seconds
 train_dataloader_opts:
