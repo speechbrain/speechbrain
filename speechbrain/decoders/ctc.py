@@ -1349,13 +1349,6 @@ class TorchAudioCTCBeamSearch:
         if not log_probs.is_contiguous():
             raise RuntimeError("log_probs must be contiguous.")
 
-        if (
-            self.using_cpu_decoder == True
-            and wav_lengths is not None
-            and wav_lengths.is_cuda
-        ):
-            raise RuntimeError("wav_lengths must be a CPU tensor.")
-
         # Note. wav_lengths is required when using GPU decoder
         results = self._ctc_decoder(log_probs, wav_lengths)
 
