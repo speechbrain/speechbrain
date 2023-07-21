@@ -1306,8 +1306,8 @@ class TorchAudioCTCBeamSearch:
     """
     def __init__(
         self,
-        tokens, # list or file path
-        lexicon: Optional[str] = None, # None or file path
+        tokens, 
+        lexicon: Optional[str] = None, 
         lm: Optional[str] = None, 
         lm_dict: Optional[str] = None,
         topk: int = 1,
@@ -1319,8 +1319,8 @@ class TorchAudioCTCBeamSearch:
         unk_score: float = float("-inf"),
         sil_score: float = 0,
         log_add: bool = False,
-        blank_index: int = 0, # either int or token -> should be token if tokens is a file path
-        sil_index: int = 0, # either int or token
+        blank_index: int = 0, 
+        sil_index: int = 0, 
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
         blank_skip_threshold: float = math.log(1.0),
@@ -1393,31 +1393,51 @@ class TorchAudioCTCBeamSearch:
                 blank_skip_threshold=self.blank_skip_threshold,
             )
 
-    def decode_beams(self, log_probs, wav_lengths=None):
-        if wav_lengths is not None:
-            wav_lengths = log_probs.size(1) * wav_lengths
+    def decode_beams(self, log_probs, wav_len=None):
+        """Decode log_probs using TorchAudio CTC decoder.
+
+        If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
+        When using CUDA CTC decoder, the timestep information is not available. Therefore, the timesteps
+        in the returned hypotheses are set to None.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the input audio. 
+            Shape: (batch_size, seq_length, vocab_size)
+        wav_len : torch.Tensor, optional
+            The speechbrain-style relative length. Shape: (batch_size,)
+            If None, then the length of each audio is assumed to be seq_length.
+        
+        Returns
+        -------
+        list of list of CTCHypothesis
+            The decoded hypotheses. The outer list is over the batch dimension, and the inner list is over the topk dimension.
+        """
+        if wav_len is not None:
+            wav_len = log_probs.size(1) * wav_len
         else:
-            wav_lengths = torch.tensor([log_probs.size(1)] * log_probs.size(0), 
+            wav_len = torch.tensor([log_probs.size(1)] * log_probs.size(0), 
                                        device=log_probs.device, 
                                        dtype=torch.int32)
 
-        if wav_lengths.dtype != torch.int32:
-            wav_lengths = wav_lengths.to(torch.int32)
+        if wav_len.dtype != torch.int32:
+            wav_len = wav_len.to(torch.int32)
 
         if log_probs.dtype != torch.float32:
             raise ValueError("log_probs must be float32.")
 
-        # When using CPU decoder, we need to move the log_probs and wav_lengths to CPU
+        # When using CPU decoder, we need to move the log_probs and wav_len to CPU
         if self.using_cpu_decoder == True and log_probs.is_cuda:
             log_probs = log_probs.cpu()
 
-        if self.using_cpu_decoder == True and wav_lengths.is_cuda:
-            wav_lengths = wav_lengths.cpu()
+        if self.using_cpu_decoder == True and wav_len.is_cuda:
+            wav_len = wav_len.cpu()
 
         if not log_probs.is_contiguous():
             raise RuntimeError("log_probs must be contiguous.")
 
-        results = self._ctc_decoder(log_probs, wav_lengths)
+        results = self._ctc_decoder(log_probs, wav_len)
 
         tokens_preds = []
         words_preds = []
