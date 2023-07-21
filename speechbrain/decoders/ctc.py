@@ -1007,10 +1007,8 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     `First-Pass Large Vocabulary Continuous Speech Recognition using Bi-Directional Recurrent DNNs`
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873). 
 
-    It suppors n-gram scoring on words and SentencePiece tokens.
-
-    Note: We recommand to use the CTCBeamSearcher as there is no
-    significant difference in terms of performance.
+    The implementation keep tracks of the blank and non-blank probabilities. 
+    It also suppors n-gram scoring on words and SentencePiece tokens.
 
     Arguments
     ---------
