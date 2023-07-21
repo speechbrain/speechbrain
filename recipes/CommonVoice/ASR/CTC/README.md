@@ -1,6 +1,14 @@
 # CommonVoice ASR with CTC based Seq2Seq models.
 This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 # How to run
 python train.py hparams/{hparam_file}.yaml
 
