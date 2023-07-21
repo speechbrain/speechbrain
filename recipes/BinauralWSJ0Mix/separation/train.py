@@ -38,8 +38,6 @@ import logging
 from pyroomacoustics.experimental.localization import tdoa
 from speechbrain.processing.features import STFT, spectral_magnitude
 from torch.nn import Conv1d
-from speechbrain.pretrained.fetching import fetch
-import zipfile
 
 logger = logging.getLogger(__name__)
 
@@ -697,19 +695,11 @@ if __name__ == "__main__":
 
     if not hparams["skip_prep"]:
         if not os.path.exists(hparams["datasets_generation"]):
-            print("Download Datasets Generation scripts")
-            fetch(
-                filename="main.zip",
-                source="https://github.com/huangzj421/Binaural-WSJ0Mix/",
-                savedir=hparams["data_folder"],
-                save_filename="Binaural-WSJ0Mix-main.zip",
-            )
-            file = zipfile.ZipFile(
-                os.path.join(
-                    hparams["data_folder"], "Binaural-WSJ0Mix-main.zip"
-                )
-            )
-            file.extractall(path=hparams["data_folder"])
+            from git import Repo
+
+            git_url = "https://github.com/huangzj421/BinauralWSJ0Mix"
+            repo_dir = hparams["datasets_generation"]
+            Repo.clone_from(git_url, repo_dir)
 
         sys.path.append(hparams["datasets_generation"])
         if "noise" in hparams["experiment_name"]:
