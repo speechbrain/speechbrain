@@ -6,7 +6,18 @@ This recipe implements MetricGAN+ recipe for enhancement as described in the pap
 **Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Enhancement: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/Speechbrain-Speech-enhancement)
 
 Use the `download_vctk` function in `voicebank_prepare.py` to download the dataset
-and resample it to 16000 Hz. To run an experiment, execute the following command in
+and resample it to 16000 Hz. 
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
+# How to run:
+To run an experiment, execute the following command in
 the current folder:
 
 ```bash

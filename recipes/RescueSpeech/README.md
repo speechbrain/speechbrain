@@ -7,6 +7,14 @@ Our [paper](https://arxiv.org/abs/2306.04054) compares ASR models (CRDNN, Wav2ve
 - Language: German (DE)
 
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal: 
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## How to run
 ```
 cd RescueSpeech/ASR/noise-robust
