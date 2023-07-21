@@ -432,12 +432,12 @@ if __name__ == "__main__":
         decoder = TorchAudioCTCBeamSearch(
             lexicon=None,
             tokens=labels,
-            beam_size=10,
+            beam_size=100,
             blank_index=hparams["blank_index"],
             sil_index=hparams["blank_index"],
             beam_size_token=5,
-            using_cpu_decoder=False,
-            topk=2,
+            using_cpu_decoder=True,
+            topk=1,
         )
 
     else:

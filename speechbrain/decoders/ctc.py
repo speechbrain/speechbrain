@@ -1327,13 +1327,14 @@ class TorchAudioCTCBeamSearch:
 
     def decode_beams(self, log_probs, wav_lengths=None):
         if wav_lengths is not None:
-            enc_lengths = log_probs.size(1) * wav_lengths
+            wav_lengths = log_probs.size(1) * wav_lengths
         else:
-            # test this line
-            enc_lengths = torch.tensor([log_probs.size(1)] * log_probs.size(0), device=log_probs.device)
+            wav_lengths = torch.tensor([log_probs.size(1)] * log_probs.size(0), 
+                                       device=log_probs.device, 
+                                       dtype=torch.int32)
 
-        if enc_lengths.dtype != torch.int32:
-            enc_lengths = enc_lengths.to(torch.int32)
+        if wav_lengths.dtype != torch.int32:
+            wav_lengths = wav_lengths.to(torch.int32)
 
         if log_probs.dtype != torch.float32:
             raise ValueError("log_probs must be float32.")
@@ -1342,21 +1343,21 @@ class TorchAudioCTCBeamSearch:
         if self.using_cpu_decoder == True and log_probs.is_cuda:
             log_probs = log_probs.cpu()
 
-        if self.using_cpu_decoder == True and enc_lengths.is_cuda:
-            enc_lengths = enc_lengths.cpu()
+        if self.using_cpu_decoder == True and wav_lengths.is_cuda:
+            wav_lengths = wav_lengths.cpu()
 
         if not log_probs.is_contiguous():
             raise RuntimeError("log_probs must be contiguous.")
 
         if (
             self.using_cpu_decoder == True
-            and enc_lengths is not None
-            and enc_lengths.is_cuda
+            and wav_lengths is not None
+            and wav_lengths.is_cuda
         ):
-            raise RuntimeError("enc_lengths must be a CPU tensor.")
+            raise RuntimeError("wav_lengths must be a CPU tensor.")
 
-        # Note. enc_lengths is required when using GPU decoder
-        results = self._ctc_decoder(log_probs, enc_lengths)
+        # Note. wav_lengths is required when using GPU decoder
+        results = self._ctc_decoder(log_probs, wav_lengths)
 
         tokens_preds = []
         words_preds = []
