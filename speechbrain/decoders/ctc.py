@@ -1003,6 +1003,24 @@ class CTCBeamSearch(CTCBaseSearcher):
 
 
 class CTCPrefixBeamSearch(CTCBaseSearcher):
+    """CTC Prefix Beam Search is based on the paper
+    `First-Pass Large Vocabulary Continuous Speech Recognition using Bi-Directional Recurrent DNNs`
+    by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873). 
+
+    It suppors n-gram scoring on words and SentencePiece tokens.
+
+    Note: We recommand to use the CTCBeamSearcher as there is no
+    significant difference in terms of performance.
+
+    Arguments
+    ---------
+    **kwargs
+        see CTCBaseSearcher, arguments are directly passed.
+
+    Example
+    -------
+    >>> # TODO
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
