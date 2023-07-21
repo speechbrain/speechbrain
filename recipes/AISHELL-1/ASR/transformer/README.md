@@ -1,14 +1,6 @@
 # AISHELL-1 ASR with Transformers.
 This folder contains recipes for tokenization and speech recognition with [AISHELL-1](https://www.openslr.org/33/), a 150-hour Chinese ASR dataset.
 
-## Installing Extra Dependencies
-
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
-
-```
-pip install -r extra_requirements.txt
-```
-
 ### How to run
 1- Train a tokenizer. The tokenizer takes in input the training transcripts and determines the subword units that will be used for both acoustic and language model training.
 
