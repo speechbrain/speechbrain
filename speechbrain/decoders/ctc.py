@@ -1243,8 +1243,8 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 class TorchAudioCTCBeamSearch:
     def __init__(
         self,
-        lexicon,
-        tokens,
+        lexicon, # None or file path
+        tokens, # list or file path
         lm=None,
         lm_dict: Optional[str] = None,
         topk: int = 1,
@@ -1256,12 +1256,30 @@ class TorchAudioCTCBeamSearch:
         unk_score: float = float("-inf"),
         sil_score: float = 0,
         log_add: bool = False,
-        blank_index: int = 0,
-        sil_index: int = 0,
+        blank_index: int = 0, # either int or token -> should be token if tokens is a file path
+        sil_index: int = 0, # either int or token
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
         blank_skip_threshold: float = math.log(1.0),
     ):
+        """TorchAudio CTC Beam Search Decoder.
+
+        This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
+        where you can either use the CPU or CUDA CTC decoder. The CPU decoder is slower but uses less
+        memory. The CUDA decoder is faster but uses more memory. The CUDA decoder is also only available
+        in the nightly version of torchaudio. A lot of features are missing in the CUDA decoder, such as
+        the ability to use a language model, constraint search, and more. If you want to use those features,
+        you have to use the CPU decoder.
+
+        For more information about the CPU decoder, please refer to the documentation of TorchAudio:
+        https://pytorch.org/audio/main/generated/torchaudio.models.decoder.ctc_decoder.html
+
+        Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
+        requires the nightly version of torchaudio and a lot of VRAM memory if you wants to use large beam size.
+
+        Arguments
+        ---------
+        """
         self.lexicon = lexicon
         self.tokens = tokens
         self.lm = lm
@@ -1280,8 +1298,6 @@ class TorchAudioCTCBeamSearch:
         self.unk_word = unk_word
         self.using_cpu_decoder = using_cpu_decoder
         self.blank_skip_threshold = blank_skip_threshold
-        # Note. Add that CUDA CTC can consummes a lot of memory and core dump
-        # TODO: train an AM with the same tokens as the LM
 
         if self.using_cpu_decoder:
             try:
@@ -1290,6 +1306,13 @@ class TorchAudioCTCBeamSearch:
                 raise ImportError(
                     "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder"
                 )
+
+            if isinstance(self.tokens, str):
+                blank_token = self.blank_index
+                sil_token = self.sil_index
+            else:
+                blank_token = self.tokens[self.blank_index]
+                sil_token = self.tokens[self.sil_index]
 
             self._ctc_decoder = ctc_decoder(
                 lexicon=self.lexicon,
@@ -1305,8 +1328,8 @@ class TorchAudioCTCBeamSearch:
                 unk_score=self.unk_score,
                 sil_score=self.sil_score,
                 log_add=self.log_add,
-                blank_token=self.tokens[self.blank_index],
-                sil_token=self.tokens[self.sil_index],
+                blank_token=blank_token,
+                sil_token=sil_token,
                 unk_word=self.unk_word,
             )
         else:
@@ -1339,7 +1362,7 @@ class TorchAudioCTCBeamSearch:
         if log_probs.dtype != torch.float32:
             raise ValueError("log_probs must be float32.")
 
-        # log_probs must be a cpu tensor
+        # When using CPU decoder, we need to move the log_probs and wav_lengths to CPU
         if self.using_cpu_decoder == True and log_probs.is_cuda:
             log_probs = log_probs.cpu()
 
@@ -1349,7 +1372,6 @@ class TorchAudioCTCBeamSearch:
         if not log_probs.is_contiguous():
             raise RuntimeError("log_probs must be contiguous.")
 
-        # Note. wav_lengths is required when using GPU decoder
         results = self._ctc_decoder(log_probs, wav_lengths)
 
         tokens_preds = []
