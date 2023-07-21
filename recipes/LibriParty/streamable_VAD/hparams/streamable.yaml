@@ -1,4 +1,3 @@
-
 # ##################################################################################################
 # Model: VAD on LibriParty with CRDNN.
 # This code heavily relis on on-the-fly data augmentation using external data.
@@ -58,15 +57,8 @@ n_fft: 400
 n_mels: 40
 
 # Model parameters
-# activation: !name:torch.nn.LeakyReLU
-# dropout: 0.15
-# cnn_blocks: 2
-# cnn_channels: (16, 16)
-# cnn_kernelsize: (3, 3)
 rnn_layers: 2
 rnn_neurons: 32
-# rnn_bidirectional: True
-# dnn_blocks: 1
 dnn_neurons: 16
 output_neurons: 1
 
@@ -79,14 +71,6 @@ add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_prob: 1.0
     noise_snr_low: -5
     noise_snr_high: -15
-
-# noise_corruption: !new:speechbrain.lobes.augment.EnvCorrupt
-#    openrir_folder: !ref <open_rir_folder>
-#    babble_prob: 0.0
-#    reverb_prob: 0.0
-#    noise_prob: 1.0
-#    noise_snr_low: 5
-#    noise_snr_high: 15
 
 add_noise_musan: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_csv: !ref <noise_csv>
@@ -112,15 +96,6 @@ add_speech_musan: !new:speechbrain.lobes.augment.EnvCorrupt
     noise_snr_low: -15
     noise_snr_high: -20
 
-# add_speech_multilang: !new:speechbrain.lobes.augment.EnvCorrupt
-#    noise_csv: !ref <multilang_speech_csv>
-#    babble_prob: 0.0
-#    reverb_prob: 0.0
-#    noise_prob: 1.0
-#    noise_snr_low: -15
-#    noise_snr_high: -20
-
-
 # Models
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
@@ -132,33 +107,32 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 cnn: !new:speechbrain.nnet.containers.Sequential
-  input_shape: [null, null, 40]
-  norm1: !name:speechbrain.nnet.normalization.LayerNorm
-  cnn1: !name:speechbrain.lobes.models.CRDNN.reCNN_Block
-    channels: 16
-    kernel_size: (3, 3)
-    first: True
-  cnn2: !name:speechbrain.lobes.models.CRDNN.reCNN_Block
-    channels: 32
-    kernel_size: (3, 3)
-    first: True
+    input_shape: [null, null, 40]
+    norm1: !name:speechbrain.nnet.normalization.LayerNorm
+    cnn1: !name:speechbrain.lobes.models.CRDNN.reCNN_Block
+        channels: 16
+        kernel_size: (3, 3)
+        first: True
+    cnn2: !name:speechbrain.lobes.models.CRDNN.reCNN_Block
+        channels: 32
+        kernel_size: (3, 3)
+        first: True
 
 rnn: !new:speechbrain.nnet.RNN.GRU
-  input_shape: [null, null, 320]
-  hidden_size: 32
-  num_layers: 2
-  bidirectional: false
+    input_shape: [null, null, 320]
+    hidden_size: 32
+    num_layers: 2
+    bidirectional: False
 
 dnn: !new:speechbrain.nnet.containers.Sequential
-  input_shape: [null, null, 32]
-  dnn1: !name:speechbrain.lobes.models.CRDNN.DNN_Block
-    neurons: 16
-  dnn2: !name:speechbrain.lobes.models.CRDNN.DNN_Block
-    neurons: 16
-  lin: !name:speechbrain.nnet.linear.Linear
-    n_neurons: 1
-    bias: false
-
+    input_shape: [null, null, 32]
+    dnn1: !name:speechbrain.lobes.models.CRDNN.DNN_Block
+        neurons: 16
+    dnn2: !name:speechbrain.lobes.models.CRDNN.DNN_Block
+        neurons: 16
+    lin: !name:speechbrain.nnet.linear.Linear
+        n_neurons: 1
+        bias: False
 
 model: !new:torch.nn.ModuleList
     - [!ref <cnn>, !ref <rnn>, !ref <dnn>]
@@ -172,16 +146,9 @@ modules:
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    # rho: 0.95
-    # eps: 1.e-8
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <N_epochs>
-
-# lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
-      # initial_value: !ref <lr>
-      # final_value: !ref <lr_final>
-      # epoch_count: !ref <N_epochs>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
