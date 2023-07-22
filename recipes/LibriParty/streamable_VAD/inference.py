@@ -14,10 +14,13 @@ import platform
 import torch
 import sys
 
-assert platform.system() != "Windows", "Inference script not supported on Windows. PRs are welcome."
-MACOS = not ('Linux' == platform.system())
+assert (
+    platform.system() != "Windows"
+), "Inference script not supported on Windows. PRs are welcome."
+MACOS = not ("Linux" == platform.system())
 
 eps = 1e-8
+
 
 class RingBuffer:
     """Handles a ring buffer for realtime inference. """
@@ -47,8 +50,10 @@ if __name__ == "__main__":
     vad_interface.eval()
 
     # get microphone ID
-    if len(sys.argv) > 1: mic_id = eval(sys.argv[1])
-    else: mic_id = 0
+    if len(sys.argv) > 1:
+        mic_id = eval(sys.argv[1])
+    else:
+        mic_id = 0
     print("Using microphone with ID %d." % mic_id)
 
     # Process the audio stream

@@ -53,7 +53,7 @@ To retrieve the ID of your microphone, run:
 ```arecord -l```
 and copy the ID of the microphone.
 
-After retrieving your device ID, modify the script as follows you can run the inference script with 
+After retrieving your device ID, modify the script as follows you can run the inference script with
 ```
 cd speechbrain/recipes/LibriParty/streamable_VAD/
 python inference.py {MICROPHONE_ID}
