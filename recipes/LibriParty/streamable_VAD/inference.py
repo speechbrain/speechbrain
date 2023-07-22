@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # Process the audio stream
     stream = StreamReader(
         src=":%d" % mic_id,  # here you should select the correct input device
-        format="avfoundation"
+        format="avfoundation",
     )
 
     stream.add_basic_audio_stream(
