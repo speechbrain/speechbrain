@@ -831,11 +831,33 @@ class CTCBeamSearch(CTCBaseSearcher):
 
     def get_lm_beams(
         self,
-        beams,
-        cached_lm_scores,
-        cached_partial_token_scores,
+        beams: List[CTCBeam],
+        cached_lm_scores: dict,
+        cached_partial_token_scores: dict,
         is_eos=False,
-    ):
+    ) -> List[LMCTCBeam]:
+        """Score the beams with the language model if not None, and 
+        return the new beams.
+
+        This function is modified and adapted from
+        https://github.com/kensho-technologies/pyctcdecode
+
+        Arguments
+        ---------
+        beams : list
+            The list of the beams.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_partial_token_scores : dict
+            The cached partial token scores.
+        is_eos : bool (default: False)
+            Whether the end of the sequence has been reached.
+
+        Returns
+        -------
+        new_beams : list
+            The list of the new beams.
+        """
         if self.lm is None:
             new_beams = []
             for beam in beams:
@@ -1073,9 +1095,9 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
     def get_lm_beams(
         self,
-        beams,
-        cached_lm_scores,
-        cached_partial_token_scores,
+        beams: List[CTCBeam],
+        cached_lm_scores: dict,
+        cached_partial_token_scores: dict,
         is_eos=False,
     ) -> List[LMCTCBeam]:
         """Score the beams with the language model if not None, and 
