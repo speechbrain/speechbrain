@@ -1413,7 +1413,17 @@ class TorchAudioCTCBeamSearch:
     
     Example
     -------
-    >>> # TODO: add example
+    >>> import torch
+    >>> from speechbrain.decoders import TorchAudioCTCBeamSearch
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], 
+    ...                   [0.4, 0.0, 0.6]]])
+    >>> log_probs = torch.log(probs)
+    >>> lens = torch.tensor([1.0])
+    >>> blank_index = 2
+    >>> vocab_list = ['a', 'b', '-']
+    >>> decoder = TorchAudioCTCBeamSearch(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
+    >>> decoder(probs, lens)
+    [[CTCHypothesis(text='', last_lm_state=None, score=-0.7339691072702408, lm_score=-0.7339691072702408, timesteps=[])]]
     """
     def __init__(
         self,
