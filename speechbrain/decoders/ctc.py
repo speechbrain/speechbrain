@@ -678,7 +678,7 @@ class CTCBaseSearcher(torch.nn.Module):
         cached_p_lm_scores: dict,
         force_next_word=False,
         is_end=False,
-    ):
+    ) -> List[CTCBeam]:
         """Finalize the decoding process by adding and scoring the last partial word.
 
         Arguments
@@ -732,7 +732,7 @@ class CTCBaseSearcher(torch.nn.Module):
         sorted_beams = self.sort_beams(scored_beams)
         return sorted_beams
 
-    def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any =None) -> List[List[CTCHypothesis]]:
+    def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any = None) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
 
         It automatically converts the SpeechBrain's relative length of the wav input
