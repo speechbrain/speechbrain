@@ -673,26 +673,31 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def finalize_decoding(
         self,
-        beams,
-        cached_lm_scores,
-        cached_p_lm_scores,
+        beams: List[CTCBeam],
+        cached_lm_scores: dict,
+        cached_p_lm_scores: dict,
         force_next_word=False,
         is_end=False,
     ):
-        """Finalize the decoding process.
+        """Finalize the decoding process by adding and scoring the next partial word.
 
         Arguments
         ---------
         beams : list
-            The list of the beams.
+            The list of CTCBeam.
         cached_lm_scores : dict
             The cached language model scores.
         cached_p_lm_scores : dict
             The cached prefix language model scores.
-        force_next_word : bool
+        force_next_word : bool, default: False
             Whether to force the next word.
-        is_end : bool
+        is_end : bool, default: False
             Whether the end of the sequence has been reached.
+
+        Returns
+        -------
+        list
+            The list of the CTCBeam.
         """
         if force_next_word or is_end:
             new_beams = []
@@ -723,7 +728,9 @@ class CTCBaseSearcher(torch.nn.Module):
             for b in scored_beams
             if b.lm_score >= max_score + self.beam_prune_logp
         ]
-        return self.sort_beams(scored_beams)
+
+        sorted_beams = self.sort_beams(scored_beams)
+        return sorted_beams
 
     def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any =None) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
