@@ -628,13 +628,18 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
         return list(beam_dict.values())
 
-    def sort_beams(self, beams):
-        """ Sort beams by lm_score.
+    def sort_beams(self, beams: List[CTCBeam]) -> List[CTCBeam]:
+        """Sort beams by lm_score.
 
         Arguments
         ---------
         beams : list
-            The list of the beams.
+            The list of CTCBeam.
+
+        Returns
+        -------
+        list
+            The list of CTCBeam sorted.
         """
         return heapq.nlargest(self.beam_size, beams, key=lambda x: x.lm_score)
 
