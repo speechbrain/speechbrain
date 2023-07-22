@@ -1,43 +1,46 @@
-# Copyright 2021-present Kensho Technologies, LLC.
-from __future__ import division
+"""Language model wrapper for kenlm n-gram.
 
-import abc
-import json
+Authors
+ * Adel Moumen 2023
+"""
 import logging
-import os
-import re
-import shutil
 from typing import (
-    Any,
     Collection,
-    Dict,
-    Iterable,
     Optional,
-    Pattern,
-    Sequence,
     Set,
     Tuple,
     cast,
 )
 
-import numpy as np
-from pygtrie import CharTrie  # type: ignore
+from pygtrie import CharTrie 
 
 import math
 
 logger = logging.getLogger(__name__)
 
 try:
-    import kenlm  # type: ignore
+    import kenlm 
 except ImportError:
-    logger.warning(
-        "kenlm python bindings are not installed. Most likely you want to install it using: "
+    raise ImportError(
+        "kenlm python bindings are not installed. To install it use: "
         "pip install https://github.com/kpu/kenlm/archive/master.zip"
     )
 
-
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
-    """Read unigrams from arpa file."""
+    """Read unigrams from arpa file.
+
+    Taken from: https://github.com/kensho-technologies/pyctcdecode
+
+    Arguments
+    ---------
+    arpa_path : str
+        Path to arpa file.
+
+    Returns
+    -------
+    unigrams : set
+        Set of unigrams.
+    """
     unigrams = set()
     with open(arpa_path) as f:
         start_1_gram = False
@@ -59,8 +62,19 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
 
 
 class KenlmState:
-    def __init__(self, state: "kenlm.State") -> None:
-        """State for a kenlm language model."""
+    """Wrapper for kenlm state.
+
+    This is a wrapper for the kenlm state object. It is used to make sure that the
+    state is not modified outside of the language model class.
+
+    Taken from: https://github.com/kensho-technologies/pyctcdecode
+
+    Arguments
+    ---------
+    state : kenlm.State
+        Kenlm state object.
+    """
+    def __init__(self, state: "kenlm.State"):
         self._state = state
 
     @property
@@ -72,7 +86,22 @@ class KenlmState:
 def _prepare_unigram_set(
     unigrams: Collection[str], kenlm_model: "kenlm.Model"
 ) -> Set[str]:
-    """Filter unigrams down to vocabulary that exists in kenlm_model."""
+    """Filter unigrams down to vocabulary that exists in kenlm_model.
+
+    Taken from: https://github.com/kensho-technologies/pyctcdecode
+
+    Arguments
+    ---------
+    unigrams : list
+        List of unigrams.
+    kenlm_model : kenlm.Model
+        Kenlm model.
+
+    Returns
+    -------
+    unigram_set : set
+        Set of unigrams.
+    """
     if len(unigrams) < 1000:
         logger.warning(
             "Only %s unigrams passed as vocabulary. Is this small or artificial data?",
@@ -93,15 +122,44 @@ def _prepare_unigram_set(
 
 
 def _get_empty_lm_state() -> "kenlm.State":
-    """Get unintialized kenlm state."""
+    """Get unintialized kenlm state.
+
+    Taken from: https://github.com/kensho-technologies/pyctcdecode
+
+    Returns
+    -------
+    kenlm_state : kenlm.State
+        Empty kenlm state.
+    """
     try:
         kenlm_state = kenlm.State()
     except ImportError:
         raise ValueError("To use a language model, you need to install kenlm.")
     return kenlm_state
 
-
 class LanguageModel:
+    """Language model container class to consolidate functionality.
+
+    This class is a wrapper around the kenlm language model. It provides
+    functionality to score tokens and to get the initial state.
+
+    Taken from: https://github.com/kensho-technologies/pyctcdecode
+
+    Arguments
+    ---------
+    kenlm_model : kenlm.Model
+        Kenlm model.
+    unigrams : list
+        List of known word unigrams.
+    alpha : float
+        Weight for language model during shallow fusion.
+    beta : float
+        Weight for length score adjustment of during scoring.
+    unk_score_offset : float
+        Amount of log score offset for unknown tokens.
+    score_boundary : bool
+        Whether to have kenlm respect boundaries when scoring.
+    """
     def __init__(
         self,
         kenlm_model: "kenlm.Model",
@@ -111,16 +169,6 @@ class LanguageModel:
         unk_score_offset: float = -10.0,
         score_boundary: bool = True,
     ) -> None:
-        """Language model container class to consolidate functionality.
-
-        Args:
-            kenlm_model: instance of kenlm n-gram language model `kenlm.Model`
-            unigrams: list of known word unigrams
-            alpha: weight for language model during shallow fusion
-            beta: weight for length score adjustment of during scoring
-            unk_score_offset: amount of log score offset for unknown tokens
-            score_boundary: whether to have kenlm respect boundaries when scoring
-        """
         self._kenlm_model = kenlm_model
         if unigrams is None:
             logger.warning(
