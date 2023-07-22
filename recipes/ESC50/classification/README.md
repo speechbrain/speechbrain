@@ -18,14 +18,14 @@ pip install -r extra_requirements.txt
 ## Training script for CNN14 model
 This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command
 
-`python train_classifier.py hparams/cnn14_classifier.yaml --data_folder /yourpath/ESC50`.
+`python train_classifier.py hparams/cnn14_classifier.yaml --data_folder=/yourpath/ESC50`.
 
 An example training run can be found in [here](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0).
 
 ## Training script for CONV2D model
 This script trains a simple convolutional classifier on the ESC50 dataset. To run this, you can use the command
 
-`python train_classifier.py hparams/conv2d_classifier.yaml --data_folder /yourpath/ESC50`.
+`python train_classifier.py hparams/conv2d_classifier.yaml --data_folder=/yourpath/ESC50`.
 
 An example training run can be found in [here](https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0).
 
@@ -42,6 +42,12 @@ Both of these numbers are obtained with an NVIDIA RTX 3090 GPU.
 
 ## Inference Interface (on HuggingFace)
 -The huggingface repository of the CNN14 model with an easy inference interface can be accessed through [our huggingface repository](https://huggingface.co/speechbrain/cnn14-esc50/blob/main/README.md)
+
+# How to run on test sets only
+If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
+```
+python train.py hparams/{hparam_file}.py --data_folder=/yourpath/ESC50 --test_only
+```
 
 ```bibtex
 @article{Wang_2022,
