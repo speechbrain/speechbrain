@@ -679,7 +679,7 @@ class CTCBaseSearcher(torch.nn.Module):
         force_next_word=False,
         is_end=False,
     ):
-        """Finalize the decoding process by adding and scoring the next partial word.
+        """Finalize the decoding process by adding and scoring the last partial word.
 
         Arguments
         ---------
