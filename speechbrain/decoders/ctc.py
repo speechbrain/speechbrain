@@ -739,7 +739,24 @@ class CTCBaseSearcher(torch.nn.Module):
         ]
         return hyps
 
-    def __call__(self, log_probs, wav_lens=None, lm_start_state=None):
+    def __call__(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state=None):
+        """Decodes the log probabilities of the CTC output.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the CTC output.
+            The expected shape is [batch_size, seq_length, vocab_size].
+        wav_lens : torch.Tensor, optional (default: None)
+            The SpeechBrain's relative length of the wav input.
+        lm_start_state : Any, optional (default: None)
+            The start state of the language model.
+
+        Returns
+        -------
+        list of list
+            The list of topk list of the decoded hypotheses.
+        """
         return self.decode_beams(log_probs, wav_lens, lm_start_state)
 
     def partial_decode_beams(
@@ -810,7 +827,7 @@ class CTCBaseSearcher(torch.nn.Module):
         Returns
         -------
         list
-            The topK list of the decoded hypotheses.
+            The topk list of the decoded hypotheses.
         """
         language_model = self.lm
         if language_model is None:
