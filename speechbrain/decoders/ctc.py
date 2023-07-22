@@ -401,7 +401,6 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 @dataclasses.dataclass
 class CTCBeam:
     """Contains all the info needed for decoding a beam."""
-
     text: str
     full_text: str
     next_word: str
@@ -417,7 +416,7 @@ class CTCBeam:
     score_ctc: float = -math.inf
 
     @classmethod
-    def from_lm_beam(cls, lm_beam):
+    def from_lm_beam(self, lm_beam: "LMCTCBeam") -> "CTCBeam":
         """ Create a CTCBeam from a LMCTCBeam"""
         return CTCBeam(
             text=lm_beam.text,
@@ -435,24 +434,27 @@ class CTCBeam:
             score_ctc=lm_beam.score_ctc,
         )
 
-    def step(self):
+    def step(self) -> None:
+        """Update the beam probabilities."""
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
-        self.score = self.score_ctc  # + self.lm_score
+        self.score = self.score_ctc 
 
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
+    """Contains all the info needed for decoding a beam with LM."""
     lm_score: float = -math.inf
 
 
 @dataclasses.dataclass
 class CTCHypothesis:
+    """Contains all the info needed for decoding a hypothesis."""
     text: str
     last_lm_state: None
-    score: float  # Cumulative logit score
-    lm_score: float  # Cumulative language model + logit score
+    score: float 
+    lm_score: float 
     timesteps: list = None
 
 
