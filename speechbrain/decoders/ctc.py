@@ -555,11 +555,11 @@ class CTCBaseSearcher(torch.nn.Module):
         
     def partial_decoding(
         self,
-        log_probs,
-        beams,
-        cached_lm_scores,
-        cached_p_lm_scores,
-        processed_frames=0,
+        log_probs: torch.Tensor,
+        beams: List[CTCBeam],
+        cached_lm_scores: dict,
+        cached_p_lm_scores: dict,
+        processed_frames: int = 0,
     ):
         """ Perform a single step of decoding.
 
@@ -573,18 +573,23 @@ class CTCBaseSearcher(torch.nn.Module):
             The cached language model scores.
         cached_p_lm_scores : dict
             The cached prefix language model scores.
-        processed_frames : int
+        processed_frames : int, default: 0
             The start frame of the current decoding step.
         """
         raise NotImplementedError
 
-    def normalize_whitespace(self, text):
+    def normalize_whitespace(self, text: str) -> str:
         """Efficiently normalize whitespace.
 
         Arguments
         ---------
         text : str
             The text to normalize.
+
+        Returns
+        -------
+        str
+            The normalized text.
         """
         return " ".join(text.split())
 
