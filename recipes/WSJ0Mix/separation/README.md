@@ -16,12 +16,17 @@ pip install -r ../extra_requirements.txt
 ## How to run
 To run it:
 
-```
+```shell
 python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
+# How to run on test sets only
+If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
 
+```shell
+python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers --test_only
+```
 # WSJ0-2mix and WSJ0-3mix dataset creation
 * The best way to create the datasets is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
 * The dataset creation script assumes that the original WSJ0 files in the sphere format are already converted to .wav .
