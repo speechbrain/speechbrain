@@ -588,8 +588,10 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         return " ".join(text.split())
 
-    def merge_tokens(self, token_1, token_2):
-        """ Merge two tokens, and avoid empty ones.
+    def merge_tokens(self, token_1: str, token_2: str) -> str:
+        """Merge two tokens, and avoid empty ones.
+
+        Taken from: https://github.com/kensho-technologies/pyctcdecode
 
         Arguments
         ---------
@@ -597,6 +599,11 @@ class CTCBaseSearcher(torch.nn.Module):
             The first token.
         token_2 : str
             The second token.
+
+        Returns
+        -------
+        str
+            The merged token.
         """
         if len(token_2) == 0:
             text = token_1
@@ -606,13 +613,20 @@ class CTCBaseSearcher(torch.nn.Module):
             text = token_1 + " " + token_2
         return text
 
-    def merge_beams(self, beams):
-        """ Merge beams with the same text.
+    def merge_beams(self, beams: List[CTCBeam]) -> List[CTCBeam]:
+        """Merge beams with the same text.
+
+        Taken from: https://github.com/kensho-technologies/pyctcdecode
 
         Arguments
         ---------
         beams : list
             The list of the beams.
+
+        Returns
+        -------
+        list
+            The list of CTCBeam merged.
         """
         beam_dict = {}
         for beam in beams:
