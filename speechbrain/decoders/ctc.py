@@ -747,7 +747,7 @@ class CTCBaseSearcher(torch.nn.Module):
         log_probs: torch.Tensor,
         cached_lm_scores: dict,
         cached_p_lm_scores: dict,
-        beams: list[CTCBeam],
+        beams: List[CTCBeam],
         processed_frames: int,
         force_next_word=False,
         is_end=False,
