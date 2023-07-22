@@ -14,9 +14,13 @@ For details please refer to: https://arxiv.org/abs/2005.09310
 
 The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0).
 
-### Extra-Dependencies
-Before running this recipe, make sure h5py is installed. Otherwise, run:
-pip install h5py
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 ### Training steps
 To speed up student distillation from multiple teachers, we separate the whole procedure into three parts: teacher model training, inference running on teacher models, student distillation.
