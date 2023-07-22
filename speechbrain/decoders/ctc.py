@@ -27,7 +27,8 @@ from typing import (
     Dict,
     List,
     Optional,
-    Union
+    Union,
+    Any
 )
 
 from speechbrain.decoders.language_model import (
@@ -770,7 +771,24 @@ class CTCBaseSearcher(torch.nn.Module):
 
         return trimmed_beams
 
-    def decode_log_probs(self, log_probs, wav_len=None, lm_start_state=None):
+    def decode_log_probs(self, log_probs: torch.Tensor, wav_len: int, lm_start_state: Optional[Any] = None) -> List[CTCHypothesis]:
+        """Decodes the log probabilities of the CTC output.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the CTC output.
+            The expected shape is [seq_length, vocab_size].
+        wav_len : int
+            The length of the wav input.
+        lm_start_state : Any, optional (default: None)
+            The start state of the language model. 
+
+        Returns
+        -------
+        list
+            The topK list of the decoded hypotheses.
+        """
         language_model = self.lm
         if language_model is None:
             cached_lm_scores = {}
