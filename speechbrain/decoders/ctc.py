@@ -679,7 +679,7 @@ class CTCBaseSearcher(torch.nn.Module):
         force_next_word=False,
         is_end=False,
     ):
-        """ Finalize the decoding process.
+        """Finalize the decoding process.
 
         Arguments
         ---------
@@ -725,8 +725,12 @@ class CTCBaseSearcher(torch.nn.Module):
         ]
         return self.sort_beams(scored_beams)
 
-    def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any =None):
+    def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any =None) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
+        It automatically converts the SpeechBrain's relative length of the wav input
+        to the absolute length.
+
+        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
 
         Arguments
         ---------
@@ -741,7 +745,7 @@ class CTCBaseSearcher(torch.nn.Module):
         Returns
         -------
         list of list
-            The list of topk list of the decoded hypotheses.
+            The list of topk list of CTCHypothesis.
         """
         # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
@@ -756,7 +760,7 @@ class CTCBaseSearcher(torch.nn.Module):
         ]
         return hyps
 
-    def __call__(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any =None):
+    def __call__(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any = None) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
 
         Arguments
@@ -772,7 +776,7 @@ class CTCBaseSearcher(torch.nn.Module):
         Returns
         -------
         list of list
-            The list of topk list of the decoded hypotheses.
+            The list of topk list of CTCHypothesis.
         """
         return self.decode_beams(log_probs, wav_lens, lm_start_state)
 
@@ -785,7 +789,7 @@ class CTCBaseSearcher(torch.nn.Module):
         processed_frames: int,
         force_next_word=False,
         is_end=False,
-    ):
+    ) -> List[CTCBeam]:
         """ Perform a single step of decoding.
 
         Arguments
@@ -808,7 +812,7 @@ class CTCBaseSearcher(torch.nn.Module):
         Returns
         -------
         list
-            The list of the beams.
+            The list of CTCBeam.
         """
         beams = self.partial_decoding(
             log_probs,
@@ -844,7 +848,7 @@ class CTCBaseSearcher(torch.nn.Module):
         Returns
         -------
         list
-            The topk list of the decoded hypotheses.
+            The topk list of CTCHypothesis.
         """
         language_model = self.lm
         if language_model is None:
