@@ -40,9 +40,9 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 
 |S. No. |  Model        | HuggingFace link                               | Full Model link                                |
 |---|----------------|------------------------------------------------|------------------------------------------------|
-| 1. | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/45wk44h8e0wkc5f/AABjEJJJ_OJp2fDYz3zEihmPa?dl=0)             |
-| 2. | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/02c3wesc65402f6/AAApoxBApft-JwqHK-bddedBa?dl=0)            |
-| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)            |
+| 1. | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/dgmgi0b3bfxlfo4/AAAo3EYPXUEMZRTdRDzhw4lea?dl=)             |
+| 2. | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/edrna82oarivkzl/AACsiGQXnbAYa_bfTJzjY23qa?dl=0)            |
+| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/nk55xm0saa5qfly/AAC6yHgJnQalFMePgKFZqVfPa?dl=0)            |
 
 
 # **About SpeechBrain**
