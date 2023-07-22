@@ -443,6 +443,8 @@ class CTCBaseSearcher(torch.nn.Module):
     This class provides the basic functionalities for
     CTC beam search decoding.
 
+    The space_index is required with a non-sentencepiece vocabulary.
+
     Arguments
     ---------
     blank_index : int
@@ -506,6 +508,9 @@ class CTCBaseSearcher(torch.nn.Module):
         self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
 
+        if not self.is_spm and space_index == -1:
+            raise ValueError("space_index must be set")
+        
         self.kenlm_model = None
         if kenlm_model_path is not None:
             try:
@@ -536,9 +541,6 @@ class CTCBaseSearcher(torch.nn.Module):
             self.lm = LanguageModel(self.kenlm_model, unigrams)
         else:
             self.lm = None
-
-        if not self.is_spm and space_index == -1 and self.lm is not None:
-            raise ValueError("space_index must be set")
 
     def partial_decoding(
         self,
@@ -784,6 +786,8 @@ class CTCBaseSearcher(torch.nn.Module):
         if wav_lens is not None:
             wav_lens = log_probs.size(1) * wav_lens
             wav_lens = wav_lens.cpu().numpy().astype(int)
+        else:
+            wav_lens = [log_probs.size(1)] * log_probs.size(0)
 
         log_probs = log_probs.cpu().numpy()
 

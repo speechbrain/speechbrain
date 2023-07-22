@@ -66,7 +66,8 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
-        p_tokens = decoder.decode_beams(p_ctc, wav_lens)
+        if stage != sb.Stage.TRAIN:
+            p_tokens = decoder(p_ctc.detach())
 
         return p_ctc, wav_lens, p_tokens
 
@@ -87,10 +88,7 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
 
-            predicted_words = []
-            for hyp in predicted_tokens:
-                predicted_words.append(hyp[0].text.split(" "))
-
+            predicted_words = [hyp[0].text.split(" ") for hyp in predicted_tokens]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -368,95 +366,17 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    """
-    from speechbrain.decoders import BeamSearchDecoderCTCV1
+    from speechbrain.decoders.ctc import CTCPrefixBeamSearch
 
     ind2lab = label_encoder.ind2lab
-    labels = [ind2lab[x] for x in range(len(ind2lab))]
-    ctc_beam_search_V1 = BeamSearchDecoderCTCV1(
-        blank_id=0,
-        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-        beam_size=100,
-        prune_frames=False,
-        vocab=labels,
-        space_id=29,
-        prune_history=False,
+    vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
+
+    decoder = CTCPrefixBeamSearch(
+        blank_index=0,
+        space_index=1,
+        vocab_list=vocab_list,
     )
 
-    from speechbrain.decoders import BeamSearchDecoderCTC
-
-    ind2lab = label_encoder.ind2lab
-    labels = [ind2lab[x] for x in range(len(ind2lab))]
-
-    ctc_beam_search = BeamSearchDecoderCTC(
-        blank_id=0,
-        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-        beam_size=100,
-        prune_frames=False,
-        vocab=labels,
-        space_id=29,
-        prune_history=True,
-    )
-    from torchaudio.models.decoder import ctc_decoder
-
-    labels = [label.lower() for label in labels]
-    decoder = ctc_decoder(
-        lexicon=None,
-        # lm="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/3-gram.arpa",
-        tokens=labels,
-        beam_size=1,
-        blank_token=labels[hparams["blank_index"]],
-        sil_token=labels[hparams["blank_index"]],
-        # beam_size_token=1,
-    )
-
-    from torchaudio.models.decoder import download_pretrained_files
-
-    files = download_pretrained_files("librispeech-4-gram")
-    print(files)
-    exit()
-    """
-
-    use_torch_audio = True
-
-    if use_torch_audio:
-        from speechbrain.decoders import TorchAudioCTCBeamSearch
-        from torchaudio.models.decoder import download_pretrained_files
-
-        files = download_pretrained_files("librispeech-4-gram")
-        # print(files)
-        # exit()
-        # files.lexicon
-        ind2lab = label_encoder.ind2lab
-        labels = [ind2lab[x] for x in range(len(ind2lab))]
-
-        decoder = TorchAudioCTCBeamSearch(
-            lexicon=None,
-            tokens=labels,
-            beam_size=100,
-            blank_index=hparams["blank_index"],
-            sil_index=hparams["blank_index"],
-            beam_size_token=5,
-            using_cpu_decoder=False,
-            topk=1,
-        )
-
-    else:
-        from speechbrain.decoders.ctc import CTCPrefixBeamSearch
-
-        ind2lab = label_encoder.ind2lab
-        labels = [ind2lab[x] for x in range(len(ind2lab))]
-        decoder = CTCPrefixBeamSearch(
-            blank_index=0,
-            # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-            history_prune=True,
-            space_index=29,
-            vocab_list=labels,
-            beam_width=10,
-            # blank_skip_threshold=math.log(1.0),
-        )
-
-    """
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -465,7 +385,6 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
-    """
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
