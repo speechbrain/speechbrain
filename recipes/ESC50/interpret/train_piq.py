@@ -738,25 +738,24 @@ if __name__ == "__main__":
     hparams["classifier"].to(hparams["device"])
     hparams["embedding_model"].eval()
 
-    if not hparams["test_only"]:
-        Interpreter_brain.fit(
-            epoch_counter=Interpreter_brain.hparams.epoch_counter,
-            train_set=datasets["train"],
-            valid_set=datasets["valid"],
-            train_loader_kwargs=hparams["dataloader_options"],
-            valid_loader_kwargs=hparams["dataloader_options"],
-        )
-    else:
-        # Load the best checkpoint for evaluation
+    Interpreter_brain.fit(
+        epoch_counter=Interpreter_brain.hparams.epoch_counter,
+        train_set=datasets["train"],
+        valid_set=datasets["valid"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
+    )
+    
+    # Load the best checkpoint for evaluation
 
-        Interpreter_brain.checkpointer.recover_if_possible(
-            max_key="valid_top-3_fid",
-            device=torch.device(Interpreter_brain.device),
-        )
+    Interpreter_brain.checkpointer.recover_if_possible(
+        max_key="valid_top-3_fid",
+        device=torch.device(Interpreter_brain.device),
+    )
 
-        test_stats = Interpreter_brain.evaluate(
-            test_set=datasets["test"],
-            min_key="loss",
-            progressbar=True,
-            test_loader_kwargs=hparams["dataloader_options"],
-        )
+    test_stats = Interpreter_brain.evaluate(
+        test_set=datasets["test"],
+        min_key="loss",
+        progressbar=True,
+        test_loader_kwargs=hparams["dataloader_options"],
+    )
