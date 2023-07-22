@@ -22,7 +22,7 @@ python train.py hparams/sepformer-libri3mix.yaml --data_folder yourpath/Libri3Mi
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 ## How to run on test sets only
-If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
 
 ```shell
 python train.py hparams/sepformer-libri2mix.yaml --data_folder yourpath/Libri3Mix --test_only

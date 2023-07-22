@@ -44,7 +44,7 @@ Both of these numbers are obtained with an NVIDIA RTX 3090 GPU.
 -The huggingface repository of the CNN14 model with an easy inference interface can be accessed through [our huggingface repository](https://huggingface.co/speechbrain/cnn14-esc50/blob/main/README.md)
 
 # How to run on test sets only
-If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
 ```shell
 python train.py hparams/{hparam_file}.py --data_folder /yourpath/ESC50 --test_only
 ```
