@@ -9,6 +9,14 @@ The interpreter is a neural network that generates an additional signal in its o
 
 The recipes implements the posthoc interpretability techniques mentioned below. They utilize pre-trained models obtained from `recipes/ESC50/classification/`, which are automatically downloaded from [HuggingFace](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech). If necessary, you have the option to train your own classifier by following the instructions provided in the reference README.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## Supported Methods
 
 ### Posthoc Interpretability via Quantization (PIQ)

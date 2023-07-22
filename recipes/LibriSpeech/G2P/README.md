@@ -14,6 +14,16 @@ The datasets are derived from the LibriSpeech-Alignments dataset (https://zenodo
 
 Decoding is performed with a beamsearch, optionally enhanced with language models.
 
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
+## How to run
 To run this recipe, do the following:
 > python train.py &lt;hyperparameter file&gt;
 

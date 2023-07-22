@@ -11,10 +11,13 @@
 }
 ```
 
-## Dependencies
+## Installing Extra Dependencies
 
-First, please install the extra dependencies, do  `pip install -r extra_requirements.txt`
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
+```
+pip install -r emotion_diarization/extra_requirements.txt
+```
 
 ## Datasets
 
@@ -49,7 +52,11 @@ The test set is Zaion Emotion Dataset (ZED), which can be downloaded [here](http
 
 First download the train/test datasets and unzip them.
 
-To run the code, do `python train.py hparams/train.yaml --zed_folder /path/to/ZED --emovdb_folder /path/to/EmoV-DB --esd_folder /path/to/ESD --iemocap_folder /path/to/IEMOCAP --jlcorpus_folder /path/to/JL_corpus --ravdess_folder /path/to/RAVDESS`.
+To run the code, do:
+
+`cd emotion_diarization/`
+
+`python train.py hparams/train.yaml --zed_folder /path/to/ZED --emovdb_folder /path/to/EmoV-DB --esd_folder /path/to/ESD --iemocap_folder /path/to/IEMOCAP --jlcorpus_folder /path/to/JL_corpus --ravdess_folder /path/to/RAVDESS`.
 
 The frame-wise classification result for each utterance can be found in `results/eder.txt`.
 
