@@ -7,6 +7,6 @@ pyctcdecode
 recommonmark>=0.7.1
 scikit-learn
 six
-Sphinx>=3.4.3
 sphinx-rtd-theme>=0.4.3
+Sphinx>=3.4.3
 transformers
