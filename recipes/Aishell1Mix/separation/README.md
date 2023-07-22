@@ -26,11 +26,16 @@ pip install -r ../extra-requirements.txt
 To run it:
 
 ```
-python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath
-python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder=/yourdatapath
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder=/yourdatapath
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
+If you want to run it only on test set, you can use by adding the flag `--test_only` to the following command:
+```
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder=/yourdatapath --test_only
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder=/yourdatapath --test_only
+```
 
 # Aishell1Mix2/3
 * Your data folder should contain data_aishell (aishell1), resource_aishell (aishell1), wham_noise and aishell1mix, which can be created using the scripts at `https://github.com/huangzj421/Aishell1Mix`. Otherwise train.py will download and prepare data into your data path automatically.
