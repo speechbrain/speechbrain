@@ -906,7 +906,8 @@ class CTCBeamSearch(CTCBaseSearcher):
     added to the general score, and each beams that share the same text are
     merged together.
 
-    The input is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
+    The implementation suppors n-gram scoring on words and SentencePiece tokens. The input
+    is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     The main advantage of this CTCBeamSearch over the CTCPrefixBeamSearch is that it is
     relatively faster, and obtains slightly better results. However, the implementation is
