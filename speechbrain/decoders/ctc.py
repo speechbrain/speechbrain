@@ -1610,3 +1610,26 @@ class TorchAudioCTCBeamSearch:
                     )
                 )
         return hyps
+
+    def __call__(self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None) -> List[List[CTCHypothesis]]:
+        """Decode log_probs using TorchAudio CTC decoder.
+
+        If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
+        When using CUDA CTC decoder, the timestep information is not available. Therefore, the timesteps
+        in the returned hypotheses are set to None.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the input audio. 
+            Shape: (batch_size, seq_length, vocab_size)
+        wav_len : torch.Tensor, optional
+            The speechbrain-style relative length. Shape: (batch_size,)
+            If None, then the length of each audio is assumed to be seq_length.
+        
+        Returns
+        -------
+        list of list of CTCHypothesis
+            The decoded hypotheses. The outer list is over the batch dimension, and the inner list is over the topk dimension.
+        """
+        return self.decode_beams(log_probs, wav_len)
