@@ -518,9 +518,6 @@ class CTCBaseSearcher(torch.nn.Module):
         self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
 
-        if not self.is_spm and space_index == -1:
-            raise ValueError("space_index must be set")
-
         self.kenlm_model = None
         if kenlm_model_path is not None:
             try:
@@ -552,6 +549,9 @@ class CTCBaseSearcher(torch.nn.Module):
         else:
             self.lm = None
 
+        if not self.is_spm and space_index == -1 and self.lm is not None:
+            raise ValueError("space_index must be set")
+        
     def partial_decoding(
         self,
         log_probs,
@@ -637,7 +637,7 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
 
-    def prune_history(self, beams, lm_order):
+    def _prune_history(self, beams: List[CTCBeam], lm_order: int):
         """Filter out beams that are the same over max_ngram history.
 
         Since n-gram language models have a finite history when scoring a new token, we can use that
@@ -737,6 +737,9 @@ class CTCBaseSearcher(torch.nn.Module):
             for log_prob, wav_len in zip(log_probs, wav_lens)
         ]
         return hyps
+
+    def __call__(self, log_probs, wav_lens=None, lm_start_state=None):
+        return self.decode_beams(log_probs, wav_lens, lm_start_state)
 
     def partial_decode_beams(
         self,
@@ -995,7 +998,7 @@ class CTCBeamSearch(CTCBaseSearcher):
 
             if self.prune_history:
                 lm_order = 1 if self.lm is None else self.lm.order
-                beams = self.prune_history(trimmed_beams, lm_order=lm_order)
+                beams = self._prune_history(trimmed_beams, lm_order=lm_order)
             else:
                 beams = [CTCBeam.from_lm_beam(b) for b in trimmed_beams]
 
@@ -1008,7 +1011,8 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873). 
 
     The implementation keep tracks of the blank and non-blank probabilities. 
-    It also suppors n-gram scoring on words and SentencePiece tokens.
+    It also suppors n-gram scoring on words and SentencePiece tokens. The input
+    is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     Several heuristics are implemented to speed up the decoding process:
     - pruning of the beam : the beams are pruned if their score is lower than
@@ -1019,7 +1023,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         max_ngram history
     - skipping of the blank : the frame is skipped if the blank probability is
         higher than the blank_skip_threshold
-
+        
     Arguments
     ---------
     **kwargs
@@ -1027,7 +1031,17 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
     Example
     -------
-    >>> # TODO
+    >>> import torch
+    >>> from speechbrain.decoders import CTCPrefixBeamSearch
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], 
+    ...                   [0.4, 0.0, 0.6]]])
+    >>> log_probs = torch.log(probs)
+    >>> lens = torch.tensor([1.0])
+    >>> blank_index = 2
+    >>> vocab_list = ['a', 'b', '-']
+    >>> decoder = CTCPrefixBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
+    >>> decoder(probs, lens)
+    [[CTCHypothesis(text='a', last_lm_state=None, score=-0.6539264320473421, lm_score=-0.6539264320473421, timesteps=None)]]
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -1330,7 +1344,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
 
             if self.prune_history:
                 lm_order = 1 if self.lm is None else self.lm.order
-                beams = self.prune_history(trimmed_beams, lm_order=lm_order)
+                beams = self._prune_history(trimmed_beams, lm_order=lm_order)
             else:
                 beams = [CTCBeam.from_lm_beam(b) for b in trimmed_beams]
 
