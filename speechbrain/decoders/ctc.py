@@ -744,15 +744,38 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def partial_decode_beams(
         self,
-        log_probs,
-        cached_lm_scores,
-        cached_p_lm_scores,
-        beams,
-        processed_frames,
+        log_probs: torch.Tensor,
+        cached_lm_scores: dict,
+        cached_p_lm_scores: dict,
+        beams: list[CTCBeam],
+        processed_frames: int,
         force_next_word=False,
         is_end=False,
     ):
+        """ Perform a single step of decoding.
 
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the CTC output.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_p_lm_scores : dict
+            The cached prefix language model scores.
+        beams : list
+            The list of the beams.
+        processed_frames : int
+            The start frame of the current decoding step.
+        force_next_word : bool, optional (default: False)
+            Whether to force the next word.
+        is_end : bool, optional (default: False)
+            Whether the end of the sequence has been reached.
+
+        Returns
+        -------
+        list
+            The list of the beams.
+        """
         beams = self.partial_decoding(
             log_probs,
             beams,
