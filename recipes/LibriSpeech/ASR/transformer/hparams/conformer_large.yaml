@@ -9,9 +9,9 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
-seed: 7775
+seed: 3407
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/conformer_small/<seed>
+output_folder: !ref results/conformer_large/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -32,11 +32,12 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
+test_splits: ["dev-clean", "test-clean", "test-other"]
 skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
+    - !ref <output_folder>/dev-clean.csv
     - !ref <output_folder>/test-clean.csv
     - !ref <output_folder>/test-other.csv
 
@@ -45,7 +46,7 @@ test_csv:
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 110
+number_of_epochs: 120
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 1
@@ -55,19 +56,18 @@ sorting: random
 num_workers: 4
 
 # stages related parameters
-# stage_one_epochs: 90
-lr_adam: 0.0005
-# lr_sgd: 0.000025
+lr_adam: 0.0008
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 400
+n_fft: 512
 n_mels: 80
+win_length: 32
 
-# This setup works well for V100 32GB GPU, adapts it to your needs.
+# This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 900
+max_batch_len: 500
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -77,7 +77,7 @@ dynamic_batch_sampler:
     num_buckets: !ref <num_bucket>
     shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
-    max_batch_ex: 128
+    max_batch_ex: 256
 
 # Dataloader options
 train_dataloader_opts:
@@ -104,7 +104,7 @@ output_neurons: 5000
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.0
+label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
@@ -184,15 +184,10 @@ model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # define two optimizers here for two-stage training
-Adam: !name:torch.optim.Adam
+Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
-
-#SGD: !name:torch.optim.SGD
-#    lr: !ref <lr_sgd>
-#    momentum: 0.99
-#    nesterov: True
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -236,7 +231,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 25000
+    n_warmup_steps: 30000
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -256,10 +251,10 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     freq_mask: True
     n_freq_mask: 2
     time_mask: True
-    n_time_mask: 2
+    n_time_mask: 10
     replace_with_zero: False
     freq_mask_width: 30
-    time_mask_width: 40
+    time_mask_width: 25
 
 speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
@@ -269,6 +264,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+    win_length: !ref <win_length>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

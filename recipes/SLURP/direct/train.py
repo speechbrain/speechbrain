@@ -142,6 +142,12 @@ class SLU(sb.Brain):
                                 "action": "none",
                                 "entities": [],
                             }
+                        except ValueError:
+                            _dict = {
+                                "scenario": "none",
+                                "action": "none",
+                                "entities": [],
+                            }
                         _dict["file"] = id_to_file[ids[i]]
                         writer.write(_dict)
 

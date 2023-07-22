@@ -4,7 +4,7 @@ _Recognition performance aside, are we real-time?_
 
 Among the tools out there, PyTorch offers its profiler to benchmark computational time and memory demands.
 SpeechBrain wraps this profiler into `@profile`, `@profile_optimiser`, `@profile_analyst`, and `@profile_report` decorators.
-While our [tutorial](https://colab.research.google.com/drive/1X9eeAEy19BgEJX4YZWjo1Huku_8cOUGJ?usp=sharing) suggests how to use them, this recipe helps to figure out a guiding estimate (take it on nominal level) for inference with pretrained models regarding:
+While our [tutorial](https://colab.research.google.com/drive/1X9eeAEy19BgEJX4YZWjo1Huku_8cOUGJ) suggests how to use them, this recipe helps to figure out a guiding estimate (take it on nominal level) for inference with pretrained models regarding:
 * real-time factor
 * peak memory
 
@@ -190,7 +190,6 @@ Starting with the PyTorch profiler and benchmark visualisation:
 Where to go from here:
 - https://horace.io/brrr_intro.html (thanks for the xref: @RuABraun !)
 - https://pytorch-lightning.readthedocs.io/en/stable/advanced/profiler.html
-- https://docs.nvidia.com/deeplearning/frameworks/pyprof-user-guide/profile.html
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

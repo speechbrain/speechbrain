@@ -1,4 +1,4 @@
-name: 🪲Bug Report
+name: 🪲 Bug Report
 description: Something went wrong? Let us know! 🐣
 title: "[Bug]: "
 labels: ["bug"]
@@ -15,7 +15,6 @@ body:
       description: Short and clear description of what the bug is.
     validations:
       required: True
-
 
   - type: textarea
     id: expected-behaviour

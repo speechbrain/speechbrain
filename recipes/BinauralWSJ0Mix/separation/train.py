@@ -38,8 +38,6 @@ import logging
 from pyroomacoustics.experimental.localization import tdoa
 from speechbrain.processing.features import STFT, spectral_magnitude
 from torch.nn import Conv1d
-from speechbrain.pretrained.fetching import fetch
-import zipfile
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +72,8 @@ class Separation(sb.Brain):
                         min_len = min(len_noise, len_mix)
 
                         # add the noise
+                        if noise.ndim == 2:
+                            noise = noise.unsqueeze(-1)
                         mix = mix[:, :min_len] + noise[:, :min_len]
 
                         # fix the length of targets also
@@ -218,14 +218,14 @@ class Separation(sb.Brain):
                 # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
+                    loss = loss[loss > th]
+                    if loss.nelement() > 0:
+                        loss = loss.mean()
                 else:
                     loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -251,14 +251,14 @@ class Separation(sb.Brain):
 
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
+                loss = loss[loss > th]
+                if loss.nelement() > 0:
+                    loss = loss.mean()
             else:
                 loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -697,19 +697,11 @@ if __name__ == "__main__":
 
     if not hparams["skip_prep"]:
         if not os.path.exists(hparams["datasets_generation"]):
-            print("Download Datasets Generation scripts")
-            fetch(
-                filename="main.zip",
-                source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
-                savedir=hparams["data_folder"],
-                save_filename="Binaural-WSJ0Mix-main.zip",
-            )
-            file = zipfile.ZipFile(
-                os.path.join(
-                    hparams["data_folder"], "Binaural-WSJ0Mix-main.zip"
-                )
-            )
-            file.extractall(path=hparams["data_folder"])
+            from git import Repo
+
+            git_url = "https://github.com/huangzj421/BinauralWSJ0Mix"
+            repo_dir = hparams["datasets_generation"]
+            Repo.clone_from(git_url, repo_dir)
 
         sys.path.append(hparams["datasets_generation"])
         if "noise" in hparams["experiment_name"]:
