@@ -1365,7 +1365,10 @@ class TorchAudioCTCBeamSearch:
     https://pytorch.org/audio/main/generated/torchaudio.models.decoder.ctc_decoder.html
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
-    requires the nightly version of torchaudio and a lot of VRAM memory if you wants to use large beam size.
+    requires the nightly version of torchaudio and a lot of VRAM memory. Overall, we do recommand to use
+    the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use n-gram + beam search decoding.
+    If you wants to have constraint search, please use the CPU version of torchaudio, and if you want to speedup
+    as much as possible the decoding, please use the CUDA version.
 
     Arguments
     ---------
@@ -1472,7 +1475,9 @@ class TorchAudioCTCBeamSearch:
                 raise ImportError(
                     "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder"
                 )
-
+            
+            # if this is a path, then torchaudio expect to be an index
+            # while its a list then it expects to be a token
             if isinstance(self.tokens, str):
                 blank_token = self.blank_index
                 sil_token = self.sil_index
