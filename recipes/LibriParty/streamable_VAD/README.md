@@ -18,6 +18,8 @@ Run the following command to train the model:
 |:-------------:|:---------------------------:| -----:| -----:| --------:| -----------:| -----------:|
 | 2021-09-09 | streamable.yaml |  0.9417 | 0.9007 | 0.9208 | [Model](https://drive.google.com/drive/folders/1_L8mp1lpnIGEf8SUUNBmZuLSw5aYoY4l?usp=drive_link) | NVIDIA RTX 3090 |
 
+The pre-trained model is available on the [HF Hub](https://huggingface.co/speechbrain/stream-vad-crdnn-libriparty).
+
 
 # Training Time
 About 2 minutes for each epoch with a NVIDIA RTX 3090.
