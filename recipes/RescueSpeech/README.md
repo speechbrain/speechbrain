@@ -22,6 +22,13 @@ python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path>
 ```
 Here the data path should be the path to **uncompressed `Task_ASR.tar.gz`** downloaded from link above.
 
+# How to run on test sets only
+If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
+
+```shell
+cd RescueSpeech/ASR/noise-robust
+python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path> --test_only
+```
 ## Computing power
 Please note that running this recipe can be computationally demanding due to the Whisper ASR (`whisper-large-v2`) model with 906.5M parameters (compared to 1.5B parameters in the original model but feature encoder is frozen in our case). When fine-tuning both the Whisper and SepFormer models together, we used an Nvidia A100-80 GB GPU, which took approximately 15 minutes per epoch.
 
