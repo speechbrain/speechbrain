@@ -1,5 +1,11 @@
 """Language model wrapper for kenlm n-gram.
 
+This file is based on the implementation of the kenLM wrapper from
+PyCTCDecode (see: https://github.com/kensho-technologies/pyctcdecode) and
+is used in CTC decoders.
+
+See: speechbrain.decoders.ctc.py
+
 Authors
  * Adel Moumen 2023
 """
