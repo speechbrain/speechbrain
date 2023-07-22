@@ -6,7 +6,6 @@ Authors
  * Sung-Lin Yeh 2020
  * Adel Moumen 2023
 """
-import torch
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
 import math
@@ -14,15 +13,7 @@ import dataclasses
 import numpy as np
 import heapq
 import logging
-
-logger = logging.getLogger(__name__)
 import torch
-import math
-import dataclasses
-import numpy as np
-import heapq
-import logging
-
 from typing import (
     Dict,
     List,
@@ -30,22 +21,12 @@ from typing import (
     Union,
     Any
 )
-
 from speechbrain.decoders.language_model import (
     LanguageModel,
     load_unigram_set_from_arpa,
 )
 
-
-from typing import (
-    Dict,
-    Optional,
-)
-
-from speechbrain.decoders.language_model import (
-    LanguageModel,
-    load_unigram_set_from_arpa,
-)
+logger = logging.getLogger(__name__)
 
 
 class CTCPrefixScore:
@@ -1589,7 +1570,7 @@ class TorchAudioCTCBeamSearch:
     tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail. 
 
     The implementation is compatible with Sentenpiece Tokens. 
-    
+
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
     requires the nightly version of torchaudio and a lot of VRAM memory. Overall, we do recommand to use
     the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use n-gram + beam search decoding.
