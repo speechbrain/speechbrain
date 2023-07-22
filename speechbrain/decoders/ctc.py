@@ -826,6 +826,48 @@ class CTCBaseSearcher(torch.nn.Module):
 
 
 class CTCBeamSearch(CTCBaseSearcher):
+    """CTC Beam Search is a Beam Search for CTC which does not keep track of
+    the blank and non-blank probabilities. Each new token probability is 
+    added to the general score, and each beams that share the same text are
+    merged together.
+
+    The input is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
+
+    The main advantage of this CTCBeamSearch over the CTCPrefixBeamSearch is that it is
+    relatively faster, and obtains slightly better results. However, the implementation is
+    based on the one from the PyCTCDecode toolkit, adpated for the SpeechBrain's needs and does
+    not follow a specific paper. We do recommand to use the CTCPrefixBeamSearch if you want
+    to cite the appropriate paper for the decoding method.
+
+    Several heuristics are implemented to speed up the decoding process:
+    - pruning of the beam : the beams are pruned if their score is lower than
+        the best beam score minus the beam_prune_logp
+    - pruning of the tokens : the tokens are pruned if their score is lower than
+        the token_prune_min_logp
+    - pruning of the history : the beams are pruned if they are the same over
+        max_ngram history
+    - skipping of the blank : the frame is skipped if the blank probability is
+        higher than the blank_skip_threshold
+        
+    Arguments
+    ---------
+    **kwargs
+        see CTCBaseSearcher, arguments are directly passed.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.decoders import CTCBeamSearch
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], 
+    ...                   [0.4, 0.0, 0.6]]])
+    >>> log_probs = torch.log(probs)
+    >>> lens = torch.tensor([1.0])
+    >>> blank_index = 2
+    >>> vocab_list = ['a', 'b', '-']
+    >>> decoder = CTCBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
+    >>> decoder(probs, lens)
+    [[CTCHypothesis(text='a', last_lm_state=None, score=1.9971160035663789, lm_score=1.9971160035663789, timesteps=None)]]
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
