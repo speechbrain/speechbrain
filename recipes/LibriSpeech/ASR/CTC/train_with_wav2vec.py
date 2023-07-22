@@ -29,6 +29,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
@@ -65,8 +66,8 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
-        p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
-        
+        p_tokens = decoder.decode_beams(p_ctc, wav_lens)
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -441,8 +442,7 @@ if __name__ == "__main__":
         )
 
     else:
-        from speechbrain.decoders.ctc import CTCPrefixBeamSearch, CTCBeamSearch
-        import math
+        from speechbrain.decoders.ctc import CTCPrefixBeamSearch
 
         ind2lab = label_encoder.ind2lab
         labels = [ind2lab[x] for x in range(len(ind2lab))]

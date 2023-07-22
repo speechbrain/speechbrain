@@ -29,6 +29,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 # Define training procedure
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
@@ -36,7 +37,7 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
 
-        # Add augmentation if specified 
+        # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
@@ -65,8 +66,8 @@ class ASR(sb.Brain):
         p_ctc = self.hparams.log_softmax(logits)
 
         if stage != sb.Stage.TRAIN:
-            p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
-        
+            p_tokens = decoder.decode_beams(p_ctc, wav_lens)
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -89,10 +90,10 @@ class ASR(sb.Brain):
             predicted_words = []
             for hyp in predicted_tokens:
                 predicted_words.append(hyp[0].text.split(" "))
-            #print('predicted_words = ', predicted_words)
+            # print('predicted_words = ', predicted_words)
             target_words = [wrd.lower().split(" ") for wrd in batch.wrd]
-            #print('target_words = ', target_words)
-            #exit()
+            # print('target_words = ', target_words)
+            # exit()
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -285,7 +286,7 @@ def dataio_prepare(hparams):
         char_list = list(wrd_lowercase)
         yield char_list
         tokens_list = label_encoder.encode_sequence(char_list)
-        #print(tokens_list)
+        # print(tokens_list)
         yield tokens_list
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -299,10 +300,12 @@ def dataio_prepare(hparams):
 
     return train_data, valid_data, test_datasets, label_encoder
 
+
 def read_torchaudio_vocab(file_path):
     with open(file_path, "r") as f:
         vocab = [line.strip() for line in f.readlines()]
     return vocab
+
 
 if __name__ == "__main__":
 
@@ -364,7 +367,6 @@ if __name__ == "__main__":
 
     files = download_pretrained_files("librispeech-4-gram")
 
-
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     labels = read_torchaudio_vocab(files.tokens)
@@ -379,8 +381,8 @@ if __name__ == "__main__":
         tokens=files.tokens,
         lm=files.lm,
         beam_size=100,
-        blank_index='-',
-        sil_index='|',
+        blank_index="-",
+        sil_index="|",
         beam_size_token=5,
         using_cpu_decoder=True,
         topk=1,

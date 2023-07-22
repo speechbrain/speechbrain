@@ -14,13 +14,7 @@ import numpy as np
 import heapq
 import logging
 import torch
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Union,
-    Any
-)
+from typing import Dict, List, Optional, Union, Any
 from speechbrain.decoders.language_model import (
     LanguageModel,
     load_unigram_set_from_arpa,
@@ -382,6 +376,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 @dataclasses.dataclass
 class CTCBeam:
     """Contains all the info needed for decoding a beam."""
+
     text: str
     full_text: str
     next_word: str
@@ -420,22 +415,24 @@ class CTCBeam:
         self.p_b, self.p_nb = self.n_p_b, self.n_p_nb
         self.n_p_b = self.n_p_nb = -math.inf
         self.score_ctc = np.logaddexp(self.p_b, self.p_nb)
-        self.score = self.score_ctc 
+        self.score = self.score_ctc
 
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
     """Contains all the info needed for decoding a beam with LM."""
+
     lm_score: float = -math.inf
 
 
 @dataclasses.dataclass
 class CTCHypothesis:
     """Contains all the info needed for decoding a hypothesis."""
+
     text: str
     last_lm_state: None
-    score: float 
-    lm_score: float 
+    score: float
+    lm_score: float
     timesteps: list = None
 
 
@@ -444,7 +441,7 @@ class CTCBaseSearcher(torch.nn.Module):
     CTC beam searchers.
 
     This class provides the basic functionalities for
-    CTC beam search decoding. 
+    CTC beam search decoding.
 
     Arguments
     ---------
@@ -541,7 +538,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
         if not self.is_spm and space_index == -1 and self.lm is not None:
             raise ValueError("space_index must be set")
-        
+
     def partial_decoding(
         self,
         log_probs: torch.Tensor,
@@ -651,7 +648,9 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         return heapq.nlargest(self.beam_size, beams, key=lambda x: x.lm_score)
 
-    def _prune_history(self, beams: List[CTCBeam], lm_order: int) -> List[CTCBeam]:
+    def _prune_history(
+        self, beams: List[CTCBeam], lm_order: int
+    ) -> List[CTCBeam]:
         """Filter out beams that are the same over max_ngram history.
 
         Since n-gram language models have a finite history when scoring a new token, we can use that
@@ -752,7 +751,12 @@ class CTCBaseSearcher(torch.nn.Module):
         sorted_beams = self.sort_beams(scored_beams)
         return sorted_beams
 
-    def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any = None) -> List[List[CTCHypothesis]]:
+    def decode_beams(
+        self,
+        log_probs: torch.Tensor,
+        wav_lens: Optional[torch.Tensor] = None,
+        lm_start_state: Any = None,
+    ) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
 
         It automatically converts the SpeechBrain's relative length of the wav input
@@ -788,9 +792,14 @@ class CTCBaseSearcher(torch.nn.Module):
         ]
         return hyps
 
-    def __call__(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any = None) -> List[List[CTCHypothesis]]:
+    def __call__(
+        self,
+        log_probs: torch.Tensor,
+        wav_lens: Optional[torch.Tensor] = None,
+        lm_start_state: Any = None,
+    ) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
-        
+
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
@@ -865,7 +874,12 @@ class CTCBaseSearcher(torch.nn.Module):
 
         return trimmed_beams
 
-    def decode_log_probs(self, log_probs: torch.Tensor, wav_len: int, lm_start_state: Optional[Any] = None) -> List[CTCHypothesis]:
+    def decode_log_probs(
+        self,
+        log_probs: torch.Tensor,
+        wav_len: int,
+        lm_start_state: Optional[Any] = None,
+    ) -> List[CTCHypothesis]:
         """Decodes the log probabilities of the CTC output.
 
         Arguments
@@ -876,7 +890,7 @@ class CTCBaseSearcher(torch.nn.Module):
         wav_len : int
             The length of the wav input.
         lm_start_state : Any, optional (default: None)
-            The start state of the language model. 
+            The start state of the language model.
 
         Returns
         -------
@@ -939,7 +953,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
 class CTCBeamSearch(CTCBaseSearcher):
     """CTC Beam Search is a Beam Search for CTC which does not keep track of
-    the blank and non-blank probabilities. Each new token probability is 
+    the blank and non-blank probabilities. Each new token probability is
     added to the general score, and each beams that share the same text are
     merged together.
 
@@ -961,7 +975,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         max_ngram history
     - skipping of the blank : the frame is skipped if the blank probability is
         higher than the blank_skip_threshold
-        
+
     Arguments
     ---------
     **kwargs
@@ -971,7 +985,7 @@ class CTCBeamSearch(CTCBaseSearcher):
     -------
     >>> import torch
     >>> from speechbrain.decoders import CTCBeamSearch
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], 
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
@@ -981,6 +995,7 @@ class CTCBeamSearch(CTCBaseSearcher):
     >>> decoder(probs, lens)
     [[CTCHypothesis(text='a', last_lm_state=None, score=1.9971160035663789, lm_score=1.9971160035663789, timesteps=None)]]
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -991,7 +1006,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         cached_partial_token_scores: dict,
         is_eos=False,
     ) -> List[LMCTCBeam]:
-        """Score the beams with the language model if not None, and 
+        """Score the beams with the language model if not None, and
         return the new beams.
 
         This function is modified and adapted from
@@ -1078,7 +1093,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         cached_p_lm_scores: dict,
         processed_frames: int = 0,
     ) -> List[CTCBeam]:
-        """Perform CTC Prefix Beam Search decoding. 
+        """Perform CTC Prefix Beam Search decoding.
 
         If self.lm is not None, the language model scores are computed and added to the CTC scores.
 
@@ -1210,9 +1225,9 @@ class CTCBeamSearch(CTCBaseSearcher):
 class CTCPrefixBeamSearch(CTCBaseSearcher):
     """CTC Prefix Beam Search is based on the paper
     `First-Pass Large Vocabulary Continuous Speech Recognition using Bi-Directional Recurrent DNNs`
-    by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873). 
+    by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873).
 
-    The implementation keep tracks of the blank and non-blank probabilities. 
+    The implementation keep tracks of the blank and non-blank probabilities.
     It also suppors n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
@@ -1225,7 +1240,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         max_ngram history
     - skipping of the blank : the frame is skipped if the blank probability is
         higher than the blank_skip_threshold
-        
+
     Arguments
     ---------
     **kwargs
@@ -1235,7 +1250,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     -------
     >>> import torch
     >>> from speechbrain.decoders import CTCPrefixBeamSearch
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], 
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
@@ -1245,6 +1260,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     >>> decoder(probs, lens)
     [[CTCHypothesis(text='a', last_lm_state=None, score=-0.6539264320473421, lm_score=-0.6539264320473421, timesteps=None)]]
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -1255,7 +1271,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_partial_token_scores: dict,
         is_eos=False,
     ) -> List[LMCTCBeam]:
-        """Score the beams with the language model if not None, and 
+        """Score the beams with the language model if not None, and
         return the new beams.
 
         This function is modified and adapted from
@@ -1447,7 +1463,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_p_lm_scores: dict,
         processed_frames: int = 0,
     ) -> List[CTCBeam]:
-        """Perform CTC Prefix Beam Search decoding. 
+        """Perform CTC Prefix Beam Search decoding.
 
         If self.lm is not None, the language model scores are computed and added to the CTC scores.
 
@@ -1475,7 +1491,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         # select only the valid frames, i.e., the frames that are not padded
         log_probs = log_probs[:wav_len]
         for _, logit_col in enumerate(log_probs, start=processed_frames):
-            
+
             # skip blank frames
             if (
                 self.blank_skip_threshold is not None
@@ -1566,12 +1582,12 @@ class TorchAudioCTCBeamSearch:
     For more information about the CPU decoder, please refer to the documentation of TorchAudio:
     https://pytorch.org/audio/main/generated/torchaudio.models.decoder.ctc_decoder.html
 
-    If you want to use the language model, or the lexicon search, please make sure that your 
-    tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail. 
+    If you want to use the language model, or the lexicon search, please make sure that your
+    tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail.
 
-    The implementation is compatible with Sentenpiece Tokens. 
+    The implementation is compatible with Sentenpiece Tokens.
 
-    Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
+    Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
     requires the nightly version of torchaudio and a lot of VRAM memory. Overall, we do recommand to use
     the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use n-gram + beam search decoding.
     If you wants to have constraint search, please use the CPU version of torchaudio, and if you want to speedup
@@ -1582,20 +1598,20 @@ class TorchAudioCTCBeamSearch:
     tokens : list or str
         The list of tokens or the path to the tokens file.
         If this is a path, then the file should contain one token per line.
-    lexicon : str, optional 
-        Lexicon file containing the possible words and corresponding spellings. Each line consists of a word and its space separated spelling. 
+    lexicon : str, optional
+        Lexicon file containing the possible words and corresponding spellings. Each line consists of a word and its space separated spelling.
         If None, uses lexicon-free decoding. (default: None)
     lm : str, optional
         A path containing KenLM language model or None if not using a language model. (default: None)
     lm_dict : str, optional
-        File consisting of the dictionary used for the LM, with a word per line sorted by LM index. 
-        If decoding with a lexicon, entries in lm_dict must also occur in the lexicon file. 
+        File consisting of the dictionary used for the LM, with a word per line sorted by LM index.
+        If decoding with a lexicon, entries in lm_dict must also occur in the lexicon file.
         If None, dictionary for LM is constructed using the lexicon file. (Default: None)
     topk : int, optional
         Number of top CTCHypothesis to return. (default: 1)
     beam_size : int, optional
         Numbers of hypotheses to hold after each decode step. (default: 50)
-    beam_size_token : int, optional 
+    beam_size_token : int, optional
         Max number of tokens to consider at each decode step. If None, it is set to the total number of tokens. (default: None)
     beam_threshold : float, optional
         Threshold for pruning hypothesis. (default: 50)
@@ -1620,12 +1636,12 @@ class TorchAudioCTCBeamSearch:
     blank_skip_threshold : float, optional
         Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (Default: log(1.0)).
         Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
-    
+
     Example
     -------
     >>> import torch
     >>> from speechbrain.decoders import TorchAudioCTCBeamSearch
-    >>> probs = torch.tensor([[[0.2, 0.0, 0.8], 
+    >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
@@ -1635,11 +1651,12 @@ class TorchAudioCTCBeamSearch:
     >>> decoder(probs, lens)
     [[CTCHypothesis(text='', last_lm_state=None, score=-0.7339691072702408, lm_score=-0.7339691072702408, timesteps=[])]]
     """
+
     def __init__(
         self,
-        tokens: Union[list, str], 
-        lexicon: Optional[str] = None, 
-        lm: Optional[str] = None, 
+        tokens: Union[list, str],
+        lexicon: Optional[str] = None,
+        lm: Optional[str] = None,
         lm_dict: Optional[str] = None,
         topk: int = 1,
         beam_size: int = 50,
@@ -1650,8 +1667,8 @@ class TorchAudioCTCBeamSearch:
         unk_score: float = float("-inf"),
         sil_score: float = 0,
         log_add: bool = False,
-        blank_index: int = 0, 
-        sil_index: int = 0, 
+        blank_index: int = 0,
+        sil_index: int = 0,
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
         blank_skip_threshold: float = math.log(1.0),
@@ -1682,7 +1699,7 @@ class TorchAudioCTCBeamSearch:
                 raise ImportError(
                     "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder"
                 )
-            
+
             # if this is a path, then torchaudio expect to be an index
             # while its a list then it expects to be a token
             if isinstance(self.tokens, str):
@@ -1717,7 +1734,9 @@ class TorchAudioCTCBeamSearch:
                 raise ImportError(
                     "cuda_ctc_decoder not found. Please install the nightly version of torchaudio to use this decoder"
                 )
-            assert self.blank_index == 0, "Index of blank token has to be 0 when using CUDA CTC decoder."
+            assert (
+                self.blank_index == 0
+            ), "Index of blank token has to be 0 when using CUDA CTC decoder."
 
             self._ctc_decoder = cuda_ctc_decoder(
                 tokens=self.tokens,
@@ -1726,7 +1745,9 @@ class TorchAudioCTCBeamSearch:
                 blank_skip_threshold=self.blank_skip_threshold,
             )
 
-    def decode_beams(self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None) -> List[List[CTCHypothesis]]:
+    def decode_beams(
+        self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None
+    ) -> List[List[CTCHypothesis]]:
         """Decode log_probs using TorchAudio CTC decoder.
 
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
@@ -1736,12 +1757,12 @@ class TorchAudioCTCBeamSearch:
         Arguments
         ---------
         log_probs : torch.Tensor
-            The log probabilities of the input audio. 
+            The log probabilities of the input audio.
             Shape: (batch_size, seq_length, vocab_size)
         wav_len : torch.Tensor, optional
             The speechbrain-style relative length. Shape: (batch_size,)
             If None, then the length of each audio is assumed to be seq_length.
-        
+
         Returns
         -------
         list of list of CTCHypothesis
@@ -1750,9 +1771,11 @@ class TorchAudioCTCBeamSearch:
         if wav_len is not None:
             wav_len = log_probs.size(1) * wav_len
         else:
-            wav_len = torch.tensor([log_probs.size(1)] * log_probs.size(0), 
-                                       device=log_probs.device, 
-                                       dtype=torch.int32)
+            wav_len = torch.tensor(
+                [log_probs.size(1)] * log_probs.size(0),
+                device=log_probs.device,
+                dtype=torch.int32,
+            )
 
         if wav_len.dtype != torch.int32:
             wav_len = wav_len.to(torch.int32)
@@ -1761,10 +1784,10 @@ class TorchAudioCTCBeamSearch:
             raise ValueError("log_probs must be float32.")
 
         # When using CPU decoder, we need to move the log_probs and wav_len to CPU
-        if self.using_cpu_decoder == True and log_probs.is_cuda:
+        if self.using_cpu_decoder and log_probs.is_cuda:
             log_probs = log_probs.cpu()
 
-        if self.using_cpu_decoder == True and wav_len.is_cuda:
+        if self.using_cpu_decoder and wav_len.is_cuda:
             wav_len = wav_len.cpu()
 
         if not log_probs.is_contiguous():
@@ -1815,16 +1838,17 @@ class TorchAudioCTCBeamSearch:
             scores_preds.append(scores)
 
         hyps = []
-        for batch_index, (batch_text, batch_score, batch_timesteps) in enumerate(zip(
-            tokens_preds, scores_preds, timesteps_preds
-        )):
+        for (
+            batch_index,
+            (batch_text, batch_score, batch_timesteps),
+        ) in enumerate(zip(tokens_preds, scores_preds, timesteps_preds)):
             hyps.append([])
             for text, score, timestep in zip(
                 batch_text, batch_score, batch_timesteps
             ):
                 hyps[batch_index].append(
                     CTCHypothesis(
-                        text=''.join(text),
+                        text="".join(text),
                         last_lm_state=None,
                         score=score,
                         lm_score=score,
@@ -1833,7 +1857,9 @@ class TorchAudioCTCBeamSearch:
                 )
         return hyps
 
-    def __call__(self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None) -> List[List[CTCHypothesis]]:
+    def __call__(
+        self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None
+    ) -> List[List[CTCHypothesis]]:
         """Decode log_probs using TorchAudio CTC decoder.
 
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
@@ -1843,12 +1869,12 @@ class TorchAudioCTCBeamSearch:
         Arguments
         ---------
         log_probs : torch.Tensor
-            The log probabilities of the input audio. 
+            The log probabilities of the input audio.
             Shape: (batch_size, seq_length, vocab_size)
         wav_len : torch.Tensor, optional
             The speechbrain-style relative length. Shape: (batch_size,)
             If None, then the length of each audio is assumed to be seq_length.
-        
+
         Returns
         -------
         list of list of CTCHypothesis

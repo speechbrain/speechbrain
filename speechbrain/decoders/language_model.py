@@ -18,19 +18,20 @@ from typing import (
     cast,
 )
 
-from pygtrie import CharTrie 
+from pygtrie import CharTrie
 
 import math
 
 logger = logging.getLogger(__name__)
 
 try:
-    import kenlm 
+    import kenlm
 except ImportError:
     raise ImportError(
         "kenlm python bindings are not installed. To install it use: "
         "pip install https://github.com/kpu/kenlm/archive/master.zip"
     )
+
 
 def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
     """Read unigrams from arpa file.
@@ -80,6 +81,7 @@ class KenlmState:
     state : kenlm.State
         Kenlm state object.
     """
+
     def __init__(self, state: "kenlm.State"):
         self._state = state
 
@@ -143,6 +145,7 @@ def _get_empty_lm_state() -> "kenlm.State":
         raise ValueError("To use a language model, you need to install kenlm.")
     return kenlm_state
 
+
 class LanguageModel:
     """Language model container class to consolidate functionality.
 
@@ -166,6 +169,7 @@ class LanguageModel:
     score_boundary : bool
         Whether to have kenlm respect boundaries when scoring.
     """
+
     def __init__(
         self,
         kenlm_model: "kenlm.Model",
