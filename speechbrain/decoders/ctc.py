@@ -460,46 +460,52 @@ class CTCBaseSearcher(torch.nn.Module):
     """CTCBaseSearcher class to be inherited by other
     CTC beam searchers.
 
+    This class provides the basic functionalities for
+    CTC beam search decoding. 
+
     Arguments
     ---------
     blank_index : int
         The index of the blank token.
     vocab_list : list
         The list of the vocabulary tokens.
-    space_index : int
+    space_index : int, default: -1
         The index of the space token.
-    kenlm_model_path : str
+    kenlm_model_path : str, default: None
         The path to the kenlm model. Use .bin for a faster loading.
-    unigrams : dict
-        The unigram dictionary.
-    beam_size : int
+        If None, no language model will be used.
+    unigrams : list, default: None
+        The list of known word unigrams.
+    beam_size : int, default: 100
         The width of the beam.
-    beam_prune_logp : float
+    beam_prune_logp : float, default: -10.0
         The pruning threshold for the beam.
-    token_prune_min_logp : float
+    token_prune_min_logp : float, default: -5.0
         The pruning threshold for the tokens.
-    prune_history : bool
+    prune_history : bool, default: True
         Whether to prune the history.
-    blank_skip_threshold : float
+    blank_skip_threshold : float, default: None
         The threshold for skipping the frames when the log probability
-        of the blank token is higher than this value.
-    topk : int
+        of the blank token is higher than this value. The threshold
+        should be a log probability (e.g., math.log(1.0)).
+        If the value is None, the heuristic is not applied.
+    topk : int, default: 1
         The number of top hypotheses to return.
     """
 
     def __init__(
         self,
-        blank_index,
-        vocab_list,
-        space_index=-1,
-        kenlm_model_path=None,
-        unigrams=None,
-        beam_size=100,
-        beam_prune_logp=-10.0,
-        token_prune_min_logp=-5.0,
-        prune_history=True,
-        blank_skip_threshold=None,  # by default the pruning is not applied
-        topk=1,
+        blank_index: int,
+        vocab_list: List[str],
+        space_index: int = -1,
+        kenlm_model_path: Union[None, str] = None,
+        unigrams: Union[None, List[str]] = None,
+        beam_size: int = 100,
+        beam_prune_logp: int = -10.0,
+        token_prune_min_logp: int = -5.0,
+        prune_history: bool = True,
+        blank_skip_threshold: Union[None, int] = None,
+        topk: int = 1,
     ):
         super().__init__()
 
