@@ -25,16 +25,17 @@ pip install -r ../extra-requirements.txt
 
 To run it:
 
-```
-python train.py hparams/sepformer-aishell1mix2.yaml --data_folder=/yourdatapath
-python train.py hparams/sepformer-aishell1mix3.yaml --data_folder=/yourdatapath
+```shell
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
 If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
-```
-python train.py hparams/sepformer-aishell1mix2.yaml --data_folder=/yourdatapath --test_only
-python train.py hparams/sepformer-aishell1mix3.yaml --data_folder=/yourdatapath --test_only
+
+```shell
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath --test_only
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath --test_only
 ```
 
 # Aishell1Mix2/3

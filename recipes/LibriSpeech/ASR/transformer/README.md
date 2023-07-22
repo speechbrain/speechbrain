@@ -6,12 +6,9 @@ You can download LibriSpeech at http://www.openslr.org/12
 # How to run
 ```shell
 python train_with_whisper.py hparams/train_hf_whisper.yaml
-```
-
-```shell
 python train.py hparams/transformer.yaml
-```
 
+```
 
 # How to run on test sets only
 If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:

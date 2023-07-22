@@ -49,8 +49,8 @@ An example training run is available [here](https://www.dropbox.com/sh/gcpk9jye9
 
 Lastly, we offer the training script for the L2I interpretation method on CNN14. To run this, execute the following command:
 
-```python
-python train_l2i.py hparams/l2i_cnn14.yaml --data_folder=/yourpath/ESC50
+```shell
+python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
 ```
 
 You can find an example training run in the [provided link](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0).
@@ -62,8 +62,8 @@ You can find an example training run in the [provided link](https://www.dropbox.
 
 # How to run on test sets only
 If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
-```
-python train.py hparams/{hparam_file}.py --data_folder=/yourpath/ESC50 --test_only
+```shell
+python train.py hparams/{hparam_file}.py --data_folder /yourpath/ESC50 --test_only
 ```
 
 # Inference Interface (on HuggingFace)

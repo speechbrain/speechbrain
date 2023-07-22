@@ -14,8 +14,8 @@ To run it:
 
 ```
 python train.py hparams/convtasnet-parallel.yaml
-                --data_folder=yourpath/binaural-wsj0mix/2speakers
-                --wsj_root=yourpath/to/wsj/
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
 ```
 The training data will be automatically created from the `wsj_root`, which is the root folder that contains
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
@@ -23,8 +23,8 @@ Note that during training we print the negative SNR instead of SI-SNR because th
 If you want to run it only on the test sets, you can add the flag `--test_only` to the following command:
 ```
 python train.py hparams/convtasnet-parallel.yaml
-                --data_folder=yourpath/binaural-wsj0mix/2speakers
-                --wsj_root=yourpath/to/wsj/
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
                 --test_only
 ```
 # Binaural WSJ0-2mix and WSJ0-3mix dataset creation

@@ -2,12 +2,12 @@
 This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
 
 # How to run
-```
+```shell
 python train.py hparams/{hparam_file}.py
 ```
 
 # How to run on test sets only
-```
+```shell
 python train.py hparams/{hparam_file}.py --test_only
 ```
 ## For Whisper finetuning:
