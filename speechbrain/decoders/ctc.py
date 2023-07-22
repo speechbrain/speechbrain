@@ -1010,6 +1010,16 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     The implementation keep tracks of the blank and non-blank probabilities. 
     It also suppors n-gram scoring on words and SentencePiece tokens.
 
+    Several heuristics are implemented to speed up the decoding process:
+    - pruning of the beam : the beams are pruned if their score is lower than
+        the best beam score minus the beam_prune_logp
+    - pruning of the tokens : the tokens are pruned if their score is lower than
+        the token_prune_min_logp
+    - pruning of the history : the beams are pruned if they are the same over
+        max_ngram history
+    - skipping of the blank : the frame is skipped if the blank probability is
+        higher than the blank_skip_threshold
+
     Arguments
     ---------
     **kwargs
