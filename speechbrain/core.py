@@ -168,6 +168,14 @@ def parse_arguments(arg_list=None):
         "defined by SpeechBrain.",
     )
     parser.add_argument(
+        "--test_only",
+        default=False,
+        action="store_true",
+        help="Run the experiment in evaluate only mode."
+        "It skipps the training and goes directly to the evaluation."
+        "The model is expected to be already trained.",
+    )
+    parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
@@ -472,6 +480,7 @@ class Brain:
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
+            "test_only": False,
             "debug": False,
             "debug_batches": 2,
             "debug_epochs": 2,
@@ -1233,6 +1242,12 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        if self.test_only:
+            logger.info(
+                "Test only mode, skipping training and validation stages."
+            )
+            return 
+        
         if not (
             isinstance(train_set, DataLoader)
             or isinstance(train_set, LoopedLoader)
