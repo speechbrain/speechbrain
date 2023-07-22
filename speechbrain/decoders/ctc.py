@@ -471,7 +471,7 @@ class CTCBaseSearcher(torch.nn.Module):
         The path to the kenlm model. Use .bin for a faster loading.
     unigrams : dict
         The unigram dictionary.
-    beam_width : int
+    beam_size : int
         The width of the beam.
     beam_prune_logp : float
         The pruning threshold for the beam.
@@ -493,7 +493,7 @@ class CTCBaseSearcher(torch.nn.Module):
         space_index=-1,
         kenlm_model_path=None,
         unigrams=None,
-        beam_width=100,
+        beam_size=100,
         beam_prune_logp=-10.0,
         token_prune_min_logp=-5.0,
         prune_history=True,
@@ -507,7 +507,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self.kenlm_model_path = kenlm_model_path
         self.unigrams = unigrams
         self.vocab_list = vocab_list
-        self.beam_width = beam_width
+        self.beam_size = beam_size
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
         self.prune_history = prune_history
@@ -635,7 +635,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beams : list
             The list of the beams.
         """
-        return heapq.nlargest(self.beam_width, beams, key=lambda x: x.lm_score)
+        return heapq.nlargest(self.beam_size, beams, key=lambda x: x.lm_score)
 
     def _prune_history(self, beams: List[CTCBeam], lm_order: int):
         """Filter out beams that are the same over max_ngram history.
