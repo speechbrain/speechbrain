@@ -1588,6 +1588,8 @@ class TorchAudioCTCBeamSearch:
     If you want to use the language model, or the lexicon search, please make sure that your 
     tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail. 
 
+    The implementation is compatible with Sentenpiece Tokens. 
+    
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder 
     requires the nightly version of torchaudio and a lot of VRAM memory. Overall, we do recommand to use
     the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use n-gram + beam search decoding.
