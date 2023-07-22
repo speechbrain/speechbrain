@@ -10,14 +10,9 @@ from speechbrain.pretrained import VAD
 from torchaudio.io import StreamReader
 import matplotlib.pyplot as plt
 from drawnow import drawnow
-import platform
 import torch
 import sys
 
-assert (
-    platform.system() != "Windows"
-), "Inference script not supported on Windows. PRs are welcome."
-MACOS = not ("Linux" == platform.system())
 
 eps = 1e-8
 
@@ -59,7 +54,7 @@ if __name__ == "__main__":
     # Process the audio stream
     stream = StreamReader(
         src=":%d" % mic_id,  # here you should select the correct input device
-        format="avfoundation" if MACOS else "alsa",
+        format="avfoundation"
     )
 
     stream.add_basic_audio_stream(
