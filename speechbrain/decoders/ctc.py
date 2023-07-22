@@ -894,13 +894,38 @@ class CTCBeamSearch(CTCBaseSearcher):
 
     def partial_decoding(
         self,
-        log_probs,
-        wav_len,
-        beams,
-        cached_lm_scores,
-        cached_p_lm_scores,
-        processed_frames=0,
-    ):
+        log_probs: torch.Tensor,
+        wav_len: int,
+        beams: List[CTCBeam],
+        cached_lm_scores: dict,
+        cached_p_lm_scores: dict,
+        processed_frames: int = 0,
+    ) -> List[CTCBeam]:
+        """Perform CTC Prefix Beam Search decoding. 
+
+        If self.lm is not None, the language model scores are computed and added to the CTC scores.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log probabilities of the CTC input.
+            Shape: (seq_length, vocab_size)
+        wav_len : int
+            The length of the input sequence.
+        beams : list
+            The list of CTCBeam objects.
+        cached_lm_scores : dict
+            The cached language model scores.
+        cached_p_lm_scores : dict
+            The cached prefix language model scores.
+        processed_frames : int
+            The start frame of the current decoding step. (default: 0)
+
+        Returns
+        -------
+        beams : list
+            The list of CTCBeam objects.
+        """
         # select only the valid frames i.e. the frames that are not padded
         log_probs = log_probs[:wav_len]
 
@@ -1263,7 +1288,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_p_lm_scores : dict
             The cached prefix language model scores.
         processed_frames : int
-            The start frame of the current decoding step.
+            The start frame of the current decoding step. (default: 0)
 
         Returns
         -------
@@ -1378,7 +1403,7 @@ class TorchAudioCTCBeamSearch:
     tokens : list or str
         The list of tokens or the path to the tokens file.
         If this is a path, then the file should contain one token per line.
-    lexicon : str, optional
+    lexicon : str, optional 
         Lexicon file containing the possible words and corresponding spellings. Each line consists of a word and its space separated spelling. 
         If None, uses lexicon-free decoding. (default: None)
     lm : str, optional
@@ -1391,7 +1416,7 @@ class TorchAudioCTCBeamSearch:
         Number of top CTCHypothesis to return. (default: 1)
     beam_size : int, optional
         Numbers of hypotheses to hold after each decode step. (default: 50)
-    beam_size_token : int, optional
+    beam_size_token : int, optional 
         Max number of tokens to consider at each decode step. If None, it is set to the total number of tokens. (default: None)
     beam_threshold : float, optional
         Threshold for pruning hypothesis. (default: 50)
