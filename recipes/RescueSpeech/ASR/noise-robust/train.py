@@ -828,7 +828,6 @@ if __name__ == "__main__":
     use_freq_domain = hparams.get("use_freq_domain", False)
     asr_brain.use_freq_domain = use_freq_domain
 
-
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
