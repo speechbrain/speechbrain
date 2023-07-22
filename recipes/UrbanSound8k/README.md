@@ -19,6 +19,15 @@ UrbanSound8k is divided into 10 classes, one of which (engine_idling) receives s
 9 = car_horn
 ```
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
+
 # Multiclass Classification
 
 Run the following command to train using the ECAPA-TDNN network architecture:

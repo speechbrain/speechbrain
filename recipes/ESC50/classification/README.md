@@ -6,6 +6,15 @@ The classification recipe makes use of a [CNN14 model](https://arxiv.org/abs/191
 
 We have two main training scripts. Here's the breakdown, and how to run them:
 
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## Training script for CNN14 model
 This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command
 

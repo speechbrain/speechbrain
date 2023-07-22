@@ -1,12 +1,15 @@
 # Speech Translation on Fisher-Callhome Spanish recipe
 This folder contains recipes for tokenization and speech translation with [Fisher-Callhome Spanish](https://catalog.ldc.upenn.edu/LDC2014T23), a 160-hour Spanish-English ST dataset.
 
-### How to run
-0- Install extra dependencies
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
 ```
 pip install -r extra_requirements.txt
 ```
 
+### How to run
 1- Train a tokenizer. The tokenizer takes in input the training translations and determines the subword units that will be used for the ST task, the auxiliary MT task.
 
 ```
