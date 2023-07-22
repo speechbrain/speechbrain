@@ -224,7 +224,7 @@ modules:
 
 # This optimizer will be constructed by the Brain class after all parameters
 # are moved to the correct device. Then it will be added to the checkpointer.
-opt_class: !name:torch.optim.AdamW
+opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
