@@ -1038,7 +1038,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_lm_scores,
         cached_partial_token_scores,
         is_eos=False,
-    ):
+    ) -> List[LMCTCBeam]:
         """Score the beams with the language model if not None, and 
         return the new beams.
 
@@ -1053,7 +1053,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
             The cached language model scores.
         cached_partial_token_scores : dict
             The cached partial token scores.
-        is_eos : bool
+        is_eos : bool (default: False)
             Whether the end of the sequence has been reached.
 
         Returns
