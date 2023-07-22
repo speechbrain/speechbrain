@@ -35,9 +35,8 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Add augmentation if specified
+        # Add augmentation if specified 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.modules, "env_corrupt"):
                 wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
@@ -65,7 +64,8 @@ class ASR(sb.Brain):
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
 
-        p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
+        if stage != sb.Stage.TRAIN:
+            p_tokens = decoder.decode_beams(p_ctc, wav_lens) 
         
         return p_ctc, wav_lens, p_tokens
 
@@ -89,9 +89,10 @@ class ASR(sb.Brain):
             predicted_words = []
             for hyp in predicted_tokens:
                 predicted_words.append(hyp[0].text.split(" "))
-
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
-
+            #print('predicted_words = ', predicted_words)
+            target_words = [wrd.lower().split(" ") for wrd in batch.wrd]
+            #print('target_words = ', target_words)
+            #exit()
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -278,10 +279,13 @@ def dataio_prepare(hparams):
         "wrd", "char_list", "tokens_list", "tokens"
     )
     def text_pipeline(wrd):
-        yield wrd
-        char_list = list(wrd)
+        # lowercase wrd as the librispeech lexicon is all lowercase
+        wrd_lowercase = wrd.lower()
+        yield wrd_lowercase
+        char_list = list(wrd_lowercase)
         yield char_list
         tokens_list = label_encoder.encode_sequence(char_list)
+        #print(tokens_list)
         yield tokens_list
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -365,7 +369,9 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     labels = read_torchaudio_vocab(files.tokens)
     label_encoder.update_from_iterable(labels)
+    label_encoder.add_bos_eos()
     label_encoder.add_unk("<unk>")
+
     asr_brain.tokenizer = label_encoder
 
     decoder = TorchAudioCTCBeamSearch(

@@ -1128,7 +1128,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         beams: List[CTCBeam],
         p: float,
         previous_beam: CTCBeam,
-    ):
+    ) -> CTCBeam:
         """Create a new beam and add it to the list of beams.
 
         Arguments
@@ -1220,7 +1220,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         cached_lm_scores: dict,
         cached_p_lm_scores: dict,
         processed_frames: int = 0,
-    ):
+    ) -> List[CTCBeam]:
         """Perform CTC Prefix Beam Search decoding. 
 
         If self.lm is not None, the language model scores are computed and added to the CTC scores.
@@ -1480,7 +1480,7 @@ class TorchAudioCTCBeamSearch:
                 blank_skip_threshold=self.blank_skip_threshold,
             )
 
-    def decode_beams(self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None):
+    def decode_beams(self, log_probs: torch.Tensor, wav_len: Union[torch.Tensor, None] = None) -> List[List[CTCHypothesis]]:
         """Decode log_probs using TorchAudio CTC decoder.
 
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.

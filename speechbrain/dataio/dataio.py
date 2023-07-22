@@ -160,6 +160,64 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
+def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
+    """Retrieves audio metadata from a file path. Behaves identically to
+    torchaudio.info, but attempts to fix metadata (such as frame count) that is
+    otherwise broken with certain torchaudio version and codec combinations.
+
+    Note that this may cause full file traversal in certain cases!
+
+    Arguments
+    ----------
+    path : str
+        Path to the audio file to examine.
+
+    Returns
+    -------
+    torchaudio.backend.common.AudioMetaData
+        Same value as returned by `torchaudio.info`, but may eventually have
+        `num_frames` corrected if it otherwise would have been `== 0`.
+
+    NOTE
+    ----
+    Some codecs, such as MP3, require full file traversal for accurate length
+    information to be retrieved.
+    In these cases, you may as well read the entire audio file to avoid doubling
+    the processing time.
+    """
+
+    _path_no_ext, path_ext = os.path.splitext(path)
+
+    if path_ext == ".mp3":
+        # Additionally, certain affected versions of torchaudio fail to
+        # autodetect mp3.
+        # HACK: here, we check for the file extension to force mp3 detection,
+        # which prevents an error from occuring in torchaudio.
+        info = torchaudio.info(path, format="mp3")
+    else:
+        info = torchaudio.info(path)
+
+    # Certain file formats, such as MP3, do not provide a reliable way to
+    # query file duration from metadata (when there is any).
+    # For MP3, certain versions of torchaudio began returning num_frames == 0.
+    #
+    # https://github.com/speechbrain/speechbrain/issues/1925
+    # https://github.com/pytorch/audio/issues/2524
+    #
+    # Accomodate for these cases here: if `num_frames == 0` then maybe something
+    # has gone wrong.
+    # If some file really had `num_frames == 0` then we are not doing harm
+    # double-checking anyway. If I am wrong and you are reading this comment
+    # because of it: sorry
+    if info.num_frames == 0:
+        channels_data, sample_rate = torchaudio.load(path, normalize=False)
+
+        info.num_frames = channels_data.size(1)
+        info.sample_rate = sample_rate  # because we might as well
+
+    return info
+
+
 def read_audio(waveforms_obj):
     """General audio loading, based on a custom notation.
 
