@@ -4,8 +4,13 @@ You can download LibriSpeech at http://www.openslr.org/12.
 
 **Supported pre-trained wav2vec2:** [SpeechBrain](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/self-supervised-learning/wav2vec2) and [HuggingFace](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice/self-supervised-learning/wav2vec2)
 
-**If using a HuggingFace pre-trained model, please make sure you have "transformers"
-installed in your environment (see extra-requirements.txt)**
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 # How to run
 ```
