@@ -13,7 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 wav2vec2_hub: "microsoft/wavlm-large" # "facebook/wav2vec2-large" "facebook/hubert-large-ll60k"
-
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 # Data files
 zed_folder: !PLACEHOLDER # e,g./path/to/ZED
 
@@ -24,6 +24,7 @@ jlcorpus_folder: !PLACEHOLDER # e,g./path/to/JL_corpus
 ravdess_folder: !PLACEHOLDER # e,g./path/to/RAVDESS
 
 split_ratio: [90, 10]
+skip_prep: False
 
 train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
@@ -92,7 +93,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     output_norm: True
     freeze: !ref <freeze_wav2vec2>
     freeze_feature_extractor: !ref <freeze_wav2vec2_conv>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
     # output_all_hiddens: False
 
 avg_pool: !new:speechbrain.nnet.pooling.Pooling1d

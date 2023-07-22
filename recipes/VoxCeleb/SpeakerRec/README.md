@@ -1,6 +1,14 @@
 # Speaker recognition experiments with VoxCeleb.
 This folder contains scripts for running speaker identification and verification experiments with the VoxCeleb dataset(http://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 # Training Xvectors
 Run the following command to train xvectors:
 
@@ -74,8 +82,8 @@ Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack v
 [Speaker verification results, trained with Voxceleb 1 + Voxceleb 2 (7205 speakers)]
 | System          | Dataset    | EER  | Model/Log Link |
 |-----------------|------------|------| -----|
-| Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://drive.google.com/drive/folders/1TLKByLRkgkUiDV2coMrIh-OMHANrnOl-?usp=sharing |
-| ECAPA-TDNN      | Voxceleb 1,2 | 0.80% | https://drive.google.com/file/d/1EziERcHD_gyE6qc8DbxPKU1isVf7pbNl/view?usp=sharing  |
+| Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://www.dropbox.com/sh/mau2nrt6i81ctfc/AAAUkAECzVaVWUMjD3mytjgea?dl=0 |
+| ECAPA-TDNN      | Voxceleb 1,2 | 0.80% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0  |
 
 [Speaker verification results (in EER), trained with Voxceleb 2 development set (5994 speakers), no score normalization]
 | System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
