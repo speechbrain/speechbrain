@@ -90,10 +90,10 @@ class ASR(sb.Brain):
             predicted_words = []
             for hyp in predicted_tokens:
                 predicted_words.append(hyp[0].text.split(" "))
-            # print('predicted_words = ', predicted_words)
+            #print('predicted_words = ', predicted_words)
             target_words = [wrd.lower().split(" ") for wrd in batch.wrd]
             # print('target_words = ', target_words)
-            # exit()
+            #exit()
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -370,20 +370,20 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     labels = read_torchaudio_vocab(files.tokens)
+    labels += [' '] # add space token
     label_encoder.update_from_iterable(labels)
-    label_encoder.add_bos_eos()
     label_encoder.add_unk("<unk>")
 
     asr_brain.tokenizer = label_encoder
 
+    tokens = [token for token in label_encoder.ind2lab.values()]
     decoder = TorchAudioCTCBeamSearch(
         lexicon=files.lexicon,
-        tokens=files.tokens,
+        tokens=tokens,
         lm=files.lm,
         beam_size=100,
-        blank_index="-",
-        sil_index="|",
-        beam_size_token=5,
+        blank_index=0,
+        sil_index=1,
         using_cpu_decoder=True,
         topk=1,
     )

@@ -449,28 +449,29 @@ class CTCBaseSearcher(torch.nn.Module):
         The index of the blank token.
     vocab_list : list
         The list of the vocabulary tokens.
-    space_index : int, default: -1
-        The index of the space token.
-    kenlm_model_path : str, default: None
+    space_index : int, optional
+        The index of the space token. (default: -1)
+    kenlm_model_path : str, optional 
         The path to the kenlm model. Use .bin for a faster loading.
-        If None, no language model will be used.
-    unigrams : list, default: None
-        The list of known word unigrams.
-    beam_size : int, default: 100
-        The width of the beam.
-    beam_prune_logp : float, default: -10.0
-        The pruning threshold for the beam.
-    token_prune_min_logp : float, default: -5.0
-        The pruning threshold for the tokens.
-    prune_history : bool, default: True
-        Whether to prune the history.
-    blank_skip_threshold : float, default: None
+        If None, no language model will be used. (default: None)
+    unigrams : list, optional
+        The list of known word unigrams. (default: None)
+    beam_size : int, optional
+        The width of the beam. (default: 100)
+    beam_prune_logp : float, optional
+        The pruning threshold for the beam. (default: -10.0)
+    token_prune_min_logp : float, optional
+        The pruning threshold for the tokens. (default: -5.0)
+    prune_history : bool, optional
+        Whether to prune the history. (default: True)
+    blank_skip_threshold : float, optional
         The threshold for skipping the frames when the log probability
         of the blank token is higher than this value. The threshold
         should be a log probability (e.g., math.log(1.0)).
         If the value is None, the heuristic is not applied.
-    topk : int, default: 1
-        The number of top hypotheses to return.
+        (default: None)
+    topk : int, optional
+        The number of top hypotheses to return. (default: 1)
     """
 
     def __init__(
@@ -1573,14 +1574,19 @@ class TorchAudioCTCBeamSearch:
     """TorchAudio CTC Beam Search Decoder.
 
     This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
-    where you can either use the CPU or CUDA CTC decoder. The CPU decoder is slower but uses less
-    memory. The CUDA decoder is faster but uses more memory. The CUDA decoder is also only available
-    in the nightly version of torchaudio. A lot of features are missing in the CUDA decoder, such as
-    the ability to use a language model, constraint search, and more. If you want to use those features,
-    you have to use the CPU decoder.
+    where you can either use the CPU or CUDA CTC decoder. 
+    
+    The CPU decoder is slower but uses less memory. The CUDA decoder is faster but uses more memory. 
+    The CUDA decoder is also only available in the nightly version of torchaudio. 
+    
+    A lot of features are missing in the CUDA decoder, such as the ability to use a language model, 
+    constraint search, and more. If you want to use those features, you have to use the CPU decoder.
 
     For more information about the CPU decoder, please refer to the documentation of TorchAudio:
     https://pytorch.org/audio/main/generated/torchaudio.models.decoder.ctc_decoder.html
+
+    For more information about the CUDA decoder, please refer to the documentation of TorchAudio:
+    https://pytorch.org/audio/main/generated/torchaudio.models.decoder.cuda_ctc_decoder.html#torchaudio.models.decoder.cuda_ctc_decoder
 
     If you want to use the language model, or the lexicon search, please make sure that your
     tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail.
@@ -1588,17 +1594,17 @@ class TorchAudioCTCBeamSearch:
     The implementation is compatible with Sentenpiece Tokens.
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
-    requires the nightly version of torchaudio and a lot of VRAM memory. Overall, we do recommand to use
-    the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use n-gram + beam search decoding.
-    If you wants to have constraint search, please use the CPU version of torchaudio, and if you want to speedup
-    as much as possible the decoding, please use the CUDA version.
+    requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams). 
+    Overall, we do recommand to use the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use 
+    n-gram + beam search decoding. If you wants to have constraint search, please use the CPU version of torchaudio, 
+    and if you want to speedup as much as possible the decoding, please use the CUDA version.
 
     Arguments
     ---------
     tokens : list or str
         The list of tokens or the path to the tokens file.
         If this is a path, then the file should contain one token per line.
-    lexicon : str, optional
+    lexicon : str, default: None
         Lexicon file containing the possible words and corresponding spellings. Each line consists of a word and its space separated spelling.
         If None, uses lexicon-free decoding. (default: None)
     lm : str, optional
@@ -1606,7 +1612,7 @@ class TorchAudioCTCBeamSearch:
     lm_dict : str, optional
         File consisting of the dictionary used for the LM, with a word per line sorted by LM index.
         If decoding with a lexicon, entries in lm_dict must also occur in the lexicon file.
-        If None, dictionary for LM is constructed using the lexicon file. (Default: None)
+        If None, dictionary for LM is constructed using the lexicon file. (default: None)
     topk : int, optional
         Number of top CTCHypothesis to return. (default: 1)
     beam_size : int, optional
@@ -1634,7 +1640,7 @@ class TorchAudioCTCBeamSearch:
     using_cpu_decoder : bool, optional
         Whether to use the CPU decoder. If False, then the CUDA decoder is used. (default: True)
     blank_skip_threshold : float, optional
-        Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (Default: log(1.0)).
+        Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (default: log(1.0)).
         Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
 
     Example
@@ -1667,8 +1673,8 @@ class TorchAudioCTCBeamSearch:
         unk_score: float = float("-inf"),
         sil_score: float = 0,
         log_add: bool = False,
-        blank_index: int = 0,
-        sil_index: int = 0,
+        blank_index: Union[str, int] = 0,
+        sil_index: Union[str, int] = 0,
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
         blank_skip_threshold: float = math.log(1.0),
@@ -1759,7 +1765,7 @@ class TorchAudioCTCBeamSearch:
         log_probs : torch.Tensor
             The log probabilities of the input audio.
             Shape: (batch_size, seq_length, vocab_size)
-        wav_len : torch.Tensor, optional
+        wav_len : torch.Tensor, default: None
             The speechbrain-style relative length. Shape: (batch_size,)
             If None, then the length of each audio is assumed to be seq_length.
 
@@ -1871,7 +1877,7 @@ class TorchAudioCTCBeamSearch:
         log_probs : torch.Tensor
             The log probabilities of the input audio.
             Shape: (batch_size, seq_length, vocab_size)
-        wav_len : torch.Tensor, optional
+        wav_len : torch.Tensor, default: None
             The speechbrain-style relative length. Shape: (batch_size,)
             If None, then the length of each audio is assumed to be seq_length.
 
