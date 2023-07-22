@@ -727,6 +727,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def decode_beams(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any =None) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
+
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
@@ -762,6 +763,11 @@ class CTCBaseSearcher(torch.nn.Module):
 
     def __call__(self, log_probs: torch.Tensor, wav_lens: Optional[torch.Tensor] = None, lm_start_state: Any = None) -> List[List[CTCHypothesis]]:
         """Decodes the log probabilities of the CTC output.
+        
+        It automatically converts the SpeechBrain's relative length of the wav input
+        to the absolute length.
+
+        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
 
         Arguments
         ---------
