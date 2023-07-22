@@ -28,6 +28,7 @@ About 2 minutes for each epoch with a NVIDIA RTX 3090.
 To setup the environment, run:
 ```
 pip install speechbrain
+conda install -c conda-forge 'ffmpeg<7' # needed for streamreader -- inference only
 
 git clone https://github.com/speechbrain/speechbrain/
 cd speechbrain/recipes/LibriParty/streamable_VAD/
@@ -35,6 +36,7 @@ pip install -r extra-dependencies.txt
 ```
 
 ## Running realtime inference
+**Note:** as of now, PyTorch's streamreader only supports Apple devices, and so does our script. We will add support to more in the future.
 To run real-time inference, you can download and adapt the [inference script](https://huggingface.co/fpaissan/stream-vad-crdnn-libriparty/blob/main/inference.py).
 
 To download the inference script, run:
@@ -45,14 +47,8 @@ The inference script is located in `recipes/LibriParty/streamable_VAD/inference.
 
 In order to run the script, you should insert the ID of your microphone, you can do so on your system following the next steps.
 
-**On Mac**
 To retrieve the ID of your microphone, run:
 ```ffmpeg -hide_banner -list_devices true -f avfoundation -i dummy```
-and copy the ID of the microphone.
-
-**On Linux** -- TODO: finish testing
-To retrieve the ID of your microphone, run:
-```arecord -l```
 and copy the ID of the microphone.
 
 After retrieving your device ID, modify the script as follows you can run the inference script with
