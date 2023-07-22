@@ -638,7 +638,7 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         return heapq.nlargest(self.beam_size, beams, key=lambda x: x.lm_score)
 
-    def _prune_history(self, beams: List[CTCBeam], lm_order: int):
+    def _prune_history(self, beams: List[CTCBeam], lm_order: int) -> List[CTCBeam]:
         """Filter out beams that are the same over max_ngram history.
 
         Since n-gram language models have a finite history when scoring a new token, we can use that
@@ -647,12 +647,19 @@ class CTCBaseSearcher(torch.nn.Module):
         some amount of beam diversity. If more than the top beam is used in the output it should
         potentially be disabled.
 
+        Taken from: https://github.com/kensho-technologies/pyctcdecode
+
         Arguments
         ---------
         beams : list
             The list of the beams.
         lm_order : int
             The order of the language model.
+
+        Returns
+        -------
+        list
+            The list of CTCBeam.
         """
         # let's keep at least 1 word of history
         min_n_history = max(1, lm_order - 1)
