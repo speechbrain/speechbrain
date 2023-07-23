@@ -14,7 +14,7 @@ use_tensorboard: False
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: /local_disk/calypso/jduret/corpus/S2UT/16K/LJ  #!PLACEHOLDER # e.g, /datasets/ljspeech 16k!
+data_folder: #!PLACEHOLDER # e.g, /datasets/ljspeech 16k!
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
@@ -22,10 +22,10 @@ test_json: !ref <save_folder>/test.json
 splits: ["train", "valid"]
 split_ratio: [90, 10]
 
-kmeans_folder: ./Quantization/results/kmeans/1234/save #!PLACEHOLDER e.g, ./Quantization/results/kmeans/1234/save
-kmeans_size: 1000
-encoder_hub: /users/jduret/.cache/huggingface/hub/models--voidful--mhubert-base #!PLACEHOLDER
-layer: 11 #!PLACEHOLDER
+kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/1234/save
+kmeans_size: #!PLACEHOLDER
+encoder_hub: #!PLACEHOLDER
+layer: #!PLACEHOLDER
 
 ################################
 # Audio Parameters             #
