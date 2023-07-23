@@ -3,68 +3,29 @@
 ###################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-model_name: !PLACEHOLDER
-output_folder: !ref results/hifi_gan/<seed>/<model_name>
+output_folder: !ref ./results/hifi_gan/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 1000
-keep_checkpoint_interval: 10
-
-use_wandb: True
-
-logger_opts:
-  initializer: !name:wandb.init
-    entity: jar0d
-    project: u2s
-    name: !ref <model_name>
-    reinit: True
-    #yaml_config: Null
-    resume: False
+progress_sample_path: !ref <output_folder>/samples
+epochs: 500
+keep_checkpoint_interval: 50
+use_tensorboard: False
 
 #################################
 # Data files and pre-processing #
 #################################
+data_folder: /local_disk/calypso/jduret/corpus/S2UT/16K/LJ  #!PLACEHOLDER # e.g, /datasets/ljspeech 16k!
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
 
-data_folder: /local_disk/calypso/jduret/corpus/S2UT/16K
-train_json: [
-  # !ref <data_folder>/BLIZZARD11/metadata_train.json,
-  # !ref <data_folder>/HiFi/metadata_train.json,
-  !ref <data_folder>/LJ/metadata_train.json,
-  # !ref <data_folder>/VCTK/metadata_train.json,
-  # !ref <data_folder>/ESD/metadata_train.json
-  # !ref <data_folder>/EmoV/metadata_train.json
-  # !ref <data_folder>/IEMOCAP/metadata_train.json,
-  # !ref <data_folder>/CREMAD/metadata_train.json
-  # !ref <data_folder>/synpaflex_nosil/metadata_train.json
-  # !ref <data_folder>/CSS10_FR/metadata_train.json
-]
-valid_json: [
-  # !ref <data_folder>/BLIZZARD11/metadata_test.json,
-  # !ref <data_folder>/HiFi/metadata_test.json,
-  !ref <data_folder>/LJ/metadata_test.json,
-  # !ref <data_folder>/VCTK/metadata_test.json,
-  # !ref <data_folder>/ESD/metadata_test.json
-  # !ref <data_folder>/EmoV/metadata_test.json
-  # !ref <data_folder>/IEMOCAP/metadata_test.json,
-  # !ref <data_folder>/CREMAD/metadata_test.json
-  # !ref <data_folder>/synpaflex_nosil/metadata_test.json
-  # !ref <data_folder>/CSS10_FR/metadata_test.json
-]
-test_json: [
-  # !ref <data_folder>/Multi/metadata_test.json
-  # !ref <data_folder>/ESD/metadata_log.json
-  # !ref <data_folder>/synpaflex_nosil/metadata_log.json
-  !ref <data_folder>/LJ/metadata_test_log.json
-]
+splits: ["train", "valid"]
+split_ratio: [90, 10]
 
-splits: ["train", "valid", "test"]
-
-units_folder: /local_disk/calypso/jduret/git/Chaanks/ES2UT/data/discrete_units_freeze/SAMU/LJ_SAMU_l11_k1000
-
-f0: False
-duration_predictor: True
-multi_speaker: False
-multi_emotion: False
+kmeans_folder: ./Quantization/results/kmeans/1234/save #!PLACEHOLDER e.g, ./Quantization/results/kmeans/1234/save
+kmeans_size: 1000
+encoder_hub: /users/jduret/.cache/huggingface/hub/models--voidful--mhubert-base #!PLACEHOLDER
+layer: 11 #!PLACEHOLDER
 
 ################################
 # Audio Parameters             #
@@ -114,9 +75,10 @@ test_dataloader_opts:
 ################################
 # Model Parameters and model   #
 ################################
+duration_predictor: True
 
 # embedding params
-num_embeddings: 100
+num_embeddings: !ref <kmeans_size>
 embedding_dim: 128
 
 # generator params
@@ -160,10 +122,6 @@ mel_spectogram: !name:speechbrain.lobes.models.HifiGAN.mel_spectogram
   mel_scale: !ref <mel_scale>
   compression: !ref <dynamic_range_compression>
 
-# speaker_embedding: !new:torch.nn.Embedding
-#   num_embeddings: 200
-#   embedding_dim: !ref <embedding_dim>
-
 generator: !new:speechbrain.lobes.models.HifiGAN.UnitHifiganGenerator
   in_channels: !ref <in_channels>
   out_channels: !ref <out_channels>
@@ -182,11 +140,6 @@ generator: !new:speechbrain.lobes.models.HifiGAN.UnitHifiganGenerator
   var_pred_hidden_dim: !ref <var_pred_hidden_dim>
   var_pred_kernel_size: !ref <var_pred_kernel_size>
   var_pred_dropout: !ref <var_pred_dropout>
-  multi_speaker: !ref <multi_speaker>
-  multi_emotion: !ref <multi_emotion>
-  f0: !ref <f0>
-  match_f0_length_to_input: True
-  #speaker_embedding: !ref <speaker_embedding>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
 

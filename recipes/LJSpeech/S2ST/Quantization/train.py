@@ -2,15 +2,9 @@
 Script to train K-means clustering model
 
 Authors
- * Duret Jarod 2023
+ * Jarod Duret 2023
 """
 
-# Adapted from https://github.com/facebookresearch/fairseq
-# MIT License
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
 
 import sys
 import logging
@@ -35,10 +29,10 @@ def setup_logger():
 
 def get_device(use_cuda):
     use_cuda = use_cuda and torch.cuda.is_available()
-    print('\n' + '=' * 30)
-    print('USE_CUDA SET TO: {}'.format(use_cuda))
-    print('CUDA AVAILABLE?: {}'.format(torch.cuda.is_available()))
-    print('=' * 30 + '\n')
+    print("\n" + "=" * 30)
+    print("USE_CUDA SET TO: {}".format(use_cuda))
+    print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
+    print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
 
 
@@ -109,10 +103,17 @@ if __name__ == "__main__":
     # Fetch device
     device = get_device(not hparams["no_cuda"])
 
-    logger.info(f"Loading encoder model from HF hub: {hparams['encoder_hub']}")    
-    save_path = f"{hparams['output_folder']}/pretrained_models"
-    encoder = HuggingFaceWav2Vec2(hparams["encoder_hub"], save_path, output_all_hiddens=True, output_norm=False, freeze_feature_extractor=True, freeze=True).to(device)
-    
+    logger.info(f"Loading encoder model from HF hub: {hparams['encoder_hub']}")
+    save_path = f"{hparams['save_folder']}/pretrained_models"
+    encoder = HuggingFaceWav2Vec2(
+        hparams["encoder_hub"],
+        save_path,
+        output_all_hiddens=True,
+        output_norm=False,
+        freeze_feature_extractor=True,
+        freeze=True,
+    ).to(device)
+
     splits = get_splits(hparams["save_folder"], hparams["splits"])
 
     # Features loading/extraction for K-means

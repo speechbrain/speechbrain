@@ -1,4 +1,3 @@
-import json
 import itertools
 import random
 import pathlib as pl
@@ -6,14 +5,13 @@ import pathlib as pl
 import tqdm
 import torch
 import numpy as np
-import pandas as pd
 import speechbrain as sb
 
 
 def np_array(tensor):
     tensor = tensor.squeeze(0)
     tensor = tensor.detach().cpu()
-    return np.array(tensor)
+    return tensor.numpy()
 
 def get_splits(data_folder, splits):
     ds_splits = []
