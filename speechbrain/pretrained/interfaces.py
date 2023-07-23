@@ -123,7 +123,8 @@ def foreign_class(
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
     run_on_main(
-        pretrainer.collect_files, kwargs={"default_source": source},
+        pretrainer.collect_files,
+        kwargs={"default_source": source},
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
@@ -426,7 +427,8 @@ class Pretrained(torch.nn.Module):
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
         run_on_main(
-            pretrainer.collect_files, kwargs={"default_source": source},
+            pretrainer.collect_files,
+            kwargs={"default_source": source},
         )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
@@ -1234,7 +1236,6 @@ class VAD(Pretrained):
         last_chunk = False
         begin_sample = 0
         while True:
-
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
                 audio_file, frame_offset=begin_sample, num_frames=long_chunk_len
@@ -1403,7 +1404,7 @@ class VAD(Pretrained):
         -------
         vad_th: torch.Tensor
             Tensor containing 1 for speech regions and 0 for non-speech regions.
-       """
+        """
         vad_activation = (vad_prob >= activation_th).int()
         vad_deactivation = (vad_prob >= deactivation_th).int()
         vad_th = vad_activation + vad_deactivation
@@ -1443,7 +1444,7 @@ class VAD(Pretrained):
             in even positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).
-       """
+        """
         # Shifting frame-levels binary decision by 1
         # This allows detecting changes in speech/non-speech activities
         prob_th_shifted = torch.roll(prob_th, dims=1, shifts=1)
@@ -2653,8 +2654,7 @@ class WaveformEnhancement(Pretrained):
 
 
 class SNREstimator(Pretrained):
-    """A "ready-to-use" SNR estimator.
-    """
+    """A "ready-to-use" SNR estimator."""
 
     MODULES_NEEDED = ["encoder", "encoder_out"]
     HPARAMS_NEEDED = ["stat_pooling", "snrmax", "snrmin"]
@@ -2772,8 +2772,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-sequence function
-        """
+        """Encodes raw text into a tensor with a customer text-to-sequence function"""
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -2911,7 +2910,7 @@ class UnitHIFIGAN(Pretrained):
     HPARAMS_NEEDED = ["generator"]
 
     """
-    A ready-to-use wrapper for HiFiGAN (discrete units -> waveform).
+    A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
     Arguments
     ---------
     hparams
@@ -2941,19 +2940,15 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
         with torch.no_grad():
-            if spk:
-                spk.to(self.device)
-            waveform = self.infer(unit.to(self.device), spk=spk)
+            waveform = self.infer(unit.to(self.device))
         return waveform
 
-    def decode_unit(self, unit, f0=None, spk=None, emo=None):
+    def decode_unit(self, unit):
         """Computes waveforms from a single sequence of discrete units
         Arguments
         ---------
         unit: torch.tensor
             unit: [time]
-        spk: torch.tensor
-            spk: [spk_dim]
         Returns
         -------
         waveform: torch.tensor
@@ -2968,17 +2963,11 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
         with torch.no_grad():
-            if spk is not None:
-                spk = spk.unsqueeze(0).to(self.device)
-            if emo is not None:
-                emo = emo.unsqueeze(0).to(self.device)
-            if f0 is not None:
-                f0 = f0.unsqueeze(0).to(self.device)
-            waveform = self.infer(unit.unsqueeze(0).to(self.device), f0=f0, spk=spk, emo=emo)
+            waveform = self.infer(unit.unsqueeze(0).to(self.device))
         return waveform.squeeze(0)
 
-    def forward(self, unit, spk=None):
-        return self.decode_batch(unit, spk)
+    def forward(self, unit):
+        return self.decode_batch(unit)
 
 
 class WhisperASR(Pretrained):
@@ -3105,10 +3094,8 @@ class WhisperASR(Pretrained):
 
 
 class EncoderDecoderS2UT(Pretrained):
-    """A ready-to-use Encoder Decoder for speech-to-unit translation model
+    """A ready-to-use Encoder Decoder for speech-to-unit translation model"""
 
-    """
-    
     HPARAMS_NEEDED = ["model"]
     MODULES_NEEDED = ["encoder"]
 
@@ -3128,7 +3115,7 @@ class EncoderDecoderS2UT(Pretrained):
         int[]
             The audiofile translation produced by this speech-to-unit translation system.
         """
-        waveform = self.load_audio(path, savedir='./tmpdir/audios')
+        waveform = self.load_audio(path, savedir="./tmpdir/audios")
         waveform = waveform.to(self.device)
         # Fake a batch:
         batch = waveform.unsqueeze(0)
@@ -3146,9 +3133,7 @@ class EncoderDecoderS2UT(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.decoder(
-                encoder_out, wav_lens
-            )
+            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
         return predicted_tokens
 
     def forward(self, wavs, wav_lens):
