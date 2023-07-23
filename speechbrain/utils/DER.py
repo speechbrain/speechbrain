@@ -73,8 +73,8 @@ def DER(
     -------
     >>> import pytest
     >>> pytest.skip('Skipping because of Perl dependency')
-    >>> ref_rttm = "../../samples/rttm_samples/ref_rttm/ES2014c.rttm"
-    >>> sys_rttm = "../../samples/rttm_samples/sys_rttm/ES2014c.rttm"
+    >>> ref_rttm = "../../tests/samples/rttm/ref_rttm/ES2014c.rttm"
+    >>> sys_rttm = "../../tests/samples/rttm/sys_rttm/ES2014c.rttm"
     >>> ignore_overlap = True
     >>> collar = 0.25
     >>> individual_file_scores = True

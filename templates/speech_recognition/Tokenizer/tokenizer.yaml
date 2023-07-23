@@ -11,6 +11,7 @@ data_folder: ../data
 output_folder: ./save
 
 # Path where data-specification files are stored
+skip_prep: False
 train_annotation: ../train.json
 valid_annotation: ../valid.json
 test_annotation: ../test.json

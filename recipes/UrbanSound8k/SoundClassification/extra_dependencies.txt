@@ -1,4 +1,0 @@
-scikit-learn
-matplotlib
-pandas
-tensorboard

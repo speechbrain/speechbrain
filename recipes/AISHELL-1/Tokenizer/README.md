@@ -7,7 +7,7 @@ The tokenizer is trained on the top of the AISHELL training transcriptions.
 
 `python train.py hparams/train_transformer_tokenizer_bpe5000.yaml`
 
-The output folder with the tokenizers and logs is available [here](https://drive.google.com/drive/folders/15wOIkFMHB-wwR1OW6NupcLcHbiJZJ_CU?usp=sharing).
+The output folder with the tokenizers and logs is available [here](https://www.dropbox.com/sh/gh1qyf833t7h3op/AADG0y1bGGIL4yufsXtuBgXma?dl=0).
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

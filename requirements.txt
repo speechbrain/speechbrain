@@ -4,10 +4,12 @@ hyperpyyaml>=0.0.1
 joblib>=0.14.1
 numpy>=1.17.0
 packaging
+pandas>=1.0.1
 pre-commit>=2.3.0
-scipy>=1.4.1, <1.9
+scipy>=1.4.1
 sentencepiece>=0.1.91
 SoundFile; sys_platform == 'win32'
 torch>=1.9.0
 torchaudio>=0.9.0
 tqdm>=4.42.0
+transformers>=4.30.0

@@ -24,6 +24,10 @@ try:
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/lobes/models/huggingface_wav2vec.py")
 try:
+    from transformers import WhisperModel  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/lobes/models/huggingface_whisper.py")
+try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/bleu.py")

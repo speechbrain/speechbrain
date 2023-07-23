@@ -13,6 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
 data_folder: #!PLACEHOLDER  # e.g, /dataset/
@@ -83,21 +84,21 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
 enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
     linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation: !new:torch.nn.LeakyReLU
     drop: !new:torch.nn.Dropout
         p: 0.15
     linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation2: !new:torch.nn.LeakyReLU
     drop2: !new:torch.nn.Dropout
         p: 0.15
     linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation3: !new:torch.nn.LeakyReLU
@@ -106,7 +107,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    save_path: !ref <wav2vec2_folder>
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead

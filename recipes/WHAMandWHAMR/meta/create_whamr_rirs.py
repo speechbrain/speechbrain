@@ -9,12 +9,11 @@ import pandas as pd
 import argparse
 import torchaudio
 
-from recipes.WHAMandWHAMR.meta.wham_room import WhamRoom
+from wham_room import WhamRoom
 from scipy.signal import resample_poly
 import torch
 from speechbrain.pretrained.fetching import fetch
 from tqdm import tqdm
-import pyroomacoustics
 
 
 def create_rirs(output_dir, sr=8000):
@@ -28,10 +27,6 @@ def create_rirs(output_dir, sr=8000):
     sr (int) : sampling rate with which we save
 
     """
-
-    assert (
-        pyroomacoustics.__version__ == "0.3.1"
-    ), "The pyroomacoustics version needs to be 0.3.1"
 
     os.makedirs(output_dir)
 

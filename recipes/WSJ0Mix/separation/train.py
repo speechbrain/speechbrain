@@ -114,14 +114,14 @@ class Separation(sb.Brain):
                 # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
+                    loss = loss[loss > th]
+                    if loss.nelement() > 0:
+                        loss = loss.mean()
                 else:
                     loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -147,14 +147,14 @@ class Separation(sb.Brain):
 
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
+                loss = loss[loss > th]
+                if loss.nelement() > 0:
+                    loss = loss.mean()
             else:
                 loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -538,7 +538,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Data preparation
-    from recipes.WSJ0Mix.prepare_data import prepare_wsjmix  # noqa
+    from prepare_data import prepare_wsjmix  # noqa
 
     run_on_main(
         prepare_wsjmix,
@@ -561,9 +561,7 @@ if __name__ == "__main__":
             if not os.path.exists(
                 os.path.normpath(hparams["base_folder_dm"]) + "_processed"
             ):
-                from recipes.WSJ0Mix.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+                from preprocess_dynamic_mixing import resample_folder
 
                 print("Resampling the base folder")
                 run_on_main(

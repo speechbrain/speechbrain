@@ -610,6 +610,7 @@ class MetricGanBrain(sb.Brain):
                     output_keys=["id", "enh_sig", "score"],
                 )
                 samples = round(len(dataset) * self.hparams.history_portion)
+                samples = max(samples, 1)  # Ensure there's at least 1 sample
             else:
                 samples = self.hparams.number_of_samples
 
@@ -619,8 +620,12 @@ class MetricGanBrain(sb.Brain):
             # Equal weights for all samples, we use "Weighted" so we can do
             # both "replacement=False" and a set number of samples, reproducibly
             weights = torch.ones(len(dataset))
+            replacement = samples > len(dataset)
             sampler = ReproducibleWeightedRandomSampler(
-                weights, epoch=epoch, replacement=False, num_samples=samples
+                weights,
+                epoch=epoch,
+                replacement=replacement,
+                num_samples=samples,
             )
             loader_kwargs["sampler"] = sampler
 
@@ -649,6 +654,10 @@ class MetricGanBrain(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("g_opt", self.g_optimizer)
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.g_optimizer.zero_grad(set_to_none)
+        self.d_optimizer.zero_grad(set_to_none)
 
 
 # Define audio piplines for training set
