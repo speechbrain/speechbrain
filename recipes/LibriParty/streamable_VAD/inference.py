@@ -4,7 +4,7 @@ Performs realtime Voice Activity Detection (VAD) on a microphone input stream.
 At the end of the stream, is computes the offline values and plots the results for comparison.
 
 Authors:
-    Francesco Paissan, 2022
+    Francesco Paissan, 2022, 2023
 """
 from speechbrain.pretrained import VAD
 from torchaudio.io import StreamReader

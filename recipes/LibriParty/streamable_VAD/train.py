@@ -18,6 +18,8 @@ python train.py hparams/streamable.yaml\
 
 Authors
  * Francesco Paissan, 2022, 2023
+
+Based on the LibriParty recipe of:
  * Mohamed Kleit 2021
  * Arjun V 2021
  * Mirco Ravanelli 2021
