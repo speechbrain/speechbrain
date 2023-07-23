@@ -5,8 +5,9 @@ Efficient and High Fidelity Speech Synthesis
 For more details: https://arxiv.org/pdf/2010.05646.pdf
 
 Authors
- * Duret Jarod 2021
+ * Jarod Duret 2021
  * Yingzhi WANG 2022
+ * Jarod Duret 2023
 """
 
 # Adapted from https://github.com/jik876/hifi-gan/ and https://github.com/coqui-ai/TTS/
@@ -43,8 +44,7 @@ LRELU_SLOPE = 0.1
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamique range compression for audio signals
-    """
+    """Dynamique range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -129,18 +129,23 @@ def process_duration(code, code_feat):
         else:
             uniq_code_count.append(count)
             uniq_code_idx = count.cumsum(dim=0) - 1
-        uniq_code_feat.append(code_feat[i, uniq_code_idx, :].view(-1, code_feat.size(2)))
+        uniq_code_feat.append(
+            code_feat[i, uniq_code_idx, :].view(-1, code_feat.size(2))
+        )
     uniq_code_count = torch.cat(uniq_code_count)
 
     # collate feat
     max_len = max(feat.size(0) for feat in uniq_code_feat)
-    out = uniq_code_feat[0].new_zeros((len(uniq_code_feat), max_len, uniq_code_feat[0].size(1)))
+    out = uniq_code_feat[0].new_zeros(
+        (len(uniq_code_feat), max_len, uniq_code_feat[0].size(1))
+    )
     mask = torch.arange(max_len).repeat(len(uniq_code_feat), 1)
     for i, v in enumerate(uniq_code_feat):
         out[i, : v.size(0)] = v
         mask[i, :] = mask[i, :] < v.size(0)
 
     return out, mask.bool(), uniq_code_count.float()
+
 
 ##################################
 # Generator
@@ -251,8 +256,7 @@ class ResBlock1(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
         for l in self.convs1:
             l.remove_weight_norm()
         for l in self.convs2:
@@ -316,8 +320,7 @@ class ResBlock2(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
         for l in self.convs:
             l.remove_weight_norm()
 
@@ -401,7 +404,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2 ** i),
+                    in_channels=upsample_initial_channel // (2**i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -465,8 +468,7 @@ class HifiganGenerator(torch.nn.Module):
         return o
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
 
         for l in self.ups:
             l.remove_weight_norm()
@@ -476,7 +478,7 @@ class HifiganGenerator(torch.nn.Module):
         self.conv_post.remove_weight_norm()
 
     @torch.no_grad()
-    def inference(self, c):
+    def inference(self, c, padding=True):
         """The inference function performs a padding and runs the forward method.
 
         Arguments
@@ -484,19 +486,47 @@ class HifiganGenerator(torch.nn.Module):
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
         """
-        # c = torch.nn.functional.pad(
-        #     c, (self.inference_padding, self.inference_padding), "replicate"
-        # )
+        if padding:
+            c = torch.nn.functional.pad(
+                c, (self.inference_padding, self.inference_padding), "replicate"
+            )
         return self.forward(c)
 
 
 class VariancePredictor(nn.Module):
+    """Variance predictor inspired from FastSpeech2
+
+    Arguments
+    ---------
+    encoder_embed_dim : int
+        number of input tensor channels.
+    var_pred_hidden_dim : int
+        size of hidden channels for the convolutional layers.
+    var_pred_kernel_size : int
+        size of the convolution filter in each layer.
+    var_pred_dropout : float
+        dropout probability of each layer.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 80, 128])
+    >>> duration_predictor = VariancePredictor(
+    ...    encoder_embed_dim = 128,
+    ...    var_pred_hidden_dim = 128,
+    ...    var_pred_kernel_size = 3,
+    ...    var_pred_dropout = 0.5,
+    ... )
+    >>> out_tensor = duration_predictor (inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 80])
+    """
+
     def __init__(
         self,
         encoder_embed_dim,
         var_pred_hidden_dim,
         var_pred_kernel_size,
-        var_pred_dropout
+        var_pred_dropout,
     ):
         super().__init__()
         self.conv1 = nn.Sequential(
@@ -508,9 +538,8 @@ class VariancePredictor(nn.Module):
                 skip_transpose=True,
                 weight_norm=True,
             ),
-            nn.ReLU()
+            nn.ReLU(),
         )
-        #self.ln1 = nn.LayerNorm(var_pred_hidden_dim)
         self.dropout = var_pred_dropout
         self.conv2 = nn.Sequential(
             Conv1d(
@@ -521,9 +550,8 @@ class VariancePredictor(nn.Module):
                 skip_transpose=True,
                 weight_norm=True,
             ),
-            nn.ReLU()
+            nn.ReLU(),
         )
-        #self.ln2 = nn.LayerNorm(var_pred_hidden_dim)
         self.proj = nn.Linear(var_pred_hidden_dim, 1)
 
     def forward(self, x):
@@ -536,6 +564,66 @@ class VariancePredictor(nn.Module):
 
 
 class UnitHifiganGenerator(HifiganGenerator):
+    """Unit HiFiGAN Generator with Multi-Receptive Field Fusion (MRF)
+
+    Arguments
+    ---------
+    in_channels : int
+        number of input tensor channels.
+    out_channels : int
+        number of output tensor channels.
+    resblock_type : str
+        type of the `ResBlock`. '1' or '2'.
+    resblock_dilation_sizes : List[List[int]]
+        list of dilation values in each layer of a `ResBlock`.
+    resblock_kernel_sizes : List[int]
+        list of kernel sizes for each `ResBlock`.
+    upsample_kernel_sizes : List[int]
+        list of kernel sizes for each transposed convolution.
+    upsample_initial_channel : int
+        number of channels for the first upsampling layer. This is divided by 2
+        for each consecutive upsampling layer.
+    upsample_factors : List[int]
+        upsampling factors (stride) for each upsampling layer.
+    inference_padding : int
+        constant padding applied to the input at inference time. Defaults to 5.
+    num_embeddings : int
+        size of the dictionary of embeddings.
+    embedding_dim : int
+        size of each embedding vector.
+    duration_predictor : bool
+        enable duration predictor module.
+    var_pred_hidden_dim : int
+        size of hidden channels for the convolutional layers of the duration predictor.
+    var_pred_kernel_size : int
+        size of the convolution filter in each layer of the duration predictor.
+    var_pred_dropout : float
+        dropout probability of each layer in the duration predictor.
+
+    Example
+    -------
+    >>> inp_tensor = torch.randint(0, 100, (4, 10))
+    >>> unit_hifigan_generator= UnitHifiganGenerator(
+    ...    in_channels = 128,
+    ...    out_channels = 1,
+    ...    resblock_type = "1",
+    ...    resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+    ...    resblock_kernel_sizes = [3, 7, 11],
+    ...    upsample_kernel_sizes = [11, 8, 8, 4, 4],
+    ...    upsample_initial_channel = 512,
+    ...    upsample_factors = [5, 4, 4, 2, 2],
+    ...    num_embeddings = 100,
+    ...    embedding_dim = 128,
+    ...    duration_predictor = True,
+    ...    var_pred_hidden_dim = 128,
+    ...    var_pred_kernel_size = 3,
+    ...    var_pred_dropout = 0.5,
+    ... )
+    >>> out_tensor, _ = unit_hifigan_generator(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 1, 3200])
+    """
+
     def __init__(
         self,
         in_channels,
@@ -555,8 +643,6 @@ class UnitHifiganGenerator(HifiganGenerator):
         var_pred_hidden_dim=128,
         var_pred_kernel_size=3,
         var_pred_dropout=0.5,
-        multi_speaker=False,
-        speaker_embedding=None,
     ):
         super().__init__(
             in_channels,
@@ -572,10 +658,6 @@ class UnitHifiganGenerator(HifiganGenerator):
             conv_post_bias,
         )
         self.unit_embedding = torch.nn.Embedding(num_embeddings, embedding_dim)
-        self.multi_speaker = multi_speaker
-        self.speaker_embedding = speaker_embedding
-        self.multi_emotion = multi_emotion
-        self.emotion_embedding = emotion_embedding
         self.duration_predictor = duration_predictor
         if duration_predictor:
             self.var_predictor = VariancePredictor(
@@ -584,125 +666,52 @@ class UnitHifiganGenerator(HifiganGenerator):
                 var_pred_kernel_size,
                 var_pred_dropout,
             )
-        self.f0 = f0
-        self.match_f0_length_to_input = match_f0_length_to_input
 
-    @staticmethod
-    def _upsample(signal, max_frames):
-        if signal.dim() == 3:
-            bsz, channels, cond_length = signal.size()
-        elif signal.dim() == 2:
-            signal = signal.unsqueeze(2)
-            bsz, channels, cond_length = signal.size()
-        else:
-            signal = signal.view(-1, 1, 1)
-            bsz, channels, cond_length = signal.size()
-
-        signal = signal.unsqueeze(3).repeat(1, 1, 1, max_frames // cond_length)
-
-        # pad zeros as needed (if signal's shape does not divide completely with max_frames)
-        reminder = (max_frames - signal.shape[2] * signal.shape[3]) // signal.shape[3]
-        if reminder > 0:
-            raise NotImplementedError('Padding condition signal - misalignment between condition features.')
-
-        signal = signal.view(bsz, channels, max_frames)
-        return signal
-
-    def forward(self, u, spk=None, emo=None, f0=None, g=None):
-        x = self.unit_embedding(u).transpose(1, 2)
+    def forward(self, x, g=None):
+        """
+        Arguments
+        ---------
+        x : torch.Tensor (batch, channel, time)
+            feature input tensor.
+        g : torch.Tensor (batch, 1, time)
+            global conditioning input tensor.
+        """
+        u = self.unit_embedding(x).transpose(1, 2)
 
         log_dur = None
         log_dur_pred = None
-        cat = [x]
-        
+
         if self.duration_predictor:
             uniq_code_feat, uniq_code_mask, dur = process_duration(
-                u, x.transpose(1, 2))
+                x, u.transpose(1, 2)
+            )
             log_dur_pred = self.var_predictor(uniq_code_feat)
             log_dur_pred = log_dur_pred[uniq_code_mask]
             log_dur = torch.log(dur + 1)
 
-        if self.multi_speaker:
-            if self.speaker_embedding:
-                spk = self.speaker_embedding(spk).transpose(1, 2)
-            else:
-                spk = spk.unsqueeze(-1)
-            spk = self._upsample(spk, x.shape[-1])
-            cat.append(spk)
-            
-        if self.multi_emotion:
-            if self.emotion_embedding:
-                emo = self.emotion_embedding(emo).transpose(1, 2)
-            else:
-                emo = emo.unsqueeze(-1)
-            emo = self._upsample(emo, x.shape[-1])
-            cat.append(emo)
-
-        if self.f0:
-            if x.shape[-1] < f0.shape[-1] and self.match_f0_length_to_input:
-                f0 = F.interpolate(f0, x.shape[-1])
-            elif x.shape[-1] < f0.shape[-1]:
-                x = self._upsample(x, f0.shape[-1])
-            else:
-                f0 = self._upsample(f0, x.shape[-1])
-            cat.append(f0)
-
-        x = torch.cat(cat, dim=1)
-
-        return super().forward(x), (log_dur_pred, log_dur)
+        return super().forward(u), (log_dur_pred, log_dur)
 
     @torch.no_grad()
-    def inference(self, x, f0=None, spk=None, emo=None):
-        """The inference function performs a padding and runs the forward method.
+    def inference(self, x):
+        """The inference function performs duration prediction and runs the forward method.
 
         Arguments
         ---------
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
         """
-        # c = torch.nn.functional.pad(
-        #     c, (self.inference_padding, self.inference_padding), "replicate"
-        # )
-
         x = self.unit_embedding(x).transpose(1, 2)
-        cat = [x]
-        
+
         if self.duration_predictor:
-            assert x.size(0) == 1, "only support single sample batch in inference"
+            assert (
+                x.size(0) == 1
+            ), "only support single sample batch in inference"
             log_dur_pred = self.var_predictor(x.transpose(1, 2))
             dur_out = torch.clamp(
                 torch.round((torch.exp(log_dur_pred) - 1)).long(), min=1
             )
             # B x C x T
             x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)
-            cat = [x]
-
-        if self.multi_speaker:
-            if self.speaker_embedding:
-                spk = self.speaker_embedding(spk).transpose(1, 2)
-            else:
-                spk = spk.unsqueeze(-1)
-            spk = self._upsample(spk, x.shape[-1])
-            cat.append(spk)
-            
-        if self.multi_emotion:
-            if self.emotion_embedding:
-                emo = self.emotion_embedding(emo).transpose(1, 2)
-            else:
-                emo = emo.unsqueeze(-1)
-            emo = self._upsample(emo, x.shape[-1])
-            cat.append(emo)
-
-        if self.f0:
-            if x.shape[-1] < f0.shape[-1] and self.match_f0_length_to_input:
-                f0 = F.interpolate(f0, x.shape[-1])
-            elif x.shape[-1] < f0.shape[-1]:
-                x = self._upsample(x, f0.shape[-1])
-            else:
-                f0 = self._upsample(f0, x.shape[-1])
-            cat.append(f0)
-
-        x = torch.cat(cat, dim=1)
 
         return super().forward(x)
 
@@ -981,12 +990,16 @@ class HifiganDiscriminator(nn.Module):
 
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
-    """computes the Fourier transform of short overlapping windows of the input
-    """
-    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
+    """computes the Fourier transform of short overlapping windows of the input"""
+    o = torch.stft(
+        x.squeeze(1),
+        n_fft,
+        hop_length,
+        win_length,
+    )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
     return S
 
 
@@ -1212,7 +1225,9 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -1249,7 +1264,9 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
