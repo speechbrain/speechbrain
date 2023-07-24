@@ -1,9 +1,10 @@
-# ################################
+# ########################################
 # Model: GPT2LMHeadModel +  NLL
 # Authors:
     # Pooneh Mousavi 2023
     # Simone Alghisi 2023
-# ################################
+# ########################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1995
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
@@ -38,7 +39,7 @@ eos_token: "EOS"
 system_token: "SPK_1"
 user_token: "SPK_2"
 
-additional_special_tokens : [
+additional_special_tokens: [
     !ref <system_token>,
     !ref <user_token>
 ]
@@ -69,10 +70,10 @@ lr: 1.97125e-4
 
 #freeze GPT model
 freeze_gptmodel: False
-num_beams : 3
+num_beams: 3
 max_new_tokens: 50
-top_k : 45
-top_p : 0.9
+top_k: 45
+top_p: 0.9
 
 
 dataloader_options:
@@ -87,8 +88,6 @@ test_dataloader_options:
     num_workers: 2
     drop_last: True
 
-
-
 # Masks
 padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
 
@@ -99,9 +98,8 @@ gpt_model: !new:speechbrain.lobes.models.huggingface_gpt.HuggingFaceGPT
     save_path: !ref <gpt_folder>
     max_new_tokens: !ref <max_new_tokens>
     num_beams: !ref <num_beams>
-    top_k : !ref  <top_k>
-    top_p : !ref <top_p>
-
+    top_k: !ref  <top_k>
+    top_p: !ref <top_p>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -141,4 +139,3 @@ blue_4_computer: !name:speechbrain.utils.bleu.BLEUStats
 
 blue_2_computer: !name:speechbrain.utils.bleu.BLEUStats
     max_ngram_order: 2
-
