@@ -567,6 +567,13 @@ class Brain:
                 "argument --ckpt_interval_steps."
             )
 
+        if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
+            sys.exit(
+                "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
+                "are mutually exclusive to prevent race conditions. "
+                "Please keep only one active per experiment run."
+            )
+
         # Switch to the right context
         if self.device == "cuda":
             torch.cuda.set_device(0)
