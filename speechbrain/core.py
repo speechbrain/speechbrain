@@ -438,7 +438,7 @@ class Brain:
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
-        ckpt_inerval_steps (int)
+        ckpt_interval_steps (int)
             Number of steps between saving intra-epoch checkpoints.
             If non-positive, these are not saved. Default: ``0``.
 
