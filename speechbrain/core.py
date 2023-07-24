@@ -565,6 +565,11 @@ class Brain:
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
+        # The next line ensures that both tensors marked as parameters and standard tensors,
+        # such as those used in InputNormalization, are placed on the right device.
+        for module in self.modules:
+            self.modules[module] = self.modules[module].to(self.device)
+
         # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
