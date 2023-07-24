@@ -67,7 +67,7 @@ batch_size: 8
 test_batch_size: 8
 lr: 1.97125e-4
 
-#freeze GPT model 
+#freeze GPT model
 freeze_gptmodel: False
 num_beams : 3
 max_new_tokens: 50
@@ -78,13 +78,13 @@ top_p : 0.9
 dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: True
-    num_workers: 2  
+    num_workers: 2
     drop_last: False
 
 test_dataloader_options:
     batch_size: !ref <test_batch_size>
     shuffle: True
-    num_workers: 2  
+    num_workers: 2
     drop_last: True
 
 

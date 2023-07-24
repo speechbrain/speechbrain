@@ -46,9 +46,7 @@ class BLEUStats(MetricStats):
     0.0
     """
 
-    def __init__(
-        self, lang="en", merge_words=True, max_ngram_order =4
-    ):
+    def __init__(self, lang="en", merge_words=True, max_ngram_order=4):
         # Check extra-dependency for computing the bleu score
         try:
             from sacrebleu.metrics import BLEU
@@ -59,7 +57,7 @@ class BLEUStats(MetricStats):
 
         self.clear()
         self.merge_words = merge_words
-        self.bleu = BLEU(max_ngram_order = max_ngram_order)
+        self.bleu = BLEU(max_ngram_order=max_ngram_order)
 
         self.predicts = []
         self.targets = None
