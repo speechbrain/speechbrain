@@ -81,7 +81,7 @@ dec_hidden_size: !ref <dec_neurons>
 dec_attn_dim: !ref <dec_neurons>
 
 # Outputs
-output_neurons: 500  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 3500  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
