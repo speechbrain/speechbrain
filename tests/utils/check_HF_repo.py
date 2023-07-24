@@ -76,7 +76,8 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
                 if len(row[field]) > 0:
                     repos = row[field].split(" ")
                     for repo in repos:
-                        HF_repos.append(repo)
+                        if len(repo) > 0:
+                            HF_repos.append(repo)
     HF_repos = set(HF_repos)
     return HF_repos
 
