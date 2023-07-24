@@ -127,9 +127,7 @@ def prepare_test(
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
-                    print(
-                        f"\tSkipped {recipe_id} - lacking test_field={test_field}"
-                    )
+                    print(f"\tSkipped {recipe_id}")
                     continue
                 test_script[recipe_id] = row[script_field].strip()
                 test_hparam[recipe_id] = row[hparam_field].strip()
@@ -542,7 +540,7 @@ def load_yaml_test(
     recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
-    test_field="Hparam_file",
+    test_field="test_debug_flags",
     filters_fields=[],
     filters=[],
     avoid_list=[],

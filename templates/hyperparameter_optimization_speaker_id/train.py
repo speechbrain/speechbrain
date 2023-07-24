@@ -294,7 +294,9 @@ if __name__ == "__main__":
     with hp.hyperparameter_optimization(objective_key="error") as hp_ctx:
 
         # Reading command line arguments
-        hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
+        hparams_file, run_opts, overrides = hp_ctx.parse_arguments(
+            sys.argv[1:], pass_trial_id=False
+        )
 
         # Initialize ddp (useful only for multi-GPU DDP training).
         sb.utils.distributed.ddp_init_group(run_opts)

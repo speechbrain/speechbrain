@@ -17,7 +17,7 @@ Relevant Papers
     * Kong Aik Lee et. al, "Multi-session PLDA Scoring of I-vector for Partially Open-Set Speaker Detection," in Interspeech 2013.
 
 Credits
-    This code is adapted from: https://git-lium.univ-lemans.fr/Larcher/sidekit
+    This code is adapted from: https://projets-lium.univ-lemans.fr/sidekit/
 """
 
 import numpy
