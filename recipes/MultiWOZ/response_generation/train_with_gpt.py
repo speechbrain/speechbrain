@@ -241,6 +241,9 @@ def dataio_prep(hparams, tokenizer):
         ]
         # add bos and to the history
         history_bos = [[bos]] + history_input_lists[-history_window:]
+        # concatenate every token into a single list
+        # list(chain(*[[1, 2], [3, 4], [5]]))
+        # >>> [1, 2, 3, 4, 5]
         history_bos = torch.LongTensor(list(chain(*history_bos)))
         yield history_bos
 
@@ -270,11 +273,11 @@ def dataio_prep(hparams, tokenizer):
     def reply_pipeline(reply):
         yield reply
 
-        # same as history
         reply_tokens_list = tokenizer.encode(reply)
         yield reply_tokens_list
 
         # specify that the system will say the reply
+        # optionally add eos to reply
         reply_input_list = (
             [system] + reply_tokens_list + [eos] if hparams["with_eos"] else []
         )
@@ -293,40 +296,13 @@ def dataio_prep(hparams, tokenizer):
     def input_and_token_type_pipeline(
         history_bos, history_token_type, reply_eos, reply_token_type,
     ):
-        # # optionally add eos to reply
-        # reply_input_list = (
-        #     reply_input_list + [eos] if hparams["with_eos"] else []
-        # )
-
-        # add bos and to the history
-        # history_input_lists = [[bos]] + history_input_lists[-history_window:]
 
         # put history and reply together
         # input_sequence = history_bos + reply_eos
         input_ids = torch.cat((history_bos, reply_eos), -1)
-
-        # concatenate every token into a single list
-        # list(chain(*[[1, 2], [3, 4], [5]]))
-        # >>> [1, 2, 3, 4, 5]
-        # input_ids = list(chain(*input_sequence))
-        # input_ids = torch.LongTensor(input_ids)
         yield input_ids
 
-        # do the same for the token_type
-        # reply_token_type_list = (
-        #     reply_token_type_list + [system] if hparams["with_eos"] else []
-        # )
-
-        # bos token belongs to the system
-        # history_token_type_lists = [[system]] + history_token_type_lists[
-        #     -history_window:
-        # ]
-
-        # token_type_ids = history_token_type_lists + [reply_token_type_list]
         token_type_ids = torch.cat((history_token_type, reply_token_type), -1)
-
-        # token_type_ids = list(chain(*token_type_ids))
-        # token_type_ids = torch.LongTensor(token_type_ids)
         yield token_type_ids
 
         # # create the language model label (ground truth) for the current input
@@ -340,7 +316,6 @@ def dataio_prep(hparams, tokenizer):
         lm_labels = (
             [-100] * history_bos.shape[0] + [-100] + reply_eos[1:].tolist()
         )
-        #     + input_sequence[-1][1:]
         lm_labels = torch.LongTensor(lm_labels)
         yield lm_labels
 
@@ -449,7 +424,6 @@ if __name__ == "__main__":
         valid_set=datasets["valid"],
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
-
     )
 
     # Load the best checkpoint for evaluation
