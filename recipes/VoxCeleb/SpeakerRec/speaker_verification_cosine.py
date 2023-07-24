@@ -39,7 +39,6 @@ def compute_embedding(wavs, wav_lens):
     with torch.no_grad():
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
-        # embeddings = params["embedding_model"](feats, wav_lens)
         embeddings = params["embedding_model"](feats)
     return embeddings.squeeze(1)
 

@@ -1,52 +1,11 @@
-# Speaker recognition experiments with VoxCeleb.
+# Speaker recognition experiments with VoxCeleb
 This folder contains scripts for running speaker identification and verification experiments with the VoxCeleb dataset(http://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
 
 ## Installing Extra Dependencies
-
 Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
-
 ```
 pip install -r extra_requirements.txt
 ```
-
-# Training Xvectors
-Run the following command to train xvectors:
-
-`python train_speaker_embeddings.py hparams/train_x_vectors.yaml`
-
-You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponding number of speakers (1211 vox1, 5994 vox2, 7205 vox1+2).
-For voxceleb1 + voxceleb2, see preparation instructions below).
-
-The system trains a TDNN for speaker embeddings coupled with a speaker-id classifier. The speaker-id accuracy should be around 97-98% for both voxceleb1 and voceleb2.
-
-# Speaker verification with PLDA
-After training the speaker embeddings, it is possible to perform speaker verification using PLDA.  You can run it with the following command:
-
-`python speaker_verification_plda.py hparams/verification_plda_xvector.yaml`
-
-If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
-This system achieves an EER = 3.23% on voxceleb1 + voxceleb2.
-These results are all obtained with the official verification split of voxceleb1 (veri\_test2_.txt)
-
-
-# Speaker verification using ECAPA-TDNN embeddings
-Run the following command to train speaker embeddings using [ECAPA-TDNN](https://arxiv.org/abs/2005.07143):
-
-`python train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml`
-
-The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
-
-After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
-
-`python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
-
-This system achieves:
-- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm
-- EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
-
-These results are all obtained with the official verification split of voxceleb1 (veri\_test2.txt)
-
-Below you can find the results from model trained on VoxCeleb 2 dev set and tested on VoxSRC derivatives. Note that however, the models are trained under a very limited condition (single GPU so batch_size=2) and no score normalization at test time.
 
 # VoxCeleb2 preparation
 Voxceleb2 audio files are released in m4a format. All the files must be converted in wav files before
@@ -77,23 +36,68 @@ Go to the voxceleb2 folder and run `unzip vox1_test_wav.zip`.
 
 Note: To prepare the voxceleb1 + voxceleb2 dataset you have to copy and unpack vox1_dev_wav.zip for the voxceleb1 dataset.
 
-# Performance summary
 
-[Speaker verification results, trained with Voxceleb 1 + Voxceleb 2 (7205 speakers)]
+## Training Xvectors
+Run the following command to train xvectors:
+```
+python train_speaker_embeddings.py hparams/train_x_vectors.yaml
+```
+You can use the same script for voxceleb1, voxceleb2, and voxceleb1+2. Just change the datafolder and the corresponding number of speakers (1211 vox1, 5994 vox2, 7205 vox1+2). For voxceleb1 + voxceleb2, see preparation instructions above.
+
+The system trains a TDNN for speaker embeddings coupled with a speaker-id classifier. The speaker-id accuracy should be around 97-98% for both voxceleb1 and voceleb2. The backbone for TDNN can vary from:
+* [X-Vector, proposed at early 2018](https://danielpovey.com/files/2018_icassp_xvectors.pdf)
+* ResNet X-Vector
+* [ECAPA-TDNN](https://arxiv.org/abs/2005.07143)
+
+Below we show the example of doing speaker verification using ECAPA-TDNN.
+
+## Speaker verification using ECAPA-TDNN embeddings
+Run the following command to train speaker embeddings using ECAPA-TDNN
+
+`python train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml`
+
+The speaker-id accuracy should be around 98-99% for both voxceleb1 and voceleb2.
+
+After training the speaker embeddings, it is possible to perform speaker verification using cosine similarity.  You can run it with the following command:
+
+`python speaker_verification_cosine.py hparams/verification_ecapa.yaml`
+
+This system achieves:
+- EER = 0.80% (voxceleb1 + voxceleb2) with s-norm
+- EER = 0.90% (voxceleb1 + voxceleb2) without s-norm
+
+These results are all obtained with the official verification split of voxceleb1 (veri\_test2.txt)
+
+Below you can find the results from model trained on VoxCeleb 2 dev set and tested on VoxSRC derivatives. Note that however, the models are trained under a very limited condition (single GPU so batch_size=2) and no score normalization at test time.
+
+
+## Speaker verification with PLDA
+After training the speaker embeddings, it is possible to perform speaker verification using PLDA.  You can run it with the following command. If you didn't train the speaker embedding before, we automatically download the xvector model from the web.
+```
+python speaker_verification_plda.py hparams/verification_plda_xvector.yaml
+```
+
+## Performance summary
+Below results are all obtained with the official verification split of voxceleb1 (veri\_test2_.txt). Note that if the model is trained with VoxCeleb1 training data, it cannot be evaluated on VoxCeleb1-{E,H} because these two evaluation sets are part of the foremost.
+
+[Speaker verification results (in EER) on VoxCeleb1-O, with score normalization]
 | System          | Dataset    | EER  | Model/Log Link |
 |-----------------|------------|------| -----|
 | Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://www.dropbox.com/sh/mau2nrt6i81ctfc/AAAUkAECzVaVWUMjD3mytjgea?dl=0 |
-| ECAPA-TDNN      | Voxceleb 1,2 | 0.80% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0  |
+| ECAPA-TDNN      | VoxCeleb 1,2 | 0.80% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
+| ResNet TDNN     | VoxCeleb 1,2 |       | (to be updated) |
 
-[Speaker verification results (in EER), trained with Voxceleb 2 development set (5994 speakers), no score normalization]
+[Speaker verification results (in EER), no score normalization]
 | System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
 |-----------------|------------|------|------|------| -----| 
-| ECAPA-TDNN      | VoxCeleb 2   | 1.30% | 1.98% | 3.62% | (to be updated) |
+| ECAPA-TDNN      | VoxCeleb 1,2 | 0.90% | - | - | (to be updated) |
+| ECAPA-TDNN      | VoxCeleb 2 | 1.30% | 1.98% | 3.62% | (to be updated) |
 
 
-# PreTrained Model + Easy-Inference
+## PreTrained Model + Easy-Inference
 You can find the pre-trained ECAPA-TDNN model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb).
 You can find the pre-trained xvector models as well on [HuggingFace](https://huggingface.co/speechbrain/spkrec-xvect-voxceleb)
+
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
