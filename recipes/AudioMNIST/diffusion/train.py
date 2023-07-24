@@ -334,8 +334,7 @@ class DiffusionBrain(sb.Brain):
                 self.autoencoder_optimizer.step()
             self.autoencoder_optimizer.zero_grad()
 
-            self.optimizer_step += 1
-
+        self.optimizer_step += 1
         self.hparams.lr_annealing(self.optimizer, self.optimizer_step)
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.hparams.lr_annealing_autoencoder(
