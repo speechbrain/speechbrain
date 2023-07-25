@@ -636,8 +636,8 @@ class DiffusionBrain(sb.Brain):
                 else lens
             )
             loss = self.hparams.compute_cost(
-                channels_last(preds),
-                channels_last(noise),
+                reshape_feats(preds),
+                reshape_feats(noise),
                 length=lens_diffusion,
             )
         else:
@@ -1371,8 +1371,22 @@ class DiffusionBrain(sb.Brain):
 DATASET_SPLITS = ["train", "valid", "test"]
 
 
-def channels_last(feats):
-    return feats.transpose(1, -1)
+def reshape_feats(feats):
+    """Reshapes tensors of shape (batch x channels x features x length)
+    to (batch x length x features), suitable for standard SpeechBrain
+    losses, such as `mse_loss`
+
+    Arguments
+    ---------
+    feats: torch.Tensor
+        a feature tensor of shape (batch x channels x features x length)
+
+    Returns
+    -------
+    result: torch.Tensor
+        a feature tensor of shape (batch x length x features)
+    """
+    return feats.squeeze(1).transpose(1, -1)
 
 
 def apply_sort(hparams, dataset):
@@ -1485,6 +1499,17 @@ def read_audio(wav, hparams):
 
 
 def enhance_with_random(dataset, hparams):
+    """Enhances the pipeline with an additional randomly chosen sample for
+    each sample - used for training the Done detector - to determine word
+    boundaries
+
+    Arguments
+    ---------
+    dataset: DynamicItemDataset
+        the dataset to be enhanced
+    hparams: dict
+        the hyperparameters dictionary
+    """
     item_count = len(dataset)
 
     @sb.utils.data_pipeline.provides("file_name_random", "sig_random")
