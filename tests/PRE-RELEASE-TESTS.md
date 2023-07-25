@@ -42,12 +42,34 @@ tests/.run-recipe-tests.sh
 ```
 tests/.run-HF-checks.sh
 ```
+10. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
 11. Check URLs
 ```
 tests/.run-url-checks.sh
 ```
 
 Make sure all the tests are passing. Also, make sure to check that the tutorials are working (we might set up an automatic test for that as well in the future).
+
+# HuggingFace API testing
+
+API testing cannot be automated within SpeechBrain, however, it is already done within HuggingFace repository!
+Steps to test them are:
+1. Go to the [api-inference-community](https://github.com/huggingface/api-inference-community) and clone it.
+2. Create a new conda environment and do ```pip install -r docker_images/speechbrain/requirements.txt```
+3. Then ```pip install -r requirements.txt``` and ```pip install -e .``` to install the api-inference-community package
+4. Go to the [test file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/tests/test_api.py) and make sure that all the models that you want to test are here. Ideally we just want one model per interface.
+5. Run ```pytest -sv --rootdir docker_images/speechbrain/ docker_images/speechbrain/``` and make sure that all tests are passing.
+
+if tests fail, it is most likely because one interface is missing, hence follow the next steps.
+
+## Adding an interface to the HuggingFace API.
+
+1. Go to the [api-inference-community](https://github.com/huggingface/api-inference-community) and clone it.
+2. Add the interface name to the [ModelType file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/common.py). This correspond to the ALL CAPITALIZED varables.
+3. If your interface can be derived from one of the existing pipelines in [here](https://github.com/huggingface/api-inference-community/tree/main/docker_images/speechbrain/app/pipelines), simply go to the good one, for instance [automatic-speech-recognition](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/pipelines/automatic_speech_recognition.py) and add your new interface *if statement*.
+4. If your interface cannot be derived from an existing pipeline, then you will need to create a new file [here](https://github.com/huggingface/api-inference-community/tree/main/docker_images/speechbrain/app/pipelines) and contact the HuggingFace team to move forward (see our HuggingFace Slack channel).
+5. Test your changes (see previous section).
+6. Once done, simply do a PR to the api-inference-community!
 
 # Maintainer checks for releases
 
