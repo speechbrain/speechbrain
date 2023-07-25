@@ -73,7 +73,7 @@ dec_attn_dim: !ref <dec_neurons>
 freeze_wav2vec: False
 
 # Outputs
-output_neurons: 3500  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 4652  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones

@@ -85,7 +85,7 @@ rnn_bidirectional: True
 dnn_blocks: 2
 dnn_neurons: 1024
 dec_neurons: 1024
-output_neurons: 3500  # index(blank/eos/bos) = 0
+output_neurons: 4652  # index(blank/eos/bos) = 0
 joint_dim: 1024
 blank_index: 0
 
