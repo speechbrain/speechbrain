@@ -568,7 +568,8 @@ class Brain:
         # The next line ensures that both tensors marked as parameters and standard tensors,
         # such as those used in InputNormalization, are placed on the right device.
         for module in self.modules:
-            self.modules[module] = self.modules[module].to(self.device)
+            if hasattr(self.modules[module], "to"):
+                self.modules[module] = self.modules[module].to(self.device)
 
         # Make hyperparams available with dot notation too
         if hparams is not None:
