@@ -3,10 +3,14 @@
 Authors
  * Mickael Rouvier 2022
 """
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
+
+from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
+from speechbrain.nnet.linear import Linear
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -381,23 +385,63 @@ class Classifier(torch.nn.Module):
     ---------
     device : str
         Device used, e.g., "cpu" or "cuda".
+    lin_blocks : int
+        Number of linear layers.
     lin_neurons : int
         Number of neurons in linear layers.
     out_neurons : int
         Number of classes.
+
+    Example
+    -------
+    >>> classify = Classifier(input_size=2, lin_neurons=2, out_neurons=2)
+    >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
+    >>> outupts = outputs.unsqueeze(1)
+    >>> cos = classify(outputs)
+    >>> (cos < -1.0).long().sum()
+    tensor(0)
+    >>> (cos > 1.0).long().sum()
+    tensor(0)
     """
 
     def __init__(
         self,
-        lin_neurons=256,
-        out_neurons=5994,
+        input_size,
+        device="cpu",
+        lin_blocks=0,
+        lin_neurons=192,
+        out_neurons=1211,
     ):
         super().__init__()
-        self.W = nn.Parameter(torch.FloatTensor(out_neurons, lin_neurons))
-        nn.init.xavier_uniform_(self.W)
+        self.blocks = nn.ModuleList()
+
+        for _ in range(lin_blocks):
+            self.blocks.extend(
+                [
+                    _BatchNorm1d(input_size=input_size),
+                    Linear(input_size=input_size, n_neurons=lin_neurons),
+                ]
+            )
+            input_size = lin_neurons
+
+        # Final Layer
+        self.weight = nn.Parameter(
+            torch.FloatTensor(out_neurons, input_size, device=device)
+        )
+        nn.init.xavier_uniform_(self.weight)
 
     def forward(self, x):
-        x = F.normalize(x)
-        W = F.normalize(self.W)
+        """Returns the output probabilities over speakers.
 
-        return F.linear(x, W)
+        Arguments
+        ---------
+        x : torch.Tensor
+            Torch tensor.
+        """
+        for layer in self.blocks:
+            x = layer(x)
+
+        # Need to be normalized
+        x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
+        return x.unsqueeze(1)
+
