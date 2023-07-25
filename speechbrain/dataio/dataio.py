@@ -1156,8 +1156,23 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
         the dimension representing the length
     mask_value: mixed
         the value to be assigned to padding positions
-    """
 
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.arange(5).unsqueeze(0).repeat(3, 1)
+    >>> x = x + torch.arange(3).unsqueeze(-1)
+    >>> x
+    tensor([[0, 1, 2, 3, 4],
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6]])
+    >>> length = torch.tensor([0.4, 1.0, 0.6])
+    >>> clean_padding_(x, length=length, mask_value=10.)
+    >>> x
+    tensor([[ 0,  1, 10, 10, 10],
+            [ 1,  2,  3,  4,  5],
+            [ 2,  3,  4, 10, 10]])
+    """
     max_len = tensor.size(len_dim)
     mask = length_to_mask(length * max_len, max_len).bool()
     new_shape = [1] * tensor.dim()
@@ -1185,6 +1200,22 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
         the dimension representing the length
     mask_value: mixed
         the value to be assigned to padding positions
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.arange(5).unsqueeze(0).repeat(3, 1)
+    >>> x = x + torch.arange(3).unsqueeze(-1)
+    >>> x
+    tensor([[0, 1, 2, 3, 4],
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6]])
+    >>> length = torch.tensor([0.4, 1.0, 0.6])
+    >>> x_p = clean_padding(x, length=length, mask_value=10.)
+    >>> x_p
+    tensor([[ 0,  1, 10, 10, 10],
+            [ 1,  2,  3,  4,  5],
+            [ 2,  3,  4, 10, 10]])
     """
 
     result = tensor.clone()

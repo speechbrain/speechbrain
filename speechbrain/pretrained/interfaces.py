@@ -2908,7 +2908,7 @@ class HIFIGAN(Pretrained):
         return self.decode_batch(spectrogram)
 
 
-class DIFFUSION_VOCODER(Pretrained):
+class DiffusionVocoder(Pretrained):
     """
     A ready-to-use inference wrapper for Diffusion vocoders.
     The wrapper allows to perform generative tasks:

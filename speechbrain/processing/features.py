@@ -1217,10 +1217,12 @@ class InputNormalization(torch.nn.Module):
 
 
 class GlobalNorm(torch.nn.Module):
-    """
-    A global normalization module - computes a single mean and standard deviation
+    """A global normalization module - computes a single mean and standard deviation
     for the entire batch across unmasked positions and uses it to normalize the
-    inputs to the desired mean and standard deviation
+    inputs to the desired mean and standard deviation.
+
+    This normalization is reversible - it is possible to use the .denormalize()
+    method to reover the original values.
 
     Arguments
     ---------
@@ -1236,6 +1238,39 @@ class GlobalNorm(torch.nn.Module):
         the value with which to fill masked positions
         without a mask_value, the masked positions would be normalized,
         which might not be desired
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.processing.features import GlobalNorm
+    >>> global_norm = GlobalNorm(
+    ...     norm_mean=0.5,
+    ...     norm_std=0.2,
+    ...     update_steps=3,
+    ...     length_dim=1
+    ... )
+    >>> x = torch.tensor([[1., 2., 3.]])
+    >>> x_norm = global_norm(x)
+    >>> x_norm
+    tensor([[0.3000, 0.5000, 0.7000]])
+    >>> x = torch.tensor([[5., 10., -4.]])
+    >>> x_norm = global_norm(x)
+    >>> x_norm
+    tensor([[0.6071, 0.8541, 0.1623]])
+    >>> x_denorm = global_norm.denormalize(x_norm)
+    >>> x_denorm
+    tensor([[ 5.0000, 10.0000, -4.0000]])
+    >>> x = torch.tensor([[100., -100., -50.]])
+    >>> global_norm.freeze()
+    >>> global_norm(x)
+    tensor([[ 5.3016, -4.5816, -2.1108]])
+    >>> global_norm.denormalize(x_norm)
+    tensor([[ 5.0000, 10.0000, -4.0000]])
+    >>> global_norm.unfreeze()
+    >>> global_norm(x)
+    tensor([[ 5.3016, -4.5816, -2.1108]])
+    >>> global_norm.denormalize(x_norm)
+    tensor([[ 5.0000, 10.0000, -4.0000]])
     """
 
     def __init__(
