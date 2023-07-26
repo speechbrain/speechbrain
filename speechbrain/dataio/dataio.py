@@ -1172,14 +1172,35 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
     tensor([[ 0,  1, 10, 10, 10],
             [ 1,  2,  3,  4,  5],
             [ 2,  3,  4, 10, 10]])
+    >>> x = torch.arange(5)[None, :, None].repeat(3, 1, 2)
+    >>> x = x + torch.arange(3)[:, None, None]
+    >>> x = x * torch.arange(1, 3)[None, None, :]
+    >>> x = x.transpose(1, 2)
+    >>> x
+    tensor([[[ 0,  1,  2,  3,  4],
+             [ 0,  2,  4,  6,  8]],
+    <BLANKLINE>
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4,  5,  6],
+             [ 4,  6,  8, 10, 12]]])
+    >>> clean_padding_(x, length=length, mask_value=10., len_dim=2)
+    >>> x
+    tensor([[[ 0,  1, 10, 10, 10],
+             [ 0,  2, 10, 10, 10]],
+    <BLANKLINE>    
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4, 10, 10],
+             [ 4,  6,  8, 10, 10]]])
     """
     max_len = tensor.size(len_dim)
     mask = length_to_mask(length * max_len, max_len).bool()
-    new_shape = [1] * tensor.dim()
-    new_shape[0] = tensor.size(0)
-    new_shape[len_dim] = mask.size(1)
-    mask = mask.view(new_shape).expand_as(tensor)
-    tensor[~mask] = mask_value
+    mask_unsq = mask[(...,) + (None,) * (tensor.dim() - 2)]
+    mask_t = mask_unsq.transpose(1, len_dim).expand_as(tensor)
+    tensor[~mask_t] = mask_value
 
 
 def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
@@ -1216,6 +1237,29 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
     tensor([[ 0,  1, 10, 10, 10],
             [ 1,  2,  3,  4,  5],
             [ 2,  3,  4, 10, 10]])
+    >>> x = torch.arange(5)[None, :, None].repeat(3, 1, 2)
+    >>> x = x + torch.arange(3)[:, None, None]
+    >>> x = x * torch.arange(1, 3)[None, None, :]
+    >>> x = x.transpose(1, 2)
+    >>> x
+    tensor([[[ 0,  1,  2,  3,  4],
+             [ 0,  2,  4,  6,  8]],
+    <BLANKLINE>
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4,  5,  6],
+             [ 4,  6,  8, 10, 12]]])
+    >>> x_p = clean_padding(x, length=length, mask_value=10., len_dim=2)
+    >>> x_p
+    tensor([[[ 0,  1, 10, 10, 10],
+             [ 0,  2, 10, 10, 10]],
+    <BLANKLINE>    
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4, 10, 10],
+             [ 4,  6,  8, 10, 10]]])
     """
 
     result = tensor.clone()
