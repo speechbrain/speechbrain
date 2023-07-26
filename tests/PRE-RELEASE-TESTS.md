@@ -57,8 +57,9 @@ Steps to test them are:
 1. Go to the [api-inference-community](https://github.com/huggingface/api-inference-community) and clone it.
 2. Create a new conda environment and do ```pip install -r docker_images/speechbrain/requirements.txt```
 3. Then ```pip install -r requirements.txt``` and ```pip install -e .``` to install the api-inference-community package
-4. Go to the [test file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/tests/test_api.py) and make sure that all the models that you want to test are here. Ideally we just want one model per interface.
-5. Run ```pytest -sv --rootdir docker_images/speechbrain/ docker_images/speechbrain/``` and make sure that all tests are passing.
+4. If not already installed, please install ffmpeg with  ```conda install -c conda-forge ffmpeg```
+5. Go to the [test file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/tests/test_api.py) and make sure that all the models that you want to test are here. Ideally we just want one model per interface.
+6. Run ```pytest -sv --rootdir docker_images/speechbrain/ docker_images/speechbrain/``` and make sure that all tests are passing.
 
 if tests fail, it is most likely because one interface is missing, hence follow the next steps.
 
