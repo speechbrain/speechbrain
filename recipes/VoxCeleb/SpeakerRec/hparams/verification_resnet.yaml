@@ -5,13 +5,14 @@
 #          Xuechen Liu 2023
 # ################################
 
-seed: 1234
+seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
+# data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
+data_folder: data/voxceleb1
 output_folder: results/resnet/<seed>
-save_folder: !ref <output_folder>/save/
+save_folder: !ref <output_folder>/save/CKPT+2023-07-26+04-56-09+00
 
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
@@ -25,7 +26,8 @@ verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test
 # is downloaded from the speechbrain HuggingFace repository.
 # However, a local path pointing to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-pretrain_path: speechbrain/spkrec-resnet-voxceleb
+# pretrain_path: speechbrain/spkrec-resnet-voxceleb
+pretrain_path: results/resnet/1986/save/CKPT+2023-07-26+04-56-09+00
 
 # csv files
 train_data: !ref <save_folder>/train.csv
@@ -62,14 +64,13 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+embedding_model: !new:speechbrain.lobes.models.ResNet.ResNet
     input_size: !ref <n_mels>
-    channels: [1024, 1024, 1024, 1024, 3072]
-    kernel_sizes: [5, 3, 3, 3, 1]
-    dilations: [1, 2, 3, 4, 1]
-    attention_channels: 128
-    lin_neurons: 192
-
+    channels: [128, 128, 256, 256]
+    strides: [1, 2, 2, 2]
+    block_sizes: [3, 4, 6, 3]
+    lin_neurons: 256
+    
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
