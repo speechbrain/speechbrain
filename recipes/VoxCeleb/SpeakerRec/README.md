@@ -92,7 +92,7 @@ Below results are all obtained with the official verification split of voxceleb1
 |-----------------|------------|------|------|------| -----| 
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.90% | - | - | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 | ECAPA-TDNN      | VoxCeleb 2 | 1.30% | 1.98% | 3.62% | (to be updated) |
-| ResNet TDNN     | VoxCeleb 1,2 |     |       |       | (to be updated) |
+| ResNet TDNN     | VoxCeleb 1,2 | 1.05% | - | - | (to be updated) |
 
 
 ## PreTrained Model + Easy-Inference
