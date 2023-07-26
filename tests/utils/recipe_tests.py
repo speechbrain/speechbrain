@@ -13,6 +13,7 @@ from time import time
 import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
 from tests.consistency.test_recipe import __skip_list
+from speechbrain.utils.data_utils import download_file  # noqa: F401
 
 
 def check_row_for_test(row, filters_fields, filters, test_field):
@@ -67,6 +68,7 @@ def prepare_test(
     hparam_field="Hparam_file",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
+    download_field="test_download",
     filters_fields=[],
     filters=[],
 ):
@@ -84,6 +86,9 @@ def prepare_test(
         Field of the csv recipe file containing the test flags.
     check_field: string
         Field of the csv recipe file containing the checks to perform.
+    download_field: string
+        Field of the csv recipe file containing files or folders to download for
+        each test (optional).
     filters_fields: list
         This can be used with the "filter" variable
         to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
@@ -101,6 +106,8 @@ def prepare_test(
         A dictionary containing recipe IDs as keys and the test flags as values.
     test_check: dict
         A dictionary containing recipe IDs as keys and the checks as values.
+    test_download: dict
+        A dictionary containing recipe IDs as keys and the checks as values.
     """
 
     # Dictionary initialization
@@ -108,6 +115,7 @@ def prepare_test(
     test_hparam = {}
     test_flag = {}
     test_check = {}
+    test_download = {}
 
     # Loop over all recipe CSVs
     print(f"\tfilters_fields={filters_fields} => filters={filters}")
@@ -134,7 +142,11 @@ def prepare_test(
                 test_flag[recipe_id] = row[test_field].strip()
                 test_check[recipe_id] = row[check_field].strip()
 
-    return test_script, test_hparam, test_flag, test_check
+                # Manage test_download (optional field)
+                if download_field in row:
+                    test_download[recipe_id] = row[download_field].strip()
+
+    return test_script, test_hparam, test_flag, test_check, test_download
 
 
 def check_files(
@@ -437,7 +449,13 @@ def run_recipe_tests(
     print("Test ouputs will be put in %s" % (output_folder))
 
     # Read the csv recipe file and detect which tests we have to run
-    test_script, test_hparam, test_flag, test_check = prepare_test(
+    (
+        test_script,
+        test_hparam,
+        test_flag,
+        test_check,
+        test_download,
+    ) = prepare_test(
         recipe_folder,
         script_field,
         hparam_field,
@@ -494,6 +512,12 @@ def run_recipe_tests(
             "(%i/%i) Running test for %s..."
             % (i + 1, len(test_script.keys()), recipe_id)
         )
+
+        if recipe_id in test_download:
+            download_cmds = test_download[recipe_id].split(";")
+            for download_cmd in download_cmds:
+                print("\t" + download_cmd)
+                eval(download_cmd)
 
         # Check for setup scripts
         setup_script = os.path.join(
