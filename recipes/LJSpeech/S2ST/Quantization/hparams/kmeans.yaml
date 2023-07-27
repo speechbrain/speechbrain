@@ -8,7 +8,7 @@
 ###################################
 # Experiment Parameters and setup #
 ###################################
-seed: 1234
+seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 no_cuda: False
 output_folder: !ref ./results/kmeans/<seed>
@@ -27,13 +27,13 @@ skip_prep: False
 sample_pct: 0.2
 
 # URL for the HuggingFace model we want to load
-encoder_hub: voidful/mhubert-base #!PLACEHOLDER
-layer: 11 #!PLACEHOLDER
+encoder_hub: facebook/hubert-base-ls960 #!PLACEHOLDER
+layer: 6 #!PLACEHOLDER
 
 ####################
 # Model Parameters #
 ####################
-num_clusters: 1000
+num_clusters: 100
 init: k-means++
 max_iter: 100
 batch_size: 10000

@@ -1,7 +1,7 @@
 ###################################
 # Experiment Parameters and setup #
 ###################################
-seed: 1234
+seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/hifi_gan/<seed>
 save_folder: !ref <output_folder>/save
@@ -23,9 +23,9 @@ splits: ["train", "valid"]
 split_ratio: [90, 10]
 
 kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/1234/save
-kmeans_size: #!PLACEHOLDER
-encoder_hub: #!PLACEHOLDER
-layer: #!PLACEHOLDER
+kmeans_size: 100
+encoder_hub: facebook/hubert-base-ls960
+layer: 6
 
 ################################
 # Audio Parameters             #
