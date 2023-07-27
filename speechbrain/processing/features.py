@@ -1422,16 +1422,34 @@ class GlobalNorm(torch.nn.Module):
 
 
 class MinLevelNorm(torch.nn.Module):
-    """A normalization for the decibel scale
+    """A commonly used normalization for the decibel scale
 
     The scheme is as follows
 
     x_norm = (x - min_level_db)/-min_level_db * 2 - 1
 
+    The rationale behind the scheme is as follows:
+
+    The top of the scale is assumed to be 0db.
+    x_rel = (x - min) / (max - min) gives the relative position on the scale
+    between the minimum and the maximum where the minimum is 0. and the
+    maximum is 1.
+
+    The subsequent rescaling (x_rel * 2 - 1) puts it on a scale from -1. to 1.
+    with the middle of the range centered at zero.
+
     Arguments
     ---------
     min_level_db: float
         the minimum level
+
+    Example
+    -------
+    >>> norm = MinLevelNorm(min_level_db=-100.)
+    >>> x = torch.tensor([-50., -20., -80.])
+    >>> x_norm = norm(x)
+    >>> x_norm
+    tensor([ 0.0000,  0.6000, -0.6000])
     """
 
     def __init__(self, min_level_db):
@@ -1488,6 +1506,17 @@ class DynamicRangeCompression(torch.nn.Module):
     clip_val: float
         the minimum accepted value (values below this
         minimum will be clipped)
+
+    Example
+    -------
+    >>> drc = DynamicRangeCompression()
+    >>> x = torch.tensor([10., 20., 0., 30.])
+    >>> drc(x)
+    tensor([  2.3026,   2.9957, -11.5129,   3.4012])
+    >>> drc = DynamicRangeCompression(2.)
+    >>> x = torch.tensor([10., 20., 0., 30.])
+    >>> drc(x)
+    tensor([  2.9957,   3.6889, -10.8198,   4.0943]
     """
 
     def __init__(self, multiplier=1, clip_val=1e-5):

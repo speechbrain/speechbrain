@@ -1189,7 +1189,7 @@ def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
     >>> x
     tensor([[[ 0,  1, 10, 10, 10],
              [ 0,  2, 10, 10, 10]],
-    <BLANKLINE>    
+    <BLANKLINE>
             [[ 1,  2,  3,  4,  5],
              [ 2,  4,  6,  8, 10]],
     <BLANKLINE>
@@ -1254,7 +1254,7 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
     >>> x_p
     tensor([[[ 0,  1, 10, 10, 10],
              [ 0,  2, 10, 10, 10]],
-    <BLANKLINE>    
+    <BLANKLINE>
             [[ 1,  2,  3,  4,  5],
              [ 2,  4,  6,  8, 10]],
     <BLANKLINE>

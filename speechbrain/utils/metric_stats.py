@@ -936,10 +936,11 @@ class MultiMetricStats:
     Arguments
     ---------
     metric : function
-        The function to use to compute the relevant metric. Should take
+        The function to use to compute the relevant metrics. Should take
         at least two arguments (predictions and targets) and can
         optionally take the relative lengths of either or both arguments.
-        Not usually used in sub-classes.
+        The function should return a dict or a namedtuple
+
     batch_eval: bool
         When True it feeds the evaluation metric with the batched input.
         When False and n_jobs=1, it performs metric evaluation one-by-one
@@ -949,6 +950,52 @@ class MultiMetricStats:
         The number of jobs to use for computing the metric. If this is
         more than one, every sample is processed individually, otherwise
         the whole batch is passed at once.
+
+    Example
+    -------
+    >>> def metric(a, b):
+    ...    return {
+    ...        "sum": a + b,
+    ...        "diff": a - b,
+    ...        "sum_sq": a**2 + b**2
+    ...    }
+    >>> multi_metric = MultiMetricStats(metric, batch_eval=True)
+    >>> multi_metric.append([1, 2], a=torch.tensor([2.0, 1.0]), b=torch.tensor([1.0, 2.0]))
+    >>> multi_metric.append([3, 4], a=torch.tensor([4.0, 5.0]), b=torch.tensor([0.0, 1.0]))
+    >>> multi_metric.append([5, 6], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
+    >>> multi_metric.append([7, 8], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
+    >>> multi_metric.summarize() #doctest: +NORMALIZE_WHITESPACE
+    {'sum': {'average': 5.0,
+      'min_score': 3.0,
+      'min_id': 1,
+      'max_score': 6.0,
+      'max_id': 4},
+     'diff': {'average': 1.0,
+      'min_score': -2.0,
+      'min_id': 5,
+      'max_score': 4.0,
+      'max_id': 3},
+     'sum_sq': {'average': 16.5,
+      'min_score': 5.0,
+      'min_id': 1,
+      'max_score': 26.0,
+      'max_id': 4}}
+    >>> multi_metric.summarize(flat=True) #doctest: +NORMALIZE_WHITESPACE
+    {'sum_average': 5.0,
+     'sum_min_score': 3.0,
+     'sum_min_id': 1,
+     'sum_max_score': 6.0,
+     'sum_max_id': 4,
+     'diff_average': 1.0,
+     'diff_min_score': -2.0,
+     'diff_min_id': 5,
+     'diff_max_score': 4.0,
+     'diff_max_id': 3,
+     'sum_sq_average': 16.5,
+     'sum_sq_min_score': 5.0,
+     'sum_sq_min_id': 1,
+     'sum_sq_max_score': 26.0,
+     'sum_sq_max_id': 4}
     """
 
     def __init__(self, metric, n_jobs=1, batch_eval=False):
@@ -1037,7 +1084,17 @@ class MultiMetricStats:
 def _dictify(f):
     """A wrapper that converts functions returning
     namedtuples to functions returning dicts while leaving
-    functions returning dicts intact"""
+    functions returning dicts intact
+
+    Arguments
+    ---------
+    f: callable
+        a function
+
+    Returns
+    -------
+    result: callable
+        a wrapped function"""
     has_asdict = None
 
     def wrapper(*args, **kwargs):

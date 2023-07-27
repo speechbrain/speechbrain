@@ -638,7 +638,20 @@ def distance_diff_loss(
     reduction : str
         Options are 'mean', 'batch', 'batchmean', 'sum'.
         See pytorch for 'mean', 'sum'. The 'batch' option returns
-        one loss per item in the batch, 'batchmean' returns sum / batch size.
+        one loss per item in the batch, 'batchmean' returns sum / batch size
+
+    Example
+    -------
+    >>> predictions = torch.tensor(
+    ...    [[0.25, 0.5, 0.25, 0.0],
+    ...     [0.05, 0.05, 0.9, 0.0],
+    ...     [8.0, 0.10, 0.05, 0.05]]
+    ... )
+    >>> targets = torch.tensor([2., 3., 1.])
+    >>> length = torch.tensor([.75, .75, 1.])
+    >>> loss = distance_diff_loss(predictions, targets, length)
+    >>> loss
+    tensor(0.2967)
     """
     return compute_masked_loss(
         functools.partial(
@@ -768,7 +781,73 @@ def compute_length_mask(data, length=None, len_dim=1):
     data: torch.tensor
         the data shape
     len_dim: int
-        the length dimension (defaults to 1)"""
+        the length dimension (defaults to 1)
+
+    Returns
+    -------
+    mask: torch.Tensor
+        the mask
+
+    Example
+    -------
+    >>> data = torch.arange(5)[None, :, None].repeat(3, 1, 2)
+    >>> data += torch.arange(1, 4)[:, None, None]
+    >>> data *= torch.arange(1, 3)[None, None, :]
+    >>> data
+    tensor([[[ 1,  2],
+             [ 2,  4],
+             [ 3,  6],
+             [ 4,  8],
+             [ 5, 10]],
+    <BLANKLINE>
+            [[ 2,  4],
+             [ 3,  6],
+             [ 4,  8],
+             [ 5, 10],
+             [ 6, 12]],
+    <BLANKLINE>
+            [[ 3,  6],
+             [ 4,  8],
+             [ 5, 10],
+             [ 6, 12],
+             [ 7, 14]]])
+    >>> compute_length_mask(data, torch.tensor([1., .4, .8]))
+    tensor([[[1, 1],
+             [1, 1],
+             [1, 1],
+             [1, 1],
+             [1, 1]],
+    <BLANKLINE>
+            [[1, 1],
+             [1, 1],
+             [0, 0],
+             [0, 0],
+             [0, 0]],
+    <BLANKLINE>
+            [[1, 1],
+             [1, 1],
+             [1, 1],
+             [1, 1],
+             [0, 0]]])
+    >>> compute_length_mask(data, torch.tensor([.5, 1., .5]), len_dim=2)
+    tensor([[[1, 0],
+             [1, 0],
+             [1, 0],
+             [1, 0],
+             [1, 0]],
+    <BLANKLINE>
+            [[1, 1],
+             [1, 1],
+             [1, 1],
+             [1, 1],
+             [1, 1]],
+    <BLANKLINE>
+            [[1, 0],
+             [1, 0],
+             [1, 0],
+             [1, 0],
+             [1, 0]]])
+    """
     mask = torch.ones_like(data)
     if length is not None:
         length_mask = length_to_mask(
@@ -778,7 +857,7 @@ def compute_length_mask(data, length=None, len_dim=1):
         # Handle any dimensionality of input
         while len(length_mask.shape) < len(mask.shape):
             length_mask = length_mask.unsqueeze(-1)
-        length_mask = length_mask.type(mask.dtype)
+        length_mask = length_mask.type(mask.dtype).transpose(1, len_dim)
         mask *= length_mask
     return mask
 
@@ -1415,8 +1494,51 @@ class VariationalAutoencoderLoss(nn.Module):
     rec_loss: callable
         a function or module to compute the reconstruction loss
 
+    len_dim: int
+        the dimension to be used for the length, if encoding sequences
+        of variable length
+
     dist_loss_weight: float
         the relative weight of the distribution loss (K-L divergence)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.autoencoder import VariationalAutoencoderOutput
+    >>> vae_loss = VariationalAutoencoderLoss(dist_loss_weight=0.5)
+    >>> predictions = VariationalAutoencoderOutput(
+    ...     rec=torch.tensor(
+    ...         [[0.8, 1.0],
+    ...          [1.2, 0.6],
+    ...          [0.4, 1.4]]
+    ...         ),
+    ...     mean=torch.tensor(
+    ...         [[0.5, 1.0],
+    ...          [1.5, 1.0],
+    ...          [1.0, 1.4]],
+    ...         ),
+    ...     log_var=torch.tensor(
+    ...         [[0.0, -0.2],
+    ...          [2.0, -2.0],
+    ...          [0.2,  0.4]],
+    ...         ),
+    ...     latent=torch.randn(3, 1),
+    ...     latent_sample=torch.randn(3, 1),
+    ...     latent_length=torch.tensor([1., 1., 1.]),
+    ... )
+    >>> targets = torch.tensor(
+    ...     [[0.9, 1.1],
+    ...      [1.4, 0.6],
+    ...      [0.2, 1.4]]
+    ... )
+    >>> loss = vae_loss(predictions, targets)
+    >>> loss
+    tensor(1.1264)
+    >>> details = vae_loss.details(predictions, targets)
+    >>> details  #doctest: +NORMALIZE_WHITESPACE
+    VariationalAutoencoderLossDetails(loss=tensor(1.1264),
+                                      rec_loss=tensor(0.0333),
+                                      dist_loss=tensor(2.1861),
+                                      weighted_dist_loss=tensor(1.0930))
     """
 
     def __init__(self, rec_loss=None, len_dim=1, dist_loss_weight=0.001):
@@ -1433,7 +1555,7 @@ class VariationalAutoencoderLoss(nn.Module):
         Arguments
         ---------
         predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
-            the variational autoencoder output (or a tuple of rec, mean, log_var)
+            the variational autoencoder output
         targets: torch.Tensor
             the reconstruction targets
         length : torch.Tensor
@@ -1516,26 +1638,54 @@ class AutoencoderLoss(nn.Module):
     rec_loss: callable
         the callable to compute the reconstruction loss
     len_dim: torch.Tensor
-        the dimension index to be used for length"""
+        the dimension index to be used for length
+
+
+    Example
+    -------
+    >>> from speechbrain.nnet.autoencoder import AutoencoderOutput
+    >>> ae_loss = AutoencoderLoss()
+    >>> rec = torch.tensor(
+    ...   [[0.8, 1.0],
+    ...    [1.2, 0.6],
+    ...    [0.4, 1.4]]
+    ... )
+    >>> predictions = AutoencoderOutput(
+    ...     rec=rec,
+    ...     latent=torch.randn(3, 1),
+    ...     latent_length=torch.tensor([1., 1.])
+    ... )
+    >>> targets = torch.tensor(
+    ...     [[0.9, 1.1],
+    ...      [1.4, 0.6],
+    ...      [0.2, 1.4]]
+    ... )
+    >>> ae_loss(predictions, targets)
+    tensor(0.0333)
+    >>> ae_loss.details(predictions, targets)
+    AutoencoderLossDetails(loss=tensor(0.0333), rec_loss=tensor(0.0333))
+    """
 
     def __init__(self, rec_loss=None, len_dim=1):
         super().__init__()
+        if rec_loss is None:
+            rec_loss = mse_loss
         self.rec_loss = rec_loss
         self.len_dim = len_dim
 
     def forward(self, predictions, targets, length=None, reduction="batchmean"):
         """Computes the autoencoder loss
+
         Arguments
         ---------
-
         predictions: speechbrain.nnet.autoencoder.AutoencoderOutput
             the autoencoder output
 
         targets: torch.Tensor
             targets for the reconstruction loss
 
-        length : torch.Tensor
-            Length of each sample for computing true error with a mask.
+        length: torch.Tensor
+            Length of each sample for computing true error with a mask
 
         """
         rec_loss = self._align_length_axis(
@@ -1552,8 +1702,8 @@ class AutoencoderLoss(nn.Module):
 
         Arguments
         ---------
-        predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
-            the variational autoencoder output (or a tuple of rec, mean, log_var)
+        predictions: speechbrain.nnet.autoencoder.AutoencoderOutput
+            the  autoencoder output
 
         targets: torch.Tensor
             targets for the reconstruction loss
@@ -1567,7 +1717,7 @@ class AutoencoderLoss(nn.Module):
 
         Results
         -------
-        details: VAELossDetails
+        details: AutoencoderLossDetails
             a namedtuple with the following parameters
             loss: torch.Tensor
                 the combined loss
@@ -1583,8 +1733,11 @@ class AutoencoderLoss(nn.Module):
 
 def _reduce_autoencoder_loss(loss, length, reduction):
     max_len = loss.size(1)
-    mask = length_to_mask(length * max_len, max_len)
-    mask = unsqueeze_as(mask, loss).expand_as(loss)
+    if length is not None:
+        mask = length_to_mask(length * max_len, max_len)
+        mask = unsqueeze_as(mask, loss).expand_as(loss)
+    else:
+        mask = torch.ones_like(loss)
     reduced_loss = reduce_loss(loss * mask, mask, reduction=reduction)
     return reduced_loss
 
@@ -1608,6 +1761,27 @@ class Laplacian(nn.Module):
         the size of the Laplacian kernel
     dtype: torch.dtype
         the data type (optional)
+
+    Example
+    -------
+    >>> lap = Laplacian(3)
+    >>> lap.get_kernel()
+    tensor([[[[-1., -1., -1.],
+              [-1.,  8., -1.],
+              [-1., -1., -1.]]]])
+    >>> data = torch.eye(6) + torch.eye(6).flip(0)
+    >>> data
+    tensor([[1., 0., 0., 0., 0., 1.],
+            [0., 1., 0., 0., 1., 0.],
+            [0., 0., 1., 1., 0., 0.],
+            [0., 0., 1., 1., 0., 0.],
+            [0., 1., 0., 0., 1., 0.],
+            [1., 0., 0., 0., 0., 1.]])
+    >>> lap(data.unsqueeze(0))
+    tensor([[[ 6., -3., -3.,  6.],
+             [-3.,  4.,  4., -3.],
+             [-3.,  4.,  4., -3.],
+             [ 6., -3., -3.,  6.]]])
     """
 
     def __init__(self, kernel_size, dtype=torch.float32):
@@ -1641,7 +1815,10 @@ class Laplacian(nn.Module):
 
 class LaplacianVarianceLoss(nn.Module):
     """The Laplacian variance loss - used to penalize blurriness in image-like
-    data, such as spectrograms
+    data, such as spectrograms.
+
+    The loss value will be the negative variance because the
+    higher the variance, the sharper the image.
 
     Arguments
     ---------
@@ -1650,6 +1827,32 @@ class LaplacianVarianceLoss(nn.Module):
 
     len_dim: int
         the dimension to be used as the length
+
+    Example
+    -------
+    >>> lap_loss = LaplacianVarianceLoss(3)
+    >>> data = torch.ones(6, 6).unsqueeze(0)
+    >>> data
+    tensor([[[1., 1., 1., 1., 1., 1.],
+             [1., 1., 1., 1., 1., 1.],
+             [1., 1., 1., 1., 1., 1.],
+             [1., 1., 1., 1., 1., 1.],
+             [1., 1., 1., 1., 1., 1.],
+             [1., 1., 1., 1., 1., 1.]]])
+    >>> lap_loss(data)
+    tensor(-0.)
+    >>> data = (
+    ...     torch.eye(6) + torch.eye(6).flip(0)
+    ... ).unsqueeze(0)
+    >>> data
+    tensor([[[1., 0., 0., 0., 0., 1.],
+             [0., 1., 0., 0., 1., 0.],
+             [0., 0., 1., 1., 0., 0.],
+             [0., 0., 1., 1., 0., 0.],
+             [0., 1., 0., 0., 1., 0.],
+             [1., 0., 0., 0., 0., 1.]]])
+    >>> lap_loss(data)
+    tensor(-17.6000)
     """
 
     def __init__(self, kernel_size=3, len_dim=1):
