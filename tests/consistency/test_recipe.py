@@ -8,7 +8,7 @@ import csv
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
 
-__skip_list = ["README.md", "setup"]
+__skip_list = ["README.md", "setup", "full_inference.csv"]
 
 
 def test_recipe_list(
