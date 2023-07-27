@@ -6,6 +6,7 @@ and the path to the parameter file.
 Authors
  * Aku Rouhe 2020
  * Andreas Nautsch 2023
+ * Adel Moumen 2023
 """
 import logging
 import pathlib
@@ -60,6 +61,7 @@ class Pretrainer:
         conditions=None,
     ):
         self.loadables = {}
+        self.loadable_paths = {}
         self.collect_in = pathlib.Path(collect_in)
         if loadables is not None:
             self.add_loadables(loadables)
@@ -202,7 +204,6 @@ class Pretrainer:
             f"Collecting files (or symlinks) for pretraining in {self.collect_in}."
         )
         self.collect_in.mkdir(exist_ok=True)
-        loadable_paths = {}
         for name in self.loadables:
             if not self.is_loadable(name):
                 continue
@@ -252,7 +253,7 @@ class Pretrainer:
                     use_auth_token=False,
                     revision=None,
                 )
-            loadable_paths[name] = path
+            self.loadable_paths[name] = path
             fetch_from = None
             if isinstance(source, FetchSource):
                 fetch_from, source = source
@@ -262,7 +263,7 @@ class Pretrainer:
                 logger.info(f"Set local path in self.paths[{name}] = {path}")
                 self.paths[name] = str(path)
                 self.is_local.append(name)
-        return loadable_paths
+        return self.loadable_paths
 
     def is_loadable(self, name):
         """Returns True if no condition is defined or for the specified
@@ -299,11 +300,18 @@ class Pretrainer:
             f"Loading pretrained files for: {', '.join(self.loadables)}"
         )
         paramfiles = {}
-        for name in self.loadables:
+        for name, path in self.loadable_paths.items():
             if not self.is_loadable(name):
                 continue
             filename = name + PARAMFILE_EXT
             paramfiles[name] = self.collect_in / filename
+            if not paramfiles[name].exists():
+                # fallback to the original path; this is useful if a relative path was given
+                logger.info(
+                    f"Redirecting (loading from original path): {paramfiles[name]} -> {path}"
+                )
+                paramfiles[name] = path
+
             if name in self.is_local:
                 logger.info(
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"

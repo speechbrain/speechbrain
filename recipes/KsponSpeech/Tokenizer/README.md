@@ -3,12 +3,12 @@ This folder contains the scripts to train a tokenizer using SentencePiece (https
 
 # How to run
 ```
-python train.py train/5K_unigram_subword_bpe.yaml
+python train.py hparams/5K_unigram_subword_bpe.yaml
 ```
 # Model link
-- 5K unigram model: [HuggingFace](https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech/blob/main/tokenizer.ckpt)
+- 5K unigram model: [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)
 
-The output folder with the logs and the tokenizers is available [here](https://drive.google.com/drive/folders/1zNGKDvHlLjQdUPrqP66vpD5RN9IIX6RC?usp=sharing).
+The output folder with the logs and the tokenizers is available [here](https://www.dropbox.com/sh/prnqt09e7xpc1kr/AAB-HkfUazPifn7kXnKnAJSga?dl=0).
 
 # About SpeechBrain
 - Website: https://speechbrain.github.io/

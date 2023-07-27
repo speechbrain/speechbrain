@@ -70,7 +70,7 @@ LANGUAGES = [
 def prepare_common_language(data_folder, save_folder, skip_prep=False):
     """
     Prepares the csv files for the CommonLanguage dataset for LID.
-    Download: https://drive.google.com/uc?id=1Vzgod6NEYO1oZoz_EcgpZkUO9ohQcO1F
+    Download: https://www.dropbox.com/s/qqpmqay3q9xb1vf/common_voice_kpd.tar.gz?dl=0
 
     Arguments
     ---------
