@@ -155,7 +155,14 @@ def prepare_test(
                 if message_field in row:
                     test_message[recipe_id] = row[message_field].strip()
 
-    return test_script, test_hparam, test_flag, test_check, test_download, test_message
+    return (
+        test_script,
+        test_hparam,
+        test_flag,
+        test_check,
+        test_download,
+        test_message,
+    )
 
 
 def check_files(
@@ -464,7 +471,7 @@ def run_recipe_tests(
         test_flag,
         test_check,
         test_download,
-        test_message
+        test_message,
     ) = prepare_test(
         recipe_folder,
         script_field,
@@ -561,7 +568,7 @@ def run_recipe_tests(
 
         # Print message (if any)
         if recipe_id in test_message:
-            print("\t\t"+test_message[recipe_id])
+            print("\t\t" + test_message[recipe_id])
 
         # Running the test
         time_start = time()

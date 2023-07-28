@@ -281,7 +281,12 @@ def recursive_update(d, u, must_match=False):
 
 
 def download_file(
-    source, dest, unpack=False, dest_unpack=None, replace_existing=False, write_permissions=False
+    source,
+    dest,
+    unpack=False,
+    dest_unpack=None,
+    replace_existing=False,
+    write_permissions=False,
 ):
     """Downloads the file from the given source and saves it in the given
     destination path.
@@ -348,6 +353,7 @@ def download_file(
 
     finally:
         sb.utils.distributed.ddp_barrier()
+
 
 def set_writing_permissions(folder_path):
     """
