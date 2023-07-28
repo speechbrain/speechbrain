@@ -887,6 +887,74 @@ def get_mask(source, source_lengths):
     return mask.transpose(-2, 1)
 
 
+def get_sa_sdr_with_graphpit(targets, estimates, segment_boundaries=None):
+    """Calculate SA-SDR with GraphPIT
+
+    Number of targets (C1) can be different than number of output channels (C2)
+
+    More details in https://github.com/fgnt/graph_pit
+
+    Arguments
+    ---------
+    targets - tensor of shape [B, T, C1]
+            - target sources
+    estimates - tensor of shape [B, T, C2]
+              - estimated sources
+    segment_boundaries - list of tuples (Optional)
+                       - contains target boundaries (start and end index for each target)
+                       - needed when C1 > C2
+    """
+    from graph_pit.loss.optimized import optimized_graph_pit_source_aggregated_sdr_loss
+    assert estimates.shape[0] == 1, (
+        "Batched input is not supported"
+    )
+
+    estimates = estimates.squeeze(0).permute(-1, 0)
+
+    if segment_boundaries is None:
+        # Valid for cases, where C2 >= C1
+        targets = [t for t in targets.squeeze(0).permute(-1, 0)]
+        segment_boundaries = [(0, estimates.shape[-1])] * len(targets)
+        assert len(estimates) >= len(targets), (
+            "Number of targets > number of output channels!\n"
+            "GraphPIT cannot be applied with implicit segment_boundaries.\n"
+            "Please provide segment_boundaries and list of targets w/o padding."
+        )
+    else:
+        assert isinstance(targets, list), (
+            "Invalid targets, list of 1D tensors expected!\n"
+            "Please provide targets as list of 1D tensors w/o padding"
+        )
+
+    return optimized_graph_pit_source_aggregated_sdr_loss(estimates, targets, segment_boundaries)
+
+
+def inactive_spkr_loss(mix, est_sources, tau=1e-2, eps=1e-8):
+    # loss = 10 * log10(sum_k(||x_hat_k||^2) + tau * ||y||^2)
+    x_energy = torch.sum(est_sources ** 2, dim=(1, 2)) # sum_k(||x_hat||^2) [B]
+    y_energy = torch.sum(mix ** 2, dim=-1) # ||y||^2 [B]
+    loss = 10 * torch.log10(x_energy + tau * y_energy + eps)
+    return loss
+
+
+class CompoundLoss(nn.Module):
+    def __init__(self, f_loss1, f_loss2, weight=1.0):
+        super(CompoundLoss, self).__init__()
+        self.loss1 = f_loss1
+        self.loss2 = f_loss2
+        self.weight = weight
+
+    def forward(self, mix, est_sources, targets, mix_n_sources):
+        if est_sources.size(-1) == mix_n_sources:
+            return self.loss1(targets, est_sources)
+        elif mix_n_sources == 0:
+            return self.loss2(mix, est_sources)
+        else:
+            loss1 = self.loss1(targets[:, :, :mix_n_sources], est_sources[:, :, :mix_n_sources])
+            loss2 = self.loss2(mix, est_sources[:, :, mix_n_sources:])
+            return loss1 + self.weight * loss2
+
+
 class AngularMargin(nn.Module):
     """
     An implementation of Angular Margin (AM) proposed in the following

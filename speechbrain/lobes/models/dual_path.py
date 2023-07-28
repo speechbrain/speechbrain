@@ -183,6 +183,7 @@ class Encoder(nn.Module):
 
     def __init__(self, kernel_size=2, out_channels=64, in_channels=1):
         super(Encoder, self).__init__()
+
         self.conv1d = nn.Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -192,6 +193,7 @@ class Encoder(nn.Module):
             bias=False,
         )
         self.in_channels = in_channels
+        self.out_channels = out_channels
 
     def forward(self, x):
         """Return the encoded output.
@@ -199,23 +201,35 @@ class Encoder(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor with dimensionality [B, L].
+            Input tensor with dimensionality [B, L] or [B, C, L],
+            where C = number of audio channels
         Return
         ------
         x : torch.Tensor
-            Encoded tensor with dimensionality [B, N, T_out].
+            Encoded tensor with dimensionality [B, C, N, T_out].
 
         where B = Batchsize
+              C = Number of channels
               L = Number of timepoints
               N = Number of filters
               T_out = Number of timepoints at the output of the encoder
         """
         # B x L -> B x 1 x L
-        if self.in_channels == 1:
+        if x.ndim == 2:
+            B, _ = x.shape
+            C = 1
             x = torch.unsqueeze(x, dim=1)
-        # B x 1 x L -> B x N x T_out
+        else:
+            B, C, _ = x.shape
+            # [BC, 1, L]
+            x = x.view(B*C, self.in_channels, -1)
+
+        # BC x 1 x L -> BC x N x T_out
         x = self.conv1d(x)
         x = F.relu(x)
+
+        # [B, C, N, L]
+        x = x.view(B, C, self.out_channels, -1)
 
         return x
 
@@ -251,16 +265,13 @@ class Decoder(nn.ConvTranspose1d):
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor with dimensionality [B, N, L].
+            Input tensor with dimensionality [B, L] or [B, N, L].
                 where, B = Batchsize,
                        N = number of filters
                        L = time points
         """
 
-        if x.dim() not in [2, 3]:
-            raise RuntimeError(
-                "{} accept 3/4D tensor as input".format(self.__name__)
-            )
+        assert x.dim() in [2, 3], "{} accept 2/3D tensor as input".format(self)
         x = super().forward(x if x.dim() == 3 else torch.unsqueeze(x, 1))
 
         if torch.squeeze(x).dim() == 1:
@@ -603,7 +614,7 @@ class SBTransformerBlock(nn.Module):
 
 
 class SBRNNBlock(nn.Module):
-    """RNNBlock for the dual path pipeline.
+    """RNN Block for the dual path pipeline.
 
     Arguments
     ---------
@@ -833,58 +844,64 @@ class Dual_Computation_Block(nn.Module):
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor of dimension [B, N, K, S].
+            Input tensor of dimension [B, C, N, K, S].
 
 
         Return
         ---------
         out: torch.Tensor
-            Output tensor of dimension [B, N, K, S].
+            Output tensor of dimension [B, C, N, K, S].
             where, B = Batchsize,
+               C = number of audio channels
                N = number of filters
                K = time points in each chunk
                S = the number of chunks
         """
-        B, N, K, S = x.shape
+        B, C, N, K, S = x.shape
         # intra RNN
-        # [BS, K, N]
-        intra = x.permute(0, 3, 2, 1).contiguous().view(B * S, K, N)
-        # [BS, K, H]
+        # [BCS, K, N]
+        intra = x.permute(0, 1, 4, 3, 2).contiguous().view(B * C * S, K, N)
 
+        # [BCS, K, H]
         intra = self.intra_mdl(intra)
 
-        # [BS, K, N]
+        # [BCS, K, N]
         if self.linear_layer_after_inter_intra:
             intra = self.intra_linear(intra)
 
-        # [B, S, K, N]
-        intra = intra.view(B, S, K, N)
-        # [B, N, K, S]
+        # [BC, S, K, N]
+        intra = intra.view(B*C, S, K, N)
+        # [BC, N, K, S]
         intra = intra.permute(0, 3, 2, 1).contiguous()
         if self.norm is not None:
             intra = self.intra_norm(intra)
 
-        # [B, N, K, S]
+        # [B, C, N, K, S]
+        intra = intra.contiguous().view(B, C, N, K, S)
         if self.skip_around_intra:
             intra = intra + x
 
         # inter RNN
-        # [BK, S, N]
-        inter = intra.permute(0, 2, 3, 1).contiguous().view(B * K, S, N)
-        # [BK, S, H]
+        # [BCK, S, N]
+        inter = intra.permute(0, 1, 3, 4, 2).contiguous().view(B * C * K, S, N)
+        # [BCK, S, H]
         inter = self.inter_mdl(inter)
 
-        # [BK, S, N]
+        # [BCK, S, N]
         if self.linear_layer_after_inter_intra:
             inter = self.inter_linear(inter)
 
-        # [B, K, S, N]
-        inter = inter.view(B, K, S, N)
-        # [B, N, K, S]
+        # [BC, K, S, N]
+        inter = inter.view(B*C, K, S, N)
+        # [BC, N, K, S]
         inter = inter.permute(0, 3, 1, 2).contiguous()
         if self.norm is not None:
             inter = self.inter_norm(inter)
-        # [B, N, K, S]
+
+        # [B, C, N, K, S]
+        inter = inter.contiguous().view(B, C, N, K, S)
+
+        # [B, C, N, K, S]
         out = inter + intra
 
         return out
@@ -986,13 +1003,14 @@ class Dual_Path_Model(nn.Module):
             nn.Conv1d(out_channels, out_channels, 1), nn.Sigmoid()
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         """Returns the output tensor.
 
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor of dimension [B, N, L].
+            Input tensor of dimension [B, C, N, L], 
+            where C = number of audio channels (optional)
 
         Returns
         -------
@@ -1006,23 +1024,39 @@ class Dual_Path_Model(nn.Module):
 
         # before each line we indicate the shape after executing the line
 
-        # [B, N, L]
+        assert x.ndim == 4, "Expected 4D (batched) input to Dual_Path_Model, but got input of size: {}".format(x.shape)
+
+        B, C, N, L = x.shape
+
+        # [BC, N, L]
+        x = x.contiguous().view(B*C, N, L)
+
+        # [BC, N, L]
         x = self.norm(x)
 
-        # [B, N, L]
+        # [BC, N, L]
         x = self.conv1d(x)
         if self.use_global_pos_enc:
             x = self.pos_enc(x.transpose(1, -1)).transpose(1, -1) + x * (
                 x.size(1) ** 0.5
             )
 
-        # [B, N, K, S]
+        # [BC, N, K, S]
         x, gap = self._Segmentation(x, self.K)
+        _, _, K, S = x.shape
 
-        # [B, N, K, S]
+        # [B, C, N, K, S]
+        x = x.contiguous().view(B, C, N, K, S)
+
+        # [B, C, N, K, S]
         for i in range(self.num_layers):
             x = self.dual_mdl[i](x)
         x = self.prelu(x)
+
+        # [B, N, K, S]
+        # aggregate over audio channels
+        # TODO: replace mean with something trainable, e.g. MHA
+        x = x.mean(dim=1)
 
         # [B, N*spks, K, S]
         x = self.conv2d(x)
@@ -1231,6 +1265,7 @@ class SepformerWrapper(nn.Module):
         inter_use_positional=True,
         intra_norm_before=True,
         inter_norm_before=True,
+        ref_channel=0,
     ):
 
         super(SepformerWrapper, self).__init__()
@@ -1268,6 +1303,7 @@ class SepformerWrapper(nn.Module):
             num_spks=masknet_numspks,
             skip_around_intra=masknet_extraskipconnection,
             linear_layer_after_inter_intra=masknet_useextralinearlayer,
+            ref_channel=ref_channel,
         )
         self.decoder = Decoder(
             in_channels=encoder_out_nchannels,
@@ -1277,6 +1313,7 @@ class SepformerWrapper(nn.Module):
             bias=False,
         )
         self.num_spks = masknet_numspks
+        self.ref_channel = ref_channel
 
         # reinitialize the parameters
         for module in [self.encoder, self.masknet, self.decoder]:
@@ -1292,9 +1329,13 @@ class SepformerWrapper(nn.Module):
 
     def forward(self, mix):
         """ Processes the input tensor x and returns an output tensor."""
+        # [B, C, N, L]
         mix_w = self.encoder(mix)
+        # [spks, B, N, L]
         est_mask = self.masknet(mix_w)
-        mix_w = torch.stack([mix_w] * self.num_spks)
+        # [spks, B, N, L]
+        mix_w = torch.stack([mix_w[:, self.ref_channel, :, :]] * self.num_spks)
+        # [spks, B, N, L]
         sep_h = mix_w * est_mask
 
         # Decoding

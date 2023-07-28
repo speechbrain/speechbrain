@@ -1,0 +1,216 @@
+# ################################
+# Model: SepFormer for source separation
+# https://arxiv.org/abs/2010.13154
+# Dataset : LibriCSS
+# ################################
+#
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+#
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data params
+
+# e.g. '/yourpath/LibriCSS'
+# the data folder is needed even if dynamic mixing is applied
+data_folder: !PLACEHOLDER
+
+# this is the base folder for dynamic mixing
+# e.g. /yourpath/LibriSpeech
+dm_data_folder: !PLACEHOLDER
+results_root: !PLACEHOLDER
+
+experiment_name: flexformer-libricss-16kHz-SA_SDR_GraphPIT
+output_folder: !ref <results_root>/<experiment_name>/<seed>
+train_log: !ref <output_folder>/train_log.txt
+save_folder: !ref <output_folder>/save
+train_data: !ref <save_folder>/train-clean-360.csv
+valid_data: !ref <save_folder>/libridm.csv
+test_data: !ref <save_folder>/libricss_utterances.csv
+#test_data:
+#    libricss: !ref <save_folder>/libricss_utterances.csv
+#    ami: !ref <save_folder>/ami_samples.csv
+skip_prep: True
+
+ckpt_interval_minutes: 60
+
+# Experiment params
+auto_mix_prec: True # Set it to True for mixed precision
+test_only: False
+num_spks: 2
+noprogressbar: False
+save_audio: True # Save estimated sources on disk
+n_audio_to_save: 20
+sample_rate: 16000
+logging_interval: 10
+audio_logging_interval: 5000
+
+# Training parameters
+N_epochs: 30
+N_steps: 30000
+batch_size: 1
+lr: 0.00015
+clip_grad_norm: 5
+loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
+# if True, the training sequences are cut to a specified length
+limit_training_signal_len: True
+# this is the length of sequences if we choose to limit
+# the signal length of training sequences
+min_training_len: 8000 # 0.5s
+max_training_len: 128000 # 8s
+default_target: "zeros" # zeros, ones, sin, cos
+
+
+# Dynamic Mixing
+# Room impulse responses
+# e.g. /yourpath/RIRS_NOISES
+noises_root: !PLACEHOLDER 
+use_rir: true
+rir_files: !ref <noises_root>/real_rirs_isotropic_noises/rir_list
+# Noises
+# e.g. /yourpath/wham_noise/tr/noise.lst
+use_noise: true
+noise_files: !ref <noises_root>/real_rirs_isotropic_noises/noise_list
+
+dm_config: !new:speechbrain.processing.dynamic_mixing.DynamicMixingConfig
+  num_spkrs: [1, 2]
+  num_spkrs_prob: [0.5, 0.5]
+  overlap_ratio: [0.1, 0.2, 0.3, 0.4, 1.0]
+  overlap_prob:  [0.15, 0.15, 0.15, 0.15, 0.4]
+  audio_norm: true
+  audio_min_loudness: -35.0
+  audio_max_loudness: -25.0
+  noise_add: !ref <use_noise>
+  noise_prob: 0.2
+  noise_min_loudness: -45.0
+  noise_max_loudness: -35.0
+  reverb: !ref <use_rir>
+  reverb_sources: true
+  reverb_prob: 0.8
+  sample_rate: !ref <sample_rate>
+  min_source_len: 128000 # 8s
+  max_source_len: 480000 # 30s
+
+# Parameters for data augmentation
+use_wavedrop: False
+use_speedperturb: False
+use_rand_shift: False
+min_shift: -8000
+max_shift: 8000
+
+speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 1.0
+    drop_freq_prob: 0.0
+    drop_chunk_prob: 0.0
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    perturb_prob: 0.0
+    drop_freq_prob: 1.0
+    drop_chunk_prob: 1.0
+    sample_rate: !ref <sample_rate>
+
+# loss thresholding -- this thresholds the training loss
+threshold_byloss: True
+threshold: -30
+
+# Encoder parameters
+N_encoder_out: 256
+out_channels: 256
+kernel_size: 16
+kernel_stride: 8
+
+# Dataloader options
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: 0
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+
+
+# Specifying the network
+Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
+    kernel_size: !ref <kernel_size>
+    out_channels: !ref <N_encoder_out>
+
+
+SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 1024
+    dropout: 0
+    use_positional_encoding: True
+    norm_before: True
+
+SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
+    num_layers: 8
+    d_model: !ref <out_channels>
+    nhead: 8
+    d_ffn: 1024
+    dropout: 0
+    use_positional_encoding: True
+    norm_before: True
+
+MaskNet: !new:speechbrain.lobes.models.dual_path.Dual_Path_Model
+    num_spks: !ref <num_spks>
+    in_channels: !ref <N_encoder_out>
+    out_channels: !ref <out_channels>
+    num_layers: 2
+    K: 250
+    intra_model: !ref <SBtfintra>
+    inter_model: !ref <SBtfinter>
+    norm: ln
+    linear_layer_after_inter_intra: False
+    skip_around_intra: True
+
+Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+    in_channels: !ref <N_encoder_out>
+    out_channels: 1
+    kernel_size: !ref <kernel_size>
+    stride: !ref <kernel_stride>
+    bias: False
+
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0
+
+loss: !name:speechbrain.nnet.losses.get_sa_sdr_with_graphpit
+
+lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 2
+    dont_halve_until_epoch: 5
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+modules:
+    encoder: !ref <Encoder>
+    decoder: !ref <Decoder>
+    masknet: !ref <MaskNet>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        masknet: !ref <MaskNet>
+        counter: !ref <epoch_counter>
+        # lr_scheduler: !ref <lr_scheduler>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# If you do not want to use the pretrained separator you can simply delete pretrained_separator field.
+pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        masknet: !ref <MaskNet>
+    paths:
+        encoder: speechbrain/sepformer-whamr16k/encoder.ckpt
+        decoder: speechbrain/sepformer-whamr16k/decoder.ckpt
+        masknet: speechbrain/sepformer-whamr16k/masknet.ckpt

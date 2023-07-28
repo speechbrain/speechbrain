@@ -1,4 +1,4 @@
-#!/usr/bin/env/python3
+#!/usr/bin/env python
 """Recipe for training a neural speech separation system on Libri2/3Mix datasets.
 The system employs an encoder, a decoder, and a masking network.
 
@@ -36,8 +36,10 @@ from tqdm import tqdm
 import csv
 import logging
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.processing.dynamic_mixing import DynamicMixingDataset
 
-logger = logging.getLogger(__name__)
+import wandb
 
 
 # Define training procedure
@@ -63,17 +65,18 @@ class Separation(sb.Brain):
 
                     mix = targets.sum(-1)
 
-                    if self.hparams.use_wham_noise:
-                        noise = noise.to(self.device)
-                        len_noise = noise.shape[1]
-                        len_mix = mix.shape[1]
-                        min_len = min(len_noise, len_mix)
+                    # TODO: This is problem
+                    #if self.hparams.use_noise:
+                    #    noise = noise.to(self.device)
+                    #    len_noise = noise.shape[1]
+                    #    len_mix = mix.shape[1]
+                    #    min_len = min(len_noise, len_mix)
 
-                        # add the noise
-                        mix = mix[:, :min_len] + noise[:, :min_len]
+                    #    # add the noise
+                    #    mix = mix[:, :min_len] + noise[:, :min_len]
 
-                        # fix the length of targets also
-                        targets = targets[:, :min_len, :]
+                    #    # fix the length of targets also
+                    #    targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.wavedrop(mix, mix_lens)
@@ -122,7 +125,7 @@ class Separation(sb.Brain):
 
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
-        if self.hparams.use_wham_noise:
+        if self.hparams.use_noise:
             noise = batch.noise_sig[0]
         else:
             noise = None
@@ -140,20 +143,21 @@ class Separation(sb.Brain):
                 # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss = loss[loss > th]
-                    if loss.nelement() > 0:
-                        loss = loss.mean()
+                    loss_to_keep = loss[loss > th]
+                    if loss_to_keep.nelement() > 0:
+                        loss = loss_to_keep.mean()
                 else:
                     loss = loss.mean()
 
             if (
-                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
+                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
             ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
                     self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm,
+                        self.modules.parameters(),
+                        self.hparams.clip_grad_norm,
                     )
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
@@ -173,14 +177,14 @@ class Separation(sb.Brain):
 
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss = loss[loss > th]
-                if loss.nelement() > 0:
-                    loss = loss.mean()
+                loss_to_keep = loss[loss > th]
+                if loss_to_keep.nelement() > 0:
+                    loss = loss_to_keep.mean()
             else:
                 loss = loss.mean()
 
             if (
-                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
+                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -256,14 +260,21 @@ class Separation(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
+            wandb.log({"lr": current_lr}, step=self.hparams.epoch_counter.current)
+            wandb.log({**stage_stats})
+
             self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                meta={"si-snr": stage_stats["si-snr"]},
+                min_keys=["si-snr"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
+            if hasattr(self, "wandb_table") and self.wandb_table is not None:
+                wandb.log({"test_samples": self.wandb_table}, step=epoch, commit=True)
+                self.wandb_table = None
 
     def add_speed_perturb(self, targets, targ_lens):
         """Adds speed perturbation and random_shift to the input signals"""
@@ -339,6 +350,47 @@ class Separation(sb.Brain):
             if layer != child_layer:
                 self.reset_layer_recursively(child_layer)
 
+    def compute_metrics(self, mix_sig, est_sources, targets):
+        from mir_eval.separation import bss_eval_sources
+
+        mix_expanded = torch.stack([mix_sig] * self.hparams.num_spks, dim=-1)
+        mix_expanded = mix_expanded.to(targets.device)
+
+        # Compute SI-SNR
+        sisnr = self.compute_objectives(est_sources, targets)
+
+        # Compute SI-SNR improvement
+        sisnr_baseline = self.compute_objectives(
+            mix_expanded,
+            targets,
+        )
+        sisnr_i = sisnr - sisnr_baseline
+
+        # Compute SDR
+        try:
+            sdr, _, _, _ = bss_eval_sources(
+                targets[0].t().cpu().numpy(),
+                est_sources[0].detach().t().cpu().numpy(),
+            )
+            sdr = sdr.mean()
+
+            sdr_baseline, _, _, _ = bss_eval_sources(
+                targets[0].t().cpu().numpy(),
+                mix_expanded[0].detach().t().cpu().numpy(),
+            )
+            sdr_baseline = sdr_baseline.mean()
+
+            sdr_i = sdr - sdr_baseline
+        except ValueError:
+            sdr, sdr_baseline, sdr_i = None, None, None
+
+        return {
+            "sdr": sdr,
+            "sdr_i": sdr_i,
+            "si-snr": -sisnr.item(),
+            "si-snr_i": -sisnr_i.item(),
+        }
+
     def save_results(self, test_data):
         """This script computes the SDR and SI-SNR metrics and saves
         them into a csv file"""
@@ -380,47 +432,20 @@ class Separation(sb.Brain):
                             batch.mix_sig, targets, sb.Stage.TEST
                         )
 
-                    # Compute SI-SNR
-                    sisnr = self.compute_objectives(predictions, targets)
-
-                    # Compute SI-SNR improvement
-                    mixture_signal = torch.stack(
-                        [mixture] * self.hparams.num_spks, dim=-1
-                    )
-                    mixture_signal = mixture_signal.to(targets.device)
-                    sisnr_baseline = self.compute_objectives(
-                        mixture_signal, targets
-                    )
-                    sisnr_i = sisnr - sisnr_baseline
-
-                    # Compute SDR
-                    sdr, _, _, _ = bss_eval_sources(
-                        targets[0].t().cpu().numpy(),
-                        predictions[0].t().detach().cpu().numpy(),
-                    )
-
-                    sdr_baseline, _, _, _ = bss_eval_sources(
-                        targets[0].t().cpu().numpy(),
-                        mixture_signal[0].t().detach().cpu().numpy(),
-                    )
-
-                    sdr_i = sdr.mean() - sdr_baseline.mean()
-
+                    metrics = self.compute_metrics(mixture, predictions, targets)
                     # Saving on a csv file
                     row = {
                         "snt_id": snt_id[0],
-                        "sdr": sdr.mean(),
-                        "sdr_i": sdr_i,
-                        "si-snr": -sisnr.item(),
-                        "si-snr_i": -sisnr_i.item(),
+                        **metrics,
                     }
                     writer.writerow(row)
 
                     # Metric Accumulation
-                    all_sdrs.append(sdr.mean())
-                    all_sdrs_i.append(sdr_i.mean())
-                    all_sisnrs.append(-sisnr.item())
-                    all_sisnrs_i.append(-sisnr_i.item())
+                    if metrics["sdr"] is not None and metrics["sdr_i"] is not None:
+                        all_sdrs.append(metrics["sdr"])
+                        all_sdrs_i.append(metrics["sdr_i"])
+                    all_sisnrs.append(metrics["si-snr"])
+                    all_sisnrs_i.append(metrics["si-snr_i"])
 
                 row = {
                     "snt_id": "avg",
@@ -444,8 +469,16 @@ class Separation(sb.Brain):
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
-        for ns in range(self.hparams.num_spks):
+        metrics = self.compute_metrics(mixture[0], predictions, targets)
+        data = [snt_id] + list(metrics.values())
 
+        if not hasattr(self, "wandb_table") or self.wandb_table is None:
+            columns = ["est_source", "target"] * self.hparams.num_spks
+            columns = [x + str(i // 2) for i, x in enumerate(columns)]
+            columns = ["id"] + list(metrics.keys()) + columns + ["mixture"]
+            self.wandb_table = wandb.Table(columns=columns)
+
+        for ns in range(self.hparams.num_spks):
             # Estimated source
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
@@ -455,6 +488,7 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
+            data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
             # Original source
             signal = targets[0, :, ns]
@@ -465,6 +499,7 @@ class Separation(sb.Brain):
             torchaudio.save(
                 save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
             )
+            data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
 
         # Mixture
         signal = mixture[0][0, :]
@@ -473,16 +508,19 @@ class Separation(sb.Brain):
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
+        data.append(wandb.Audio(signal.detach().cpu().numpy(), sample_rate=self.hparams.sample_rate))
+
+        self.wandb_table.add_data(*data)
 
 
 def dataio_prep(hparams):
     """Creates data processing pipeline"""
 
     # 1. Define datasets
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_data"],
-        replacements={"data_root": hparams["data_folder"]},
-    )
+    # train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+    #     csv_path=hparams["train_data"],
+    #     replacements={"data_root": hparams["data_folder"]},
+    # )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_data"],
@@ -494,10 +532,9 @@ def dataio_prep(hparams):
         replacements={"data_root": hparams["data_folder"]},
     )
 
-    datasets = [train_data, valid_data, test_data]
+    datasets = [valid_data, test_data]
 
     # 2. Provide audio pipelines
-
     @sb.utils.data_pipeline.takes("mix_wav")
     @sb.utils.data_pipeline.provides("mix_sig")
     def audio_pipeline_mix(mix_wav):
@@ -510,26 +547,33 @@ def dataio_prep(hparams):
         s1_sig = sb.dataio.dataio.read_audio(s1_wav)
         return s1_sig
 
-    @sb.utils.data_pipeline.takes("s2_wav")
+    @sb.utils.data_pipeline.takes("s2_wav", "duration")
     @sb.utils.data_pipeline.provides("s2_sig")
-    def audio_pipeline_s2(s2_wav):
-        s2_sig = sb.dataio.dataio.read_audio(s2_wav)
+    def audio_pipeline_s2(s2_wav, duration):
+        if s2_wav:
+            s2_sig = sb.dataio.dataio.read_audio(s2_wav)
+        else:
+            s2_sig = torch.zeros(int(duration * hparams["sample_rate"]))
         return s2_sig
 
     if hparams["num_spks"] == 3:
-
-        @sb.utils.data_pipeline.takes("s3_wav")
+        @sb.utils.data_pipeline.takes("s3_wav", "duration")
         @sb.utils.data_pipeline.provides("s3_sig")
-        def audio_pipeline_s3(s3_wav):
-            s3_sig = sb.dataio.dataio.read_audio(s3_wav)
+        def audio_pipeline_s3(s3_wav, duration):
+            if s3_wav:
+                s3_sig = sb.dataio.dataio.read_audio(s3_wav)
+            else:
+                s3_sig = torch.zeros(int(duration * hparams["sample_rate"]))
             return s3_sig
 
-    if hparams["use_wham_noise"]:
-
-        @sb.utils.data_pipeline.takes("noise_wav")
+    if hparams["use_noise"]:
+        @sb.utils.data_pipeline.takes("noise_wav", "duration")
         @sb.utils.data_pipeline.provides("noise_sig")
-        def audio_pipeline_noise(noise_wav):
-            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+        def audio_pipeline_noise(noise_wav, duration):
+            if noise_wav:
+                noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+            else:
+                noise_sig = torch.zeros(int(duration * hparams["sample_rate"]))
             return noise_sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
@@ -538,20 +582,20 @@ def dataio_prep(hparams):
     if hparams["num_spks"] == 3:
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
 
-    if hparams["use_wham_noise"]:
-        print("Using the WHAM! noise in the data pipeline")
+    if hparams["use_noise"]:
+        print("Using the noise in the data pipeline")
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
 
-    if (hparams["num_spks"] == 2) and hparams["use_wham_noise"]:
+    if (hparams["num_spks"] == 2) and hparams["use_noise"]:
         sb.dataio.dataset.set_output_keys(
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
         )
-    elif (hparams["num_spks"] == 3) and hparams["use_wham_noise"]:
+    elif (hparams["num_spks"] == 3) and hparams["use_noise"]:
         sb.dataio.dataset.set_output_keys(
             datasets,
             ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig", "noise_sig"],
         )
-    elif (hparams["num_spks"] == 2) and not hparams["use_wham_noise"]:
+    elif (hparams["num_spks"] == 2) and not hparams["use_noise"]:
         sb.dataio.dataset.set_output_keys(
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig"]
         )
@@ -560,7 +604,7 @@ def dataio_prep(hparams):
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
         )
 
-    return train_data, valid_data, test_data
+    return valid_data, test_data
 
 
 if __name__ == "__main__":
@@ -573,6 +617,9 @@ if __name__ == "__main__":
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
 
+    # Logger info
+    logger = logging.getLogger(__name__)
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -581,131 +628,31 @@ if __name__ == "__main__":
     )
 
     # Data preparation
-    from prepare_data import prepare_librimix
+    sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    from recipes.LibriGM.prepare_data import prepare_librigm
 
     run_on_main(
-        prepare_librimix,
+        prepare_librigm,
         kwargs={
             "datapath": hparams["data_folder"],
+            "dmsource": hparams["dm_data_folder"],
             "savepath": hparams["save_folder"],
-            "n_spks": hparams["num_spks"],
             "skip_prep": hparams["skip_prep"],
-            "librimix_addnoise": hparams["use_wham_noise"],
             "fs": hparams["sample_rate"],
         },
     )
 
     # Create dataset objects
-    if hparams["dynamic_mixing"]:
-        # presence of 'dm_config' indicates that
-        # we would like to use the novel DM method
-        from speechbrain.processing.dynamic_mixing import (
-            DynamicMixingDataset,
-            DynamicMixingConfig,
-        )
-        import glob
+    dm_config = hparams["dm_config"]
 
-        if "dm_config" in hparams:
-            dm_config = hparams["dm_config"]
-
-            # train_data, valid_data, test_data = dataio_prep(hparams)
-            # dm_dataset = DynamicMixingDataset.from_didataset(train_data, dm_config, "wav_file", "spkr")
-            data_path = os.path.join(
-                hparams["data_folder"], "../LibriSpeech/dev-clean/**/**/*.flac"
-            )
-
-            train_data = DynamicMixingDataset.from_wavs(
-                glob.glob(data_path), dm_config
-            )
-            valid_data = DynamicMixingDataset.from_wavs(
-                glob.glob(data_path), dm_config
-            )
-            test_data = DynamicMixingDataset.from_wavs(
-                glob.glob(data_path), dm_config
-            )
-        else:
-            # Check if base_folder_dm is set with dynamic mixing
-            if hparams["dynamic_mixing"] and not os.path.exists(
-                hparams["base_folder_dm"]
-            ):
-                print(
-                    "Please, specify a valid base_folder_dm folder when using dynamic mixing"
-                )
-                sys.exit(1)
-
-            from dynamic_mixing import (
-                dynamic_mix_data_prep_librimix as dynamic_mix_data_prep,
-            )
-
-            # if the base_folder for dm is not processed, preprocess them
-            if "processed" not in hparams["base_folder_dm"]:
-                # if the processed folder already exists we just use it otherwise we do the preprocessing
-                if not os.path.exists(
-                    os.path.normpath(hparams["base_folder_dm"])
-                    + "_processed_"
-                    + str(hparams["sample_rate"])
-                ):
-                    from recipes.LibriMix.meta.preprocess_dynamic_mixing import (
-                        resample_folder,
-                    )
-
-                    print("Resampling the base folder")
-                    run_on_main(
-                        resample_folder,
-                        kwargs={
-                            "input_folder": hparams["base_folder_dm"],
-                            "output_folder": os.path.normpath(
-                                hparams["base_folder_dm"]
-                            )
-                            + "_processed_"
-                            + str(hparams["sample_rate"]),
-                            "fs": hparams["sample_rate"],
-                            "regex": "**/*.flac",
-                        },
-                    )
-                    # adjust the base_folder_dm path
-                    hparams["base_folder_dm"] = (
-                        os.path.normpath(hparams["base_folder_dm"])
-                        + "_processed_"
-                        + str(hparams["sample_rate"])
-                    )
-                else:
-                    print(
-                        "Using the existing processed folder on the same directory as base_folder_dm"
-                    )
-                    hparams["base_folder_dm"] = (
-                        os.path.normpath(hparams["base_folder_dm"])
-                        + "_processed_"
-                        + str(hparams["sample_rate"])
-                    )
-
-            dm_hparams = {
-                "train_data": hparams["train_data"],
-                "data_folder": hparams["data_folder"],
-                "base_folder_dm": hparams["base_folder_dm"],
-                "sample_rate": hparams["sample_rate"],
-                "num_spks": hparams["num_spks"],
-                "training_signal_len": hparams["training_signal_len"],
-                "dataloader_opts": hparams["dataloader_opts"],
-                "use_wham_noise": hparams["use_wham_noise"],
-                "n_overlap": hparams["n_overlap"],
-            }
-
-            train_data = dynamic_mix_data_prep(dm_hparams)
-            n_overlap = hparams.get("n_overlap", 100)
-
-            # if amount of overlap is 100, use the standard valid/test set
-            # otherwise, use the dynamically created valid/test set
-            if n_overlap == 100:
-                _, valid_data, test_data = dataio_prep(hparams)
-            else:
-                dm_hparams["train_data"] = hparams["valid_data"]
-                valid_data = dynamic_mix_data_prep(dm_hparams)
-
-                dm_hparams["train_data"] = hparams["test_data"]
-                test_data = dynamic_mix_data_prep(dm_hparams)
-    else:
-        train_data, valid_data, test_data = dataio_prep(hparams)
+    # train_data, valid_data, test_data = dataio_prep(hparams)
+    train_dmdata = DynamicItemDataset.from_csv(
+        hparams["train_data"], output_keys=["id", "wav", "spk_id", "duration"]
+    )
+    train_data = DynamicMixingDataset.from_didataset(
+        train_dmdata, dm_config, "wav", "spk_id"
+    )
+    valid_data, test_data = dataio_prep(hparams)
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:
@@ -713,6 +660,8 @@ if __name__ == "__main__":
         hparams["pretrained_separator"].load_collected(
             device=run_opts["device"]
         )
+
+    wandb.init(project="SepFormer", entity="mato1102", config={}, resume=True)
 
     # Brain class initialization
     separator = Separation(
@@ -728,15 +677,18 @@ if __name__ == "__main__":
         for module in separator.modules.values():
             separator.reset_layer_recursively(module)
 
-    # Training
-    separator.fit(
-        separator.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["dataloader_opts"],
-        valid_loader_kwargs=hparams["dataloader_opts"],
-    )
+    if not hparams["test_only"]:
+        # Training
+        separator.fit(
+            separator.hparams.epoch_counter,
+            train_data,
+            valid_data,
+            train_loader_kwargs=hparams["dataloader_opts"],
+            valid_loader_kwargs=hparams["dataloader_opts"],
+        )
 
     # Eval
-    separator.evaluate(test_data, min_key="si-snr")
+    separator.evaluate(test_data, min_key="si-snr", test_loader_kwargs={"shuffle": True})
     separator.save_results(test_data)
+
+    wandb.finish()

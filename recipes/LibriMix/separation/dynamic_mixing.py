@@ -33,7 +33,7 @@ def build_spk_hashtable_librimix(hparams):
     assert (
         torchaudio.info(libri_utterances[0]).sample_rate
         == hparams["sample_rate"]
-    )
+    ), "inconsistent sampling rate"
     for utt in tqdm(libri_utterances):
 
         path = os.path.normpath(utt)
@@ -130,10 +130,11 @@ def dynamic_mix_data_prep_librimix(hparams):
             for spk in speakers
         ]
 
-        minlen = min(
-            *[torchaudio.info(x).num_frames for x in spk_files],
-            hparams["training_signal_len"],
-        )
+        n_overlap = random.choice(hparams.get("n_overlap", 100))
+        signal_lens = [torchaudio.info(x).num_frames for x in spk_files]
+        minlen_arg = np.argmin(signal_lens)
+        minlen = min(*signal_lens, hparams["training_signal_len"],)
+        maxlen = min([max(signal_lens), hparams["training_signal_len"]])
 
         meter = pyloudnorm.Meter(hparams["sample_rate"])
 
@@ -165,20 +166,39 @@ def dynamic_mix_data_prep_librimix(hparams):
             return torch.from_numpy(signal)
 
         for i, spk_file in enumerate(spk_files):
-            # select random offset
-            length = torchaudio.info(spk_file).num_frames
-            start = 0
-            stop = length
-            if length > minlen:  # take a random window
-                start = np.random.randint(0, length - minlen)
-                stop = start + minlen
 
-            tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
-            )
-            tmp = tmp[0].numpy()
-            tmp = normalize(tmp)
-            sources.append(tmp)
+            if n_overlap == 100:
+                # select random offset
+                length = torchaudio.info(spk_file).num_frames
+                start = 0
+                stop = length
+                if length > minlen:  # take a random window
+                    start = np.random.randint(0, length - minlen)
+                    stop = start + minlen
+
+                tmp, fs_read = torchaudio.load(
+                    spk_file, frame_offset=start, num_frames=stop - start,
+                )
+                tmp = tmp[0].numpy()
+                tmp = normalize(tmp)
+                sources.append(tmp)
+            else:
+                # the case where overlap is not 100 percent
+                length = torchaudio.info(spk_file).num_frames
+                tmp, fs_read = torchaudio.load(
+                    spk_file,
+                    frame_offset=0,
+                    num_frames=min(length, hparams["training_signal_len"]),
+                )
+                tmp = tmp[0].numpy()
+                tmp = normalize(tmp)
+                beginning_pad = int(((100 - n_overlap) / 100) * minlen)
+                ending_pad = beginning_pad + maxlen - minlen
+                if i != minlen_arg:
+                    tmp = torch.concat([torch.zeros(beginning_pad), tmp])
+                else:
+                    tmp = torch.concat([tmp, torch.zeros(ending_pad)])
+                sources.append(tmp)
 
         sources = torch.stack(sources)
         mixture = torch.sum(sources, 0)
@@ -198,6 +218,11 @@ def dynamic_mix_data_prep_librimix(hparams):
 
         sources = weight * sources
         mixture = weight * mixture
+
+        # uncomment to listen
+        # torchaudio.save("libritrain.wav", mixture.unsqueeze(0), 8000)
+        # import pdb
+        # pdb.set_trace()
 
         yield mixture
         for i in range(hparams["num_spks"]):
