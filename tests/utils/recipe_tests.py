@@ -70,6 +70,7 @@ def prepare_test(
     test_field="test_debug_flags",
     check_field="test_debug_checks",
     download_field="test_download",
+    message_field="test_message",
     filters_fields=[],
     filters=[],
 ):
@@ -90,6 +91,8 @@ def prepare_test(
     download_field: string
         Field of the csv recipe file containing files or folders to download for
         each test (optional).
+    message_field: string
+        Field of the csv recipe file containing optional messages to show before running the test.
     filters_fields: list
         This can be used with the "filter" variable
         to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
@@ -109,6 +112,8 @@ def prepare_test(
         A dictionary containing recipe IDs as keys and the checks as values.
     test_download: dict
         A dictionary containing recipe IDs as keys and the checks as values.
+    test_message: dict
+        A dictionary containing recipe IDs as keys and the checks as values.
     """
 
     # Dictionary initialization
@@ -117,6 +122,7 @@ def prepare_test(
     test_flag = {}
     test_check = {}
     test_download = {}
+    test_message = {}
 
     # Loop over all recipe CSVs
     print(f"\tfilters_fields={filters_fields} => filters={filters}")
@@ -146,8 +152,10 @@ def prepare_test(
                 # Manage test_download (optional field)
                 if download_field in row:
                     test_download[recipe_id] = row[download_field].strip()
+                if message_field in row:
+                    test_message[recipe_id] = row[message_field].strip()
 
-    return test_script, test_hparam, test_flag, test_check, test_download
+    return test_script, test_hparam, test_flag, test_check, test_download, test_message
 
 
 def check_files(
@@ -456,6 +464,7 @@ def run_recipe_tests(
         test_flag,
         test_check,
         test_download,
+        test_message
     ) = prepare_test(
         recipe_folder,
         script_field,
@@ -549,6 +558,10 @@ def run_recipe_tests(
         # add --debug if no do_checks to save testing time
         if not do_checks:
             cmd += " --debug --debug_persistently"
+
+        # Print message (if any)
+        if recipe_id in test_message:
+            print("\t\t"+test_message[recipe_id])
 
         # Running the test
         time_start = time()
