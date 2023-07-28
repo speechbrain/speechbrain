@@ -32,6 +32,9 @@ ORION_TRIAL_ID_ENV = [
 ]
 KEY_HPOPT = "hpopt"
 KEY_HPOPT_MODE = "hpopt_mode"
+KEY_TRIAL_ID = "trial_id"
+
+HPOPT_KEYS = [KEY_HPOPT, KEY_HPOPT_MODE]
 
 _hpopt_modes = {}
 
@@ -311,7 +314,9 @@ class HyperparameterOptimizationContext:
         self.enabled = False
         self.result = {"objective": 0.0}
 
-    def parse_arguments(self, arg_list):
+    def parse_arguments(
+        self, arg_list, pass_hpopt_args=None, pass_trial_id=True
+    ):
         """A version of speechbrain.parse_arguments enhanced for hyperparameter optimization.
 
         If a parameter named 'hpopt' is provided, hyperparameter
@@ -326,7 +331,14 @@ class HyperparameterOptimizationContext:
 
         Arguments
         ---------
-        arg_list: a list of arguments
+        arg_list: list
+            a list of arguments
+        pass_hpopt_args: enumerable
+            forces arguments that are normally suppressed and only used
+            for hyperparameter optimization to be passed into overrides
+        pass_trial_id: bool
+            whether the "trial_id" argument is passed through (enabled by default)
+
 
         Returns
         -------
@@ -345,6 +357,9 @@ class HyperparameterOptimizationContext:
         >>> print(f"File: {hparams_file}, Overrides: {overrides}")
         File: hparams.yaml, Overrides: {'x': 1, 'y': 2}
         """
+        if pass_hpopt_args is None:
+            pass_hpopt_args = []
+        pass_hpopt_args = set(pass_hpopt_args)
         hparams_file, run_opts, overrides_yaml = sb.parse_arguments(arg_list)
         overrides = load_hyperpyyaml(overrides_yaml) if overrides_yaml else {}
         hpopt = overrides.get(KEY_HPOPT, False)
@@ -363,8 +378,11 @@ class HyperparameterOptimizationContext:
                         overrides_must_match=False,
                     )
                     overrides = dict(hpopt_overrides, **overrides)
-                    for key in [KEY_HPOPT, KEY_HPOPT_MODE]:
-                        if key in overrides:
+                    keys = list(HPOPT_KEYS)
+                    if not pass_trial_id:
+                        keys.append(KEY_TRIAL_ID)
+                    for key in keys:
+                        if key in overrides and key not in pass_hpopt_args:
                             del overrides[key]
         return hparams_file, run_opts, overrides
 

@@ -666,15 +666,15 @@ if __name__ == "__main__":
     if "pretrained_separator" not in hparams:
         for module in separator.modules.values():
             separator.reset_layer_recursively(module)
-    if not hparams["test_only"]:
-        # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+
+    # Training
+    separator.fit(
+        separator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     separator.evaluate(test_data, min_key="si-snr")

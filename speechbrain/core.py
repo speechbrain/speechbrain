@@ -1,7 +1,7 @@
 """Core SpeechBrain code for running experiments.
 
 Authors
- * Peter Plantinga 2020
+ * Peter Plantinga 2020, 2023
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
@@ -33,7 +33,7 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import if_main_process
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
@@ -168,6 +168,14 @@ def parse_arguments(arg_list=None):
         "defined by SpeechBrain.",
     )
     parser.add_argument(
+        "--test_only",
+        default=False,
+        action="store_true",
+        help="Run the experiment in evaluate only mode."
+        "It skipps the training and goes directly to the evaluation."
+        "The model is expected to be already trained.",
+    )
+    parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
@@ -276,6 +284,12 @@ def parse_arguments(arg_list=None):
         type=float,
         help="Amount of time between saving intra-epoch checkpoints "
         "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
+    )
+    parser.add_argument(
+        "--ckpt_interval_steps",
+        type=int,
+        help="Save an intra-epoch checkpoint after this many steps."
+        "If non-positive, intra-epoch checkpoints are not saved.",
     )
     parser.add_argument(
         "--grad_accumulation_factor",
@@ -432,6 +446,10 @@ class Brain:
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
+        ckpt_interval_steps (int)
+            Number of steps between saving intra-epoch checkpoints.
+            If non-positive, these are not saved. Default: ``0``.
+
 
         Typically in a script this comes from ``speechbrain.parse_args``, which
         has different defaults than Brain. If an option is not defined here
@@ -472,6 +490,7 @@ class Brain:
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
+            "test_only": False,
             "debug": False,
             "debug_batches": 2,
             "debug_epochs": 2,
@@ -488,6 +507,7 @@ class Brain:
             "nonfinite_patience": 3,
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
+            "ckpt_interval_steps": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
             "tqdm_colored_bar": False,
@@ -547,6 +567,22 @@ class Brain:
                 "--distributed_backend=nccl"
             )
 
+        if self.distributed_launch and self.ckpt_interval_minutes > 0:
+            logger.warning(
+                "The --ckpt_interval_minutes option saves only on the main "
+                "process to avoid race conditions. If you need to save an "
+                "intra-epoch checkpoint on multiple processes (e.g. FSDP), "
+                "consider switching to intervals based on # of steps with the "
+                "argument --ckpt_interval_steps."
+            )
+
+        if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
+            sys.exit(
+                "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
+                "are mutually exclusive to prevent race conditions. "
+                "Please keep only one active per experiment run."
+            )
+
         # Switch to the right context
         if self.device == "cuda":
             torch.cuda.set_device(0)
@@ -555,6 +591,12 @@ class Brain:
 
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
+
+        # The next line ensures that both tensors marked as parameters and standard tensors,
+        # such as those used in InputNormalization, are placed on the right device.
+        for module in self.modules:
+            if hasattr(self.modules[module], "to"):
+                self.modules[module] = self.modules[module].to(self.device)
 
         # Make hyperparams available with dot notation too
         if hparams is not None:
@@ -1097,6 +1139,7 @@ class Brain:
 
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
+        steps_since_ckpt = 0
         with tqdm(
             train_set,
             initial=self.step,
@@ -1109,6 +1152,7 @@ class Brain:
                     logger.info("Train iteration limit exceeded")
                     break
                 self.step += 1
+                steps_since_ckpt += 1
                 loss = self.fit_batch(batch)
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
@@ -1124,21 +1168,13 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-                if (
-                    self.checkpointer is not None
-                    and self.ckpt_interval_minutes > 0
-                    and time.time() - last_ckpt_time
-                    >= self.ckpt_interval_minutes * 60.0
+                if self._should_save_intra_epoch_ckpt(
+                    last_ckpt_time, steps_since_ckpt
                 ):
-                    # This should not use run_on_main, because that
-                    # includes a DDP barrier. That eventually leads to a
-                    # crash when the processes'
-                    # time.time() - last_ckpt_time differ and some
-                    # processes enter this block while others don't,
-                    # missing the barrier.
-                    if sb.utils.distributed.if_main_process():
-                        self._save_intra_epoch_ckpt()
+                    # Checkpointer class will handle running this on main only
+                    self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
+                    steps_since_ckpt = 0
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
@@ -1146,6 +1182,24 @@ class Brain:
         self.avg_train_loss = 0.0
         self.step = 0
         self.valid_step = 0
+
+    def _should_save_intra_epoch_ckpt(self, last_ckpt_time, steps_since_ckpt):
+        """Determines if an intra-epoch checkpoint should be saved.
+
+        Returns True if there's a checkpointer and time or steps has exceeded limit.
+        """
+        if self.checkpointer is None:
+            return False
+
+        # Check if we've run for the requested amount of time
+        if 0 < self.ckpt_interval_minutes * 60.0 < time.time() - last_ckpt_time:
+            # Only save on the main process to avoid race conditions
+            return if_main_process()
+
+        # Save after requested # of steps. This option is the only one that
+        # allows saving on multiple processes. The logic for whether saving
+        # is run only on the main process is handled by the checkpointer.
+        return 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage
@@ -1173,12 +1227,8 @@ class Brain:
                     if self.debug and self.step == self.debug_batches:
                         break
 
-                # Only run validation "on_stage_end" on main process
                 self.step = 0
-                run_on_main(
-                    self.on_stage_end,
-                    args=[Stage.VALID, avg_valid_loss, epoch],
-                )
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
         self,
@@ -1229,6 +1279,12 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        if self.test_only:
+            logger.info(
+                "Test only mode, skipping training and validation stages."
+            )
+            return
+
         if not (
             isinstance(train_set, DataLoader)
             or isinstance(train_set, LoopedLoader)
@@ -1395,10 +1451,7 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-            # Only run evaluation "on_stage_end" on main process
-            run_on_main(
-                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
-            )
+            self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss
 
