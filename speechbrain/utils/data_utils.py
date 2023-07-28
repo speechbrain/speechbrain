@@ -281,7 +281,7 @@ def recursive_update(d, u, must_match=False):
 
 
 def download_file(
-    source, dest, unpack=False, dest_unpack=None, replace_existing=False, write_permission=False
+    source, dest, unpack=False, dest_unpack=None, replace_existing=False, write_permissions=False
 ):
     """Downloads the file from the given source and saves it in the given
     destination path.
@@ -297,7 +297,7 @@ def download_file(
         If True, it unpacks the data in the dest folder.
     replace_existing : bool
         If True, replaces the existing files.
-    write_permission: bool
+    write_permissions: bool
         When set to True, all the files in the dest_unpack directory will be granted write permissions.
         This option is active only when unpack=True.
     """
