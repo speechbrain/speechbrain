@@ -71,7 +71,7 @@ class DiffusionEmbedding(nn.Module):
 
         Arguments
         ---------
-        diffusion_step:
+        diffusion_step: torch.Tensor
             which step of diffusion to execute
         Returns
         -------
@@ -92,7 +92,8 @@ class DiffusionEmbedding(nn.Module):
 
         Arguments
         ---------
-        t: which step of diffusion to execute
+        t: torch.Tensor
+            which step of diffusion to execute
         """
         low_idx = torch.floor(t).long()
         high_idx = torch.ceil(t).long()
@@ -325,24 +326,20 @@ class DiffWave(nn.Module):
             conv_init="zero",
         )
 
-    def forward(self, audio, diffusion_step, spectrogram=None):
+    def forward(self, audio, diffusion_step, spectrogram=None, length=None):
         """
         DiffWave forward function
 
         Arguments
         ---------
-        audio:
+        audio: torch.Tensor
             input gaussian sample
-        residual_layers:
-            number of residual blocks
-        residual_channels:
-            channels of audio convolution
-        dilation_cycle_length:
-            dilation cycles of audio convolution
-        total_steps:
-            total steps of diffusion
-        unconditional:
-            conditional/unconditional generation
+        diffusion_steps: torch.Tensor
+            the number of timesteps of noise added to each sample
+        spectrogram: torch.Tensor
+            spectrogram data
+        length: torch.Tensor
+            sample lengths - not used - provided for compatibility only
         Returns
         -------
         predicted noise [bs, 1, time]
@@ -448,7 +445,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             whether to do fast sampling
         fast_sampling_noise_schedule: list
             the noise schedules used for fast sampling
-        device:
+        device: str|torch.device
             inference device
         Returns
         ---------

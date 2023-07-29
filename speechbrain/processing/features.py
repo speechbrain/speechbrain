@@ -1516,7 +1516,7 @@ class DynamicRangeCompression(torch.nn.Module):
     >>> drc = DynamicRangeCompression(2.)
     >>> x = torch.tensor([10., 20., 0., 30.])
     >>> drc(x)
-    tensor([  2.9957,   3.6889, -10.8198,   4.0943]
+    tensor([  2.9957,   3.6889, -10.8198,   4.0943])
     """
 
     def __init__(self, multiplier=1, clip_val=1e-5):

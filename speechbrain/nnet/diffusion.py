@@ -530,7 +530,7 @@ class LengthMaskedGaussianNoise(nn.Module):
 
         sample: torch.Tensor
             a batch of data
-        lens: torch.Tensor
+        length: torch.Tensor
             relative lengths
         """
         noise = torch.randn_like(sample)

@@ -34,6 +34,7 @@ segment_size: 15872
 sample_rate: 22050
 number_of_epochs: 500
 batch_size: 16
+num_workers: 8
 
 lr: 0.0002
 
@@ -54,15 +55,15 @@ adam_epsilon: 0.00000001
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     drop_last: False
-    num_workers: 8
+    num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
     batch_size: 1
-    num_workers: 8
+    num_workers: !ref <num_workers>
 
-# test_dataloader_opts:
-#     batch_size: 1
-#     num_workers: 8
+test_dataloader_opts:
+    batch_size: 1
+    num_workers: !ref <num_workers>
 
 dataloader_options:
     batch_size: !ref <batch_size>
@@ -80,7 +81,7 @@ unconditional: False
 spec_n_fft: 1024
 spec_f_min: 0
 spec_f_max: 8000
-mel_normalized: null
+mel_normalized: False
 spec_n_mels: 80
 spec_power: 1
 spec_hop_length: 256
@@ -150,7 +151,6 @@ opt_class: !name:torch.optim.AdamW
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases
