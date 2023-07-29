@@ -1,5 +1,5 @@
 """
-Apply K-means clustering over acoustic features.
+Apply K-means clustering over acoustic features to extract speech units for HiFi-GAN training.
 
 Authors
  * Jarod Duret 2023
@@ -95,11 +95,43 @@ def extract_ljspeech(
     save_folder,
     skip_extract=False,
 ):
+    """
+    Extract speech units for HiFi-GAN training on the LJspeech datasets.
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the original LJspeech dataset is stored.
+    splits : list
+        List of splits to prepare.
+    kmeans_folder: str
+        Path to the folder where the k-means model checkpoint is stored.
+    encoder: str
+        Url to the model used as feature extractor.
+    layer: int
+        Layer from which features are extracted.
+    save_folder: str
+        Path to the folder where the speech units are stored.
+    skip_extract: Bool
+        If True, skip extraction.
+
+    Example
+    -------
+    >>> from recipes.LJSpeech.S2ST.extract_code import extract_ljspeech
+    >>> data_folder = 'data/LJspeech/'
+    >>> splits = ['train', 'valid']
+    >>> split_ratio = [90, 10]
+    >>> kmeans_folder = ./Quantization/results/kmeans/4321/save
+    >>> encoder = facebook/hubert-base-ls960
+    >>> layer = 6
+    >>> save_folder = 'save/'
+    >>> extract_ljspeech(data_folder, save_folder, splits, split_ratio, seed)
+    """
     logger = setup_logger()
 
     if skip_extract:
         return
-    # Create configuration for easily skipping data_preparation stage
+    # Create configuration for easily skipping code extraction stage
     conf = {
         "data_folder": data_folder,
         "splits": splits,

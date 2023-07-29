@@ -1,3 +1,11 @@
+############################################################################
+# Model: Unit HiFi-GAN
+# Tokens: discrete speech units (K-means)
+# Training: LJSpeech (English)
+# Authors: Jarod Duret, Yingzhi Wang
+# ############################################################################
+
+
 ###################################
 # Experiment Parameters and setup #
 ###################################
@@ -7,7 +15,7 @@ output_folder: !ref ./results/hifi_gan/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
-epochs: 500
+epochs: 200
 keep_checkpoint_interval: 50
 use_tensorboard: False
 
@@ -22,7 +30,7 @@ test_json: !ref <save_folder>/test.json
 splits: ["train", "valid"]
 split_ratio: [90, 10]
 
-kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/1234/save
+kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/4321/save
 kmeans_size: 100
 encoder_hub: facebook/hubert-base-ls960
 layer: 6

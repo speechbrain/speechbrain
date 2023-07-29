@@ -7,9 +7,8 @@ To run this recipe, do the following:
 > python train.py hparams/train.yaml --data_folder /path/to/LJspeech
 
 Authors
- * Jarod Duret 2021
- * Yingzhi WANG 2022
  * Jarod Duret 2023
+ * Yingzhi WANG 2022
 """
 
 import sys
