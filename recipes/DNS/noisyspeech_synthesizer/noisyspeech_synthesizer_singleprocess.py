@@ -209,7 +209,7 @@ def main_gen(params):
 
         my_rir = os.path.normpath(
             os.path.join(
-                "datasets", "impulse_responses", params["myrir"][rir_index]
+                params["myrir"][rir_index]
             )
         )
         (fs_rir, samples_rir) = wavfile.read(my_rir)
@@ -355,16 +355,19 @@ def main_body():  # noqa
 
     # clean singing speech
     params["use_singing_data"] = int(hparams["use_singing_data"])
-    params["clean_singing"] = str(hparams["clean_singing"])
+    if hasattr(hparams, "clean_singing"):
+        params["clean_singing"] = str(hparams["clean_singing"])
     params["singing_choice"] = int(hparams["singing_choice"])
 
     # clean emotional speech
+    if hasattr(hparams, "clean_emotion"):
+        params["clean_emotion"] = str(hparams["clean_emotion"])
     params["use_emotion_data"] = int(hparams["use_emotion_data"])
-    params["clean_emotion"] = str(hparams["clean_emotion"])
 
     # clean mandarin speech
+    if hasattr(hparams, "clean_mandarin"):
+        params["clean_mandarin"] = str(hparams["clean_mandarin"])
     params["use_mandarin_data"] = int(hparams["use_mandarin_data"])
-    params["clean_mandarin"] = str(hparams["clean_mandarin"])
 
     # rir
     params["rir_choice"] = int(hparams["rir_choice"])
@@ -522,6 +525,7 @@ def main_body():  # noqa
     rir_isreal = temp["isRealRIR"][1:]
 
     rir_wav2 = [w.replace("\\", "/") for w in rir_wav]
+    rir_wav2 = [w.replace("datasets", "datasets_fullband") for w in rir_wav]
     rir_channel2 = [w for w in rir_channel]
     rir_t60_2 = [w for w in rir_t60]
     rir_isreal2 = [w for w in rir_isreal]

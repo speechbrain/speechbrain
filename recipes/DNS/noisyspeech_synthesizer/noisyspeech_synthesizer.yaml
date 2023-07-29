@@ -33,23 +33,20 @@
 # - log_dir: Specify path to the directory to store all the log files
 # ################################
 # yamllint enable
-# Data storage params
-#
-seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
 
+
+# Data storage params
 uncompressed_path: !PLACEHOLDER  # ../DNS-dataset/datasets_fullband
-rirs: !PLACEHOLDER  # RIR_table_simple.csv
+rirs: !PLACEHOLDER # ../DNS-dataset/impulse_responses/RIR_table_simple.csv
 split_name: read_speech
 synthesized_data_dir: synthesized_data
-
 
 # Noisy data synthesis params
 sampling_rate: 16000
 audioformat: "*.wav"
 audio_length: 4
 silence_length: 0.2
-total_hours: 300
+total_hours: 100
 snr_lower: -5
 snr_upper: 15
 randomize_snr: True
@@ -62,7 +59,6 @@ fileindex_start: None
 fileindex_end: None
 is_test_set: False
 
-
 # Source dir
 noise_dir: !ref  <uncompressed_path>/noise_fullband/
 speech_dir: !ref <uncompressed_path>/clean_fullband/<split_name>
@@ -73,10 +69,11 @@ noisy_destination: !ref <synthesized_data_dir>/<split_name>/noisy
 clean_destination: !ref <synthesized_data_dir>/<split_name>/clean
 noise_destination: !ref <synthesized_data_dir>/<split_name>/noise
 
-# These can be skipped.
-clean_singing: !PLACEHOLDER # ../DNS-dataset/datasets_fullband/VocalSet_48kHz_mono
-clean_emotion: !PLACEHOLDER # ../DNS-dataset/datasets_fullband/emotional_speech
-clean_mandarin: !PLACEHOLDER # ../DNS-dataset/datasets_fullband/data_aishell
+# These can be skipped. (uncomment if you want to use them)
+# clean_singing: !PLACEHOLDER # clean_fullband/VocalSet_48kHz_mono/
+# clean_emotion: !PLACEHOLDER # clean_fullband/emotional_speech/
+## Aishell data needs to be downloaded separately.
+# clean_mandarin: !PLACEHOLDER # mandrin_speech/data_aishell
 
 log_dir: !ref <split_name>_logs
 noise_types_excluded: None

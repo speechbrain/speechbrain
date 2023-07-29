@@ -1,27 +1,38 @@
 #!/usr/bin/env/python3
 """
-Recipe for downloading DNS dataset- training,
+Recipe for downloading DNS-4 dataset- training,
 baseline DEV noisyset, blind testset
 Source:
 https://github.com/microsoft/DNS-Challenge
 https://github.com/microsoft/DNS-Challenge/blob/master/download-dns-challenge-4.sh
 
-Disk-space (compressed): 500 GB
+Disk-space (compressed): 550 GB
 Disk-space (decompressed): 1 TB
 
 NOTE:
-    Some of the azure links provided by Microsoft are not perfect and data download
-    may stop mid-way through the download process. Hence we validate download size
-    of each of the file.
+    1. Some of the azure links provided by Microsoft are not perfect and data
+    download may stop mid-way through the download process. Hence we validate
+    download size of each of the file.
+    2. Instead of using the impulse response files provided in the challenge,
+    we opt to download them from OPENSLR. OPENSLR offers both real and synthetic
+    RIRs, while the challenge offers only real RIRs.
+
 Authors
     * Sangeet Sagar 2022
 """
 
 import os
-import urllib.request
+import ssl
 import shutil
+import zipfile
 import tarfile
+import certifi
+import argparse
+import fileinput
+import requests
+import urllib.request
 from tqdm.auto import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 BLOB_NAMES = [
     "clean_fullband/datasets_fullband.clean_fullband.VocalSet_48kHz_mono_000_NA_NA.tar.bz2",
@@ -150,16 +161,24 @@ BLOB_NAMES = [
     "noise_fullband/datasets_fullband.noise_fullband.freesound_000.tar.bz2",
     "noise_fullband/datasets_fullband.noise_fullband.freesound_001.tar.bz2",
     "datasets_fullband.dev_testset_000.tar.bz2",
-    "datasets_fullband.impulse_responses_000.tar.bz2",
 ]
 
 AZURE_URL = (
     "https://dns4public.blob.core.windows.net/dns4archive/datasets_fullband"
 )
-BLIND_TESTSET_URL = "https://dns4public.blob.core.windows.net/dns4archive/blind_testset_bothtracks.zip"
 
-COMPRESSED_PATH = "DNS-compressed"
-DECOMPRESSED_PATH = "DNS-dataset"
+# Impulse reponse and Blind testset
+OTHER_URLS = {
+    "impulse_responses": [
+        "https://www.openslr.org/resources/26/sim_rir_16k.zip",
+        "https://www.openslr.org/resources/28/rirs_noises.zip",
+    ],
+    "blind_testset": [
+        "https://dns4public.blob.core.windows.net/dns4archive/blind_testset_bothtracks.zip"
+    ],
+}
+
+RIR_table_simple_URL = "https://raw.githubusercontent.com/microsoft/DNS-Challenge/0443a12f5e6e7bec310f453cf0d9637ca28e0eea/datasets/acoustic_params/RIR_table_simple.csv"
 
 SPLIT_LIST = [
     "dev_testset",
@@ -197,30 +216,47 @@ def prepare_download():
 
         if not validate_file(download_url, download_path):
             download_file(download_url, download_path, split_name, filename)
-            decompress_file(download_path, DECOMPRESSED_PATH)
         else:
             print(", \tDownload complete. Skipping")
-            decompress_file(download_path, DECOMPRESSED_PATH)
+        decompress_file(download_path, DECOMPRESSED_PATH, split_name)
 
-    # BLIND testset
-    download_url = BLIND_TESTSET_URL
-    download_path = os.path.join(
-        COMPRESSED_PATH, BLIND_TESTSET_URL.split("/")[-1]
+    # RIR (impulse response) & BLIND testset
+    for split_name, download_urls in OTHER_URLS.items():
+        for file_url in download_urls:
+            split_path = os.path.join(COMPRESSED_PATH, split_name)
+            # import pdb; pdb.set_trace()
+            if not os.path.exists(split_path):
+                os.makedirs(split_path)
+
+            filename = file_url.split("/")[-1]
+            download_path = os.path.join(split_path, filename)
+
+            if not validate_file(file_url, download_path):
+                download_file(
+                    file_url, download_path, split_name, filename,
+                )
+            else:
+                print(", \tDownload complete. Skipping")
+            decompress_file(
+                download_path,
+                os.path.join(DECOMPRESSED_PATH, split_name),
+                split_name,
+            )
+
+    # Download RIRs simple table
+    file_path = os.path.join(
+        DECOMPRESSED_PATH, "impulse_responses", "RIR_table_simple.csv"
     )
-    if not validate_file(download_url, download_path):
-        download_sucessful = download_file(
-            download_url,
-            download_path,
-            "blind_testset",
-            BLIND_TESTSET_URL.split("/")[-1],
-        )
-        if download_sucessful:
-            print("Decompressing...")
-            shutil.unpack_archive(download_path, DECOMPRESSED_PATH, "zip")
+    response = requests.get(RIR_table_simple_URL)
+    if response.status_code == 200:
+        with open(file_path, "wb") as file:
+            file.write(response.content)
+        print("\nRIR_simple_table downloaded successfully.")
+
     else:
-        print(", \tDownload complete. Skipping")
-        print("Decompressing...")
-        shutil.unpack_archive(download_path, DECOMPRESSED_PATH, "zip")
+        print(
+            f"\nFailed to download RIR_simple_table. Status code: {response.status_code}"
+        )
 
 
 def download_file(download_url, download_path, split_name, filename):
@@ -230,7 +266,7 @@ def download_file(download_url, download_path, split_name, filename):
     Arguments
     ---------
     download_url : str
-        URL of the being downloaded
+        URL of file being downloaded
     download_path : str
         Full path of the file that is to be downloaded
         (or already downloaded)
@@ -247,7 +283,9 @@ def download_file(download_url, download_path, split_name, filename):
         Else re-download it.
     """
     print("\nDownloading:", split_name, "=>", filename)
-    with urllib.request.urlopen(download_url) as response:
+    with urllib.request.urlopen(
+        download_url, context=ssl.create_default_context(cafile=certifi.where())
+    ) as response:
         # Get content length
         total_length = int(response.headers.get("Content-Length"))
         with tqdm.wrapattr(
@@ -264,38 +302,112 @@ def download_file(download_url, download_path, split_name, filename):
         return False
 
 
+def download_file_parallel(args):
+    download_url, download_path, split_name, filename = args
+    download_file(download_url, download_path, split_name, filename)
+
+
 def parallel_download():
-    pass
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for file_url in BLOB_NAMES:
+            for split in SPLIT_LIST:
+                if split in file_url:
+                    split_name = split
+            split_path = os.path.join(COMPRESSED_PATH, split_name)
+            if not os.path.exists(split_path):
+                os.makedirs(split_path)
+            if not os.path.exists(DECOMPRESSED_PATH):
+                os.makedirs(DECOMPRESSED_PATH)
+
+            filename = file_url.split("/")[-1]
+            download_path = os.path.join(split_path, filename)
+            download_url = AZURE_URL + "/" + file_url
+
+            if not validate_file(download_url, download_path):
+                args = (download_url, download_path, split_name, filename)
+                futures.append(executor.submit(download_file_parallel, args))
+                # download_file(download_url, download_path, split_name, filename)
+                # decompress_file(download_path, DECOMPRESSED_PATH)
+            else:
+                print(", \tDownload complete. Skipping")
+                decompress_file(download_path, DECOMPRESSED_PATH, split_name)
+
+        for future in futures:
+            future.result()
 
 
-def decompress_file(file, decompress_path):
+def decompress_file(file, decompress_path, split_name):
     """
-    Decompress the downloaded file
+    Decompress the downloaded file if the target folder does not exist.
 
     Arguments
     ---------
     file : str
-        Path to the compressed donwloaded file
+        Path to the compressed downloaded file
     decompress_path : str
         Path to store the decompressed audio files
     """
-    print("Decompressing...")
-    tar = tarfile.open(file, "r:bz2")
-    tar.extractall(decompress_path)
-    tar.close()
+    for _, dirs, _ in os.walk(decompress_path):
+        if split_name in dirs:
+            print("\tDecompression skipped. Folder already exists.")
+            return True
+
+    if "sim_rir_16k" in file:
+        slr26_dir = os.path.join(decompress_path, "SLR26")
+        if os.path.exists(slr26_dir):
+            print("\tDecompression skipped. Folder already exists.")
+            return True
+
+    if "rirs_noises" in file:
+        slr28_dir = os.path.join(decompress_path, "SLR28")
+        if os.path.exists(slr28_dir):
+            print("\tDecompression skipped. Folder already exists.")
+            return True
+
+    print("\t Decompressing...")
+    file_extension = os.path.splitext(file)[-1].lower()
+    if file_extension == ".zip":
+        zip = zipfile.ZipFile(file, "r")
+        zip.extractall(decompress_path)
+        rename_rirs(decompress_path)
+
+    elif file_extension == ".bz2":
+        tar = tarfile.open(file, "r:bz2")
+        tar.extractall(decompress_path)
+        tar.close()
+    else:
+        print("Unsupported file format. Only zip and bz2 files are supported.")
     # os.remove(file)
+
+
+def rename_rirs(decompress_path):
+    try:
+        os.rename(
+            os.path.join(decompress_path, "simulated_rirs_16k"),
+            os.path.join(decompress_path, "SLR26"),
+        )
+    except Exception:
+        pass
+    try:
+        os.rename(
+            os.path.join(decompress_path, "RIRS_NOISES"),
+            os.path.join(decompress_path, "SLR28"),
+        )
+    except Exception:
+        pass
 
 
 def validate_file(download_url, download_path):
     """
-    Write data to CSV file in an appropriate format.
+    Validate the downloaded file and resume the download if needed.
 
     Arguments
     ---------
     download_url : str
-        URL of the being downloaded
+        URL of the file being downloaded
     download_path : str
-        full path of the file that is to be downloaded
+        Full path of the file that is to be downloaded
         (or already downloaded)
 
     Returns
@@ -303,32 +415,105 @@ def validate_file(download_url, download_path):
     bool
         If True, the file need not be downloaded again.
         Else, either the file is not yet downloaded or
-        partially downloded, thus re-download it.
+        partially downloaded, thus resume the download.
     """
     if not os.path.isfile(download_path):
         # File not yet downloaded
         return False
+
     # Get file size in MB
-    actual_size = int(
-        urllib.request.urlopen(download_url).length / (1024 * 1024)
-    )
-    download_size = int(os.path.getsize(download_path) / (1024 * 1024))
+    actual_size = urllib.request.urlopen(
+        download_url,
+        context=ssl.create_default_context(cafile=certifi.where()),
+    ).length
+    download_size = os.path.getsize(download_path)
 
     print(
         "File: {}, \t downloaded {} MB out of {} MB".format(
-            download_path.split("/")[-1], download_size, actual_size
+            download_path.split("/")[-1],
+            download_size // (1024 * 1024),
+            actual_size // (1024 * 1024),
         ),
         end="",
     )
     # Set a margin of 100 MB. We skip re-downloading the file if downloaded
     # size differs from actual size by max 100 MB. More than this margin,
     # re-download is to attempted.
-    if abs(download_size - actual_size) < 100:
+    if abs(actual_size - download_size) < 100:
         return True
     else:
-        print(", \tIncomplete download. Re-trying")
-        return False
+        print(", \tIncomplete download. Resuming download...")
+        # Use the Range header to specify the range of bytes to download
+        headers = {"Range": f"bytes={download_size}-"}
+        with urllib.request.urlopen(
+            urllib.request.Request(download_url, headers=headers),
+            context=ssl.create_default_context(cafile=certifi.where()),
+        ) as response:
+            with open(download_path, "ab") as file:
+                with tqdm.wrapattr(
+                    file,
+                    "write",
+                    total=actual_size,
+                    initial=download_size,
+                    desc="Resuming",
+                ) as fileobj:
+                    shutil.copyfileobj(response, fileobj)
+        return True
 
 
 if __name__ == "__main__":
-    prepare_download()
+    parser = argparse.ArgumentParser(
+        description="Download and extract DNS dataset."
+    )
+    parser.add_argument(
+        "--compressed_path",
+        type=str,
+        default="DNS-compressed",
+        help="Path to store the compressed data.",
+    )
+    parser.add_argument(
+        "--decompressed_path",
+        type=str,
+        default="DNS-dataset",
+        help="Path to store the decompressed data.",
+    )
+
+    parser.add_argument(
+        "--parallel_download",
+        action="store_true",
+        help="Use parallel download.",
+    )
+
+    args = parser.parse_args()
+
+    COMPRESSED_PATH = args.compressed_path
+    DECOMPRESSED_PATH = args.decompressed_path
+
+    if args.parallel_download:
+        parallel_download()
+    else:
+        prepare_download()
+
+    # Modfy contents inside RIR_simple_table.csv
+    file_path = os.path.join(
+        DECOMPRESSED_PATH, "impulse_responses", "RIR_table_simple.csv"
+    )
+    full_path = os.path.abspath(os.path.dirname(file_path))
+
+    replacements = {
+        "datasets/impulse_responses/SLR26/simulated_rirs_16k": os.path.join(
+            full_path, "SLR26"
+        ),
+        "datasets/impulse_responses/SLR28/RIRS_NOISES": os.path.join(
+            full_path, "SLR28"
+        ),
+    }
+
+    # Perform the replacements directly in the file using fileinput module
+    with fileinput.FileInput(file_path, inplace=True) as file:
+        for line in file:
+            for original, replacement in replacements.items():
+                line = line.replace(original, replacement)
+            print(line, end="")
+
+    shutil.move(file_path, "noisyspeech_synthesizer")

@@ -11,12 +11,12 @@ networks. By properly changing the parameter files, you can try
 different architectures.
 
 Authors
+ * Sangeet Sagar 2022
  * Cem Subakan 2020
  * Mirco Ravanelli 2020
  * Samuele Cornell 2020
  * Mirko Bronzi 2020
  * Jianyuan Zhong 2020
- * Sangeet Sagar 2022 (minor edits)
 """
 
 import os
@@ -63,7 +63,13 @@ class Separation(sb.Brain):
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
                     noisy, clean = self.add_speed_perturb(clean, noisy_lens)
 
+                    # Reverb already added, not adding any reverb
+                    clean_rev = clean
                     noisy = clean.sum(-1)
+                    # if we reverberate, we set the clean to be reverberant
+                    if not self.hparams.dereverberate:
+                        clean = clean_rev
+
                     noise = noise.to(self.device)
                     len_noise = noise.shape[1]
                     len_noisy = noisy.shape[1]
@@ -74,7 +80,7 @@ class Separation(sb.Brain):
 
                     # fix the length of clean also
                     clean = clean[:, :min_len, :]
-
+                    
                 if self.hparams.use_wavedrop:
                     noisy = self.hparams.wavedrop(noisy, noisy_lens)
 
@@ -691,7 +697,7 @@ if __name__ == "__main__":
             "baseline_enhanced_datapath": hparams["baseline_enhanced_folder"],
             "savepath": hparams["save_folder"],
             "skip_prep": hparams["skip_prep"],
-            # "fs": hparams["sample_rate"],
+            "fs": hparams["sample_rate"],
         },
     )
 

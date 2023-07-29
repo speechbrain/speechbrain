@@ -6,15 +6,15 @@ Download : See `dns_download.py`
 The CSV files preperation for Deep Noise Suppression (DNS) Challenge
 (Real-time DNS track)
 
-- We randomly separate out 0.5% of training data as valid data
+- We randomly separate out 5% of training data as valid data
 - DNS provides its own
-    (i) Dev noisy files
+    (i)  Dev noisy files
     (ii) Baseline model
-        (NSNet2: perform enhancement on the dev noisy file)
+            (NSNet2: perform enhancement on the dev noisy file)
     (ii) Blind test set
 
-But it doesn't provide the golden-clean files of the dev test.
-Therefore, we separate out some files from training set as valid set
+But it doesn't provide the golden-clean files for dev test.
+Therefore, we separate out 5% of training set as valid set
 so that we can compute valid stats like PESQ (bacause metrics like these need both
 the golden reference singal and target signal).
 
@@ -78,7 +78,7 @@ def prepare_dns_csv(
 def create_dns_csv(datapath, savepath, fs=16000):
     """
     Create CSV files for train and valid set. To create valid
-    set, it separates out 0.5% of files from each
+    set, it separates out 5% of files from each
     split.
 
     Arguments:
@@ -138,7 +138,7 @@ def create_dns_csv(datapath, savepath, fs=16000):
         noise_f1_path = extract_files(set_datapath, type="noise")
         noisy_f1_path = extract_files(set_datapath, type="noisy")
 
-        # Split 0.5% of data from each type to form dev set.
+        # Split 5% of data from each type to form dev set.
         (
             clean_tr_path,
             clean_dev_path,
@@ -185,7 +185,7 @@ def create_dns_csv(datapath, savepath, fs=16000):
 def create_baseline_dev_csv(noisy_datapath, enhanced_datapath, savepath):
     """
     Create CSV files for DNS baseline dev set.
-    Source: https://github.com/microsoft/DNS-Challenge#baseline-enhanced-clips
+    Source: https://github.com/microsoft/DNS-Challenge/tree/5582dcf5ba43155621de72a035eb54a7d233af14#baseline-enhanced-clips
 
     Arguments:
     ----------
