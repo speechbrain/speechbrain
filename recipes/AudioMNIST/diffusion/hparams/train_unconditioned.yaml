@@ -230,7 +230,6 @@ opt_class: !name:torch.optim.Adam
     betas: !ref (<adam_beta1>, <adam_beta2>)
     weight_decay: !ref <adam_weight_decay>
     eps: !ref <adam_epsilon>
-    capturable: True
 
 # This function manages learning rate annealing over the epochs.
 # We here use the simple lr annealing method that linearly decreases

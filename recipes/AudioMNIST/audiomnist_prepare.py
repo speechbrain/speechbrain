@@ -134,8 +134,8 @@ def prepare_audiomnist(
         )
 
     # Get file lists for train/valid/test splits
-    splits = get_splits(prepare_data_folder, splits)
-    digit_lookup_file_name = os.path.join(prepare_data_folder, "digits.csv")
+    splits = get_splits(data_folder, splits)
+    digit_lookup_file_name = os.path.join(data_folder, "digits.csv")
 
     # Read the digit look-up file providing annotations text and
     # phonemes
