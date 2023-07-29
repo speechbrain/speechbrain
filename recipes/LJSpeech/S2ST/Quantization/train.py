@@ -9,15 +9,18 @@ Authors
 import sys
 import logging
 import time
+import random
+import itertools
+import pathlib as pl
 
 import joblib
 import torch
+import tqdm
+import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
-
-from utils import extract_features, get_splits
 
 
 def setup_logger():
@@ -34,6 +37,50 @@ def get_device(use_cuda):
     print("CUDA AVAILABLE?: {}".format(torch.cuda.is_available()))
     print("=" * 30 + "\n")
     return torch.device("cuda" if use_cuda else "cpu")
+
+
+def np_array(tensor):
+    tensor = tensor.squeeze(0)
+    tensor = tensor.detach().cpu()
+    return tensor.numpy()
+
+
+def fetch_data(splits, sample_pct, seed=1234):
+    ds_splits = {}
+    for split in splits:
+        key = f"{split.parent}_{split.stem}"
+        ds_splits[key] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=split,
+            output_keys=["id", "wav"],
+        )
+
+    data = list(itertools.chain(*ds_splits.values()))
+    random.seed(seed)
+    if sample_pct < 1.0:
+        data = random.sample(data, int(sample_pct * len(data)))
+    return iter(data), len(data)
+
+
+def extract_features(model, layer, splits, sample_pct, flatten, device="cpu"):
+    data, num_files = fetch_data(splits, sample_pct)
+    features_list = []
+    id_list = []
+
+    for item in tqdm.tqdm(data, total=num_files):
+        wav = item["wav"]
+        with torch.no_grad():
+            audio = sb.dataio.dataio.read_audio(wav)
+            audio = audio.unsqueeze(0).to(device)
+            feats = model.extract_features(audio)
+            feats = feats[layer]
+            feats = np_array(feats)
+        features_list.append(feats)
+        id_list.append(item["id"])
+
+    if flatten:
+        return np.concatenate(features_list), id_list
+
+    return features_list, id_list
 
 
 def fetch_kmeans_model(
@@ -104,17 +151,19 @@ if __name__ == "__main__":
     device = get_device(not hparams["no_cuda"])
 
     logger.info(f"Loading encoder model from HF hub: {hparams['encoder_hub']}")
-    save_path = f"{hparams['save_folder']}/pretrained_models"
     encoder = HuggingFaceWav2Vec2(
         hparams["encoder_hub"],
-        save_path,
+        hparams["encoder_folder"],
         output_all_hiddens=True,
         output_norm=False,
         freeze_feature_extractor=True,
         freeze=True,
     ).to(device)
 
-    splits = get_splits(hparams["save_folder"], hparams["splits"])
+    splits = []
+    data_folder = pl.Path(hparams["save_folder"])
+    for split in hparams["splits"]:
+        splits.append(data_folder / f"{split}.json")
 
     # Features loading/extraction for K-means
     logger.info(f"Extracting acoustic features ...")

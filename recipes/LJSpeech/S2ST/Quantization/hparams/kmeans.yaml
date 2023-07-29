@@ -27,8 +27,9 @@ skip_prep: False
 sample_pct: 0.2
 
 # URL for the HuggingFace model we want to load
-encoder_hub: facebook/hubert-base-ls960 #!PLACEHOLDER
-layer: 6 #!PLACEHOLDER
+encoder_hub: facebook/hubert-base-ls960
+encoder_folder: !ref <save_folder>/pretrained_models
+layer: 6
 
 ####################
 # Model Parameters #
