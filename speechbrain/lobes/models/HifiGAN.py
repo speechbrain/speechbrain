@@ -7,7 +7,6 @@ For more details: https://arxiv.org/pdf/2010.05646.pdf
 Authors
  * Jarod Duret 2021
  * Yingzhi WANG 2022
- * Jarod Duret 2023
 """
 
 # Adapted from https://github.com/jik876/hifi-gan/ and https://github.com/coqui-ai/TTS/
