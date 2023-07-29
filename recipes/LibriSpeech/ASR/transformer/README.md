@@ -6,10 +6,16 @@ You can download LibriSpeech at http://www.openslr.org/12
 # How to run
 ```shell
 python train_with_whisper.py hparams/train_hf_whisper.yaml
+python train.py hparams/transformer.yaml
+
 ```
 
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
 ```shell
-python train.py hparams/transformer.yaml
+python train_with_whisper.py hparams/train_hf_whisper.yaml --test_only
+python train.py hparams/transformer.yaml --test_only
 ```
 
 **If using a HuggingFace pre-trained model, please make sure you have "transformers"
