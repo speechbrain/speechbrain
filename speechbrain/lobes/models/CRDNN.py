@@ -390,6 +390,8 @@ class DNN_Block(sb.nnet.containers.Sequential):
         Class definition to use for constructing activation layers.
     dropout : float
         Rate to use for dropping neurons.
+    bias: bool
+        If True, the bias is added the linear transformation.
 
     Example
     -------
@@ -401,13 +403,18 @@ class DNN_Block(sb.nnet.containers.Sequential):
     """
 
     def __init__(
-        self, input_shape, neurons, activation=torch.nn.LeakyReLU, dropout=0.15
+        self,
+        input_shape,
+        neurons,
+        activation=torch.nn.LeakyReLU,
+        dropout=0.15,
+        bias=True,
     ):
         super().__init__(input_shape=input_shape)
         self.append(
             sb.nnet.linear.Linear,
             n_neurons=neurons,
-            bias=False,
+            bias=bias,
             layer_name="linear",
         )
         self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")

@@ -128,8 +128,10 @@ dnn: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, 32]
     dnn1: !name:speechbrain.lobes.models.CRDNN.DNN_Block
         neurons: 16
+        bias: False
     dnn2: !name:speechbrain.lobes.models.CRDNN.DNN_Block
         neurons: 16
+        bias: False
     lin: !name:speechbrain.nnet.linear.Linear
         n_neurons: 1
         bias: False
