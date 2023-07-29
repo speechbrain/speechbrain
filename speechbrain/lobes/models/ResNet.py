@@ -348,7 +348,7 @@ class ResNet(nn.Module):
             layers.append(BasicBlock(out_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         x = x.unsqueeze(1)
 
         x = self.conv1(x)
