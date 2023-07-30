@@ -26,7 +26,7 @@ from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training" """
+    """Class for speaker embedding training"""
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.

@@ -13,6 +13,7 @@ from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
 
 
+# Skip transpose as much as possible for efficiency
 class Conv1d(_Conv1d):
     """1D convolution. Skip transpose is used to improve efficiency."""
 
@@ -398,6 +399,7 @@ class ECAPA_TDNN(torch.nn.Module):
     def __init__(
         self,
         input_size,
+        device="cpu",
         lin_neurons=192,
         activation=torch.nn.ReLU,
         channels=[512, 512, 512, 512, 1536],
