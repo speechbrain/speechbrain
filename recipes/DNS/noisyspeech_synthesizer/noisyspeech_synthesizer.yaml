@@ -37,7 +37,7 @@
 
 # Data storage params
 uncompressed_path: !PLACEHOLDER  # ../DNS-dataset/datasets_fullband
-rirs: !PLACEHOLDER # ../DNS-dataset/impulse_responses/RIR_table_simple.csv
+rirs: RIR_table_simple.csv
 split_name: read_speech
 synthesized_data_dir: synthesized_data
 

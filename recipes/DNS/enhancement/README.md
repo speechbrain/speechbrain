@@ -29,7 +29,7 @@ Evaluation on DNS4 2022 baseline dev set using DNSMOS metric.
 **Consider training it for atleast 90-100 epochs for superior performance.**
 
 # **Computing power**
-Kindly be aware that in terms of computational power, training can be extremely resource demanding due to the dataset's large size and the complexity of the SepFormer model. To handle the size of 1300 hours of clean-noisy pairs, we employed a multi-GPU distributed data-parallel (DDP) training scheme on an Nvidia 8 X RTXA6000 48GB GPU. The training process lasted for 18 days, for just 45 epochs.
+Kindly be aware that in terms of computational power, training can be extremely resource demanding due to the dataset's large size and the complexity of the SepFormer model. To handle the size of 1300 hours of clean-noisy pairs, we employed a multi-GPU distributed data-parallel (DDP) training scheme on an Nvidia 8 X RTXA6000 48GB GPU. The training process lasted for 17 days, for just 45 epochs.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

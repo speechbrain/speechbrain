@@ -47,7 +47,7 @@ sample_rate: 16000
 n_audio_to_save: 20
 
 # Training parameters
-N_epochs: 150
+N_epochs: 100
 batch_size: 4
 batch_size_test: 1
 lr: 0.00015

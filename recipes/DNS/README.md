@@ -40,6 +40,7 @@ To use parallel downloading
 ```
 python dns_download.py --compressed_path DNS-dataset --decompressed_path DNS-compressed --parallel_download
 ```
+*Note: Prallel download is bit unstable. It can download files in parallel, but cant resume in parallel.*
 
 The compressed files are downloaded in `DNS-compressed` and further decompressed audio files can be found in `DNS-dataset`.
 
