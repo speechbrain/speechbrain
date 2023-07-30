@@ -9,7 +9,7 @@ Data augmentation with open_rir, musan, CommonLanguge is used as well. Make sure
 
 # Training a RNN-based VAD
 Run the following command to train the model:
-`python train.py hparams/streamable.yaml --data_folder=/localscratch/dataset/ --musan_folder=/localscratch/musan/ --commonlanguage_folder=/localscratch/common_voice_kpd`
+`python train.py hparams/streamable.yaml --data_folder=your_path/LibriParty/dataset/ --musan_folder=your_path/musan/ --commonlanguage_folder=your_path/common_voice_kpd/`
 (change the paths with your local ones)
 
 
