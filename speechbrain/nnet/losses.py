@@ -748,6 +748,16 @@ def compute_masked_loss(
         The proportion of label smoothing. Should only be used for NLL loss.
         Ref: Regularizing Neural Networks by Penalizing Confident Output
         Distributions. https://arxiv.org/abs/1701.06548
+    mask_shape: torch.Tensor
+        the shape of the mask
+        The default is "targets", which will cause the mask to be the same 
+        shape as the targets
+        
+        Other options include "predictions" and "loss", which will use the
+        shape of the predictions and the unreduced loss, respectively.
+        These are useful for loss functions that whose output does not
+        match the shape of the targets
+
     reduction : str
         One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
         single value and 'batch' returns one per item in the batch and
