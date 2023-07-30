@@ -55,7 +55,7 @@ class DiffusionEmbedding(nn.Module):
     Arguments
     ---------
     max_steps: int
-        total difussion steps
+        total diffusion steps
     """
 
     def __init__(self, max_steps):
@@ -107,7 +107,7 @@ class DiffusionEmbedding(nn.Module):
         Arguments
         ---------
         max_steps: int
-            total difussion steps
+            total diffusion steps
         """
         steps = torch.arange(max_steps).unsqueeze(1)  # [T,1]
         dims = torch.arange(64).unsqueeze(0)  # [1,64]

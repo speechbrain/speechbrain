@@ -3201,7 +3201,7 @@ class DiffusionVocoder(Pretrained):
         Hyperparameters (from HyperPyYAML)
     """
 
-    HPARAMS_NEEDED = ["difussion"]
+    HPARAMS_NEEDED = ["diffusion"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

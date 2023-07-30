@@ -38,7 +38,7 @@ num_workers: 8
 
 lr: 0.0002
 
-# difussion parameters
+# diffusion parameters
 train_timesteps: 50
 beta_start: 0.0001
 beta_end: 0.05
