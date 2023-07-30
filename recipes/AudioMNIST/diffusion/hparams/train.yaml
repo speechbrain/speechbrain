@@ -12,7 +12,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 data_folder: ./data
 prepare_data_folder: ./audiomnist-prepare-data
-output_folder: !ref ./results/diffusion/unconditioned/<seed>
+output_folder: !ref ./results/diffusion/baseline/<seed>
 save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
@@ -70,7 +70,6 @@ rand_amplitude: True
 min_amp: 0.1
 max_amp: 0.4
 
-
 # Spectrogram Parameters
 spec_n_fft: 1024
 spec_f_min: 0
@@ -113,7 +112,7 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 # Evaluation Parameters
 eval_num_samples: 10
-samples_interval: 1
+samples_interval: 5
 eval_generate_audio: True
 eval_show_progress: True
 norm_out_sample: False

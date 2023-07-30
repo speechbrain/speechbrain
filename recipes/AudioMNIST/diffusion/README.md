@@ -7,16 +7,18 @@ https://arxiv.org/pdf/2006.11239.pdf
 
 # Training
 For the unconditioned model, run the following:
-`python train.py hparams/train_unconditioned.yaml`
+`python train.py hparams/train.yaml`
 
-For the model conditioned on the digit, run the following:
-`python train.py hparams/train_conditioned.yaml`
+For the model conditioned on the speaker, run the following:
+`python train.py hparams/train.yaml --speaker_conditioned true`
+
+For the model conditioned on the digit (i.e. a vastly simplified TTS use case), run the following:
+`python train.py hparams/train.yaml --digit_conditioned true`
 
 For the latent diffusion model, run the following:
-`python train.py hparams/train_conditioned.yaml`
+`python train.py hparams/train_latent.yaml`
 
 The scripts will output the results to <output_folder>/samples, for every training epoch
-
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
