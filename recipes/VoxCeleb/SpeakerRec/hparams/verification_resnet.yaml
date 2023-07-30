@@ -37,7 +37,7 @@ split_ratio: [90, 10]
 skip_prep: False
 
 batch_size: 8
-score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
+#score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
 cohort_size: 20000 # amount of imposter utterances in normalization cohort
 n_train_snts: 400000 # used for normalization stats
 
