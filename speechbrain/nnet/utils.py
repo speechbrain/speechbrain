@@ -1,8 +1,10 @@
-"""Custom models for diffusion
+"""
+Assorted reusable neural network modules.
 
 Authors
- * Artem Ploujnikov 2022
+ * Artem Ploujnikov 2023
 """
+
 from torch import nn
 from speechbrain.dataio.dataio import length_to_mask
 
