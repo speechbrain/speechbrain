@@ -3475,8 +3475,8 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Returns
         -------
-        dict
-            The emotions and their boundaries.
+        list of dictionary: List[Dict[List]]
+            The emotions and their temporal boundaries.
         """
         waveform = self.load_audio(path)
         # Fake a batch:
@@ -3538,8 +3538,8 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Returns
         -------
-        torch.tensor
-            The frame-wise predictions
+        list of dictionary: List[Dict[List]]
+            The emotions and their temporal boundaries.
         """
         outputs = self.encode_batch(wavs, wav_lens)
         averaged_out = self.hparams.avg_pool(outputs)
@@ -3575,9 +3575,9 @@ class Speech_Emotion_Diarization(Pretrained):
             ]
             return results
 
-    def forward(self, wavs, wav_lens):
-        """Runs full transcription - note: no gradients through decoding"""
-        return self.transcribe_batch(wavs, wav_lens)
+    def forward(self, wavs, wav_lens, batch_id):
+        """Get emotion diarization for a batch of waveforms."""
+        return self.diarize_batch(wavs, wav_lens, batch_id)
 
     def is_overlapped(self, end1, start2):
         """Returns True if segments are overlapping.
