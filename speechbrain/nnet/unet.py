@@ -33,7 +33,7 @@ Authors
 from abc import abstractmethod
 
 from speechbrain.utils.data_utils import pad_divisible
-from .autoencoder import NormalizingAutoencoder
+from .autoencoders import NormalizingAutoencoder
 
 
 import math
