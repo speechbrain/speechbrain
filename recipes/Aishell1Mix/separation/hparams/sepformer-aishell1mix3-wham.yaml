@@ -36,7 +36,6 @@ ckpt_interval_minutes: 60
 
 # Experiment params
 auto_mix_prec: True # Set it to True for mixed precision
-test_only: False
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000

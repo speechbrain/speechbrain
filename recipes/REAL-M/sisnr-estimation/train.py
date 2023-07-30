@@ -796,15 +796,14 @@ if __name__ == "__main__":
 
     snrestimator.all_separators = all_separators
 
-    if not hparams["test_only"]:
-        # Training
-        snrestimator.fit(
-            snrestimator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+    # Training
+    snrestimator.fit(
+        snrestimator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     snrestimator.evaluate(test_data, min_key="error")
