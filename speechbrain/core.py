@@ -1352,6 +1352,7 @@ class Brain:
             else set()
         )
 
+        print("compile_module_keys", compile_module_keys)
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
@@ -1366,7 +1367,7 @@ class Brain:
                     self.modules[name],
                     mode=self.compile_mode,
                     fullgraph=self.compile_using_fullgraph,
-                    dynamic=self.compile_dynamic,
+                    dynamic=self.compile_using_dynamic_shape_tracing,
                 )
             except Exception as e:
                 logger.warning(
@@ -1380,8 +1381,8 @@ class Brain:
             jit_module_keys.discard(name)
 
         for name in jit_module_keys:
-            module = torch.jit.script(self.mods[name])
-            self.mods[name] = module.to(self.device)
+            module = torch.jit.script(self.modules[name])
+            self.modules[name] = module.to(self.device)
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""
