@@ -259,13 +259,13 @@ def parse_arguments(arg_list=None):
         help="One of {default, reduce-overhead, max-autotune}",
     )
     parser.add_argument(
-        "--compile_fullgraph",
+        "--compile_using_fullgraph",
         type=bool,
         nargs="*",
         help="Whether it is ok to break model into several subgraphs",
     )
     parser.add_argument(
-        "--compile_dynamic_shape_tracing",
+        "--compile_using_dynamic_shape_tracing",
         type=bool,
         nargs="*",
         help="Use dynamic shape tracing for compilation",
@@ -448,9 +448,9 @@ class Brain:
             an error is raised.
         compile_mode (str)
             One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
-        compile_fullgraph (bool) 
+        compile_using_fullgraph (bool) 
             Whether it is ok to break model into several subgraphs, Default ``False``.
-        compile_dynamic_shape_tracing (bool)
+        compile_using_dynamic_shape_tracing (bool)
             Use dynamic shape tracing for compilation, Default ``True``.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
@@ -522,8 +522,8 @@ class Brain:
             "jit_module_keys": None,
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
-            "compile_fullgraph": False, 
-            "compile_dynamic_shape_tracing": True,
+            "compile_using_fullgraph": False, 
+            "compile_using_dynamic_shape_tracing": True,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -1365,7 +1365,7 @@ class Brain:
                 module = torch.compile(
                     self.modules[name],
                     mode=self.compile_mode,
-                    fullgraph=self.compile_fullgraph,
+                    fullgraph=self.compile_using_fullgraph,
                     dynamic=self.compile_dynamic,
                 )
             except Exception as e:

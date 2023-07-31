@@ -179,8 +179,8 @@ class Pretrained(torch.nn.Module):
          * jit_module_keys
          * compile_module_keys
          * compile_mode
-         * compile_fullgraph
-         * compile_dynamic_shape_tracing
+         * compile_using_fullgraph
+         * compile_using_dynamic_shape_tracing
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -204,8 +204,8 @@ class Pretrained(torch.nn.Module):
             "jit_module_keys": None,
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
-            "compile_fullgraph": False,
-            "compile_dynamic_shape_tracing": True,
+            "compile_using_fullgraph": False,
+            "compile_using_dynamic_shape_tracing": True,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -331,7 +331,7 @@ class Pretrained(torch.nn.Module):
                 module = torch.compile(
                     self.modules[name],
                     mode=self.compile_mode,
-                    fullgraph=self.compile_fullgraph,
+                    fullgraph=self.compile_using_fullgraph,
                     dynamic=self.compile_dynamic,
                 )
             except Exception as e:
