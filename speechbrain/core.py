@@ -6,6 +6,8 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023
 """
 
 import os
@@ -251,6 +253,24 @@ def parse_arguments(arg_list=None):
         "TorchInductor will take precedence when available."
     )
     parser.add_argument(
+        "--compile_mode",
+        type=str,
+        nargs="*",
+        help="One of {default, reduce-overhead, max-autotune}",
+    )
+    parser.add_argument(
+        "--compile_fullgraph",
+        type=bool,
+        nargs="*",
+        help="Whether it is ok to break model into several subgraphs",
+    )
+    parser.add_argument(
+        "--compile_dynamic_shape_tracing",
+        type=bool,
+        nargs="*",
+        help="Use dynamic shape tracing for compilation",
+    )    
+    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -424,9 +444,14 @@ class Brain:
             List of keys in ``modules`` that should be jit compiled.
         compile_module_keys (list of str)
             List of keys in ``modules`` that should be compiled using
-            ``torch.compile``, if available. Modules specified in both this and
-            ``jit_module_keys`` will get compiled by ``torch.compile`` if it is
-            available.
+            ``torch.compile``. If ``torch.compile`` is unavailable, 
+            an error is raised.
+        compile_mode (str)
+            One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
+        compile_fullgraph (bool) 
+            Whether it is ok to break model into several subgraphs, Default ``False``.
+        compile_dynamic_shape_tracing (bool)
+            Use dynamic shape tracing for compilation, Default ``True``.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
@@ -496,6 +521,9 @@ class Brain:
             "find_unused_parameters": False,
             "jit_module_keys": None,
             "compile_module_keys": None,
+            "compile_mode": "reduce-overhead",
+            "compile_fullgraph": False, 
+            "compile_dynamic_shape_tracing": True,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -1308,13 +1336,11 @@ class Brain:
         compile_available = hasattr(torch, "compile")
 
         if not compile_available and self.compile_module_keys is not None:
-            logger.info(
+            raise ValueError(
                 "'compile_module_keys' specified, but this install of PyTorch "
                 "seems to be too old to support it. Only JIT will be used."
             )
 
-        # FIXME: this is kinda trash
-        # FIXME: don't copypaste inside of interfaces
         compile_module_keys = (
             set(self.compile_module_keys)
             if self.compile_module_keys is not None
@@ -1334,24 +1360,24 @@ class Brain:
                 )
 
         # try 'torch.compile', remove successful compiles from JIT list
-        if compile_available:
-            for name in compile_module_keys:
-                try:
-                    module = torch.compile(
-                        self.modules[name],
-                        mode="reduce-overhead",
-                        dynamic=True
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"'{name}' in 'compile_module_keys' failed to compile "
-                        f"and will be skipped (may fallback onto JIT, if "
-                        f"specified): {e}"
-                    )
-                    continue
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.modules[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_fullgraph,
+                    dynamic=self.compile_dynamic,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
 
-                self.modules[name] = module.to(self.device)
-                jit_module_keys.discard(name)
+            self.modules[name] = module.to(self.device)
+            jit_module_keys.discard(name)
 
         for name in jit_module_keys:
             module = torch.jit.script(self.mods[name])
