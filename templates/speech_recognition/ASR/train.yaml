@@ -253,7 +253,7 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 
 # If the lm_scorer is set, a language model
 # is applied (with a weight specified in scorer).
-rnnlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
     language_model: !ref <lm_model>
     temperature: !ref <temperature_lm>
 
