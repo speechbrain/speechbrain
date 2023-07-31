@@ -202,7 +202,10 @@ class Pretrained(torch.nn.Module):
             "distributed_launch": False,
             "distributed_backend": "nccl",
             "jit_module_keys": None,
-            "compile_module_keys": None
+            "compile_module_keys": None,
+            "compile_mode": "reduce-overhead",
+            "compile_fullgraph": False,
+            "compile_dynamic_shape_tracing": True,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
