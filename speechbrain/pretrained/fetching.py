@@ -11,7 +11,6 @@ import pathlib
 import logging
 from enum import Enum
 import huggingface_hub
-from typing import Union
 from collections import namedtuple
 from requests.exceptions import HTTPError
 
@@ -58,8 +57,7 @@ def fetch(
     save_filename=None,
     use_auth_token=False,
     revision=None,
-    cache_dir: Union[str, pathlib.Path, None] = None,
-    silent_local_fetch: bool = False,
+    huggingface_cache_dir=None,
 ):
     """Ensures you have a local copy of the file, returns its path
 
@@ -99,11 +97,8 @@ def fetch(
         The model revision corresponding to the HuggingFace Hub model revision.
         This is particularly useful if you wish to pin your code to a particular
         version of a model hosted at HuggingFace.
-    cache_dir: str or Path (default: None)
-        Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
-    silent_local_fetch: bool (default: False)
-        Surpress logging messages (quiet mode).
-
+    huggingface_cache_dir: str
+        Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
     Returns
     -------
     pathlib.Path
@@ -128,21 +123,20 @@ def fetch(
     ]:
         # Interpret source as local directory path & return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
-        MSG = f"Destination {filename}: local file in {str(sourcepath)}."
-        if not silent_local_fetch:
-            logger.info(MSG)
+        MSG = f"Destination {filename}: local file in {str(sourcepath)} ."
+        logger.info(MSG)
         return sourcepath
+
     destination = savedir / save_filename
     if destination.exists() and not overwrite:
-        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}."
+        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)} ."
         logger.info(MSG)
         return destination
     if (
         str(source).startswith("http:") or str(source).startswith("https:")
-    ) or fetch_from is FetchFrom.URI:
-        # Interpret source as web address.
+    ) or fetch_from is FetchFrom.URI:  # Interpret source as web address.
         MSG = (
-            f"Fetch {filename}: Downloading from normal URL {str(sourcefile)}."
+            f"Fetch {filename}: Downloading from normal URL {str(sourcefile)} ."
         )
         logger.info(MSG)
         # Download
@@ -163,7 +157,7 @@ def fetch(
                 filename=filename,
                 use_auth_token=use_auth_token,
                 revision=revision,
-                cache_dir=cache_dir,
+                cache_dir=huggingface_cache_dir,
             )
             logger.info(f"HF fetch: {fetched_file}")
         except HTTPError as e:
@@ -171,7 +165,6 @@ def fetch(
                 raise ValueError("File not found on HF hub")
             else:
                 raise
-
         # Huggingface hub downloads to etag filename, symlink to the expected one:
         sourcepath = pathlib.Path(fetched_file).absolute()
         _missing_ok_unlink(destination)

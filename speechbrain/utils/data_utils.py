@@ -372,7 +372,7 @@ def set_writing_permissions(folder_path):
 
 
 def pad_right_to(
-    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+    tensor: torch.Tensor, target_shape, mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target

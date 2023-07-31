@@ -38,8 +38,8 @@ def get_yaml_var(hparam_file):
             # Remove trailing characters
             line = line.rstrip()
 
-            # Check for variables (e.g., 'key:' or '- !ref')
-            if line.find(":") != -1 or line.find("- !ref") != -1:
+            # Check for variables (e.g., 'key:' or '!ref')
+            if line.find(":") != -1 or line.find("!ref") != -1:
                 var_name = line[: line.find(":")]
                 # The variables to check are like "key:" (we do not need to check
                 # subvariavles as " key:")
@@ -98,6 +98,11 @@ def detect_script_vars(script_file, var_lst):
                         continue  # no need to go through the other cases for this var
                 # case: hparams[f"{dataset}_annotation"] - only that structure at the moment
                 re_match = re.search(r"\[f.\{.*\}(.*).\]", line)
+                # case: getattr(self.hparams, f"{stage.name}_search".lower())
+                if re_match is None:
+                    re_match = re.search(
+                        r"self\.hparams, f\"\{.*\}(.*)\"", line
+                    )
                 if re_match is not None:
                     if re_match.group(1) in var:
                         print(

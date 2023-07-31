@@ -98,14 +98,18 @@ class ASR(sb.Brain):
             # Output layer for ctc log-probabilities
             ctc_logits = self.modules.ctc_lin(encoded_signal)
             predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
-        elif stage == sb.Stage.VALID:
-            predictions["tokens"], _ = self.hparams.valid_search(
-                encoded_signal, self.feat_lens
-            )
-        elif stage == sb.Stage.TEST:
-            predictions["tokens"], _ = self.hparams.test_search(
-                encoded_signal, self.feat_lens
-            )
+
+        elif stage != sb.Stage.TRAIN:
+            if stage == sb.Stage.VALID:
+                hyps, _, _, _ = self.hparams.valid_search(
+                    encoded_signal, self.feat_lens
+                )
+            elif stage == sb.Stage.TEST:
+                hyps, _, _, _ = self.hparams.test_search(
+                    encoded_signal, self.feat_lens
+                )
+
+            predictions["tokens"] = hyps
 
         return predictions
 

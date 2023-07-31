@@ -49,9 +49,11 @@ class ASR(sb.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return logits, hyps, wav_lens
 
@@ -70,6 +72,8 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
@@ -276,17 +280,11 @@ if __name__ == "__main__":
     tokenizer.set_prefix_tokens(language, "transcribe", False)
 
     # we need to prepare the tokens for searchers
-    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["valid_greedy_searcher"].set_language_token(
-        tokenizer.prefix_tokens[1]
-    )
+    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
 
-    hparams["test_beam_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
+    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)

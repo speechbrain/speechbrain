@@ -72,9 +72,11 @@ class ASR(sb.core.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+            hyps, _, _, _ = self.hparams.valid_greedy_searcher(
+                enc_out, wav_lens
+            )
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+            hyps, _, _, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
 
         return predictions, clean, [log_probs, hyps, wav_lens]
 
@@ -160,6 +162,8 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(

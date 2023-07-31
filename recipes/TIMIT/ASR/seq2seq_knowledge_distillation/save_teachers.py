@@ -101,7 +101,8 @@ class ASR(sb.Brain):
 
                 # WER from output layer of CE
                 _, predictions = p_seq_tea.max(dim=-1)
-                hyps = sb.decoders.seq2seq.batch_filter_seq2seq_output(
+
+                hyps = sb.decoders.utils.batch_filter_seq2seq_output(
                     predictions, eos_id=self.hparams.eos_index
                 )
                 sequence_ce = self.label_encoder.decode_ndim(hyps)

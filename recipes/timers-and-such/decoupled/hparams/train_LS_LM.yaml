@@ -132,11 +132,10 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <slu_beam_size>
+    vocab_size: !ref <output_neurons>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
     using_max_attn_shift: False
-    max_attn_shift: 30
-    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

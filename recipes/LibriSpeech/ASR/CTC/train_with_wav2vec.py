@@ -385,7 +385,7 @@ if __name__ == "__main__":
             except ImportError:
                 err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
                 err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
-            raise ImportError(err_msg)
+                raise ImportError(err_msg)
 
             ind2lab = label_encoder.ind2lab
             labels = [ind2lab[x] for x in range(len(ind2lab))]

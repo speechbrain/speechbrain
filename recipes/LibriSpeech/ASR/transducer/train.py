@@ -298,7 +298,7 @@ class ASR(sb.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model"
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)

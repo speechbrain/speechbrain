@@ -55,10 +55,11 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                wav2vec2_out, wav_lens
+            hyps, _, _, _ = self.hparams.beam_searcher(
+                wav2vec2_out.detach(), wav_lens
             )
-            return p_seq, wav_lens, p_tokens
+
+            return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
