@@ -67,7 +67,7 @@ class ASR(sb.Brain):
         p_ctc = self.hparams.log_softmax(logits)
 
         if stage != sb.Stage.TRAIN:
-            p_tokens = decoder(p_ctc.detach())
+            p_tokens = decoder(p_ctc.detach(), wav_lens)
 
         return p_ctc, wav_lens, p_tokens
 
