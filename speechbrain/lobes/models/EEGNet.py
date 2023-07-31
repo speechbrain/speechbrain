@@ -60,25 +60,25 @@ class EEGNet(torch.nn.Module):
         dropout=0.5,
         dense_max_norm=0.25,
         dense_n_neurons=4,
-        activation_type='elu',
+        activation_type="elu",
     ):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
         self.default_sf = 128  # sampling rate of the original publication (Hz)
 
-        if activation_type == 'elu':
+        if activation_type == "elu":
             activation = torch.nn.ELU()
-        elif activation_type == 'relu':
+        elif activation_type == "relu":
             activation = torch.nn.ReLU()
-        elif activation_type == 'leaky_relu':
+        elif activation_type == "leaky_relu":
             activation = torch.nn.LeakyReLU()
-        elif activation_type == 'prelu':
+        elif activation_type == "prelu":
             activation = torch.nn.PReLU()
         else:
             raise ValueError("Wrong hidden activation function")
 
-        T = input_shape[1]
+        # T = input_shape[1]
         C = input_shape[2]
 
         # CONVOLUTIONAL MODULE
@@ -172,7 +172,9 @@ class EEGNet(torch.nn.Module):
         self.conv_module.add_module(
             "bnorm_3",
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_septemporal_point_kernels, momentum=0.01, affine=True,
+                input_size=cnn_septemporal_point_kernels,
+                momentum=0.01,
+                affine=True,
             ),
         )
         self.conv_module.add_module("act_3", activation)
@@ -193,7 +195,9 @@ class EEGNet(torch.nn.Module):
             "flatten", torch.nn.Flatten(),
         )
 
-        out = self.conv_module(torch.ones((1, )+tuple(input_shape[1:-1])+(1,)))
+        out = self.conv_module(
+            torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
+        )
         dense_input_size = self._num_flat_features(out)
         # dense_input_size = cnn_septemporal_kernels * int(
         #     T / (cnn_spatial_pool[0] * cnn_septemporal_pool[0])

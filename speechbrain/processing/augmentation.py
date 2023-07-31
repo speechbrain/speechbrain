@@ -26,9 +26,8 @@ class Augmenter(torch.nn.Module):
         on the batch axis (one orignal  input, N augmented output)
     parallel_augment_fixed_bs: bool
         If False, each augmenter (performed in parallel) generates a number of
-        augmented examples equal to the batch size. Thus, overall, with this option
-        N*batch size artificial data are generated, where N is the number 
-        of augmenters.
+        augmented examples equal to the batch size. Thus, overall, with this option N*batch size artificial data are
+        generated, where N is the number of augmenters.
         When True, the number of total augmented examples is kept fixed at
         the batch size, thus, for each augmenter, fixed at batch size // N examples.
         This option is useful to keep controlled the number of synthetic examples
@@ -125,16 +124,20 @@ class Augmenter(torch.nn.Module):
 
             idx = torch.arange(x.shape[0])
             if self.parallel_augment and self.parallel_augment_fixed_bs:
-                idx_startstop = torch.linspace(0, x.shape[0], len(selected_augmentations) + 1).to(torch.int)
+                idx_startstop = torch.linspace(
+                    0, x.shape[0], len(selected_augmentations) + 1
+                ).to(torch.int)
                 idx_start = idx_startstop[k]
-                idx_stop = idx_startstop[k+1]
+                idx_stop = idx_startstop[k + 1]
                 idx = idx[idx_start:idx_stop]
 
             # Check input arguments
             if self.require_lengths[augment_name]:
-                out = augment_fun(next_input[idx,...], lengths=next_lengths[idx])
+                out = augment_fun(
+                    next_input[idx, ...], lengths=next_lengths[idx]
+                )
             else:
-                out = augment_fun(next_input[idx,...])
+                out = augment_fun(next_input[idx, ...])
 
             # Check output arguments
             if isinstance(out, tuple):
@@ -191,7 +194,6 @@ class Augmenter(torch.nn.Module):
             or len(self.augmentations) == 0
         ):
             return x, lengths
-
 
         # Shuffle augmentation
         if self.shuffle_augmentations:

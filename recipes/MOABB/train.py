@@ -4,7 +4,7 @@ Recipe for training neural networks to decode single EEG trials with different p
 See the supported datasets and paradigms at http://moabb.neurotechx.com/docs/api.html.
 
 To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001) for a specific subject, recording session and training strategy:
-    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/data/data/fpaissan/' --target_subject_idx 0 --target_session_idx 0 --data_iterator_name 'leave-one-session-out'
+    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/data' --target_subject_idx 0 --target_session_idx 0 --data_iterator_name 'leave-one-session-out'
 
 Author
 ------
@@ -19,7 +19,7 @@ from torch.nn import init
 import numpy as np
 import logging
 import sys
-from prepare import download_data, prepare_data
+from prepare import download_data
 from dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 from torchinfo import summary
 import speechbrain as sb
@@ -79,13 +79,19 @@ class MOABBBrain(sb.Brain):
             self.hparams.lr_annealing.on_batch_end(self.optimizer)
         return loss
 
-    def on_fit_start(self, ):
+    def on_fit_start(self,):
         """Gets called at the beginning of ``fit()``"""
         self.init_model(self.hparams.model)
         self.init_optimizers()
-        in_shape = (1, ) + tuple(np.floor(self.hparams.input_shape[1:-1]).astype(int)) + (1,)
+        in_shape = (
+            (1,)
+            + tuple(np.floor(self.hparams.input_shape[1:-1]).astype(int))
+            + (1,)
+        )
         model_summary = summary(self.hparams.model, input_size=in_shape)
-        with open(os.path.join(self.hparams.exp_dir, 'model.txt'), "w") as text_file:
+        with open(
+            os.path.join(self.hparams.exp_dir, "model.txt"), "w"
+        ) as text_file:
             text_file.write(str(model_summary))
 
     def on_stage_start(self, stage, epoch=None):
@@ -128,8 +134,8 @@ class MOABBBrain(sb.Brain):
                     keys=[self.hparams.test_key],
                 )
                 is_last = (
-                        epoch
-                        > self.hparams.number_of_epochs - self.hparams.avg_models
+                    epoch
+                    > self.hparams.number_of_epochs - self.hparams.avg_models
                 )
 
                 # Check if we have to save the model
@@ -200,7 +206,7 @@ class MOABBBrain(sb.Brain):
         self.hparams.model.eval()
 
     def check_if_best(
-            self, last_eval_stats, best_eval_stats, keys,
+        self, last_eval_stats, best_eval_stats, keys,
     ):
         """Checks if the current model is the best according at least to
         one of the monitored metrics. """
@@ -244,8 +250,16 @@ def run_experiment(hparams, run_opts, datasets):
     )
     logger = logging.getLogger(__name__)
     logger.info("Experiment directory: {0}".format(hparams["exp_dir"]))
-    logger.info("Input shape: {0}".format(datasets["train"].dataset.tensors[0].shape[1:]))
-    logger.info("Training set avg value: {0}".format(datasets["train"].dataset.tensors[0].mean()))
+    logger.info(
+        "Input shape: {0}".format(
+            datasets["train"].dataset.tensors[0].shape[1:]
+        )
+    )
+    logger.info(
+        "Training set avg value: {0}".format(
+            datasets["train"].dataset.tensors[0].mean()
+        )
+    )
     datasets_summary = "Number of examples: {0} (training), {1} (validation), {2} (test)".format(
         datasets["train"].dataset.tensors[0].shape[0],
         datasets["valid"].dataset.tensors[0].shape[0],
@@ -303,9 +317,14 @@ def run_single_process(argv, tail_path, datasets):
     """This function wraps up a single process (e.g., the training of a single cross-validation fold
     with a specific hparams file and experiment directory)"""
     # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
-    argv += ['--T', str(datasets["train"].dataset.tensors[0].shape[1]),
-             '--C', str(datasets['train'].dataset.tensors[0].shape[-2]),
-             '--n_train_examples', str(datasets['train'].dataset.tensors[0].shape[0])]
+    argv += [
+        "--T",
+        str(datasets["train"].dataset.tensors[0].shape[1]),
+        "--C",
+        str(datasets["train"].dataset.tensors[0].shape[-2]),
+        "--n_train_examples",
+        str(datasets["train"].dataset.tensors[0].shape[0]),
+    ]
     # loading hparams for the each training and evaluation processes
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
@@ -322,23 +341,27 @@ def run_single_process(argv, tail_path, datasets):
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    #loading hparams to prepare the dataset and the data iterators
+    # loading hparams to prepare the dataset and the data iterators
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    if hparams['to_download']:
-        print('Start downloading the dataset, it might take a while...')
+    if hparams["to_download"]:
+        print("Start downloading the dataset, it might take a while...")
         download_data(hparams["data_folder"], hparams["dataset"])
 
     # defining data iterator to use
     print("Prepare dataset iterators...")
     data_iterator = None
 
-    if hparams["data_iterator_name"] == 'leave-one-session-out':
-        data_iterator = LeaveOneSessionOut(seed=hparams["seed"])  # within-subject and cross-session
-    elif hparams["data_iterator_name"] == 'leave-one-subject-out':
-        data_iterator = LeaveOneSubjectOut(seed=hparams["seed"])  # cross-subject and cross-session
+    if hparams["data_iterator_name"] == "leave-one-session-out":
+        data_iterator = LeaveOneSessionOut(
+            seed=hparams["seed"]
+        )  # within-subject and cross-session
+    elif hparams["data_iterator_name"] == "leave-one-subject-out":
+        data_iterator = LeaveOneSubjectOut(
+            seed=hparams["seed"]
+        )  # cross-subject and cross-session
     if data_iterator is not None:
         tail_path, datasets = data_iterator.prepare(hparams)
         run_single_process(argv, tail_path=tail_path, datasets=datasets)

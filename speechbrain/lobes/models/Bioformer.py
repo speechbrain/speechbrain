@@ -3,37 +3,42 @@
 Authors
  * Francesco Paissan, 2022
 """
-from speechbrain.lobes.models.transformer.Transformer import TransformerEncoderLayer
+from speechbrain.lobes.models.transformer.Transformer import (
+    TransformerEncoderLayer,
+)
 from speechbrain import nnet
 import torch.nn as nn
 import torch
 
 torch.autograd.set_detect_anomaly(True)
 
+
 class BioformerMHSA(nn.Module):
     def __init__(self, att_heads=2, d_ffn=32, dropout=0.2):
         super().__init__()
 
         self.mhsa = TransformerEncoderLayer(
-            d_ffn=d_ffn, 
-            nhead=att_heads, 
+            d_ffn=d_ffn,
+            nhead=att_heads,
             d_model=64,
             normalize_before=True,
-            activation=nn.GELU)
-        
+            activation=nn.GELU,
+        )
+
         self.l = nnet.containers.Sequential(
             nnet.linear.Linear(n_neurons=128, input_size=64, bias=False),
             nn.GELU(),
             nnet.dropout.Dropout2d(drop_rate=dropout),
             nnet.linear.Linear(64, input_size=128, bias=False),
-            nn.GELU()
+            nn.GELU(),
         )
-    
+
     def forward(self, x):
-        x = self.mhsa(x)[0] + x # reduntant skip ? ...just did multiplication
+        x = self.mhsa(x)[0] + x  # reduntant skip ? ...just did multiplication
         x = self.l(x) + x
 
         return x
+
 
 class Bioformer(nn.Module):
     def __init__(self, C=22, att_heads=2, d_ffn=32, classes=4):
@@ -46,18 +51,16 @@ class Bioformer(nn.Module):
         self.cnn = nnet.containers.Sequential(
             nnet.CNN.Conv1d(64, 10, in_channels=22, stride=10, padding="same")
         )
-        
+
         self.att = nnet.containers.Sequential(
             BioformerMHSA(att_heads, d_ffn, dropout=0.5),
-            BioformerMHSA(att_heads, d_ffn, dropout=0.5)
+            BioformerMHSA(att_heads, d_ffn, dropout=0.5),
         )
 
         # classifier
         self.dnn = nnet.containers.Sequential(
-            nnet.linear.Linear(n_neurons=4, input_size=64),
-            nn.LogSoftmax(dim=1)
+            nnet.linear.Linear(n_neurons=4, input_size=64), nn.LogSoftmax(dim=1)
         )
-
 
     def forward(self, x):
         x = torch.squeeze(x, -1)

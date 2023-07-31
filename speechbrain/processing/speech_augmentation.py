@@ -1649,6 +1649,7 @@ class CutCat(torch.nn.Module):
     >>> output_signal = cutcat(signal)
     >>> print(output_signal[0,...])
     """
+
     def __init__(self, min_num_segments=2, max_num_segments=10):
         super().__init__()
         self.min_num_segments = min_num_segments
@@ -1670,21 +1671,29 @@ class CutCat(torch.nn.Module):
         """
 
         waveforms = waveforms.detach().clone()
-        if waveforms.shape[0] > 1:  # only if there are at least 2 examples in batch
+        if (
+            waveforms.shape[0] > 1
+        ):  # only if there are at least 2 examples in batch
             # rolling waveforms to point to segments of other examples in batch
             waveforms_rolled = torch.roll(waveforms, shifts=1, dims=0)
             # picking number of segments to use
             num_segments = torch.randint(
-                low=self.min_num_segments, high=self.max_num_segments + 1, size=(1,)
+                low=self.min_num_segments,
+                high=self.max_num_segments + 1,
+                size=(1,),
             )
             # index of cuts (both starts and stops)
-            idx_cut = torch.linspace(0, waveforms.shape[1], num_segments.item() + 1, dtype=torch.int)
-            for i in range(idx_cut.shape[0]-1):
+            idx_cut = torch.linspace(
+                0, waveforms.shape[1], num_segments.item() + 1, dtype=torch.int
+            )
+            for i in range(idx_cut.shape[0] - 1):
                 # half of segments from other examples in batch
                 if i % 2 == 1:
                     start = idx_cut[i]
-                    stop = idx_cut[i+1]
-                    waveforms[:, start:stop, ...] = waveforms_rolled[:, start:stop, ...]
+                    stop = idx_cut[i + 1]
+                    waveforms[:, start:stop, ...] = waveforms_rolled[
+                        :, start:stop, ...
+                    ]
 
         return waveforms
 

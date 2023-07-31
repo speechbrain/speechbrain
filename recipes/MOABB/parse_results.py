@@ -258,6 +258,7 @@ available_aggrs = {
     "cross-session": aggregate_single,
 }
 
+
 def aggregate_metrics(
     verbose=1,
     metric_file="test_metrics.pkl",
@@ -272,13 +273,13 @@ def aggregate_metrics(
     results_folder = Path(sys.argv[1])
     vis_metrics = stat_metrics
 
-
-    available_paradigms = list(map(lambda x: x.stem, sorted(results_folder.iterdir())))
+    available_paradigms = list(
+        map(lambda x: x.stem, sorted(results_folder.iterdir()))
+    )
     overall_stat = {key: [] for key in stat_metrics}
 
-    parsers = {k : available_parsers[k] for k in available_paradigms}
-    aggr = {k : available_aggrs[k] for k in available_paradigms}
-
+    parsers = {k: available_parsers[k] for k in available_paradigms}
+    aggr = {k: available_aggrs[k] for k in available_paradigms}
 
     for paradigm in sorted(results_folder.iterdir()):
         results = parsers[paradigm.name](

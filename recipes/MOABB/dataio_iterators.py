@@ -29,7 +29,9 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
 
     idx_valid = []
     for c in range(nclasses):
-        to_select_c = idx_train[np.where(y[idx_train] == c)[0]]  # training indices for the class c
+        to_select_c = idx_train[
+            np.where(y[idx_train] == c)[0]
+        ]  # training indices for the class c
         ## fixed validation examples (last portion of training set): not suitable for EEG as it changes over recording time
         # tmp_idx_valid_c = to_select_c[-round(valid_ratio * to_select_c.shape[0]):]
 
@@ -41,9 +43,11 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
         # )
 
         # fixed validation examples equally spaced within recording
-        idx = np.linspace(0,
-                          to_select_c.shape[0]-1,
-                          round(valid_ratio * to_select_c.shape[0]))
+        idx = np.linspace(
+            0,
+            to_select_c.shape[0] - 1,
+            round(valid_ratio * to_select_c.shape[0]),
+        )
         idx = np.floor(idx).astype(int)
         tmp_idx_valid_c = to_select_c[idx]
         idx_valid.extend(tmp_idx_valid_c)
@@ -53,22 +57,14 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
     return idx_train, idx_valid
 
 
-def get_dataloader(batch_size,
-                   xy_train,
-                   xy_valid,
-                   xy_test):
+def get_dataloader(batch_size, xy_train, xy_valid, xy_test):
     x_train, y_train = xy_train[0], xy_train[1]
     x_valid, y_valid = xy_valid[0], xy_valid[1]
     x_test, y_test = xy_test[0], xy_test[1]
 
     inps = torch.Tensor(
         x_train.reshape(
-            (
-                x_train.shape[0],
-                x_train.shape[1],
-                x_train.shape[2],
-                1,
-            )
+            (x_train.shape[0], x_train.shape[1], x_train.shape[2], 1,)
         )
     )
     tgts = torch.tensor(y_train, dtype=torch.long)
@@ -79,30 +75,19 @@ def get_dataloader(batch_size,
 
     inps = torch.Tensor(
         x_valid.reshape(
-            (
-                x_valid.shape[0],
-                x_valid.shape[1],
-                x_valid.shape[2],
-                1,
-            )
+            (x_valid.shape[0], x_valid.shape[1], x_valid.shape[2], 1,)
         )
     )
     tgts = torch.tensor(y_valid, dtype=torch.long)
     ds = TensorDataset(inps, tgts)
-    valid_loader = DataLoader(
-        ds, batch_size=batch_size, pin_memory=True
-    )
+    valid_loader = DataLoader(ds, batch_size=batch_size, pin_memory=True)
 
     inps = torch.Tensor(
-        x_test.reshape(
-            (x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,)
-        )
+        x_test.reshape((x_test.shape[0], x_test.shape[1], x_test.shape[2], 1,))
     )
     tgts = torch.tensor(y_test, dtype=torch.long)
     ds = TensorDataset(inps, tgts)
-    test_loader = DataLoader(
-        ds, batch_size=batch_size, pin_memory=True
-    )
+    test_loader = DataLoader(ds, batch_size=batch_size, pin_memory=True)
 
     return train_loader, valid_loader, test_loader
 
@@ -115,14 +100,18 @@ def crop_signals(x, srate, interval_in, interval_out):
     return x[..., idx_start:idx_stop]
 
 
-def get_neighbour_channels(adjacency_mtx, ch_names, n_steps=1, seed_nodes=['Cz']):
+def get_neighbour_channels(
+    adjacency_mtx, ch_names, n_steps=1, seed_nodes=["Cz"]
+):
     """Function that samples a subset of channels from a seed channel including neighbour channels within a fixed number of steps in the adjacency matrix"""
     sel_channels = []
     for i in np.arange(n_steps):
         tmp_sel_channels = []
         for node in seed_nodes:
             idx_node = np.where(node == np.array(ch_names))[0][0]
-            idx_linked_nodes = np.where(adjacency_mtx[idx_node, :] > 0)[0]  #find indices linked to the node
+            idx_linked_nodes = np.where(adjacency_mtx[idx_node, :] > 0)[
+                0
+            ]  # find indices linked to the node
             linked_channels = np.array(ch_names)[idx_linked_nodes]
             tmp_sel_channels.extend(list(linked_channels))
         seed_nodes = tmp_sel_channels
@@ -131,9 +120,11 @@ def get_neighbour_channels(adjacency_mtx, ch_names, n_steps=1, seed_nodes=['Cz']
     return sel_channels
 
 
-def sample_channels(x, adjacency_mtx, ch_names, n_steps, seed_nodes=['Cz']):
+def sample_channels(x, adjacency_mtx, ch_names, n_steps, seed_nodes=["Cz"]):
     """Function that select only selected channels from the input data"""
-    sel_channels = get_neighbour_channels(adjacency_mtx, ch_names, n_steps=n_steps, seed_nodes=seed_nodes)
+    sel_channels = get_neighbour_channels(
+        adjacency_mtx, ch_names, n_steps=n_steps, seed_nodes=seed_nodes
+    )
     sel_channels = list(sel_channels)
     idx_sel_channels = []
     for k, ch in enumerate(ch_names):
@@ -170,8 +161,7 @@ class LeaveOneSessionOut(object):
         np.random.seed(seed)
 
     def prepare(
-            self,
-            hparams,
+        self, hparams,
     ):
         """This function returns the pre-processed datasets (training, validation and test sets)
         Arguments
@@ -179,32 +169,33 @@ class LeaveOneSessionOut(object):
         hparams : dict
             Hyperparameter dictionary containing pre-processing hyper-parameters.
         """
-        dataset = hparams['dataset']
-        batch_size = hparams['batch_size']
-        interval = [hparams["tmin"], hparams['tmax']]
-        valid_ratio = hparams['valid_ratio']
+        dataset = hparams["dataset"]
+        batch_size = hparams["batch_size"]
+        interval = [hparams["tmin"], hparams["tmax"]]
+        valid_ratio = hparams["valid_ratio"]
         target_subject_idx = hparams["target_subject_idx"]
         target_session_idx = hparams["target_session_idx"]
 
         # preparing or loading dataset
-        data_dict = prepare_data(data_folder=hparams["data_folder"],
-                                 cached_data_folder=hparams["cached_data_folder"],
-                                 dataset=dataset,
-                                 events_to_load=hparams["events_to_load"],
-                                 srate_in=hparams["original_sample_rate"],
-                                 srate_out=hparams["sample_rate"],
-                                 fmin=hparams['fmin'],
-                                 fmax=hparams['fmax'],
-                                 idx_subject_to_prepare=target_subject_idx,
-                                 save_prepared_dataset=hparams["save_prepared_dataset"],
-                                 to_prepare=hparams['to_prepare']
-                                 )
+        data_dict = prepare_data(
+            data_folder=hparams["data_folder"],
+            cached_data_folder=hparams["cached_data_folder"],
+            dataset=dataset,
+            events_to_load=hparams["events_to_load"],
+            srate_in=hparams["original_sample_rate"],
+            srate_out=hparams["sample_rate"],
+            fmin=hparams["fmin"],
+            fmax=hparams["fmax"],
+            idx_subject_to_prepare=target_subject_idx,
+            save_prepared_dataset=hparams["save_prepared_dataset"],
+            to_prepare=hparams["to_prepare"],
+        )
 
-        x = data_dict['x']
-        y = data_dict['y']
-        srate = data_dict['srate']
-        original_interval = data_dict['interval']
-        metadata = data_dict['metadata']
+        x = data_dict["x"]
+        y = data_dict["y"]
+        srate = data_dict["srate"]
+        original_interval = data_dict["interval"]
+        metadata = data_dict["metadata"]
         if np.unique(metadata.session).shape[0] < 2:
             raise (
                 ValueError(
@@ -213,11 +204,13 @@ class LeaveOneSessionOut(object):
             )
         sessions = np.unique(metadata.session)
         sess_id_test = [sessions[target_session_idx]]
-        sess_id_train = np.setdiff1d(
-            sessions, sess_id_test
-        )
+        sess_id_train = np.setdiff1d(sessions, sess_id_test)
         sess_id_train = list(sess_id_train)
-        print("Session/sessions used as training and validation set: {0}".format(sess_id_train))
+        print(
+            "Session/sessions used as training and validation set: {0}".format(
+                sess_id_train
+            )
+        )
         print("Session used as test set: {0}".format(sess_id_test))
         # iterate over sessions to accumulate session train and valid examples in a balanced way across sessions
         idx_train, idx_valid = [], []
@@ -225,10 +218,7 @@ class LeaveOneSessionOut(object):
             # obtaining indices for the current session
             idx = np.where(metadata.session == s)[0]
             # validation set definition (equal proportion btw classes)
-            (
-                tmp_idx_train,
-                tmp_idx_valid,
-            ) = get_idx_train_valid_classbalanced(
+            (tmp_idx_train, tmp_idx_valid,) = get_idx_train_valid_classbalanced(
                 idx, valid_ratio, y
             )
             idx_train.extend(tmp_idx_train)
@@ -253,18 +243,45 @@ class LeaveOneSessionOut(object):
 
         # time cropping
         if interval != original_interval:
-            x_train = crop_signals(x=x_train, srate=srate, interval_in=original_interval, interval_out=interval)
-            x_valid = crop_signals(x=x_valid, srate=srate, interval_in=original_interval, interval_out=interval)
-            x_test = crop_signals(x=x_test, srate=srate, interval_in=original_interval, interval_out=interval)
+            x_train = crop_signals(
+                x=x_train,
+                srate=srate,
+                interval_in=original_interval,
+                interval_out=interval,
+            )
+            x_valid = crop_signals(
+                x=x_valid,
+                srate=srate,
+                interval_in=original_interval,
+                interval_out=interval,
+            )
+            x_test = crop_signals(
+                x=x_test,
+                srate=srate,
+                interval_in=original_interval,
+                interval_out=interval,
+            )
 
         # channel sampling
         if hparams["n_steps_channel_selection"] is not None:
-            x_train = sample_channels(x_train, data_dict['adjacency_mtx'], data_dict['channels'],
-                                      n_steps=hparams["n_steps_channel_selection"])
-            x_valid = sample_channels(x_valid, data_dict['adjacency_mtx'], data_dict['channels'],
-                                      n_steps=hparams["n_steps_channel_selection"])
-            x_test = sample_channels(x_test, data_dict['adjacency_mtx'], data_dict['channels'],
-                                     n_steps=hparams["n_steps_channel_selection"])
+            x_train = sample_channels(
+                x_train,
+                data_dict["adjacency_mtx"],
+                data_dict["channels"],
+                n_steps=hparams["n_steps_channel_selection"],
+            )
+            x_valid = sample_channels(
+                x_valid,
+                data_dict["adjacency_mtx"],
+                data_dict["channels"],
+                n_steps=hparams["n_steps_channel_selection"],
+            )
+            x_test = sample_channels(
+                x_test,
+                data_dict["adjacency_mtx"],
+                data_dict["channels"],
+                n_steps=hparams["n_steps_channel_selection"],
+            )
 
         # swap axes: from (N_examples, C, T) to (N_examples, T, C)
         x_train = np.swapaxes(x_train, -1, -2)
@@ -272,17 +289,20 @@ class LeaveOneSessionOut(object):
         x_test = np.swapaxes(x_test, -1, -2)
 
         # dataloaders
-        train_loader, valid_loader, test_loader = get_dataloader(batch_size,
-                                                                 (x_train, y_train),
-                                                                 (x_valid, y_valid),
-                                                                 (x_test, y_test))
+        train_loader, valid_loader, test_loader = get_dataloader(
+            batch_size, (x_train, y_train), (x_valid, y_valid), (x_test, y_test)
+        )
         datasets = {}
         datasets["train"] = train_loader
         datasets["valid"] = valid_loader
         datasets["test"] = test_loader
         tail_path = os.path.join(
             self.iterator_tag,
-            'sub-{0}'.format(str(dataset.subject_list[hparams["target_subject_idx"]]).zfill(3)),
+            "sub-{0}".format(
+                str(dataset.subject_list[hparams["target_subject_idx"]]).zfill(
+                    3
+                )
+            ),
             sessions[target_session_idx],
         )
         return tail_path, datasets
@@ -305,72 +325,85 @@ class LeaveOneSubjectOut(object):
         self.iterator_tag = "leave-one-subject-out"
         np.random.seed(seed)
 
-    def prepare(
-            self,
-            hparams
-    ):
+    def prepare(self, hparams):
         """This function returns the pre-processed datasets (training, validation and test sets)
         Arguments
         ---------
         hparams : dict
             Hyperparameter dictionary containing pre-processing hyper-parameters.
         """
-        dataset = hparams['dataset']
+        dataset = hparams["dataset"]
         if len(dataset.subject_list) < 2:
             raise (
                 ValueError(
                     "The number of subjects in the dataset must be >= 2 for leave-one-subject-out iterations"
                 )
             )
-        batch_size = hparams['batch_size']
-        interval = [hparams["tmin"], hparams['tmax']]
-        valid_ratio = hparams['valid_ratio']
+        batch_size = hparams["batch_size"]
+        interval = [hparams["tmin"], hparams["tmax"]]
+        valid_ratio = hparams["valid_ratio"]
         target_subject_idx = hparams["target_subject_idx"]
 
         # preparing or loading test set
-        data_dict = prepare_data(data_folder=hparams["data_folder"],
-                                 cached_data_folder=hparams["cached_data_folder"],
-                                 dataset=dataset,
-                                 events_to_load=hparams["events_to_load"],
-                                 srate_in=hparams["original_sample_rate"],
-                                 srate_out=hparams["sample_rate"],
-                                 fmin=hparams['fmin'],
-                                 fmax=hparams['fmax'],
-                                 idx_subject_to_prepare=target_subject_idx,
-                                 save_prepared_dataset=hparams["save_prepared_dataset"],
-                                 to_prepare=hparams['to_prepare']
-                                 )
+        data_dict = prepare_data(
+            data_folder=hparams["data_folder"],
+            cached_data_folder=hparams["cached_data_folder"],
+            dataset=dataset,
+            events_to_load=hparams["events_to_load"],
+            srate_in=hparams["original_sample_rate"],
+            srate_out=hparams["sample_rate"],
+            fmin=hparams["fmin"],
+            fmax=hparams["fmax"],
+            idx_subject_to_prepare=target_subject_idx,
+            save_prepared_dataset=hparams["save_prepared_dataset"],
+            to_prepare=hparams["to_prepare"],
+        )
 
-        x_test = data_dict['x']
-        y_test = data_dict['y']
-        original_interval = data_dict['interval']
-        srate = data_dict['srate']
+        x_test = data_dict["x"]
+        y_test = data_dict["y"]
+        original_interval = data_dict["interval"]
+        srate = data_dict["srate"]
 
-        subject_idx_train = [i for i in np.arange(len(dataset.subject_list)) if i != target_subject_idx]
-        subject_ids_train = list(np.array(dataset.subject_list)[np.array(subject_idx_train)])
+        subject_idx_train = [
+            i
+            for i in np.arange(len(dataset.subject_list))
+            if i != target_subject_idx
+        ]
+        subject_ids_train = list(
+            np.array(dataset.subject_list)[np.array(subject_idx_train)]
+        )
 
-        print("Subject/subjects used as training and validation set: {0}".format(subject_ids_train))
-        print("Subject used as test set: {0}".format(dataset.subject_list[target_subject_idx]))
+        print(
+            "Subject/subjects used as training and validation set: {0}".format(
+                subject_ids_train
+            )
+        )
+        print(
+            "Subject used as test set: {0}".format(
+                dataset.subject_list[target_subject_idx]
+            )
+        )
 
         x_train, y_train, x_valid, y_valid = [], [], [], []
         for subject_idx in subject_idx_train:
             # preparing or loading training/valid set
-            data_dict = prepare_data(data_folder=hparams["data_folder"],
-                                     cached_data_folder=hparams["cached_data_folder"],
-                                     dataset=dataset,
-                                     events_to_load=hparams["events_to_load"],
-                                     srate_in=hparams["original_sample_rate"],
-                                     srate_out=hparams["sample_rate"],
-                                     fmin=hparams['fmin'],
-                                     fmax=hparams['fmax'],
-                                     idx_subject_to_prepare=subject_idx,
-                                     save_prepared_dataset=hparams["save_prepared_dataset"],
-                                     to_prepare=hparams['to_prepare']
-                                     )
+            data_dict = prepare_data(
+                data_folder=hparams["data_folder"],
+                cached_data_folder=hparams["cached_data_folder"],
+                dataset=dataset,
+                events_to_load=hparams["events_to_load"],
+                srate_in=hparams["original_sample_rate"],
+                srate_out=hparams["sample_rate"],
+                fmin=hparams["fmin"],
+                fmax=hparams["fmax"],
+                idx_subject_to_prepare=subject_idx,
+                save_prepared_dataset=hparams["save_prepared_dataset"],
+                to_prepare=hparams["to_prepare"],
+            )
 
-            tmp_x_train = data_dict['x']
-            tmp_y_train = data_dict['y']
-            tmp_metadata = data_dict['metadata']
+            tmp_x_train = data_dict["x"]
+            tmp_y_train = data_dict["y"]
+            tmp_metadata = data_dict["metadata"]
 
             # defining training and validation indices from subjects and sessions in a balanced way
             idx_train, idx_valid = [], []
@@ -404,18 +437,45 @@ class LeaveOneSubjectOut(object):
 
         # time cropping
         if interval != original_interval:
-            x_train = crop_signals(x=x_train, srate=srate, interval_in=original_interval, interval_out=interval)
-            x_valid = crop_signals(x=x_valid, srate=srate, interval_in=original_interval, interval_out=interval)
-            x_test = crop_signals(x=x_test, srate=srate, interval_in=original_interval, interval_out=interval)
+            x_train = crop_signals(
+                x=x_train,
+                srate=srate,
+                interval_in=original_interval,
+                interval_out=interval,
+            )
+            x_valid = crop_signals(
+                x=x_valid,
+                srate=srate,
+                interval_in=original_interval,
+                interval_out=interval,
+            )
+            x_test = crop_signals(
+                x=x_test,
+                srate=srate,
+                interval_in=original_interval,
+                interval_out=interval,
+            )
 
         # channel sampling
-        if hparams['n_steps_channel_selection'] is not None:
-            x_train = sample_channels(x_train, data_dict['adjacency_mtx'], data_dict['channels'],
-                                      n_steps=hparams['n_steps_channel_selection'])
-            x_valid = sample_channels(x_valid, data_dict['adjacency_mtx'], data_dict['channels'],
-                                      n_steps=hparams['n_steps_channel_selection'])
-            x_test = sample_channels(x_test, data_dict['adjacency_mtx'], data_dict['channels'],
-                                     n_steps=hparams['n_steps_channel_selection'])
+        if hparams["n_steps_channel_selection"] is not None:
+            x_train = sample_channels(
+                x_train,
+                data_dict["adjacency_mtx"],
+                data_dict["channels"],
+                n_steps=hparams["n_steps_channel_selection"],
+            )
+            x_valid = sample_channels(
+                x_valid,
+                data_dict["adjacency_mtx"],
+                data_dict["channels"],
+                n_steps=hparams["n_steps_channel_selection"],
+            )
+            x_test = sample_channels(
+                x_test,
+                data_dict["adjacency_mtx"],
+                data_dict["channels"],
+                n_steps=hparams["n_steps_channel_selection"],
+            )
 
         # swap axes: from (N_examples, C, T) to (N_examples, T, C)
         x_train = np.swapaxes(x_train, -1, -2)
@@ -423,13 +483,17 @@ class LeaveOneSubjectOut(object):
         x_test = np.swapaxes(x_test, -1, -2)
 
         # dataloaders
-        train_loader, valid_loader, test_loader = get_dataloader(batch_size,
-                                                                 (x_train, y_train),
-                                                                 (x_valid, y_valid),
-                                                                 (x_test, y_test))
+        train_loader, valid_loader, test_loader = get_dataloader(
+            batch_size, (x_train, y_train), (x_valid, y_valid), (x_test, y_test)
+        )
         datasets = {}
         datasets["train"] = train_loader
         datasets["valid"] = valid_loader
         datasets["test"] = test_loader
-        tail_path = os.path.join(self.iterator_tag, 'sub-{0}'.format(str(dataset.subject_list[target_subject_idx]).zfill(3)) )
+        tail_path = os.path.join(
+            self.iterator_tag,
+            "sub-{0}".format(
+                str(dataset.subject_list[target_subject_idx]).zfill(3)
+            ),
+        )
         return tail_path, datasets

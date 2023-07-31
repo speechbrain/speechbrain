@@ -24,6 +24,7 @@ import numpy as np
 from orion.client import report_objective
 from speechbrain.utils.data_utils import get_all_files
 
+
 def get_prototype(res_file, eval_metric):
     """Parses a result file and adds a placeholder where the aggregated metrics
     should be printed. It also returns the number of detected metrics.
@@ -138,9 +139,6 @@ if __name__ == "__main__":
 
     # Report final metric to Orion
     # Remember: orion expects metrics to be minimized!
-    if eval_metric == 'acc' or eval_metric == 'f1':
+    if eval_metric == "acc" or eval_metric == "f1":
         final_metric = 1 - final_metric
     report_objective(final_metric)
-
-
-
