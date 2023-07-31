@@ -370,11 +370,11 @@ if __name__ == "__main__":
 
     ind2lab = label_encoder.ind2lab
     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-
     decoder = CTCPrefixBeamSearch(
-        blank_index=0,
-        space_index=1,
+        blank_index=hparams["blank_index"],
+        space_index=29,
         vocab_list=vocab_list,
+        beam_size=10,
     )
 
     # Training
