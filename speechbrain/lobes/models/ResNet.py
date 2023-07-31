@@ -66,6 +66,9 @@ class SEBlock(nn.Module):
         )
 
     def forward(self, x):
+        """Intermediate step. Processes the input tensor x
+        and returns an output tensor.
+        """
         b, c, _, _ = x.size()
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
@@ -121,6 +124,9 @@ class BasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x):
+        """Intermediate step. Processes the input tensor x
+        and returns an output tensor.
+        """
         residual = x
         out = self.bn1(x)
         out = self.activation(out)
@@ -194,6 +200,9 @@ class SEBasicBlock(nn.Module):
         self.se = SEBlock(out_channels, reduction)
 
     def forward(self, x):
+        """Intermediate step. Processes the input tensor x
+        and returns an output tensor.
+        """
         residual = x
 
         out = self.bn1(x)
@@ -305,6 +314,19 @@ class ResNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def _make_layer_se(self, in_channels, out_channels, block_num, stride=1):
+        """Construct the squeeze-and-excitation block layer.
+
+        Arguments
+        ---------
+        in_channels : int
+            Number of input channels.
+        out_channels : int
+            The number of output channels.
+        block_num: int
+            Number of ResNet blocks for the network.
+        stride : int
+            Factor that reduce the spatial dimensionality. Default is 1
+        """
         downsample = None
         if stride != 1 or in_channels != out_channels:
             downsample = nn.Sequential(
@@ -328,6 +350,20 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def _make_layer(self, in_channels, out_channels, block_num, stride=1):
+        """
+        Construct the ResNet block layer.
+
+        Arguments
+        ---------
+        in_channels : int
+            Number of input channels.
+        out_channels : int
+            The number of output channels.
+        block_num: int
+            Number of ResNet blocks for the network.
+        stride : int
+            Factor that reduce the spatial dimensionality. Default is 1
+        """
         downsample = None
         if stride != 1 or in_channels != out_channels:
             downsample = nn.Sequential(
@@ -349,6 +385,13 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x, lengths=None):
+        """Returns the embedding vector.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Tensor of shape (batch, time, channel).
+        """
         x = x.unsqueeze(1)
 
         x = self.conv1(x)
@@ -409,13 +452,13 @@ class Classifier(torch.nn.Module):
         input_size,
         device="cpu",
         lin_blocks=0,
-        lin_neurons=192,
+        lin_neurons=256,
         out_neurons=1211,
     ):
         super().__init__()
         self.blocks = nn.ModuleList()
 
-        for _ in range(lin_blocks):
+        for block_index in range(lin_blocks):
             self.blocks.extend(
                 [
                     _BatchNorm1d(input_size=input_size),
@@ -444,4 +487,3 @@ class Classifier(torch.nn.Module):
         # Need to be normalized
         x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
         return x.unsqueeze(1)
-
