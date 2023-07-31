@@ -9,6 +9,8 @@ Authors:
  * Abdel Heba 2021
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023
 """
 import logging
 import hashlib
@@ -176,6 +178,9 @@ class Pretrained(torch.nn.Module):
          * distributed_backend
          * jit_module_keys
          * compile_module_keys
+         * compile_mode
+         * compile_fullgraph
+         * compile_dynamic_shape_tracing
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -294,13 +299,11 @@ class Pretrained(torch.nn.Module):
         compile_available = hasattr(torch, "compile")
 
         if not compile_available and self.compile_module_keys is not None:
-            logger.info(
+            raise ValueError(
                 "'compile_module_keys' specified, but this install of PyTorch "
                 "seems to be too old to support it. Only JIT will be used."
             )
 
-        # FIXME: this is kinda trash
-        # FIXME: don't copypaste inside of interfaces
         compile_module_keys = (
             set(self.compile_module_keys)
             if self.compile_module_keys is not None
@@ -320,23 +323,24 @@ class Pretrained(torch.nn.Module):
                 )
 
         # try 'torch.compile', remove successful compiles from JIT list
-        if compile_available:
-            for name in compile_module_keys:
-                try:
-                    module = torch.compile(
-                        self.modules[name],
-                        mode="reduce-overhead"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"'{name}' in 'compile_module_keys' failed to compile "
-                        f"and will be skipped (may fallback onto JIT, if "
-                        f"specified): {e}"
-                    )
-                    continue
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.modules[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_fullgraph,
+                    dynamic=self.compile_dynamic,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
 
-                self.modules[name] = module.to(self.device)
-                jit_module_keys.discard(name)
+            self.modules[name] = module.to(self.device)
+            jit_module_keys.discard(name)
 
         for name in jit_module_keys:
             module = torch.jit.script(self.mods[name])
