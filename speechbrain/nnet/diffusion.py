@@ -332,7 +332,7 @@ class LatentDiffusion(nn.Module):
 
     Arguments
     ---------
-    autoencoder: speechbrain.nnet.autoencoder.Autoencoder
+    autoencoder: speechbrain.nnet.autoencoders.Autoencoder
         An autoencoder converting the original space to a latent space
 
     diffusion: speechbrian.nnet.diffusion.Diffuser

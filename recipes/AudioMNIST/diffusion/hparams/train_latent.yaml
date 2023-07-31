@@ -231,7 +231,7 @@ diffusion_latent: !new:speechbrain.nnet.diffusion.LatentDiffusion
 diffusion_sample_channels: !ref <diffusion_channels>
 
 
-done_detector: !new:custom_model.DoneDetector
+done_detector: !new:speechbrain.nnet.utils.DoneDetector
     model: !new:speechbrain.nnet.containers.Sequential
         input_shape: [null, null, !ref <spec_n_mels>]
         crdnn: !new:speechbrain.lobes.models.CRDNN.CRDNN

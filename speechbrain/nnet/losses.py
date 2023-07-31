@@ -748,6 +748,16 @@ def compute_masked_loss(
         The proportion of label smoothing. Should only be used for NLL loss.
         Ref: Regularizing Neural Networks by Penalizing Confident Output
         Distributions. https://arxiv.org/abs/1701.06548
+    mask_shape: torch.Tensor
+        the shape of the mask
+        The default is "targets", which will cause the mask to be the same
+        shape as the targets
+
+        Other options include "predictions" and "loss", which will use the
+        shape of the predictions and the unreduced loss, respectively.
+        These are useful for loss functions that whose output does not
+        match the shape of the targets
+
     reduction : str
         One of 'mean', 'batch', 'batchmean', 'none' where 'mean' returns a
         single value and 'batch' returns one per item in the batch and
@@ -1503,7 +1513,7 @@ class VariationalAutoencoderLoss(nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.autoencoder import VariationalAutoencoderOutput
+    >>> from speechbrain.nnet.autoencoders import VariationalAutoencoderOutput
     >>> vae_loss = VariationalAutoencoderLoss(dist_loss_weight=0.5)
     >>> predictions = VariationalAutoencoderOutput(
     ...     rec=torch.tensor(
@@ -1554,7 +1564,7 @@ class VariationalAutoencoderLoss(nn.Module):
 
         Arguments
         ---------
-        predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
+        predictions: speechbrain.nnet.autoencoders.VariationalAutoencoderOutput
             the variational autoencoder output
         targets: torch.Tensor
             the reconstruction targets
@@ -1575,7 +1585,7 @@ class VariationalAutoencoderLoss(nn.Module):
 
         Arguments
         ---------
-        predictions: speechbrain.nnet.autoencoder.VariationalAutoencoderOutput
+        predictions: speechbrain.nnet.autoencoders.VariationalAutoencoderOutput
             the variational autoencoder output (or a tuple of rec, mean, log_var)
 
         targets: torch.Tensor
@@ -1643,7 +1653,7 @@ class AutoencoderLoss(nn.Module):
 
     Example
     -------
-    >>> from speechbrain.nnet.autoencoder import AutoencoderOutput
+    >>> from speechbrain.nnet.autoencoders import AutoencoderOutput
     >>> ae_loss = AutoencoderLoss()
     >>> rec = torch.tensor(
     ...   [[0.8, 1.0],
@@ -1678,7 +1688,7 @@ class AutoencoderLoss(nn.Module):
 
         Arguments
         ---------
-        predictions: speechbrain.nnet.autoencoder.AutoencoderOutput
+        predictions: speechbrain.nnet.autoencoders.AutoencoderOutput
             the autoencoder output
 
         targets: torch.Tensor
@@ -1702,7 +1712,7 @@ class AutoencoderLoss(nn.Module):
 
         Arguments
         ---------
-        predictions: speechbrain.nnet.autoencoder.AutoencoderOutput
+        predictions: speechbrain.nnet.autoencoders.AutoencoderOutput
             the  autoencoder output
 
         targets: torch.Tensor
