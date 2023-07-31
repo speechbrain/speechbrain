@@ -15,10 +15,6 @@ import heapq
 import logging
 import torch
 from typing import Dict, List, Optional, Union, Any
-from speechbrain.decoders.language_model import (
-    LanguageModel,
-    load_unigram_set_from_arpa,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -519,6 +515,11 @@ class CTCBaseSearcher(torch.nn.Module):
         if kenlm_model_path is not None:
             try:
                 import kenlm  # type: ignore
+
+                from speechbrain.decoders.language_model import (
+                    LanguageModel,
+                    load_unigram_set_from_arpa,
+                )
             except ImportError:
                 raise ImportError(
                     "kenlm python bindings are not installed. To install it use: "
