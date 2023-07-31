@@ -3,21 +3,30 @@ This folder contains speech enhancement recipes for the WHAM! and WHAMR! dataset
 
 * This recipe supports training several models on WHAM! and WHAMR! datasets, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
-Additional dependency:
-```
-pip install mir_eval
-pip install pyroomacoustics==0.3.1
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
-For `pyroomacoustics`, you need to use the version 0.3.1.
+pip install -r ../extra_requirements.txt
+```
 
+## How to run:
 To run it:
 
-```
+```shell
 python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original
 python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
+
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
+```shell
+python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original --test_only
+python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr --test_only
+```
 
 # WHAM! and WHAMR! dataset:
 

@@ -234,8 +234,11 @@ class SEblock(torch.nn.Module):
         )
 
     def forward(self, x):
-        """Processes the input tensor with a speech enhancement block."""
-        x = torch.mean(x, dim=(1, 2), keepdim=True)
+        """Processes the input tensor with a squeeze-and-excite block."""
+        # torch.mean causes weird inplace error
+        # x = torch.mean(x, dim=(1, 2), keepdim=True)
+        count = x.size(1) * x.size(2)
+        x = torch.sum(x, dim=(1, 2), keepdim=True) / count
         x = self.linear1(x)
         x = torch.nn.functional.relu(x)
         x = self.linear2(x)

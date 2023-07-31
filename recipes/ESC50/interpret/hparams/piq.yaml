@@ -21,7 +21,6 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-test_only: False
 save_interpretations: True
 interpret_period: 10
 

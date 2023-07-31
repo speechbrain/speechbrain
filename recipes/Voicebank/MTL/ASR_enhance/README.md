@@ -18,6 +18,15 @@ but maintains the advantages of interpretability and independence, since
 each model can be used for other data or tasks without requiring the
 co-trained model.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
+## How to run
 To train these models from scratch, you can run these three steps
 using the following commands:
 

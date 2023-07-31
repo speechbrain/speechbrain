@@ -3,6 +3,11 @@ This folder contains some popular recipes for the Aishell1Mix dataset similar to
 
 * This recipe supports train with several source separation models on Aishell1Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+
 Make sure that SoX is installed on your machine.
 
 * For windows :
@@ -15,17 +20,23 @@ conda install -c conda-forge sox
 ```
 Additional dependencies:
 ```
-pip install -r ../extra-dependencies.txt
+pip install -r ../extra-requirements.txt
 ```
 
 To run it:
 
-```
+```shell
 python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath
 python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
+```shell
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath --test_only
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath --test_only
+```
 
 # Aishell1Mix2/3
 * Your data folder should contain data_aishell (aishell1), resource_aishell (aishell1), wham_noise and aishell1mix, which can be created using the scripts at `https://github.com/huangzj421/Aishell1Mix`. Otherwise train.py will download and prepare data into your data path automatically.

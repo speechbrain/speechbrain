@@ -20,7 +20,6 @@ language: english
 # Normalize the english inputs with
 # the same normalization done in the paper
 normalized_transcripts: True
-test_only: False # Set it to True if you only want to  do the evaluation
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
