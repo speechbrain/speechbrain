@@ -1,6 +1,6 @@
 """
-Neural network modules for DIFFWAVE: A VERSATILE DIFFUSION MODEL FOR
-AUDIO SYNTHESIS
+Neural network modules for DIFFWAVE:
+A VERSATILE DIFFUSION MODEL FOR AUDIO SYNTHESIS
 
 For more details: https://arxiv.org/pdf/2009.09761.pdf
 
@@ -38,7 +38,6 @@ from math import sqrt
 
 
 Linear = linear.Linear
-# To do: an SB wrapper for ConvTranspose2d
 ConvTranspose2d = nn.ConvTranspose2d
 
 
@@ -56,6 +55,15 @@ class DiffusionEmbedding(nn.Module):
     ---------
     max_steps: int
         total difussion steps
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.DiffWave import DiffusionEmbedding
+    >>> diffusion_embedding = DiffusionEmbedding(max_steps=50)
+    >>> time_step = torch.randint(50, (1,))
+    >>> step_embedding = diffusion_embedding(time_step)
+    >>> step_embedding.shape
+    torch.Size([1, 512])
     """
 
     def __init__(self, max_steps):
@@ -120,6 +128,15 @@ class SpectrogramUpsampler(nn.Module):
     """Upsampler for spectrograms with Transposed Conv
     Only the upsamling is done here, the layer-specific Conv can be found
     in residual bloack to map the mel bands into 2× residual channels
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.DiffWave import SpectrogramUpsampler
+    >>> spec_upsampler = SpectrogramUpsampler()
+    >>> mel_input = torch.rand(3, 80, 100)
+    >>> upsampled_mel = spec_upsampler(mel_input)
+    >>> upsampled_mel.shape
+    torch.Size([3, 80, 25600])
     """
 
     def __init__(self):
@@ -137,8 +154,9 @@ class SpectrogramUpsampler(nn.Module):
 
         Arguments
         ---------
-        x: torch.tensor
+        x: torch.Tensor
             input mel spectrogram [bs, 80, mel_len]
+
         Returns
         -------
         upsampled spectrogram [bs, 80, mel_len*256]
@@ -166,6 +184,17 @@ class ResidualBlock(nn.Module):
         dilation cycles of audio convolution
     uncond:
         conditional/unconditional generation
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.DiffWave import ResidualBlock
+    >>> res_block = ResidualBlock(n_mels=80, residual_channels=64, dilation=3)
+    >>> noisy_audio = torch.randn(1, 1, 22050)
+    >>> timestep_embedding = torch.rand(1, 512)
+    >>> upsampled_mel = torch.rand(1, 80, 22050)
+    >>> output = res_block(noisy_audio, timestep_embedding, upsampled_mel)
+    >>> output[0].shape
+    torch.Size([1, 64, 22050])
     """
 
     def __init__(self, n_mels, residual_channels, dilation, uncond=False):
@@ -212,11 +241,11 @@ class ResidualBlock(nn.Module):
 
         Arguments
         ---------
-        x: torch.tensor
+        x: torch.Tensor
             input sample [bs, 1, time]
-        diffusion_step: int
-            which step of diffusion to execute
-        conditioner: torch.tensor
+        diffusion_step: torch.Tensor
+            the embedding of which step of diffusion to execute
+        conditioner: torch.Tensor
             the condition used for conditional generation
         Returns
         -------
@@ -265,6 +294,23 @@ class DiffWave(nn.Module):
         total steps of diffusion
     unconditional:
         conditional/unconditional generation
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.DiffWave import DiffWave
+    >>> diffwave = DiffWave(
+    ...     input_channels=80,
+    ...     residual_layers=30,
+    ...     residual_channels=64,
+    ...     dilation_cycle_length=10,
+    ...     total_steps=50,
+    ... )
+    >>> noisy_audio = torch.randn(1, 1, 25600)
+    >>> timestep = torch.randint(50, (1,))
+    >>> input_mel = torch.rand(1, 80, 100)
+    >>> predicted_noise = diffwave(noisy_audio, timestep, input_mel)
+    >>> predicted_noise.shape
+    torch.Size([1, 1, 25600])
     """
 
     def __init__(
@@ -333,11 +379,11 @@ class DiffWave(nn.Module):
         Arguments
         ---------
         audio: torch.Tensor
-            input gaussian sample
+            input gaussian sample [bs, 1, time]
         diffusion_steps: torch.Tensor
-            the number of timesteps of noise added to each sample
+            which timestep of diffusion to execute [bs, 1]
         spectrogram: torch.Tensor
-            spectrogram data
+            spectrogram data [bs, 80, mel_len]
         length: torch.Tensor
             sample lengths - not used - provided for compatibility only
         Returns
@@ -374,24 +420,48 @@ class DiffWaveDiffusion(DenoisingDiffusion):
     ---------
     model: nn.Module
         the underlying model
-
     timesteps: int
-        the number of timesteps
-
+        the total number of timesteps
     noise: str|nn.Module
         the type of noise being used
         "gaussian" will produce standard Gaussian noise
-
-
     beta_start: float
-        the value of the "beta" parameter at the beginning at the end of the process
-        (see the paper)
-
+        the value of the "beta" parameter at the beginning of the process
+        (see DiffWave paper)
     beta_end: float
         the value of the "beta" parameter at the end of the process
-
     show_progress: bool
         whether to show progress during inference
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.DiffWave import DiffWave
+    >>> diffwave = DiffWave(
+    ...     input_channels=80,
+    ...     residual_layers=30,
+    ...     residual_channels=64,
+    ...     dilation_cycle_length=10,
+    ...     total_steps=50,
+    ... )
+    >>> from speechbrain.lobes.models.DiffWave import DiffWaveDiffusion
+    >>> from speechbrain.nnet.diffusion import GaussianNoise
+    >>> diffusion = DiffWaveDiffusion(
+    ...     model=diffwave,
+    ...     beta_start=0.0001,
+    ...     beta_end=0.05,
+    ...     timesteps=50,
+    ...     noise=GaussianNoise,
+    ... )
+    >>> input_mel = torch.rand(1, 80, 100)
+    >>> output = diffusion.inference(
+    ...     unconditional=False,
+    ...     scale=256,
+    ...     condition=input_mel,
+    ...     fast_sampling=True,
+    ...     fast_sampling_noise_schedule=[0.0001, 0.001, 0.01, 0.05, 0.2, 0.5],
+    ... )
+    >>> output.shape
+    torch.Size([1, 25600])
     """
 
     def __init__(
@@ -438,7 +508,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             for conditional genration, the output wave length is scale * condition.shape[-1]
             for example, if the condition is spectrogram (bs, n_mel, time), scale should be hop length
             for unconditional generation, scale should be the desired audio length
-        condition: torch.tensor
+        condition: torch.Tensor
             input spectrogram for vocoding or other conditions for other
             conditional generation, should be None for unconditional generation
         fast_sampling: bool
