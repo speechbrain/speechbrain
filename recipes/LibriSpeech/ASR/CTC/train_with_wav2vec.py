@@ -105,20 +105,6 @@ class ASR(sb.Brain):
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
-        if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            if self.hparams.use_language_modelling:
-                predicted_words = []
-                for logs in p_ctc:
-                    text = decoder.decode(logs.detach().cpu().numpy())
-                    predicted_words.append(text.split(" "))
-            else:
-                predicted_words = [
-                    "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                    for utt_seq in predicted_tokens
-                ]
-                target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metric.append(ids, predicted_words, target_words)
-                self.cer_metric.append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -255,9 +241,7 @@ def dataio_prepare(hparams):
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
+        train_data = train_data.filtered_sorted(sort_key="duration")
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
