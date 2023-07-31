@@ -7,7 +7,6 @@ Authors
 import torch
 import random
 from speechbrain.utils.callchains import lengths_arg_exists
-import itertools
 
 
 class Augmenter(torch.nn.Module):
@@ -25,6 +24,16 @@ class Augmenter(torch.nn.Module):
         augmented output).
         When True, all the N augmentations are concatenated in the output
         on the batch axis (one orignal  input, N augmented output)
+    parallel_augment_fixed_bs: bool
+        If False, each augmenter (performed in parallel) generates a number of
+        augmented examples equal to the batch size. Thus, overall, with this option
+        N*batch size artificial data are generated, where N is the number 
+        of augmenters.
+        When True, the number of total augmented examples is kept fixed at
+        the batch size, thus, for each augmenter, fixed at batch size // N examples.
+        This option is useful to keep controlled the number of synthetic examples
+        with respect to the original data distribution, as it keep always
+        50% of original data, and 50% of augmented data.
     concat_original: bool
         if True, the original input is concatenated with the
         augmented outputs (on the batch axis).
@@ -46,8 +55,6 @@ class Augmenter(torch.nn.Module):
     repeat_augment: int
         Applies the augmentation algorithm N times. This can be used to
         perform more data augmentation.
-    idx_combination_augmentations: int
-        Applies a combination of augmenters. All possible combinations are indexed.
 
 
     Example
@@ -63,23 +70,23 @@ class Augmenter(torch.nn.Module):
     def __init__(
         self,
         parallel_augment=False,
+        parallel_augment_fixed_bs=False,
         concat_original=False,
         min_augmentations=None,
         max_augmentations=None,
         shuffle_augmentations=False,
         repeat_augment=1,
-        idx_combination_augmentations=None,
         **augmentations,
     ):
         super().__init__()
         self.parallel_augment = parallel_augment
+        self.parallel_augment_fixed_bs = parallel_augment_fixed_bs
         self.concat_original = concat_original
         self.augmentations = augmentations
         self.min_augmentations = min_augmentations
         self.max_augmentations = max_augmentations
         self.shuffle_augmentations = shuffle_augmentations
         self.repeat_augment = repeat_augment
-        self.idx_combination_augmentations = idx_combination_augmentations
         # Check min and max augmentations
         self.check_min_max_augmentations()
 
@@ -113,14 +120,21 @@ class Augmenter(torch.nn.Module):
         output_lengths = []
         out_lengths = lengths
 
-        for augment_name in selected_augmentations:
+        for k, augment_name in enumerate(selected_augmentations):
             augment_fun = self.augmentations[augment_name]
+
+            idx = torch.arange(x.shape[0])
+            if self.parallel_augment and self.parallel_augment_fixed_bs:
+                idx_startstop = torch.linspace(0, x.shape[0], len(selected_augmentations) + 1).to(torch.int)
+                idx_start = idx_startstop[k]
+                idx_stop = idx_startstop[k+1]
+                idx = idx[idx_start:idx_stop]
 
             # Check input arguments
             if self.require_lengths[augment_name]:
-                out = augment_fun(next_input, lengths=next_lengths)
+                out = augment_fun(next_input[idx,...], lengths=next_lengths[idx])
             else:
-                out = augment_fun(next_input)
+                out = augment_fun(next_input[idx,...])
 
             # Check output arguments
             if isinstance(out, tuple):
@@ -134,10 +148,10 @@ class Augmenter(torch.nn.Module):
             # Manage sequential or parallel augmentation
             if not self.parallel_augment:
                 next_input = out
-                next_lengths = out_lengths
+                next_lengths = out_lengths[idx]
             else:
                 output.append(out)
-                output_lengths.append(out_lengths)
+                output_lengths.append(out_lengths[idx])
 
         if self.parallel_augment:
             # Concatenate all the augmented data
@@ -169,15 +183,6 @@ class Augmenter(torch.nn.Module):
 
         # Get augmentations list
         augmentations_lst = list(self.augmentations.keys())
-
-        if self.idx_combination_augmentations is not None:
-            # imposing a combination of augmenters
-            augmentations_combinations = []
-            for k in range(0, len(augmentations_lst) + 1):
-                # [] (no augmentation), [key0], ..., [key0, key3],..., [key0, key1, ..., keyN-1]
-                augmentations_combinations.extend(list(itertools.combinations(augmentations_lst, k)))
-            augmentations_lst = augmentations_combinations[self.idx_combination_augmentations]
-            N_augment = len(augmentations_lst)
 
         # No augmentation
         if (

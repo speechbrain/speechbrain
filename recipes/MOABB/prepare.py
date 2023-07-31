@@ -127,14 +127,15 @@ def download_data(data_folder, dataset):
 
 
 def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin, fmax,
-                 idx_subject_to_prepare=-1, to_prepare=True, save_prepared_dataset=True,
+                 cached_data_folder=None, idx_subject_to_prepare=-1, to_prepare=True, save_prepared_dataset=True,
                  verbose=0):
     """This function prepare all datasets and save them in a separate pickle for each subject."""
     # changing default download directory
     for a in get_config().keys():
         set_config(a, data_folder)
-
-    tmp_output_dir = os.path.join(os.path.join(data_folder,
+    if cached_data_folder is None:
+        cached_data_folder = data_folder
+    tmp_output_dir = os.path.join(os.path.join(cached_data_folder,
                                                'MOABB_pickled',
                                                dataset.code,
                                                '{0}_{1}-{2}'.format(str(int(srate_out if srate_out is not None else
@@ -182,10 +183,16 @@ def prepare_data(data_folder, dataset, events_to_load, srate_in, srate_out, fmin
 if __name__ == '__main__':
     """Downloading and preparing multi-session MOABB datasets."""
     parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset_name', type=str, default='',
+                        help='Dataset name to download and prepare (empty string for selecting all supported datasets)')
     parser.add_argument('--data_folder', type=str, default='/path/to/MOABB_datasets',
                         help='Folder where dataset will be downloaded')
+    parser.add_argument('--cached_data_folder', type=str, default='/path/to/pickled/MOABB_datasets',
+                        help='Folder where dataset will be prepared and saved as pkl')
     parser.add_argument('--to_download', type=int, default=0,
                         help='Download flag')
+    parser.add_argument('--to_prepare', type=int, default=0,
+                        help='Prepare flag')
     parser.add_argument('--fmin', type=float, default=1.,
                         help='Lower cut-off frequency for band-pass filtering')
     parser.add_argument('--fmax', type=float, default=40.,
@@ -193,61 +200,56 @@ if __name__ == '__main__':
     FLAGS, unparsed = parser.parse_known_args()
 
     # SETTING UP MOTOR IMAGERY DATASETS
-    mi_datasets = [BNCI2014001(),
-                   BNCI2014004(),
-                   BNCI2015001(),
-                   BNCI2015004(),
-                   Lee2019_MI(),
-                   Shin2017A(accept=True),
-                   Zhou2016(),
-                   ]
+    mi_ds_names = ['BNCI2014001', 'BNCI2014004', 'BNCI2015001', 'BNCI2015004', 'Lee2019_MI', 'Shin2017A','Zhou2016']
+    mi_datasets = [BNCI2014001(), BNCI2014004(), BNCI2015001(), BNCI2015004(), Lee2019_MI(), Shin2017A(accept=True),
+                   Zhou2016(),]
     mi_srate_in_list = [250, 250, 512, 256, 1000, 1000, 250]
     mi_srate_out_list = [125, 125, 128, 128, 125, 125, 125]
-    mi_events_to_load = [None,
-                         None,
-                         None,
-                         ['right_hand', 'feet'],
-                         None,
-                         None,
-                         None
-                         ]
+    mi_events_to_load = [None, None, None, ['right_hand', 'feet'], None, None, None]
     # SETTING UP P300 DATASETS
-    p300_datasets = [BNCI2014009(),
-                     EPFLP300(),
-                     Lee2019_ERP(),
-                     bi2015a(), ]
+    p300_ds_names = ['BNCI2014009', 'EPFLP300', 'Lee2019_ERP', 'bi2015a']
+    p300_datasets = [BNCI2014009(), EPFLP300(), Lee2019_ERP(), bi2015a(), ]
     p300_srate_in_list = [256, 512, 1000, 512]
     p300_srate_out_list = [128, 128, 125, 128]
-    p300_events_to_load = [None,
-                           None,
-                           None,
-                           None,
-                           ]
+    p300_events_to_load = [None, None, None, None,]
     # SETTING UP SSVEP DATASETS
+    ssvep_ds_names = ['Lee2019_SSVEP']
     ssvep_datasets = [Lee2019_SSVEP()]
     ssvep_srate_in_list = [1000]
     ssvep_srate_out_list = [125]
     ssvep_events_to_load = [None]
 
+    ds_names = mi_ds_names+p300_ds_names+ssvep_ds_names
     datasets = mi_datasets + p300_datasets + ssvep_datasets
-    print('The selected datasets were: ')
-    for dataset in datasets:
-        print("-{0}".format(dataset.code))
     srate_in_list = mi_srate_in_list + p300_srate_in_list + ssvep_srate_in_list
     srate_out_list = mi_srate_out_list + p300_srate_out_list + ssvep_srate_out_list
     # no resampling if srate_out=srate_in
     for k in np.where(np.array(srate_out_list) == np.array(srate_in_list))[0]:
         srate_out_list[k] = None
-
     events_to_load_list = mi_events_to_load + p300_events_to_load + ssvep_events_to_load
+    if FLAGS.dataset_name == '':
+        print('The selected datasets were: ')
+        for dataset in datasets:
+            print("-{0}".format(dataset.code))
+    else:
+        idx_dataset_name = [i for i, s in enumerate(ds_names) if s == FLAGS.dataset_name]
+        assert len(idx_dataset_name) == 1, 'Wrong dataset name'
+        idx_dataset_name = idx_dataset_name[-1]
+        print('The selected datasets was: ')
+        print("-{0}".format(datasets[idx_dataset_name].code))
+        datasets = datasets[idx_dataset_name:idx_dataset_name + 1]
+        srate_in_list = srate_in_list[idx_dataset_name:idx_dataset_name + 1]
+        srate_out_list = srate_out_list[idx_dataset_name:idx_dataset_name + 1]
+        events_to_load_list = events_to_load_list[idx_dataset_name:idx_dataset_name + 1]
 
     if FLAGS.to_download:
         print('Start downloading all datasets, it might take a while...')
         for dataset in datasets:
             download_data(FLAGS.data_folder, dataset)
     print('Start preparing the dataset...')
-    for dataset, events_to_load, srate_in, srate_out in \
-            zip(datasets, events_to_load_list, srate_in_list, srate_out_list):
-        prepare_data(FLAGS.data_folder, dataset, events_to_load, srate_in, srate_out, fmin=FLAGS.fmin, fmax=FLAGS.fmax,
-                     verbose=0)
-        print('Ended: {0}'.format(dataset.code))
+    if FLAGS.to_prepare:
+        for dataset, events_to_load, srate_in, srate_out in \
+                zip(datasets, events_to_load_list, srate_in_list, srate_out_list):
+            prepare_data(FLAGS.data_folder, dataset, events_to_load, srate_in, srate_out,
+                         fmin=FLAGS.fmin, fmax=FLAGS.fmax, cached_data_folder=FLAGS.cached_data_folder, verbose=0)
+            print('Ended: {0}'.format(dataset.code))

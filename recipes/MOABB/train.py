@@ -336,11 +336,9 @@ if __name__ == "__main__":
     data_iterator = None
 
     if hparams["data_iterator_name"] == 'leave-one-session-out':
-        data_iterator = LeaveOneSessionOut(data_folder=hparams["data_folder"],
-                                           seed=hparams["seed"])  # within-subject and cross-session
+        data_iterator = LeaveOneSessionOut(seed=hparams["seed"])  # within-subject and cross-session
     elif hparams["data_iterator_name"] == 'leave-one-subject-out':
-        data_iterator = LeaveOneSubjectOut(data_folder=hparams["data_folder"],
-                                           seed=hparams["seed"])  # cross-subject and cross-session
+        data_iterator = LeaveOneSubjectOut(seed=hparams["seed"])  # cross-subject and cross-session
     if data_iterator is not None:
         tail_path, datasets = data_iterator.prepare(hparams)
         run_single_process(argv, tail_path=tail_path, datasets=datasets)

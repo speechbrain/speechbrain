@@ -5,25 +5,16 @@ The objective decoding task is to classify different brain states (e.g., differe
 # How to run
 Before running an experiment, make sure the extra-dependencies reported in the file `extra_requirements.txt` are installed in your environment.
 
-Define a target MOABB dataset to decode (see datasets at http://moabb.neurotechx.com/docs/datasets.html) and pre-processing hyper-parameters for that specific dataset, defining the paradigm object of MOABB (see paradigms at http://moabb.neurotechx.com/docs/paradigms.html).
+In addition to network and optimization hyper-parameters, define in the hparams file (yaml file in hparams folder) a target MOABB dataset to decode (see datasets at http://moabb.neurotechx.com/docs/datasets.html) and pre-processing hyper-parameters for that specific dataset, defining the paradigm object of MOABB (see paradigms at http://moabb.neurotechx.com/docs/paradigms.html).
 
-Train a neural networks to decode single EEG trials using different training strategies: within-session, cross-session, leave-one-session-out, leave-one-subject-out.
-These training strategies were defined as follows:
-* Within-session (within-subject and within-session decoders).
-    For each subject and for each session, the training and test sets were defined using a stratified cross-validation partitioning.
+Train a neural networks to decode single EEG trials using different training strategies: leave-one-session-out, leave-one-subject-out.
 
+These training strategies are defined as follows:
 * Leave-one-session-out (within-subject, cross-session and session-agnostic decoders).
     For each subject, one session was held back as test set and the remaining ones were used to train neural networks.
 
-* Cross-session (within-subject and cross-session decoders).
-    For each subject, all session' signals were merged together.
-    Training and test sets were defined using a stratified cross-validation partitioning.
-
 * Leave-one-subject-out (cross-subject, cross-session and subject-agnostic decoders).
     One subject was held back as test set and the remaining ones were used to train neural networks.
-
-For all these strategies, the validation set was sampled from the training set using a fixed validation ratio (20%).
-All sets were extracted balanced across subjects, sessions and classes.
 
 E.g., to train EEGNet to decode motor imagery on BNCI2014001:\
 \>>> python train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001'
@@ -44,24 +35,20 @@ After training, you can aggregate and visualize the performance of all the exper
 To see the results on the validation set use:
 \>>> python parse_results.py results/MOABB/EEGNet_BNCI2014001/ test_metrics.pkl acc f1
 
+In the following some results are provided, obtained with a leave-one-session-out strategy.
+Here, performance metrics were computed on each held-out session (stored in the metrics.pkl file). Then, these metrics were reported for each held-out session (average value ± standard deviation across subjects).
 
-In the following, results are reported for each MOABB dataset and each architecture using different training strategies.
+| Release | Task | Hyperparams file | Training strategy | Session | Key loaded model | Performance (test set) |  GPUs | RAM
+|:-------------:|:-------------:|:---------------------------:|:---------------------------:|  -----:|-----:| -----:| :-----------:| -----:|
+| 23-07-31 | Motor imagery | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'acc'| 0.7465±0.0660 | 1xNVIDIA A100 (40 GB) | 12 GB |
+| 23-07-31 | Motor imagery | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_T | 'acc'| 0.7585±0.0710 | 1xNVIDIA A100 (40 GB) | 12 GB |
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_1 | 'f1'| 0.6332±0.1146 | 1xNVIDIA A100 (40 GB) | 12 GB |
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_2 | 'f1'| 0.6566±0.0944 | 1xNVIDIA A100 (40 GB) | 12 GB |
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_3 | 'f1'| 0.6600±0.1242 | 1xNVIDIA A100 (40 GB) | 12 GB|
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_4 | 'f1'| 0.6526±0.1218 | 1xNVIDIA A100 (40 GB) | 12 GB|
+| 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_1 | 'acc'| 0.9370±0.1170 | 1xNVIDIA A100 (40 GB) | 12 GB|
+| 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_2 | 'acc'| 0.9287±0.1157 | 1xNVIDIA A100 (40 GB) | 12 GB|
 
-The model scoring the optimal value on the validation set for a target key  was loaded (e.g., max accuracy). Then, results were aggregated as follows:
-* Within-session. For each subject and for each session, performance metrics were computed on each test set of each cross-validation fold (stored in the metrics.pkl file). Then, these were averaged across folds. The so averaged metrics were reported for each session (average value ± standard deviation across subjects).
-* Leave-one-session-out. For each subject, performance metrics were computed on each held-out session (stored in the metrics.pkl file). Then, these metrics were reported for each held-out session (average value ± standard deviation across subjects).
-* Cross-session. For each subject, performance metrics were computed on each test set of each cross-validation fold (stored in the metrics.pkl file). Then, these metrics were reported (average value ± standard deviation across subjects).
-* Leave-one-subject-out. Performance metrics were computed on each held-out subject (stored in the metrics.pkl file). Then, these metrics were reported (average value ± standard deviation across subjects).
-
-| Release | Hyperparams file | Training strategy | Session | Key loaded model | Test Accuracy |  GPUs |
-|:-------------:|:---------------------------:|:---------------------------:|  -----:|-----:| -----:| :-----------:|
-| 21-10-30 | EEGNet_BNCI2014001.yaml | within-session | session_T | 'acc'|62.92±15.43% | 1xTITAN V 12GB |
-| 21-10-30 | EEGNet_BNCI2014001.yaml | within-session | session_E | 'acc'|61.46±18.88% | 1xTITAN V 12GB |
-| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_T | 'acc'|62.89±18.31% | 1xTITAN V 12GB |
-| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'acc'|64.04±13.66% | 1xTITAN V 12GB |
-| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'loss'|66.13±13.63% | 1xTITAN V 12GB |
-| 21-10-30 | EEGNet_BNCI2014001.yaml | cross-session | - | 'acc'|69.06±17.90% | 1xTITAN V 12GB |
-| 21-10-30 | EEGNet_BNCI2014001.yaml | leave-one-subject-out | - | 'acc'|37.77±11.65% | 1xTITAN V 12GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

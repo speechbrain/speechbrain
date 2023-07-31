@@ -151,7 +151,7 @@ def sample_channels(x, adjacency_mtx, ch_names, n_steps, seed_nodes=['Cz']):
         print("Sampling all channels available: {0}".format(ch_names))
     return x
 
-# todo: check leave-one-session-out for >1 session training+valid (epflp300)
+
 class LeaveOneSessionOut(object):
     """Leave one session out iterator for MOABB datasets.
     Designing within-subject, cross-session and session-agnostic iterations on the dataset for a specific paradigm.
@@ -163,13 +163,10 @@ class LeaveOneSessionOut(object):
     ---------
     seed: int
         Seed for random number generators.
-    data_folder : str
-        Folder where the dataset is stored.
     """
 
-    def __init__(self, seed, data_folder):
+    def __init__(self, seed):
         self.iterator_tag = "leave-one-session-out"
-        self.data_folder = data_folder
         np.random.seed(seed)
 
     def prepare(
@@ -191,6 +188,7 @@ class LeaveOneSessionOut(object):
 
         # preparing or loading dataset
         data_dict = prepare_data(data_folder=hparams["data_folder"],
+                                 cached_data_folder=hparams["cached_data_folder"],
                                  dataset=dataset,
                                  events_to_load=hparams["events_to_load"],
                                  srate_in=hparams["original_sample_rate"],
@@ -301,13 +299,10 @@ class LeaveOneSubjectOut(object):
     ---------
     seed: int
         Seed for random number generators.
-    data_folder : str
-        Folder where the dataset is stored.
     """
 
-    def __init__(self, seed, data_folder):
+    def __init__(self, seed):
         self.iterator_tag = "leave-one-subject-out"
-        self.data_folder = data_folder
         np.random.seed(seed)
 
     def prepare(
@@ -334,6 +329,7 @@ class LeaveOneSubjectOut(object):
 
         # preparing or loading test set
         data_dict = prepare_data(data_folder=hparams["data_folder"],
+                                 cached_data_folder=hparams["cached_data_folder"],
                                  dataset=dataset,
                                  events_to_load=hparams["events_to_load"],
                                  srate_in=hparams["original_sample_rate"],
@@ -360,6 +356,7 @@ class LeaveOneSubjectOut(object):
         for subject_idx in subject_idx_train:
             # preparing or loading training/valid set
             data_dict = prepare_data(data_folder=hparams["data_folder"],
+                                     cached_data_folder=hparams["cached_data_folder"],
                                      dataset=dataset,
                                      events_to_load=hparams["events_to_load"],
                                      srate_in=hparams["original_sample_rate"],
