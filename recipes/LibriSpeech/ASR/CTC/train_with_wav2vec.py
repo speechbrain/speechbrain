@@ -96,15 +96,16 @@ class ASR(sb.Brain):
         loss = loss_ctc
 
         if stage != sb.Stage.TRAIN:
-            # Decode token terms to words
-            predicted_words = [
-                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                for utt_seq in predicted_tokens
-            ]
+
+            predicted_words = []
+            for hyp in predicted_tokens:
+                predicted_words.append(hyp[0].text.split(" "))
+
             target_words = [wrd.split(" ") for wrd in batch.wrd]
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
+
         return loss
 
     def fit_batch(self, batch):
@@ -361,30 +362,6 @@ if __name__ == "__main__":
         hparams
     )
 
-    # Loading the labels for the LM decoding and the CTC decoder
-    if hasattr(hparams, "use_language_modelling"):
-        if hparams["use_language_modelling"]:
-            try:
-                from pyctcdecode import build_ctcdecoder
-            except ImportError:
-                err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
-                err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
-                raise ImportError(err_msg)
-
-            ind2lab = label_encoder.ind2lab
-            labels = [ind2lab[x] for x in range(len(ind2lab))]
-            labels = [""] + labels[
-                1:
-            ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
-            decoder = build_ctcdecoder(
-                labels,
-                kenlm_model_path=hparams["ngram_lm_path"],  # .arpa or .bin
-                alpha=0.5,  # Default by KenLM
-                beta=1.0,  # Default by KenLM
-            )
-    else:
-        hparams["use_language_modelling"] = False
-
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -402,15 +379,16 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    from speechbrain.decoders.ctc import CTCPrefixBeamSearch
+    from speechbrain.decoders import CTCBeamSearch
 
     ind2lab = label_encoder.ind2lab
     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-    decoder = CTCPrefixBeamSearch(
+    space_index = vocab_list.index(" ")
+
+    decoder = CTCBeamSearch(
         blank_index=hparams["blank_index"],
-        space_index=29,
+        space_index=space_index,
         vocab_list=vocab_list,
-        beam_size=10,
     )
 
     # Training
