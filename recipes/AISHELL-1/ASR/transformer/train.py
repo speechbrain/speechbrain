@@ -13,7 +13,6 @@ import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
@@ -63,23 +62,16 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         is_valid_search = (
             stage == sb.Stage.VALID
-            and current_epoch % self.hparams.valid_search_every == 0
+            and current_epoch % self.hparams.valid_search_interval == 0
         )
         is_test_search = stage == sb.Stage.TEST
 
-        if any([is_valid_search, is_test_search]):
-            # Note: For valid_search, for the sake of efficiency, we only perform beamsearch with
-            # limited capacity and no LM to give user some idea of how the AM is doing
-
-            # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -269,9 +261,7 @@ class ASR(sb.core.Brain):
                 if "momentum" not in group:
                     return
 
-                self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device)
-                )
+                self.checkpointer.recover_if_possible()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
@@ -281,7 +271,7 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -445,7 +435,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(

@@ -19,11 +19,10 @@ import sys
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 import jsonlines
 import ast
 import pandas as pd
-from speechbrain.utils.data_utils import undo_padding
 
 
 class SLU(sb.Brain):
@@ -56,15 +55,9 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
+            hyps, _, _, _ = self.hparams.beam_searcher(
                 wav2vec2_out.detach(), wav_lens
             )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
 
             return p_seq, wav_lens, hyps
 
@@ -211,8 +204,9 @@ class SLU(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -352,7 +346,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Move the wav2vec2
     hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])

@@ -11,7 +11,6 @@ import logging
 import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 
@@ -49,26 +48,10 @@ class ST(sb.core.Brain):
         hyps = None
         if stage == sb.Stage.VALID:
             # the output of the encoder (enc) is used for valid search
-            topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
-                src.detach(), wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _, _, _ = self.hparams.valid_search(src.detach(), wav_lens)
 
         elif stage == sb.Stage.TEST:
-            topk_tokens, topk_lens, _, _ = self.hparams.test_search(
-                src.detach(), wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _, _, _ = self.hparams.test_search(src.detach(), wav_lens)
 
         return p_seq, wav_lens, hyps
 

@@ -95,6 +95,8 @@ class CTCPrefixScore:
         candidates : torch.Tensor
             (batch_size * beam_size, ctc_beam_size), The topk candidates for rescoring.
             If given, performing partial ctc scoring.
+        attn : torch.Tensor
+            (batch_size * beam_size, max_enc_len), The attention weights.
         """
 
         n_bh = inp_tokens.size(0)
@@ -151,6 +153,8 @@ class CTCPrefixScore:
         # for full search
         else:
             scoring_table = None
+            # Inflate x to (2, -1, batch_size * beam_size, num_candidates)
+            # It is used to compute forward probs in a batched way
             x_inflate = (
                 self.x.unsqueeze(3)
                 .repeat(1, 1, 1, beam_size, 1)

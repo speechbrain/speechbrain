@@ -281,7 +281,12 @@ def recursive_update(d, u, must_match=False):
 
 
 def download_file(
-    source, dest, unpack=False, dest_unpack=None, replace_existing=False
+    source,
+    dest,
+    unpack=False,
+    dest_unpack=None,
+    replace_existing=False,
+    write_permissions=False,
 ):
     """Downloads the file from the given source and saves it in the given
     destination path.
@@ -297,6 +302,9 @@ def download_file(
         If True, it unpacks the data in the dest folder.
     replace_existing : bool
         If True, replaces the existing files.
+    write_permissions: bool
+        When set to True, all the files in the dest_unpack directory will be granted write permissions.
+        This option is active only when unpack=True.
     """
     try:
         # make sure all processing reached here before main preocess create dest_dir
@@ -340,12 +348,31 @@ def download_file(
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
                 shutil.unpack_archive(dest, dest_unpack)
+                if write_permissions:
+                    set_writing_permissions(dest_unpack)
+
     finally:
         sb.utils.distributed.ddp_barrier()
 
 
+def set_writing_permissions(folder_path):
+    """
+    This function sets user writing permissions to all the files in the given folder.
+
+    Parameters
+    ----------
+    folder_path : folder
+        Folder whose files will be granted write permissions.
+    """
+    for root, dirs, files in os.walk(folder_path):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            # Set writing permissions (mode 0o666) to the file
+            os.chmod(file_path, 0o666)
+
+
 def pad_right_to(
-    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+    tensor: torch.Tensor, target_shape, mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
@@ -418,7 +445,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
         return tensors[0].unsqueeze(0), torch.tensor([1.0])
 
     if not (
-        any(
+        all(
             [tensors[i].ndim == tensors[0].ndim for i in range(1, len(tensors))]
         )
     ):
@@ -546,7 +573,7 @@ def split_path(path):
 
     Arguments
     ---------
-    path : str
+    path : str or FetchSource
 
     Returns
     -------
@@ -555,11 +582,22 @@ def split_path(path):
     str
         Filename
     """
-    if "/" in path:
-        return path.rsplit("/", maxsplit=1)
+
+    def split(src):
+        """Core function to split path.
+        """
+        if "/" in src:
+            return src.rsplit("/", maxsplit=1)
+        else:
+            # Interpret as path to file in current directory.
+            return "./", src
+
+    if isinstance(path, sb.pretrained.fetching.FetchSource):
+        fetch_from, fetch_path = path
+        source, filename = split(fetch_path)
+        return sb.pretrained.fetching.FetchSource(fetch_from, source), filename
     else:
-        # Interpret as path to file in current directory.
-        return "./", path
+        return split(path)
 
 
 def scalarize(value):

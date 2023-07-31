@@ -93,8 +93,6 @@ lr: 0.0001
 lr_min: 0.00001
 lr_dont_halve_until_epoch: 1
 lr_patience: 1
-adam_beta1: 0.99
-adam_beta2: 0.998
 save_for_pretrained: True
 
 # Model parameters
@@ -367,7 +365,7 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    betas: !ref (<adam_beta1>, <adam_beta2>)
+    betas: (0.99, 0.998)
 
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>

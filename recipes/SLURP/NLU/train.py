@@ -13,8 +13,7 @@ import sys
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 import jsonlines
 import ast
 import pandas as pd
@@ -48,14 +47,9 @@ class SLU(sb.Brain):
         ):
             return p_seq, transcript_tokens_lens
         else:
-            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, transcript_tokens_lens
             )
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            p_tokens = undo_padding(best_hyps, best_lens)
 
             return p_seq, transcript_tokens_lens, p_tokens
 
@@ -182,8 +176,9 @@ class SLU(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):
@@ -331,7 +326,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Brain class initialization
     slu_brain = SLU(

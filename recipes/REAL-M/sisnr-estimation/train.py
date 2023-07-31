@@ -184,7 +184,7 @@ class Separation(sb.Brain):
                 loss = ((snr_compressed - snrhat).abs()).mean()
 
                 if (
-                    loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                    loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
                 ):  # the fix for computational problems
 
                     self.scaler.scale(loss).backward()
@@ -215,7 +215,7 @@ class Separation(sb.Brain):
             loss = ((snr_compressed - snrhat).abs()).mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -796,15 +796,14 @@ if __name__ == "__main__":
 
     snrestimator.all_separators = all_separators
 
-    if not hparams["test_only"]:
-        # Training
-        snrestimator.fit(
-            snrestimator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+    # Training
+    snrestimator.fit(
+        snrestimator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     snrestimator.evaluate(test_data, min_key="error")

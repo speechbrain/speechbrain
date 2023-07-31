@@ -31,7 +31,7 @@ import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.utils.data_utils import undo_padding
 
 
@@ -76,18 +76,17 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         is_valid_search = (
             stage == sb.Stage.VALID
-            and current_epoch % self.hparams.valid_search_every == 0
+            and current_epoch % self.hparams.valid_search_interval == 0
         )
         is_test_search = stage == sb.Stage.TEST
-        if any([is_valid_search, is_test_search]):
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
-            topk_tokens, topk_lens, _, _ = search(enc_out.detach(), wav_lens)
 
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
 
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -111,8 +110,8 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_every = self.hparams.valid_search_every
-            if current_epoch % valid_search_every == 0 or (
+            valid_search_interval = self.hparams.valid_search_interval
+            if current_epoch % valid_search_interval == 0 or (
                 stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
@@ -180,9 +179,9 @@ class ASR(sb.core.Brain):
         else:
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_every = self.hparams.valid_search_every
+            valid_search_interval = self.hparams.valid_search_interval
             if (
-                current_epoch % valid_search_every == 0
+                current_epoch % valid_search_interval == 0
                 or stage == sb.Stage.TEST
             ):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
@@ -223,8 +222,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def check_and_reset_optimizer(self):
         """reset the optimizer if training enters stage 2"""
@@ -264,9 +264,7 @@ class ASR(sb.core.Brain):
 
         # Load latest checkpoint to check to current epoch number
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
         # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
@@ -278,9 +276,7 @@ class ASR(sb.core.Brain):
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
 
 # Define custom data procedure

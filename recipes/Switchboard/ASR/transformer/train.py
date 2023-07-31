@@ -44,8 +44,7 @@ import torchaudio
 
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -122,27 +121,13 @@ class ASR(sb.core.Brain):
             if current_epoch % self.hparams.valid_search_interval == 0:
                 # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
-                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                hyps, _, _, _ = self.hparams.valid_search(
                     enc_out.detach(), wav_lens
                 )
-
-                # Select the best hypothesis
-                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-                # Convert best hypothesis to list
-                hyps = undo_padding(best_hyps, best_lens)
         elif stage == sb.Stage.TEST:
             # for the sake of efficiency, we only perform beamsearch with limited capacity
             # and no LM to give user some idea of how the AM is doing
-            topk_tokens, topk_lens, _, _ = self.hparams.test_search(
-                enc_out.detach(), wav_lens
-            )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -294,8 +279,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
@@ -314,7 +300,7 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -523,7 +509,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript
     # for cleaner performance metrics

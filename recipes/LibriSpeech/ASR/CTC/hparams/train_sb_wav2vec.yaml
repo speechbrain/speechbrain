@@ -14,7 +14,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Path of the SpeechBrain checkpoints containing the pretrained wav2vec2 model
 # It can be a local path or a HuggingFace hub containing the model
-wav2vec2_hub: !PLACEHOLDER
+wav2vec2_hub: facebook/wav2vec2-large-960h-lv60-self
 wav2vec_output_dim: 768 # This corresponds to the embedding size of the w2v2
 
 # Data files
@@ -63,10 +63,12 @@ dnn_neurons: 1280
 dnn_dropout: 0.15
 
 # Outputs
-output_neurons: 31  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
+use_language_modelling: False
+# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes

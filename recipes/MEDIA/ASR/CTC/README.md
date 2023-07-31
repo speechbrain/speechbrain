@@ -1,5 +1,5 @@
 # Media ASR with CTC + Wav2Vec 2.0.
-This folder contains scripts necessary to run an ASR experiment with the Media French dataset: [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/), [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) both needed for the task. Please also download the 2 csv files given [here](https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf) and place them in the `../../MEDIA` directory.
+This folder contains scripts necessary to run an ASR experiment with the Media French dataset: [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/), [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) both needed for the task. Please also download the 2 csv files given [here](https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0) and place them in the `../../MEDIA` directory.
 
 This recipe has been implemented following the paper of G. Laperrière, V. Pelloin, A. Caubriere, S. Mdhaffar, N. Camelin, S. Ghannay, B. Jabaian, Y. Estève, [The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools](https://aclanthology.org/2022.lrec-1.171).
 
@@ -17,7 +17,7 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 | Media Release | hyperparams | Test ChER | Wav2Vec | Training time | HuggingFace link | Model link |
 |:------:|:------:|:------:|:------:|:------:|:------:|:------:|
-| 2008-03-27 | train_with_wav2vec.yaml | 4.78 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/asr-wav2vec2-ctc-MEDIA) | [here](https://drive.google.com/drive/folders/1qJUKxsTKrYwzKz0LHzq67M4G06Mj-9fl) |
+| 2008-03-27 | train_with_wav2vec.yaml | 4.78 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/asr-wav2vec2-ctc-MEDIA) | Not Avail. |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

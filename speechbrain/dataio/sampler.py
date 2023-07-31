@@ -428,7 +428,6 @@ class DynamicBatchSampler(Sampler):
     ):
         self._dataset = dataset
         self._ex_lengths = {}
-        ex_ids = self._dataset.data_ids
         self.verbose = verbose
 
         # We do not put a default on num_buckets to encourage users to play with this parameter
@@ -450,7 +449,7 @@ class DynamicBatchSampler(Sampler):
                 )
             for indx in range(len(self._dataset)):
                 self._ex_lengths[str(indx)] = length_func(
-                    self._dataset.data[ex_ids[indx]]
+                    self._dataset.data[self._dataset.data_ids[indx]]
                 )
 
         if len(bucket_boundaries) > 0:
@@ -520,7 +519,7 @@ class DynamicBatchSampler(Sampler):
             for x in range(num_quantiles - 1)
         ]
         # logging
-        logger.info(
+        logger.debug(
             "Latent bucket boundary - buckets: {} - length multipliers: {}".format(
                 list(map("{:.2f}".format, bucket_boundaries)),
                 list(map("{:.2f}".format, length_multipliers)),
@@ -630,7 +629,7 @@ class DynamicBatchSampler(Sampler):
                     num_batches = 0
                     pad_factor = 0
 
-                logger.info(
+                logger.debug(
                     (
                         "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
                         + "batch_size {}: Num Examples {:.1f}, Num Full Batches {:.3f}, Pad Factor {:.3f}."
@@ -671,7 +670,7 @@ class DynamicBatchSampler(Sampler):
                 padding_details = "Batch {} with {:.1f} frames with {} files - {:.1f} padding, {:.2f} (%) of total."
                 padding_details = "DynamicBatchSampler: " + padding_details
                 for i in range(len(self._batches)):
-                    logger.info(
+                    logger.debug(
                         padding_details.format(
                             i,
                             batch_stats["tot_frames"][i],

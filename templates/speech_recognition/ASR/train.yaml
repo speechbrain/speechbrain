@@ -105,7 +105,7 @@ eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 240
 lm_weight: 0.50
-ctc_decode_weight: 0.0
+ctc_weight_decode: 0.0
 coverage_penalty: 1.5
 temperature: 1.25
 temperature_lm: 1.25
@@ -253,7 +253,7 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 
 # If the lm_scorer is set, a language model
 # is applied (with a weight specified in scorer).
-rnnlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
     language_model: !ref <lm_model>
     temperature: !ref <temperature_lm>
 
@@ -274,7 +274,7 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     weights:
         rnnlm: !ref <lm_weight>
         coverage: !ref <coverage_penalty>
-        ctc: !ref <ctc_decode_weight>
+        ctc: !ref <ctc_weight_decode>
 
 # Beamsearch is applied on the top of the decoder. For a description of
 # the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearcher.

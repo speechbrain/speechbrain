@@ -26,7 +26,7 @@ from pystoi import stoi
 from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 
 def pesq_eval(pred_wav, target_wav):
@@ -119,15 +119,10 @@ class MTLbrain(sb.Brain):
                 predictions["ctc_pout"] = torch.log_softmax(out, dim=-1)
 
             if stage != sb.Stage.TRAIN:
-                topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
-                    embed.detach(), lens
-                )
-
-                # Select the best hypothesis
-                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
+                hyps, _, _, _ = self.hparams.beam_searcher(embed.detach(), lens)
 
                 # Convert best hypothesis to list
-                predictions["hyps"] = undo_padding(best_hyps, best_lens)
+                predictions["hyps"] = hyps
 
         elif self.hparams.ctc_type is not None:
             if self.hparams.ctc_type == "clean":
@@ -394,20 +389,21 @@ class MTLbrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.stats_file + ".txt", "w") as w:
-                if self.hparams.enhance_weight > 0:
-                    w.write("\nstoi stats:\n")
-                    self.stoi_metrics.write_stats(w)
-                    w.write("\npesq stats:\n")
-                    self.pesq_metrics.write_stats(w)
-                    w.write("\ncomposite stats:\n")
-                    self.composite_metrics.write_stats(w)
-                if self.hparams.mimic_weight > 0:
-                    w.write("\nmimic stats:\n")
-                    self.mimic_metrics.write_stats(w)
-                if self.hparams.seq_weight > 0:
-                    self.err_rate_metrics.write_stats(w)
-                print("stats written to ", self.hparams.stats_file)
+            if if_main_process():
+                with open(self.hparams.stats_file + ".txt", "w") as w:
+                    if self.hparams.enhance_weight > 0:
+                        w.write("\nstoi stats:\n")
+                        self.stoi_metrics.write_stats(w)
+                        w.write("\npesq stats:\n")
+                        self.pesq_metrics.write_stats(w)
+                        w.write("\ncomposite stats:\n")
+                        self.composite_metrics.write_stats(w)
+                    if self.hparams.mimic_weight > 0:
+                        w.write("\nmimic stats:\n")
+                        self.mimic_metrics.write_stats(w)
+                    if self.hparams.seq_weight > 0:
+                        self.err_rate_metrics.write_stats(w)
+                    print("stats written to ", self.hparams.stats_file)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         self.checkpointer.recover_if_possible(max_key=max_key, min_key=min_key)

@@ -39,10 +39,9 @@ import logging
 import torchaudio
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -112,25 +111,10 @@ class ASR(sb.Brain):
                 return p_seq, wav_lens
         else:
             if stage == sb.Stage.VALID:
-                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
-                    x, wav_lens
-                )
-
-                # Select the best hypothesis
-                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-                # Convert best hypothesis to list
-                p_tokens = undo_padding(best_hyps, best_lens)
+                p_tokens, _, _, _ = self.hparams.valid_search(x, wav_lens)
             else:
-                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
-                    x, wav_lens
-                )
+                p_tokens, _, _, _ = self.hparams.test_search(x, wav_lens)
 
-                # Select the best hypothesis
-                best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-                # Convert best hypothesis to list
-                p_tokens = undo_padding(best_hyps, best_lens)
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -243,8 +227,9 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):
@@ -442,7 +427,7 @@ if __name__ == "__main__":
     # Depending on the path given in the hparams YAML file,
     # we download the pretrained LM and Tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript
     # for cleaner performance metrics

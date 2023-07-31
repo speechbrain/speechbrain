@@ -8,7 +8,6 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 """
 import pathlib
 import speechbrain as sb
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 
 
@@ -30,13 +29,7 @@ class seq2seqBrain(sb.Brain):
 
         seq = None
         if stage != sb.Stage.TRAIN:
-            topk_tokens, topk_lens, _, _ = self.hparams.searcher(x, wav_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            seq = undo_padding(best_hyps, best_lens)
+            seq, _, _, _ = self.hparams.searcher(x, wav_lens)
 
         return outputs, seq
 
@@ -101,6 +94,7 @@ def data_prep(data_folder, hparams):
     )
     datasets = [train_data, valid_data]
     label_encoder = sb.dataio.encoder.TextEncoder()
+    label_encoder.expect_len(hparams["num_labels"])
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")

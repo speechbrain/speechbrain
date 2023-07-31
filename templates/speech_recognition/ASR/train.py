@@ -50,7 +50,6 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 
 logger = logging.getLogger(__name__)
 
@@ -101,17 +100,16 @@ class ASR(sb.Brain):
             predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
 
         elif stage != sb.Stage.TRAIN:
-            # Decide searcher for inference: valid or test search
-            search = getattr(self.hparams, f"{stage.name}_search".lower())
+            if stage == sb.Stage.VALID:
+                hyps, _, _, _ = self.hparams.valid_search(
+                    encoded_signal, self.feat_lens
+                )
+            elif stage == sb.Stage.TEST:
+                hyps, _, _, _ = self.hparams.test_search(
+                    encoded_signal, self.feat_lens
+                )
 
-            topk_tokens, topk_lens, _, _ = search(
-                encoded_signal, self.feat_lens
-            )
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            predictions["tokens"] = undo_padding(best_hyps, best_lens)
+            predictions["tokens"] = hyps
 
         return predictions
 
@@ -438,7 +436,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(
@@ -467,3 +465,6 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
+
+    # Save final checkpoint (fixed name)
+    asr_brain.checkpointer.save_checkpoint(name="latest")

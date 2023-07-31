@@ -10,7 +10,7 @@ To run this recipe, do the following:
 Authors
  * Jianyuan Zhong 2021
  * Ju-Chieh Chou 2020
- * Dongwon Kim, Dongwoo Kim 2021
+ * Dongwon Kim, Dongwoo Kim 2023
 """
 import sys
 import logging
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     lm_brain = LM(
         modules=hparams["modules"],

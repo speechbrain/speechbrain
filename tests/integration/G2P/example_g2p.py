@@ -9,7 +9,6 @@ tiny dataset, the expected behavior is to overfit the training dataset
 """
 import pathlib
 import speechbrain as sb
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 
 
@@ -30,13 +29,7 @@ class seq2seqBrain(sb.Brain):
 
         seq = None
         if stage != sb.Stage.TRAIN:
-            topk_tokens, topk_lens, _, _ = self.hparams.searcher(x, char_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            seq = undo_padding(best_hyps, best_lens)
+            seq, _, _, _ = self.hparams.searcher(x, char_lens)
 
         return outputs, seq
 
@@ -101,6 +94,7 @@ def data_prep(data_folder, hparams):
     char_encoder.insert_bos_eos(bos_index=hparams["bos_index"])
     char_encoder.update_from_didataset(train_data, output_key="char_list")
     char_encoder.update_from_didataset(valid_data, output_key="char_list")
+    char_encoder.expect_len(hparams["num_chars"])
 
     # 4. Define char pipeline:
     @sb.utils.data_pipeline.takes("phn")
@@ -123,6 +117,7 @@ def data_prep(data_folder, hparams):
     phn_encoder.insert_bos_eos(bos_index=hparams["bos_index"])
     phn_encoder.update_from_didataset(train_data, output_key="phn_list")
     phn_encoder.update_from_didataset(valid_data, output_key="phn_list")
+    phn_encoder.expect_len(hparams["num_phns"])
 
     # 6. Set output:
     sb.dataio.dataset.set_output_keys(

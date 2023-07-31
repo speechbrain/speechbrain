@@ -20,8 +20,7 @@ import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +52,10 @@ class ASR(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage != sb.Stage.TRAIN:
-            # Decide searcher for inference: valid or test search
-            searcher = getattr(self.hparams, f"{stage.name}_searcher".lower())
-
-            topk_tokens, topk_lens, _, _ = searcher(x, wav_lens)
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
+        if stage == sb.Stage.VALID:
+            hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
+        elif stage == sb.Stage.TEST:
+            hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -146,17 +138,18 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "CTC, seq2seq, and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    w.write("CTC loss stats:\n")
+                    self.ctc_metrics.write_stats(w)
+                    w.write("\nseq2seq loss stats:\n")
+                    self.seq_metrics.write_stats(w)
+                    w.write("\nPER stats:\n")
+                    self.per_metrics.write_stats(w)
+                    print(
+                        "CTC, seq2seq, and PER stats written to file",
+                        self.hparams.wer_file,
+                    )
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
