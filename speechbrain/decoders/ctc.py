@@ -457,7 +457,7 @@ class CTCBaseSearcher(torch.nn.Module):
         The list of the vocabulary tokens.
     space_index : int, optional
         The index of the space token. (default: -1)
-    kenlm_model_path : str, optional 
+    kenlm_model_path : str, optional
         The path to the kenlm model. Use .bin for a faster loading.
         If None, no language model will be used. (default: None)
     unigrams : list, optional
@@ -514,7 +514,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
         if not self.is_spm and space_index == -1:
             raise ValueError("space_index must be set")
-        
+
         self.kenlm_model = None
         if kenlm_model_path is not None:
             try:
@@ -1582,12 +1582,12 @@ class TorchAudioCTCBeamSearch:
     """TorchAudio CTC Beam Search Decoder.
 
     This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
-    where you can either use the CPU or CUDA CTC decoder. 
-    
-    The CPU decoder is slower but uses less memory. The CUDA decoder is faster but uses more memory. 
-    The CUDA decoder is also only available in the nightly version of torchaudio. 
-    
-    A lot of features are missing in the CUDA decoder, such as the ability to use a language model, 
+    where you can either use the CPU or CUDA CTC decoder.
+
+    The CPU decoder is slower but uses less memory. The CUDA decoder is faster but uses more memory.
+    The CUDA decoder is also only available in the nightly version of torchaudio.
+
+    A lot of features are missing in the CUDA decoder, such as the ability to use a language model,
     constraint search, and more. If you want to use those features, you have to use the CPU decoder.
 
     For more information about the CPU decoder, please refer to the documentation of TorchAudio:
@@ -1602,9 +1602,9 @@ class TorchAudioCTCBeamSearch:
     The implementation is compatible with Sentenpiece Tokens.
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
-    requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams). 
-    Overall, we do recommand to use the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use 
-    n-gram + beam search decoding. If you wants to have constraint search, please use the CPU version of torchaudio, 
+    requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams).
+    Overall, we do recommand to use the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use
+    n-gram + beam search decoding. If you wants to have constraint search, please use the CPU version of torchaudio,
     and if you want to speedup as much as possible the decoding, please use the CUDA version.
 
     Arguments

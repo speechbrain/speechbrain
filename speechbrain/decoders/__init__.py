@@ -1,8 +1,7 @@
 """ Package containing the different decoders (ctc, beamsearch ...)
 """
 
-from .ctc import *
-from .seq2seq import *
-from .transducer import *
-from .utils import *
-from .scorer import *
+from .ctc import *  # noqa
+from .seq2seq import *  # noqa
+from .transducer import *  # noqa
+from .scorer import *  # noqa

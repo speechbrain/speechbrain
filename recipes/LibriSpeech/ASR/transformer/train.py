@@ -147,28 +147,11 @@ class ASR(sb.core.Brain):
             if current_epoch % valid_search_interval == 0 or (
                 stage == sb.Stage.TEST
             ):
-                if use_torch_audio:
-                    # TODO: move this bloc in compute_forward
-
-                    # enc_lengths = p_ctc.size(1) * wav_lens
-                    predicted_tokens, _, _, _ = decoder.decode_beams(
-                        p_ctc, wav_lens
-                    )
-
-                    predicted_words = [
-                        tokenizer.decode_ids(utt_seq).split(" ")
-                        for utt_seq in predicted_tokens
-                    ]  # TODO: use self.vocab instead of that
-
-                else:
-                    beam_search_result = decoder.decode_beams(p_ctc, wav_lens)
-
-                    predicted_words = []
-                    for hypo in beam_search_result:
-                        predicted_words.append(hypo[0].text.split(" "))
-
+                # Decode token terms to words
+                predicted_words = [
+                    tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
+                ]
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
-
                 self.wer_metric.append(ids, predicted_words, target_words)
 
             # compute the accuracy of the one-step-forward prediction
@@ -510,75 +493,6 @@ if __name__ == "__main__":
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
-    """
-    from speechbrain.decoders import BeamSearchDecoderCTC
-
-    labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
-
-    ctc_beam_search = BeamSearchDecoderCTC(
-        blank_id=0,
-        # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-        beam_size=100,
-        prune_frames=False,
-        vocab=labels,
-        # space_id=29,
-        prune_history=True,
-    )
-
-    from torchaudio.models.decoder import download_pretrained_files
-
-    files = download_pretrained_files("librispeech-4-gram")
-
-    from torchaudio.models.decoder import ctc_decoder
-
-    labels = [label for label in labels]
-
-    decoder = ctc_decoder(
-        lexicon=None,
-        tokens=labels,
-        # lm=files.lm,
-        beam_size=100,
-        blank_token=labels[hparams["blank_index"]],
-        sil_token=labels[hparams["blank_index"]],
-        beam_size_token=5,
-        # lm_weight=3.23,
-    )
-    """
-
-    from speechbrain.decoders import (
-        TorchAudioCTCBeamSearch,
-        CTCPrefixBeamSearch,
-        CTCBeamSearch,
-    )
-
-    labels = [tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())]
-
-    use_torch_audio = False
-
-    if use_torch_audio:
-        decoder = TorchAudioCTCBeamSearch(
-            lexicon=None,
-            tokens=labels,
-            beam_size=10,
-            blank_index=hparams["blank_index"],
-            sil_index=hparams["blank_index"],
-            beam_size_token=5,
-            using_cpu_decoder=False,
-            topk=2,
-        )
-
-    else:
-        import math
-
-        decoder = CTCPrefixBeamSearch(
-            blank_index=0,
-            # kenlm_model_path="/users/amoumen/machine_learning/pr/751/src/tokenizers_transducer_experiments/save_arpa/4-gram.arpa",
-            history_prune=True,
-            vocab_list=labels,
-            beam_width=100,
-            blank_skip_threshold=math.log(0.99),
-        )
-
     if train_bsampler is not None:
         collate_fn = None
         if "collate_fn" in train_dataloader_opts:
@@ -598,6 +512,9 @@ if __name__ == "__main__":
             collate_fn = valid_dataloader_opts["collate_fn"]
 
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(
