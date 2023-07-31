@@ -690,10 +690,9 @@ if __name__ == "__main__":
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):
-        print(
+        raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
-        sys.exit(1)
 
     if not hparams["skip_prep"]:
         if not os.path.exists(hparams["datasets_generation"]):

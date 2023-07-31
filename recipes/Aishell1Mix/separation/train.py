@@ -571,8 +571,9 @@ if __name__ == "__main__":
 
     # Check if storage folder for dataset exists
     if not hparams["data_folder"]:
-        print("Please, specify a valid data_folder for dataset storage")
-        sys.exit(1)
+        raise ValueError(
+            "Please, specify a valid data_folder for dataset storage"
+        )
 
     # Data preparation
     from prepare_data import prepare_aishell1mix
