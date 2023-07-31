@@ -87,9 +87,9 @@ rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
 
 # random positive or negative shifts of 250 ms
 min_shift: !apply:math.floor
-  - !ref 0 - <sample_rate> * 0.25
+    - !ref 0 - <sample_rate> * 0.25
 max_shift: !apply:math.floor
-  - !ref 0 + <sample_rate> * 0.25
+    - !ref 0 + <sample_rate> * 0.25
 
 time_shift: !new:speechbrain.processing.speech_augmentation.RandomShift
     min_shift: !ref <min_shift>
@@ -182,4 +182,3 @@ lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
     base_lr: !ref <base_lr>
     max_lr: !ref <max_lr>
     step_size: !ref <step_size>
-

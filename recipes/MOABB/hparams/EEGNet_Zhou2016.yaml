@@ -80,7 +80,7 @@ base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
 
 step_size_multiplier: 5 #from 2 to 8
 step_size: !apply:round
-  - !ref <step_size_multiplier> * <n_train_examples> / <batch_size>
+    - !ref <step_size_multiplier> * <n_train_examples> / <batch_size>
 
 label_smoothing: 0.0
 
@@ -99,8 +99,8 @@ valid_ratio: 0.2
 # cutcat (disabled when min_num_segments=max_num_segments=1)
 max_num_segments: 6 # 1-6
 cutcat: !new:speechbrain.processing.speech_augmentation.CutCat
-  min_num_segments: 2
-  max_num_segments: !ref <max_num_segments>
+    min_num_segments: 2
+    max_num_segments: !ref <max_num_segments>
 
 # random amplitude gain between 0.5-1.5 uV (disabled when amp_delta=0.)
 amp_delta: 0.5 # 0.-0.5
@@ -112,9 +112,9 @@ rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
 shift_delta_: 25 # 0-25
 shift_delta: !ref 1e-2 * <shift_delta_> # 0.250 # 0.-0.25 with steps of 0.01
 min_shift: !apply:math.floor
-  - !ref 0 - <sample_rate> * <shift_delta>
+    - !ref 0 - <sample_rate> * <shift_delta>
 max_shift: !apply:math.floor
-  - !ref 0 + <sample_rate> * <shift_delta>
+    - !ref 0 + <sample_rate> * <shift_delta>
 time_shift: !new:speechbrain.processing.speech_augmentation.RandomShift
     min_shift: !ref <min_shift>
     max_shift: !ref <max_shift>
@@ -172,7 +172,7 @@ cnn_septemporal_point_kernels_ratio: !ref <cnn_septemporal_point_kernels_ratio_>
 ## number of temporal filters in the separable temporal conv. layer
 cnn_septemporal_point_kernels_: !ref <cnn_temporal_kernels> * <cnn_spatial_depth_multiplier> * <cnn_septemporal_depth_multiplier>
 cnn_septemporal_point_kernels: !apply:math.ceil
-  - !ref <cnn_septemporal_point_kernels_ratio> * <cnn_septemporal_point_kernels_> + 1
+    - !ref <cnn_septemporal_point_kernels_ratio> * <cnn_septemporal_point_kernels_> + 1
 
 # kernel size learning temporal patterns within 100 ms, 150 ms,...,750 ms
 #cnn_septemporal_kernelsize_s: 0.5
@@ -184,7 +184,7 @@ cnn_septemporal_point_kernels: !apply:math.ceil
 cnn_septemporal_kernelsize_: 16 # @ 32 Hz
 max_cnn_spatial_pool: 4
 cnn_septemporal_kernelsize: !apply:round
-  - !ref <cnn_septemporal_kernelsize_> * <max_cnn_spatial_pool> / <cnn_spatial_pool>
+    - !ref <cnn_septemporal_kernelsize_> * <max_cnn_spatial_pool> / <cnn_spatial_pool>
 
 
 #cnn_septemporal_kernelsize_: 5
