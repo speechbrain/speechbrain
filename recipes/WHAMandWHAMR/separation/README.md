@@ -52,8 +52,8 @@ Here are the SI - SNRi results (in dB) on the test set of WHAM!, WHAMR! datasets
 # Training time
 It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (32GB).
 
-The output folder with the logs for WHAMR! can be found [here](https://drive.google.com/drive/folders/1m1xfx2ojf7qgOyscJVVCQFRY0VRl0rdi?usp=sharing).
-The output folder with the logs for WHAM! can be found [here](https://drive.google.com/drive/folders/1dIAT8hZxvdJPZNUb8Zkk3BuN7GZ9-mZb?usp=sharing).
+The output folder with the logs for WHAMR! can be found [here](https://www.dropbox.com/sh/1sia32z01xbfgvu/AADditsqaTyfN3N6tzfEFPica?dl=0).
+The output folder with the logs for WHAM! can be found [here](https://www.dropbox.com/sh/sfrgb3xivri432e/AACQodNmiDIKrB9vCeCFUDWUa?dl=0).
 
 
 # Pretrained Models:
@@ -61,7 +61,7 @@ Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through h
 * https://huggingface.co/speechbrain/sepformer-wham
 * https://huggingface.co/speechbrain/sepformer-whamr
 
-* Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
+* Pretrained models with the training logs can be found on `https://www.dropbox.com/sh/e4bth1bylk7c6h8/AADFq3cWzBBKxuDv09qjvUMta?dl=0` also.
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/sepformer-whamr).
 The 16kHz version of the sepformer can be found [here](https://huggingface.co/speechbrain/sepformer-whamr16k).
@@ -84,7 +84,7 @@ You can run the following command to train the model using Distributed Data Para
 ```
  python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer-whamr.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
 ```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 
 
 # **About SpeechBrain**

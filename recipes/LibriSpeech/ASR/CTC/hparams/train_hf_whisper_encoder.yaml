@@ -71,8 +71,6 @@ output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
-use_language_modelling: False
-# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes

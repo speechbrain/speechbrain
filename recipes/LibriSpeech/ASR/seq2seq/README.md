@@ -11,8 +11,8 @@ python train.py hparams/file.yaml
 
 | Release | hyperparams file | Test Clean WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| 01-03-21 | train_BPE_1000.yaml | 3.16 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech) | [Model](https://drive.google.com/drive/folders/19mAyMR1ITSb83Anhds4n694PLwKD47yf?usp=sharing)| 1xV100 32GB |
-| 01-03-21 | train_BPE_5000.yaml | 2.89 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) | [Model](https://drive.google.com/drive/folders/15uUZ21HYnw4KyOPW3tx8bLrS9RoBZfS7?usp=sharing) | 1xV100 32GB |
+| 01-03-21 | train_BPE_1000.yaml | 3.16 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech) | [Model](https://www.dropbox.com/sh/1ycv07gyxdq8hdl/AABUDYzza4SLYtY45RcGf2_0a?dl=0)| 1xV100 32GB |
+| 01-03-21 | train_BPE_5000.yaml | 2.89 | [HuggingFace](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) | [Model](https://www.dropbox.com/sh/a39wq3h60luv552/AABBnCM2Uf-CNax_cgMWdqDda?dl=0) | 1xV100 32GB |
 
 # Training Time
 It takes about 5 hours for each epoch on a NVDIA V100 (32GB).
@@ -24,7 +24,7 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 - https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/15uUZ21HYnw4KyOPW3tx8bLrS9RoBZfS7?usp=sharing
+https://www.dropbox.com/sh/a39wq3h60luv552/AABBnCM2Uf-CNax_cgMWdqDda?dl=0
 
 
 # **About SpeechBrain**

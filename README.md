@@ -72,7 +72,7 @@ SpeechBrain provides different models for speaker recognition, identification, a
 - Libraries to extract speaker embeddings with a pre-trained model on your data.
 
 ### Text-to-Speech (TTS) and Vocoders
-- Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech) with LJSpeech.
+- Recipes for training TTS systems such as [Tacotron2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech/) and [FastSpeech2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech/) with LJSpeech.
 - Recipes for training Vocoders such as [HiFIGAN](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech).
 
 ### Grapheme-to-Phoneme (G2P)
@@ -95,13 +95,14 @@ Combining multiple microphones is a powerful approach to achieving robustness in
 - Speaker localization.
 
 ### Emotion Recognition
-- Recipes for emotion recognition using SSL and ECAPA-TDNN models.
+- Recipes for emotion recognition using SSL and ECAPA-TDNN models on the [IEMOCAP](https://sail.usc.edu/iemocap/iemocap_release.htm) dataset.
+- Recipe for emotion diarization using SSL models on the [ZaionEmotionDataset](https://zaion.ai/en/resources/zaion-lab-blog/zaion-emotion-dataset/).
 
 ### Interpretability
 - Recipes for various intepretability techniques on the ESC50 dataset.
 
 ### Spoken Language Understanding
-- Recipes for training wav2vec 2.0 models with the [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) dataset.
+- Recipes for training wav2vec 2.0 models on, [SLURP](https://zenodo.org/record/4274930#.YEFCYHVKg5k), [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) and [timers-and-such](https://zenodo.org/record/4623772#.YGeMMHVKg5k) datasets.
 
 ### Performance
 The recipes released with speechbrain implement speech processing systems with competitive or state-of-the-art performance. In the following, we report the best performance achieved on some popular benchmarks:
@@ -109,14 +110,14 @@ The recipes released with speechbrain implement speech processing systems with c
 | Dataset        | Task           | System  | Performance  |
 | ------------- |:-------------:| -----:|-----:|
 | LibriSpeech      | Speech Recognition | wav2vec2 | WER=1.90% (test-clean) |
-| LibriSpeech      | Speech Recognition | CNN + Conformer | WER=2.2% (test-clean) |
+| LibriSpeech      | Speech Recognition | CNN + Conformer | WER=2.0% (test-clean) |
 | TIMIT      | Speech Recognition | CRDNN + distillation | PER=13.1% (test) |
 | TIMIT      | Speech Recognition | wav2vec2 + CTC/Att. | PER=8.04% (test) |
 | CommonVoice (English) | Speech Recognition | wav2vec2 + CTC | WER=15.69% (test) |
 | CommonVoice (French) | Speech Recognition | wav2vec2 + CTC | WER=9.96% (test) |
 | CommonVoice (Italian) | Speech Recognition | wav2vec2 + seq2seq | WER=9.86% (test) |
 | CommonVoice (Kinyarwanda) | Speech Recognition | wav2vec2 + seq2seq | WER=18.91% (test) |
-| AISHELL (Mandarin) | Speech Recognition | wav2vec2 + seq2seq | CER=5.58% (test) |
+| AISHELL (Mandarin) | Speech Recognition | wav2vec2 + CTC | CER=5.06% (test) |
 | Fisher-callhome (spanish) | Speech translation | conformer (ST + ASR) | BLEU=48.04 (test) |
 | VoxCeleb2      | Speaker Verification | ECAPA-TDNN | EER=0.80% (vox1-test) |
 | AMI      | Speaker Diarization | ECAPA-TDNN | DER=3.01% (eval)|
@@ -128,10 +129,10 @@ The recipes released with speechbrain implement speech processing systems with c
 | Libri2Mix     | Speech Separation | SepFormer| SDRi= 20.6 dB (test-clean)|
 | Libri3Mix     | Speech Separation | SepFormer| SDRi= 18.7 dB (test-clean)|
 | LibryParty | Voice Activity Detection | CRDNN | F-score=0.9477 (test) |
-| IEMOCAP | Emotion Recognition | wav2vec | Accuracy=79.8% (test) |
+| IEMOCAP | Emotion Recognition | wav2vec2 | Accuracy=79.8% (test) |
 | CommonLanguage | Language Recognition | ECAPA-TDNN | Accuracy=84.9% (test) |
 | Timers and Such | Spoken Language Understanding | CRDNN | Intent Accuracy=89.2% (test) |
-| SLURP | Spoken Language Understanding | CRDNN | Intent Accuracy=87.54% (test) |
+| SLURP | Spoken Language Understanding | HuBERT | Intent Accuracy=87.54% (test) |
 | VoxLingua 107 | Identification | ECAPA-TDNN | Sentence Accuracy=93.3% (test) |
 
 For more details, take a look at the corresponding implementation in recipes/dataset/.
@@ -148,7 +149,7 @@ Beyond providing recipes for training the models from scratch, SpeechBrain share
 | Speech Recognition | CommonVoice(French) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) |
 | Speech Recognition | CommonVoice(Italian) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) |
 | Speech Recognition | CommonVoice(Kinyarwanda) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) |
-| Speech Recognition | AISHELL(Mandarin) | [wav2vec + CTC](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
+| Speech Recognition | AISHELL(Mandarin) | [wav2vec + seq2seq](https://huggingface.co/speechbrain/asr-wav2vec2-transformer-aishell) |
 | Text-to-Speech | LJSpeech | [Tacotron2](https://huggingface.co/speechbrain/tts-tacotron2-ljspeech) |
 | Speaker Recognition | Voxceleb | [ECAPA-TDNN](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb) |
 | Speech Separation | WHAMR! | [SepFormer](https://huggingface.co/speechbrain/sepformer-whamr) |
@@ -210,12 +211,12 @@ We are currently implementing speech synthesis pipelines and real-time speech pr
 
 # Conference Tutorials
 SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
-- [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1d6GAquxw6rZBI-7JvfUQ_-upeiKstJEo?usp=sharing)
+- [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1d6GAquxw6rZBI-7JvfUQ_-upeiKstJEo)
 - [Interspeech 2021 YouTube recordings.](https://www.youtube.com/results?search_query=Interspeech+speechbrain+)
 
 # Quick installation
 SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.
-SpeechBrain can be installed via PyPI. Moreover,  a local installation can be used by those users that what to run experiments and modify/customize the toolkit. SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
+SpeechBrain can be installed via PyPI. Moreover,  a local installation can be used by those users who want to run experiments and modify/customize the toolkit. SpeechBrain supports both CPU and GPU computations. For most all the recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
 
 
 ## Install via PyPI

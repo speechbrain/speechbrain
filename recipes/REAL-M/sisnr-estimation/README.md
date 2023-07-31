@@ -22,7 +22,7 @@
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 18-10-21 | pool_sisnrestimator.yaml | 1.71 | [HuggingFace](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator) | Not Available| RTX8000 48GB |
 
-You can find the output folders with the training logs [here](https://drive.google.com/drive/folders/1NGncbjvLeGfbUqmVi6ej-NH9YQn5vBmI?usp=sharing).
+You can find the output folders with the training logs [here](https://www.dropbox.com/sh/n55lm8i5z51pbm1/AABHfByOEy__UP_bmT4GJvSba?dl=0).
 This [repository](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator-training) provides the Separator models needed to train a blind SI-SNR estimator.
 
 # Training Time

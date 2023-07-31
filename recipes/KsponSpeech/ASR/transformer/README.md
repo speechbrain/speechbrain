@@ -25,7 +25,7 @@ python train.py hparams/conformer_medium.yaml
 # Results
 | Release  |   hyperparams file    | eval clean WER | eval other WER | eval clean CER | eval other CER |                                   HuggingFace link                                   |                                               Model link                                                |    GPUs     |  Training time  |
 | :------: | :-------------------: | :------------: | :------------: | :------------: | :------------: | :----------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------: | :-------------: |
-| 09-05-21 | conformer_medium.yaml |     21.00%     |     25.69%     |     7.48%      |     8.38%      | [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech) | [GoogleDrive](https://drive.google.com/drive/folders/1iPzuhaKIUeKtOunkBkhc_sGlk47Awe80?usp=sharing) | 6xA100 80GB | 2 days 13 hours |
+| 09-05-21 | conformer_medium.yaml |     21.00%     |     25.69%     |     7.48%      |     8.38%      | [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech) | [GoogleDrive](https://www.dropbox.com/sh/26wn0r7hixmqqko/AADtl00qXS-OGOyosDWMsuv_a?dl=0) | 6xA100 80GB | 2 days 13 hours |
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace: [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)

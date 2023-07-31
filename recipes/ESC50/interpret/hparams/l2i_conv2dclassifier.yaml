@@ -44,8 +44,6 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 number_of_epochs: 200
 batch_size: 16
 lr: 0.0002
-base_lr: 0.00002
-max_lr: !ref <lr>
 sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
@@ -54,9 +52,6 @@ device: "cuda"
 
 # Feature parameters
 n_mels: 80
-left_frames: 0
-right_frames: 0
-deltas: False
 
 use_melspectra: False
 
@@ -116,7 +111,7 @@ compute_stft: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>
 
 compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: 80
+    n_mels: !ref <n_mels>
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
@@ -150,9 +145,9 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
-embedding_model_path: "fpaissan/conv2d_us8k/embedding_modelft.ckpt"
-classifier_model_path: "fpaissan/conv2d_us8k/classifier.ckpt"
-nmf_decoder_path: "fpaissan/conv2d_us8k/nmf_decoder.ckpt"
+embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
+classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
+nmf_decoder_path: "speechbrain/PIQ-ESC50/nmf_decoder.ckpt"
 use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
