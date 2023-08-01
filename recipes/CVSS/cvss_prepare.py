@@ -1,5 +1,6 @@
 """
 CVSS data preparation.
+Download: https://github.com/google-research-datasets/cvss
 
 Authors
  * Jarod DURET 2023
@@ -12,6 +13,7 @@ import json
 import logging
 import random
 import string
+import tqdm
 import pathlib as pl
 
 import torchaudio
@@ -29,6 +31,7 @@ TGT_METADATA = {
     "test": "test.tsv",
 }
 
+# Need to be set according to your system
 SRC_AUDIO = "clips_16k"
 TGT_AUDIO = {
     "train": "train_16k",
@@ -39,6 +42,7 @@ TGT_AUDIO = {
 log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def prepare_cvss(
     src_data_folder,
@@ -68,7 +72,7 @@ def prepare_cvss(
     """
     # setting seeds for reproducible code.
     random.seed(seed)
-    
+
     if skip_prep:
         return
 
@@ -181,17 +185,22 @@ def prepare_json(
     src_validated,
     tgt_split,
 ):
+    """
+    Creates json file.
+
+    """
+
     json_dict = {}
 
-    src_meta = csv.DictReader(open(src_validated), delimiter="\t", quoting=csv.QUOTE_NONE)
-    meta_dict = {row['path'].split('.')[0]:row for row in src_meta}
+    src_meta = csv.DictReader(
+        open(src_validated), delimiter="\t", quoting=csv.QUOTE_NONE
+    )
+    meta_dict = {row["path"].split(".")[0]: row for row in src_meta}
     tgt_meta = list(
-        csv.reader(
-            open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE
-        )
+        csv.reader(open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE)
     )
 
-    for i in range(len(tgt_meta)):
+    for i in tqdm.tqdm(range(len(tgt_meta))):
         session_id = tgt_meta[i][0].split(".")[0]
 
         tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3.wav"
@@ -200,14 +209,20 @@ def prepare_json(
         src_sig, sr = torchaudio.load(src_audio)
         duration = src_sig.shape[1] / sr
 
-        src_text = meta_dict[session_id]['sentence']
+        if duration < 1.5:
+            continue
+
+        src_text = meta_dict[session_id]["sentence"]
         tgt_text = tgt_meta[i][1]
+
+        if len(tgt_text) < 10:
+            continue
 
         json_dict[session_id] = {
             "src_audio": src_audio,
             "tgt_audio": tgt_audio,
             "duration": duration,
-            "src_text": src_text,
+            # "src_text": src_text,
             "tgt_text": tgt_text,
         }
 
