@@ -26,6 +26,15 @@ class Diffuser(nn.Module):
     ---------
     model: nn.Module
         the underlying model
+    timesteps: int
+        the number of timesteps
+    noise: callable|str
+        the noise function/module to use
+
+        The following predefined types of noise are provided
+        "gaussian": Gaussian noise, applied to the whole sample
+        "length_masked_gaussian": Gaussian noise applied only
+            to the parts of the sample that is not padding
     """
 
     def __init__(self, model, timesteps, noise=None):
@@ -35,7 +44,7 @@ class Diffuser(nn.Module):
         if noise is None:
             noise = "gaussian"
         if isinstance(noise, str):
-            self.noise = _NOISE_FUNCTIONS[noise]
+            self.noise = _NOISE_FUNCTIONS[noise]()
         else:
             self.noise = noise
 
@@ -148,6 +157,33 @@ class DenoisingDiffusion(Diffuser):
 
     show_progress: bool
         whether to show progress during inference
+
+    Example
+    -------
+    >>> from speechbrain.nnet.unet import UNetModel
+    >>> unet = UNetModel(
+    ...     in_channels=1,
+    ...     model_channels=16,
+    ...     norm_num_groups=4,
+    ...     out_channels=1,
+    ...     num_res_blocks=1,
+    ...     attention_resolutions=[]
+    ... )
+    >>> diff = DenoisingDiffusion(
+    ...     model=unet,
+    ...     timesteps=5
+    ... )
+    >>> x = torch.randn(4, 1, 64, 64)
+    >>> pred, noise, noisy_sample = diff.train_sample(x)
+    >>> pred.shape
+    torch.Size([4, 1, 64, 64])
+    >>> noise.shape
+    torch.Size([4, 1, 64, 64])
+    >>> noisy_sample.shape
+    torch.Size([4, 1, 64, 64])
+    >>> sample = diff.sample((2, 1, 64, 64))
+    >>> sample.shape
+    torch.Size([2, 1, 64, 64])
     """
 
     def __init__(
@@ -347,6 +383,76 @@ class LatentDiffusion(nn.Module):
     latent_pad_dims: int|list[int]
         the dimension(s) along which the latent space will be
         padded
+
+    Example
+    -------
+    >>> import torch
+    >>> from torch import nn
+    >>> from speechbrain.nnet.CNN import Conv2d
+    >>> from speechbrain.nnet.autoencoders import NormalizingAutoencoder
+    >>> from speechbrain.nnet.unet import UNetModel
+
+    Set up a simple autoencoder (a real autoencoder would be a
+    deep neural network)
+
+    >>> ae_enc = Conv2d(
+    ...     kernel_size=3,
+    ...     stride=4,
+    ...     in_channels=1,
+    ...     out_channels=1,
+    ...     skip_transpose=True,
+    ... )
+    >>> ae_dec = nn.ConvTranspose2d(
+    ...     kernel_size=3,
+    ...     stride=4,
+    ...     in_channels=1,
+    ...     out_channels=1,
+    ...     output_padding=1
+    ... )
+    >>> ae = NormalizingAutoencoder(
+    ...     encoder=ae_enc,
+    ...     decoder=ae_dec,
+    ... )
+
+    Construct a diffusion model with a UNet architecture
+
+    >>> unet = UNetModel(
+    ...     in_channels=1,
+    ...     model_channels=16,
+    ...     norm_num_groups=4,
+    ...     out_channels=1,
+    ...     num_res_blocks=1,
+    ...     attention_resolutions=[]
+    ... )
+    >>> diff = DenoisingDiffusion(
+    ...     model=unet,
+    ...     timesteps=5
+    ... )
+    >>> latent_diff = LatentDiffusion(
+    ...     autoencoder=ae,
+    ...     diffusion=diff,
+    ...     latent_downsample_factor=4,
+    ...     latent_pad_dim=2
+    ... )
+    >>> x = torch.randn(4, 1, 64, 64)
+    >>> latent_sample = latent_diff.train_sample_latent(x)
+    >>> diff_sample, ae_sample = latent_sample
+    >>> pred, noise, noisy_sample = diff_sample
+    >>> pred.shape
+    torch.Size([4, 1, 16, 16])
+    >>> noise.shape
+    torch.Size([4, 1, 16, 16])
+    >>> noisy_sample.shape
+    torch.Size([4, 1, 16, 16])
+    >>> ae_sample.latent.shape
+    torch.Size([4, 1, 16, 16])
+
+    Create a few samples (the shape given should be the shape
+    of the latent space)
+
+    >>> sample = latent_diff.sample((2, 1, 16, 16))
+    >>> sample.shape
+    torch.Size([2, 1, 64, 64])
     """
 
     def __init__(
@@ -520,7 +626,7 @@ class LengthMaskedGaussianNoise(nn.Module):
         the
     """
 
-    def __init__(self, length_dim=2):
+    def __init__(self, length_dim=1):
         super().__init__()
         self.length_dim = length_dim
 
@@ -552,7 +658,8 @@ class LengthMaskedGaussianNoise(nn.Module):
 
 
 _NOISE_FUNCTIONS = {
-    "gaussian": GaussianNoise(),
+    "gaussian": GaussianNoise,
+    "length_masked_gaussian": LengthMaskedGaussianNoise,
 }
 
 DiffusionTrainSample = namedtuple(
