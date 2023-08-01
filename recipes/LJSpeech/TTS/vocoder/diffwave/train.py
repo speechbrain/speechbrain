@@ -42,7 +42,7 @@ class DiffWaveBrain(sb.Brain):
         y, _ = batch.sig
 
         pred, noise, noisy_sample = self.modules.diffusion.train_sample(
-            y, lens=None, condition=x,
+            y, timesteps=None, condition=x,
         )
 
         return pred, noise, noisy_sample, None
