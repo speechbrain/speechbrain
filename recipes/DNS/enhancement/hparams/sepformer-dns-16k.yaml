@@ -10,34 +10,29 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/sepformer-enhancement-16k/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
 
 # Data params
 # ../noisyspeech_synthesizer/synthesized_data/
 data_folder: !PLACEHOLDER
-# ../DNS-dataset/datasets_fullband/dev_testset/noisy_testclips/
-baseline_noisy_folder: !PLACEHOLDER
-# ../DNS-dataset/datasets_fullband/dev_testset/baseline_enhanced_testclips/
-baseline_enhanced_folder: !PLACEHOLDER
-
-experiment_name: sepformer-enhancement-16k
-output_folder: !ref results/<experiment_name>/<seed>
-train_log: !ref <output_folder>/train_log.txt
-save_folder: !ref <output_folder>/save
-
+baseline_noisy_folder: /netscratch/sagar/data/Microsoft-DNS/datasets/dev_testset/noisy_testclips # !PLACEHOLDER
+baseline_enhanced_folder: /netscratch/sagar/data/Microsoft-DNS/datasets/dev_testset/baseline_enhanced_testclips # !PLACEHOLDER
 train_data: !ref <save_folder>/dns_16k_tr.csv
 valid_data: !ref <save_folder>/dns_16k_cv.csv
-# For time-being we use valid data for test evaluation
 test_data: !ref <save_folder>/dns_16k_cv.csv
-# baseline_dev_data: !ref <save_folder>/dns_baseline_dev_48K.csv # TODOs
 skip_prep: False
 shuffle_train_data: True
+task: enhancement
 
 # Basic parameters
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
+dereverberate: false
 
 # Experiment params
-auto_mix_prec: False     # Set it to True for mixed precision
+auto_mix_prec: True
 test_only: False
 num_spks: 1
 noprogressbar: False
@@ -177,7 +172,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-## Uncomment if you wish to fine-tune a pre-trained model.
+## Uncomment to fine-tune a pre-trained model.
 # pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
 #     collect_in: !ref <save_folder>
 #     loadables:

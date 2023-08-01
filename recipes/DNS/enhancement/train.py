@@ -42,9 +42,6 @@ from speechbrain.processing.features import spectral_magnitude
 from pesq import pesq
 from pystoi import stoi
 
-# import pdb
-# from pprint import pprint
-
 
 # Define training procedure
 class Separation(sb.Brain):
@@ -80,7 +77,7 @@ class Separation(sb.Brain):
 
                     # fix the length of clean also
                     clean = clean[:, :min_len, :]
-                    
+
                 if self.hparams.use_wavedrop:
                     noisy = self.hparams.wavedrop(noisy, noisy_lens)
 

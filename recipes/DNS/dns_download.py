@@ -215,7 +215,18 @@ def prepare_download():
         download_url = AZURE_URL + "/" + file_url
 
         if not validate_file(download_url, download_path):
-            download_file(download_url, download_path, split_name, filename)
+            if os.path.exists(download_path):
+                resume_byte_pos = os.path.getsize(download_path)
+            else:
+                resume_byte_pos = None
+
+            download_file(
+                download_url,
+                download_path,
+                split_name,
+                filename,
+                resume_byte_pos=resume_byte_pos,
+            )
         else:
             print(", \tDownload complete. Skipping")
         decompress_file(download_path, DECOMPRESSED_PATH, split_name)
@@ -224,7 +235,6 @@ def prepare_download():
     for split_name, download_urls in OTHER_URLS.items():
         for file_url in download_urls:
             split_path = os.path.join(COMPRESSED_PATH, split_name)
-            # import pdb; pdb.set_trace()
             if not os.path.exists(split_path):
                 os.makedirs(split_path)
 
@@ -232,8 +242,17 @@ def prepare_download():
             download_path = os.path.join(split_path, filename)
 
             if not validate_file(file_url, download_path):
+                if os.path.exists(download_path):
+                    resume_byte_pos = os.path.getsize(download_path)
+                else:
+                    resume_byte_pos = None
+
                 download_file(
-                    file_url, download_path, split_name, filename,
+                    file_url,
+                    download_path,
+                    split_name,
+                    filename,
+                    resume_byte_pos=resume_byte_pos,
                 )
             else:
                 print(", \tDownload complete. Skipping")
@@ -259,7 +278,9 @@ def prepare_download():
         )
 
 
-def download_file(download_url, download_path, split_name, filename):
+def download_file(
+    download_url, download_path, split_name, filename, resume_byte_pos=None
+):
     """
     Download file from given URL
 
@@ -275,24 +296,38 @@ def download_file(download_url, download_path, split_name, filename):
         e.g. read_speech
     filename : str
         Fielname of the file being downloaded
+    resume_byte_pos: (int, optional)
+        Starting byte position for resuming the download.
+        Default is None, which means a fresh download.
 
     Returns
     -------
     bool
         If True, the file need not be downloaded again.
-        Else re-download it.
+        Else the download might have failed or is incomplete.
     """
-    print("\nDownloading:", split_name, "=>", filename)
-    with urllib.request.urlopen(
-        download_url, context=ssl.create_default_context(cafile=certifi.where())
-    ) as response:
-        # Get content length
-        total_length = int(response.headers.get("Content-Length"))
-        with tqdm.wrapattr(
-            response, "read", total=total_length, desc=""
-        ) as raw:
-            with open(download_path, "wb") as tmp_file:
-                shutil.copyfileobj(raw, tmp_file)
+    print("Downloading:", split_name, "=>", filename)
+    resume_header = (
+        {"Range": f"bytes={resume_byte_pos}-"} if resume_byte_pos else None
+    )
+    response = requests.get(download_url, headers=resume_header, stream=True)
+    file_size = int(response.headers.get("Content-Length"))
+
+    mode = "ab" if resume_byte_pos else "wb"
+    initial_pos = resume_byte_pos if resume_byte_pos else 0
+
+    with open(download_path, mode) as f:
+        with tqdm(
+            total=file_size,
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            initial=initial_pos,
+            miniters=1,
+        ) as pbar:
+            for chunk in response.iter_content(32 * 1024):
+                f.write(chunk)
+                pbar.update(len(chunk))
 
     # Validate downloaded file
     if validate_file(download_url, download_path):
@@ -303,11 +338,20 @@ def download_file(download_url, download_path, split_name, filename):
 
 
 def download_file_parallel(args):
-    download_url, download_path, split_name, filename = args
-    download_file(download_url, download_path, split_name, filename)
+    download_url, download_path, split_name, filename, resume_byte_pos = args
+    download_file(
+        download_url,
+        download_path,
+        split_name,
+        filename,
+        resume_byte_pos=resume_byte_pos,
+    )
 
 
 def parallel_download():
+    """
+    Perform parallel download of files using `using ThreadPoolExecutor`.
+    """
     with ThreadPoolExecutor() as executor:
         futures = []
         for file_url in BLOB_NAMES:
@@ -325,7 +369,17 @@ def parallel_download():
             download_url = AZURE_URL + "/" + file_url
 
             if not validate_file(download_url, download_path):
-                args = (download_url, download_path, split_name, filename)
+                if os.path.exists(download_path):
+                    resume_byte_pos = os.path.getsize(download_path)
+                else:
+                    resume_byte_pos = None
+                args = (
+                    download_url,
+                    download_path,
+                    split_name,
+                    filename,
+                    resume_byte_pos,
+                )
                 futures.append(executor.submit(download_file_parallel, args))
                 # download_file(download_url, download_path, split_name, filename)
                 # decompress_file(download_path, DECOMPRESSED_PATH)
@@ -365,7 +419,7 @@ def decompress_file(file, decompress_path, split_name):
             print("\tDecompression skipped. Folder already exists.")
             return True
 
-    print("\t Decompressing...")
+    print("\tDecompressing...")
     file_extension = os.path.splitext(file)[-1].lower()
     if file_extension == ".zip":
         zip = zipfile.ZipFile(file, "r")
@@ -382,6 +436,18 @@ def decompress_file(file, decompress_path, split_name):
 
 
 def rename_rirs(decompress_path):
+    """
+    Rename directories containing simulated room impulse responses
+    (RIRs).
+
+    Arguments
+    ---------
+        decompress_path (str): The path to the directory containing the RIRs
+
+    Returns
+    -------
+        None
+    """
     try:
         os.rename(
             os.path.join(decompress_path, "simulated_rirs_16k"),
@@ -426,6 +492,7 @@ def validate_file(download_url, download_path):
         download_url,
         context=ssl.create_default_context(cafile=certifi.where()),
     ).length
+    # pdb.set_trace()
     download_size = os.path.getsize(download_path)
 
     print(
@@ -439,26 +506,11 @@ def validate_file(download_url, download_path):
     # Set a margin of 100 MB. We skip re-downloading the file if downloaded
     # size differs from actual size by max 100 MB. More than this margin,
     # re-download is to attempted.
-    if abs(actual_size - download_size) < 100:
+    if actual_size - download_size < 100 * 1024 * 1024:
         return True
     else:
-        print(", \tIncomplete download. Resuming download...")
-        # Use the Range header to specify the range of bytes to download
-        headers = {"Range": f"bytes={download_size}-"}
-        with urllib.request.urlopen(
-            urllib.request.Request(download_url, headers=headers),
-            context=ssl.create_default_context(cafile=certifi.where()),
-        ) as response:
-            with open(download_path, "ab") as file:
-                with tqdm.wrapattr(
-                    file,
-                    "write",
-                    total=actual_size,
-                    initial=download_size,
-                    desc="Resuming",
-                ) as fileobj:
-                    shutil.copyfileobj(response, fileobj)
-        return True
+        print(", \tIncomplete download. Resuming...")
+        return False
 
 
 if __name__ == "__main__":

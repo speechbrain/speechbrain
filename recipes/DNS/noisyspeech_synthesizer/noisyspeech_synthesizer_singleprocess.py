@@ -207,11 +207,7 @@ def main_gen(params):
         # add reverb with selected RIR
         rir_index = random.randint(0, len(params["myrir"]) - 1)
 
-        my_rir = os.path.normpath(
-            os.path.join(
-                params["myrir"][rir_index]
-            )
-        )
+        my_rir = os.path.normpath(os.path.join(params["myrir"][rir_index]))
         (fs_rir, samples_rir) = wavfile.read(my_rir)
 
         my_channel = int(params["mychannel"][rir_index])
@@ -525,7 +521,6 @@ def main_body():  # noqa
     rir_isreal = temp["isRealRIR"][1:]
 
     rir_wav2 = [w.replace("\\", "/") for w in rir_wav]
-    rir_wav2 = [w.replace("datasets", "datasets_fullband") for w in rir_wav]
     rir_channel2 = [w for w in rir_channel]
     rir_t60_2 = [w for w in rir_t60]
     rir_isreal2 = [w for w in rir_isreal]

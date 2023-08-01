@@ -3,7 +3,7 @@ This folder contains the recipe for speech enhancement on Deep Noise Suppression
 
 Install additional dependencies
 ```
-pip install mir_eval
+pip install mir_eval pesq pystoi
 pip install pyroomacoustics==0.3.1
 ```
 To start training
@@ -12,21 +12,22 @@ python train.py hparams/sepformer-dns-16k.yaml
 ```
 
 # **Results**
-We performed 45 epochs of training for the enhancement using an 8 X RTXA6000 48GB GPU, and the entire training process lasted for 17 days. On average, each epoch took approximately 9.25 hours to complete.
 
-| Sampling rate | Valid Si-SNR | Valid PESQ | HuggingFace link	| Full Model link |
-|---------------|--------------|------------|-------------------|------------|
-| 16k           | -10.6        | 2.06       |                   |            |
+1. The DNS challenge doesn't provide the ground-truth clean files for dev test. Therefore, we randomly separate out 5% of training set as valid set so that we can compute valid stats like Si-SNR and PESQ during validation. Here we show validation performance.
 
-Evaluation on DNS4 2022 baseline dev set using DNSMOS metric. 
+      | Sampling rate | Valid Si-SNR | Valid PESQ | HuggingFace link	| Full Model link |
+      |---------------|--------------|------------|-------------------|------------|
+      | 16k           | -10.6        | 2.06       |                   |            |
 
-| Model      | SIG    | BAK    | OVRL   |
-|------------|--------|--------|--------|
-| Noisy      | 2.984  | 2.560  | 2.205  |
-| Baseline: NSNet2| 3.014  | 3.942  | 2.712  |
-| **SepFormer**  | 2.999  | 3.076  | 2.437  |
+2. Evaluation on DNS4 2022 baseline dev set using DNSMOS. 
 
-**Consider training it for atleast 90-100 epochs for superior performance.**
+    | Model      | SIG    | BAK    | OVRL   |
+    |------------|--------|--------|--------|
+    | Noisy      | 2.984  | 2.560  | 2.205  |
+    | Baseline: NSNet2| 3.014  | 3.942  | 2.712  |
+    | **SepFormer**  | 2.999  | 3.076  | 2.437  |
+
+We performed 45 epochs of training for the enhancement using an 8 X RTXA6000 48GB GPU. On average, each epoch took approximately 9.25 hours to complete. **Consider training it for atleast 90-100 epochs for superior performance.**
 
 # **Computing power**
 Kindly be aware that in terms of computational power, training can be extremely resource demanding due to the dataset's large size and the complexity of the SepFormer model. To handle the size of 1300 hours of clean-noisy pairs, we employed a multi-GPU distributed data-parallel (DDP) training scheme on an Nvidia 8 X RTXA6000 48GB GPU. The training process lasted for 17 days, for just 45 epochs.
