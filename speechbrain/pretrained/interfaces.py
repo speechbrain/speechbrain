@@ -296,7 +296,7 @@ class Pretrained(torch.nn.Module):
             str(path), channels_first=channels_first, **kwargs
         )
         return self.audio_normalizer(signal, sr)
-    
+
     def _compile(self):
         """Compile requested modules with either JIT or TorchInductor."""
         compile_available = hasattr(torch, "compile")
@@ -348,7 +348,6 @@ class Pretrained(torch.nn.Module):
         for name in jit_module_keys:
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
-
 
     def _compile_jit(self):
         warnings.warn("'_compile_jit' is deprecated; use '_compile' instead")

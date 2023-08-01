@@ -250,7 +250,7 @@ def parse_arguments(arg_list=None):
         nargs="*",
         help="A list of keys in the 'modules' dict to compile using "
         "TorchInductor. If a module also has a JIT key specified, "
-        "TorchInductor will take precedence when available."
+        "TorchInductor will take precedence when available.",
     )
     parser.add_argument(
         "--compile_mode",
@@ -269,7 +269,7 @@ def parse_arguments(arg_list=None):
         type=bool,
         nargs="*",
         help="Use dynamic shape tracing for compilation",
-    )    
+    )
     parser.add_argument(
         "--auto_mix_prec",
         default=None,
@@ -444,11 +444,11 @@ class Brain:
             List of keys in ``modules`` that should be jit compiled.
         compile_module_keys (list of str)
             List of keys in ``modules`` that should be compiled using
-            ``torch.compile``. If ``torch.compile`` is unavailable, 
+            ``torch.compile``. If ``torch.compile`` is unavailable,
             an error is raised.
         compile_mode (str)
             One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
-        compile_using_fullgraph (bool) 
+        compile_using_fullgraph (bool)
             Whether it is ok to break model into several subgraphs, Default ``False``.
         compile_using_dynamic_shape_tracing (bool)
             Use dynamic shape tracing for compilation, Default ``False``.
@@ -522,7 +522,7 @@ class Brain:
             "jit_module_keys": None,
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
-            "compile_using_fullgraph": False, 
+            "compile_using_fullgraph": False,
             "compile_using_dynamic_shape_tracing": False,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
