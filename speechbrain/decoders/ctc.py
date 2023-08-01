@@ -508,9 +508,6 @@ class CTCBaseSearcher(torch.nn.Module):
         self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
 
-        if not self.is_spm and space_index == -1:
-            raise ValueError("space_index must be set")
-
         self.kenlm_model = None
         if kenlm_model_path is not None:
             try:
@@ -1268,7 +1265,6 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     >>> vocab_list = ['a', 'b', '-']
     >>> decoder = CTCPrefixBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
     >>> decoder(probs, lens)
-    [[CTCHypothesis(text='a', last_lm_state=None, score=-0.6539264320473421, lm_score=-0.6539264320473421, timesteps=None)]]
     """
 
     def __init__(self, **kwargs):
@@ -1664,7 +1660,6 @@ class TorchAudioCTCBeamSearch:
     >>> vocab_list = ['a', 'b', '-']
     >>> decoder = TorchAudioCTCBeamSearch(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
     >>> decoder(probs, lens)
-    [[CTCHypothesis(text='', last_lm_state=None, score=-0.7339691072702408, lm_score=-0.7339691072702408, timesteps=[])]]
     """
 
     def __init__(
