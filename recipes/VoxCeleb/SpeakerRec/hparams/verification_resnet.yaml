@@ -5,13 +5,12 @@
 #          Xuechen Liu 2023
 # ################################
 
-seed: 1988
+seed: 1984
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
-data_folder: data/voxceleb1 #e.g., /localscratch/voxceleb1
+data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
 output_folder: results/resnet/<seed>
-# save_folder: !ref <output_folder>/save/CKPT+2023-07-26+04-56-09+00
 save_folder: !ref <output_folder>/save/
 
 # Use the following links for the official voxceleb splits:
