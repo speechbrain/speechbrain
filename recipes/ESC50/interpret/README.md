@@ -9,6 +9,14 @@ The interpreter is a neural network that generates an additional signal in its o
 
 The recipes implements the posthoc interpretability techniques mentioned below. They utilize pre-trained models obtained from `recipes/ESC50/classification/`, which are automatically downloaded from [HuggingFace](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech). If necessary, you have the option to train your own classifier by following the instructions provided in the reference README.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## Supported Methods
 
 ### Posthoc Interpretability via Quantization (PIQ)
@@ -16,7 +24,7 @@ The recipes implements the posthoc interpretability techniques mentioned below. 
 PIQ utilizes vector quantization on the classifier's representations to reconstruct predictions. For more details, refer to the [PIQ paper](https://arxiv.org/abs/2303.12659). You can visit the companion website for PIQ [here](https://piqinter.github.io/). To train PIQ on a convolutional classifier using the ESC50 dataset, use the `train_piq.py` script. Run the following command:
 
 ```python
-python train_piq.py hparams/piq.yaml --data_folder /yourpath/ESC50
+python train_piq.py hparams/piq.yaml --data_folder=/yourpath/ESC50
 ```
 
 Check out an example training run [here](https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0). You can also find samples on the [companion website](https://piqinter.github.io/).
@@ -26,7 +34,7 @@ Check out an example training run [here](https://www.dropbox.com/sh/v1x5ks9t67ft
 L2I employs Non-Negative Matrix Factorization to reconstruct the classifier's hidden representation and generate an interpretation audio signal for the classifier decision. Read more about L2I in the [L2I paper](https://arxiv.org/abs/2202.11479v2). To train an NMF model on the ESC50 dataset, use the `train_l2i.py` script. Run the command below:
 
 ```python
-python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50
+python train_nmf.py hparams/nmf.yaml --data_folder=/yourpath/ESC50
 ```
 
 You can find an example training run [here](https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0).
@@ -34,14 +42,14 @@ You can find an example training run [here](https://www.dropbox.com/sh/01exv8dt3
 Additionally, we provide an L2I interpretation method for a convolutional classifier. To train this method on the ESC50 dataset, use the following command:
 
 ```python
-python train_l2i.py hparams/l2i_conv2dclassifier.yaml --data_folder /yourpath/ESC50
+python train_l2i.py hparams/l2i_conv2dclassifier.yaml --data_folder=/yourpath/ESC50
 ```
 
 An example training run is available [here](https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0).
 
 Lastly, we offer the training script for the L2I interpretation method on CNN14. To run this, execute the following command:
 
-```python
+```shell
 python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
 ```
 
@@ -52,6 +60,11 @@ You can find an example training run in the [provided link](https://www.dropbox.
 - The recipe automatically downloads the ESC50 dataset, so you only need to specify the download path.
 - All the necessary models are downloaded automatically for each training script.
 
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+```shell
+python train.py hparams/{hparam_file}.py --data_folder /yourpath/ESC50 --test_only
+```
 
 # Inference Interface (on HuggingFace)
 You can access the inference interface for the PIQ method [here](https://huggingface.co/speechbrain/PIQ-ESC50/).

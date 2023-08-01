@@ -6,6 +6,15 @@ The classification recipe makes use of a [CNN14 model](https://arxiv.org/abs/191
 
 We have two main training scripts. Here's the breakdown, and how to run them:
 
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## Training script for CNN14 model
 This script trains a CNN14 model on the ESC50 dataset. To run this, you can use the command
 
@@ -33,6 +42,12 @@ Both of these numbers are obtained with an NVIDIA RTX 3090 GPU.
 
 ## Inference Interface (on HuggingFace)
 -The huggingface repository of the CNN14 model with an easy inference interface can be accessed through [our huggingface repository](https://huggingface.co/speechbrain/cnn14-esc50/blob/main/README.md)
+
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+```shell
+python train.py hparams/{hparam_file}.py --data_folder /yourpath/ESC50 --test_only
+```
 
 ```bibtex
 @article{Wang_2022,

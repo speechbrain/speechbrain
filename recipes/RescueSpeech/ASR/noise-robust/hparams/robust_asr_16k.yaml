@@ -26,7 +26,6 @@ unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
 frozen_models: [encoder, decoder, masknet, whisper]
 unfrozen_models: [masknet, whisper]
 
-test_only: False
 
 # Dataset prep parameters
 data_folder: !PLACEHOLDER

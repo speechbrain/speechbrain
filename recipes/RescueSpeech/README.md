@@ -7,6 +7,14 @@ Our [paper](https://arxiv.org/abs/2306.04054) compares ASR models (CRDNN, Wav2ve
 - Language: German (DE)
 
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## How to run
 ```
 cd RescueSpeech/ASR/noise-robust
@@ -14,6 +22,13 @@ python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path>
 ```
 Here the data path should be the path to **uncompressed `Task_ASR.tar.gz`** downloaded from link above.
 
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
+```shell
+cd RescueSpeech/ASR/noise-robust
+python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path> --test_only
+```
 ## Computing power
 Please note that running this recipe can be computationally demanding due to the Whisper ASR (`whisper-large-v2`) model with 906.5M parameters (compared to 1.5B parameters in the original model but feature encoder is frozen in our case). When fine-tuning both the Whisper and SepFormer models together, we used an Nvidia A100-80 GB GPU, which took approximately 15 minutes per epoch.
 
@@ -32,9 +47,9 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 
 |S. No. |  Model        | HuggingFace link                               | Full Model link                                |
 |---|----------------|------------------------------------------------|------------------------------------------------|
-| 1. | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/45wk44h8e0wkc5f/AABjEJJJ_OJp2fDYz3zEihmPa?dl=0)             |
-| 2. | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/02c3wesc65402f6/AAApoxBApft-JwqHK-bddedBa?dl=0)            |
-| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/7tryj6n7cfy0poe/AADpl4b8rGRSnoQ5j6LCj9tua?dl=0)            |
+| 1. | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/dgmgi0b3bfxlfo4/AAAo3EYPXUEMZRTdRDzhw4lea?dl=)             |
+| 2. | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/edrna82oarivkzl/AACsiGQXnbAYa_bfTJzjY23qa?dl=0)            |
+| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/nk55xm0saa5qfly/AAC6yHgJnQalFMePgKFZqVfPa?dl=0)            |
 
 
 # **About SpeechBrain**

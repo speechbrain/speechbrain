@@ -1181,7 +1181,10 @@ if __name__ == "__main__":
 
         # Validate hyperparameters
         if not validate_hparams(hparams):
-            sys.exit(1)
+            raise ValueError(
+                "Non-wordwise tokenization is not supported with "
+                "homograph disambiguation training"
+            )
 
         # Initialize ddp (useful only for multi-GPU DDP training)
         sb.utils.distributed.ddp_init_group(run_opts)
