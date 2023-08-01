@@ -199,8 +199,6 @@ modules:
    normalize: !ref <normalize>
    augmentation: !ref <augmentation>
 
-compile_module_keys: [Tjoint]
-
 # for MTL
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
