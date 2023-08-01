@@ -205,7 +205,7 @@ class Pretrained(torch.nn.Module):
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
             "compile_using_fullgraph": False,
-            "compile_using_dynamic_shape_tracing": True,
+            "compile_using_dynamic_shape_tracing": False,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:

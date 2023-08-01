@@ -451,7 +451,7 @@ class Brain:
         compile_using_fullgraph (bool) 
             Whether it is ok to break model into several subgraphs, Default ``False``.
         compile_using_dynamic_shape_tracing (bool)
-            Use dynamic shape tracing for compilation, Default ``True``.
+            Use dynamic shape tracing for compilation, Default ``False``.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
@@ -523,7 +523,7 @@ class Brain:
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
             "compile_using_fullgraph": False, 
-            "compile_using_dynamic_shape_tracing": True,
+            "compile_using_dynamic_shape_tracing": False,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
