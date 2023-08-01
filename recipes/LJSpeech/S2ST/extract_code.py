@@ -120,12 +120,11 @@ def extract_ljspeech(
     >>> from recipes.LJSpeech.S2ST.extract_code import extract_ljspeech
     >>> data_folder = 'data/LJspeech/'
     >>> splits = ['train', 'valid']
-    >>> split_ratio = [90, 10]
     >>> kmeans_folder = ./Quantization/results/kmeans/4321/save
     >>> encoder = facebook/hubert-base-ls960
     >>> layer = 6
     >>> save_folder = 'save/'
-    >>> extract_ljspeech(data_folder, save_folder, splits, split_ratio, seed)
+    >>> extract_ljspeech(data_folder, splits, kmeans_folder, encoder, layer, save_folder)
     """
     logger = setup_logger()
 

@@ -29,6 +29,7 @@ test_json: !ref <save_folder>/test.json
 
 splits: ["train", "valid"]
 split_ratio: [90, 10]
+skip_prep: False
 
 kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/4321/save
 kmeans_size: 100
@@ -38,7 +39,6 @@ layer: 6
 ################################
 # Audio Parameters             #
 ################################
-skip_prep: False
 
 segment_size: 8960
 code_hop_size: 320
