@@ -557,7 +557,7 @@ class Brain:
             )
 
         if self.data_parallel_backend and self.distributed_launch:
-            sys.exit(
+            raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
                 "--data_parallel_backend=True"
@@ -644,7 +644,7 @@ class Brain:
             self.rank = int(os.environ["RANK"])
             if not torch.distributed.is_initialized():
                 if self.rank > 0:
-                    sys.exit(
+                    raise ValueError(
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"

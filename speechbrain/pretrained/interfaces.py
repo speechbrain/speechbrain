@@ -873,7 +873,7 @@ class EncoderASR(Pretrained):
                     for token_seq in predictions
                 ]
             else:
-                sys.exit(
+                raise ValueError(
                     "The tokenizer must be sentencepiece or CTCTextEncoder"
                 )
 
