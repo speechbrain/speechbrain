@@ -13,7 +13,34 @@ from speechbrain.processing.features import GlobalNorm
 
 
 class Autoencoder(nn.Module):
-    """A standard interface for autoencoders"""
+    """A standard interface for autoencoders
+
+    Example
+    -------
+    >>> import torch
+    >>> from torch import nn
+    >>> from speechbrain.nnet.linear import Linear
+    >>> class SimpleAutoencoder(Autoencoder):
+    ...    def __init__(self):
+    ...        super().__init__()
+    ...        self.enc = Linear(n_neurons=16, input_size=128)
+    ...        self.dec = Linear(n_neurons=128, input_size=16)
+    ...    def encode(self, x, length=None):
+    ...        return self.enc(x)
+    ...    def decode(self, x, length=None):
+    ...        return self.dec(x)
+    >>> autoencoder = SimpleAutoencoder()
+    >>> x = torch.randn(4, 10, 128)
+    >>> x_enc = autoencoder.encode(x)
+    >>> x_enc.shape
+    torch.Size([4, 10, 16])
+    >>> x_enc_fw = autoencoder(x)
+    >>> x_enc_fw.shape
+    torch.Size([4, 10, 16])
+    >>> x_rec = autoencoder.decode(x_enc)
+    >>> x_rec.shape
+    torch.Size([4, 10, 128])
+    """
 
     def encode(self, x, length=None):
         """Converts a sample from an original space (e.g. pixel or waveform) to a latent
@@ -107,6 +134,59 @@ class VariationalAutoencoder(Autoencoder):
         will be the latent space sample
 
         if false, it will be the mean
+
+    Example
+    -------
+    The example below shows a very simple implementation of
+    VAE, not suitable for actual experiments:
+
+    >>> import torch
+    >>> from torch import nn
+    >>> from speechbrain.nnet.linear import Linear
+    >>> vae_enc = Linear(n_neurons=16, input_size=128)
+    >>> vae_dec = Linear(n_neurons=128, input_size=16)
+    >>> vae_mean = Linear(n_neurons=16, input_size=16)
+    >>> vae_log_var = Linear(n_neurons=16, input_size=16)
+    >>> vae = VariationalAutoencoder(
+    ...     encoder=vae_enc,
+    ...     decoder=vae_dec,
+    ...     mean=vae_mean,
+    ...     log_var=vae_log_var,
+    ... )
+    >>> x = torch.randn(4, 10, 128)
+
+    `train_sample` encodes a single batch and then reconstructs
+    it
+
+    >>> vae_out = vae.train_sample(x)
+    >>> vae_out.rec.shape
+    torch.Size([4, 10, 128])
+    >>> vae_out.latent.shape
+    torch.Size([4, 10, 16])
+    >>> vae_out.mean.shape
+    torch.Size([4, 10, 16])
+    >>> vae_out.log_var.shape
+    torch.Size([4, 10, 16])
+    >>> vae_out.latent_sample.shape
+    torch.Size([4, 10, 16])
+
+    .encode() will return the mean corresponding
+    to teh sample provided
+
+    >>> x_enc = vae.encode(x)
+    >>> x_enc.shape
+    torch.Size([4, 10, 16])
+
+    .reparameterize() performs the reparameterization
+    trick
+
+    >>> x_enc = vae.encoder(x)
+    >>> mean = vae.mean(x_enc)
+    >>> log_var = vae.log_var(x_enc)
+    >>> x_repar = vae.reparameterize(mean, log_var)
+    >>> x_repar.shape
+    torch.Size([4, 10, 16])
+
     """
 
     def __init__(
@@ -278,6 +358,25 @@ class NormalizingAutoencoder(Autoencoder):
         whether to apply the length mask to the output
     out_mask_value: float
         the mask value used for the output
+
+    Examples
+    --------
+    >>> import torch
+    >>> from torch import nn
+    >>> from speechbrain.nnet.linear import Linear
+    >>> ae_enc = Linear(n_neurons=16, input_size=128)
+    >>> ae_dec = Linear(n_neurons=128, input_size=16)
+    >>> ae = NormalizingAutoencoder(
+    ...     encoder=ae_enc,
+    ...     decoder=ae_dec,
+    ... )
+    >>> x = torch.randn(4, 10, 128)
+    >>> x_enc = ae.encode(x)
+    >>> x_enc.shape
+    torch.Size([4, 10, 16])
+    >>> x_dec = ae.decode(x_enc)
+    >>> x_dec.shape
+    torch.Size([4, 10, 128])
     """
 
     def __init__(
