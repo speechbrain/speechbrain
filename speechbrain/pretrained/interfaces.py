@@ -320,7 +320,7 @@ class Pretrained(torch.nn.Module):
 
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
-            if name not in self.modules:
+            if name not in self.mods:
                 raise ValueError(
                     f"module {name} is not defined in your hparams file."
                 )
@@ -329,7 +329,7 @@ class Pretrained(torch.nn.Module):
         for name in compile_module_keys:
             try:
                 module = torch.compile(
-                    self.modules[name],
+                    self.mods[name],
                     mode=self.compile_mode,
                     fullgraph=self.compile_using_fullgraph,
                     dynamic=self.compile_using_dynamic_shape_tracing,
@@ -342,12 +342,12 @@ class Pretrained(torch.nn.Module):
                 )
                 continue
 
-            self.modules[name] = module.to(self.device)
+            self.mods[name] = module.to(self.device)
             jit_module_keys.discard(name)
 
         for name in jit_module_keys:
-            module = torch.jit.script(self.modules[name])
-            self.modules[name] = module.to(self.device)
+            module = torch.jit.script(self.mods[name])
+            self.mods[name] = module.to(self.device)
 
     def _compile_jit(self):
         warnings.warn("'_compile_jit' is deprecated; use '_compile' instead")
