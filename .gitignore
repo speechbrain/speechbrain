@@ -155,6 +155,7 @@ dmypy.json
 
 # Log folders
 **/log/
+wandb/
 
 # Mac OS
 .DS_Store
