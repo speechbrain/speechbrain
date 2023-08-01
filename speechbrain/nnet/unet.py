@@ -142,7 +142,7 @@ class AttentionPool2d(nn.Module):
         the number of attention heads
     output_dim: int
         the output dimension
-    
+
     Example
     -------
     >>> attn_pool = AttentionPool2d(
@@ -771,6 +771,7 @@ class UNetModel(nn.Module):
     >>> out.shape
     torch.Size([4, 1, 16, 32])
     """
+
     def __init__(
         self,
         in_channels,
@@ -1631,7 +1632,7 @@ class DownsamplingPadding(nn.Module):
         the index of the dimension in which the length will vary
     dims: list
         the list of dimensions to be included in padding
-    
+
     Example
     -------
     >>> padding = DownsamplingPadding(factor=4, dims=[1, 2], len_dim=1)
@@ -1672,9 +1673,7 @@ class DownsamplingPadding(nn.Module):
         updated_length = length
         for dim in self.dims:
             # TODO: Consider expanding pad_divisible to support multiple dimensions
-            x, length_pad = pad_divisible(
-                x, length, self.factor, len_dim=dim
-            )
+            x, length_pad = pad_divisible(x, length, self.factor, len_dim=dim)
             if dim == self.len_dim:
                 updated_length = length_pad
         return x, updated_length
@@ -1721,7 +1720,7 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
         the kernel size for output convolution layers (if applicable)
     use_fixup_norm: bool
         whether to use FixUp normalization
-    
+
     Example
     -------
     >>> unet_ae = UNetNormalizingAutoencoder(
