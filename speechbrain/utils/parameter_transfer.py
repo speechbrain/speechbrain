@@ -155,8 +155,7 @@ class Pretrainer:
         """
 
         def split(src):
-            """Core function to split path.
-            """
+            """Core function to split path."""
             if "/" in src:
                 return src.rsplit("/", maxsplit=1)
             else:
@@ -171,7 +170,9 @@ class Pretrainer:
             return split(path)
 
     def collect_files(
-        self, default_source=None, internal_ddp_handling=False,
+        self,
+        default_source=None,
+        internal_ddp_handling=False,
     ):
         """Fetches parameters from known paths with fallback default_source
 
@@ -287,7 +288,7 @@ class Pretrainer:
         else:
             return bool(condition)
 
-    def load_collected(self, device=None):
+    def load_collected(self, device=None, verbose=True):
         """Loads the files that have been collected.
 
         Arguments
@@ -317,9 +318,9 @@ class Pretrainer:
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]
-        self._call_load_hooks(paramfiles, device)
+        self._call_load_hooks(paramfiles, device, verbose)
 
-    def _call_load_hooks(self, paramfiles, device=None):
+    def _call_load_hooks(self, paramfiles, device=None, verbose=True):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         for name, obj in self.loadables.items():
@@ -334,7 +335,7 @@ class Pretrainer:
             # Try the default transfer hook:
             default_hook = get_default_hook(obj, DEFAULT_TRANSFER_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, device=device)
+                default_hook(obj, loadpath, device=device, verbose=verbose)
                 continue
             # Otherwise find the default loader for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)

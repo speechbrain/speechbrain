@@ -337,6 +337,7 @@ class Pretrained(torch.nn.Module):
         use_auth_token=False,
         revision=None,
         download_only=False,
+        verbose=True,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -435,7 +436,7 @@ class Pretrained(torch.nn.Module):
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
             # run_opts={"device": ...}
-            pretrainer.load_collected(device="cpu")
+            pretrainer.load_collected(device="cpu", verbose=verbose)
 
             # Now return the system
             return cls(hparams["modules"], hparams, **kwargs)
