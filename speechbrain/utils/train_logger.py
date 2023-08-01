@@ -178,17 +178,12 @@ class TensorboardLogger(TrainLogger):
 
 class WandBLogger(TrainLogger):
     """Logger for wandb. To be used the same way as TrainLogger. Handles nested dicts as well.
-    An example on how to use this can be found in recipes/Voicebank/MTL/CoopNet/"""
+    An example on how to use this can be found in recipes/Voicebank/MTL/CoopNet/
+    """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, initializer, *args, **kwargs):
         try:
-            yaml_file = kwargs.pop("yaml_config")
-            with open(yaml_file, "r") as yaml_stream:
-                # Read yaml with ruamel to ignore bangs
-                config_dict = ruamel.yaml.YAML().load(yaml_stream)
-            self.run = kwargs.pop("initializer", None)(
-                *args, **kwargs, config=config_dict
-            )
+            self.run = initializer(*args, **kwargs)
         except Exception as e:
             raise e("There was an issue with the WandB Logger initialization")
 

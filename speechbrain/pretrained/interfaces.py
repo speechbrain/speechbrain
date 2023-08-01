@@ -125,7 +125,8 @@ def foreign_class(
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
     run_on_main(
-        pretrainer.collect_files, kwargs={"default_source": source},
+        pretrainer.collect_files,
+        kwargs={"default_source": source},
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
@@ -428,7 +429,8 @@ class Pretrained(torch.nn.Module):
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
         run_on_main(
-            pretrainer.collect_files, kwargs={"default_source": source},
+            pretrainer.collect_files,
+            kwargs={"default_source": source},
         )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
@@ -1236,7 +1238,6 @@ class VAD(Pretrained):
         last_chunk = False
         begin_sample = 0
         while True:
-
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
                 audio_file, frame_offset=begin_sample, num_frames=long_chunk_len
@@ -2773,7 +2774,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction"""
+        """Encodes raw text into a tensor with a customer text-to-sequence function"""
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -3038,7 +3039,6 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme energies
         """
         with torch.no_grad():
-
             (
                 _,
                 post_mel_outputs,
@@ -3188,6 +3188,70 @@ class HIFIGAN(Pretrained):
     def forward(self, spectrogram):
         "Decodes the input spectrograms"
         return self.decode_batch(spectrogram)
+
+
+class UnitHIFIGAN(Pretrained):
+    HPARAMS_NEEDED = ["generator"]
+
+    """
+    A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+        self.first_call = True
+
+    def decode_batch(self, unit, spk=None):
+        """Computes waveforms from a batch of discrete units
+        Arguments
+        ---------
+        unit: torch.tensor
+            Batch of discrete units [batch, units]
+        spk: torch.tensor
+            Batch of spks [batch, spk_dim]
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+        """
+        # Prepare for inference by removing the weight norm
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+        with torch.no_grad():
+            waveform = self.infer(unit.to(self.device))
+        return waveform
+
+    def decode_unit(self, unit):
+        """Computes waveforms from a single sequence of discrete units
+        Arguments
+        ---------
+        unit: torch.tensor
+            unit: [time]
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> sample_rate = 22050
+        >>> torchaudio.save("test.wav", waveform, sample_rate)
+        """
+        # Prepare for inference by removing the weight norm
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+        with torch.no_grad():
+            waveform = self.infer(unit.unsqueeze(0).to(self.device))
+        return waveform.squeeze(0)
+
+    def forward(self, unit):
+        return self.decode_batch(unit)
 
 
 class WhisperASR(Pretrained):
