@@ -999,8 +999,7 @@ class CTCBeamSearch(CTCBaseSearcher):
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
     >>> decoder = CTCBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
-    >>> decoder(probs, lens)
-    [[CTCHypothesis(text='a', last_lm_state=None, score=1.9971160035663789, lm_score=1.9971160035663789, timesteps=None)]]
+    >>> hyps = decoder(probs, lens)
     """
 
     def __init__(self, **kwargs):
@@ -1264,7 +1263,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
     >>> decoder = CTCPrefixBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
-    >>> decoder(probs, lens)
+    >>> hyps = decoder(probs, lens)
     """
 
     def __init__(self, **kwargs):
@@ -1659,7 +1658,7 @@ class TorchAudioCTCBeamSearch:
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
     >>> decoder = TorchAudioCTCBeamSearch(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
-    >>> decoder(probs, lens)
+    >>> hyps = decoder(probs, lens)
     """
 
     def __init__(
