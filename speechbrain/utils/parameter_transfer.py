@@ -170,9 +170,7 @@ class Pretrainer:
             return split(path)
 
     def collect_files(
-        self,
-        default_source=None,
-        internal_ddp_handling=False,
+        self, default_source=None, internal_ddp_handling=False,
     ):
         """Fetches parameters from known paths with fallback default_source
 

@@ -7,12 +7,10 @@ Authors
 """
 
 import os
-import re
 import csv
 import json
 import logging
 import random
-import string
 import tqdm
 import pathlib as pl
 
@@ -130,11 +128,7 @@ def prepare_cvss(
         )
     if "test" in splits:
         prepare_json(
-            save_json_test,
-            src_audio,
-            tgt_audio_test,
-            src_validated,
-            tgt_test,
+            save_json_test, src_audio, tgt_audio_test, src_validated, tgt_test,
         )
 
     save_pkl(conf, save_opt)
@@ -179,11 +173,7 @@ def skip(splits, save_folder, conf):
 
 
 def prepare_json(
-    json_file,
-    src_audio_folder,
-    tgt_audio_folder,
-    src_validated,
-    tgt_split,
+    json_file, src_audio_folder, tgt_audio_folder, src_validated, tgt_split,
 ):
     """
     Creates json file.
@@ -192,10 +182,10 @@ def prepare_json(
 
     json_dict = {}
 
-    src_meta = csv.DictReader(
-        open(src_validated), delimiter="\t", quoting=csv.QUOTE_NONE
-    )
-    meta_dict = {row["path"].split(".")[0]: row for row in src_meta}
+    # src_meta = csv.DictReader(
+    #     open(src_validated), delimiter="\t", quoting=csv.QUOTE_NONE
+    # )
+    # meta_dict = {row["path"].split(".")[0]: row for row in src_meta}
     tgt_meta = list(
         csv.reader(open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE)
     )
@@ -212,7 +202,7 @@ def prepare_json(
         if duration < 1.5:
             continue
 
-        src_text = meta_dict[session_id]["sentence"]
+        # src_text = meta_dict[session_id]["sentence"]
         tgt_text = tgt_meta[i][1]
 
         if len(tgt_text) < 10:

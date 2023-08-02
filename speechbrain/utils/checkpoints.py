@@ -482,11 +482,7 @@ class Checkpointer:
         self.allow_partial_load = allow_partial_load
 
     def add_recoverable(
-        self,
-        name,
-        obj,
-        custom_load_hook=None,
-        custom_save_hook=None,
+        self, name, obj, custom_load_hook=None, custom_save_hook=None,
     ):
         """Register a recoverable with possible custom hooks.
 
@@ -866,10 +862,7 @@ class Checkpointer:
             If no Checkpoints exist/remain after filtering.
         """
         chosen_ckpt = self.find_checkpoint(
-            importance_key,
-            max_key,
-            min_key,
-            ckpt_predicate,
+            importance_key, max_key, min_key, ckpt_predicate,
         )
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt, device)

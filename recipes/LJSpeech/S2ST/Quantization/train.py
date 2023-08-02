@@ -50,8 +50,7 @@ def fetch_data(splits, sample_pct, seed=1234):
     for split in splits:
         key = f"{split.parent}_{split.stem}"
         ds_splits[key] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=split,
-            output_keys=["id", "wav"],
+            json_path=split, output_keys=["id", "wav"],
         )
 
     data = list(itertools.chain(*ds_splits.values()))

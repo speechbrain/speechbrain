@@ -125,8 +125,7 @@ def foreign_class(
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
     run_on_main(
-        pretrainer.collect_files,
-        kwargs={"default_source": source},
+        pretrainer.collect_files, kwargs={"default_source": source},
     )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
@@ -430,8 +429,7 @@ class Pretrained(torch.nn.Module):
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
         run_on_main(
-            pretrainer.collect_files,
-            kwargs={"default_source": source},
+            pretrainer.collect_files, kwargs={"default_source": source},
         )
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
