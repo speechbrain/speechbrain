@@ -22,6 +22,7 @@ def test_recipe_list(
         "recipes/Voicebank/MTL/CoopNet/hparams/logger.yaml",
         "recipes/LibriParty/generate_dataset/dataset.yaml",
         "hpopt.yaml",
+        "recipes/LJSpeech/S2ST/Quantization/hparams/kmeans.yaml",
     ],
 ):
     """This test checks if all the all hparam file of all the recipes are listed
