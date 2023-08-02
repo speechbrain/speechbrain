@@ -247,10 +247,27 @@ def parse_arguments(arg_list=None):
         help="This flag disable unused parameters detection",
     )
     parser.add_argument(
+        "--jit",
+        default=False,
+        action="store_true",
+        help="Enables jit compilation for all modules. "
+        "Compilation may fail depending on the modules. "
+        "Use --jit_module_keys to compile a subset of modules.",
+    )
+    parser.add_argument(
         "--jit_module_keys",
         type=str,
         nargs="*",
         help="A list of keys in the 'modules' dict to jitify",
+    )
+    parser.add_argument(
+        "--compile",
+        default=False,
+        action="store_true",
+        help="Enabling this flag compiles all modules using torch.compile (if available). "
+        "Beta feature. Use --compile_module_keys to compile a subset of modules. "
+        "Set the compilation flags below properly. "
+        "Compilation can be time-consuming and might fail.",
     )
     parser.add_argument(
         "--compile_module_keys",
@@ -454,8 +471,12 @@ class Brain:
             If a non-positive number is passed, all epochs are run.
         debug_persistently (bool)
             Keep data stored during debug mode (not using /tmp), Default ``False``.
+        jit (bool)
+            Enable to compile all modules using jit, Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
+        compile (bool)
+            Enable to compile all modules using torch.compile, Default ``False``.
         compile_module_keys (list of str)
             List of keys in ``modules`` that should be compiled using
             ``torch.compile``. If ``torch.compile`` is unavailable,
@@ -538,7 +559,9 @@ class Brain:
             "distributed_launch": False,
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
+            "jit": False,
             "jit_module_keys": None,
+            "compile": False,
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
             "compile_using_fullgraph": False,
@@ -1396,17 +1419,21 @@ class Brain:
                 "'compile_module_keys' specified, but this install of PyTorch "
                 "seems to be too old to support it. Only JIT will be used."
             )
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.modules)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
 
-        compile_module_keys = (
-            set(self.compile_module_keys)
-            if self.compile_module_keys is not None
-            else set()
-        )
-        jit_module_keys = (
-            set(self.jit_module_keys)
-            if self.jit_module_keys is not None
-            else set()
-        )
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.modules)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
 
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
