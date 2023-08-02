@@ -117,6 +117,7 @@ def mel_spectogram(
 
 
 def process_duration(code, code_feat):
+    """Process code in order to extract consecutive unique elements and their corresponding features"""
     uniq_code_count = []
     uniq_code_feat = []
     for i in range(code.size(0)):
@@ -554,7 +555,12 @@ class VariancePredictor(nn.Module):
         self.proj = nn.Linear(var_pred_hidden_dim, 1)
 
     def forward(self, x):
-        # Input: B x T x C; Output: B x T
+        """
+        Arguments
+        ---------
+        x : torch.Tensor (batch, channel, time)
+            feature input tensor.
+        """
         x = self.conv1(x.transpose(1, 2)).transpose(1, 2)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.conv2(x.transpose(1, 2)).transpose(1, 2)

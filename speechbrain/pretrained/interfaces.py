@@ -3190,8 +3190,6 @@ class HIFIGAN(Pretrained):
 
 
 class UnitHIFIGAN(Pretrained):
-    HPARAMS_NEEDED = ["generator"]
-
     """
     A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
     Arguments
@@ -3200,16 +3198,18 @@ class UnitHIFIGAN(Pretrained):
         Hyperparameters (from HyperPyYAML)
     """
 
+    HPARAMS_NEEDED = ["generator"]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.infer = self.hparams.generator.inference
         self.first_call = True
 
-    def decode_batch(self, unit, spk=None):
+    def decode_batch(self, units, spk=None):
         """Computes waveforms from a batch of discrete units
         Arguments
         ---------
-        unit: torch.tensor
+        units: torch.tensor
             Batch of discrete units [batch, units]
         spk: torch.tensor
             Batch of spks [batch, spk_dim]
@@ -3223,15 +3223,15 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
         with torch.no_grad():
-            waveform = self.infer(unit.to(self.device))
+            waveform = self.infer(units.to(self.device))
         return waveform
 
-    def decode_unit(self, unit):
+    def decode_unit(self, units):
         """Computes waveforms from a single sequence of discrete units
         Arguments
         ---------
-        unit: torch.tensor
-            unit: [time]
+        units: torch.tensor
+            units: [time]
         Returns
         -------
         waveform: torch.tensor
@@ -3246,11 +3246,12 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
         with torch.no_grad():
-            waveform = self.infer(unit.unsqueeze(0).to(self.device))
+            waveform = self.infer(units.unsqueeze(0).to(self.device))
         return waveform.squeeze(0)
 
-    def forward(self, unit):
-        return self.decode_batch(unit)
+    def forward(self, units):
+        "Decodes the input units"
+        return self.decode_batch(units)
 
 
 class WhisperASR(Pretrained):
