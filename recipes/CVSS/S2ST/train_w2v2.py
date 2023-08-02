@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
 
 import sys
-import json
-import itertools
 import torch
 import logging
-import copy
 import pathlib as pl
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import scalarize
-from speechbrain.pretrained import UnitHIFIGAN, EncoderDecoderASR, WhisperASR
+from speechbrain.pretrained import UnitHIFIGAN, WhisperASR
 import tqdm
-import torch
 import torchaudio
-import os
 import numpy as np
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +19,7 @@ class S2U(sb.core.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
+        wavs, wav_lens = batch.src_sig
         tokens_bos, _ = batch.code_bos
 
         # Use default padding value for wav2vec2
@@ -69,7 +61,7 @@ class S2U(sb.core.Brain):
         loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
-            wavs, wav_lens = batch.sig
+            wavs, wav_lens = batch.tgt_sig
             tgt_text = batch.tgt_text
 
             self.last_batch = [
@@ -160,7 +152,6 @@ class S2U(sb.core.Brain):
             self.acc_metric = self.hparams.acc_computer()
             self.wer_metric_st_greedy = self.hparams.error_rate_computer()
             self.bleu_metric = self.hparams.bleu_computer()
-            self.hparams.progress_sample_logger.reset()
             self.last_batch = None
             self.last_epoch = 0
 
@@ -185,6 +176,7 @@ class S2U(sb.core.Brain):
                 # Compute BLEU scores
                 self.run_evaluation_pipeline(epoch)
 
+                stage_stats["bleu"] = self.bleu_metric.summarize("BLEU")
                 stage_stats[
                     "wer_st_greedy"
                 ] = self.wer_metric_st_greedy.summarize("error_rate")
@@ -193,13 +185,12 @@ class S2U(sb.core.Brain):
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             current_epoch = self.hparams.epoch_counter.current
             lr = self.hparams.noam_annealing.current_lr
-            lr_wav2vec = 0.0  # self.wav2vec_optimizer.param_groups[-1]["lr"]
+            lr_wav2vec = 0.0
 
             if not self.hparams.wav2vec2_frozen:
-                (
-                    lr_wav2vec,
-                    new_lr_wav2vec,
-                ) = self.hparams.wav2vec_annealing(stage_stats["accuracy_st"])
+                (lr_wav2vec, new_lr_wav2vec,) = self.hparams.wav2vec_annealing(
+                    stage_stats["accuracy_st"]
+                )
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
                 )
@@ -255,13 +246,10 @@ class S2U(sb.core.Brain):
         )
 
         logger.info("Loading pretrained ASR ...")
-        # asr_model = EncoderDecoderASR.from_hparams(
-        #     source=self.hparams.asr_source,
-        #     savedir=self.hparams.asr_download_path,
-        # )
         asr_model = WhisperASR.from_hparams(
             source=self.hparams.asr_source,
             savedir=self.hparams.asr_download_path,
+            verbose=False,
         )
 
         sample_size = self.hparams.progress_batch_sample_size
@@ -271,31 +259,47 @@ class S2U(sb.core.Brain):
         tokens_eos = tokens_eos.cpu()
         tokens_eos_lens = tokens_eos_lens.cpu()
 
-        transcripts, _ = asr_model.transcribe_batch(wavs, wav_lens)
-
         tokens_eos = sb.utils.data_utils.undo_padding(
             tokens_eos, tokens_eos_lens
         )
 
+        wavs = sb.utils.data_utils.undo_padding(wavs, wav_lens)
+
+        transcripts = []
         for i in tqdm.tqdm(range(sample_size)):
             utt_id = ids[i]
-            code = tokens_eos[i][:-1]
+            code = hyps[i]
+            code = torch.LongTensor(code)
 
             wav = hifi_gan.decode_unit(code)
             sample_path = save_folder / f"{utt_id}_pred.wav"
-
             sb.dataio.dataio.write_audio(
                 sample_path, wav.transpose(0, 1), self.hparams.sample_rate
             )
 
-            print(transcripts[i].lower())
-            print(tgt_text[i])
+            transcript = asr_model.transcribe_file(sample_path.as_posix())
+            transcripts.append(" ".join(transcript[0]))
 
-        # self.bleu_metric.append(ids[0], transcript.lower(), tgt_text[0])
+            wav = torch.FloatTensor(wavs[i])
+            sample_path = save_folder / f"{utt_id}_ref.wav"
+            sb.dataio.dataio.write_audio(
+                sample_path, wav, self.hparams.sample_rate
+            )
 
-        # print(self.bleu_metric.summarize("BLEU"))
+            sample_path = save_folder / f"{utt_id}_pred.txt"
+            with open(sample_path, "w") as file:
+                file.write(f"{transcript}\n")
 
-        exit(1)
+            sample_path = save_folder / f"{utt_id}_ref.txt"
+            with open(sample_path, "w") as file:
+                file.write(f"{tgt_text[i]}\n")
+
+        self.bleu_metric.append(
+            ids[:sample_size], transcripts, [tgt_text[:sample_size]]
+        )
+        print(
+            f"Evaluation BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}"
+        )
 
 
 def dataio_prepare(hparams):
@@ -307,16 +311,26 @@ def dataio_prepare(hparams):
     # Define audio pipeline. In this case, we simply read the audio contained
     # in the variable src_audio with the custom reader.
     @sb.utils.data_pipeline.takes("src_audio")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
+    @sb.utils.data_pipeline.provides("src_sig")
+    def src_audio_pipeline(wav):
         """Load the audio signal. This is done on the CPU in the `collate_fn`."""
         info = torchaudio.info(wav)
-        audio = sb.dataio.dataio.read_audio(wav)
-        audio = torchaudio.transforms.Resample(
-            info.sample_rate,
-            hparams["sample_rate"],
-        )(audio)
-        return audio
+        sig = sb.dataio.dataio.read_audio(wav)
+        sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return sig
+
+    @sb.utils.data_pipeline.takes("tgt_audio")
+    @sb.utils.data_pipeline.provides("tgt_sig")
+    def tgt_audio_pipeline(wav):
+        """Load the audio signal. This is done on the CPU in the `collate_fn`."""
+        info = torchaudio.info(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
+        sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return sig
 
     @sb.utils.data_pipeline.takes("id")
     @sb.utils.data_pipeline.provides("code_bos", "code_eos")
@@ -334,10 +348,15 @@ def dataio_prepare(hparams):
         print(hparams[f"{split}_json"])
         datasets[split] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{split}_json"],
-            dynamic_items=[audio_pipeline, unit_pipeline],
+            dynamic_items=[
+                src_audio_pipeline,
+                tgt_audio_pipeline,
+                unit_pipeline,
+            ],
             output_keys=[
                 "id",
-                "sig",
+                "src_sig",
+                "tgt_sig",
                 "duration",
                 "code_bos",
                 "code_eos",
