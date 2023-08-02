@@ -14,6 +14,8 @@ python train.py train.yaml --data_folder=your/data/folder --compile
 
 This will automatically compile all the modules declared in the YAML file under the `modules` section.
 
+Note that you might need to configure additional compilation flags correctly (e.g., `--compile_mode`, `--compile_using_fullgraph`, `--compile_using_dynamic_shape_tracing`) to ensure successful model compilation or achieve the best performance. For a deeper understanding of their roles, refer to the documentation in the [PyTorch documentation](https://pytorch.org/tutorials/intermediate/torch_compile_tutorial.html).
+
 In some cases, you may want to compile only specific modules. To achieve this, add a list of the module keys you want to compile in the YAML file using `compile_module_keys`. For instance:
 
 ```yaml
