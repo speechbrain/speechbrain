@@ -176,7 +176,9 @@ class Pretrained(torch.nn.Module):
          * data_parallel_backend
          * distributed_launch
          * distributed_backend
+         * jit
          * jit_module_keys
+         * compule
          * compile_module_keys
          * compile_mode
          * compile_using_fullgraph
@@ -201,7 +203,9 @@ class Pretrained(torch.nn.Module):
             "data_parallel_backend": False,
             "distributed_launch": False,
             "distributed_backend": "nccl",
+            "jit": False,
             "jit_module_keys": None,
+            "compile": False,
             "compile_module_keys": None,
             "compile_mode": "reduce-overhead",
             "compile_using_fullgraph": False,
@@ -307,16 +311,27 @@ class Pretrained(torch.nn.Module):
                 "seems to be too old to support it."
             )
 
-        compile_module_keys = (
-            set(self.compile_module_keys)
-            if self.compile_module_keys is not None
-            else set()
-        )
-        jit_module_keys = (
-            set(self.jit_module_keys)
-            if self.jit_module_keys is not None
-            else set()
-        )
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.modules)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
+                logger.warning(
+                    "Only modules in compile_module_keys will be compiled."
+                )
+
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.modules)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
+                logger.warning(
+                    "Only modules in jit_module_keys will be compiled."
+                )
 
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
