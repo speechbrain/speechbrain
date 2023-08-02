@@ -19,6 +19,7 @@ from speechbrain.dataio.dataio import (
     save_pkl,
 )
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
+from huggingface_hub import hf_hub_download
 
 OPT_FILE = "opt_cvss_extract.pkl"
 TRAIN_JSON = "train.json"
@@ -71,6 +72,10 @@ def skip(splits, save_folder, conf):
     for split in splits:
         if not (save_folder / split_files[split]).exists():
             skip = False
+
+    code_folder = save_folder / "codes"
+    if not code_folder.exists():
+        skip = False
 
     #  Checking saved options
     save_opt = save_folder / OPT_FILE
@@ -151,9 +156,21 @@ def extract_cvss(
 
     save_opt = save_folder / OPT_FILE
     data_folder = pl.Path(data_folder)
+
+    # Fetch K-means model
     kmeans_folder = pl.Path(kmeans_folder)
-    kmeans_ckpt = kmeans_folder / "kmeans.cpt"
-    encoder_save_path = kmeans_folder / "pretrained_models"
+    kmeans_ckpt = kmeans_folder / "kmeans.ckpt"
+    if not kmeans_ckpt.exists():
+        logger.info("K-means checkpoint not found, downloading it from HF.")
+        kmeans_download_path = save_folder / "pretrained_models/quantization"
+        hf_hub_download(
+            repo_id=kmeans_folder.as_posix(),
+            filename="kmeans.ckpt",
+            local_dir=kmeans_download_path,
+        )
+        kmeans_ckpt = kmeans_download_path / "kmeans.ckpt"
+
+    encoder_save_path = save_folder / "pretrained_models"
     code_folder = save_folder / "codes"
     code_folder.mkdir(parents=True, exist_ok=True)
 
@@ -188,5 +205,5 @@ def extract_cvss(
             pred = kmeans_model.predict(feats)
             np.save(code_folder / f"{key}_tgt.npy", pred)
 
-    logger.info(f"Extraction completed.")
+    logger.info("Extraction completed.")
     save_pkl(conf, save_opt)

@@ -20,29 +20,26 @@ progress_batch_sample_size: 4
 #################################
 src_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr
 tgt_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr-en
+sample_rate: 16000
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
-
 splits: ["train", "valid"]
-skip_prep: False
+skip_prep: True
 
-kmeans_folder: !PLACEHOLDER # e.g, ../../LJSpeech/S2ST/Quantization/results/kmeans/4321/save
-codes_folder: !ref <save_folder>/codes
-kmeans_size: 100
-encoder_hub: facebook/hubert-base-ls960
+encoder_source: facebook/hubert-base-ls960
 layer: 6
+kmeans_source: chaanks/unit-hifigan-hubert-en-l6_k100
+kmeans_size: 100
+codes_folder: !ref <save_folder>/codes
 skip_extract: False
 
-sample_rate: 16000
-
-## Eval Experimental
-vocoder_source: !PLACEHOLDER # e.g, ../../LJSpeech/S2ST/results/hifi_gan/4321
-vocoder_download_path: !PLACEHOLDER # e.g, ../../LJSpeech/S2ST/results/hifi_gan/4321/save/CKPT+2023-07-29+14-46-37+00
+vocoder_source: chaanks/unit-hifigan-hubert-en-l6_k100
+vocoder_download_path: !ref <save_folder>/pretrained_models/vocoder
 
 asr_source: chaanks/asr-whisper-tiny-sb
-asr_download_path: !ref <save_folder>/asr_checkpoint
+asr_download_path: !ref <save_folder>/pretrained_models/asr
 
 sorting: random
 dynamic_batching: True
@@ -58,9 +55,9 @@ dynamic_batch_sampler:
     batch_ordering: random
     max_batch_ex: 128
 
-# URL for the HuggingFace model we want to load (large here)
-wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-base #-large -base
-wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+# URL for the HuggingFace model we want to use as transformer encoder
+wav2vec2_source: LeBenchmark/wav2vec2-FR-7K-base #-large -base
+wav2vec2_download_path: !ref <save_folder>/pretrained_models
 
 # wav2vec 2.0 specific parameters
 wav2vec2_frozen: False
@@ -123,10 +120,10 @@ max_decode_ratio: 1.0
 
 ############################## models ################################
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
-    source: !ref <wav2vec2_hub>
+    source: !ref <wav2vec2_source>
     output_norm: True
     freeze: !ref <wav2vec2_frozen>
-    save_path: !ref <wav2vec2_folder>
+    save_path: !ref <wav2vec2_download_path>
     apply_spec_augment: True
 
 enc: !new:speechbrain.nnet.CNN.Conv1d
@@ -189,13 +186,8 @@ wav2vec_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <epochs>
 
-train_logger: !new:speechbrain.utils.train_logger.WandBLogger
-    initializer: !name:wandb.init
-        entity: jar0d
-        project: s2ut_cvss_sb
-        name: !ref <model_name>
-        reinit: True
-        resume: False
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
 
 valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
     modules: [!ref <transformer>, !ref <seq_lin>, null]

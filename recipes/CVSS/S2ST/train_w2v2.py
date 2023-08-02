@@ -468,8 +468,8 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["save_folder"],
             "splits": hparams["splits"],
-            "kmeans_folder": hparams["kmeans_folder"],
-            "encoder": hparams["encoder_hub"],
+            "kmeans_folder": hparams["kmeans_source"],
+            "encoder": hparams["encoder_source"],
             "layer": hparams["layer"],
             "save_folder": hparams["save_folder"],
             "skip_extract": hparams["skip_extract"],
