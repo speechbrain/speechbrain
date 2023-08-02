@@ -123,7 +123,7 @@ def torch_save(obj, path):
     torch.save(state_dict, path)
 
 
-def torch_parameter_transfer(obj, path, device, verbose):
+def torch_parameter_transfer(obj, path, device):
     """Non-strict Torch Module state_dict load.
 
     Loads a set of parameters from path to obj. If obj has layers for which
@@ -146,19 +146,18 @@ def torch_parameter_transfer(obj, path, device, verbose):
     incompatible_keys = obj.load_state_dict(
         torch.load(path, map_location=device), strict=False
     )
-    if verbose:
-        for missing_key in incompatible_keys.missing_keys:
-            logger.warning(
-                f"During parameter transfer to {obj} loading from "
-                + f"{path}, the transferred parameters did not have "
-                + f"parameters for the key: {missing_key}"
-            )
-        for unexpected_key in incompatible_keys.unexpected_keys:
-            logger.warning(
-                f"During parameter transfer to {obj} loading from "
-                + f"{path}, the object could not use the parameters loaded "
-                + f"with the key: {unexpected_key}"
-            )
+    for missing_key in incompatible_keys.missing_keys:
+        logger.warning(
+            f"During parameter transfer to {obj} loading from "
+            + f"{path}, the transferred parameters did not have "
+            + f"parameters for the key: {missing_key}"
+        )
+    for unexpected_key in incompatible_keys.unexpected_keys:
+        logger.warning(
+            f"During parameter transfer to {obj} loading from "
+            + f"{path}, the object could not use the parameters loaded "
+            + f"with the key: {unexpected_key}"
+        )
 
 
 # These dicts are indexed by class and hold the default checkpoints methods

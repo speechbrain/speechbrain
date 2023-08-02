@@ -286,7 +286,7 @@ class Pretrainer:
         else:
             return bool(condition)
 
-    def load_collected(self, device=None, verbose=True):
+    def load_collected(self, device=None):
         """Loads the files that have been collected.
 
         Arguments
@@ -316,9 +316,9 @@ class Pretrainer:
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]
-        self._call_load_hooks(paramfiles, device, verbose)
+        self._call_load_hooks(paramfiles, device)
 
-    def _call_load_hooks(self, paramfiles, device=None, verbose=True):
+    def _call_load_hooks(self, paramfiles, device=None):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         for name, obj in self.loadables.items():
@@ -333,16 +333,14 @@ class Pretrainer:
             # Try the default transfer hook:
             default_hook = get_default_hook(obj, DEFAULT_TRANSFER_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, device=device, verbose=verbose)
+                default_hook(obj, loadpath, device=device)
                 continue
             # Otherwise find the default loader for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
                 # Need to fake end-of-epoch:
                 end_of_epoch = False
-                default_hook(
-                    obj, loadpath, end_of_epoch, device, verbose=verbose
-                )
+                default_hook(obj, loadpath, end_of_epoch, device)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
