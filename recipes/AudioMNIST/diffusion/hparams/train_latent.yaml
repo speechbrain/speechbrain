@@ -10,8 +10,8 @@
 seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-data_folder: ./data
-prepare_data_folder: ./audiomnist-prepare-data
+data_folder: !PLACEHOLDER
+metadata_folder: null
 output_folder: !ref ./results/diffusion-latent-ae/<seed>
 save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
