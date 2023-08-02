@@ -1427,6 +1427,7 @@ class Brain:
             else:
                 compile_module_keys = set(self.compile_module_keys)
                 logger.warning(
+                    "--compile and --compile_module_keys are both specified. "
                     "Only modules in compile_module_keys will be compiled."
                 )
 
