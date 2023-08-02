@@ -68,7 +68,7 @@ embedding_model: !new:speechbrain.lobes.models.ResNet.ResNet
     strides: [1, 2, 2, 2]
     block_sizes: [3, 4, 6, 3]
     lin_neurons: 256
-    
+
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
