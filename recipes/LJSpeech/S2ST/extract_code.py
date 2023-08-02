@@ -152,7 +152,7 @@ def extract_ljspeech(
     save_opt = save_folder / OPT_FILE
     data_folder = pl.Path(data_folder)
     kmeans_folder = pl.Path(kmeans_folder)
-    kmeans_ckpt = kmeans_folder / "kmeans.cpt"
+    kmeans_ckpt = kmeans_folder / "kmeans.ckpt"
     encoder_save_path = kmeans_folder / "pretrained_models"
     code_folder = save_folder / "codes"
     code_folder.mkdir(parents=True, exist_ok=True)
@@ -188,5 +188,5 @@ def extract_ljspeech(
             pred = kmeans_model.predict(feats)
             np.save(code_folder / f"{key}.npy", pred)
 
-    logger.info(f"Extraction completed.")
+    logger.info("Extraction completed.")
     save_pkl(conf, save_opt)
