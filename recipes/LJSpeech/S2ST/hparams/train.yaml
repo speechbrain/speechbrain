@@ -22,7 +22,7 @@ use_tensorboard: False
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: #!PLACEHOLDER # e.g, /datasets/ljspeech 16k!
+data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech 16k!
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
@@ -31,7 +31,7 @@ splits: ["train", "valid"]
 split_ratio: [90, 10]
 skip_prep: False
 
-kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/4321/save
+kmeans_folder: !PLACEHOLDER # e.g, ./Quantization/results/kmeans/4321/save
 codes_folder: !ref <save_folder>/codes
 kmeans_size: 100
 encoder_hub: facebook/hubert-base-ls960
