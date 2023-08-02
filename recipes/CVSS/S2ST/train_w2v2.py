@@ -306,7 +306,7 @@ def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
     """
-    code_folder = pl.Path(hparams["save_folder"]) / "codes"
+    codes_folder = pl.Path(hparams["codes_folder"])
 
     # Define audio pipeline. In this case, we simply read the audio contained
     # in the variable src_audio with the custom reader.
@@ -335,7 +335,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("id")
     @sb.utils.data_pipeline.provides("code_bos", "code_eos")
     def unit_pipeline(utt_id):
-        code = np.load(code_folder / f"{utt_id}_tgt.npy")
+        code = np.load(codes_folder / f"{utt_id}_tgt.npy")
         code = torch.LongTensor(code)
         code = torch.unique_consecutive(code)
         code_bos = torch.cat((torch.LongTensor([hparams["bos_index"]]), code))
