@@ -335,7 +335,7 @@ def dataio_prepare(hparams):
     """
     segment_size = hparams["segment_size"]
     code_hop_size = hparams["code_hop_size"]
-    code_folder = pl.Path(hparams["save_folder"]) / "codes"
+    code_folder = pl.Path(hparams["codes_folder"])
 
     # Define audio pipeline:
     @sb.utils.data_pipeline.takes("id", "wav", "segment")

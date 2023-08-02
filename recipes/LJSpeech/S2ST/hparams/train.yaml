@@ -32,6 +32,7 @@ split_ratio: [90, 10]
 skip_prep: False
 
 kmeans_folder: #!PLACEHOLDER e.g, ./Quantization/results/kmeans/4321/save
+codes_folder: !ref <save_folder>/codes
 kmeans_size: 100
 encoder_hub: facebook/hubert-base-ls960
 layer: 6
@@ -107,10 +108,10 @@ dur_prediction_weight: 1.0
 ###########################################################################################################################################################
 resblock_type: "1"
 resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
-resblock_kernel_sizes: [3,7,11]
-upsample_kernel_sizes: [11,8,8,4,4]
+resblock_kernel_sizes: [3, 7, 11]
+upsample_kernel_sizes: [11, 8, 8, 4, 4]
 upsample_initial_channel: 512
-upsample_factors: [5,4,4,2,2]
+upsample_factors: [5, 4, 4, 2, 2]
 
 inference_padding: 5
 cond_channels: 0
