@@ -304,7 +304,7 @@ class Pretrained(torch.nn.Module):
         if not compile_available and self.compile_module_keys is not None:
             raise ValueError(
                 "'compile_module_keys' specified, but this install of PyTorch "
-                "seems to be too old to support it. Only JIT will be used."
+                "seems to be too old to support it."
             )
 
         compile_module_keys = (
