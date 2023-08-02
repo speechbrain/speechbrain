@@ -281,7 +281,12 @@ def recursive_update(d, u, must_match=False):
 
 
 def download_file(
-    source, dest, unpack=False, dest_unpack=None, replace_existing=False
+    source,
+    dest,
+    unpack=False,
+    dest_unpack=None,
+    replace_existing=False,
+    write_permissions=False,
 ):
     """Downloads the file from the given source and saves it in the given
     destination path.
@@ -297,6 +302,9 @@ def download_file(
         If True, it unpacks the data in the dest folder.
     replace_existing : bool
         If True, replaces the existing files.
+    write_permissions: bool
+        When set to True, all the files in the dest_unpack directory will be granted write permissions.
+        This option is active only when unpack=True.
     """
     try:
         # make sure all processing reached here before main preocess create dest_dir
@@ -340,8 +348,27 @@ def download_file(
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
                 shutil.unpack_archive(dest, dest_unpack)
+                if write_permissions:
+                    set_writing_permissions(dest_unpack)
+
     finally:
         sb.utils.distributed.ddp_barrier()
+
+
+def set_writing_permissions(folder_path):
+    """
+    This function sets user writing permissions to all the files in the given folder.
+
+    Parameters
+    ----------
+    folder_path : folder
+        Folder whose files will be granted write permissions.
+    """
+    for root, dirs, files in os.walk(folder_path):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            # Set writing permissions (mode 0o666) to the file
+            os.chmod(file_path, 0o666)
 
 
 def pad_right_to(

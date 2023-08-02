@@ -16,6 +16,21 @@ class BaseScorerInterface:
     """A scorer abstraction to be inherited by other
     scoring approaches for beam search.
 
+    A scorer is a module that scores tokens in vocabulary
+    based on the current timestep input and the previous
+    scorer states. It can be used to score on full vocabulary
+    set (i.e., full scorers) or a pruned set of tokens (i.e. partial scorers)
+    to prevent computation overhead. In the latter case, the partial scorers
+    will be called after the full scorers. It will only scores the
+    top-k candidates (i.e., pruned set of tokens) extracted from the full scorers.
+    The top-k candidates are extracted based on the beam size and the
+    scorer_beam_scale such that the number of candidates is
+    int(beam_size * scorer_beam_scale). It can be very useful
+    when the full scorers are computationally expensive (e.g., KenLM scorer).
+
+    Inherit this class to implement your own scorer compatible with
+    speechbrain.decoders.seq2seq.S2SBeamSearcher().
+
     See:
         - speechbrain.decoders.scorer.CTCPrefixScorer
         - speechbrain.decoders.scorer.RNNLMScorer
@@ -26,7 +41,16 @@ class BaseScorerInterface:
     """
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """This method scores tokens in vocabulary.
+        """This method scores the new beams based on the
+        informations of the current timestep.
+
+        A score is a tensor of shape (batch_size x beam_size, vocab_size).
+        It is the log probability of the next token given the current
+        timestep input and the previous scorer states.
+
+        It can be used to score on pruned top-k candidates
+        to prevent computation overhead, or on full vocabulary set
+        when candidates is None.
 
         Arguments
         ---------
@@ -45,7 +69,8 @@ class BaseScorerInterface:
         ---------
         torch.Tensor
             (batch_size x beam_size, vocab_size), Scores for the next tokens.
-
+        memory : No limit
+            The memory variables input for this timestep.
         """
         raise NotImplementedError
 
@@ -72,7 +97,7 @@ class BaseScorerInterface:
         x : torch.Tensor
             The precomputed encoder states to be used when decoding.
             (ex. the encoded speech representation to be attended).
-        wav_len : torch.Tensor
+        enc_lens : torch.Tensor
             The speechbrain-style relative length.
         """
         return None
@@ -525,6 +550,13 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
+    This Scorer is used to provides the CTC label-synchronous scores
+    of the next input tokens. The implementation is based on
+    https://www.merl.com/publications/docs/TR2017-190.pdf.
+
+    See:
+        - speechbrain.decoders.scorer.CTCPrefixScore
+
     Arguments
     ---------
     ctc_fc : torch.nn.Module
@@ -577,7 +609,7 @@ class CTCScorer(BaseScorerInterface):
     ...     scorer=scorer
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, torch.ones(batch_size))
+    >>> hyps, _, _, _ = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(
@@ -590,19 +622,57 @@ class CTCScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        CTC scores computed over the time frames.
+
+        See:
+            - speechbrain.decoders.scorer.CTCPrefixScore
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         scores, memory = self.ctc_score.forward_step(
             inp_tokens, memory, candidates, attn
         )
         return scores, memory
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched CTC beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         r, psi = self.ctc_score.permute_mem(memory, index)
         return r, psi
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the CTC scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         logits = self.ctc_fc(x)
         x = self.softmax(logits)
         self.ctc_score = CTCPrefixScore(
@@ -613,6 +683,9 @@ class CTCScorer(BaseScorerInterface):
 
 class RNNLMScorer(BaseScorerInterface):
     """A wrapper of RNNLM based on BaseScorerInterface.
+
+    The RNNLMScorer is used to provide the RNNLM scores of the next input tokens
+    based on the current timestep input and the previous scorer states.
 
     Arguments
     ---------
@@ -681,7 +754,7 @@ class RNNLMScorer(BaseScorerInterface):
     >>> batch_size=2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, language_model, temperature=1.0):
@@ -691,14 +764,39 @@ class RNNLMScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        RNNLM scores computed over the previous tokens.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
             log_probs = self.softmax(logits / self.temperature)
         return log_probs, hs
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         if isinstance(memory, tuple):
             memory_0 = torch.index_select(memory[0], dim=1, index=index)
             memory_1 = torch.index_select(memory[1], dim=1, index=index)
@@ -708,12 +806,26 @@ class RNNLMScorer(BaseScorerInterface):
         return memory
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the RNNLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         return None
 
 
 class TransformerLMScorer(BaseScorerInterface):
     """A wrapper of TransformerLM based on BaseScorerInterface.
+
+    The TransformerLMScorer is used to provide the TransformerLM scores
+    of the next input tokens based on the current timestep input and the
+    previous scorer states.
 
     Arguments
     ---------
@@ -764,11 +876,11 @@ class TransformerLMScorer(BaseScorerInterface):
     ...     language_model=lm_model,
     ...     temperature=1.15,
     ... )
-    >>> ctc_decode_weight=0.4
+    >>> ctc_weight_decode=0.4
     >>> lm_weight=0.6
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, ctc_scorer],
-    ...     scorer_weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight}
+    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_weight_decode}
     ... )
     >>> beam_size=5
     >>> searcher = S2STransformerBeamSearcher(
@@ -787,7 +899,7 @@ class TransformerLMScorer(BaseScorerInterface):
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, language_model, temperature=1.0):
@@ -797,7 +909,22 @@ class TransformerLMScorer(BaseScorerInterface):
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        TransformerLM scores computed over the previous tokens.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         with torch.no_grad():
             if memory is None:
                 memory = torch.empty(
@@ -812,17 +939,49 @@ class TransformerLMScorer(BaseScorerInterface):
         return log_probs[:, -1, :], memory
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the RNNLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         return None
 
 
 class KenLMScorer(BaseScorerInterface):
-    """KenLM N-gram scorer
+    """KenLM N-gram scorer.
+
+    This scorer is based on KenLM, which is a fast and efficient
+    N-gram language model toolkit. It is used to provide the n-gram scores
+    of the next input tokens.
+
+    This scorer is dependent on the KenLM package. It can be installed
+    with the following command:
+            > pip install https://github.com/kpu/kenlm/archive/master.zip
+
+    Note: The KenLM scorer is computationally expensive. It is recommended
+    to use it as a partial scorer to score on the top-k candidates instead
+    of the full vocabulary set.
 
     Arguments
     ---------
@@ -832,6 +991,61 @@ class KenLMScorer(BaseScorerInterface):
         The total number of tokens.
     token_list : list
         The tokens set.
+
+    # Example
+    # -------
+    # >>> from speechbrain.nnet.linear import Linear
+    # >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
+    # >>> from speechbrain.decoders import S2SRNNBeamSearcher, KenLMScorer, ScorerBuilder
+    # >>> input_size=17
+    # >>> vocab_size=11
+    # >>> lm_path='path/to/kenlm_model.arpa' # or .bin
+    # >>> token_list=['<pad>', '<bos>', '<eos>', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+    # >>> emb = torch.nn.Embedding(
+    # ...     embedding_dim=input_size,
+    # ...     num_embeddings=vocab_size,
+    # ... )
+    # >>> d_model=7
+    # >>> dec = AttentionalRNNDecoder(
+    # ...     rnn_type="gru",
+    # ...     attn_type="content",
+    # ...     hidden_size=3,
+    # ...     attn_dim=3,
+    # ...     num_layers=1,
+    # ...     enc_dim=d_model,
+    # ...     input_size=input_size,
+    # ... )
+    # >>> n_channels=3
+    # >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    # >>> kenlm_weight = 0.4
+    # >>> kenlm_model = KenLMScorer(
+    # ...     lm_path=lm_path,
+    # ...     vocab_size=vocab_size,
+    # ...     token_list=token_list,
+    # ... )
+    # >>> scorer = ScorerBuilder(
+    # ...     full_scorers=[kenlm_model],
+    # ...     weights={'kenlm': kenlm_weight}
+    # ... )
+    # >>> beam_size=5
+    # >>> searcher = S2SRNNBeamSearcher(
+    # ...     embedding=emb,
+    # ...     decoder=dec,
+    # ...     linear=seq_lin,
+    # ...     bos_index=1,
+    # ...     eos_index=2,
+    # ...     min_decode_ratio=0.0,
+    # ...     max_decode_ratio=1.0,
+    # ...     topk=2,
+    # ...     using_eos_threshold=False,
+    # ...     beam_size=beam_size,
+    # ...     temperature=1.25,
+    # ...     scorer=scorer
+    # ... )
+    # >>> batch_size=2
+    # >>> enc = torch.rand([batch_size, n_channels, d_model])
+    # >>> wav_len = torch.ones([batch_size])
+    # >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, lm_path, vocab_size, token_list):
@@ -856,7 +1070,22 @@ class KenLMScorer(BaseScorerInterface):
         self.id2char = token_list
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        n-gram scores.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
 
@@ -891,7 +1120,17 @@ class KenLMScorer(BaseScorerInterface):
         return scores, (new_memory, new_scoring_table)
 
     def permute_mem(self, memory, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         state, scoring_table = memory
 
         index = index.cpu().numpy()
@@ -912,7 +1151,17 @@ class KenLMScorer(BaseScorerInterface):
         return state, scoring_table
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the KenLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         state = self.kenlm.State()
         self.lm.NullContextWrite(state)
         self.batch_index = np.arange(x.size(0))
@@ -994,7 +1243,7 @@ class CoverageScorer(BaseScorerInterface):
     >>> batch_size=2
     >>> enc = torch.rand([batch_size, n_channels, d_model])
     >>> wav_len = torch.ones([batch_size])
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, vocab_size, threshold=0.5):
@@ -1004,7 +1253,22 @@ class CoverageScorer(BaseScorerInterface):
         self.time_step = 0
 
     def score(self, inp_tokens, coverage, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        Coverage scorer.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        coverage : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         n_bh = attn.size(0)
         self.time_step += 1
 
@@ -1027,13 +1291,33 @@ class CoverageScorer(BaseScorerInterface):
         return -1 * penalty / self.time_step, coverage
 
     def permute_mem(self, coverage, index):
-        """Specifies memory synchronisation."""
+        """This method permutes the scorer memory to synchronize
+        the memory index with the current output and perform
+        batched beam search.
+
+        Arguments
+        ---------
+        coverage : No limit
+            The memory variables input for this timestep.
+        index : torch.Tensor
+            (batch_size, beam_size). The index of the previous path.
+        """
         # Update coverage
         coverage = torch.index_select(coverage, dim=0, index=index)
         return coverage
 
     def reset_mem(self, x, enc_lens):
-        """Specifies memory reset."""
+        """This method implement the resetting of
+        memory variables for the RNNLM scorer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The precomputed encoder states to be used when decoding.
+            (ex. the encoded speech representation to be attended).
+        enc_lens : torch.Tensor
+            The speechbrain-style relative length.
+        """
         self.time_step = 0
         return None
 
@@ -1041,17 +1325,102 @@ class CoverageScorer(BaseScorerInterface):
 class LengthScorer(BaseScorerInterface):
     """A length rewarding scorer.
 
+    The LengthScorer is used to provide the length rewarding scores.
+    It is used to prevent the beam search from favoring short hypotheses.
+
+    Note: length_normalization is not compatible with this scorer. Make sure
+    to set is to False when using LengthScorer.
+
     Arguments
     ---------
     vocab_size: int
         The total number of tokens.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.RNNLM import RNNLM
+    >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
+    >>> from speechbrain.decoders import S2SRNNBeamSearcher, RNNLMScorer, CoverageScorer, ScorerBuilder
+    >>> input_size=17
+    >>> vocab_size=11
+    >>> emb = torch.nn.Embedding(
+    ...     num_embeddings=vocab_size,
+    ...     embedding_dim=input_size
+    ... )
+    >>> d_model=7
+    >>> dec = AttentionalRNNDecoder(
+    ...     rnn_type="gru",
+    ...     attn_type="content",
+    ...     hidden_size=3,
+    ...     attn_dim=3,
+    ...     num_layers=1,
+    ...     enc_dim=d_model,
+    ...     input_size=input_size,
+    ... )
+    >>> n_channels=3
+    >>> seq_lin = Linear(input_shape=[d_model, n_channels], n_neurons=vocab_size)
+    >>> lm_weight = 0.4
+    >>> length_weight = 1.0
+    >>> lm_model = RNNLM(
+    ...     embedding_dim=d_model,
+    ...     output_neurons=vocab_size,
+    ...     dropout=0.0,
+    ...     rnn_neurons=128,
+    ...     dnn_neurons=64,
+    ...     return_hidden=True,
+    ... )
+    >>> rnnlm_scorer = RNNLMScorer(
+    ...     language_model=lm_model,
+    ...     temperature=1.25,
+    ... )
+    >>> length_scorer = LengthScorer(vocab_size=vocab_size)
+    >>> scorer = ScorerBuilder(
+    ...     full_scorers=[rnnlm_scorer, length_scorer],
+    ...     weights={'rnnlm': lm_weight, 'length': length_weight}
+    ... )
+    >>> beam_size=5
+    >>> searcher = S2SRNNBeamSearcher(
+    ...     embedding=emb,
+    ...     decoder=dec,
+    ...     linear=seq_lin,
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     min_decode_ratio=0.0,
+    ...     max_decode_ratio=1.0,
+    ...     topk=2,
+    ...     using_eos_threshold=False,
+    ...     beam_size=beam_size,
+    ...     temperature=1.25,
+    ...     length_normalization=False,
+    ...     scorer=scorer
+    ... )
+    >>> batch_size=2
+    >>> enc = torch.rand([batch_size, n_channels, d_model])
+    >>> wav_len = torch.ones([batch_size])
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(self, vocab_size):
         self.vocab_size = vocab_size
 
     def score(self, inp_tokens, memory, candidates, attn):
-        """Specifies token scoring."""
+        """This method scores the new beams based on the
+        Length scorer.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current timestep.
+        memory : No limit
+            The scorer states for this timestep.
+        candidates : torch.Tensor
+            (batch_size x beam_size, scorer_beam_size).
+            The top-k candidates to be scored after the full scorers.
+            If None, scorers will score on full vocabulary set.
+        attn : torch.Tensor
+            The attention weight to be used in CoverageScorer or CTCScorer.
+        """
         return (
             torch.tensor(
                 [1.0], device=inp_tokens.device, dtype=inp_tokens.dtype
@@ -1062,6 +1431,15 @@ class LengthScorer(BaseScorerInterface):
 
 class ScorerBuilder:
     """ Builds scorer instance for beamsearch.
+
+    The ScorerBuilder class is responsible for building a scorer instance for
+    beam search. It takes weights for full and partial scorers, as well as
+    instances of full and partial scorer classes. It combines the scorers based
+    on the weights specified and provides methods for scoring tokens, permuting
+    scorer memory, and resetting scorer memory.
+
+    This is the class to be used for building scorer instances for beam search.
+
     See speechbrain.decoders.seq2seq.S2SBeamSearcher()
 
     Arguments
@@ -1119,13 +1497,13 @@ class ScorerBuilder:
     ...     temperature=1.15,
     ... )
     >>> coverage_scorer = CoverageScorer(vocab_size=vocab_size)
-    >>> ctc_decode_weight=0.4
+    >>> ctc_weight_decode=0.4
     >>> lm_weight=0.6
     >>> coverage_penalty = 1.0
     >>> scorer = ScorerBuilder(
     ...     full_scorers=[transformerlm_scorer, coverage_scorer],
     ...     partial_scorers=[ctc_scorer],
-    ...     scorer_weights={'transformerlm': lm_weight, 'ctc': ctc_decode_weight, 'coverage': coverage_penalty}
+    ...     weights={'transformerlm': lm_weight, 'ctc': ctc_weight_decode, 'coverage': coverage_penalty}
     ... )
     >>> beam_size=5
     >>> searcher = S2STransformerBeamSearcher(
@@ -1145,7 +1523,7 @@ class ScorerBuilder:
     >>> src = torch.rand([batch_size, n_channels, input_size])
     >>> tgt = torch.randint(0, vocab_size, [batch_size, n_channels])
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, wav_len)
+    >>> hyps, _, _, _  = searcher(enc, wav_len)
     """
 
     def __init__(

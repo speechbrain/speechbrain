@@ -13,6 +13,7 @@ from speechbrain.decoders.utils import (
     mask_by_condition,
     _update_mem,
 )
+from speechbrain.utils.data_utils import undo_padding
 
 
 class AlivedHypotheses(torch.nn.Module):
@@ -54,12 +55,15 @@ class S2SBaseSearcher(torch.nn.Module):
 
     Returns
     -------
-    predictions
-        Outputs as Python list of lists, with "ragged" dimensions; padding
-        has been removed.
-    scores
-        The sum of log probabilities (and possibly
-        additional heuristic scores) for each prediction.
+    hyps
+        The predicted tokens, as a list of lists or, if return_topk is True,
+        a Tensor of shape (batch, topk, max length of token_id sequences).
+    top_lengths
+        The length of each topk sequence in the batch.
+    top_scores
+        This final scores of topk hypotheses.
+    top_log_probs
+        The log probabilities of each hypotheses.
     """
 
     def __init__(
@@ -180,7 +184,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         )
 
         has_ended = enc_states.new_zeros(batch_size).bool()
-        for t in range(max_decode_steps):
+        for _ in range(max_decode_steps):
             log_probs, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
@@ -204,17 +208,22 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs,
         ) = self._get_top_prediction(predictions, scores, log_probs)
 
-        return top_hyps, top_lengths, top_scores, top_log_probs
+        # Convert best hypothesis to list
+        hyps = undo_padding(top_hyps, top_lengths)
+
+        return hyps, top_lengths, top_scores, top_log_probs
 
     def _get_top_prediction(self, hyps, scores, log_probs):
         """This method sorts the scores and return corresponding hypothesis and log probs.
 
         Arguments
         ---------
-        hyps_and_scores : list
-            To store generated hypotheses and scores.
-        topk : int
-            Number of hypothesis to return.
+        hyps : torch.Tensor (batch, max length of token_id sequences)
+            This tensor stores the predicted hypothesis.
+        scores : torch.Tensor (batch)
+            The score of each hypotheses.
+        log_probs : torch.Tensor (batch, max length of token_id sequences)
+            The log probabilities of each hypotheses.
 
         Returns
         -------
@@ -246,7 +255,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         top_log_probs = log_probs
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1) / max_length
+        top_lengths = (top_lengths - 1).abs() / max_length
 
         return (
             hyps.unsqueeze(1),
@@ -291,8 +300,9 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     ...     min_decode_ratio=0,
     ...     max_decode_ratio=1,
     ... )
-    >>> enc = torch.rand([2, 6, 7])
-    >>> wav_len = torch.rand([2])
+    >>> batch_size = 2
+    >>> enc = torch.rand([batch_size, 6, 7])
+    >>> wav_len = torch.ones([batch_size])
     >>> top_hyps, top_lengths, _, _ = searcher(enc, wav_len)
     """
 
@@ -341,8 +351,11 @@ class S2SBeamSearcher(S2SBaseSearcher):
         The width of beam.
     scorer: speechbrain.decoders.scorers.ScorerBuilder
         Scorer instance. Default: None.
+    return_topk : bool
+        Whether to return topk hypotheses. The topk hypotheses will be
+        padded to the same length. Default: False.
     topk : int
-        The number of hypothesis to return. Default: 1.
+        If return_topk is True, then return topk hypotheses. Default: 1.
     using_eos_threshold : bool
         Whether to use eos threshold. Default: True.
     eos_threshold : float
@@ -369,6 +382,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         max_decode_ratio,
         beam_size,
         scorer=None,
+        return_topk=False,
         topk=1,
         using_eos_threshold=True,
         eos_threshold=1.5,
@@ -382,6 +396,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
         self.beam_size = beam_size
         self.scorer = scorer
+        self.return_topk = return_topk
         self.topk = topk
         self.length_normalization = length_normalization
         self.using_eos_threshold = using_eos_threshold
@@ -462,15 +477,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return cond, attn_peak
 
     def _check_eos_threshold(self, log_probs):
-        """
-        This method checks whether eos log-probabilities exceed threshold.
+        """This method checks whether eos log-probabilities exceed threshold.
 
         Arguments
         ---------
         log_probs : torch.Tensor
             The log-probabilities.
 
-        Return
+        Returns
         ------
         cond : torch.BoolTensor
             Each element represents whether the eos log-probabilities will be kept.
@@ -481,7 +495,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return cond
 
     def init_hypotheses(self):
-        """This method initializes the AlivedHypotheses object."""
+        """This method initializes the AlivedHypotheses object.
+
+        Returns
+        -------
+        AlivedHypotheses
+            The alived hypotheses filled with the initial values.
+        """
         return AlivedHypotheses(
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
             alived_log_probs=torch.empty(self.n_bh, 0, device=self.device),
@@ -493,7 +513,34 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _attn_weight_step(
         self, inp_tokens, memory, enc_states, enc_lens, attn, log_probs
     ):
-        """This method computes a forward_step if attn_weight is superior to 0."""
+        """This method computes a forward_step if attn_weight is superior to 0.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        enc_lens : torch.Tensor
+            The actual length of each enc_states sequence.
+        attn : torch.Tensor
+            The attention weight.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+            Log-probabilities of the current step output.
+        memory : No limit
+            The memory variables generated in this step.
+            (ex. RNN hidden states).
+        attn : torch.Tensor
+            The attention weight.
+        """
         if self.attn_weight > 0:
             log_probs, memory, attn = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
@@ -504,6 +551,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _max_attn_shift_step(self, attn, prev_attn_peak, log_probs):
         """This method will block the beams that attention shift more
         than max_attn_shift.
+
+        Arguments
+        ---------
+        attn : torch.Tensor
+            The attention weight.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+            Log-probabilities of the current step output.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
         """
         if self.using_max_attn_shift:
             cond, prev_attn_peak = self._check_attn_shift(attn, prev_attn_peak)
@@ -513,7 +576,27 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return log_probs, prev_attn_peak
 
     def _scorer_step(self, inp_tokens, scorer_memory, attn, log_probs):
-        """This method call the scorers if scorer is not None."""
+        """This method call the scorers if scorer is not None.
+
+        Arguments
+        ---------
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        scorer_memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        attn : torch.Tensor
+            The attention weight.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+            Log-probabilities of the current step output.
+        scorer_memory : No limit
+            The memory variables generated in this step.
+        """
         if self.scorer is not None:
             log_probs, scorer_memory = self.scorer.score(
                 inp_tokens, scorer_memory, attn, log_probs, self.beam_size,
@@ -527,13 +610,39 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return top_scores
 
     def _set_eos_minus_inf_step(self, log_probs, step, min_decode_steps):
-        """This method set the log_probs of eos to minus infinity if the step is less than min_decode_steps."""
+        """This method set the log_probs of eos to minus infinity if the step is less than min_decode_steps.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+        step : int
+            The current decoding step.
+        min_decode_steps : int
+            The minimum decoding steps.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+            Log-probabilities of the current step output.
+        """
         if step < min_decode_steps:
             log_probs[:, self.eos_index] = self.minus_inf
         return log_probs
 
     def _eos_threshold_step(self, log_probs):
-        """This method set the log_probs of eos to minus infinity if the eos log-probabilities is less than eos_threshold."""
+        """This method set the log_probs of eos to minus infinity if the eos log-probabilities is less than eos_threshold.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+            Log-probabilities of the current step output.
+        """
         if self.using_eos_threshold:
             cond = self._check_eos_threshold(log_probs)
             log_probs[:, self.eos_index] = mask_by_condition(
@@ -542,7 +651,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return log_probs
 
     def _attn_weight_permute_memory_step(self, memory, predecessors):
-        """This method permute the memory if attn_weight is superior to 0."""
+        """This method permute the memory if attn_weight is superior to 0.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        predecessors : torch.Tensor
+            The index of which beam the current top-K output came from in (t-1) steps.
+
+        Returns
+        -------
+        memory : No limit
+            The memory variables generated in this step.
+            (ex. RNN hidden states).
+        """
         if self.attn_weight > 0:
             memory = self.permute_mem(memory, index=predecessors)
         return memory
@@ -550,7 +674,23 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _scorer_permute_memory_step(
         self, scorer_memory, predecessors, candidates
     ):
-        """This method permute the scorer_memory if scorer is not None."""
+        """This method permute the scorer_memory if scorer is not None.
+
+        Arguments
+        ---------
+        scorer_memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        predecessors : torch.Tensor
+            The index of which beam the current top-K output came from in (t-1) steps.
+        candidates : torch.Tensor
+            The index of the current top-K output.
+
+        Returns
+        -------
+        scorer_memory : No limit
+            The memory variables generated in this step.
+        """
         if self.scorer is not None:
             scorer_memory = self.scorer.permute_scorer_mem(
                 scorer_memory, index=predecessors, candidates=candidates
@@ -558,7 +698,20 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return scorer_memory
 
     def _max_attn_shift_permute_memory_step(self, prev_attn_peak, predecessors):
-        """This method permute the prev_attn_peak if using_max_attn_shift is True."""
+        """This method permute the prev_attn_peak if using_max_attn_shift is True.
+
+        Arguments
+        ---------
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        predecessors : torch.Tensor
+            The index of which beam the current top-K output came from in (t-1) steps.
+
+        Returns
+        -------
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        """
         if self.using_max_attn_shift:
             prev_attn_peak = torch.index_select(
                 prev_attn_peak, dim=0, index=predecessors
@@ -566,7 +719,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return prev_attn_peak
 
     def _update_reset_memory(self, enc_states, enc_lens):
-        """ Call reset memory for each module. """
+        """ Call reset memory for each module.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        enc_lens : torch.Tensor
+            The actual length of each enc_states sequence.
+
+        Returns
+        -------
+        memory : No limit
+            The memory variables generated in this step.
+        scorer_memory : No limit
+            The memory variables generated in this step.
+        """
         memory = self.reset_mem(self.n_bh, device=self.device)
         scorer_memory = None
         if self.scorer is not None:
@@ -576,7 +744,32 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _update_permute_memory(
         self, memory, scorer_memory, predecessors, candidates, prev_attn_peak
     ):
-        """ Call permute memory for each module. It allows us to synchronize the memory with the output."""
+        """Call permute memory for each module. It allows us to synchronize the memory with the output.
+
+        Arguments
+        ---------
+        memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        scorer_memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        predecessors : torch.Tensor
+            The index of which beam the current top-K output came from in (t-1) steps.
+        candidates : torch.Tensor
+            The index of the current top-K output.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+
+        Returns
+        -------
+        memory : No limit
+            The memory variables generated in this step.
+        scorer_memory : No limit
+            The memory variables generated in this step.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        """
         memory = self._attn_weight_permute_memory_step(memory, predecessors)
 
         scorer_memory = self._scorer_permute_memory_step(
@@ -593,7 +786,26 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _update_sequences_and_log_probs(
         self, log_probs, inp_tokens, predecessors, candidates, alived_hyps,
     ):
-        """This method update sequences and log probabilities by adding the new inp_tokens. """
+        """This method update sequences and log probabilities by adding the new inp_tokens.
+
+        Arguments
+        ---------
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        predecessors : torch.Tensor
+            The index of which beam the current top-K output came from in (t-1) steps.
+        candidates : torch.Tensor
+            The index of the current top-K output.
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+
+        Returns
+        -------
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        """
         # Update alived_seq
         alived_hyps.alived_seq = torch.cat(
             [
@@ -624,7 +836,32 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return alived_hyps
 
     def _compute_scores_and_next_inp_tokens(self, alived_hyps, log_probs, step):
-        """ Compute scores and next input tokens."""
+        """Compute scores and next input tokens.
+
+        Arguments
+        ---------
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+        step : int
+            The current decoding step.
+
+        Returns
+        -------
+        log_probs_clone : torch.Tensor
+            The log-probabilities of the current step output.
+        scores : torch.Tensor
+            The scores of the current step output.
+        candidates : torch.Tensor
+            The index of the current top-K output.
+        predecessors : torch.Tensor
+            The index of which beam the current top-K output came from in (t-1) steps.
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        """
         scores = alived_hyps.sequence_scores.unsqueeze(1).expand(-1, self.n_out)
         scores = scores + log_probs
 
@@ -675,7 +912,38 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return self.fc.w.out_features
 
     def init_beam_search_data(self, enc_states, wav_len):
-        """ Initialize the beam search data."""
+        """Initialize the beam search data.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        wav_len : torch.Tensor
+            The actual length of each enc_states sequence.
+
+        Returns
+        -------
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+        eos_hyps_and_log_probs_scores : list
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
+        memory : No limit
+            The memory variables generated in this step.
+        scorer_memory : No limit
+            The memory variables generated in this step.
+        attn : torch.Tensor
+            The attention weight.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        enc_lens : torch.Tensor
+            The actual length of each enc_states sequence.
+        """
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
 
         self.device = enc_states.device
@@ -830,7 +1098,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1) / top_hyps.size(1)
+        top_lengths = (top_lengths - 1).abs() / top_hyps.size(1)
 
         # Get topk indices
         topk_scores, indices = top_scores.topk(self.topk, dim=-1)
@@ -863,7 +1131,56 @@ class S2SBeamSearcher(S2SBaseSearcher):
         enc_lens,
         step,
     ):
-        """ A search step for the next most likely tokens."""
+        """A search step for the next most likely tokens.
+
+        Arguments
+        ---------
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+        eos_hyps_and_log_probs_scores : list
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
+        memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        scorer_memory : No limit
+            The memory variables input for this step.
+            (ex. RNN hidden states).
+        attn : torch.Tensor
+            The attention weight.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        enc_lens : torch.Tensor
+            The actual length of each enc_states sequence.
+        step : int
+            The current decoding step.
+
+        Returns
+        -------
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        inp_tokens : torch.Tensor
+            The input tensor of the current step.
+        log_probs : torch.Tensor
+            The log-probabilities of the current step output.
+        eos_hyps_and_log_probs_scores : list
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
+        memory : No limit
+            The memory variables generated in this step.
+        scorer_memory : No limit
+            The memory variables generated in this step.
+        attn : torch.Tensor
+            The attention weight.
+        prev_attn_peak : torch.Tensor
+            The previous attention peak place.
+        scores : torch.Tensor
+            The scores of the current step output.
+        """
         (log_probs, memory, attn,) = self._attn_weight_step(
             inp_tokens, memory, enc_states, enc_lens, attn, log_probs,
         )
@@ -920,7 +1237,22 @@ class S2SBeamSearcher(S2SBaseSearcher):
     def _fill_alived_hyps_with_eos_token(
         self, alived_hyps, eos_hyps_and_log_probs_scores, scores,
     ):
-        """ Fill the alived_hyps that have not reached eos with eos."""
+        """Fill the alived_hyps that have not reached eos with eos.
+
+        Arguments
+        ---------
+        alived_hyps : AlivedHypotheses
+            The alived hypotheses.
+        eos_hyps_and_log_probs_scores : list
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
+        scores : torch.Tensor
+            The scores of the current step output.
+
+        Returns
+        -------
+        eos_hyps_and_log_probs_scores : list
+            Generated hypotheses (the one that haved reached eos) and log probs scores.
+        """
         if not self._check_full_beams(eos_hyps_and_log_probs_scores):
             # Using all eos to fill-up the hyps.
             inp_tokens = (
@@ -935,7 +1267,26 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return eos_hyps_and_log_probs_scores
 
     def forward(self, enc_states, wav_len):  # noqa: C901
-        """Applies beamsearch and returns the predicted tokens."""
+        """Applies beamsearch and returns the predicted tokens.
+
+        Arguments
+        ---------
+        enc_states : torch.Tensor
+            The encoder states to be attended.
+        wav_len : torch.Tensor
+            The actual length of each enc_states sequence.
+
+        Returns
+        -------
+        hyps : list
+            The predicted tokens.
+        best_lens : torch.Tensor
+            The length of each predicted tokens.
+        best_scores : torch.Tensor
+            The scores of each predicted tokens.
+        best_log_probs : torch.Tensor
+            The log probabilities of each predicted tokens.
+        """
         (
             alived_hyps,
             inp_tokens,
@@ -982,8 +1333,26 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
 
-        # topk_hyps, topk_lengths, topk_scores, topk_log_probs,
-        return self._get_topk_prediction(finals_hyps_and_log_probs_scores)
+        (
+            topk_hyps,
+            topk_lengths,
+            topk_scores,
+            topk_log_probs,
+        ) = self._get_topk_prediction(finals_hyps_and_log_probs_scores)
+
+        if self.return_topk:
+            return topk_hyps, topk_lengths, topk_scores, topk_log_probs
+        else:
+            # select the best hyps
+            best_hyps = topk_hyps[:, 0, :]
+            best_lens = topk_lengths[:, 0]
+            best_scores = topk_scores[:, 0]
+            best_log_probs = topk_log_probs[:, 0, :]
+
+            # Convert best hypothesis to list
+            hyps = undo_padding(best_hyps, best_lens)
+
+            return hyps, best_lens, best_scores, best_log_probs
 
     def permute_mem(self, memory, index):
         """This method permutes the seq2seq model memory
@@ -1050,9 +1419,10 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     ...     beam_size=2,
     ...     scorer=scorer,
     ... )
-    >>> enc = torch.rand([2, 6, 7])
-    >>> wav_len = torch.rand([2])
-    >>> topk_hyps, topk_lengths, _, _ = searcher(enc, wav_len)
+    >>> batch_size = 2
+    >>> enc = torch.rand([batch_size, 6, 7])
+    >>> wav_len = torch.ones([batch_size])
+    >>> hyps, _, _, _ = searcher(enc, wav_len)
     """
 
     def __init__(
@@ -1148,7 +1518,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     ...     temperature=1.15,
     ... )
     >>> enc, dec = net.forward(src, tgt)
-    >>> topk_hyps, topk_lengths, topk_scores, topk_log_probs = searcher(enc, torch.ones(batch_size))
+    >>> hyps, _, _, _  = searcher(enc, torch.ones(batch_size))
     """
 
     def __init__(

@@ -19,8 +19,7 @@ import sys
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 import jsonlines
 import ast
 import pandas as pd
@@ -67,14 +66,9 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            topk_tokens, topk_lens, _, _ = self.hparams.beam_searcher(
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, wav_lens
             )
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            p_tokens = undo_padding(best_hyps, best_lens)
 
             return p_seq, wav_lens, p_tokens
 
@@ -145,6 +139,12 @@ class SLU(sb.Brain):
                                 "action": "none",
                                 "entities": [],
                             }
+                        except ValueError:
+                            _dict = {
+                                "scenario": "none",
+                                "action": "none",
+                                "entities": [],
+                            }
                         _dict["file"] = id_to_file[ids[i]]
                         writer.write(_dict)
 
@@ -210,8 +210,9 @@ class SLU(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):

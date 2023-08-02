@@ -1,5 +1,5 @@
 # Media SLU with CTC + Wav2Vec 2.0.
-This folder contains scripts necessary to run an SLU experiment with the Media French dataset: [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/), [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) both needed for the task. Please also download the 2 csv files given [here](https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf) and place them in the `../../MEDIA` directory.
+This folder contains scripts necessary to run an SLU experiment with the Media French dataset: [Media ASR (ELRA-S0272)](https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/), [Media SLU (ELRA-E0024)](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) both needed for the task. Please also download the 2 csv files given [here](https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0) and place them in the `../../MEDIA` directory.
 
 This recipe has been implemented following the paper of G. Laperrière, V. Pelloin, A. Caubriere, S. Mdhaffar, N. Camelin, S. Ghannay, B. Jabaian, Y. Estève, [The Spoken Language Understanding MEDIA Benchmark Dataset in the Era of Deep Learning: data updates, training and evaluation tools](https://aclanthology.org/2022.lrec-1.171).
 
@@ -17,8 +17,8 @@ It is important to note that Media initially offers audio files at 8kHz. Hence, 
 
 | Media Release | hyperparams | Test ChER | Test CER | Test CVER | Wav2Vec | Training time | HuggingFace link | Model link |
 |:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
-| 2008-03-27 | train_with_wav2vec_relax.yaml | 7.46 | 20.10 | 31.41 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/slu-wav2vec2-ctc-MEDIA-relax) | [here](https://drive.google.com/drive/folders/1ALtwmk3VUUM0XRToecQp1DKAh9FsGqMA) |
-| 2008-03-27 | train_with_wav2vec_full.yaml | 7.78 | 24.88 | 35.77 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/slu-wav2vec2-ctc-MEDIA-full) | [here](https://drive.google.com/drive/folders/1LHKmtQ8Roz85GfwkYXHRv_zz-Z-2Qurf) |
+| 2008-03-27 | train_with_wav2vec_relax.yaml | 7.46 | 20.10 | 31.41 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/slu-wav2vec2-ctc-MEDIA-relax) | Not Avail. |
+| 2008-03-27 | train_with_wav2vec_full.yaml | 7.78 | 24.88 | 35.77 | [LeBenchmark wav2vec2-FR-3K-large](https://huggingface.co/LeBenchmark/wav2vec2-FR-3K-large) | 12m30s per epoch | [here](https://huggingface.co/speechbrain/slu-wav2vec2-ctc-MEDIA-full) | Not Avail. |
 
 The CVER is the one implemented in SpeechBrain for this recipe. It is strict (yield an error for a single false character), without the human rules added generally for MEDIA. Find more in the article linked above, as it corresponds to u-CVER.
 

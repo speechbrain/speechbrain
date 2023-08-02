@@ -41,8 +41,7 @@ import logging
 from pathlib import Path
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +91,7 @@ class ASR(sb.core.Brain):
         current_epoch = self.hparams.epoch_counter.current
         is_valid_search = (
             stage == sb.Stage.VALID
-            and current_epoch % self.hparams.valid_search_every == 0
+            and current_epoch % self.hparams.valid_search_interval == 0
         )
         is_test_search = stage == sb.Stage.TEST
 
@@ -102,19 +101,13 @@ class ASR(sb.core.Brain):
 
             # Decide searcher for inference: valid or test search
             if stage == sb.Stage.VALID:
-                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                hyps, _, _, _ = self.hparams.valid_search(
                     enc_out.detach(), wav_lens
                 )
             else:
-                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                hyps, _, _, _ = self.hparams.test_search(
                     enc_out.detach(), wav_lens
                 )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -150,8 +143,8 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_every = self.hparams.valid_search_every
-            if current_epoch % valid_search_every == 0 or (
+            valid_search_interval = self.hparams.valid_search_interval
+            if current_epoch % valid_search_interval == 0 or (
                 stage == sb.Stage.TEST
             ):
                 # Decode token terms to words
@@ -202,9 +195,9 @@ class ASR(sb.core.Brain):
         else:
             stage_stats["ACC"] = self.acc_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
-            valid_search_every = self.hparams.valid_search_every
+            valid_search_interval = self.hparams.valid_search_interval
             if (
-                current_epoch % valid_search_every == 0
+                current_epoch % valid_search_interval == 0
                 or stage == sb.Stage.TEST
             ):
                 stage_stats["WER"] = self.wer_metric.summarize("error_rate")
@@ -238,8 +231,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints

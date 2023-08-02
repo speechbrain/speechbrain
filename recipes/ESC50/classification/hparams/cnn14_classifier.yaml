@@ -22,7 +22,6 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-test_only: False
 
 # Tensorboard logs
 use_tensorboard: False
@@ -148,7 +147,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 use_pretrained: True
 # If you do not want to use the pretrained encoder you can simply delete pretrained_encoder field.
-embedding_model_path: cemsubakan/cnn14-esc50/embedding_model.ckpt
+embedding_model_path: speechbrain/cnn14-esc50/embedding_model.ckpt
 pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

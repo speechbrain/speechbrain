@@ -14,7 +14,6 @@ train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
 whisper_hub: openai/whisper-tiny
-test_only: False # Set it to True if you only want to  do the evaluation
 
 # Normalize inputs with the same normalization done in the paper (https://cdn.openai.com/papers/whisper.pdf). Refer to Appendix C for further information.
 normalized_transcripts: True
@@ -61,6 +60,7 @@ bos_index: 50258
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
+test_beam_size: 8
 
 # Model parameters
 freeze_whisper: False
@@ -103,7 +103,7 @@ modules:
 
 whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
-    weight_decay: 0.0001
+    weight_decay: 0.000000001
 
 valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
@@ -112,12 +112,13 @@ valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
-test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
-    model: !ref <whisper>
+test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
+    module: [!ref <whisper>]
     bos_index: !ref <timestamp_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_whisper>

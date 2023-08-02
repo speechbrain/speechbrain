@@ -121,15 +121,6 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     paths:
         tokenizer: !ref <tokenizer_file>
 
-# Scorer
-coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
-    vocab_size: !ref <output_neurons>
-
-scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-    full_scorers: [!ref <coverage_scorer>]
-    scorer_weights:
-        coverage: 0
-
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <output_emb>
     decoder: !ref <dec>
@@ -143,7 +134,6 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     temperature: !ref <temperature>
     max_attn_shift: 30
     using_max_attn_shift: False
-    scorer: !ref <scorer>
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

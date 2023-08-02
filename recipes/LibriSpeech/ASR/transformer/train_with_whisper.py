@@ -19,7 +19,7 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
@@ -58,19 +58,13 @@ class ASR(sb.Brain):
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             # Decide searcher for inference: valid or test search
             if stage == sb.Stage.VALID:
-                topk_tokens, topk_lens, _, _ = self.hparams.valid_search(
+                hyps, _, _, _ = self.hparams.valid_search(
                     enc_out.detach(), wav_lens
                 )
             else:
-                topk_tokens, topk_lens, _, _ = self.hparams.test_search(
+                hyps, _, _, _ = self.hparams.test_search(
                     enc_out.detach(), wav_lens
                 )
-
-            # Select the best hypothesis
-            best_hyps, best_lens = topk_tokens[:, 0, :], topk_lens[:, 0]
-
-            # Convert best hypothesis to list
-            hyps = undo_padding(best_hyps, best_lens)
 
         return log_probs, hyps, wav_lens
 
@@ -88,6 +82,8 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
@@ -158,8 +154,9 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -317,15 +314,13 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
 
     # Training
-    if hparams["test_only"] is False:
-        # Training
-        asr_brain.fit(
-            asr_brain.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["train_loader_kwargs"],
-            valid_loader_kwargs=hparams["valid_loader_kwargs"],
-        )
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_loader_kwargs"],
+        valid_loader_kwargs=hparams["valid_loader_kwargs"],
+    )
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc

@@ -88,7 +88,6 @@ class SpecAugment(torch.nn.Module):
         self.apply_time_warp = time_warp
         self.time_warp_window = time_warp_window
         self.time_warp_mode = time_warp_mode
-
         self.freq_mask = freq_mask
         if isinstance(freq_mask_width, int):
             freq_mask_width = (0, freq_mask_width)
@@ -543,7 +542,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             csv_row = (
                                 f"{ID}_{i}",
                                 str((stop - start) / rate),
-                                "$rir_root" + new_filename[len(folder) :],
+                                "$rir_root/" + new_filename[len(folder) :],
                                 ext,
                                 "\n",
                             )
@@ -554,7 +553,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                                 (
                                     ID,
                                     str(duration),
-                                    "$rir_root" + filename[len(folder) :],
+                                    "$rir_root/" + filename[len(folder) :],
                                     ext,
                                     "\n",
                                 )

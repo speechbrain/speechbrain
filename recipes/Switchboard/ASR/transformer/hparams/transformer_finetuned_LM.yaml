@@ -123,7 +123,8 @@ valid_beam_size: 10
 test_beam_size: 66
 lm_weight: 0.60
 ctc_weight_decode: 0.40
-
+temperature: 1.15
+temperature_lm: 1.15
 ############################## models  ################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
@@ -210,7 +211,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
   max_decode_ratio: !ref <max_decode_ratio>
   beam_size: !ref <valid_beam_size>
   using_eos_threshold: False
-  length_normalization: True
+  length_normalization: False
   scorer: !ref <scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
@@ -223,7 +224,7 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
   using_eos_threshold: False
   length_normalization: True
   scorer: !ref <scorer>
-
+  temperature: !ref <temperature>
 
 log_softmax: !new:torch.nn.LogSoftmax
   dim: -1
