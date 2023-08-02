@@ -1428,7 +1428,7 @@ class Brain:
                 compile_module_keys = set(self.compile_module_keys)
                 logger.warning(
                     "--compile and --compile_module_keys are both specified. "
-                    "Only modules in compile_module_keys will be compiled."
+                    "Only modules specified in --compile_module_keys will be compiled."
                 )
 
         # Modules to compile with jit
@@ -1439,7 +1439,8 @@ class Brain:
             else:
                 jit_module_keys = set(self.jit_module_keys)
                 logger.warning(
-                    "Only modules in jit_module_keys will be compiled."
+                    "--jit and --jit_module_keys are both specified. "
+                    "Only modules specified in --jit_module_keys will be compiled."
                 )
 
         # find missing keys
