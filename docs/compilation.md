@@ -24,7 +24,7 @@ This will compile only the encoder and decoder models, which should be declared 
 
 Remember to call the training script with the --compile flag.
 
-**Note of caution**: Compiling a model can be a complex process and may take some time. Additionally, it may fail in certain cases. The speed-up achieved through compilation is highly dependent on the system and GPU being used. For example, higher-end GPUs like the A100 tend to yield better speed-ups, while you may not observe significant improvements with V100 GPUs. We support this feature with the hope that torch.compile will constantly improve over time. 
+**Note of caution**: Compiling a model can be a complex process and may take some time. Additionally, it may fail in certain cases. The speed-up achieved through compilation is highly dependent on the system and GPU being used. For example, higher-end GPUs like the A100 tend to yield better speed-ups, while you may not observe significant improvements with V100 GPUs. We support this feature with the hope that torch.compile will constantly improve over time.
 
 ## Compile with JIT
 JIT was the first compilation method supported by PyTorch. It is important to note that JIT is expected to be replaced soon by `torch.compile`.
@@ -43,8 +43,9 @@ If you only want to compile specific modules, add a list of the module keys you 
 ```yaml
 jit_module_keys: [encoder, decoder]
 ```
-This will compile only the encoder and decoder models, provided they are declared in the YAML file using the specified keys. 
+This will compile only the encoder and decoder models, provided they are declared in the YAML file using the specified keys.
 
 Remember to call the training script with the --jit flag.
 
 **Note of caution**: JIT has specific requirements for supported syntax, and many popular Python syntaxes are not supported. Therefore, when designing a model with JIT in mind, ensure that it meets the necessary syntax requirements for successful compilation. Additionally, the speed-up achieved through JIT compilation varies depending on the model type. We found it most beneficial for custom RNNs, such as the LiGRU used in SpeechBrain's TIMIT/ASR/CTC. Custom RNNs often require "for loops," which can be slow in Python. The compilation with JIT provides a significant speed-up in such cases.
+
