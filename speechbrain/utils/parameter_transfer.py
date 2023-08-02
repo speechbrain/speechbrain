@@ -340,7 +340,9 @@ class Pretrainer:
             if default_hook is not None:
                 # Need to fake end-of-epoch:
                 end_of_epoch = False
-                default_hook(obj, loadpath, end_of_epoch, device)
+                default_hook(
+                    obj, loadpath, end_of_epoch, device, verbose=verbose
+                )
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
