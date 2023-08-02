@@ -4,7 +4,6 @@ Authors
  * Peter Plantinga 2020
 """
 import logging
-import ruamel.yaml
 import torch
 import os
 from speechbrain.utils.distributed import main_process_only
