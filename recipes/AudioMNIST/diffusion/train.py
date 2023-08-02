@@ -1574,7 +1574,7 @@ if __name__ == "__main__":
             kwargs={
                 "data_folder": hparams["data_folder"],
                 "save_folder": hparams["data_save_folder"],
-                "prepare_data_folder": hparams["prepare_data_folder"],
+                "metadata_folder": hparams["metadata_folder"],
                 "norm": hparams["data_prepare_norm"],
                 "trim": hparams["data_prepare_trim"],
                 "trim_threshold": hparams["data_prepare_trim_threshold"],
