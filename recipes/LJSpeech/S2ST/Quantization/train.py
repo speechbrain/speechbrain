@@ -15,6 +15,7 @@ import pathlib as pl
 
 import joblib
 import torch
+import torchaudio
 import tqdm
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
@@ -60,7 +61,9 @@ def fetch_data(splits, sample_pct, seed=1234):
     return iter(data), len(data)
 
 
-def extract_features(model, layer, splits, sample_pct, flatten, device="cpu"):
+def extract_features(
+    model, layer, splits, sample_pct, flatten, device="cpu", sample_rate=16000
+):
     data, num_files = fetch_data(splits, sample_pct)
     features_list = []
     id_list = []
@@ -68,7 +71,11 @@ def extract_features(model, layer, splits, sample_pct, flatten, device="cpu"):
     for item in tqdm.tqdm(data, total=num_files):
         wav = item["wav"]
         with torch.no_grad():
+            info = torchaudio.info(wav)
             audio = sb.dataio.dataio.read_audio(wav)
+            audio = torchaudio.transforms.Resample(
+                info.sample_rate, hparams["sample_rate"],
+            )(audio)
             audio = audio.unsqueeze(0).to(device)
             feats = model.extract_features(audio)
             feats = feats[layer]
@@ -165,7 +172,7 @@ if __name__ == "__main__":
         splits.append(data_folder / f"{split}.json")
 
     # Features loading/extraction for K-means
-    logger.info(f"Extracting acoustic features ...")
+    logger.info("Extracting acoustic features ...")
 
     (features_batch, idx) = extract_features(
         model=encoder,
@@ -174,6 +181,7 @@ if __name__ == "__main__":
         sample_pct=hparams["sample_pct"],
         flatten=True,
         device=device,
+        sample_rate=hparams["sample_rate"],
     )
 
     logger.info(f"Features shape = {features_batch.shape}\n")
