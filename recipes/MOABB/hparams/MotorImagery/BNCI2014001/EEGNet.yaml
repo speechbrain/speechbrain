@@ -21,7 +21,6 @@ output_folder: !ref results/MotorImagery/EEGNet_BNCI2014001/EEGNet/<seed>
 # DATASET HPARS
 # Defining the MOABB dataset.
 dataset: !new:moabb.datasets.BNCI2014001
-to_download: False
 to_prepare: False # set to True if you want to always prepare data
 # data preparation may be slow if the dataset contains many channels with long recordings
 # eventually, save the prepared dataset (save_prepared_dataset: True) and set to_prepare to False

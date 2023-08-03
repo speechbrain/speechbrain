@@ -167,6 +167,12 @@ def prepare_data(
     verbose=0,
 ):
     """This function prepare all datasets and save them in a separate pickle for each subject."""
+    
+    # Crete the data folder (if needed)
+    if not os.path.exists(data_folder):
+    	print(data_folder)
+    	os.makedirs(data_folder)
+    	
     # changing default download directory
     for a in get_config().keys():
         set_config(a, data_folder)

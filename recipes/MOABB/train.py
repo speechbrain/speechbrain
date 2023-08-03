@@ -19,8 +19,7 @@ from torch.nn import init
 import numpy as np
 import logging
 import sys
-from prepare import download_data
-from dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
+from utils.dataio_iterators import LeaveOneSessionOut, LeaveOneSubjectOut
 from torchinfo import summary
 import speechbrain as sb
 
@@ -345,10 +344,6 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-
-    if hparams["to_download"]:
-        print("Start downloading the dataset, it might take a while...")
-        download_data(hparams["data_folder"], hparams["dataset"])
 
     # defining data iterator to use
     print("Prepare dataset iterators...")

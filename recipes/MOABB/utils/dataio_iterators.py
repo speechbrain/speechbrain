@@ -14,7 +14,7 @@ from itertools import islice
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import os
-from prepare import prepare_data
+from utils.prepare import prepare_data
 
 
 def nth(iterable, n, default=None):
