@@ -6,6 +6,8 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023
 """
 
 import os
@@ -245,10 +247,53 @@ def parse_arguments(arg_list=None):
         help="This flag disable unused parameters detection",
     )
     parser.add_argument(
+        "--jit",
+        default=False,
+        action="store_true",
+        help="Enables jit compilation for all modules. "
+        "Compilation may fail depending on the modules. "
+        "Use --jit_module_keys to compile a subset of modules.",
+    )
+    parser.add_argument(
         "--jit_module_keys",
         type=str,
         nargs="*",
         help="A list of keys in the 'modules' dict to jitify",
+    )
+    parser.add_argument(
+        "--compile",
+        default=False,
+        action="store_true",
+        help="Enabling this flag compiles all modules using torch.compile (if available). "
+        "Beta feature. Use --compile_module_keys to compile a subset of modules. "
+        "Set the compilation flags below properly. "
+        "Compilation can be time-consuming and might fail.",
+    )
+    parser.add_argument(
+        "--compile_module_keys",
+        type=str,
+        nargs="*",
+        help="A list of keys in the 'modules' dict to compile using "
+        "TorchInductor. If a module also has a JIT key specified, "
+        "TorchInductor will take precedence when available.",
+    )
+    parser.add_argument(
+        "--compile_mode",
+        type=str,
+        nargs="*",
+        help="One of {default, reduce-overhead, max-autotune}",
+    )
+    parser.add_argument(
+        "--compile_using_fullgraph",
+        type=bool,
+        nargs="*",
+        help="Whether it is ok to break model into several subgraphs",
+    )
+    parser.add_argument(
+        "--compile_using_dynamic_shape_tracing",
+        type=bool,
+        nargs="*",
+        help="Use dynamic shape tracing for compilation",
     )
     parser.add_argument(
         "--auto_mix_prec",
@@ -426,8 +471,22 @@ class Brain:
             If a non-positive number is passed, all epochs are run.
         debug_persistently (bool)
             Keep data stored during debug mode (not using /tmp), Default ``False``.
+        jit (bool)
+            Enable to compile all modules using jit, Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
+        compile (bool)
+            Enable to compile all modules using torch.compile, Default ``False``.
+        compile_module_keys (list of str)
+            List of keys in ``modules`` that should be compiled using
+            ``torch.compile``. If ``torch.compile`` is unavailable,
+            an error is raised.
+        compile_mode (str)
+            One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
+        compile_using_fullgraph (bool)
+            Whether it is ok to break model into several subgraphs, Default ``False``.
+        compile_using_dynamic_shape_tracing (bool)
+            Use dynamic shape tracing for compilation, Default ``False``.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
@@ -500,7 +559,13 @@ class Brain:
             "distributed_launch": False,
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
+            "jit": False,
             "jit_module_keys": None,
+            "compile": False,
+            "compile_module_keys": None,
+            "compile_mode": "reduce-overhead",
+            "compile_using_fullgraph": False,
+            "compile_using_dynamic_shape_tracing": False,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
@@ -557,7 +622,7 @@ class Brain:
             )
 
         if self.data_parallel_backend and self.distributed_launch:
-            sys.exit(
+            raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
                 "--data_parallel_backend=True"
@@ -644,7 +709,7 @@ class Brain:
             self.rank = int(os.environ["RANK"])
             if not torch.distributed.is_initialized():
                 if self.rank > 0:
-                    sys.exit(
+                    raise ValueError(
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
@@ -891,9 +956,9 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* starting all processes since jit modules cannot be
-        # pickled.
-        self._compile_jit()
+        # Run this *after* starting all processes since jit/compiled modules
+        # cannot be pickled.
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -1341,16 +1406,67 @@ class Brain:
             verbosity=logging.DEBUG,
         )
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
+        if not compile_available and self.compile_module_keys is not None:
+            raise ValueError(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it."
+            )
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.modules)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
+                logger.warning(
+                    "--compile and --compile_module_keys are both specified. "
+                    "Only modules specified in --compile_module_keys will be compiled."
+                )
+
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.modules)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
+                logger.warning(
+                    "--jit and --jit_module_keys are both specified. "
+                    "Only modules specified in --jit_module_keys will be compiled."
+                )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
                 raise ValueError(
-                    "module" + name + " is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.modules[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_using_fullgraph,
+                    dynamic=self.compile_using_dynamic_shape_tracing,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
+
+            self.modules[name] = module.to(self.device)
+            jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
 
