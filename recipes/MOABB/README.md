@@ -8,18 +8,18 @@ For detailed information, please refer to [our paper](link_to_our_paper).
 
 The benchmark leverages datasets supported by [MOABB](https://neurotechx.github.io/moabb/datasets.html). Specifically, it comes with recipes for the following datasets:
 
-| Dataset ID | Task |
-|------------|-------------|
-|[BNCI2014001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014001.html#moabb.datasets.BNCI2014001) | Motor Imagery |
-|[BNCI2014004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery |
-|[BNCI2015001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015001.html#moabb.datasets.BNCI2015001) | Motor Imagery |
-|[BNCI2015004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery |
-|[Zhou2016](https://neurotechx.github.io/moabb/generated/moabb.datasets.Zhou2016.html#moabb.datasets.Zhou2016) | Motor Imagery |
-|[BNCI2014009](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014009.html#moabb.datasets.BNCI2014009) | P300 |
-|[EPFLP300](https://neurotechx.github.io/moabb/generated/moabb.datasets.EPFLP300.html#moabb.datasets.EPFLP300) | P300 |
-|[Lee2019_ERP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 |
-|[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 |
-|[Nakanishi2015](https://neurotechx.github.io/moabb/generated/moabb.datasets.Nakanishi2015.html#moabb.datasets.Nakanishi2015) | SSVEP |
+| Dataset ID | Task | nsbj | nsess |
+|------------|-------------|-----|-----|
+|[BNCI2014001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014001.html#moabb.datasets.BNCI2014001) | Motor Imagery | 9 | 2 |
+|[BNCI2014004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery | - | - |
+|[BNCI2015001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015001.html#moabb.datasets.BNCI2015001) | Motor Imagery | - | - |
+|[BNCI2015004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery | - | - |
+|[Zhou2016](https://neurotechx.github.io/moabb/generated/moabb.datasets.Zhou2016.html#moabb.datasets.Zhou2016) | Motor Imagery | - | - |
+|[BNCI2014009](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014009.html#moabb.datasets.BNCI2014009) | P300 | - | - |
+|[EPFLP300](https://neurotechx.github.io/moabb/generated/moabb.datasets.EPFLP300.html#moabb.datasets.EPFLP300) | P300 | - | - |
+|[Lee2019_ERP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | - | - |
+|[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | - | - |
+|[Nakanishi2015](https://neurotechx.github.io/moabb/generated/moabb.datasets.Nakanishi2015.html#moabb.datasets.Nakanishi2015) | SSVEP | - | - |
 
 The EEG datasets are automatically downloaded when running the provided recipes. Furthermore, the code is designed to allow easy integration of any other dataset from MOABB, as well as the ability to plug and test various deep neural networks. The benchmark includes recipes for using the datasets mentioned above with popular models such as EEGNET, ShallowConvNet, Bioformer, and PodNet.
 
@@ -96,6 +96,59 @@ In this example, we will train EEGNET for Motor Imagery using the BNCI2014001 da
 
 The data will be automatically downloaded to the specified `data_folder`, and a cached version of the data will be stored in `cached_data_folder` for future reuse.
 
+The results, including training logs and checkpoints, will be availabe in the output folder specified in the hparam file.
+
+
+## Run a Training Experiment on a Given Dataset
+
+To perform training experiments using the Leave-One-Subject-Out and Leave-One-Session-Out approaches, we need to train different models on various subjects and sessions. Ultimately, we need to average their performance to get more reliable results.
+
+To simplify the process for our users, we have developed a convenient bash script called `run_experiment.sh`, which orchestrates the necessary loops.
+
+
+To run an experiment, execute the following code:
+
+```bash
+./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml \
+   --data_folder=eeg_data \
+   --cached_data_folder=eeg_pickled_data \
+   --output_folder=results/MotorImagery/BNCI2014001/EEGNet \
+   --nsbj=9 \
+   --nsess=2 \
+   --seed=1986 \
+   --nruns=2 \
+   --eval_metric=acc \
+   --metric_file=valid_metrics.pkl \
+   --do_leave_one_subject_out=false \
+   --do_leave_one_session_out=true
+```
+
+In this example, the script will run the Leave-One-Session-Out training on the BNCI2014001 dataset for Motor Imagery using the EEGNet.yaml configuration file. The experiments will iterate over the 9 subjects and 2 sessions. Each experiment will be repeated 2 times (`--nruns=2`) with different initialization seeds. Conducting multiple experiments with various seeds and averaging their performance enhances the statistical significance of the results. The evaluation metric used here is accuracy, and the validation metrics will be stored in `valid_metrics.pkl`.
+
+
+The experiment results will be available in the specified output folder. For the final aggregated performance, please refer to the `aggregated_performance.txt` file.
+
+**Note:** The number of subjects (`--nsbj`) and sessions (`--nsess`) varies depending on the dataset used. Please, take a look at the dataset table above for knowing the number of subjects and sessions in each dataset.
+
+
+
+## Run a training experiment on a given dataset
+For either the Leave-One-Subject-Out and Leave-One-Session-Out, we need to train different models using different sujects and sessions. At the end we need to average their performance.
+To make it easier for our users, we created a simple bash script that orchestrates the needed loops: run_experiment.sh
+
+For instance, run the following code:
+
+./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data \
+   --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --seed=1986 --nruns=2 --eval_metric=acc --metric_file=valid_metrics.pkl \
+   --do_leave_one_subject_out=false --do_leave_one_session_out=true
+
+This script will run leave_one_session_out training on the BNCI2014001 dataset for Motor Imagery using EEGNet.yaml. we will loop over the 9 subjects and 2 sessions.
+We run each experiments 2 times (--nruns=2) with different initialization seeds. Running multiple experiments using different seeds and averaging their performance is 
+a good practice to improve the significance of the results. The evaluation metric is accuracy and the validation metrics are stored in valid_metrics.pkl.
+
+The results are available in the specified output folder. For the final aggregated performance, take a look at the aggregated_performance.txt file.
+
+**Note:** The number of subjects (--nsbj) and sessions (--nsess) is dataset dependent. 
 
 
 ### Hyperparameter Tuning
