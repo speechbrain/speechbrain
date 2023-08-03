@@ -191,8 +191,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
     if len(all_rec_ids) <= 0:
         msg = "No recording IDs found! Please check if meta_data json file is properly generated."
-        logger.error(msg)
-        sys.exit()
+        raise ValueError(msg)
 
     # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):

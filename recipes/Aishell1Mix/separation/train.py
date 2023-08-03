@@ -569,11 +569,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Check if storage folder for dataset exists
-    if not hparams["data_folder"]:
-        print("Please, specify a valid data_folder for dataset storage")
-        sys.exit(1)
-
     # Data preparation
     from prepare_data import prepare_aishell1mix
 
