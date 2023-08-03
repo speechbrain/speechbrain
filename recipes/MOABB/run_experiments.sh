@@ -6,7 +6,7 @@
 # At the end, the final performance is computed with the aggregate_results.py script that provides the average performance.
 #
 # Example:
-# ./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data \
+# ./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data \
 #   --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --seed=1986 --nruns=2 --eval_metric=acc --metric_file=valid_metrics.pkl \
 #   --do_leave_one_subject_out=false --do_leave_one_session_out=true --number_of_epochs=2 --device='cpu'
 #
@@ -71,13 +71,18 @@ for arg in "$@"; do
 done
 
 # Check for required arguments
-if [ -z "$hparams" ] || [ -z "$data_folder" ] || [ -z "$cached_data_folder" ] || [ -z "$output_folder" ] || [ -z "$nsbj" ] || [ -z "$nsess" ] || [ -z "$nruns" ] || [ -z "$eval_metric" ] || [ -z "$metric_file" ] || [ -z "$do_leave_one_subject_out" ] || [ -z "$do_leave_one_session_out" ]; then
+if [ -z "$hparams" ] || [ -z "$data_folder" ] || [ -z "$output_folder" ] || [ -z "$nsbj" ] || [ -z "$nsess" ] || [ -z "$nruns" ] || [ -z "$eval_metric" ] || [ -z "$metric_file" ] || [ -z "$do_leave_one_subject_out" ] || [ -z "$do_leave_one_session_out" ]; then
     echo "ERROR: Missing required arguments! Please provide all required options."
     print_argument_descriptions
 fi
 
 # Manage Seed (optional argument)
 seed="${seed:-$RANDOM}"
+
+# Assign default value to cached_data_folder
+if [ -z "$cached_data_folder" ]; then
+    cached_data_folder="$data_folder/pkl"
+fi
 
 echo "hparams file : $hparams"
 echo "Data folder: $data_folder"
