@@ -1,5 +1,6 @@
 ## ################################
 # Model: downsampling + wavlm + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
 # Authors: Sung-Lin Yeh 2021
 # Salah Zaiem 2023
@@ -71,7 +72,18 @@ ctc_neurons: 58 # Twice bigger than the  number of characters for upsampling
 output_neurons: 29  # Characters size, index(blank/eos/bos) = 0
 
 # Decoding parameters
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
+space_index: 29
+beam_size: 200
+beam_prune_logp: -10.0
+token_prune_min_logp: -5.0
+prune_history: True
+topk: 1
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+kenlm_model_path: null
 
 #
 # Functions and classes
