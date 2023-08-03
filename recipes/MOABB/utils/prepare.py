@@ -162,17 +162,16 @@ def prepare_data(
     fmax,
     cached_data_folder=None,
     idx_subject_to_prepare=-1,
-    to_prepare=True,
     save_prepared_dataset=True,
     verbose=0,
 ):
     """This function prepare all datasets and save them in a separate pickle for each subject."""
-    
+
     # Crete the data folder (if needed)
     if not os.path.exists(data_folder):
-    	print(data_folder)
-    	os.makedirs(data_folder)
-    	
+        print(data_folder)
+        os.makedirs(data_folder)
+
     # changing default download directory
     for a in get_config().keys():
         set_config(a, data_folder)
@@ -204,23 +203,12 @@ def prepare_data(
         fname = "sub-{0}.pkl".format(str(subject).zfill(3))
         output_dict_fpath = os.path.join(tmp_output_dir, fname)
 
+        # Prepare dataset only if not already prepared
         output_dict = {}
-        if not to_prepare:
-            if os.path.isfile(output_dict_fpath):
-                print("Using cached dataset at: {0}".format(output_dict_fpath))
-                with open(output_dict_fpath, "rb") as handle:
-                    output_dict = pickle.load(handle)
-            else:
-                output_dict = get_output_dict(
-                    dataset,
-                    subject,
-                    events_to_load,
-                    srate_in,
-                    srate_out,
-                    fmin=fmin,
-                    fmax=fmax,
-                    verbose=verbose,
-                )
+        if os.path.isfile(output_dict_fpath):
+            print("Using cached dataset at: {0}".format(output_dict_fpath))
+            with open(output_dict_fpath, "rb") as handle:
+                output_dict = pickle.load(handle)
         else:
             output_dict = get_output_dict(
                 dataset,

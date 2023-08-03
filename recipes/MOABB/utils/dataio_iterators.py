@@ -188,7 +188,6 @@ class LeaveOneSessionOut(object):
             fmax=hparams["fmax"],
             idx_subject_to_prepare=target_subject_idx,
             save_prepared_dataset=hparams["save_prepared_dataset"],
-            to_prepare=hparams["to_prepare"],
         )
 
         x = data_dict["x"]
@@ -356,7 +355,6 @@ class LeaveOneSubjectOut(object):
             fmax=hparams["fmax"],
             idx_subject_to_prepare=target_subject_idx,
             save_prepared_dataset=hparams["save_prepared_dataset"],
-            to_prepare=hparams["to_prepare"],
         )
 
         x_test = data_dict["x"]
