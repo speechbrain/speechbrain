@@ -425,6 +425,7 @@ if __name__ == "__main__":
             "encoder": hparams["encoder_hub"],
             "layer": hparams["layer"],
             "save_folder": hparams["save_folder"],
+            "sample_rate": hparams["sample_rate"],
             "skip_extract": hparams["skip_prep"],
         },
     )

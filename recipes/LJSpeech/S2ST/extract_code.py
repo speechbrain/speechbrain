@@ -11,6 +11,7 @@ import pathlib as pl
 
 import joblib
 import torch
+import torchaudio
 import numpy as np
 from tqdm import tqdm
 import speechbrain as sb
@@ -93,6 +94,7 @@ def extract_ljspeech(
     encoder,
     layer,
     save_folder,
+    sample_rate=16000,
     skip_extract=False,
 ):
     """
@@ -112,6 +114,8 @@ def extract_ljspeech(
         Layer from which features are extracted.
     save_folder: str
         Path to the folder where the speech units are stored.
+    sample_rate: int
+        LjSpeech dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
 
@@ -180,7 +184,11 @@ def extract_ljspeech(
             item = meta_json[key]
             wav = item["wav"]
             with torch.no_grad():
+                info = torchaudio.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
+                audio = torchaudio.transforms.Resample(
+                    info.sample_rate, sample_rate,
+                )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 feats = encoder.extract_features(audio)
                 feats = feats[layer]
