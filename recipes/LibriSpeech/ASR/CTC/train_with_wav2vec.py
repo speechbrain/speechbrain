@@ -3,7 +3,7 @@
 The system employs wav2vec as its encoder. Decoding is performed with
 ctc greedy decoder during validation and a beam search with an optional
 language model during test. The test searcher can be chosen from the following
-options: CTCBeamSearch, CTCPrefixBeamSearch, TorchAudioCTCPrefixBeamSearch.
+options: CTCBeamSearcher, CTCPrefixBeamSearcher, TorchAudioCTCPrefixBeamSearcher.
 
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml

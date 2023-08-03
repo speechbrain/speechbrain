@@ -960,7 +960,7 @@ class CTCBaseSearcher(torch.nn.Module):
         return output_beams
 
 
-class CTCBeamSearch(CTCBaseSearcher):
+class CTCBeamSearcher(CTCBaseSearcher):
     """CTC Beam Search is a Beam Search for CTC which does not keep track of
     the blank and non-blank probabilities. Each new token probability is
     added to the general score, and each beams that share the same text are
@@ -969,10 +969,10 @@ class CTCBeamSearch(CTCBaseSearcher):
     The implementation suppors n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
-    The main advantage of this CTCBeamSearch over the CTCPrefixBeamSearch is that it is
+    The main advantage of this CTCBeamSearcher over the CTCPrefixBeamSearcher is that it is
     relatively faster, and obtains slightly better results. However, the implementation is
     based on the one from the PyCTCDecode toolkit, adpated for the SpeechBrain's needs and does
-    not follow a specific paper. We do recommand to use the CTCPrefixBeamSearch if you want
+    not follow a specific paper. We do recommand to use the CTCPrefixBeamSearcher if you want
     to cite the appropriate paper for the decoding method.
 
     Several heuristics are implemented to speed up the decoding process:
@@ -993,14 +993,14 @@ class CTCBeamSearch(CTCBaseSearcher):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.decoders import CTCBeamSearch
+    >>> from speechbrain.decoders import CTCBeamSearcher
     >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> decoder = CTCBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
+    >>> decoder = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
     >>> hyps = decoder(probs, lens)
     """
 
@@ -1230,7 +1230,7 @@ class CTCBeamSearch(CTCBaseSearcher):
         return beams
 
 
-class CTCPrefixBeamSearch(CTCBaseSearcher):
+class CTCPrefixBeamSearcher(CTCBaseSearcher):
     """CTC Prefix Beam Search is based on the paper
     `First-Pass Large Vocabulary Continuous Speech Recognition using Bi-Directional Recurrent DNNs`
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873).
@@ -1257,14 +1257,14 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.decoders import CTCPrefixBeamSearch
+    >>> from speechbrain.decoders import CTCPrefixBeamSearcher
     >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> decoder = CTCPrefixBeamSearch(blank_index=blank_index, vocab_list=vocab_list)
+    >>> decoder = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
     >>> hyps = decoder(probs, lens)
     """
 
@@ -1576,7 +1576,7 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         return beams
 
 
-class TorchAudioCTCPrefixBeamSearch:
+class TorchAudioCTCPrefixBeamSearcher:
     """TorchAudio CTC Prefix Beam Search Decoder.
 
     This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
@@ -1601,7 +1601,7 @@ class TorchAudioCTCPrefixBeamSearch:
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
     requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams).
-    Overall, we do recommand to use the CTCBeamSearch or CTCPrefixBeamSearch in SpeechBrain if you wants to use
+    Overall, we do recommand to use the CTCBeamSearcher or CTCPrefixBeamSearcher in SpeechBrain if you wants to use
     n-gram + beam search decoding. If you wants to have constraint search, please use the CPU version of torchaudio,
     and if you want to speedup as much as possible the decoding, please use the CUDA version.
 
@@ -1652,14 +1652,14 @@ class TorchAudioCTCPrefixBeamSearch:
     Example
     -------
     >>> import torch
-    >>> from speechbrain.decoders import TorchAudioCTCBeamSearch
+    >>> from speechbrain.decoders import TorchAudioCTCBeamSearcher
     >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> decoder = TorchAudioCTCBeamSearch(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
+    >>> decoder = TorchAudioCTCBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
     >>> hyps = decoder(probs, lens)
     """
 

@@ -65,7 +65,7 @@ freeze_wav2vec: True
 output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
-test_searcher: !name:speechbrain.decoders.CTCBeamSearch
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
 space_index: 29
 beam_size: 200
