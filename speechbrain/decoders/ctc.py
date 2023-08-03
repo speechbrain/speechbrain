@@ -1408,6 +1408,8 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             The list of the new beams.
         """
         if self.lm is None:
+            # no lm is used, lm_score is equal to score and we can return the beams
+            # we have to keep track of the probabilities as well
             new_beams = []
             for beam in beams:
                 new_text = self.merge_tokens(beam.full_text, beam.next_word)
@@ -1431,6 +1433,10 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 )
             return new_beams
         else:
+            # lm is used, we need to compute the lm_score
+            # first we compute the lm_score of the next word
+            # we check if the next word is in the cache
+            # if not, we compute the score and add it to the cache
             new_beams = []
             for beam in beams:
                 # fast token merge
@@ -1448,6 +1454,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 lm_score, _ = cached_lm_scores[cache_key]
                 word_part = beam.partial_word
 
+                # we score the partial word
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
 
@@ -1514,6 +1521,8 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 return beam
 
         if not self.is_spm and new_token_index == self.space_index:
+            # if we extend the beam with a space, we need to reset the partial word
+            # and move it to the next word
             new_beam = CTCBeam(
                 text=new_prefix,
                 full_text=previous_beam.full_text,
@@ -1526,7 +1535,13 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 p_b=-math.inf,
             )
         elif self.is_spm and new_token[:1] == self.spm_token:
+            # remove the spm token at the beginning of the token
             clean_token = new_token[1:]
+
+            # If the beginning of the token is the spm_token
+            # then it means that we are extending the beam with a new word.
+            # We need to change the new_word with the partial_word
+            # and reset the partial_word with the new token
             new_prefix = previous_beam.text + " " + clean_token
             new_beam = CTCBeam(
                 text=new_prefix,
@@ -1540,6 +1555,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 p_b=-math.inf,
             )
         elif new_token_index == previous_beam.last_token_index:
+            # if repeated token, we only change the score
             new_beam = CTCBeam(
                 text=new_prefix,
                 full_text=previous_beam.full_text,
@@ -1552,6 +1568,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 p_b=-math.inf,
             )
         else:
+            # last case, we are extending the partial_word with a new token
             new_beam = CTCBeam(
                 text=new_prefix,
                 full_text=previous_beam.full_text,
@@ -1604,15 +1621,16 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
         """
         # select only the valid frames, i.e., the frames that are not padded
         log_probs = log_probs[:wav_len]
-        for _, logit_col in enumerate(log_probs, start=processed_frames):
 
-            # skip blank frames
+        for _, logit_col in enumerate(log_probs, start=processed_frames):
+            # skip the frame if the blank probability is higher than the threshold
             if (
                 self.blank_skip_threshold is not None
                 and logit_col[self.blank_index] >= self.blank_skip_threshold
             ):
                 continue
 
+            # get the tokens with the highest probability
             max_index = logit_col.argmax()
             tokens_index_list = set(
                 np.where(logit_col > self.token_prune_min_logp)[0]
