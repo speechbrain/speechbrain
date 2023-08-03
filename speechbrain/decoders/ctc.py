@@ -517,6 +517,14 @@ class CTCBaseSearcher(torch.nn.Module):
         If None, no language model will be used. (default: None)
     unigrams : list, optional
         The list of known word unigrams. (default: None)
+    alpha : float
+        Weight for language model during shallow fusion. (default: 0.5)
+    beta : float
+        Weight for length score adjustment of during scoring. (default: 1.5)
+    unk_score_offset : float
+        Amount of log score offset for unknown tokens. (default: -10.0)
+    score_boundary : bool
+        Whether to have kenlm respect boundaries when scoring. (default: True)
     beam_size : int, optional
         The width of the beam. (default: 100)
     beam_prune_logp : float, optional
@@ -571,6 +579,10 @@ class CTCBaseSearcher(torch.nn.Module):
         space_index: int = -1,
         kenlm_model_path: Union[None, str] = None,
         unigrams: Union[None, List[str]] = None,
+        alpha: float = 0.5,
+        beta: float = 1.5,
+        unk_score_offset: float = -10.0,
+        score_boundary: bool = True,
         beam_size: int = 100,
         beam_prune_logp: int = -10.0,
         token_prune_min_logp: int = -5.0,
@@ -585,6 +597,10 @@ class CTCBaseSearcher(torch.nn.Module):
         self.space_index = space_index
         self.kenlm_model_path = kenlm_model_path
         self.unigrams = unigrams
+        self.alpha = alpha
+        self.beta = beta
+        self.unk_score_offset = unk_score_offset
+        self.score_boundary = score_boundary
         self.beam_size = beam_size
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
@@ -628,7 +644,14 @@ class CTCBaseSearcher(torch.nn.Module):
                 )
 
         if self.kenlm_model is not None:
-            self.lm = LanguageModel(self.kenlm_model, unigrams)
+            self.lm = LanguageModel(
+                kenlm_model=self.kenlm_model,
+                unigrams=unigrams,
+                alpha=self.alpha,
+                beta=self.beta,
+                unk_score_offset=self.unk_score_offset,
+                score_boundary=self.score_boundary,
+            )
         else:
             self.lm = None
 

@@ -398,6 +398,8 @@ if __name__ == "__main__":
         blank_index=hparams["blank_index"],
         vocab_list=vocab_list,
         space_index=hparams["space_index"],
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
         beam_size=hparams["beam_size"],
         beam_prune_logp=hparams["beam_prune_logp"],
         token_prune_min_logp=hparams["token_prune_min_logp"],
