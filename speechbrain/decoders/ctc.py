@@ -547,8 +547,8 @@ class CTCBaseSearcher(torch.nn.Module):
     Example
     -------
     >>> blank_index = 0
-    >>> vocab_list = ['blank', 'a', 'b', 'c']
-    >>> space_index = 0
+    >>> vocab_list = ['blank', 'a', 'b', 'c', ' ']
+    >>> space_index = ' '
     >>> kenlm_model_path = None
     >>> unigrams = None
     >>> beam_size = 100
@@ -560,7 +560,7 @@ class CTCBaseSearcher(torch.nn.Module):
     >>> searcher = CTCBaseSearcher(
     ...     blank_index=blank_index,
     ...     vocab_list=vocab_list,
-    ...     space_index=space_index,
+    ...     space_token=space_index,
     ...     kenlm_model_path=kenlm_model_path,
     ...     unigrams=unigrams,
     ...     beam_size=beam_size,
@@ -619,10 +619,11 @@ class CTCBaseSearcher(torch.nn.Module):
             except ValueError:
                 logger.warning(
                     f"Space token `{space_token}` not found in the vocabulary."
-                    "Using value -1 for space index."
+                    "Using value `len(vocab_list)` for space index."
                     "Note: If your transcription is not expected to contain spaces, "
                     "you can ignore this warning."
                 )
+                self.space_index = len(vocab_list)
             logger.info(f"Find `space_token` at index {self.space_index}.")
 
         self.kenlm_model = None
