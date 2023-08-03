@@ -1,7 +1,8 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021
+# Authors: Sung-Lin Yeh 2021, Adel Moumen 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -73,10 +74,10 @@ beam_prune_logp: -10.0
 token_prune_min_logp: -5.0
 prune_history: True
 topk: 1
-# can be downloaded from here https://www.openslr.org/11/
-# or trained with kenLM
-# It can either be a .bin or .arpa ; note: .arpa is much slower
-# kenlm_model_path: /path/to/kelm.bin
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+kenlm_model_path: null
 
 #
 # Functions and classes
