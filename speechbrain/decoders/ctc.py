@@ -592,7 +592,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self.blank_skip_threshold = blank_skip_threshold
         self.topk = topk
 
-        # sentencepiece
+        # check if the vocab is coming from SentencePiece
         self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
 
@@ -640,7 +640,7 @@ class CTCBaseSearcher(torch.nn.Module):
         cached_p_lm_scores: dict,
         processed_frames: int = 0,
     ):
-        """ Perform a single step of decoding.
+        """Perform a single step of decoding.
 
         Arguments
         ---------
@@ -992,6 +992,7 @@ class CTCBaseSearcher(torch.nn.Module):
         list
             The topk list of CTCHypothesis.
         """
+        # prepare caching/state for language model
         language_model = self.lm
         if language_model is None:
             cached_lm_scores = {}
@@ -1017,10 +1018,12 @@ class CTCBaseSearcher(torch.nn.Module):
             )
         ]
 
+        # loop over the frames and perform the decoding
         beams = self.partial_decoding(
             log_probs, wav_len, beams, cached_lm_scores, cached_p_lm_scores,
         )
 
+        # finalize decoding by adding and scoring the last partial word
         trimmed_beams = self.finalize_decoding(
             beams,
             cached_lm_scores,
@@ -1029,7 +1032,7 @@ class CTCBaseSearcher(torch.nn.Module):
             is_end=True,
         )
 
-        # remove unnecessary information from beams
+        # transform the beams into hypotheses and select the topk
         output_beams = [
             CTCHypothesis(
                 text=self.normalize_whitespace(lm_beam.text),
@@ -1123,6 +1126,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
             The list of the new beams.
         """
         if self.lm is None:
+            # no lm is used, lm_score is equal to score and we can return the beams
             new_beams = []
             for beam in beams:
                 new_text = self.merge_tokens(beam.text, beam.next_word)
@@ -1140,6 +1144,10 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 )
             return new_beams
         else:
+            # lm is used, we need to compute the lm_score
+            # first we compute the lm_score of the next word
+            # we check if the next word is in the cache
+            # if not, we compute the score and add it to the cache
             new_beams = []
             for beam in beams:
                 # fast token merge
@@ -1155,6 +1163,8 @@ class CTCBeamSearcher(CTCBaseSearcher):
                     raw_lm_score = prev_raw_lm_score + score
                     cached_lm_scores[cache_key] = (raw_lm_score, end_state)
                 lm_score, _ = cached_lm_scores[cache_key]
+
+                # we score the partial word
                 word_part = beam.partial_word
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
@@ -1216,13 +1226,14 @@ class CTCBeamSearcher(CTCBaseSearcher):
         log_probs = log_probs[:wav_len]
 
         for _, logit_col in enumerate(log_probs, start=processed_frames):
-
+            # skip the frame if the blank probability is higher than the threshold
             if (
                 self.blank_skip_threshold is not None
                 and logit_col[self.blank_index] >= self.blank_skip_threshold
             ):
                 continue
 
+            # get the tokens with the highest probability
             max_index = logit_col.argmax()
             tokens_index_list = set(
                 np.where(logit_col > self.token_prune_min_logp)[0]
@@ -1239,7 +1250,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
                         token_index == self.blank_index
                         or beam.last_token == token
                     ):
-
+                        # if blank or repeated token, we only change the score
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
@@ -1253,8 +1264,13 @@ class CTCBeamSearcher(CTCBaseSearcher):
                         )
 
                     elif self.is_spm and token[:1] == self.spm_token:
+                        # remove the spm token at the beginning of the token
                         clean_token = token[1:]
 
+                        # If the beginning of the token is the spm_token
+                        # then it means that we are extending the beam with a new word.
+                        # We need to change the new_word with the partial_word
+                        # and reset the partial_word with the new token
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
@@ -1268,6 +1284,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
                         )
 
                     elif not self.is_spm and token_index == self.space_index:
+                        # same as before but in the case of a non spm vocab
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
@@ -1280,7 +1297,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
                             )
                         )
                     else:
-
+                        # last case, we are extending the partial_word with a new token
                         new_beams.append(
                             CTCBeam(
                                 text=beam.text,
@@ -1293,10 +1310,14 @@ class CTCBeamSearcher(CTCBaseSearcher):
                             )
                         )
 
+            # we merge the beams with the same text
             new_beams = self.merge_beams(new_beams)
+
+            # kenlm scoring
             scored_beams = self.get_lm_beams(
                 new_beams, cached_lm_scores, cached_p_lm_scores,
             )
+
             # remove beam outliers
             max_score = max([b.lm_score for b in scored_beams])
             scored_beams = [
