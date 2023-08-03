@@ -613,8 +613,17 @@ class CTCBaseSearcher(torch.nn.Module):
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
 
         # fetch the index of space_token
-        self.space_index = vocab_list.index(space_token)
-        logger.info(f"Find `space_token` at index {self.space_index}.")
+        if not self.is_spm:
+            try:
+                self.space_index = vocab_list.index(space_token)
+            except ValueError:
+                logger.warning(
+                    f"Space token `{space_token}` not found in the vocabulary."
+                    "Using value -1 for space index."
+                    "Note: If your transcription is not expected to contain spaces, "
+                    "you can ignore this warning."
+                )
+            logger.info(f"Find `space_token` at index {self.space_index}.")
 
         self.kenlm_model = None
         if kenlm_model_path is not None:
