@@ -375,7 +375,55 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 
 @dataclasses.dataclass
 class CTCBeam:
-    """Contains all the info needed for decoding a beam."""
+    """Contains all the info needed for decoding a beam.
+
+    Arguments
+    ---------
+    text : str
+        The current text of the beam.
+    full_text : str
+        The full text of the beam.
+    next_word : str
+        The next word to be added to the beam.
+    partial_word : str
+        The partial word being added to the beam.
+    last_token : str, optional
+        The last token of the beam.
+    last_token_index : int, optional
+        The index of the last token of the beam.
+    p : float
+        The probability of the beam.
+    p_b : float
+        The probability of the beam ending in a blank.
+    p_nb : float
+        The probability of the beam not ending in a blank.
+    n_p_b : float
+        The previous probability of the beam ending in a blank.
+    n_p_nb : float
+        The previous probability of the beam not ending in a blank.
+    score : float
+        The score of the beam (LM + CTC)
+    score_ctc : float
+        The CTC score computed.
+
+    Example
+    -------
+    >>> beam = CTCBeam(
+    ...     text="",
+    ...     full_text="",
+    ...     next_word="",
+    ...     partial_word="",
+    ...     last_token=None,
+    ...     last_token_index=None,
+    ...     p=-math.inf,
+    ...     p_b=-math.inf,
+    ...     p_nb=-math.inf,
+    ...     n_p_b=-math.inf,
+    ...     n_p_nb=-math.inf,
+    ...     score=-math.inf,
+    ...     score_ctc=-math.inf,
+    ... )
+    """
 
     text: str
     full_text: str
@@ -393,7 +441,18 @@ class CTCBeam:
 
     @classmethod
     def from_lm_beam(self, lm_beam: "LMCTCBeam") -> "CTCBeam":
-        """ Create a CTCBeam from a LMCTCBeam"""
+        """Create a CTCBeam from a LMCTCBeam
+
+        Arguments
+        ---------
+        lm_beam : LMCTCBeam
+            The LMCTCBeam to convert.
+
+        Returns
+        -------
+        CTCBeam
+            The CTCBeam converted.
+        """
         return CTCBeam(
             text=lm_beam.text,
             full_text=lm_beam.full_text,
