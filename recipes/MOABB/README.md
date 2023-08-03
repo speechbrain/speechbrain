@@ -66,7 +66,7 @@ By following these steps, you can ensure that MNE uses the specified folder for 
 
 
 ## Training Strategies
-EEG recordings involve recording brain activity from a subject using multiple EEG sensors placed on their head, resulting in a multi-channel signal (one for each sensor). These recordings can be performed while the subject is engaged in specific tasks, such as motor imagery, where they are asked to think about a particular movement.
+EEG recordings involve recording brain activity from a subject using multiple EEG sensors placed on their head, resulting in a multi-channel signal (one for each sensor). These recordings can be performed while the subject is engaged in specific tasks, such as motor imagery, where they are asked to think about a particular movement. Multiple recordings, each involving the same subject undertaking the same task, are typically conducted. These recordings are referred to as *sessions*.
 
 One of the distinctive features of EEG tasks compared to other popular machine learning tasks, such as speech processing or computer vision, is the relatively low amount of data available for each subject. Additionally, due to the cost of recording brain activity, the number of subjects is not extensive.
 
@@ -82,37 +82,21 @@ Normally, two common strategies are used during the training phase: Leave-One-Se
 
 ## ▶️ Quickstart
 
-Before running an experiment, ensure that you have installed the extra dependencies listed in the `extra_requirements.txt` file.
+Before proceeding with the experiments, make sure that you have installed the additional dependencies listed in the `extra_requirements.txt` file. Please, read the content above as well.
 
-### Running a Single Experiment
+### Training for a Specific Subject and Session
 
-To train a neural network for decoding single EEG trials, run the following code:
-
-```bash
-python train.py hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data --target_subject_idx=0 --target_session_idx=0 --data_iterator_name=leave-one-session-out --number_of_epochs=10 --device='cpu'
-```
-
-Replace `hparams/EEGNet_BNCI2014001.yaml` with the desired hyperparameter file and `'path/to/BNCI2014001'` with the folder where data will be automatically downloaded.
-
-Training employs different strategies: leave-one-session-out and leave-one-subject-out. These strategies are defined as follows:
-* Leave-one-session-out (within-subject, cross-session, and session-agnostic decoders):
-  For each subject, one session is reserved as a test set, and the remaining sessions are used for training neural networks.
-
-* Leave-one-subject-out (cross-subject, cross-session, and subject-agnostic decoders):
-  One subject is reserved as a test set, and the remaining subjects are used for training neural networks.
-
-The yaml files contain hyperparameters selected as the best after hyperparameter tuning.
-
-After training, aggregate and visualize the performance of all experiments with:
-```bash
-python parse_results.py results/MOABB/EEGNet_BNCI2014001/ test_metrics.pkl acc f1
-```
-
-To see the results on the validation set, use:
+Let's now dive into how to train a model using data from a single subject and session. Follow the steps below to run this experiment:
 
 ```bash
-python parse_results.py results/MOABB/EEGNet_BNCI2014001/ test_metrics.pkl acc f1
+python train.py hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data --target_subject_idx=0 --target_session_idx=0 --data_iterator_name=leave-one-session-out
 ```
+
+In this example, we will train EEGNET for Motor Imagery using the BNCI2014001 dataset. Specifically, we will train the model using data from subject 0. The  data recorded in session 0 will be used for testing, while all the other sessions will be used for training.
+
+The data will be automatically downloaded to the specified `data_folder`, and a cached version of the data will be stored in `cached_data_folder` for future reuse.
+
+
 
 ### Hyperparameter Tuning
 
