@@ -1000,8 +1000,8 @@ class CTCBeamSearcher(CTCBaseSearcher):
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> decoder = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
-    >>> hyps = decoder(probs, lens)
+    >>> searcher = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
+    >>> hyps = searcher(probs, lens)
     """
 
     def __init__(self, **kwargs):
@@ -1264,8 +1264,8 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> decoder = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
-    >>> hyps = decoder(probs, lens)
+    >>> searcher = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
+    >>> hyps = searcher(probs, lens)
     """
 
     def __init__(self, **kwargs):
@@ -1644,7 +1644,7 @@ class TorchAudioCTCPrefixBeamSearcher:
     unk_word : str, optional
         Unknown word token. (default: "<unk>")
     using_cpu_decoder : bool, optional
-        Whether to use the CPU decoder. If False, then the CUDA decoder is used. (default: True)
+        Whether to use the CPU searcher. If False, then the CUDA decoder is used. (default: True)
     blank_skip_threshold : float, optional
         Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (default: log(1.0)).
         Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
@@ -1659,8 +1659,8 @@ class TorchAudioCTCPrefixBeamSearcher:
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> decoder = TorchAudioCTCBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
-    >>> hyps = decoder(probs, lens)
+    >>> searcher = TorchAudioCTCBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
+    >>> hyps = searcher(probs, lens)
     """
 
     def __init__(
