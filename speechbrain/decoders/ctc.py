@@ -915,7 +915,7 @@ class CTCBaseSearcher(torch.nn.Module):
             logger.warning(
                 f"Vocab size mismatch: log_probs vocab dim is {log_probs.size(2)} "
                 f"while vocab_list is {len(self.vocab_list)}. "
-                "Going to truncate the log_probs vocab dim to match vocab_list."
+                "During decoding, going to truncate the log_probs vocab dim to match vocab_list."
             )
 
         # compute wav_lens and cast to numpy as it is faster
