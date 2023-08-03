@@ -15,7 +15,7 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
 cached_data_folder: !PLACEHOLDER #'path/to/pickled/dataset'
-output_folder: !ref results/MOABB/EEGNet_BNCI2014001/<seed>
+output_folder: !ref results/MotorImagery/EEGNet_BNCI2014001/EEGNet/<seed>
 
 
 # DATASET HPARS
@@ -203,7 +203,7 @@ dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
 dropout: 0.1748  # dropout rate
 activation_type: 'elu'
 
-model: !new:speechbrain.lobes.models.EEGNet.EEGNet
+model: !new:models.EEGNet.EEGNet
     input_shape: !ref <input_shape>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
     cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
