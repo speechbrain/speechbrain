@@ -15,7 +15,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 
 
@@ -139,17 +139,18 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "CTC, seq2seq, and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    w.write("CTC loss stats:\n")
+                    self.ctc_metrics.write_stats(w)
+                    w.write("\nseq2seq loss stats:\n")
+                    self.seq_metrics.write_stats(w)
+                    w.write("\nPER stats:\n")
+                    self.per_metrics.write_stats(w)
+                    print(
+                        "CTC, seq2seq, and PER stats written to file",
+                        self.hparams.wer_file,
+                    )
 
 
 def data_io_prep(hparams):
@@ -295,6 +296,7 @@ if __name__ == "__main__":
             "save_json_train": hparams["train_annotation"],
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

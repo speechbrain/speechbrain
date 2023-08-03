@@ -35,7 +35,7 @@ import torch
 import logging
 import speechbrain as sb
 import torchaudio
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from hyperpyyaml import load_hyperpyyaml
@@ -250,8 +250,9 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 # Define custom data procedure
@@ -352,7 +353,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

@@ -63,7 +63,7 @@ class LinearNorm(torch.nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.Tacotron2 import Tacotron2
+    >>> from speechbrain.lobes.models.Tacotron2 import LinearNorm
     >>> layer = LinearNorm(in_dim=5, out_dim=3)
     >>> x = torch.randn(3, 5)
     >>> y = layer(x)
@@ -921,7 +921,7 @@ class Decoder(nn.Module):
         alignments = alignments.transpose(0, 1).contiguous()
         # (T_out, B) -> (B, T_out)
         if gate_outputs.dim() == 1:
-            gate_outputs.unsqueeze(0)
+            gate_outputs = gate_outputs.unsqueeze(0)
         else:
             gate_outputs = gate_outputs.transpose(0, 1).contiguous()
         # (T_out, B, n_mel_channels) -> (B, T_out, n_mel_channels)

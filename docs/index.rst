@@ -3,10 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-SpeechBrain
-=======================================
-
-.. image:: images/logo_noname_rounded_big.png
+.. image:: images/speechbrain-logo.svg
   :width: 400
   :align: center
 
@@ -17,8 +14,8 @@ please refer to the official `Github <https://github.com/speechbrain/speechbrain
 or the official `Website <https://speechbrain.github.io>`
 
 
-Licence
---------
+License
+-------
 
 SpeechBrain is released under the Apache license, version 2.0. The Apache license is a popular BSD-like license.
 SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances you may have to distribute a license document).
@@ -28,7 +25,7 @@ It is a community project, which means that discussions are engaged community-wi
 There is no legal institution associated as an owner of SpeechBrain. Furthermore, and due to the Apache Licence, anyone that would disagree with the way the project is being run can fork it and start a new toolkit.
 
 Referencing SpeechBrain
---------
+-----------------------
 .. code-block:: txt
 
   @misc{speechbrain,
@@ -50,9 +47,11 @@ Referencing SpeechBrain
    multigpu.md
    tutorials.md
    contributing.md
+   guidance.md
+   coverage.md
 
 API Documentation
---------
+-----------------
 
 .. toctree::
    :caption: API Documentation:

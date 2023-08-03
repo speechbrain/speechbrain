@@ -1,9 +1,13 @@
 # Speaker Diarization on AMI corpus
 This directory contains the scripts for speaker diarization on the AMI corpus (http://groups.inf.ed.ac.uk/ami/corpus/).
 
-## Extra requirements
-The code requires sklearn as an additional dependency.
-To install it, type: `pip install sklearn`
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 ## How to run
 Use the following command to run diarization on AMI corpus.

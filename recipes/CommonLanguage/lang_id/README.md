@@ -14,7 +14,7 @@ better performance, at the cost of longer training time and higher compute resou
 # Performance
 | Release | hyperparams file | Val. Err | Test Err | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 21-06-28 | train.yaml |  13. 5 | 15.1 | https://drive.google.com/drive/folders/1btxc_H27AP_f6u4X47FM0LSteUdzhfFR?usp=sharing | 1xV100 16GB |
+| 21-06-28 | train.yaml |  13. 5 | 15.1 | https://www.dropbox.com/sh/1fxpzyv67ouwd2c/AAAeMUWYP2f1ycpE1Lp1CwEla?dl=0 | 1xV100 16GB |
 
 Each epoch takes approximately 14 minutes on an NVIDIA V100.
 

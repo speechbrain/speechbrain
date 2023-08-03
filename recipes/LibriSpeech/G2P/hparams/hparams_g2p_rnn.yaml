@@ -16,7 +16,7 @@ trial_id: null
 
 # Data paths
 output_folder: !ref results/RNN/<seed>
-data_folder: null # e.g. /localscratch/librig2p
+data_folder: !PLACEHOLDER # e.g. /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
@@ -67,6 +67,9 @@ tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
 skip_prep: False
 sorting: random #ascending
 origins: "*"
+# skip_test can be a Boolean value or a list of steps for which
+# the test stage can be skipped
+skip_test: null
 phonemes_count: 43
 graphemes_count: 31
 phonemes_enable_space: True
@@ -162,6 +165,7 @@ word_emb_norm_type: batch
 # Evaluation parameters
 eval_dataset: train
 eval_train_step: sentence
+eval_ckpt_step: !ref <eval_train_step>
 eval_batch_size: 256
 eval_batch_count: 1
 eval_reporting: raw
@@ -545,7 +549,18 @@ encode_pipeline:
           takes: grapheme_encoded_list
           provides:
               - grapheme_encoded
+              - grapheme_len
               - grapheme_encoded_eos
+              - grapheme_len_eos
+        - func: !name:speechbrain.lobes.models.g2p.dataio.word_emb_pipeline
+              word_emb: !ref <word_emb>
+              grapheme_encoder: !ref <grapheme_encoder>
+              use_word_emb: !ref <use_word_emb>
+          takes:
+              - txt
+              - grapheme_encoded
+              - grapheme_len
+          provides: word_emb
 
 
 decode_pipeline:

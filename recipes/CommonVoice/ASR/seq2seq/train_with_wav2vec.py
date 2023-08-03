@@ -7,7 +7,7 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 """Recipe for training a sequence-to-sequence ASR system with CommonVoice.
 The system employs a wav2vec2 encoder, a decoder, and an attention mechanism
@@ -53,7 +53,7 @@ class ASR(sb.core.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
 
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
@@ -219,8 +219,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -238,6 +239,11 @@ class ASR(sb.core.Brain):
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.model_optimizer.zero_grad(set_to_none)
+        if not self.hparams.wav2vec2.freeze:
+            self.wav2vec_optimizer.zero_grad(set_to_none)
 
 
 # Define custom data procedure
@@ -337,7 +343,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

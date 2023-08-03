@@ -128,14 +128,14 @@ class Separation(sb.Brain):
                 # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
+                    loss = loss[loss > th]
+                    if loss.nelement() > 0:
+                        loss = loss.mean()
                 else:
                     loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -161,14 +161,14 @@ class Separation(sb.Brain):
 
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
+                loss = loss[loss > th]
+                if loss.nelement() > 0:
+                    loss = loss.mean()
             else:
                 loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -207,7 +207,7 @@ class Separation(sb.Brain):
             else:
                 self.save_audio(snt_id[0], mixture, targets, predictions)
 
-        return loss.detach()
+        return loss.mean().detach()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -548,13 +548,12 @@ if __name__ == "__main__":
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):
-        print(
+        raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
-        sys.exit(1)
 
     # Data preparation
-    from recipes.WHAMandWHAMR.prepare_data import prepare_wham_whamr_csv
+    from prepare_data import prepare_wham_whamr_csv
 
     run_on_main(
         prepare_wham_whamr_csv,
@@ -568,8 +567,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
-        from recipes.WHAMandWHAMR.prepare_data import create_whamr_rir_csv
-        from recipes.WHAMandWHAMR.meta.create_whamr_rirs import create_rirs
+        from prepare_data import create_whamr_rir_csv
+        from create_whamr_rirs import create_rirs
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
@@ -667,15 +666,14 @@ if __name__ == "__main__":
         for module in separator.modules.values():
             separator.reset_layer_recursively(module)
 
-    if not hparams["test_only"]:
-        # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+    # Training
+    separator.fit(
+        separator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     separator.evaluate(test_data, min_key="si-snr")

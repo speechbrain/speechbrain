@@ -110,7 +110,7 @@ class G2PBrain(sb.Brain):
         """
         # Run this *after* starting all processes since jit modules cannot be
         # pickled.
-        self._compile_jit()
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -850,6 +850,27 @@ def filter_origins(data, hparams):
     return data
 
 
+def filter_homograph_positions(dataset):
+    """Removes any defective homograph samples
+
+    Arguments
+    ---------
+    data: speechbrain.dataio.dataset.DynamicItemDataset
+        the data to be filtered
+
+    Results
+    -------
+    data: speechbrain.dataio.dataset.DynamicItemDataset
+        the filtered data
+    """
+    return dataset.filtered_sorted(
+        key_test={
+            "homograph_char_end": lambda value: value > 0,
+            "homograph_phn_end": lambda value: value > 0,
+        }
+    )
+
+
 def validate_hparams(hparams):
     result = True
     supports_homograph = not (
@@ -1031,12 +1052,22 @@ def dataio_prep(hparams, train_step=None):
         {
             "func": phn_bos_eos_pipeline_item,
             "takes": ["phn_encoded"],
-            "provides": ["phn_encoded_bos", "phn_encoded_eos"],
+            "provides": [
+                "phn_encoded_bos",
+                "phn_len_bos",
+                "phn_encoded_eos",
+                "phn_len_eos",
+            ],
         },
         {
             "func": grapheme_bos_eos_pipeline_item,
             "takes": ["grapheme_encoded"],
-            "provides": ["grapheme_encoded_bos", "grapheme_encoded_eos"],
+            "provides": [
+                "grapheme_encoded_bos",
+                "grapheme_len_bos",
+                "grapheme_encoded_eos",
+                "grapheme_len_eos",
+            ],
         },
     ]
 
@@ -1090,11 +1121,10 @@ def dataio_prep(hparams, train_step=None):
     )
     if "origins" in hparams:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
-        train_data, valid_data, test_data = datasets
 
-    sample = hparams.get("sample")
-    if sample:
-        datasets = [filter_origins(dataset, hparams) for dataset in datasets]
+    if train_step.get("mode") == "homograph":
+        datasets = [filter_homograph_positions(dataset) for dataset in datasets]
+
     train_data, valid_data, test_data = datasets
     return train_data, valid_data, test_data, phoneme_encoder
 
@@ -1151,7 +1181,10 @@ if __name__ == "__main__":
 
         # Validate hyperparameters
         if not validate_hparams(hparams):
-            sys.exit(1)
+            raise ValueError(
+                "Non-wordwise tokenization is not supported with "
+                "homograph disambiguation training"
+            )
 
         # Initialize ddp (useful only for multi-GPU DDP training)
         sb.utils.distributed.ddp_init_group(run_opts)
@@ -1237,11 +1270,16 @@ if __name__ == "__main__":
             )
 
             # Test
-            g2p_brain.evaluate(
-                test_data,
-                min_key=train_step.get("performance_key"),
-                test_loader_kwargs=dataloader_opts,
-            )
+            skip_test = hparams.get("skip_test", False)
+            if isinstance(skip_test, str):
+                skip_test = train_step["name"] in skip_test.split(",")
+
+            if not skip_test:
+                g2p_brain.evaluate(
+                    test_data,
+                    min_key=train_step.get("performance_key"),
+                    test_loader_kwargs=dataloader_opts,
+                )
 
             if hparams.get("save_for_pretrained"):
                 save_for_pretrained(

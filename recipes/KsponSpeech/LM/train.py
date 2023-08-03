@@ -10,7 +10,7 @@ To run this recipe, do the following:
 Authors
  * Jianyuan Zhong 2021
  * Ju-Chieh Chou 2020
- * Dongwon Kim, Dongwoo Kim 2021
+ * Dongwon Kim, Dongwoo Kim 2023
 """
 import sys
 import logging
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

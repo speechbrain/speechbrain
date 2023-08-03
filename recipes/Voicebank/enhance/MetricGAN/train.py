@@ -85,6 +85,7 @@ class MetricGanBrain(sb.Brain):
 
         clean_wav, lens = batch.clean_sig
         clean_spec = self.compute_feats(clean_wav)
+        clean_paths = batch.clean_wav
 
         ids = self.compute_ids(batch.id, optim_name)
 
@@ -109,7 +110,7 @@ class MetricGanBrain(sb.Brain):
 
             # Write enhanced wavs during discriminator training, because we
             # compute the actual score here and we can save it
-            self.write_wavs(batch.id, ids, predict_wav, target_score, lens)
+            self.write_wavs(ids, predict_wav, clean_paths, target_score, lens)
 
         # D Relearns to estimate the scores of previous epochs
         elif optim_name == "D_enh" and self.sub_stage == SubStage.HISTORICAL:
@@ -245,7 +246,7 @@ class MetricGanBrain(sb.Brain):
         )
         return self.modules.discriminator(combined_spec)
 
-    def write_wavs(self, clean_id, batch_id, wavs, scores, lens):
+    def write_wavs(self, batch_id, wavs, clean_paths, scores, lens):
         """Write wavs to files, for historical discriminator training
 
         Arguments
@@ -254,6 +255,8 @@ class MetricGanBrain(sb.Brain):
             A list of the utterance ids for the batch
         wavs : torch.Tensor
             The wavs to write to files
+        clean_paths : list of str
+            The paths to the clean wavs
         scores : torch.Tensor
             The actual scores for the corresponding utterances
         lens : torch.Tensor
@@ -261,8 +264,8 @@ class MetricGanBrain(sb.Brain):
         """
         lens = lens * wavs.shape[1]
         record = {}
-        for i, (cleanid, name, pred_wav, length) in enumerate(
-            zip(clean_id, batch_id, wavs, lens)
+        for i, (name, pred_wav, clean_path, length) in enumerate(
+            zip(batch_id, wavs, clean_paths, lens)
         ):
             path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
@@ -270,9 +273,6 @@ class MetricGanBrain(sb.Brain):
 
             # Make record of path and score for historical training
             score = float(scores[i][0])
-            clean_path = os.path.join(
-                self.hparams.train_clean_folder, cleanid + ".wav"
-            )
             record[name] = {
                 "enh_wav": path,
                 "score": score,
@@ -446,9 +446,16 @@ class MetricGanBrain(sb.Brain):
                 dataset = sb.dataio.dataset.DynamicItemDataset(
                     data=dataset,
                     dynamic_items=[enh_pipeline],
-                    output_keys=["id", "enh_sig", "clean_sig", "score"],
+                    output_keys=[
+                        "id",
+                        "enh_sig",
+                        "clean_sig",
+                        "score",
+                        "clean_wav",
+                    ],
                 )
                 samples = round(len(dataset) * self.hparams.history_portion)
+                samples = max(samples, 1)  # Ensure there's at least one sample
             else:
                 samples = self.hparams.number_of_samples
 
@@ -458,8 +465,12 @@ class MetricGanBrain(sb.Brain):
             # Equal weights for all samples, we use "Weighted" so we can do
             # both "replacement=False" and a set number of samples, reproducibly
             weights = torch.ones(len(dataset))
+            replacement = samples > len(dataset)
             sampler = ReproducibleWeightedRandomSampler(
-                weights, epoch=epoch, replacement=False, num_samples=samples
+                weights,
+                epoch=epoch,
+                replacement=replacement,
+                num_samples=samples,
             )
             loader_kwargs["sampler"] = sampler
 
@@ -488,6 +499,10 @@ class MetricGanBrain(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("g_opt", self.g_optimizer)
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.g_optimizer.zero_grad(set_to_none)
+        self.d_optimizer.zero_grad(set_to_none)
 
 
 # Define audio piplines
@@ -521,7 +536,7 @@ def dataio_prep(hparams):
             json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
-            output_keys=["id", "noisy_sig", "clean_sig"],
+            output_keys=["id", "noisy_sig", "clean_sig", "clean_wav"],
         )
 
     return datasets

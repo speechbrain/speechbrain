@@ -301,6 +301,8 @@ class TransducerLoss(Module):
     The TranducerLoss(nn.Module) use Transducer(autograd.Function)
     to compute the forward-backward loss and gradients.
 
+    Input tensors must be on a cuda device.
+
     Example
     -------
     >>> import torch
@@ -332,11 +334,18 @@ class TransducerLoss(Module):
             err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
             err_msg += "================================ \n"
             err_msg += "If you use conda:\n"
-            err_msg += "conda install numba cudatoolkit=9.0"
+            err_msg += "conda install numba cudatoolkit=XX (XX is your cuda toolkit version)"
             raise ImportError(err_msg)
 
     def forward(self, logits, labels, T, U):
         """Computes the transducer loss."""
         # Transducer.apply function take log_probs tensor.
-        log_probs = logits.log_softmax(-1)
-        return self.loss(log_probs, labels, T, U, self.blank, self.reduction)
+        if all(t.is_cuda for t in (logits, labels, T, U)):
+            log_probs = logits.log_softmax(-1)
+            return self.loss(
+                log_probs, labels, T, U, self.blank, self.reduction
+            )
+        else:
+            raise ValueError(
+                f"Found inputs tensors to be on {[logits.device, labels.device, T.device, U.device]} while needed to be on a 'cuda' device to use the transducer loss."
+            )

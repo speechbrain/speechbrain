@@ -20,7 +20,7 @@ import torch
 import speechbrain as sb
 import logging
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -178,8 +178,9 @@ class SLU(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):
@@ -303,7 +304,7 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

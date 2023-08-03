@@ -64,6 +64,9 @@ character_coverage: 1.0
 skip_prep: False
 sorting: random #ascending
 origins: "*"
+# skip_test can be a Boolean value or a list of steps for which
+# the test stage can be skipped
+skip_test: null
 graphemes_count: 31
 phonemes_count: 43
 phonemes_enable_space: True
@@ -90,8 +93,6 @@ lr: 0.0001
 lr_min: 0.00001
 lr_dont_halve_until_epoch: 1
 lr_patience: 1
-adam_beta1: 0.99
-adam_beta2: 0.998
 save_for_pretrained: True
 
 # Model parameters
@@ -170,6 +171,7 @@ word_emb_norm_type: batch
 # Evaluation parameters
 eval_dataset: train
 eval_train_step: sentence
+eval_ckpt_step: !ref <eval_train_step>
 eval_batch_size: 128
 eval_batch_count: 1
 eval_reporting: raw
@@ -363,7 +365,7 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    betas: !ref (<adam_beta1>, <adam_beta2>)
+    betas: (0.99, 0.998)
 
 beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules:
@@ -581,7 +583,18 @@ encode_pipeline:
           takes: grapheme_encoded_list
           provides:
               - grapheme_encoded_bos
+              - grapheme_len_bos
               - grapheme_encoded
+              - grapheme_len
+        - func: !name:speechbrain.lobes.models.g2p.dataio.word_emb_pipeline
+              word_emb: !ref <word_emb>
+              grapheme_encoder: !ref <grapheme_encoder>
+              use_word_emb: !ref <use_word_emb>
+          takes:
+              - txt
+              - grapheme_encoded
+              - grapheme_len
+          provides: word_emb
 
 
 decode_pipeline:

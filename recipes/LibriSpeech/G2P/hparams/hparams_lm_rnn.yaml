@@ -1,7 +1,8 @@
 # ############################################################################
 # Model: Language model with a recurrent neural network (RNNLM)
-# Training: mini-librispeech transcripts
+# Training: LibriG2P
 # Authors:  Ju-Chieh Chou 2020, Jianyuan Zhong 2021, Mirco Ravanelli 2021
+#           Artem Ploujnikov 2021
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made

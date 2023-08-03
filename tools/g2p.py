@@ -57,11 +57,13 @@ Authors
 import itertools
 import math
 import os
-import sys
 import speechbrain as sb
+import sys
 import traceback
+
 from cmd import Cmd
 from argparse import ArgumentParser
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.pretrained.interfaces import GraphemeToPhoneme
 from tqdm.auto import tqdm
 
@@ -265,6 +267,83 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
         self.do_g2p(inp)
 
 
+def load_g2p_checkpoint(
+    hparams_file_name,
+    path=None,
+    best=False,
+    train_step=None,
+    run_opts=None,
+    overrides=None,
+):
+    """Loads a G2P model from a checkpoint using the specified
+    criteria
+
+    Arguments
+    ---------
+    hparams_file_name: str
+        the path to the hyperparameters file
+    run_opts: dict
+        the run options
+    path: str
+        the path to the specified checkpoint
+    best: bool
+        whether to use the best checkpoint
+    train_step: str
+        whether or not to use checkpoints only from a specific
+        training step
+    run_opts: dict
+        the run options
+    overrides: dict
+        command-line parameters to overrde the ones supplied
+        in hparams
+
+    Returns
+    -------
+    g2p: speechbrain.pretrained.interfaces.GraphemeToPhoneme
+        a pretrained G2P model, initialized from a checkpoint
+    """
+    with open(hparams_file_name) as hparams_file:
+        hparams = load_hyperpyyaml(hparams_file, overrides)
+    checkpointer = hparams.get("checkpointer")
+    if checkpointer is None:
+        raise ValueError(
+            f"Unable to use hparams - {hparams_file_name} - no checkpointer found"
+        )
+    if best:
+        ckpt = checkpointer.recover_if_possible(
+            min_key="PER",
+            ckpt_predicate=(
+                (lambda ckpt: ckpt.meta.get("step") == train_step)
+                if train_step is not None
+                else None
+            ),
+        )
+        if not ckpt and train_step == "homograph":
+            ckpt = checkpointer.recover_if_possible(
+                min_key="PER_homograph",
+                ckpt_predicate=(
+                    (lambda ckpt: ckpt.meta.get("step") == train_step)
+                    if train_step is not None
+                    else None
+                ),
+            )
+    elif path:
+        ckpt = checkpointer.recover_if_possible(
+            ckpt_predicate=lambda ckpt: ckpt.path == path
+        )
+    else:
+        ckpt = checkpointer.recover_if_possible()
+
+    if ckpt is None:
+        raise ValueError("Checkpoint not found")
+
+    print(f"Using checkpoint {ckpt.path} with metadata {ckpt.meta}")
+
+    return GraphemeToPhoneme(
+        hparams=hparams, modules=hparams["modules"], run_opts=run_opts
+    )
+
+
 def main():
     """Runs the command-line tool"""
     # Parse command-line arguments
@@ -278,6 +357,16 @@ def main():
         "--hparams",
         help="The name of the hyperparameter file",
         default="hyperparams.yaml",
+    )
+    parser.add_argument("--ckpt", help="The checkpoint to use")
+    parser.add_argument(
+        "--ckpt-best",
+        help="Use the checkpoint with the best performance",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--ckpt-train-step",
+        help="The train step to use when searching for checkpoints",
     )
     parser.add_argument("--text", help="The text to transcribe")
     parser.add_argument("--text-file", help="the text file to transcribe")
@@ -299,23 +388,31 @@ def main():
 
     # Ensure the model directory exists
     if not os.path.isdir(arguments.model):
-        print(MSG_MODEL_NOT_FOUND, file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(MSG_MODEL_NOT_FOUND)
 
     # Determine the path to the hyperparameters file
     hparams_file_name = os.path.join(arguments.model, arguments.hparams)
     if not os.path.isfile(hparams_file_name):
-        print(MSG_HPARAMS_NOT_FILE, file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(MSG_HPARAMS_NOT_FILE)
 
     # Initialize the pretrained grapheme-to-phoneme model
-    g2p = GraphemeToPhoneme.from_hparams(
-        hparams_file=hparams_file_name,
-        source=arguments.model,
-        overrides=overrides,
-        run_opts=run_opts,
-        savedir=arguments.model,
-    )
+    if arguments.ckpt or arguments.ckpt_best:
+        g2p = load_g2p_checkpoint(
+            hparams_file_name=hparams_file_name,
+            path=arguments.ckpt,
+            best=arguments.ckpt_best,
+            train_step=arguments.ckpt_train_step,
+            run_opts=run_opts,
+            overrides=overrides,
+        )
+    else:
+        g2p = GraphemeToPhoneme.from_hparams(
+            hparams_file=hparams_file_name,
+            source=arguments.model,
+            overrides=overrides,
+            run_opts=run_opts,
+            savedir=arguments.model,
+        )
 
     # Language model adjustments
     if getattr(g2p.hparams, "use_language_model", False):

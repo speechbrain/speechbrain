@@ -9,14 +9,18 @@ For details please refer to: https://arxiv.org/abs/2005.09310
 
 | Distillation Strategy | Valid PER | Test PER | Model link | GPUs |
 |:---------------------------:| :-----:| :-----:| :-----:| :--------:|
-| Weighted | 11.87 | 13.11 | [model](https://drive.google.com/drive/folders/1MHR2AZvCYZr88yUQZTmORCvKJqTsYZAQ?usp=sharing) | 1xV100 16GB |
-| Best | 11.93 | 13.15 | [model](https://drive.google.com/drive/folders/1D-3GNh-XzjoU-_6egT3Ns6maCvF-fAJH?usp=sharing) | 1xV100 16GB |
+| Weighted | 11.87 | 13.11 | [model](https://www.dropbox.com/sh/h30wdezgw7qocsc/AACsY20GD94Qe-AukFPhRcj2a?dl=0) | 1xV100 16GB |
+| Best | 11.93 | 13.15 | [model](https://www.dropbox.com/sh/6p0szvox5sj8z77/AAALVExCU0YAGXH-nAm3kdkqa?dl=0) | 1xV100 16GB |
 
-The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://drive.google.com/drive/folders/1ZcME-Wf4stlzW3j_iJ3zGDCkSy1V_Wjs?usp=sharing).
+The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0).
 
-### Extra-Dependencies
-Before running this recipe, make sure h5py is installed. Otherwise, run:
-pip install h5py
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 ### Training steps
 To speed up student distillation from multiple teachers, we separate the whole procedure into three parts: teacher model training, inference running on teacher models, student distillation.

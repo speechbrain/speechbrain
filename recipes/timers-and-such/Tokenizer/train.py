@@ -25,7 +25,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -47,6 +47,7 @@ if __name__ == "__main__":
             "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "type": "direct",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

@@ -25,7 +25,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     )
 
     # 1.  # Dataset prep (parsing timers-and-such)
-    from prepare import prepare_aishell  # noqa
+    from aishell_prepare import prepare_aishell  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
@@ -45,6 +45,7 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["output_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

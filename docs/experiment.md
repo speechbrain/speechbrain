@@ -15,6 +15,14 @@ The YAML syntax offers an elegant way to specify the hyperparameters of a recipe
 In SpeechBrain, the YAML file is not a plain list of parameters, but for each parameter, we specify the function (or class) that is using it.
 This not only makes the specification of the parameters more transparent but also allows us to properly initialize all the entries by simply calling the `load_extended_yaml` (in `speechbrain.utils.data_utils`).
 
+### Security note
+Loading HyperPyYAML allows arbitrary code execution.
+This is a feature: HyperPyYAML allows you to construct *anything* and *everything*
+you need in your experiment.
+However, take care to verify any untrusted recipes' YAML files just as you would verify the Python code.
+
+### Features
+
 Let's now take a quick look at the extended YAML features, using an example:
 
 ```
@@ -38,7 +46,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
   every user either by editing the yaml, or with an override (passed to
   `load_extended_yaml`).
 
-For more details on YAML and our extensions, please see our dedicated [tutorial](https://colab.research.google.com/drive/1Pg9by4b6-8QD2iC0U7Ic3Vxq4GEwEdDz?usp=sharing).
+For more details on YAML and our extensions, please see our dedicated [tutorial](https://colab.research.google.com/drive/1Pg9by4b6-8QD2iC0U7Ic3Vxq4GEwEdDz).
 
 ## Running arguments
 SpeechBrain defines a set of running arguments that can be set from the command line args (or within the YAML file).
@@ -50,7 +58,7 @@ SpeechBrain defines a set of running arguments that can be set from the command 
 - `distributed_backend`: default "nccl", options: `["nccl", "gloo", "mpi"]`, this backend will be used as a DDP communication protocol. See PyTorch documentation for more details.
 - Additional runtime arguments are documented in the Brain class.
 
-Please note that we provide a dedicated [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing) to document the different multi-gpu training strategies:
+Please note that we provide a dedicated [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15) to document the different multi-gpu training strategies:
 
 You can also override parameters in YAML in this way:
 

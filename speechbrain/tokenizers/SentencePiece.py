@@ -84,23 +84,21 @@ class SentencePiece:
     -------
     >>> import torch
     >>> dict_int2lab = {1: "HELLO", 2: "MORNING"}
-    >>> model_dir = "tests/unittests/tokenizer_data/"
+    >>> model_dir = getfixture('tmpdir') / "tokenizer_data"
     >>> # Example with csv
-    >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.csv"
+    >>> annotation_train = "tests/samples/annotation/dev-clean.csv"
     >>> annotation_read = "wrd"
     >>> model_type = "bpe"
-    >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
-    ...                     model_type)
+    >>> bpe = SentencePiece(str(model_dir), 100, annotation_train, annotation_read, model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
     >>> # Example using JSON
-    >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.json"
+    >>> annotation_train = str(model_dir + "/dev-clean.json")
     >>> annotation_read = "wrd"
-    >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
-    ...                     model_type, annotation_format = 'json')
+    >>> bpe = SentencePiece(model_dir, 100, annotation_train, annotation_read, model_type, annotation_format = 'json')
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
@@ -142,7 +140,12 @@ class SentencePiece:
         if self.annotation_train is not None:
             ext = os.path.splitext(self.annotation_train)[1]
             if text_file is None:
-                text_file = self.annotation_train.replace(ext, ".txt")
+                text_file = os.path.join(
+                    model_dir,
+                    os.path.basename(self.annotation_train).replace(
+                        ext, ".txt"
+                    ),
+                )
             self.text_file = text_file
 
         self.prefix_model_file = os.path.join(
@@ -367,13 +370,13 @@ class SentencePiece:
                     fannotation_file.close()
                 logger.info("recover words from: " + annotation_file)
                 if len(wrong_recover_list) > 0:
-                    logger.warn(
+                    logger.warning(
                         "Wrong recover words: " + str(len(wrong_recover_list))
                     )
-                    logger.warn(
+                    logger.warning(
                         "Tokenizer vocab size: " + str(self.sp.vocab_size())
                     )
-                    logger.warn(
+                    logger.warning(
                         "accuracy recovering words: "
                         + str(
                             1

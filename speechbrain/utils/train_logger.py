@@ -7,6 +7,7 @@ import logging
 import ruamel.yaml
 import torch
 import os
+from speechbrain.utils.distributed import main_process_only
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ class FileTrainLogger(TrainLogger):
             [self._item_to_string(k, v, dataset) for k, v in stats.items()]
         )
 
+    @main_process_only
     def log_stats(
         self,
         stats_meta,
@@ -123,6 +125,7 @@ class TensorboardLogger(TrainLogger):
         self.writer = SummaryWriter(self.save_dir)
         self.global_step = {"train": {}, "valid": {}, "test": {}, "meta": 0}
 
+    @main_process_only
     def log_stats(
         self,
         stats_meta,
@@ -189,6 +192,7 @@ class WandBLogger(TrainLogger):
         except Exception as e:
             raise e("There was an issue with the WandB Logger initialization")
 
+    @main_process_only
     def log_stats(
         self,
         stats_meta,
@@ -224,7 +228,7 @@ def _get_image_saver():
 
         return torchvision.utils.save_image
     except ImportError:
-        logger.warn("torchvision is not available - cannot save figures")
+        logger.warning("torchvision is not available - cannot save figures")
         return None
 
 
@@ -404,7 +408,7 @@ def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
         import matplotlib.pyplot as plt
 
     except ImportError:
-        logger.warn("matplotlib is not available - cannot log figures")
+        logger.warning("matplotlib is not available - cannot log figures")
         return None
 
     spectrogram = spectrogram.detach().cpu().numpy().squeeze()

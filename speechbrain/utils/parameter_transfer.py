@@ -5,11 +5,13 @@ and the path to the parameter file.
 
 Authors
  * Aku Rouhe 2020
+ * Andreas Nautsch 2023
+ * Adel Moumen 2023
 """
 import logging
 import pathlib
-
-from speechbrain.pretrained.fetching import fetch
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.pretrained.fetching import fetch, FetchFrom, FetchSource
 from speechbrain.utils.checkpoints import (
     DEFAULT_LOAD_HOOKS,
     DEFAULT_TRANSFER_HOOKS,
@@ -59,6 +61,7 @@ class Pretrainer:
         conditions=None,
     ):
         self.loadables = {}
+        self.loadable_paths = {}
         self.collect_in = pathlib.Path(collect_in)
         if loadables is not None:
             self.add_loadables(loadables)
@@ -71,6 +74,7 @@ class Pretrainer:
         self.conditions = {}
         if conditions is not None:
             self.add_conditions(conditions)
+        self.is_local = []
 
     def set_collect_in(self, path):
         """Change the collecting path"""
@@ -149,13 +153,26 @@ class Pretrainer:
         str
             Filename
         """
-        if "/" in path:
-            return path.rsplit("/", maxsplit=1)
-        else:
-            # Interpret as path to file in current directory.
-            return "./", path
 
-    def collect_files(self, default_source=None):
+        def split(src):
+            """Core function to split path.
+            """
+            if "/" in src:
+                return src.rsplit("/", maxsplit=1)
+            else:
+                # Interpret as path to file in current directory.
+                return "./", src
+
+        if isinstance(path, FetchSource):
+            fetch_from, fetch_path = path
+            source, filename = split(fetch_path)
+            return FetchSource(fetch_from, source), filename
+        else:
+            return split(path)
+
+    def collect_files(
+        self, default_source=None, internal_ddp_handling=False,
+    ):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -168,10 +185,13 @@ class Pretrainer:
 
         Arguments
         ---------
-        default_source : str or Path
+        default_source : str or Path or FetchSource
             This is used for each loadable which doesn't have a path already
             specified. If the loadable has key "asr", then the file to look for is
             default_source/asr.ckpt
+        internal_ddp_handling : bool
+            Whether/not the function should handle DDP i.e. `run_on_main`.
+            (Default: False)
 
         Returns
         -------
@@ -184,7 +204,6 @@ class Pretrainer:
             f"Collecting files (or symlinks) for pretraining in {self.collect_in}."
         )
         self.collect_in.mkdir(exist_ok=True)
-        loadable_paths = {}
         for name in self.loadables:
             if not self.is_loadable(name):
                 continue
@@ -199,11 +218,52 @@ class Pretrainer:
                     f"Path not specified for '{name}', "
                     "and no default_source given!"
                 )
-            path = fetch(
-                filename, source, self.collect_in, save_filename=save_filename
-            )
-            loadable_paths[name] = path
-        return loadable_paths
+            if internal_ddp_handling:
+                # path needs to be available only if it is a local source w/o symlink
+                run_on_main(
+                    fetch,
+                    kwargs={
+                        "filename": filename,
+                        "source": source,
+                        "overwrite": False,
+                        "save_filename": save_filename,
+                        "use_auth_token": False,
+                        "revision": None,
+                    },
+                )
+
+                # we need the path; regardless of rank
+                path = fetch(
+                    filename=filename,
+                    source=source,
+                    savedir=self.collect_in,
+                    overwrite=False,
+                    save_filename=save_filename,
+                    use_auth_token=False,
+                    revision=None,
+                )
+            else:
+                # main node is the only one calling this, so path is available
+                path = fetch(
+                    filename=filename,
+                    source=source,
+                    savedir=self.collect_in,
+                    overwrite=False,
+                    save_filename=save_filename,
+                    use_auth_token=False,
+                    revision=None,
+                )
+            self.loadable_paths[name] = path
+            fetch_from = None
+            if isinstance(source, FetchSource):
+                fetch_from, source = source
+            if fetch_from is FetchFrom.LOCAL or str(path) == str(
+                source
+            ) + "/" + str(filename):
+                logger.info(f"Set local path in self.paths[{name}] = {path}")
+                self.paths[name] = str(path)
+                self.is_local.append(name)
+        return self.loadable_paths
 
     def is_loadable(self, name):
         """Returns True if no condition is defined or for the specified
@@ -240,11 +300,23 @@ class Pretrainer:
             f"Loading pretrained files for: {', '.join(self.loadables)}"
         )
         paramfiles = {}
-        for name in self.loadables:
+        for name, path in self.loadable_paths.items():
             if not self.is_loadable(name):
                 continue
             filename = name + PARAMFILE_EXT
             paramfiles[name] = self.collect_in / filename
+            if not paramfiles[name].exists():
+                # fallback to the original path; this is useful if a relative path was given
+                logger.info(
+                    f"Redirecting (loading from original path): {paramfiles[name]} -> {path}"
+                )
+                paramfiles[name] = path
+
+            if name in self.is_local:
+                logger.info(
+                    f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
+                )
+                paramfiles[name] = self.paths[name]
         self._call_load_hooks(paramfiles, device)
 
     def _call_load_hooks(self, paramfiles, device=None):

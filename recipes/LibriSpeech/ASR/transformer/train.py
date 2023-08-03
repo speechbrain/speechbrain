@@ -41,7 +41,7 @@ import logging
 from pathlib import Path
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +123,6 @@ class ASR(sb.core.Brain):
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
 
-        # now as training progresses we use real prediction from the prev step instead of teacher forcing
-
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
         ).sum()
@@ -151,39 +149,20 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint averge if needed"""
+        super().on_evaluate_start()
 
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model", device=self.device
+        )
 
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach().cpu()
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
+        print("Loaded the average")
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
@@ -235,7 +214,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=10,
             )
 
         elif stage == sb.Stage.TEST:
@@ -243,8 +222,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
@@ -255,19 +235,52 @@ class ASR(sb.core.Brain):
                 num_to_keep=1,
             )
 
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
-        super().on_evaluate_start()
+    def fit_batch(self, batch):
 
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
-        )
+        should_step = self.step % self.grad_accumulation_factor == 0
+        # Managing automatic mixed precision
+        if self.auto_mix_prec:
+            with torch.autocast(torch.device(self.device).type):
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
+            # Losses are excluded from mixed precision to avoid instabilities
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                self.scaler.scale(
+                    loss / self.grad_accumulation_factor
+                ).backward()
+            if should_step:
+                self.scaler.unscale_(self.optimizer)
+                if self.check_gradients(loss):
+                    self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.zero_grad()
+                self.optimizer_step += 1
+                self.hparams.noam_annealing(self.optimizer)
+        else:
+            if self.bfloat16_mix_prec:
+                with torch.autocast(
+                    device_type=torch.device(self.device).type,
+                    dtype=torch.bfloat16,
+                ):
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
+            else:
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            with self.no_sync(not should_step):
+                (loss / self.grad_accumulation_factor).backward()
+            if should_step:
+                if self.check_gradients(loss):
+                    self.optimizer.step()
+                self.zero_grad()
+                self.optimizer_step += 1
+                self.hparams.noam_annealing(self.optimizer)
+
+        self.on_fit_batch_end(batch, outputs, loss, should_step)
+        return loss.detach().cpu()
 
 
 def dataio_prepare(hparams):
@@ -336,14 +349,10 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if hparams["speed_perturb"]:
+        if hasattr(hparams, "speed_perturb"):
             sig = sb.dataio.dataio.read_audio(wav)
-            # factor = np.random.uniform(0.95, 1.05)
-            # sig = resample(sig.numpy(), 16000, int(16000*factor))
-            speed = sb.processing.speech_augmentation.SpeedPerturb(
-                16000, [x for x in range(95, 105)]
-            )
-            sig = speed(sig.unsqueeze(0)).squeeze(0)  # torch.from_numpy(sig)
+
+            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
         else:
             sig = sb.dataio.dataio.read_audio(wav)
         return sig
@@ -389,11 +398,12 @@ def dataio_prepare(hparams):
             length_func=lambda x: x["duration"],
             shuffle=dynamic_hparams["shuffle_ex"],
             batch_ordering=dynamic_hparams["batch_ordering"],
+            max_batch_ex=dynamic_hparams["max_batch_ex"],
         )
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
+            dynamic_hparams["max_batch_len_val"],
             num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
             shuffle=dynamic_hparams["shuffle_ex"],
@@ -416,7 +426,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
+    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -438,9 +448,9 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["data_folder"],
+            "save_folder": hparams["output_folder"],
             "merge_lst": hparams["train_splits"],
-            "merge_name": hparams["train_csv"],
+            "merge_name": "train.csv",
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -475,12 +485,27 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in train_dataloader_opts:
+            collate_fn = train_dataloader_opts["collate_fn"]
+
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
+
+        if collate_fn is not None:
+            train_dataloader_opts["collate_fn"] = collate_fn
+
     if valid_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in valid_dataloader_opts:
+            collate_fn = valid_dataloader_opts["collate_fn"]
+
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(

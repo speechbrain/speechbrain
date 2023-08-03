@@ -165,14 +165,14 @@ class Separation(sb.Brain):
                 # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
+                    loss = loss[loss > th]
+                    if loss.nelement() > 0:
+                        loss = loss.mean()
                 else:
                     loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 self.scaler.scale(loss).backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -198,14 +198,14 @@ class Separation(sb.Brain):
 
             if self.hparams.threshold_byloss:
                 th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
+                loss = loss[loss > th]
+                if loss.nelement() > 0:
+                    loss = loss.mean()
             else:
                 loss = loss.mean()
 
             if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
             ):  # the fix for computational problems
                 loss.backward()
                 if self.hparams.clip_grad_norm >= 0:
@@ -233,7 +233,7 @@ class Separation(sb.Brain):
 
         with torch.no_grad():
             predictions, targets = self.compute_forward(mixture, targets, stage)
-            loss = self.compute_objectives(predictions, targets)
+            loss = self.compute_objectives(predictions, targets).mean()
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric.append(
@@ -444,8 +444,9 @@ class Separation(sb.Brain):
                         [mixture] * self.hparams.num_spks, dim=-1
                     )
                     mixture_signal = mixture_signal.to(targets.device)
+                    mix_w = self.compute_feats(mixture_signal.squeeze(-1))
                     sisnr_baseline = self.compute_objectives(
-                        [mixture_signal.squeeze(-1), None], targets
+                        [mixture_signal.squeeze(-1), mix_w], targets
                     )
                     sisnr_i = sisnr - sisnr_baseline
 
@@ -627,13 +628,12 @@ if __name__ == "__main__":
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):
-        print(
+        raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
-        sys.exit(1)
 
     # Data preparation
-    from recipes.WHAMandWHAMR.prepare_data import prepare_wham_whamr_csv
+    from prepare_data import prepare_wham_whamr_csv
 
     run_on_main(
         prepare_wham_whamr_csv,
@@ -648,8 +648,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
-        from recipes.WHAMandWHAMR.prepare_data import create_whamr_rir_csv
-        from recipes.WHAMandWHAMR.meta.create_whamr_rirs import create_rirs
+        from prepare_data import create_whamr_rir_csv
+        from create_whamr_rirs import create_rirs
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
@@ -689,9 +689,7 @@ if __name__ == "__main__":
             if not os.path.exists(
                 os.path.normpath(hparams["base_folder_dm"]) + "_" + dm_suffix
             ):
-                from recipes.WHAMandWHAMR.meta.preprocess_dynamic_mixing import (
-                    resample_folder,
-                )
+                from preprocess_dynamic_mixing import resample_folder
 
                 print("Resampling the base folder")
                 run_on_main(
@@ -761,15 +759,14 @@ if __name__ == "__main__":
     use_freq_domain = hparams.get("use_freq_domain", False)
     separator.use_freq_domain = use_freq_domain
 
-    if not hparams["test_only"]:
-        # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts_valid"],
-        )
+    # Training
+    separator.fit(
+        separator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts_valid"],
+    )
 
     # Eval
     separator.evaluate(test_data, max_key="pesq")

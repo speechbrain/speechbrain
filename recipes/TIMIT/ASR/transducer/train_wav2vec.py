@@ -17,7 +17,7 @@ import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class ASR_Brain(sb.Brain):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # Model computations
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
         x = self.modules.enc_lin(x)
 
@@ -135,15 +135,16 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("Transducer loss stats:\n")
-                self.transducer_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "Transducer and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    w.write("Transducer loss stats:\n")
+                    self.transducer_metrics.write_stats(w)
+                    w.write("\nPER stats:\n")
+                    self.per_metrics.write_stats(w)
+                    print(
+                        "Transducer and PER stats written to file",
+                        self.hparams.wer_file,
+                    )
 
     def fit_batch(self, batch):
         """Fit one batch, override to do multiple updates.
@@ -214,6 +215,10 @@ class ASR_Brain(sb.Brain):
                 "wav2vec_opt", self.wav2vec_optimizer
             )
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        self.wav2vec_optimizer.zero_grad(set_to_none)
+        self.adam_optimizer.zero_grad(set_to_none)
 
 
 def dataio_prep(hparams):
@@ -335,6 +340,7 @@ if __name__ == "__main__":
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],
             "skip_prep": hparams["skip_prep"],
+            "uppercase": hparams["uppercase"],
         },
     )
 

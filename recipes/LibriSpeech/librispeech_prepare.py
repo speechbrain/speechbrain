@@ -12,14 +12,17 @@ import os
 import csv
 import random
 from collections import Counter
+from dataclasses import dataclass
+import functools
 import logging
-import torchaudio
 from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     merge_csvs,
+    read_audio_info,
 )
+from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
@@ -259,6 +262,33 @@ def split_lexicon(data_folder, split_ratio):
         f.writelines(test_lines)
 
 
+@dataclass
+class LSRow:
+    snt_id: str
+    spk_id: str
+    duration: float
+    file_path: str
+    words: str
+
+
+def process_line(wav_file, text_dict) -> LSRow:
+    snt_id = wav_file.split("/")[-1].replace(".flac", "")
+    spk_id = "-".join(snt_id.split("-")[0:2])
+    wrds = text_dict[snt_id]
+    wrds = " ".join(wrds.split("_"))
+
+    info = read_audio_info(wav_file)
+    duration = info.num_frames / info.sample_rate
+
+    return LSRow(
+        snt_id=snt_id,
+        spk_id=spk_id,
+        duration=duration,
+        file_path=wav_file,
+        words=wrds,
+    )
+
+
 def create_csv(
     save_folder, wav_lst, text_dict, split, select_n_sentences,
 ):
@@ -284,6 +314,9 @@ def create_csv(
     """
     # Setting path for the csv file
     csv_file = os.path.join(save_folder, split + ".csv")
+    if os.path.exists(csv_file):
+        logger.info("Csv file %s already exists, not recreating." % csv_file)
+        return
 
     # Preliminary prints
     msg = "Creating csv lists in  %s..." % (csv_file)
@@ -292,29 +325,25 @@ def create_csv(
     csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     snt_cnt = 0
+    line_processor = functools.partial(process_line, text_dict=text_dict)
     # Processing all the wav files in wav_lst
-    for wav_file in wav_lst:
-
-        snt_id = wav_file.split("/")[-1].replace(".flac", "")
-        spk_id = "-".join(snt_id.split("-")[0:2])
-        wrds = text_dict[snt_id]
-
-        signal, fs = torchaudio.load(wav_file)
-        signal = signal.squeeze(0)
-        duration = signal.shape[0] / SAMPLERATE
-
+    # FLAC metadata reading is already fast, so we set a high chunk size
+    # to limit main thread CPU bottlenecks
+    for row in parallel_map(line_processor, wav_lst, chunk_size=8192):
         csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            spk_id,
-            str(" ".join(wrds.split("_"))),
+            row.snt_id,
+            str(row.duration),
+            row.file_path,
+            row.spk_id,
+            row.words,
         ]
 
-        #  Appending current file to the csv_lines list
+        # Appending current file to the csv_lines list
         csv_lines.append(csv_line)
+
         snt_cnt = snt_cnt + 1
 
+        # parallel_map guarantees element ordering so we're OK
         if snt_cnt == select_n_sentences:
             break
 
