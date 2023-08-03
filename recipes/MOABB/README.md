@@ -12,14 +12,14 @@ The benchmark leverages datasets supported by [MOABB](https://neurotechx.github.
 |------------|-------------|
 |[BNCI2014001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014001.html#moabb.datasets.BNCI2014001) | Motor Imagery |
 |[BNCI2014004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery |
-|[BNCI2015001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015001.html#moabb.datasets.BNCI2015001) | Motor Imagery | 
+|[BNCI2015001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015001.html#moabb.datasets.BNCI2015001) | Motor Imagery |
 |[BNCI2015004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery |
-|[Zhou2016](https://neurotechx.github.io/moabb/generated/moabb.datasets.Zhou2016.html#moabb.datasets.Zhou2016) | Motor Imagery | 
-|[BNCI2014009](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014009.html#moabb.datasets.BNCI2014009) | P300 | 
-|[EPFLP300](https://neurotechx.github.io/moabb/generated/moabb.datasets.EPFLP300.html#moabb.datasets.EPFLP300) | P300 | 
-|[Lee2019_ERP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | 
-|[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | 
-|[Nakanishi2015](https://neurotechx.github.io/moabb/generated/moabb.datasets.Nakanishi2015.html#moabb.datasets.Nakanishi2015) | SSVEP | 
+|[Zhou2016](https://neurotechx.github.io/moabb/generated/moabb.datasets.Zhou2016.html#moabb.datasets.Zhou2016) | Motor Imagery |
+|[BNCI2014009](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014009.html#moabb.datasets.BNCI2014009) | P300 |
+|[EPFLP300](https://neurotechx.github.io/moabb/generated/moabb.datasets.EPFLP300.html#moabb.datasets.EPFLP300) | P300 |
+|[Lee2019_ERP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 |
+|[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 |
+|[Nakanishi2015](https://neurotechx.github.io/moabb/generated/moabb.datasets.Nakanishi2015.html#moabb.datasets.Nakanishi2015) | SSVEP |
 
 The EEG datasets are automatically downloaded when running the provided recipes. Furthermore, the code is designed to allow easy integration of any other dataset from MOABB, as well as the ability to plug and test various deep neural networks. The benchmark includes recipes for using the datasets mentioned above with popular models such as EEGNET, ShallowConvNet, Bioformer, and PodNet.
 
@@ -64,6 +64,22 @@ To set up a different folder for MNE, follow these steps:
 
 By following these steps, you can ensure that MNE uses the specified folder for configuration and data storage.
 
+
+## Training Strategies
+EEG recordings involve recording brain activity from a subject using multiple EEG sensors placed on their head, resulting in a multi-channel signal (one for each sensor). These recordings can be performed while the subject is engaged in specific tasks, such as motor imagery, where they are asked to think about a particular movement.
+
+One of the distinctive features of EEG tasks compared to other popular machine learning tasks, such as speech processing or computer vision, is the relatively low amount of data available for each subject. Additionally, due to the cost of recording brain activity, the number of subjects is not extensive.
+
+Normally, two common strategies are used during the training phase: Leave-One-Session-Out and Leave-One-Subject-Out cross-validation.
+
+* **Leave-One-Session-Out**:
+  For each subject, we reserve one session as a test set and use the remaining sessions for training neural networks. We thus train different neural networks, each excluding a different session. We repeat this process for all subjects and then average the performance to asses the final performance of our models.
+
+* **Leave-One-Subject-Out**:
+  In this challenging condition, we reserve one subject as the test set while training using the data from all the other subjects. This approach is challenging because each subject has a unique brain activity pattern, making it difficult to successfully leverage data from other subjects at the time of writing.
+
+
+
 ## ▶️ Quickstart
 
 Before running an experiment, ensure that you have installed the extra dependencies listed in the `extra_requirements.txt` file.
@@ -73,7 +89,7 @@ Before running an experiment, ensure that you have installed the extra dependenc
 To train a neural network for decoding single EEG trials, run the following code:
 
 ```bash
-python train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/BNCI2014001'
+python train.py hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data --target_subject_idx=0 --target_session_idx=0 --data_iterator_name=leave-one-session-out --number_of_epochs=10 --device='cpu'
 ```
 
 Replace `hparams/EEGNet_BNCI2014001.yaml` with the desired hyperparameter file and `'path/to/BNCI2014001'` with the folder where data will be automatically downloaded.
@@ -111,16 +127,16 @@ Here are some results obtained with a leave-one-session-out strategy. Performanc
 
 To ensure transparency and reproducibility, we release the output folder containing model checkpoints and training logs [here](add_link).
 
-| Release | Task | Hyperparams file | Training strategy | Session | Key loaded model | Performance (test set) |  GPUs | 
+| Release | Task | Hyperparams file | Training strategy | Session | Key loaded model | Performance (test set) |  GPUs |
 |:-------------:|:-------------:|:---------------------------:|:---------------------------:|  -----:|-----:| -----:| :-----------:|
 | 23-07-31 | Motor imagery | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'acc'| 0.7465±0.0660 | 1xNVIDIA A100 (40 GB) |
 | 23-07-31 | Motor imagery | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_T | 'acc'| 0.7585±0.0710 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_1 | 'f1'| 0.6332±0.1146 | 1xNVIDIA A100 (40 GB) | 
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_2 | 'f1'| 0.6566±0.0944 | 1xNVIDIA A100 (40 GB) | 
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_1 | 'f1'| 0.6332±0.1146 | 1xNVIDIA A100 (40 GB) |
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_2 | 'f1'| 0.6566±0.0944 | 1xNVIDIA A100 (40 GB) |
 | 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_3 | 'f1'| 0.6600±0.1242 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_4 | 'f1'| 0.6526±0.1218 | 1xNVIDIA A100 (40 GB) | 
+| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_4 | 'f1'| 0.6526±0.1218 | 1xNVIDIA A100 (40 GB) |
 | 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_1 | 'acc'| 0.9370±0.1170 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_2 | 'acc'| 0.9287±0.1157 | 1xNVIDIA A100 (40 GB) | 
+| 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_2 | 'acc'| 0.9287±0.1157 | 1xNVIDIA A100 (40 GB) |
 
 Note that the experiments runs with any GPU with memory >= 12 GB.
 
