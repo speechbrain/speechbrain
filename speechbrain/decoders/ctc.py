@@ -502,7 +502,8 @@ class CTCBaseSearcher(torch.nn.Module):
     This class provides the basic functionalities for
     CTC beam search decoding.
 
-    The space_index is required with a non-sentencepiece vocabulary.
+    The space_token is required with a non-sentencepiece vocabulary list
+    if your transcription is expecting to contain spaces.
 
     Arguments
     ---------
@@ -510,7 +511,7 @@ class CTCBaseSearcher(torch.nn.Module):
         The index of the blank token.
     vocab_list : list
         The list of the vocabulary tokens.
-    space_index : int, optional
+    space_token : int, optional
         The index of the space token. (default: -1)
     kenlm_model_path : str, optional
         The path to the kenlm model. Use .bin for a faster loading.
@@ -548,7 +549,7 @@ class CTCBaseSearcher(torch.nn.Module):
     -------
     >>> blank_index = 0
     >>> vocab_list = ['blank', 'a', 'b', 'c', ' ']
-    >>> space_index = ' '
+    >>> space_token = ' '
     >>> kenlm_model_path = None
     >>> unigrams = None
     >>> beam_size = 100
@@ -560,7 +561,7 @@ class CTCBaseSearcher(torch.nn.Module):
     >>> searcher = CTCBaseSearcher(
     ...     blank_index=blank_index,
     ...     vocab_list=vocab_list,
-    ...     space_token=space_index,
+    ...     space_token=space_token,
     ...     kenlm_model_path=kenlm_model_path,
     ...     unigrams=unigrams,
     ...     beam_size=beam_size,
@@ -618,12 +619,12 @@ class CTCBaseSearcher(torch.nn.Module):
                 self.space_index = vocab_list.index(space_token)
             except ValueError:
                 logger.warning(
-                    f"Space token `{space_token}` not found in the vocabulary."
-                    "Using value `len(vocab_list)` for space index."
+                    f"space_token `{space_token}` not found in the vocabulary."
+                    "Using value -1 for space index."
                     "Note: If your transcription is not expected to contain spaces, "
                     "you can ignore this warning."
                 )
-                self.space_index = len(vocab_list)
+                self.space_index = -1
             logger.info(f"Find `space_token` at index {self.space_index}.")
 
         self.kenlm_model = None
@@ -909,6 +910,12 @@ class CTCBaseSearcher(torch.nn.Module):
         list of list
             The list of topk list of CTCHypothesis.
         """
+        # check that the last dimension of log_probs is equal to the vocab size
+        assert log_probs.size(2) == len(self.vocab_list), (
+            f"Vocab size mismatch: log_probs vocab dim={log_probs.size(2)} vs "
+            f"vocab_list={len(self.vocab_list)}"
+        )
+
         # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
             wav_lens = log_probs.size(1) * wav_lens
