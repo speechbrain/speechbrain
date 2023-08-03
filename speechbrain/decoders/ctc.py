@@ -535,6 +535,33 @@ class CTCBaseSearcher(torch.nn.Module):
         (default: None)
     topk : int, optional
         The number of top hypotheses to return. (default: 1)
+
+    Example
+    -------
+    >>> blank_index = 0
+    >>> vocab_list = ['blank', 'a', 'b', 'c']
+    >>> space_index = 0
+    >>> kenlm_model_path = None
+    >>> unigrams = None
+    >>> beam_size = 100
+    >>> beam_prune_logp = -10.0
+    >>> token_prune_min_logp = -5.0
+    >>> prune_history = True
+    >>> blank_skip_threshold = None
+    >>> topk = 1
+    >>> searcher = CTCBaseSearcher(
+    ...     blank_index=blank_index,
+    ...     vocab_list=vocab_list,
+    ...     space_index=space_index,
+    ...     kenlm_model_path=kenlm_model_path,
+    ...     unigrams=unigrams,
+    ...     beam_size=beam_size,
+    ...     beam_prune_logp=beam_prune_logp,
+    ...     token_prune_min_logp=token_prune_min_logp,
+    ...     prune_history=prune_history,
+    ...     blank_skip_threshold=blank_skip_threshold,
+    ...     topk=topk,
+    ... )
     """
 
     def __init__(
