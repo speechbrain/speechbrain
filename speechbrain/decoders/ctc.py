@@ -1814,14 +1814,14 @@ class TorchAudioCTCPrefixBeamSearcher:
     Example
     -------
     >>> import torch
-    >>> from speechbrain.decoders import TorchAudioCTCBeamSearcher
+    >>> from speechbrain.decoders import TorchAudioCTCPrefixBeamSearcher
     >>> probs = torch.tensor([[[0.2, 0.0, 0.8],
     ...                   [0.4, 0.0, 0.6]]])
     >>> log_probs = torch.log(probs)
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = TorchAudioCTCBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
+    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
     >>> hyps = searcher(probs, lens)
     """
 
