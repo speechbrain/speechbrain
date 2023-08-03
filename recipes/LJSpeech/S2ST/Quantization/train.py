@@ -74,7 +74,7 @@ def extract_features(
             info = torchaudio.info(wav)
             audio = sb.dataio.dataio.read_audio(wav)
             audio = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate, sample_rate,
             )(audio)
             audio = audio.unsqueeze(0).to(device)
             feats = model.extract_features(audio)
