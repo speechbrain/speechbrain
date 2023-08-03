@@ -576,7 +576,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self,
         blank_index: int,
         vocab_list: List[str],
-        space_index: int = -1,
+        space_token: str = " ",
         kenlm_model_path: Union[None, str] = None,
         unigrams: Union[None, List[str]] = None,
         alpha: float = 0.5,
@@ -594,7 +594,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
         self.blank_index = blank_index
         self.vocab_list = vocab_list
-        self.space_index = space_index
+        self.space_token = space_token
         self.kenlm_model_path = kenlm_model_path
         self.unigrams = unigrams
         self.alpha = alpha
@@ -611,6 +611,10 @@ class CTCBaseSearcher(torch.nn.Module):
         # check if the vocab is coming from SentencePiece
         self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
+
+        # fetch the index of space_token
+        self.space_index = vocab_list.index(space_token)
+        logger.info(f"Find `space_token` at index {self.space_index}.")
 
         self.kenlm_model = None
         if kenlm_model_path is not None:

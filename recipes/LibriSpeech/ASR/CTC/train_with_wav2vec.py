@@ -393,11 +393,10 @@ if __name__ == "__main__":
 
     ind2lab = label_encoder.ind2lab
     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-
     test_searcher = hparams["test_searcher"](
         blank_index=hparams["blank_index"],
         vocab_list=vocab_list,
-        space_index=hparams["space_index"],
+        space_token=hparams["space_token"],
         alpha=hparams["alpha"],
         beta=hparams["beta"],
         beam_size=hparams["beam_size"],
