@@ -911,10 +911,12 @@ class CTCBaseSearcher(torch.nn.Module):
             The list of topk list of CTCHypothesis.
         """
         # check that the last dimension of log_probs is equal to the vocab size
-        assert log_probs.size(2) == len(self.vocab_list), (
-            f"Vocab size mismatch: log_probs vocab dim={log_probs.size(2)} vs "
-            f"vocab_list={len(self.vocab_list)}"
-        )
+        if log_probs.size(2) != len(self.vocab_list):
+            logger.warning(
+                f"Vocab size mismatch: log_probs vocab dim is {log_probs.size(2)} "
+                f"while vocab_list is {len(self.vocab_list)}. "
+                "Going to truncate the log_probs vocab dim to match vocab_list."
+            )
 
         # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
@@ -1283,6 +1285,12 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 np.where(logit_col > self.token_prune_min_logp)[0]
             ) | {max_index}
             new_beams = []
+
+            # select tokens that are in the vocab
+            # this is useful if the logit vocab_size is larger than the vocab_list
+            tokens_index_list = tokens_index_list & set(
+                range(len(self.vocab_list))
+            )
 
             for token_index in tokens_index_list:
                 p_token = logit_col[token_index]
@@ -1681,6 +1689,12 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             ) | {max_index}
 
             curr_beams = beams.copy()
+
+            # select tokens that are in the vocab
+            # this is useful if the logit vocab_size is larger than the vocab_list
+            tokens_index_list = tokens_index_list & set(
+                range(len(self.vocab_list))
+            )
 
             for token_index in tokens_index_list:
                 p_token = logit_col[token_index]
