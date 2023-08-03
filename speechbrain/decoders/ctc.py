@@ -466,6 +466,8 @@ class CTCBaseSearcher(torch.nn.Module):
         The pruning threshold for the tokens. (default: -5.0)
     prune_history : bool, optional
         Whether to prune the history. (default: True)
+        Note: when using topk > 1, this should be set to False as
+        it is pruning a lot of beams.
     blank_skip_threshold : float, optional
         The threshold for skipping the frames when the log probability
         of the blank token is higher than this value. The threshold
@@ -493,10 +495,10 @@ class CTCBaseSearcher(torch.nn.Module):
         super().__init__()
 
         self.blank_index = blank_index
+        self.vocab_list = vocab_list
         self.space_index = space_index
         self.kenlm_model_path = kenlm_model_path
         self.unigrams = unigrams
-        self.vocab_list = vocab_list
         self.beam_size = beam_size
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
@@ -1574,8 +1576,8 @@ class CTCPrefixBeamSearch(CTCBaseSearcher):
         return beams
 
 
-class TorchAudioCTCBeamSearch:
-    """TorchAudio CTC Beam Search Decoder.
+class TorchAudioCTCPrefixBeamSearch:
+    """TorchAudio CTC Prefix Beam Search Decoder.
 
     This class is a wrapper around the CTC decoder from TorchAudio. It provides a simple interface
     where you can either use the CPU or CUDA CTC decoder.

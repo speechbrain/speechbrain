@@ -1,7 +1,10 @@
 #!/usr/bin/env/python3
 """Recipe for training a wav2vec-based ctc ASR system with librispeech.
 The system employs wav2vec as its encoder. Decoding is performed with
-ctc greedy decoder.
+ctc greedy decoder during validation and a beam search with an optional
+language model during test. The test searcher can be chosen from the following
+options: CTCBeamSearch, CTCPrefixBeamSearch, TorchAudioCTCPrefixBeamSearch.
+
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
@@ -75,8 +78,12 @@ class ASR(sb.Brain):
 
         p_ctc = self.hparams.log_softmax(logits)
 
-        if stage != sb.Stage.TRAIN:
-            p_tokens = decoder(p_ctc.detach(), wav_lens)
+        if stage == sb.Stage.VALID:
+            p_tokens = sb.decoders.ctc_greedy_decode(
+                p_ctc, wav_lens, blank_id=self.hparams.blank_index
+            )
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
 
         return p_ctc, wav_lens, p_tokens
 
@@ -95,14 +102,19 @@ class ASR(sb.Brain):
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
+        if stage == sb.Stage.VALID:
+            # Decode token terms to words
+            predicted_words = [
+                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
+                for utt_seq in predicted_tokens
+            ]
+        elif stage == sb.Stage.TEST:
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
+
         if stage != sb.Stage.TRAIN:
-
-            predicted_words = []
-            for hyp in predicted_tokens:
-                predicted_words.append(hyp[0].text.split(" "))
-
             target_words = [wrd.split(" ") for wrd in batch.wrd]
-
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -379,16 +391,19 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    from speechbrain.decoders import CTCBeamSearch
-
     ind2lab = label_encoder.ind2lab
     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-    space_index = vocab_list.index(" ")
 
-    decoder = CTCBeamSearch(
+    test_searcher = hparams["test_searcher"](
         blank_index=hparams["blank_index"],
-        space_index=space_index,
         vocab_list=vocab_list,
+        space_index=hparams["space_index"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
     )
 
     # Training
