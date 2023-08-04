@@ -15,7 +15,8 @@ output_folder: !ref results/train_with_gpt2/<seed>
 replacements_path: recipes/MultiWOZ/response_generation/mapping.pair
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-blue_4_file: !ref <output_folder>/blue_4.txt
+blue_4_test_file: !ref <output_folder>/blue_4_test.txt
+blue_4_valid_file: !ref <output_folder>/blue_4_valid.txt
 
 # URL for the gpt2 model
 gpt_hub: gpt2
@@ -57,7 +58,7 @@ attr_to_special_tokens:
     "additional_special_tokens": !ref <additional_special_tokens>
 
 # history_window, i.e. how many user-system exchanges consider as context.
-max_history: 2
+max_history: 5
 # Whether to append <end_of_entence> token.
 with_eos: True
 
