@@ -39,9 +39,9 @@ python train_with_wav2vec.py hparams/file.yaml --kenlm_model_path='4-gram.arpa'
 | Release | Hyperparams file | Decoding method | GPU- Inference Time | Finetuning Split | Test Clean WER | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:|  :----------:|  :-----:| :-----:| :-----:| :-----:| :-----:| :--------:|
 | 09-09-21 | train_hf_wav2vec.yaml | Greedy Decoding | 2min04s | 960h | 2.04 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 09-09-21 | train_hf_wav2vec.yaml | CTCBeamSearch Decoding | 2min58s | 960h | 1.90 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 09-09-21 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch Decoding | 3min03s | 960h | 1.90 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 09-09-21 | train_hf_wav2vec.yaml | CTCBeamSearch + 4-gram Decoding | 2min27s | 960h | 1.84 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
+| 09-09-21 | train_hf_wav2vec.yaml | CTCBeamSearch Decoding | 2min58s | 960h | 1.88 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
+| 09-09-21 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch Decoding | 3min03s | 960h | 1.88 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
+| 09-09-21 | train_hf_wav2vec.yaml | CTCBeamSearch + 4-gram Decoding | 2min27s | 960h | 1.77 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
 | 09-09-21 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch + 4-gram Decoding | 2min47s | 960h | 3.03 | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
 | 22-09-22 | train_sb_wav2vec.yaml | Greedy Decoding | Not Avail. | 960h | 4.2 | Not Avail. | Not Avail. | 2xTesla V100 32GB |
 | 06-12-23 | train_hf_whisper.yaml (small) | Greedy Decoding | Not Avail. | 960h | 4.89 | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
