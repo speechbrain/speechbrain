@@ -1435,6 +1435,10 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     - skipping of the blank : the frame is skipped if the blank probability is
         higher than the blank_skip_threshold
 
+    Note: The CTCPrefixBeamSearcher can be more unstable than the CTCBeamSearcher
+    or the TorchAudioCTCPrefixBeamSearch searcher. Please, use it with caution
+    and check the results carefully.
+
     Arguments
     ---------
     **kwargs
