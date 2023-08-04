@@ -26,8 +26,7 @@ python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampl
 ```
 
 # KenLM n-gram CTC rescoring
-To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique.
-
+To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. The n-gram can either be a binary or an arpa file, but note that the binary format is faster to load. The following command shows how to use the official LibriSpeech 4-gram LM with SpeechBrain:
 ```bash
 wget https://openslr.elda.org/resources/11/4-gram.arpa.gz
 gzip -d 4-gram.arpa.gz
