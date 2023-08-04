@@ -375,7 +375,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 
 @dataclasses.dataclass
 class CTCBeam:
-    """Contains all the info needed for decoding a beam.
+    """This class handle the CTC beam informations during decoding.
 
     Arguments
     ---------
@@ -479,14 +479,41 @@ class CTCBeam:
 
 @dataclasses.dataclass
 class LMCTCBeam(CTCBeam):
-    """Contains all the info needed for decoding a beam with LM."""
+    """This class handle the LM scores during decoding.
+
+    Arguments
+    ---------
+    lm_score: float
+        The LM score of the beam.
+    **kwargs
+        See CTCBeam for the other arguments.
+    """
 
     lm_score: float = -math.inf
 
 
 @dataclasses.dataclass
 class CTCHypothesis:
-    """Contains all the info needed for decoding a hypothesis."""
+    """This class is a data handler over the generated hypotheses.
+
+    This class is the default output of the CTC beam searchers.
+
+    It can be re-used for other decoders if using
+    the beam searchers in an online fashion.
+
+    Arguments
+    ---------
+    text : str
+        The text of the hypothesis.
+    last_lm_state : None
+        The last LM state of the hypothesis.
+    score : float
+        The score of the hypothesis.
+    lm_score : float
+        The LM score of the hypothesis.
+    timesteps : list, optional
+        The list of the timesteps of the hypothesis.
+    """
 
     text: str
     last_lm_state: None
