@@ -101,54 +101,27 @@ The results, including training logs and checkpoints, will be availabe in the ou
 
 ## Run a Training Experiment on a Given Dataset
 
-To perform training experiments using the Leave-One-Subject-Out and Leave-One-Session-Out approaches, we need to train different models on various subjects and sessions. Ultimately, we need to average their performance to get more reliable results.
+To train models using either the Leave-One-Subject-Out or Leave-One-Session-Out approach and then average their performance, we have developed a convenient bash script called `run_experiment.sh`. This script orchestrates the necessary loops for easy execution.
 
-To simplify the process for our users, we have developed a convenient bash script called `run_experiment.sh`, which orchestrates the necessary loops.
-
-
-To run an experiment, execute the following code:
+To run a training experiment, use the following command:
 
 ```bash
-./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml \
-   --data_folder=eeg_data \
-   --cached_data_folder=eeg_pickled_data \
-   --output_folder=results/MotorImagery/BNCI2014001/EEGNet \
-   --nsbj=9 \
-   --nsess=2 \
-   --seed=1986 \
-   --nruns=2 \
-   --eval_metric=acc \
-   --metric_file=valid_metrics.pkl \
-   --do_leave_one_subject_out=false \
-   --do_leave_one_session_out=true
+./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --nruns=2 --train_mode=leave-one-session-out --number_of_epochs=2 
 ```
 
-In this example, the script will run the Leave-One-Session-Out training on the BNCI2014001 dataset for Motor Imagery using the EEGNet.yaml configuration file. The experiments will iterate over the 9 subjects and 2 sessions. Each experiment will be repeated 2 times (`--nruns=2`) with different initialization seeds. Conducting multiple experiments with various seeds and averaging their performance enhances the statistical significance of the results. The evaluation metric used here is accuracy, and the validation metrics will be stored in `valid_metrics.pkl`.
+This command will execute the `leave_one_session_out` training on the BNCI2014001 dataset for Motor Imagery using the EEGNet.yaml configuration. The script will loop over 9 subjects and 2 sessions, running the experiment 2 times (--nruns=2) with different initialization seeds to ensure robustness. Running multiple experiments with varied seeds and averaging their performance is a recommended practice to improve result significance. The evaluation metric is accuracy, and the validation metrics are stored in `valid_metrics.pkl`.
+
+The results of each experiment are saved in the specified output folder. To view the final aggregated performance, refer to the `aggregated_performance.txt` file.
+
+**Default Values:**
+- By default, the training modality is set to `leave_one_session_out`. If you prefer to use `leave_one_subject_out`, simply add the flag `--train_mode=leave_one_subject_out`.
+- The default evaluation metric is accuracy (acc). If you wish to use F1 score instead, use the flag `--eval_metric=f1`.
+- By default, the evaluation is conducted on the test set. To use the dev set instead, use the flag `--eval_set=dev`.
+- Without specifyng the `--seed flag`, a random seed is used.
+- Beyond the flags expected by the `./run_experiments.sh` script, you can use additional flags to override any value declared in the hparam file. In the example above, we changed the number of epochs to 2. 
 
 
-The experiment results will be available in the specified output folder. For the final aggregated performance, please refer to the `aggregated_performance.txt` file.
-
-**Note:** The number of subjects (`--nsbj`) and sessions (`--nsess`) varies depending on the dataset used. Please, take a look at the dataset table above for knowing the number of subjects and sessions in each dataset.
-
-
-
-## Run a training experiment on a given dataset
-For either the Leave-One-Subject-Out and Leave-One-Session-Out, we need to train different models using different sujects and sessions. At the end we need to average their performance.
-To make it easier for our users, we created a simple bash script that orchestrates the needed loops: run_experiment.sh
-
-For instance, run the following code:
-
-./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data \
-   --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --seed=1986 --nruns=2 --eval_metric=acc --metric_file=valid_metrics.pkl \
-   --do_leave_one_subject_out=false --do_leave_one_session_out=true
-
-This script will run leave_one_session_out training on the BNCI2014001 dataset for Motor Imagery using EEGNet.yaml. we will loop over the 9 subjects and 2 sessions.
-We run each experiments 2 times (--nruns=2) with different initialization seeds. Running multiple experiments using different seeds and averaging their performance is 
-a good practice to improve the significance of the results. The evaluation metric is accuracy and the validation metrics are stored in valid_metrics.pkl.
-
-The results are available in the specified output folder. For the final aggregated performance, take a look at the aggregated_performance.txt file.
-
-**Note:** The number of subjects (--nsbj) and sessions (--nsess) is dataset dependent. 
+**Note:** The number of subjects (`--nsbj`) and sessions (`--nsess`) is dataset dependent. You can find this information in the dataset table above.
 
 
 ### Hyperparameter Tuning

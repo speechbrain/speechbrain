@@ -396,7 +396,6 @@ class LeaveOneSubjectOut(object):
                 fmax=hparams["fmax"],
                 idx_subject_to_prepare=subject_idx,
                 save_prepared_dataset=hparams["save_prepared_dataset"],
-                to_prepare=hparams["to_prepare"],
             )
 
             tmp_x_train = data_dict["x"]
