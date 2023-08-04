@@ -3,9 +3,7 @@ LJspeech data preparation.
 Download: https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2
 
 Authors
- * Yingzhi WANG 2022
- * Sathvik Udupa 2022
- * Pradnya Kandarkar 2023
+ * Sathvik Udupa 2023
 """
 
 import os
@@ -180,6 +178,7 @@ def prepare_ljspeech(
             pitch_max_f0,
             use_custom_cleaner,
             device,
+            save_folder=save_folder,
         )
     if "valid" in splits:
         prepare_json(
@@ -338,6 +337,7 @@ def prepare_json(
     pitch_max_f0,
     use_custom_cleaner=False,
     device="cpu",
+    save_folder=None,
 ):
     """
     Creates json file given a list of indexes.
@@ -392,6 +392,7 @@ def prepare_json(
         )
 
     json_dict = {}
+    lexicon = set()
     for index in tqdm(seg_lst):
 
         # Common data preparation
@@ -407,6 +408,8 @@ def prepare_json(
             "label": label,
             "segment": True if "train" in json_file else False,
         }
+        if model_name == "VITS":
+            lexicon.update(label)
 
         # Tacotron2 specific data preparation
         if model_name == "Tacotron2":
@@ -486,7 +489,12 @@ def prepare_json(
             json_dict[id].update(
                 {"last_phoneme_flags": trimmed_last_phoneme_flags}
             )
-
+    if model_name == "VITS":
+        if json_file.endswith("train.json"):
+            # 
+            with open(os.path.join(save_folder, "lexicon"), "w") as f:
+                for x in lexicon: f.write(x)
+        
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
