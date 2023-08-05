@@ -118,9 +118,9 @@ class ASR(sb.Brain):
                     "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                     for utt_seq in predicted_tokens
                 ]
-                target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metric.append(ids, predicted_words, target_words)
-                self.cer_metric.append(ids, predicted_words, target_words)
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            self.wer_metric.append(ids, predicted_words, target_words)
+            self.cer_metric.append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
