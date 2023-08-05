@@ -1318,7 +1318,12 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self, modules, temperature=1.0, temperature_lm=1.0, pass_length=False, **kwargs,
+        self,
+        modules,
+        temperature=1.0,
+        temperature_lm=1.0,
+        pass_length=False,
+        **kwargs,
     ):
         super(S2STransformerBeamSearch, self).__init__(**kwargs)
 
