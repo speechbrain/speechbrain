@@ -26,6 +26,7 @@ nruns=""
 eval_metric="acc"
 eval_set="test"
 train_mode="leave-one-session-out"
+rnd_dir=False
 additional_flags=""
 
 # Function to print argument descriptions and exit
@@ -43,6 +44,7 @@ print_argument_descriptions() {
     echo "  --eval_metric metric              Evaluation metric (e.g., acc or f1)"
     echo "  --eval_set dev or test            Evaluation set. Default: test"
     echo "  --train_mode mode                 The training mode can be leave-one-subject-out or leave-one-session-out. Default: leave-one-session-out"
+    echo "  --rnd_dir                         If True the results are stored in a subdir of the output folder with a random name (useful to store all the results of an hparam tuning).  Default: False"
     exit 1
 }
 
@@ -117,6 +119,13 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+      
+    --rnd_dir)
+      rnd_dir="$2"
+      shift
+      shift
+      ;;
+
 
     --help)
       print_argument_descriptions
@@ -134,20 +143,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-# Print command line arguments
-echo "hparams: $hparams"
-echo "data_folder: $data_folder"
-echo "cached_data_folder: $cached_data_folder"
-echo "output_folder: $output_folder"
-echo "nsbj: $nsbj"
-echo "nsess: $nsess"
-echo "seed: $seed"
-echo "nruns: $nruns"
-echo "eval_metric: $eval_metric"
-echo "eval_set: $eval_set"
-echo "train_mode: $train_mode"
-echo "additional flags: $additional_flags"
 
 
 # Check for required arguments
@@ -176,18 +171,41 @@ if [ -z "$cached_data_folder" ]; then
 fi
 
 
+if [ "$rnd_dir" = True ]; then
+    rnd_dirname=$(tr -dc 'a-zA-Z' < /dev/urandom | head -c 6)
+    output_folder="$output_folder/$rnd_dirname"
+fi
+
+    
+    
+
+# Print command line arguments
+echo "hparams: $hparams"
+echo "data_folder: $data_folder"
+echo "cached_data_folder: $cached_data_folder"
+echo "output_folder: $output_folder"
+echo "nsbj: $nsbj"
+echo "nsess: $nsess"
+echo "seed: $seed"
+echo "nruns: $nruns"
+echo "eval_metric: $eval_metric"
+echo "eval_set: $eval_set"
+echo "train_mode: $train_mode"
+echo "additional flags: $additional_flags"
+
+
 # Creating output folder
-mkdir -p $output_folder\_seed\_$seed_init
 mkdir -p $data_folder
 mkdir -p $cached_data_folder
 
 # Function to run the training experiment
 run_experiment() {
   local target_session_idx="$1"
-
+  local output_folder_exp="$2"
+  
   for target_subject_idx in $(seq 0 1 $(( nsbj - 1 ))); do
     echo "Subject $target_subject_idx"
-    python train.py $hparams --seed=$seed --data_folder=$data_folder --cached_data_folder=$cached_data_folder --output_folder=$output_folder/$seed \
+    python train.py $hparams --seed=$seed --data_folder=$data_folder --cached_data_folder=$cached_data_folder --output_folder=$output_folder_exp\
       --target_subject_idx=$target_subject_idx --target_session_idx=$target_session_idx \
       --data_iterator_name="$train_mode" $additional_flags
   done
@@ -195,16 +213,18 @@ run_experiment() {
 
 # Run multiple training experiments (with different seeds)
 for i in $(seq 0 1 $(( nruns - 1 ))); do
-  echo $seed
-
+  ((run_idx = i + 1))
+  run_name=run"$run_idx"
+  output_folder_exp="$output_folder"/"$run_name"/$seed
+  
   # LEAVE-ONE-SUBJECT-OUT
   if [ "$train_mode" = "leave-one-subject-out" ]; then
-    run_experiment 0
+    run_experiment 0 $output_folder_exp 
   # LEAVE-ONE-SESSION-OUT
   elif [ "$train_mode" = "leave-one-session-out" ]; then
     # Loop over sessions
     for j in $(seq 0 1 $(( nsess - 1 ))); do
-      run_experiment $j
+      run_experiment $j $output_folder_exp 
     done
   else
       echo "Invalid train_model value: $train_mode. It can be leave-one-subject-out or leave-one-session-out  only."
@@ -213,7 +233,7 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
 
 
   # Store the results
-  python utils/parse_results.py $output_folder/$seed $metric_file $eval_metric | tee -a  $output_folder/$seed\_results.txt
+  python utils/parse_results.py $output_folder_exp $metric_file $eval_metric | tee -a  $output_folder/$run_name\_results.txt
 
   # Changing Random seed
   seed=$((seed+1))
