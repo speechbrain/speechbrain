@@ -35,15 +35,15 @@ python train_with_wav2vec.py hparams/file.yaml --kenlm_model_path='4-gram.arpa'
 
 # Results
 
-| Release | Hyperparams file | Decoding method | Finetuning Split | Test-clean WER | GPI- Test-clean Inference Time | Test-other WER | GPU- Test-other Inference Time |  HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:|  :----------:|  :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:|
-| 05-08-23 | train_hf_wav2vec.yaml | GreedySearch Decoding | 960h  | 2.12 | 1min30s | 4.31| 1min24s | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch Decoding | 960h  | 1.92 | 1min50s | 3.97 | 1min45s |Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch Decoding | 960h | 1.92 | 1min55s | 3.97 | 1min47s | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch + 4-gram Decoding | 960h  | 1.76  | 1min54s | 3.67 | 1min49s | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch + 4-gram Decoding | 960h  | 1.81 | 1min59s | 3.78 | 1min53s |Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB |
-| 22-09-22 | train_sb_wav2vec.yaml | GreedySearch Decoding | 960h | 4.2 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. | 2xTesla V100 32GB |
-| 06-12-23 | train_hf_whisper.yaml (small) | GreedySearch Decoding | 960h | 4.89 | Not Avail. | Not Avail. |Not Avail. | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
+| Release | Hyperparams file | Decoding method | Finetuning Split | Test-clean WER | GPI- Test-clean Inference Time | Test-other WER | GPU- Test-other Inference Time |  HuggingFace link | Full model link | Inference GPUs | Training GPUs |
+|:-------------:|:---------------------------:|  :----------:|  :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:| :--------:|
+| 05-08-23 | train_hf_wav2vec.yaml | GreedySearch Decoding | 960h  | 2.12 | 1min30s | 4.31| 1min24s | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch Decoding | 960h  | 1.92 | 1min50s | 3.97 | 1min45s |Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch Decoding | 960h | 1.92 | 1min55s | 3.97 | 1min47s | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch + 4-gram Decoding | 960h  | 1.76  | 1min54s | 3.67 | 1min49s | Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch + 4-gram Decoding | 960h  | 1.81 | 1min59s | 3.78 | 1min53s |Not Avail. | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 32GB | 1xA100 40GB |
+| 22-09-22 | train_sb_wav2vec.yaml | GreedySearch Decoding | 960h | 4.2 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail.| 2xTesla V100 32GB |
+| 06-12-23 | train_hf_whisper.yaml (small) | GreedySearch Decoding | 960h | 4.89 | Not Avail. | Not Avail. |Not Avail. | Not Avail. | Not Avail. | Not Avail. | 2xTesla V100 32GB |
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"
