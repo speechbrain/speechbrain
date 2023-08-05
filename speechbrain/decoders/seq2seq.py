@@ -1385,11 +1385,11 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
             A TransformerASR model.
         seq_lin : torch.nn.Module
             A linear output layer for the seq2seq model.
+    temperature : float
+        Temperature to use during decoding.
     pass_length : bool
         whether to pass through sequence lengths to the model
         (disabled by default)
-    temperature : float
-        Temperature to use during decoding.
     **kwargs
         Arguments to pass to S2SGreedySearcher
     """
