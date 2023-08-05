@@ -32,37 +32,119 @@ additional_flags=""
 print_argument_descriptions() {
     echo "Usage: $0 [options]"
     echo "Options:"
-    echo "  --hparams=hparams_path            Hparam YAML file"
-    echo "  --data_folder=data_folder_path    Data folder path"
-    echo "  --cached_data_folder=cache_path   Cached data folder path"
-    echo "  --output_folder=output_path       Output folder path"
-    echo "  --nsbj=num_subjects               Number of subjects"
-    echo "  --nsess=num_sessions              Number of sessions"
-    echo "  --seed=random_seed                Seed (random if not specified)"
-    echo "  --nruns=num_runs                  Number of runs"
-    echo "  --eval_metric=metric              Evaluation metric (e.g., acc or f1)"
-    echo "  --eval_set=dev or test            Evaluation set. Default: test"
-    echo "  --train_mode=mode   	      The training mode can be leave-one-subject-out or leave-one-session-out. Default: leave-one-session-out"
+    echo "  --hparams hparams_path            Hparam YAML file"
+    echo "  --data_folder data_folder_path    Data folder path"
+    echo "  --cached_data_folder cache_path   Cached data folder path"
+    echo "  --output_folder output_path       Output folder path"
+    echo "  --nsbj num_subjects               Number of subjects"
+    echo "  --nsess num_sessions              Number of sessions"
+    echo "  --seed random_seed                Seed (random if not specified)"
+    echo "  --nruns num_runs                  Number of runs"
+    echo "  --eval_metric metric              Evaluation metric (e.g., acc or f1)"
+    echo "  --eval_set dev or test            Evaluation set. Default: test"
+    echo "  --train_mode mode   	          The training mode can be leave-one-subject-out or leave-one-session-out. Default: leave-one-session-out"
     exit 1
 }
 
-# Parse command-line arguments
-for arg in "$@"; do
-    case "$arg" in
-        --hparams=*) hparams="${arg#*=}" ;;
-        --data_folder=*) data_folder="${arg#*=}" ;;
-        --cached_data_folder=*) cached_data_folder="${arg#*=}" ;;
-        --output_folder=*) output_folder="${arg#*=}" ;;
-        --nsbj=*) nsbj="${arg#*=}" ;;
-        --nsess=*) nsess="${arg#*=}" ;;
-        --seed=*) seed="${arg#*=}" ;;
-        --nruns=*) nruns="${arg#*=}" ;;
-        --eval_metric=*) eval_metric="${arg#*=}" ;;
-        --eval_set=*) eval_set="${arg#*=}" ;;
-        --train_mode=*) train_mode="${arg#*=}" ;;
-        *) additional_flags+="$arg " ;;
-    esac
+
+# Parse command line
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h|--hparams)
+      hparams="$2"
+      shift
+      shift
+      ;;
+
+    --data_folder)
+      data_folder="$2"
+      shift
+      shift
+      ;;
+
+    --cached_data_folder)
+      cached_data_folder="$2"
+      shift
+      shift
+      ;;
+
+    --output_folder)
+      output_folder="$2"
+      shift
+      shift
+      ;;
+
+    --nsbj)
+      nsbj="$2"
+      shift
+      shift
+      ;;
+
+    --nsess)
+      nsess="$2"
+      shift
+      shift
+      ;;
+
+    --seed)
+      seed="$2"
+      shift
+      shift
+      ;;
+
+    --nruns)
+      nruns="$2"
+      shift
+      shift
+      ;;
+
+    --eval_metric)
+      eval_metric="$2"
+      shift
+      shift
+      ;;
+
+    --eval_set)
+      eval_set="$2"
+      shift 
+      shift 
+      ;;
+
+    --train_mode)
+      train_mode="$2"
+      shift
+      shift
+      ;;
+
+    -*|--*)
+      additional_flags+="$1 $2 " # store additional flags
+      shift # past argument
+      ;;
+      
+
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
 done
+
+# Print command line arguments
+echo "hparams: $hparams"
+echo "data_folder: $data_folder"
+echo "cached_data_folder: $cached_data_folder"
+echo "output_folder: $output_folder"
+echo "nsbj: $nsbj"
+echo "nsess: $nsess"
+echo "seed: $seed"
+echo "nruns: $nruns"
+echo "eval_metric: $eval_metric"
+echo "eval_set: $eval_set"
+echo "train_mode: $train_mode"
+echo "additional flags: $additional_flags"
+
 
 # Check for required arguments
 if [ -z "$hparams" ] || [ -z "$data_folder" ] || [ -z "$output_folder" ] || [ -z "$nsbj" ] || [ -z "$nsess" ] || [ -z "$nruns" ]; then
@@ -70,7 +152,7 @@ if [ -z "$hparams" ] || [ -z "$data_folder" ] || [ -z "$output_folder" ] || [ -z
     print_argument_descriptions
 fi
 
-# Progress eval_set argument
+# Process eval_set argument
 if [ "$eval_set" = "dev" ]; then
   metric_file=valid_metrics.pkl
 elif [ "$eval_set" = "test" ]; then
@@ -89,15 +171,7 @@ if [ -z "$cached_data_folder" ]; then
     cached_data_folder="$data_folder/pkl"
 fi
 
-echo "hparams file : $hparams"
-echo "Data folder: $data_folder"
-echo "Cached data folder: $cached_data_folder"
-echo "Output folder: $output_folder"
-echo "No. of subjects: $nsbj"
-echo "No. of sessions: $nsess"
-echo "No. of runs: $nruns"
-echo "Evaluation set: $eval_set"
-echo "Training modality: $train_mode"
+
 # Creating output folder
 mkdir -p $output_folder\_seed\_$seed_init
 mkdir -p $data_folder
