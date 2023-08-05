@@ -647,12 +647,12 @@ class CTCBaseSearcher(torch.nn.Module):
             except ValueError:
                 logger.warning(
                     f"space_token `{space_token}` not found in the vocabulary."
-                    "Using value -1 for space index."
+                    "Using value -1 as `space_index`."
                     "Note: If your transcription is not expected to contain spaces, "
                     "you can ignore this warning."
                 )
                 self.space_index = -1
-            logger.info(f"Find `space_token` at index {self.space_index}.")
+            logger.info(f"Found `space_token` at index {self.space_index}.")
 
         self.kenlm_model = None
         if kenlm_model_path is not None:
