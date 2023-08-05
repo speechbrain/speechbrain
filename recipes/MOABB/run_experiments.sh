@@ -42,7 +42,7 @@ print_argument_descriptions() {
     echo "  --nruns num_runs                  Number of runs"
     echo "  --eval_metric metric              Evaluation metric (e.g., acc or f1)"
     echo "  --eval_set dev or test            Evaluation set. Default: test"
-    echo "  --train_mode mode   	          The training mode can be leave-one-subject-out or leave-one-session-out. Default: leave-one-session-out"
+    echo "  --train_mode mode                 The training mode can be leave-one-subject-out or leave-one-session-out. Default: leave-one-session-out"
     exit 1
 }
 
@@ -52,7 +52,7 @@ POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -h|--hparams)
+    --hparams)
       hparams="$2"
       shift
       shift
@@ -118,6 +118,10 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
 
+    --help)
+      print_argument_descriptions
+      ;;
+      
     -*|--*)
       additional_flags+="$1 $2 " # store additional flags
       shift # past argument
