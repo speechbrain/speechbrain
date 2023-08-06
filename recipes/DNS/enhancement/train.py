@@ -44,7 +44,7 @@ from pystoi import stoi
 
 
 # Define training procedure
-class Separation(sb.Brain):
+class Enhancement(sb.Brain):
     def compute_forward(self, noisy, clean, stage, noise=None):
         """Forward computations from the noisy to the separated signals."""
 
@@ -84,7 +84,7 @@ class Separation(sb.Brain):
                 if self.hparams.limit_training_signal_len:
                     noisy, clean = self.cut_signals(noisy, clean)
 
-        # Separation
+        # Enhancement
         if self.use_freq_domain:
             noisy_w = self.compute_feats(noisy)
             est_mask = self.modules.masknet(noisy_w)
@@ -384,14 +384,20 @@ class Separation(sb.Brain):
             if layer != child_layer:
                 self.reset_layer_recursively(child_layer)
 
-    def save_results(self, test_data):
-        """This script computes the SDR and SI-SNR metrics and saves
-        them into a csv file"""
+    def save_results(self, valid_data):
+        """This script calculates the SDR and SI-SNR metrics
+        and stores them in a CSV file. As this evaluation
+        method depends on a gold-standard reference signal,
+        it is applied exclusively to the valid set and excludes
+        the baseline data.
+        """
         # This package is required for SDR computation
         from mir_eval.separation import bss_eval_sources
 
         # Create folders where to store audio
-        save_file = os.path.join(self.hparams.output_folder, "test_results.csv")
+        save_file = os.path.join(
+            self.hparams.output_folder, "valid_results.csv"
+        )
 
         # Variable init
         all_sdrs = []
@@ -416,8 +422,8 @@ class Separation(sb.Brain):
             "covl",
         ]
 
-        test_loader = sb.dataio.dataloader.make_dataloader(
-            test_data, **self.hparams.dataloader_opts_test
+        valid_loader = sb.dataio.dataloader.make_dataloader(
+            valid_data, **self.hparams.dataloader_opts_test
         )
 
         with open(save_file, "w") as results_csv:
@@ -425,9 +431,9 @@ class Separation(sb.Brain):
             writer.writeheader()
 
             # Loop over all test sentence
-            with tqdm(test_loader, dynamic_ncols=True) as t:
+            with tqdm(valid_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-                    # Apply Separation
+                    # Apply Enhancement
                     noisy, noisy_len = batch.noisy_sig
                     snt_id = batch.id
                     clean = batch.clean_sig
@@ -545,10 +551,12 @@ class Separation(sb.Brain):
 
     def save_audio(self, snt_id, noisy, clean, predictions):
         "saves the test audio (noisy, clean, and estimated sources) on disk"
-        print("Saving enhanced sources")
+        print("Saving enhanced sources (valid set)")
 
         # Create output folders
-        save_path = os.path.join(self.hparams.save_folder, "audio_results")
+        save_path = os.path.join(
+            self.hparams.save_folder, "valid_audio_results"
+        )
         save_path_enhanced = os.path.join(save_path, "enhanced_sources")
         save_path_clean = os.path.join(save_path, "clean_sources")
         save_path_noisy = os.path.join(save_path, "noisy_sources")
@@ -604,15 +612,12 @@ def dataio_prep(hparams):
         replacements={"data_root": hparams["data_folder"]},
     )
 
-    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_data"],
+    baseline_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["baseline_data"],
         replacements={"data_root": hparams["data_folder"]},
     )
 
-    datasets = [train_data, valid_data, test_data]
-
     # 2. Provide audio pipelines
-
     @sb.utils.data_pipeline.takes("clean_wav")
     @sb.utils.data_pipeline.provides("clean_wav", "clean_sig")
     def audio_pipeline_clean(clean_wav):
@@ -646,9 +651,24 @@ def dataio_prep(hparams):
             )(noisy_sig)
         return noisy_wav, noisy_sig
 
+    # Audio pipeline for baseline-data
+    @sb.utils.data_pipeline.takes("noisy_wav")
+    @sb.utils.data_pipeline.provides("noisy_wav", "noisy_sig")
+    def noisy_baseline_audio_pipeline(noisy_wav):
+        noisy_sig = sb.dataio.dataio.read_audio(noisy_wav)
+        info = torchaudio.info(noisy_wav)
+        noisy_sig = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"]
+        )(noisy_sig)
+        return noisy_wav, noisy_sig
+
+    datasets = [train_data, valid_data]
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_clean)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noisy)
+    sb.dataio.dataset.add_dynamic_item(
+        [baseline_data], noisy_baseline_audio_pipeline
+    )
 
     sb.dataio.dataset.set_output_keys(
         datasets,
@@ -663,7 +683,11 @@ def dataio_prep(hparams):
         ],
     )
 
-    return train_data, valid_data, test_data
+    sb.dataio.dataset.set_output_keys(
+        [baseline_data], ["id", "noisy_wav", "noisy_sig"]
+    )
+
+    return train_data, valid_data, baseline_data
 
 
 if __name__ == "__main__":
@@ -701,22 +725,21 @@ if __name__ == "__main__":
         kwargs={
             "datapath": hparams["data_folder"],
             "baseline_noisy_datapath": hparams["baseline_noisy_folder"],
-            "baseline_enhanced_datapath": hparams["baseline_enhanced_folder"],
             "savepath": hparams["save_folder"],
             "skip_prep": hparams["skip_prep"],
             "fs": hparams["sample_rate"],
         },
     )
 
-    train_data, valid_data, test_data = dataio_prep(hparams)
+    train_data, valid_data, baseline_data = dataio_prep(hparams)
 
-    # Load pretrained model if pretrained_separator is present in the yaml
-    if "pretrained_separator" in hparams:
-        run_on_main(hparams["pretrained_separator"].collect_files)
-        hparams["pretrained_separator"].load_collected()
+    # Load pretrained model if pretrained_enhancement is present in the yaml
+    if "pretrained_enhancement" in hparams:
+        run_on_main(hparams["pretrained_enhancement"].collect_files)
+        hparams["pretrained_enhancement"].load_collected()
 
     # Brain class initialization
-    separator = Separation(
+    enhancement = Enhancement(
         modules=hparams["modules"],
         opt_class=hparams["optimizer"],
         hparams=hparams,
@@ -725,24 +748,70 @@ if __name__ == "__main__":
     )
 
     # re-initialize the parameters if we don't use a pretrained model
-    if "pretrained_separator" not in hparams:
-        for module in separator.modules.values():
-            separator.reset_layer_recursively(module)
+    if "pretrained_enhancement" not in hparams:
+        for module in enhancement.modules.values():
+            enhancement.reset_layer_recursively(module)
 
     # determine if frequency domain enhancement or not
     use_freq_domain = hparams.get("use_freq_domain", False)
-    separator.use_freq_domain = use_freq_domain
+    enhancement.use_freq_domain = use_freq_domain
 
     if not hparams["test_only"]:
         # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
+        enhancement.fit(
+            enhancement.hparams.epoch_counter,
             train_data,
             valid_data,
             train_loader_kwargs=hparams["dataloader_opts"],
             valid_loader_kwargs=hparams["dataloader_opts_valid"],
         )
 
-    # Eval
-    separator.evaluate(test_data, max_key="pesq")
-    separator.save_results(test_data)
+    ## Evaluation of valid data
+    enhancement.evaluate(valid_data, max_key="pesq")
+    enhancement.save_results(valid_data)
+
+    ## Save enhanced sources of baseline noisy testclips
+    def save_baseline_audio(snt_id, predictions):
+        "saves the  estimated sources on disk"
+        # Create outout folder
+        save_path = os.path.join(
+            hparams["save_folder"], "baseline_audio_results"
+        )
+        save_path_enhanced = os.path.join(save_path, "enhanced_testclips")
+
+        if not os.path.exists(save_path_enhanced):
+            os.makedirs(save_path_enhanced)
+
+        # Estimated source
+        signal = predictions[0, :]
+        signal = signal / signal.abs().max()
+        save_file = os.path.join(save_path_enhanced, snt_id)
+        torchaudio.save(
+            save_file, signal.unsqueeze(0).cpu(), hparams["sample_rate"]
+        )
+
+    test_loader = sb.dataio.dataloader.make_dataloader(
+        baseline_data, **hparams["dataloader_opts_test"]
+    )
+
+    # Loop over all noisy baseline testclips
+    print("Saving enhanced sources (baseline set)")
+    with tqdm(test_loader, dynamic_ncols=True) as t:
+        for i, batch in enumerate(t):
+            # Apply Enhancement
+            snt_id = batch.noisy_wav[0].split("/")[-1]
+
+            with torch.no_grad():
+                # Since only noisy sources are provided for baseline
+                # we use the compute_forward function with the same noisy
+                # signal for all inputs. (ugly hack)
+                predictions, clean = enhancement.compute_forward(
+                    batch.noisy_sig,
+                    batch.noisy_sig,
+                    batch.noisy_sig,
+                    sb.Stage.TEST,
+                )
+                predictions = predictions[0]
+
+            # Write enhanced wavs
+            save_baseline_audio(snt_id, predictions)

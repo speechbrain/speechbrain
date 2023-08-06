@@ -17,11 +17,10 @@ train_log: !ref <output_folder>/train_log.txt
 # Data params
 # ../noisyspeech_synthesizer/synthesized_data/
 data_folder: !PLACEHOLDER
-baseline_noisy_folder: /netscratch/sagar/data/Microsoft-DNS/datasets/dev_testset/noisy_testclips # !PLACEHOLDER
-baseline_enhanced_folder: /netscratch/sagar/data/Microsoft-DNS/datasets/dev_testset/baseline_enhanced_testclips # !PLACEHOLDER
+baseline_noisy_folder: !PLACEHOLDER
 train_data: !ref <save_folder>/dns_16k_tr.csv
 valid_data: !ref <save_folder>/dns_16k_cv.csv
-test_data: !ref <save_folder>/dns_16k_cv.csv
+baseline_data: !ref <save_folder>/dns_baseline_dev_48K.csv
 skip_prep: False
 shuffle_train_data: True
 task: enhancement
@@ -29,7 +28,7 @@ task: enhancement
 # Basic parameters
 use_tensorboard: True
 tensorboard_logs: !ref <output_folder>/logs/
-dereverberate: false
+dereverberate: False
 
 # Experiment params
 auto_mix_prec: True
@@ -173,7 +172,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
 ## Uncomment to fine-tune a pre-trained model.
-# pretrained_separator: !new:speechbrain.utils.parameter_transfer.Pretrainer
+# pretrained_enhancement: !new:speechbrain.utils.parameter_transfer.Pretrainer
 #     collect_in: !ref <save_folder>
 #     loadables:
 #         encoder: !ref <Encoder>

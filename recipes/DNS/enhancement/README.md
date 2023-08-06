@@ -12,15 +12,15 @@ To start training
 ```
 python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
 ```
-## **DNSMOS Evaluation**
+## **DNSMOS Evaluation on baseline-testclips**
 *Reference: [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*
-Download the evalution models from [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) and save it under `DNSMOS`, Then, to run DNSMOS evalution on the audios saved in the above step.
+Download the evalution models from [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) and save it under `DNSMOS`. Then, to run DNSMOS evalution on the baseline-testclips saved in the above step.
 ```
 # Model=SepFormer
-python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/audio_results/enhanced_sources/ -o dnsmos_enhance.csv
+python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/baseline_audio_results/enhanced_testclips/ -o dnsmos_enhance.csv
 
 # Model=Noisy
-python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/audio_results/noisy_sources/ -o dnsmos_noisy.csv
+python dnsmos_local.py -t <path-to/datasets_fullband/dev_testset/noisy_testclips/> -o dnsmos_noisy.csv
 ```
 
 ## **Results**

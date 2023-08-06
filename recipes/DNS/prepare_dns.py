@@ -31,12 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def prepare_dns_csv(
-    datapath,
-    baseline_noisy_datapath,
-    baseline_enhanced_datapath,
-    savepath,
-    skip_prep=False,
-    fs=16000,
+    datapath, baseline_noisy_datapath, savepath, skip_prep=False, fs=16000,
 ):
     """
     Prepare CSV files for trainset and Baseline DEV set.
@@ -47,10 +42,7 @@ def prepare_dns_csv(
         Path to DNS trainset with splits like read_speech,
         german_speech etc.
     baseline_noisy_datapath : str
-        Path to Baseline DEV noisy-set
-    baseline_enhanced_datapath : str
-        Path to Baseline DEV ehnaced set (obtained using Baseline
-        model e.g. NSNet2-baseline)
+        Path to Baseline DEV noisy-testclips
     savepath : str
         Path to save the csv files
     skip_prep : bool
@@ -70,9 +62,7 @@ def prepare_dns_csv(
     # Create baseline dev data
     msg = "Preparing DNS baseline dev data as csv file in %s " % (savepath)
     logger.info(msg)
-    create_baseline_dev_csv(
-        baseline_noisy_datapath, baseline_enhanced_datapath, savepath
-    )
+    create_baseline_dev_csv(baseline_noisy_datapath, savepath)
 
 
 def create_dns_csv(datapath, savepath, fs=16000):
@@ -182,21 +172,19 @@ def create_dns_csv(datapath, savepath, fs=16000):
     )
 
 
-def create_baseline_dev_csv(noisy_datapath, enhanced_datapath, savepath):
+def create_baseline_dev_csv(noisy_datapath, savepath):
     """
     Create CSV files for DNS baseline dev set.
-    Source: https://github.com/microsoft/DNS-Challenge/tree/5582dcf5ba43155621de72a035eb54a7d233af14#baseline-enhanced-clips
 
     Arguments:
     ----------
     noisy_datapath : str
         Path to DNS baseline noisy audio files.
-    enhanced_datapath : str
-        Path to enhanced files obtained using the baseline model- NSNet
     savepath : str
         Path to save the csv files
     """
     savename = "dns_baseline_dev_48K"
+    fs = 48000
 
     save_csv = os.path.join(savepath, savename + ".csv")
     # If csv already exists, we skip the data preparation
@@ -208,7 +196,6 @@ def create_baseline_dev_csv(noisy_datapath, enhanced_datapath, savepath):
         return
 
     noisy_fullpaths = extract_files(noisy_datapath)
-    enhanced_fullpath = extract_files(enhanced_datapath)
 
     csv_columns = [
         "ID",
@@ -216,26 +203,22 @@ def create_baseline_dev_csv(noisy_datapath, enhanced_datapath, savepath):
         "noisy_wav",
         "noisy_wav_format",
         "noisy_wav_opts",
-        "enhanced_wav",
-        "enhanced_wav_format",
-        "enhanced_wav_opts",
     ]
 
     with open(os.path.join(savepath, savename + ".csv"), "w") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         writer.writeheader()
 
-        for (i, (noisy_fp, enhanced_fp),) in enumerate(
-            zip(noisy_fullpaths, enhanced_fullpath)
-        ):
+        for i, noisy_fp in tqdm(enumerate(noisy_fullpaths)):
+            signal = read_audio(noisy_fp)
+            duration = round(signal.shape[0] / fs, 2)
 
             row = {
+                "ID": i,
+                "duration": duration,
                 "noisy_wav": noisy_fp,
                 "noisy_wav_format": "wav",
                 "noisy_wav_opts": None,
-                "enhanced_wav": enhanced_fp,
-                "enhanced_wav_format": "wav",
-                "enhanced_wav_opts": None,
             }
             writer.writerow(row)
 
