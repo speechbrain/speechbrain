@@ -132,7 +132,7 @@ class HuggingFaceGPT(nn.Module):
                     top_p=self.top_p,
                     num_beams=self.num_beams,
                     num_return_sequences=1,
-                    # pad_token_id=50256,
+                    pad_token_id=50256,
                     early_stopping=self.early_stopping,
                 )
             else:

@@ -33,7 +33,7 @@ class ResGenBrain(sb.Brain):
         token_type_ids, _ = batch.token_type_ids
 
         # Forward Pass
-        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=tokenizer.pad_token_id)
+        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=tokenizer.eos_token_id).type(torch.long)
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
         ).logits
@@ -70,14 +70,14 @@ class ResGenBrain(sb.Brain):
             # hyps = None
             # current_epoch = self.hparams.epoch_counter.current
             # if current_epoch % self.hparams.valid_search_interval == 0:
-            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.pad_token_id)
+            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.eos_token_id)
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
                 history_token_type.detach(),
                 padding_mask.detach(),
             )
         elif stage == sb.Stage.TEST:
-            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.pad_token_id)
+            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.eos_token_id)
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
                 history_token_type.detach(),
@@ -412,7 +412,7 @@ if __name__ == "__main__":
 
     # Load tokenizer and add special tokens
     tokenizer = GPT2Tokenizer.from_pretrained(
-        hparams["gpt_hub"], pad_token='PAD'
+        hparams["gpt_hub"], pad_token=None
     )
 
     #  Load pretrained GPT
@@ -435,7 +435,7 @@ if __name__ == "__main__":
                 max_len = max([len(x[k]) for x in examples])
                 pad_value = 0.0
                 if k in ["input_ids","history_bos"]:
-                    pad_value = tokenizer.pad_token_id
+                    pad_value = tokenizer.eos_token_id
                 elif k == "lm_labels":
                     pad_value = hparams["ignore_index"]
                 for example in examples:
