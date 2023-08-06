@@ -54,6 +54,7 @@ def prepare_audiomnist(
     norm=True,
     highpass=True,
     process_audio=None,
+    skip_prep=False,
 ):
     """Auto-downloads and prepares the AudioMNIST dataset
 
@@ -96,7 +97,12 @@ def prepare_audiomnist(
         a custom function used to process audio files - instead of
         the standard transform (resample + normalize + trim)
 
+    skip_prep: bool
+        whether preparation should be skipped
+
     """
+    if skip_prep:
+        return
     # Check if the target folder exists. Create it if it does not.
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -544,7 +550,7 @@ def get_file_metadata(meta, split, file_list, lookup):
         digit, speaker_id, _ = item_id.split("_")
         speaker_meta = meta[speaker_id]
         file_meta = {
-            "file_name": f"dataset/{split}/{speaker_id}/{file_name}",
+            "file_name": f"{{data_root}}/dataset/{split}/{speaker_id}/{file_name}",
             "digit": digit,
             "speaker_id": speaker_id,
         }
