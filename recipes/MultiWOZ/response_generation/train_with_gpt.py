@@ -33,7 +33,7 @@ class ResGenBrain(sb.Brain):
         token_type_ids, _ = batch.token_type_ids
 
         # Forward Pass
-        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=tokenizer.eos_token_id).type(torch.long)
+        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=tokenizer.eos_token_id)
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
         ).logits
