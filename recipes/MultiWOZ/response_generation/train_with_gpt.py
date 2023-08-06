@@ -20,6 +20,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from transformers import GPT2Tokenizer
 import math
+from speechbrain.dataio.batch import PaddedBatch
 
 
 class ResGenBrain(sb.Brain):
@@ -32,13 +33,13 @@ class ResGenBrain(sb.Brain):
         token_type_ids, _ = batch.token_type_ids
 
         # Forward Pass
-        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=0)
+        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=tokenizer.pad_token_id)
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
         ).logits
 
         #  apply softmax if necessary
-        outputs = self.hparams.log_softmax(outputs)
+        # outputs = self.hparams.log_softmax(outputs)
 
         return outputs
 
@@ -55,21 +56,28 @@ class ResGenBrain(sb.Brain):
 
         # nll_loss unfortunately considers the position of -100 in the label
         # we need to compute it manually after removing the padding
-        loss = self.hparams.compute_cost(predictions, lm_labels, labels_lens, reduction="none")
-        loss = loss.sum()/(loss != 0).sum()
+        # loss = self.hparams.compute_cost(predictions, lm_labels, labels_lens, reduction="none")
+        # loss = loss.sum()/(loss != 0).sum()
+        loss = self.hparams.ce_loss(
+            predictions.flatten(end_dim=-2), lm_labels.flatten()
+        )
 
+        if stage == sb.Stage.TRAIN:
+            tokenizer.padding_side = "right" 
+        else:
+             tokenizer.padding_side = "left" 
         if stage == sb.Stage.VALID:
             # hyps = None
             # current_epoch = self.hparams.epoch_counter.current
             # if current_epoch % self.hparams.valid_search_interval == 0:
-            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=0)
+            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.pad_token_id)
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
                 history_token_type.detach(),
                 padding_mask.detach(),
             )
         elif stage == sb.Stage.TEST:
-            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=0)
+            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.pad_token_id)
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
                 history_token_type.detach(),
@@ -151,6 +159,7 @@ class ResGenBrain(sb.Brain):
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
+           
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -160,13 +169,14 @@ class ResGenBrain(sb.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"loss": stage_stats["loss"]}, min_keys=["loss"],
             )
-            with open(self.hparams.blue_4_valid_file, "w") as w:
-                self.blue_4_metric.write_stats(w)
-                for i in range(len(self.hyps)):
-                    w.write("target: " + str(self.references[i]) + "\n")
-                    w.write("predicted:" + str(self.hyps[i]) + "\n")
-                    w.write(
-                        "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+            if epoch == hparams['number_of_epochs']-1:
+                with open(self.hparams.blue_4_valid_file, "w") as w:
+                    self.blue_4_metric.write_stats(w)
+                    for i in range(len(self.hyps)):
+                        w.write("target: " + str(self.references[i]) + "\n")
+                        w.write("predicted:" + str(self.hyps[i]) + "\n")
+                        w.write(
+                            "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
                     )
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -329,7 +339,7 @@ def dataio_prep(hparams, tokenizer):
         # the idea is to mask everything except the reply (withouth the speaker token)
         # N.B. we don't have bos in the input
         lm_labels = (
-            [-100] * history_ids.shape[0] + [-100] + reply_eos[1:].tolist()
+           [hparams["ignore_index"]] * history_ids.shape[0] + [hparams["ignore_index"]] + reply_eos[1:].tolist()
         )
         lm_labels = torch.LongTensor(lm_labels)
 
@@ -402,7 +412,7 @@ if __name__ == "__main__":
 
     # Load tokenizer and add special tokens
     tokenizer = GPT2Tokenizer.from_pretrained(
-        hparams["gpt_hub"], pad_token=None
+        hparams["gpt_hub"], pad_token='PAD'
     )
 
     #  Load pretrained GPT
@@ -412,6 +422,31 @@ if __name__ == "__main__":
     add_special_tokens_(
         hparams["gpt_model"].model, tokenizer, hparams["attr_to_special_tokens"]
     )
+
+    class CustomPaddedBatch(PaddedBatch):
+        """PaddedBatch with custom padding values.
+
+        See the documentation of `speechbrain.dataio.batch.PaddedBatch`.
+
+        """
+
+        def __init__(self, examples, *args, **kwargs):
+            for k in ["input_ids", "history_bos","lm_labels"]:
+                max_len = max([len(x[k]) for x in examples])
+                pad_value = 0.0
+                if k in ["input_ids","history_bos"]:
+                    pad_value = tokenizer.pad_token_id
+                elif k == "lm_labels":
+                    pad_value = hparams["ignore_index"]
+                for example in examples:
+                    x = example[k]
+                    example[k] = torch.nn.functional.pad(
+                        x, [0, max_len - len(x)], value=pad_value
+                    )
+            super().__init__(examples, *args, **kwargs)
+
+    hparams["train_dataloader_options"]["collate_fn"] = CustomPaddedBatch
+    hparams["test_dataloader_options"]["collate_fn"] = CustomPaddedBatch
 
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams, tokenizer)
@@ -438,7 +473,7 @@ if __name__ == "__main__":
         epoch_counter=res_gen_brain.hparams.epoch_counter,
         train_set=datasets["train"],
         valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
+        train_loader_kwargs=hparams["train_dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 

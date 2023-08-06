@@ -10,7 +10,7 @@ seed: 1995
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset will be downloaded to the `data_original`
-data_folder: !PLACEHOLDER
+data_folder: data/MultiWOZ_2.1
 output_folder: !ref results/train_with_gpt2/<seed>
 replacements_path: recipes/MultiWOZ/response_generation/mapping.pair
 save_folder: !ref <output_folder>/save
@@ -62,6 +62,10 @@ max_history: 5
 # Whether to append <end_of_entence> token.
 with_eos: True
 
+ignore_index: -100
+label_smoothing: 0
+
+
 
 # Training parameters
 number_of_epochs: 2
@@ -77,7 +81,7 @@ top_k: 45
 top_p: 0.9
 
 
-dataloader_options:
+train_dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: True
     num_workers: 2
@@ -115,7 +119,9 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.nll_loss
-
+ce_loss: !new:torch.nn.CrossEntropyLoss
+    ignore_index: !ref <ignore_index>
+    label_smoothing: !ref <label_smoothing>
 
 opt_class: !name:torch.optim.AdamW
     lr: !ref <lr>
