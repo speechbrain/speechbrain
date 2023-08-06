@@ -10,7 +10,7 @@ pip install onnxruntime
 ```
 To start training
 ```
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data> --baseline_noisy_folder <path/to/baseline-noisy-testclips>
 ```
 ## **DNSMOS Evaluation on baseline-testclips**
 *Reference: [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*

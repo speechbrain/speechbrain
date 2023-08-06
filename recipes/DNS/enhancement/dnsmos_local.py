@@ -1,6 +1,9 @@
-# Usage:
-# python dnsmos_local.py -t c:\temp\DNSChallenge4_Blindset -o DNSCh4_Blind.csv -p
-#
+"""
+Usage:
+    python dnsmos_local.py -t path/to/sepformer_enhc_clips -o dnsmos_enhance.csv
+
+Ownership: Microsoft
+"""
 
 import argparse
 import concurrent.futures
