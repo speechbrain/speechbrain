@@ -1,27 +1,27 @@
 # **Microsoft DNS-4 dataset**
-- **STEP 1**: Download DNS dataset.
-- **STEP 2**: Synthesize noisy data.
-- **STEP 3**: Begin training.
+- STEP 1: Download DNS dataset.
+- STEP 2: Synthesize noisy data.
+- STEP 3: Begin training.
 
-Source: [Deep Noise Suppression (DNS) Challenge 4 - ICASSP 2022](https://github.com/microsoft/DNS-Challenge)
+Source-- [Deep Noise Suppression (DNS) Challenge 4 - ICASSP 2022](https://github.com/microsoft/DNS-Challenge)
 
 The de-compressed directory structure and sizes of datasets are:
-```
-datasets_fullband 892G
-+-- dev_testset 1.7G
-+-- impulse_responses 5.9G
-+-- noise_fullband 58G
-\-- clean_fullband 827G
-    +-- emotional_speech 2.4G
-    +-- french_speech 62G
-    +-- german_speech 319G
-    +-- italian_speech 42G
-    +-- read_speech 299G
-    +-- russian_speech 12G
-    +-- spanish_speech 65G
-    +-- vctk_wav48_silence_trimmed 27G
-    \-- VocalSet_48kHz_mono 974M
-```
+    ```
+    datasets_fullband 892G
+    +-- dev_testset 1.7G
+    +-- impulse_responses 5.9G
+    +-- noise_fullband 58G
+    \-- clean_fullband 827G
+        +-- emotional_speech 2.4G
+        +-- french_speech 62G
+        +-- german_speech 319G
+        +-- italian_speech 42G
+        +-- read_speech 299G
+        +-- russian_speech 12G
+        +-- spanish_speech 65G
+        +-- vctk_wav48_silence_trimmed 27G
+        \-- VocalSet_48kHz_mono 974M
+    ```
 
 ## Required disk space
 The `dns_download.py` download script downloads the Real-time DNS track data and de-compresses it. The compressed data takes around 550 GB of disk space and when de-compressed you would need 1 TB to store audio files.

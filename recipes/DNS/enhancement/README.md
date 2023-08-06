@@ -12,8 +12,7 @@ To start training
 python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
 ```
 
-# **Results**
-
+## **Results**
 1. The DNS challenge doesn't provide the ground-truth clean files for dev test. Therefore, we randomly separate out 5% of training set as valid set so that we can compute valid stats like Si-SNR and PESQ during validation. Here we show validation performance.
 
       | Sampling rate | Valid Si-SNR | Valid PESQ | HuggingFace link	| Full Model link |
@@ -30,16 +29,16 @@ python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesize
 
 We performed 45 epochs of training for the enhancement using an 8 X RTXA6000 48GB GPU. On average, each epoch took approximately 9.25 hours to complete. **Consider training it for atleast 90-100 epochs for superior performance.**
 
-# **Computing power**
+## **Computing power**
 Kindly be aware that in terms of computational power, training can be extremely resource demanding due to the dataset's large size and the complexity of the SepFormer model. To handle the size of 1300 hours of clean-noisy pairs, we employed a multi-GPU distributed data-parallel (DDP) training scheme on an Nvidia 8 X RTXA6000 48GB GPU. The training process lasted for 17 days, for just 45 epochs.
 
-# **About SpeechBrain**
+## **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
 
-# **Citing SpeechBrain**
+## **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
