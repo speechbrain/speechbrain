@@ -412,7 +412,7 @@ class S2UT(sb.core.Brain):
             )
 
             transcript = asr_model.transcribe_file(sample_path.as_posix())
-            transcript = transcript[0].lower()
+            transcript = transcript.lower()
             transcripts.append(transcript)
 
             wav = torch.FloatTensor(wavs[i])
