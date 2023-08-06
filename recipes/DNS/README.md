@@ -5,7 +5,6 @@
 
 Source: [Deep Noise Suppression (DNS) Challenge 4 - ICASSP 2022](https://github.com/microsoft/DNS-Challenge)
 
-
 The de-compressed directory structure and sizes of datasets are:
 ```
 datasets_fullband 892G
@@ -36,7 +35,7 @@ The DNS dataset can be downloaded by running the script below
 ```
 python dns_download.py --compressed_path DNS-dataset --decompressed_path DNS-compressed
 ```
-To use parallel downloading 
+To use parallel downloading
 ```
 python dns_download.py --compressed_path DNS-dataset --decompressed_path DNS-compressed --parallel_download
 ```
