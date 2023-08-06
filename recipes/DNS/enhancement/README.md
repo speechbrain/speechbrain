@@ -40,6 +40,9 @@ python dnsmos_local.py -t <path-to/datasets_fullband/dev_testset/noisy_testclips
 
 We performed 45 epochs of training for the enhancement using an 8 X RTXA6000 48GB GPU. On average, each epoch took approximately 9.25 hours to complete. **Consider training it for atleast 90-100 epochs for superior performance.**
 
+**NOTE**
+- Refer [NSNet2](https://github.com/microsoft/DNS-Challenge/tree/5582dcf5ba43155621de72a035eb54a7d233af14/NSNet2-baseline) on how to perform enhancement on baseline dev set (noisy testclips) using the baseline model- NSNet2.
+
 ## **Computing power**
 Kindly be aware that in terms of computational power, training can be extremely resource demanding due to the dataset's large size and the complexity of the SepFormer model. To handle the size of 1300 hours of clean-noisy pairs, we employed a multi-GPU distributed data-parallel (DDP) training scheme on an Nvidia 8 X RTXA6000 48GB GPU. The training process lasted for 17 days, for just 45 epochs.
 
