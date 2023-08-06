@@ -18,7 +18,7 @@ python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesize
 
       | Sampling rate | Valid Si-SNR | Valid PESQ | HuggingFace link	| Full Model link |
       |---------------|--------------|------------|-------------------|------------|
-      | 16k           | -10.6        | 2.06       |                   |            |
+      | 16k           | -10.6        | 2.06       | [HuggingFace](https://huggingface.co/speechbrain/noisy-whisper-rescuespeech)                  |            |
 
 2. Evaluation on DNS4 2022 baseline dev set using DNSMOS.
 
