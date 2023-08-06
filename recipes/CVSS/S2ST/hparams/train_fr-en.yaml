@@ -1,18 +1,25 @@
+############################################################################
+# Model: Speech-to-Unit Translation (S2UT)
+# Language: French-English (Fr-En)
+# Training: CVSS
+# Authors: Jarod Duret
+# ############################################################################
+
 ###################################
 # Experiment Parameters and setup #
 ###################################
 seed: 888
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/s2ut/<seed>
+model_name: !PLACEHOLDER
+output_folder: !ref results/<model_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 200
-keep_checkpoint_interval: 5
+epochs: 30
 
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
-progress_samples_interval: 5
-progress_batch_sample_size: 4
+progress_samples_interval: 2
+progress_batch_sample_size: 20
 
 #################################
 # Data files and pre-processing #
@@ -24,49 +31,36 @@ sample_rate: 16000
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
-splits: ["train", "valid"]
-skip_prep: True
+splits: ["train", "valid", "test"]
+skip_prep: False
 
+# SSL model used to encode target features
 encoder_source: facebook/hubert-base-ls960
 layer: 6
 kmeans_source: chaanks/unit-hifigan-hubert-en-l6_k100
 kmeans_size: 100
-codes_folder: !ref <save_folder>/codes
+codes_folder: results/codes
 skip_extract: False
 
+# Vocoder model used for evaluation
 vocoder_source: chaanks/unit-hifigan-hubert-en-l6_k100
 vocoder_download_path: !ref <save_folder>/pretrained_models/vocoder
 
-asr_source: chaanks/asr-whisper-tiny-sb
+# ASR model used for evaluation
+asr_source: speechbrain/asr-transformer-transformerlm-librispeech
 asr_download_path: !ref <save_folder>/pretrained_models/asr
 
-sorting: random
-dynamic_batching: True
-max_batch_len: 250 #600
-max_batch_len_val: 250 #400 we reduce it as the beam is much wider (VRAM)
-num_bucket: 200
-
-dynamic_batch_sampler:
-    max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
-    num_buckets: !ref <num_bucket>
-    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
-    max_batch_ex: 128
-
-# URL for the HuggingFace model we want to use as transformer encoder
-wav2vec2_source: LeBenchmark/wav2vec2-FR-7K-base #-large -base
+# Wav2vec2 encoder
+wav2vec2_source: LeBenchmark/wav2vec2-FR-7K-large
 wav2vec2_download_path: !ref <save_folder>/pretrained_models
 
-# wav2vec 2.0 specific parameters
+# wav2vec2 encoder specific parameters
 wav2vec2_frozen: False
+wav2vec2_freeze_steps: 10000
 
 # Training parameters
-number_of_epochs: 100
-lr: 0.0005 #5
-lr_wav2vec: 0.00001 #0.00001
-train_batch_size: 2
-test_batch_size: 10
+lr: 0.0005
+lr_wav2vec: 0.00001
 loss_reduction: batchmean
 
 # Outputs
@@ -76,7 +70,25 @@ eos_index: 101
 pad_index: 102
 label_smoothing: 0.2
 
+# Dynamic batching
+sorting: random
 num_workers: 4
+dynamic_batching: True
+max_batch_len: 180 # 40 Gb GPU
+max_batch_len_val: 150
+num_bucket: 200
+
+train_batch_size: 32 # if not using dynamic batching
+valid_batch_size: 16
+
+dynamic_batch_sampler:
+    max_batch_len: !ref <max_batch_len>
+    max_batch_len_val: !ref <max_batch_len_val>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+    max_batch_ex: 128
+
 train_dataloader_opts:
     batch_size: !ref <train_batch_size>
     drop_last: False
@@ -86,18 +98,20 @@ train_dataloader_opts:
             value: !ref <pad_index>
 
 valid_dataloader_opts:
-    batch_size: !ref <test_batch_size>
+    batch_size: !ref <valid_batch_size>
     num_workers: !ref <num_workers>
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
             value: !ref <pad_index>
 
-####################### Model parameters ###########################
+################################
+# Model Parameters and model   #
+################################
 
 # Feature parameters (W2V2 etc)
-features_dim: 768 # base wav2vec output dimension, for large replace by 1024
+features_dim: 1024 # large wav2vec output dimension, for base replace by 768
 
-#projection for w2v
+# Length Regulator
 enc_kernel_size: 3
 enc_stride: 2
 
@@ -120,10 +134,11 @@ max_decode_ratio: 1.0
 ############################## models ################################
 wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_source>
-    output_norm: True
+    output_norm: True ### Test in baseline_v2
     freeze: !ref <wav2vec2_frozen>
+    freeze_feature_extractor: False
     save_path: !ref <wav2vec2_download_path>
-    apply_spec_augment: True
+    apply_spec_augment: False
 
 enc: !new:speechbrain.nnet.CNN.Conv1d
     input_shape: [null, null, !ref <features_dim>]
@@ -174,12 +189,12 @@ seq_cost: !name:speechbrain.nnet.losses.nll_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr>
-    n_warmup_steps: 2500 #2500
+    n_warmup_steps: 5000
 
 wav2vec_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_wav2vec>
     improvement_threshold: 0.0025
-    annealing_factor: 0.9
+    annealing_factor: 0.90
 
 #epoch object
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -195,6 +210,15 @@ valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     temperature: 1.0
+
+test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
+    modules: [!ref <transformer>, !ref <seq_lin>, null]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: 10
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats

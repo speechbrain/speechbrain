@@ -1,4 +1,12 @@
-#!/usr/bin/env python3
+"""
+ Recipe for training the speech-to-unit translation (S2UT) model, the implementation is based on the following papers:
+ - Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
+ - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
+ To run this recipe, do the following:
+ # python train.py hparams/train.yaml
+ Authors
+ * Jarod Duret 2023
+"""
 
 import sys
 import torch
@@ -6,18 +14,29 @@ import logging
 import pathlib as pl
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
-from speechbrain.pretrained import UnitHIFIGAN, WhisperASR
+from speechbrain.pretrained import UnitHIFIGAN, EncoderDecoderASR
 import tqdm
 import torchaudio
 import numpy as np
+from torch.nn.parallel import DistributedDataParallel
 
 logger = logging.getLogger(__name__)
 
 
 # Define training procedure
-class S2U(sb.core.Brain):
+class S2UT(sb.core.Brain):
     def compute_forward(self, batch, stage):
-        """Forward computations from the waveform batches to the output probabilities."""
+        """Computes the forward pass
+        Arguments
+        ---------
+        batch: str
+            a single batch
+        stage: speechbrain.Stage
+            the training stage
+        Returns
+        -------
+        the model output
+        """
         batch = batch.to(self.device)
         wavs, wav_lens = batch.src_sig
         tokens_bos, _ = batch.code_bos
@@ -26,14 +45,19 @@ class S2U(sb.core.Brain):
         wavs[wavs == self.hparams.pad_index] = 0.0
 
         # compute features
-        feats = self.modules.wav2vec2(wavs, wav_lens)
+        enc_out = self.modules.wav2vec2(wavs, wav_lens)
 
         # dimensionality reduction
-        src = self.modules.enc(feats)
+        enc_out = self.modules.enc(enc_out)
 
-        dec_out = self.modules.transformer.forward_mt_decoder_only(
-            src, tokens_bos, pad_idx=self.hparams.pad_index
-        )
+        if isinstance(self.modules.transformer, DistributedDataParallel):
+            dec_out = self.modules.transformer.module.forward_mt_decoder_only(
+                enc_out, tokens_bos, pad_idx=self.hparams.pad_index
+            )
+        else:
+            dec_out = self.modules.transformer.forward_mt_decoder_only(
+                enc_out, tokens_bos, pad_idx=self.hparams.pad_index
+            )
 
         # logits and softmax
         pred = self.modules.seq_lin(dec_out)
@@ -47,48 +71,86 @@ class S2U(sb.core.Brain):
                 and current_epoch % self.hparams.progress_samples_interval == 0
             )
             if output_progress_sample:
-                hyps, _ = self.hparams.valid_search(src.detach(), wav_lens)
+                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
 
-        return p_seq, wav_lens, hyps
+        elif stage == sb.Stage.TEST:
+            ids = batch.id
+            tgt_text = batch.tgt_text
+
+            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            code = torch.LongTensor(hyps[0])
+            wav = self.test_vocoder.decode_unit(code)
+            wav_len = torch.tensor([1.0]).to(self.device)
+            transcript, _ = self.test_asr.transcribe_batch(wav, wav_len)
+            transcript = transcript[0].lower()
+            print(transcript)
+            print(tgt_text)
+
+            self.bleu_metric.append(ids, [transcript], [tgt_text])
+
+        return (
+            enc_out.detach(),
+            p_seq,
+            wav_lens,
+            hyps,
+        )
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss given predictions and targets."""
-        (p_seq, wav_lens, hyps) = predictions
+        """Computes the loss given the predicted and targeted outputs.
+        Arguments
+        ---------
+        predictions : torch.Tensor
+            The model generated spectrograms and other metrics from `compute_forward`.
+        batch : PaddedBatch
+            This batch object contains all the relevant tensors for computation.
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.
+        """
+        (enc_out, p_seq, wav_lens, hyps) = predictions
         tokens_eos, tokens_eos_lens = batch.code_eos
         ids = batch.id
 
-        # st loss
+        # speech translation loss
         loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
             wavs, wav_lens = batch.tgt_sig
             tgt_text = batch.tgt_text
 
-            self.last_batch = [
-                ids,
-                p_seq,
-                hyps,
-                (tokens_eos, tokens_eos_lens),
-                (wavs, wav_lens),
-                tgt_text,
-            ]
-
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
 
-            current_epoch = self.hparams.epoch_counter.current
-            output_progress_sample = (
-                self.hparams.progress_samples
-                and current_epoch % self.hparams.progress_samples_interval == 0
-            )
-            if output_progress_sample:
-                self.wer_metric_st_greedy.append(
-                    ids, hyps, tokens_eos, target_len=tokens_eos_lens
+            if stage == sb.Stage.VALID:
+                # Save last batch
+                self.last_batch = [
+                    ids,
+                    enc_out,
+                    (tokens_eos, tokens_eos_lens),
+                    (wavs, wav_lens),
+                    tgt_text,
+                ]
+
+                current_epoch = self.hparams.epoch_counter.current
+                output_progress_sample = (
+                    self.hparams.progress_samples
+                    and current_epoch % self.hparams.progress_samples_interval
+                    == 0
                 )
+                if output_progress_sample:
+                    self.wer_metric_st_greedy.append(
+                        ids, hyps, tokens_eos, target_len=tokens_eos_lens
+                    )
 
         return loss
 
     def init_optimizers(self):
+        """Called during ``on_fit_start()``, initialize optimizers
+        after parameters are fully configured (e.g. DDP, jit).
+        """
         # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
@@ -98,12 +160,30 @@ class S2U(sb.core.Brain):
             self.hparams.model.parameters()
         )
 
-    def zero_grad(self, set_to_none=False):
-        if not self.hparams.wav2vec2_frozen:
-            self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.model_optimizer.zero_grad(set_to_none)
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "wav2vec_optimizer", self.wav2vec_optimizer
+            )
+            self.checkpointer.add_recoverable(
+                "model_optimizer", self.model_optimizer
+            )
 
     def fit_batch(self, batch):
+        """Fits a single batch
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+        Returns
+        -------
+        loss: torch.Tensor
+            detached loss
+        """
+        if self.optimizer_step == self.hparams.wav2vec2_freeze_steps:
+            logger.warning(
+                "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 is unfrozen."
+            )
+
         should_step = self.step % self.grad_accumulation_factor == 0
         if self.bfloat16_mix_prec:
             with torch.autocast(
@@ -122,32 +202,50 @@ class S2U(sb.core.Brain):
             if self.check_gradients(loss):
                 if (
                     not self.hparams.wav2vec2_frozen
+                    and self.optimizer_step
+                    >= self.hparams.wav2vec2_freeze_steps
                 ):  # if wav2vec2 is not frozen
                     self.wav2vec_optimizer.step()
                 self.model_optimizer.step()
 
             if not self.hparams.wav2vec2_frozen:
                 self.wav2vec_optimizer.zero_grad()
-            self.zero_grad()
+            self.model_optimizer.zero_grad()
+
             self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """Called after ``fit_batch()``, meant for calculating and logging metrics.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        outputs : list or dictionary of torch.Tensors
+            Returned value of compute_forward().
+        loss : torch.Tensor
+            Returned value of compute_objectives().
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
         if should_step:
             # anneal model lr every update
             self.hparams.noam_annealing(self.model_optimizer)
 
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
-        """Gets called when a stage (either training, validation, test) starts."""
+        """Gets called when a stage starts.
+
+        Arguments
+        ---------
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+        epoch : int
+            The current epoch count.
+        """
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()
             self.wer_metric_st_greedy = self.hparams.error_rate_computer()
@@ -155,17 +253,40 @@ class S2U(sb.core.Brain):
             self.last_batch = None
             self.last_epoch = 0
 
+            if stage == sb.Stage.TEST:
+                logger.info("Loading pretrained HiFi-GAN ...")
+                self.test_vocoder = UnitHIFIGAN.from_hparams(
+                    source=self.hparams.vocoder_source,
+                    savedir=self.hparams.vocoder_download_path,
+                    run_opts={"device": self.device},
+                )
+
+                logger.info("Loading pretrained ASR ...")
+                self.test_asr = EncoderDecoderASR.from_hparams(
+                    source=self.hparams.asr_source,
+                    savedir=self.hparams.asr_download_path,
+                    run_opts={"device": self.device},
+                )
+
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a epoch."""
-        # Compute/store important stats
+        """Gets called at the end of an epoch.
+        Arguments
+        ---------
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, sb.Stage.TEST
+        stage_loss : float
+            The average loss for all of the data processed in this stage.
+        epoch : int
+            The currently-starting epoch. This is passed
+            `None` during the test stage.
+        """
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_loss
 
-        else:  # valid or test
-            self.last_epoch = epoch
+        # At the end of validation, we can write
+        elif stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             stage_stats = {"loss": stage_loss}
-            stage_stats["accuracy_st"] = self.acc_metric.summarize()
-            current_epoch = self.hparams.epoch_counter.current
+            stage_stats["ACC"] = self.acc_metric.summarize()
 
             output_progress_sample = (
                 self.hparams.progress_samples
@@ -174,22 +295,21 @@ class S2U(sb.core.Brain):
 
             if output_progress_sample:
                 # Compute BLEU scores
-                self.run_evaluation_pipeline(epoch)
+                self._run_evaluation_pipeline(epoch)
 
-                stage_stats["bleu"] = self.bleu_metric.summarize("BLEU")
-                stage_stats[
-                    "wer_st_greedy"
-                ] = self.wer_metric_st_greedy.summarize("error_rate")
+                stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
+                stage_stats["WER"] = self.wer_metric_st_greedy.summarize(
+                    "error_rate"
+                )
 
-        # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+            self.last_epoch = epoch
             current_epoch = self.hparams.epoch_counter.current
-            lr = self.hparams.noam_annealing.current_lr
+            lr_model = self.hparams.noam_annealing.current_lr
             lr_wav2vec = 0.0
 
             if not self.hparams.wav2vec2_frozen:
                 (lr_wav2vec, new_lr_wav2vec,) = self.hparams.wav2vec_annealing(
-                    stage_stats["accuracy_st"]
+                    stage_stats["ACC"]
                 )
                 sb.nnet.schedulers.update_learning_rate(
                     self.wav2vec_optimizer, new_lr_wav2vec
@@ -198,39 +318,50 @@ class S2U(sb.core.Brain):
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": current_epoch,
-                    "lr": lr,
+                    "lr_model": lr_model,
                     "lr_wav2vec": lr_wav2vec,
                 },
                 train_stats={"loss": self.train_stats},
                 valid_stats=stage_stats,
             )
 
-            # create checkpoing
-            meta = {
-                "epoch": current_epoch,
-                "loss": stage_stats["loss"],
-                "accuracy_st": stage_stats["accuracy_st"],
-            }
-            name = "checkpoint_epoch" + str(current_epoch)
-
+            # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta=meta, name=name, num_to_keep=10, max_keys=["accuracy_st"]
+                meta={"ACC": stage_stats["ACC"], "epoch": epoch},
+                max_keys=["ACC"],
+                num_to_keep=10,
             )
 
         elif stage == sb.Stage.TEST:
+            stage_stats = {"loss": stage_loss}
+            stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
+
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
 
-    def run_evaluation_pipeline(self, epoch):
-        print("Evaluation pipeline")
+            logger.info(
+                f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}"
+            )
+            bleu_file = pl.Path(self.hparams.output_folder) / "bleu.txt"
+            with open(bleu_file, "a+", encoding="utf-8") as w:
+                self.bleu_metric.write_stats(w)
+
+    def _run_evaluation_pipeline(self, epoch):
+        """Run the complete evaluation pipeline by computing BLEU scores on transcripts extracted from synthesized speech
+        using the unit-to-speech (U2S) model.
+        Arguments
+        ---------
+        epoch : int
+            The currently-starting epoch. This is passed
+            `None` during the test stage.
+        """
         if self.last_batch is None:
             return
         (
             ids,
-            p_seq,
-            hyps,
+            enc_out,
             (tokens_eos, tokens_eos_lens),
             (wavs, wav_lens),
             tgt_text,
@@ -246,15 +377,19 @@ class S2U(sb.core.Brain):
         )
 
         logger.info("Loading pretrained ASR ...")
-        asr_model = WhisperASR.from_hparams(
+        asr_model = EncoderDecoderASR.from_hparams(
             source=self.hparams.asr_source,
             savedir=self.hparams.asr_download_path,
-            verbose=False,
         )
 
         sample_size = self.hparams.progress_batch_sample_size
         if len(ids) < sample_size:
             sample_size = len(ids)
+
+        # Beamsearch decoding
+        hyps, _ = self.hparams.test_search(
+            enc_out[:sample_size], wav_lens[:sample_size]
+        )
 
         tokens_eos = tokens_eos.cpu()
         tokens_eos_lens = tokens_eos_lens.cpu()
@@ -262,7 +397,6 @@ class S2U(sb.core.Brain):
         tokens_eos = sb.utils.data_utils.undo_padding(
             tokens_eos, tokens_eos_lens
         )
-
         wavs = sb.utils.data_utils.undo_padding(wavs, wav_lens)
 
         transcripts = []
@@ -278,7 +412,8 @@ class S2U(sb.core.Brain):
             )
 
             transcript = asr_model.transcribe_file(sample_path.as_posix())
-            transcripts.append(" ".join(transcript[0]))
+            transcript = transcript[0].lower()
+            transcripts.append(transcript)
 
             wav = torch.FloatTensor(wavs[i])
             sample_path = save_folder / f"{utt_id}_ref.wav"
@@ -286,20 +421,20 @@ class S2U(sb.core.Brain):
                 sample_path, wav, self.hparams.sample_rate
             )
 
-            sample_path = save_folder / f"{utt_id}_pred.txt"
+            sample_path = save_folder / f"{utt_id}.txt"
             with open(sample_path, "w") as file:
-                file.write(f"{transcript}\n")
-
-            sample_path = save_folder / f"{utt_id}_ref.txt"
-            with open(sample_path, "w") as file:
-                file.write(f"{tgt_text[i]}\n")
+                file.write(f"pred: {transcript}\n")
+                file.write(f"ref: {tgt_text[i]}\n")
 
         self.bleu_metric.append(
             ids[:sample_size], transcripts, [tgt_text[:sample_size]]
         )
-        print(
-            f"Evaluation BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}"
-        )
+
+        bleu_path = save_folder / "bleu.txt"
+        with open(bleu_path, "w") as file:
+            file.write(
+                f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}\n"
+            )
 
 
 def dataio_prepare(hparams):
@@ -345,7 +480,6 @@ def dataio_prepare(hparams):
 
     datasets = {}
     for split in hparams["splits"]:
-        print(hparams[f"{split}_json"])
         datasets[split] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=hparams[f"{split}_json"],
             dynamic_items=[
@@ -391,6 +525,7 @@ def dataio_prepare(hparams):
 
     elif hparams["sorting"] == "random":
         hparams["train_dataloader_opts"]["shuffle"] = True
+        hparams["valid_dataloader_opts"]["shuffle"] = False
 
     else:
         raise NotImplementedError(
@@ -421,7 +556,7 @@ def dataio_prepare(hparams):
             dynamic_hparams["max_batch_len_val"],
             num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
+            shuffle=False,
             batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
@@ -479,7 +614,7 @@ if __name__ == "__main__":
     datasets, samplers = dataio_prepare(hparams)
     (train_bsampler, valid_bsampler) = samplers
 
-    s2u_brain = S2U(
+    s2ut_brain = S2UT(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
@@ -503,10 +638,21 @@ if __name__ == "__main__":
             "collate_fn": hparams["valid_dataloader_opts"]["collate_fn"],
         }
 
-    s2u_brain.fit(
-        s2u_brain.hparams.epoch_counter,
+    s2ut_brain.fit(
+        s2ut_brain.hparams.epoch_counter,
         datasets["train"],
         datasets["valid"],
         train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=valid_dataloader_opts,
     )
+
+    test_dataloader_opts = {
+        "batch_size": 1,
+    }
+
+    for dataset in ["test"]:
+        s2ut_brain.evaluate(
+            datasets[dataset],
+            max_key="ACC",
+            test_loader_kwargs=test_dataloader_opts,
+        )
