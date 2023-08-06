@@ -14,7 +14,7 @@ python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesize
 ```
 ## **DNSMOS Evaluation**
 *Reference: [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*
-To run DNSMOS evalution on the audios saved in the above step.
+Download the evalution models from [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) and save it under `DNSMOS`, Then, to run DNSMOS evalution on the audios saved in the above step.
 ```
 # Model=SepFormer
 python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/audio_results/enhanced_sources/ -o dnsmos_enhance.csv
