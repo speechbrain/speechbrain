@@ -5,11 +5,22 @@ Install additional dependencies
 ```
 pip install mir_eval pesq pystoi tensorboard librosa
 pip install pyroomacoustics==0.3.1
+pip install onnxruntime
 
 ```
 To start training
 ```
 python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
+```
+## **DNSMOS Evaluation**
+*Reference: [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*
+To run DNSMOS evalution on the audios saved in the above step.
+```
+# Model=SepFormer
+python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/audio_results/enhanced_sources/ -o dnsmos_enhance.csv
+
+# Model=Noisy
+python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/audio_results/noisy_sources/ -o dnsmos_noisy.csv
 ```
 
 ## **Results**

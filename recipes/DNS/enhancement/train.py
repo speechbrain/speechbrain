@@ -1,10 +1,10 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on Microsoft DNS
-(Deep Noise Suppression) dataset challenge. The system employs an encoder,
-a decoder, and a masking network.
+"""Recipe for training a speech enhancement system on Microsoft DNS
+(Deep Noise Suppression) challenge dataset using SepFormer architecture.
+The system employs an encoder,a decoder, and a masking network.
 
 To run this recipe, do the following:
-> python train.py hparams/sepformer-wham.yaml --data_folder /your_path/dns_dataset
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
@@ -546,16 +546,22 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, noisy, clean, predictions):
         "saves the test audio (noisy, clean, and estimated sources) on disk"
         print("Saving enhanced sources")
-        # Create outout folder
+
+        # Create output folders
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
+        save_path_enhanced = os.path.join(save_path, "enhanced_sources")
+        save_path_clean = os.path.join(save_path, "clean_sources")
+        save_path_noisy = os.path.join(save_path, "noisy_sources")
+
+        for path in [save_path_enhanced, save_path_clean, save_path_noisy]:
+            if not os.path.exists(path):
+                os.makedirs(path)
 
         # Estimated source
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
         save_file = os.path.join(
-            save_path, "item{}_sourcehat.wav".format(snt_id)
+            save_path_enhanced, "item{}_sourcehat.wav".format(snt_id)
         )
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
@@ -564,15 +570,19 @@ class Separation(sb.Brain):
         # Original source
         signal = clean[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path, "item{}_source.wav".format(snt_id))
+        save_file = os.path.join(
+            save_path_clean, "item{}_source.wav".format(snt_id)
+        )
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
 
-        # noisy
+        # Noisy source
         signal = noisy[0][0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path, "item{}_noisy.wav".format(snt_id))
+        save_file = os.path.join(
+            save_path_noisy, "item{}_noisy.wav".format(snt_id)
+        )
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), self.hparams.sample_rate
         )
