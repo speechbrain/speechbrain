@@ -3,12 +3,13 @@ This folder contains the recipe for speech enhancement on Deep Noise Suppression
 
 Install additional dependencies
 ```
-pip install mir_eval pesq pystoi
+pip install mir_eval pesq pystoi tensorboard librosa
 pip install pyroomacoustics==0.3.1
+
 ```
 To start training
 ```
-python train.py hparams/sepformer-dns-16k.yaml
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
 ```
 
 # **Results**
@@ -19,7 +20,7 @@ python train.py hparams/sepformer-dns-16k.yaml
       |---------------|--------------|------------|-------------------|------------|
       | 16k           | -10.6        | 2.06       |                   |            |
 
-2. Evaluation on DNS4 2022 baseline dev set using DNSMOS. 
+2. Evaluation on DNS4 2022 baseline dev set using DNSMOS.
 
     | Model      | SIG    | BAK    | OVRL   |
     |------------|--------|--------|--------|

@@ -254,7 +254,7 @@ class Separation(sb.Brain):
                 metric=pesq_eval, n_jobs=1, batch_eval=False
             )
 
-    def on_stage_end(self, stage, stage_loss, epoch, tr_time):
+    def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
         # Compute/store important stats
         stage_stats = {"si-snr": stage_loss}
@@ -291,7 +291,7 @@ class Separation(sb.Brain):
                 current_lr = self.hparams.optimizer.optim.param_groups[0]["lr"]
 
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "time": tr_time, "lr": current_lr},
+                stats_meta={"epoch": epoch, "lr": current_lr},
                 train_stats=self.train_stats,
                 valid_stats=stats,
             )
