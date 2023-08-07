@@ -22,7 +22,6 @@ python train.py --device=cuda:0 hparams/kmeans.yaml --data_folder=/your_folder/L
 ## Unit HiFi-GAN
 Next we can train the HiFi-GAN vocoder using previously trained k-means model.
 ```
-cd Quantization
 python train.py --device=cuda:0 --max_grad_norm=1.0 hparams/train.yaml --kmeans_folder=./Quantization/results/kmeans/4321/save --data_folder=/your_folder/LJSpeech-1.1
 ```
 
