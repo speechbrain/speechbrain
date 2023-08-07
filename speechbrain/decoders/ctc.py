@@ -1147,6 +1147,10 @@ class CTCBeamSearcher(CTCBaseSearcher):
     - skipping of the blank : the frame is skipped if the blank probability is
         higher than the blank_skip_threshold
 
+    Note: if the Acoustic Model is not trained, the Beam Search will
+    take a lot of time. We do recommand to use Greedy Search during validation
+    until the model is fully trained and ready to be evaluated on test sets.
+
     Arguments
     ---------
     **kwargs
@@ -1438,6 +1442,10 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     Note: The CTCPrefixBeamSearcher can be more unstable than the CTCBeamSearcher
     or the TorchAudioCTCPrefixBeamSearch searcher. Please, use it with caution
     and check the results carefully.
+
+    Note: if the Acoustic Model is not trained, the Beam Search will
+    take a lot of time. We do recommand to use Greedy Search during validation
+    until the model is fully trained and ready to be evaluated on test sets.
 
     Arguments
     ---------
