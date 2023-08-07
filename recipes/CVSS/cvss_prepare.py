@@ -181,11 +181,6 @@ def prepare_json(
     """
 
     json_dict = {}
-
-    # src_meta = csv.DictReader(
-    #     open(src_validated), delimiter="\t", quoting=csv.QUOTE_NONE
-    # )
-    # meta_dict = {row["path"].split(".")[0]: row for row in src_meta}
     tgt_meta = list(
         csv.reader(open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE)
     )
@@ -193,7 +188,7 @@ def prepare_json(
     for i in tqdm.tqdm(range(len(tgt_meta))):
         session_id = tgt_meta[i][0].split(".")[0]
 
-        tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3.wav"
+        tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3"
         src_audio = f"{src_audio_folder}/{session_id}.wav"
 
         src_sig, sr = torchaudio.load(src_audio)
