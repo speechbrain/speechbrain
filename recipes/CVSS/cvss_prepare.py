@@ -30,11 +30,11 @@ TGT_METADATA = {
 }
 
 # Need to be set according to your system
-SRC_AUDIO = "clips_16k"
+SRC_AUDIO = "clips"
 TGT_AUDIO = {
-    "train": "train_16k",
-    "valid": "dev_16k",
-    "test": "test_16k",
+    "train": "train",
+    "valid": "dev",
+    "test": "test",
 }
 
 log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
