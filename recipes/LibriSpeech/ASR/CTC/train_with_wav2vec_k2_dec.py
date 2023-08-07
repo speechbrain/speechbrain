@@ -29,6 +29,7 @@ from pathlib import Path
 
 import torch
 import speechbrain as sb
+from speechbrain.decoders.k2_compliance.topology import Topology
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
@@ -71,6 +72,7 @@ class ASR(sb.Brain):
             feats = self.modules.wav2vec2(wavs, wav_lens)
 
         x = self.modules.enc(feats)
+        self.feat_dim = x.shape[-1]
 
         # Compute outputs
         p_tokens = None
@@ -116,10 +118,10 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
-            self.wer_metric[0].append(ids, predicted_words, target_words)
-            self.cer_metric[0].append(ids, predicted_words, target_words)
+            self.wer_metrics[0].append(ids, predicted_words, target_words)
+            self.cer_metrics[0].append(ids, predicted_words, target_words)
         if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            prediction_dict: dict = self.decode_batch(  # TODO: define decode_batch
+            prediction_dict: dict = self.decode_batch(
                 batch, p_ctc=p_ctc
             )
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -139,43 +141,6 @@ class ASR(sb.Brain):
             ]
             self.wer_metrics[-1].append(ids, predicted_words, target_words)
         return loss
-    
-    def get_supervision_segments(
-            self, 
-            n_frames: torch.Tensor, 
-            seq_ids: List[int], 
-            tokens: Optional[List[str]] = None
-        ):
-        """ Build the supervision segments which are required for building the FSA.
-            NOTE: We assume that the audio does not contain segments and that all 
-                  utterances start at duration 0.
-            Args:
-                n_frames: tensor of number of frames in each input segment
-                seq_ids: a list of the sequence ids (starting from 0, up to batch size)
-                tokens: A list of the transcriptions (reordered according to how the 
-                        supervision_segments are sorted). If not provided, the function
-                        will return only the supervision_segments.
-        """
-        supervision_segments = torch.stack(
-            (
-                seq_ids.to(self.device),
-                torch.zeros(len(seq_ids), dtype=torch.int32, device=self.device),
-                torch.div(
-                    n_frames.to(self.device),
-                    self.subsampling_factor,
-                    rounding_mode="floor",
-                ),
-            ),
-            1
-        ).to(torch.int32)
-
-        # Sort based on duration (longest to shortest) -> required by k2.DenseFsaVec
-        indices = torch.argsort(supervision_segments[:, 2], descending=True)
-        supervision_segments = supervision_segments[indices].to("cpu")
-        if tokens is None:
-            return supervision_segments
-        tokens = [tokens[i] for i in indices]
-        return supervision_segments, tokens
 
     def fit_batch(self, batch):
         should_step = self.step % self.grad_accumulation_factor == 0
@@ -274,8 +239,8 @@ class ASR(sb.Brain):
                 },
                 min_keys=["valid WER"],
             )
-            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
-            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            # stage_stats["CER"] = self.cer_metrics[0].summarize("error_rate")
+            # stage_stats["WER"] = self.wer_metrics[0].summarize("error_rate")
 
         elif stage == sb.Stage.TEST:
             if self.hparams.decoding_method == "1best":
@@ -394,6 +359,44 @@ class ASR(sb.Brain):
         # print("="*100)
         return self._k2_decode_from_probs(batch, p_ctc)
     
+    def get_supervision_segments(
+            self, 
+            wav_lens: torch.Tensor,
+            tokens: Optional[List[str]] = None
+        ):
+        """ Build the supervision segments which are required for building the FSA.
+            NOTE: We assume that the audio does not contain segments and that all 
+                  utterances start at duration 0.
+            Args:
+                wav_lens: List of wav lengths (percentages used after padding).
+                tokens: A list of the transcriptions (reordered according to how the 
+                        supervision_segments are sorted). If not provided, the function
+                        will return only the supervision_segments.
+        """
+        # seq_ids = [i for i, _ in enumerate(range(len(wav_lens)))]
+        seq_ids = torch.arange(0, len(wav_lens))
+        n_frames = wav_lens * self.feat_dim
+        supervision_segments = torch.stack(
+            (
+                seq_ids.to(self.device),
+                torch.zeros(len(seq_ids), dtype=torch.int32, device=self.device),
+                torch.div(
+                    n_frames.to(self.device),
+                    self.hparams.subsampling_factor,
+                    rounding_mode="floor",
+                ),
+            ),
+            1
+        ).to(torch.int32)
+
+        # Sort based on duration (longest to shortest) -> required by k2.DenseFsaVec
+        indices = torch.argsort(supervision_segments[:, 2], descending=True)
+        supervision_segments = supervision_segments[indices].to("cpu")
+        if tokens is None:
+            return supervision_segments
+        tokens = [tokens[i] for i in indices]
+        return supervision_segments, tokens
+    
     def _k2_decode_from_probs(
         self,
         batch,
@@ -402,7 +405,9 @@ class ASR(sb.Brain):
     ) -> Dict[str, List[List[str]]]:
         """Decode using k2 library."""
         # TODO: this won't work
-        supervision_segments = batch["supervision_segments"]
+        # supervision_segments = batch["supervision_segments"]
+        wav_lens = batch.sig[1].to(self.device)
+        supervision_segments = self.get_supervision_segments(wav_lens)
         decoding_method = decoding_method or self.hparams.decoding_method
 
         # logger.info("Creating lattice...")
@@ -624,6 +629,14 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
+    asr_brain.lexicon = hparams["lexicon"]
+    os.makedirs(asr_brain.lexicon.tokenizer_dir, exist_ok=True)
+    asr_brain.lexicon.words_path  # initialize words.txt
+    asr_brain.topology = Topology(
+        hparams=asr_brain.hparams,
+        lexicon=asr_brain.lexicon,
+        device=asr_brain.device
+    )
 
     # Training
     asr_brain.fit(

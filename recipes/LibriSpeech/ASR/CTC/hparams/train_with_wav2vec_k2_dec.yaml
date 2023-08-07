@@ -33,7 +33,7 @@ train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
    - !ref <output_folder>/test-clean.csv
-   - !ref <output_folder>/test-other.csv
+   # - !ref <output_folder>/test-other.csv   
 
 # Training parameters
 number_of_epochs: 1
@@ -75,11 +75,11 @@ decoding_method: 1best
 
 ######### TOKENIZER / LEXICON / TOPOLOGY AREA ###########
 token_type: char  # one of bpe, unigram, char
-bpe_dir: !ref <save_folder>/lang_bpe_<output_neurons>/
-bpe_model_path: !ref <bpe_dir>/<output_neurons>-<token_type>.model
+tok_dir: !ref <save_folder>/lang_char_<output_neurons>/
+bpe_model_path: !ref <tok_dir>/<output_neurons>-<token_type>.model
 # tokenizer: !new:speechbrain.decoders.k2_compliance.bpe_tokenizer.BPETokenizer
 #    data_folder: !ref <data_folder>
-#    output_folder: !ref <bpe_dir>
+#    output_folder: !ref <tok_dir>
 #    splits: !ref <train_splits>
 #    vocab_size: !ref <output_neurons>
 #    token_type: !ref <token_type>

@@ -351,7 +351,7 @@ class LexiconChar(LexiconBPE):
                 - A dict representing the token symbol, mapping from tokens to IDs.
         """
         # Convert word to sequences of characters.
-        words_pieces_ids: List[List[int]] = [self.tokenizer.encode_sequence(list(wrd), out_type=int) for wrd in self.words]
+        words_pieces_ids: List[List[int]] = [self.tokenizer.encode_sequence(list(wrd)) for wrd in self.words]
 
         # Now convert word piece IDs back to word piece strings.
         words_pieces: List[List[str]] = [self.tokenizer.decode_ndim(ids) for ids in words_pieces_ids]
