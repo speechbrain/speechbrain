@@ -117,7 +117,7 @@ def prepare_librispeech(
         split = splits[split_index]
 
         wav_lst = get_all_files(
-            os.path.join(data_folder, split), match_and=[".flac"]
+            os.path.join(data_folder, split), match_and=[".flac"], exclude_and=["_aug"]
         )
 
         text_lst = get_all_files(

@@ -1,3 +1,5 @@
 kenlm
 pyctcdecode
 transformers
+k2==1.23.4
+icefall==1.0
