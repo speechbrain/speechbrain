@@ -10,8 +10,7 @@
 ###################################
 seed: 888
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-model_name: !PLACEHOLDER
-output_folder: !ref results/<model_name>/<seed>
+output_folder: !ref results/s2ut/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 epochs: 30
