@@ -1171,3 +1171,25 @@ class CTCTextEncoder(TextEncoder):
         super()._set_extras(extras)
         if "blank_label" in extras:
             self.blank_label = extras["blank_label"]
+
+
+def load_text_encoder_tokens(model_path):
+    """Loads the encoder tokens from a pretrained model.
+
+    This method is useful when you used with a pretrained HF model.
+    It will load the tokens in the yaml and then you will be able
+    to instantiate any CTCBaseSearcher directly in the YAML file.
+
+    Arguments
+    ---------
+    model_path : str, Path
+        Path to the pretrained model.
+
+    Returns
+    -------
+    list
+        List of tokens.
+    """
+    label_encoder = TextEncoder()
+    label_encoder.load(model_path)
+    return list(label_encoder.lab2ind.keys())
