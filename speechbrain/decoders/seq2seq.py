@@ -1306,9 +1306,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
         The model to use for decoding.
     linear : torch.nn.Module
         A linear output layer.
-    pass_length : bool
-        whether to pass through sequence lengths to the model
-        (disabled by default)
     **kwargs
         Arguments to pass to S2SBeamSearcher
 
@@ -1318,12 +1315,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self,
-        modules,
-        temperature=1.0,
-        temperature_lm=1.0,
-        pass_length=False,
-        **kwargs,
+        self, modules, temperature=1.0, temperature_lm=1.0, **kwargs,
     ):
         super(S2STransformerBeamSearch, self).__init__(**kwargs)
 
@@ -1334,7 +1326,6 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
 
         self.temperature = temperature
         self.temperature_lm = temperature_lm
-        self.pass_length = pass_length
 
     def reset_mem(self, batch_size, device):
         """Needed to reset the memory during beamsearch."""
@@ -1357,10 +1348,7 @@ class S2STransformerBeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        if self.pass_length:
-            pred, attn = self.model.decode(memory, enc_states, enc_lens)
-        else:
-            pred, attn = self.model.decode(memory, enc_states)
+        pred, attn = self.model.decode(memory, enc_states, enc_lens)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
 
@@ -1387,15 +1375,12 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
             A linear output layer for the seq2seq model.
     temperature : float
         Temperature to use during decoding.
-    pass_length : bool
-        whether to pass through sequence lengths to the model
-        (disabled by default)
     **kwargs
         Arguments to pass to S2SGreedySearcher
     """
 
     def __init__(
-        self, modules, temperature=1.0, pass_length=False, **kwargs,
+        self, modules, temperature=1.0, **kwargs,
     ):
         super(S2SGreedySearcher, self).__init__(**kwargs)
 
@@ -1404,7 +1389,6 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
-        self.pass_length = pass_length
 
     def reset_mem(self, batch_size, device):
         """Needed to reset the memory during greedy search."""
@@ -1413,10 +1397,7 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented greedy searcher."""
         memory = _update_mem(inp_tokens, memory)
-        if self.pass_length:
-            pred, attn = self.model.decode(memory, enc_states, enc_lens)
-        else:
-            pred, attn = self.model.decode(memory, enc_states)
+        pred, attn = self.model.decode(memory, enc_states, enc_lens)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
 
