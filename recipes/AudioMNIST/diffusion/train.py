@@ -1399,12 +1399,11 @@ def apply_sort(hparams, dataset):
 
 def load_dataset(hparams):
     dataset_splits = {}
+    data_folder = hparams["data_save_folder"]
     for split_id in DATASET_SPLITS:
-        split_path = os.path.join(
-            hparams["data_save_folder"], f"{split_id}.json"
-        )
+        split_path = hparams[f"{split_id}_json"]
         dataset_split = sb.dataio.dataset.DynamicItemDataset.from_json(
-            split_path
+            split_path, replacements={"data_root": data_folder}
         )
         dataset_split = apply_sort(hparams, dataset_split)
         dataset_splits[split_id] = dataset_split
@@ -1484,8 +1483,6 @@ def read_audio(wav, hparams):
     hparams: dict
         hyperparameters
     """
-    if not os.path.isabs(wav):
-        wav = os.path.join(hparams["data_save_folder"], wav)
     sig = sb.dataio.dataio.read_audio(wav)
 
     # To Support random amplitude
@@ -1568,20 +1565,20 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    if not hparams["skip_prepare"]:
-        run_on_main(
-            prepare_audiomnist,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_folder": hparams["data_save_folder"],
-                "prepare_data_folder": hparams["prepare_data_folder"],
-                "norm": hparams["data_prepare_norm"],
-                "trim": hparams["data_prepare_trim"],
-                "trim_threshold": hparams["data_prepare_trim_threshold"],
-                "src_sample_rate": hparams["data_prepare_sample_rate_src"],
-                "tgt_sample_rate": hparams["data_prepare_sample_rate_tgt"],
-            },
-        )
+    run_on_main(
+        prepare_audiomnist,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["data_save_folder"],
+            "metadata_folder": hparams["metadata_folder"],
+            "norm": hparams["data_prepare_norm"],
+            "trim": hparams["data_prepare_trim"],
+            "trim_threshold": hparams["data_prepare_trim_threshold"],
+            "src_sample_rate": hparams["data_prepare_sample_rate_src"],
+            "tgt_sample_rate": hparams["data_prepare_sample_rate_tgt"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
 
     # Create dataset objects "train", "valid", and "test".
     diffusion_datasets = dataio_prep(hparams)

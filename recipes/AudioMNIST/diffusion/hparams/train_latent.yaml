@@ -10,14 +10,17 @@
 seed: 1986
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-data_folder: ./data
-prepare_data_folder: ./audiomnist-prepare-data
+data_folder: !PLACEHOLDER
+metadata_folder: null
 output_folder: !ref ./results/diffusion-latent-ae/<seed>
 save_folder: !ref <output_folder>/save
 data_save_folder: !ref <save_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
+train_json: !ref <data_save_folder>/train.json
+valid_json: !ref <data_save_folder>/valid.json
+test_json: !ref <data_save_folder>/test.json
 train_log: !ref <output_folder>/train_log.txt
-skip_prepare: False
+skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -212,6 +215,7 @@ autoencoder: !new:speechbrain.nnet.unet.UNetNormalizingAutoencoder
     use_fixup_norm: !ref <autoencoder_use_fixup_norm>
 
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
+    length_dim: 2
 
 diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
     model: !ref <unet>

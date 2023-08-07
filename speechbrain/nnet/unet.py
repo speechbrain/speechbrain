@@ -135,13 +135,26 @@ class AttentionPool2d(nn.Module):
     Arguments
     ---------
     spatial_dim: int
-        the number of spatial dimensions
+        the size of the spatial dimension
     embed_dim: int
         the embedding dimension
     num_heads_channels: int
         the number of attention heads
     output_dim: int
         the output dimension
+
+    Example
+    -------
+    >>> attn_pool = AttentionPool2d(
+    ...     spatial_dim=64,
+    ...     embed_dim=16,
+    ...     num_heads_channels=2,
+    ...     output_dim=4
+    ... )
+    >>> x = torch.randn(4, 1, 64, 64)
+    >>> x_pool = attn_pool(x)
+    >>> x_pool.shape
+    torch.Size([4, 4])
     """
 
     def __init__(
@@ -205,6 +218,35 @@ class TimestepBlock(nn.Module):
 class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
     """A sequential module that passes timestep embeddings to the children that
     support it as an extra input.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> class MyBlock(TimestepBlock):
+    ...     def __init__(self, input_size, output_size, emb_size):
+    ...         super().__init__()
+    ...         self.lin = Linear(
+    ...             n_neurons=output_size,
+    ...             input_size=input_size
+    ...         )
+    ...         self.emb_proj = Linear(
+    ...             n_neurons=output_size,
+    ...             input_size=emb_size,
+    ...         )
+    ...     def forward(self, x, emb):
+    ...         return self.lin(x) + self.emb_proj(emb)
+    >>> tes = TimestepEmbedSequential(
+    ...     MyBlock(128, 64, 16),
+    ...     Linear(
+    ...         n_neurons=32,
+    ...         input_size=64
+    ...     )
+    ... )
+    >>> x = torch.randn(4, 10, 128)
+    >>> emb = torch.randn(4, 10, 16)
+    >>> out = tes(x, emb)
+    >>> out.shape
+    torch.Size([4, 10, 32])
     """
 
     def forward(self, x, emb=None):
@@ -237,6 +279,14 @@ class Upsample(nn.Module):
     dims: int
         determines if the signal is 1D, 2D, or 3D. If 3D, then
         upsampling occurs in the inner-two dimensions.
+
+    Example
+    -------
+    >>> ups = Upsample(channels=4, use_conv=True, dims=2, out_channels=8)
+    >>> x = torch.randn(8, 4, 32, 32)
+    >>> x_up = ups(x)
+    >>> x_up.shape
+    torch.Size([8, 8, 64, 64])
     """
 
     def __init__(self, channels, use_conv, dims=2, out_channels=None):
@@ -287,6 +337,14 @@ class Downsample(nn.Module):
     dims: int
         determines if the signal is 1D, 2D, or 3D. If 3D, then
         downsampling occurs in the inner-two dimensions.
+
+    Example
+    -------
+    >>> ups = Downsample(channels=4, use_conv=True, dims=2, out_channels=8)
+    >>> x = torch.randn(8, 4, 32, 32)
+    >>> x_up = ups(x)
+    >>> x_up.shape
+    torch.Size([8, 8, 16, 16])
     """
 
     def __init__(self, channels, use_conv, dims=2, out_channels=None):
@@ -350,8 +408,25 @@ class ResBlock(TimestepBlock):
         if True, use this block for upsampling.
     down: bool
         if True, use this block for downsampling.
+    norm_num_groups: int
+        the number of groups for group normalization
     use_fixup_init: bool
         whether to use FixUp initialization
+
+    Example
+    -------
+    >>> res = ResBlock(
+    ...     channels=4,
+    ...     emb_channels=8,
+    ...     dropout=0.1,
+    ...     norm_num_groups=2,
+    ...     use_conv=True,
+    ... )
+    >>> x = torch.randn(2, 4, 32, 32)
+    >>> emb = torch.randn(2, 8)
+    >>> res_out = res(x, emb)
+    >>> res_out.shape
+    torch.Size([2, 4, 32, 32])
     """
 
     def __init__(
@@ -469,10 +544,23 @@ class AttentionBlock(nn.Module):
         the number of attention heads
     num_head_channels: int
         the number of channels in each attention head
-    norm_num_groups
+    norm_num_groups: int
         the number of groups used for group normalization
     use_fixup_init: bool
         whether to use FixUp initialization
+
+    Example
+    -------
+    >>> attn = AttentionBlock(
+    ...     channels=8,
+    ...     num_heads=4,
+    ...     num_head_channels=4,
+    ...     norm_num_groups=2
+    ... )
+    >>> x = torch.randn(4, 8, 16, 16)
+    >>> out = attn(x)
+    >>> out.shape
+    torch.Size([4, 8, 16, 16])
     """
 
     def __init__(
@@ -522,6 +610,18 @@ class AttentionBlock(nn.Module):
 class QKVAttention(nn.Module):
     """
     A module which performs QKV attention and splits in a different order.
+
+    Example
+    -------
+    >>> attn = QKVAttention(4)
+    >>> n = 4
+    >>> c = 8
+    >>> h = 64
+    >>> w = 16
+    >>> qkv = torch.randn(4, (3 * h * c), w)
+    >>> out = attn(qkv)
+    >>> out.shape
+    torch.Size([4, 512, 16])
     """
 
     def __init__(self, n_heads):
@@ -656,6 +756,20 @@ class UNetModel(nn.Module):
     use_fixup_init: bool
         whether to use FixUp initialization
 
+    Example
+    -------
+    >>> model = UNetModel(
+    ...    in_channels=3,
+    ...    model_channels=32,
+    ...    out_channels=1,
+    ...    num_res_blocks=1,
+    ...    attention_resolutions=[1]
+    ... )
+    >>> x = torch.randn(4, 3, 16, 32)
+    >>> ts = torch.tensor([10, 100, 50, 25])
+    >>> out = model(x, ts)
+    >>> out.shape
+    torch.Size([4, 1, 16, 32])
     """
 
     def __init__(
@@ -897,7 +1011,87 @@ class UNetModel(nn.Module):
 class EncoderUNetModel(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
-    For usage, see UNet.
+    For usage, see UNetModel.
+
+    Arguments
+    ---------
+    in_channels: int
+        channels in the input Tensor.
+    model_channels: int
+        base channel count for the model.
+    out_channels: int
+        channels in the output Tensor.
+    num_res_blocks: int
+        number of residual blocks per downsample.
+    attention_resolutions: int
+        a collection of downsample rates at which
+        attention will take place. May be a set, list, or tuple.
+        For example, if this contains 4, then at 4x downsampling, attention
+        will be used.
+    dropout: float
+        the dropout probability.
+    channel_mult: int
+        channel multiplier for each level of the UNet.
+    conv_resample: bool
+        if True, use learned convolutions for upsampling and
+        downsampling
+    emb_dim: int
+        time embedding dimension (defaults to model_channels * 4)
+    cond_emb: dict
+        embeddings on which the model will be conditioned
+
+        Example:
+        {
+            "speaker": {
+                "emb_dim": 256
+            },
+            "label": {
+                "emb_dim": 12
+            }
+        }
+    use_cond_emb: dict
+        a dictionary with keys corresponding to keys in cond_emb
+        and values corresponding to Booleans that turn embeddings
+        on and off. This is useful in combination with hparams files
+        to turn embeddings on and off with simple switches
+
+        Example:
+        {"speaker": False, "label": True}
+    dims: int
+        determines if the signal is 1D, 2D, or 3D.
+    num_heads: int
+        the number of attention heads in each attention layer.
+    num_heads_channels: int
+        if specified, ignore num_heads and instead use
+                               a fixed channel width per attention head.
+    num_heads_upsample: int
+        works with num_heads to set a different number
+                               of heads for upsampling. Deprecated.
+    resblock_updown: bool
+        use residual blocks for up/downsampling.
+
+    use_fixup_init: bool
+        whether to use FixUp initialization
+
+    out_kernel_size: int
+        the kernel size of the output convolution
+
+
+    Example
+    -------
+    >>> model = EncoderUNetModel(
+    ...    in_channels=3,
+    ...    model_channels=32,
+    ...    out_channels=1,
+    ...    num_res_blocks=1,
+    ...    attention_resolutions=[1]
+    ... )
+    >>> x = torch.randn(4, 3, 16, 32)
+    >>> ts = torch.tensor([10, 100, 50, 25])
+    >>> out = model(x, ts)
+    >>> out.shape
+    torch.Size([4, 1, 2, 4])
+
     """
 
     def __init__(
@@ -1132,6 +1326,14 @@ class EmbeddingProjection(nn.Module):
     proj_dim: int
         the dimensionality of the target projection
         space
+
+    Example
+    -------
+    >>> mod_emb_proj = EmbeddingProjection(emb_dim=16, proj_dim=64)
+    >>> emb = torch.randn(4, 16)
+    >>> emb_proj = mod_emb_proj(emb)
+    >>> emb_proj.shape
+    torch.Size([4, 64])
     """
 
     def __init__(self, emb_dim, proj_dim):
@@ -1165,6 +1367,81 @@ class DecoderUNetModel(nn.Module):
     """
     The half UNet model with attention and timestep embedding.
     For usage, see UNet.
+
+    Arguments
+    ---------
+    in_channels: int
+        channels in the input Tensor.
+    model_channels: int
+        base channel count for the model.
+    out_channels: int
+        channels in the output Tensor.
+    num_res_blocks: int
+        number of residual blocks per downsample.
+    attention_resolutions: int
+        a collection of downsample rates at which
+        attention will take place. May be a set, list, or tuple.
+        For example, if this contains 4, then at 4x downsampling, attention
+        will be used.
+    dropout: float
+        the dropout probability.
+    channel_mult: int
+        channel multiplier for each level of the UNet.
+    conv_resample: bool
+        if True, use learned convolutions for upsampling and
+        downsampling
+    emb_dim: int
+        time embedding dimension (defaults to model_channels * 4)
+    cond_emb: dict
+        embeddings on which the model will be conditioned
+
+        Example:
+        {
+            "speaker": {
+                "emb_dim": 256
+            },
+            "label": {
+                "emb_dim": 12
+            }
+        }
+    use_cond_emb: dict
+        a dictionary with keys corresponding to keys in cond_emb
+        and values corresponding to Booleans that turn embeddings
+        on and off. This is useful in combination with hparams files
+        to turn embeddings on and off with simple switches
+
+        Example:
+        {"speaker": False, "label": True}
+    dims: int
+        determines if the signal is 1D, 2D, or 3D.
+    num_heads: int
+        the number of attention heads in each attention layer.
+    num_heads_channels: int
+        if specified, ignore num_heads and instead use
+                               a fixed channel width per attention head.
+    num_heads_upsample: int
+        works with num_heads to set a different number
+                               of heads for upsampling. Deprecated.
+    resblock_updown: bool
+        use residual blocks for up/downsampling.
+
+    use_fixup_init: bool
+        whether to use FixUp initialization
+
+    Example
+    -------
+    >>> model = DecoderUNetModel(
+    ...    in_channels=1,
+    ...    model_channels=32,
+    ...    out_channels=3,
+    ...    num_res_blocks=1,
+    ...    attention_resolutions=[1]
+    ... )
+    >>> x = torch.randn(4, 1, 2, 4)
+    >>> ts = torch.tensor([10, 100, 50, 25])
+    >>> out = model(x, ts)
+    >>> out.shape
+    torch.Size([4, 3, 16, 32])
     """
 
     def __init__(
@@ -1352,9 +1629,20 @@ class DownsamplingPadding(nn.Module):
     factor: int
         the downsampling / divisibility factor
     len_dim: int
-        the index of the dimensions in which the length will vary
+        the index of the dimension in which the length will vary
     dims: list
         the list of dimensions to be included in padding
+
+    Example
+    -------
+    >>> padding = DownsamplingPadding(factor=4, dims=[1, 2], len_dim=1)
+    >>> x = torch.randn(4, 7, 14)
+    >>> length = torch.tensor([1., 0.8, 1., 0.7])
+    >>> x, length_new = padding(x, length)
+    >>> x.shape
+    torch.Size([4, 8, 16])
+    >>> length_new
+    tensor([0.8750, 0.7000, 0.8750, 0.6125])
     """
 
     def __init__(self, factor, len_dim=2, dims=None):
@@ -1385,9 +1673,7 @@ class DownsamplingPadding(nn.Module):
         updated_length = length
         for dim in self.dims:
             # TODO: Consider expanding pad_divisible to support multiple dimensions
-            x, length_pad = pad_divisible(
-                x, length, self.factor, len_dim=self.len_dim
-            )
+            x, length_pad = pad_divisible(x, length, self.factor, len_dim=dim)
             if dim == self.len_dim:
                 updated_length = length_pad
         return x, updated_length
@@ -1434,6 +1720,27 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
         the kernel size for output convolution layers (if applicable)
     use_fixup_norm: bool
         whether to use FixUp normalization
+
+    Example
+    -------
+    >>> unet_ae = UNetNormalizingAutoencoder(
+    ...     in_channels=1,
+    ...     model_channels=4,
+    ...     encoder_out_channels=16,
+    ...     latent_channels=3,
+    ...     encoder_num_res_blocks=1,
+    ...     encoder_attention_resolutions=[],
+    ...     decoder_num_res_blocks=1,
+    ...     decoder_attention_resolutions=[],
+    ...     norm_num_groups=2,
+    ... )
+    >>> x = torch.randn(4, 1, 32, 32)
+    >>> x_enc = unet_ae.encode(x)
+    >>> x_enc.shape
+    torch.Size([4, 3, 4, 4])
+    >>> x_dec = unet_ae.decode(x_enc)
+    >>> x_dec.shape
+    torch.Size([4, 1, 32, 32])
     """
 
     def __init__(

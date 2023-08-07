@@ -16,6 +16,50 @@ class DoneDetector(nn.Module):
     The goal of using a wrapper is to apply masking before the output layer
     (e.g. Softmax) so that the model can't "cheat" by outputting probabilities
     in the masked area
+
+    Arguments
+    ---------
+    model: torch.nn.Module
+        the model used to make the prediction
+    out: torch.nn.Module
+        the output function
+
+    Example
+    -------
+    >>> import torch
+    >>> from torch import nn
+    >>> from speechbrain.nnet.activations import Softmax
+    >>> from speechbrain.nnet.containers import Sequential
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from speechbrain.lobes.models.CRDNN import CRDNN
+    >>> crdnn = CRDNN(
+    ...     input_size=80,
+    ...     cnn_blocks=1,
+    ...     cnn_kernelsize=3,
+    ...     rnn_layers=1,
+    ...     rnn_neurons=16,
+    ...     dnn_blocks=1,
+    ...     dnn_neurons=16
+    ... )
+    >>> model_out = Linear(n_neurons=1, input_size=16)
+    >>> model_act = nn.Sigmoid()
+    >>> model = Sequential(
+    ...     crdnn,
+    ...     model_out,
+    ...     model_act
+    ... )
+    >>> out = Softmax(
+    ...     apply_log=False,
+    ... )
+    >>> done_detector = DoneDetector(
+    ...     model=model,
+    ...     out=out,
+    ... )
+    >>> preds = torch.randn(4, 10, 80) # Batch x Length x Feats
+    >>> length = torch.tensor([1., .8, .5, 1.])
+    >>> preds_len = done_detector(preds, length)
+    >>> preds_len.shape
+    torch.Size([4, 10, 1])
     """
 
     def __init__(self, model, out):

@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 def prepare_audiomnist(
     data_folder,
     save_folder,
-    prepare_data_folder="./audiomnist-prepare-data",
+    metadata_folder=None,
     splits=DEFAULT_SPLITS,
     download=True,
     audiomnist_repo=None,
@@ -54,6 +54,7 @@ def prepare_audiomnist(
     norm=True,
     highpass=True,
     process_audio=None,
+    skip_prep=False,
 ):
     """Auto-downloads and prepares the AudioMNIST dataset
 
@@ -64,6 +65,9 @@ def prepare_audiomnist(
 
     save_folder: str
         the destination folder
+
+    metadata_folder: str
+        the folder for additional metadata
 
     download: bool
         whether the dataset should be auto-downloaded (enabled by default)
@@ -93,10 +97,18 @@ def prepare_audiomnist(
         a custom function used to process audio files - instead of
         the standard transform (resample + normalize + trim)
 
+    skip_prep: bool
+        whether preparation should be skipped
+
     """
+    if skip_prep:
+        return
     # Check if the target folder exists. Create it if it does not.
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
+
+    if metadata_folder is None:
+        metadata_folder = data_folder
 
     conf = {
         "trim_threshold": trim_threshold,
@@ -134,8 +146,8 @@ def prepare_audiomnist(
         )
 
     # Get file lists for train/valid/test splits
-    splits = get_splits(data_folder, splits)
-    digit_lookup_file_name = os.path.join(data_folder, "digits.csv")
+    splits = get_splits(metadata_folder, splits)
+    digit_lookup_file_name = os.path.join(metadata_folder, "digits.csv")
 
     # Read the digit look-up file providing annotations text and
     # phonemes
@@ -197,12 +209,12 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def get_splits(prepare_data_folder, splits):
+def get_splits(metadata_folder, splits):
     """Retrieves the train/valid/test file splits
 
     Arguments
     ---------
-    prepare_data_folder: str
+    metadata_folder: str
         the path to auxiliary data
 
     splits: list
@@ -214,8 +226,7 @@ def get_splits(prepare_data_folder, splits):
         a dictionary of file splits
     """
     split_files = {
-        split: os.path.join(prepare_data_folder, f"{split}.txt")
-        for split in splits
+        split: os.path.join(metadata_folder, f"{split}.txt") for split in splits
     }
     return {
         split: read_file_list(file_path)
@@ -539,7 +550,7 @@ def get_file_metadata(meta, split, file_list, lookup):
         digit, speaker_id, _ = item_id.split("_")
         speaker_meta = meta[speaker_id]
         file_meta = {
-            "file_name": f"dataset/{split}/{speaker_id}/{file_name}",
+            "file_name": f"{{data_root}}/dataset/{split}/{speaker_id}/{file_name}",
             "digit": digit,
             "speaker_id": speaker_id,
         }
