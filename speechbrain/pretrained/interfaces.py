@@ -3190,9 +3190,9 @@ class HIFIGAN(Pretrained):
         return self.decode_batch(spectrogram)
 
 
-class DiffusionVocoder(Pretrained):
+class DiffWaveVocoder(Pretrained):
     """
-    A ready-to-use inference wrapper for Diffusion vocoders.
+    A ready-to-use inference wrapper for DiffWave as vocoder.
     The wrapper allows to perform generative tasks:
         locally-conditional generation: mel_spec -> waveform
     Arguments
@@ -3221,9 +3221,6 @@ class DiffusionVocoder(Pretrained):
         """Generate waveforms from spectrograms
         Arguments
         ---------
-        shape: enumerable
-            the shape of the sample to generate
-            for diffwave the shape (audio length) is defined in hyperparameters
         mel: torch.tensor
             spectrogram [batch, mels, time]
         hop_len: int
@@ -3296,6 +3293,13 @@ class DiffusionVocoder(Pretrained):
         ---------
         spectrogram: torch.tensor
             mel-spectrogram [mels, time]
+        hop_len: int
+            hop length used for mel-spectrogram extraction
+            same value as in the .yaml file
+        fast_sampling: bool
+            whether to do fast sampling
+        fast_sampling_noise_schedule: list
+            the noise schedules used for fast sampling
         Returns
         -------
         waveform: torch.tensor
@@ -3317,7 +3321,7 @@ class DiffusionVocoder(Pretrained):
         return waveform.squeeze(0)
 
     def forward(self, spectrogram):
-        "Decodes the input spectrograms"
+        """Decodes the input spectrograms"""
         return self.decode_batch(spectrogram)
 
 

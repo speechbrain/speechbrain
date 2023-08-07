@@ -14,6 +14,7 @@ output_folder: !ref ./results/diffwave/<seed>
 save_folder: !ref <output_folder>/save
 progress_sample_path: !ref <output_folder>/samples
 train_log: !ref <output_folder>/train_log.txt
+progress_samples_interval: 10
 
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json

@@ -147,7 +147,8 @@ class DiffWaveBrain(sb.Brain):
                 else None,
             )
 
-            self.run_inference_sample("Valid")
+            if epoch % self.hparams.progress_samples_interval == 0:
+                self.run_inference_sample("Valid")
 
         # We also write statistics about test data to stdout and to the TensorboardLogger.
         if stage == sb.Stage.TEST:
@@ -171,7 +172,6 @@ class DiffWaveBrain(sb.Brain):
                 return
             x, y = self.last_batch
 
-            # Preparing model for inference by removing weight norm)
             sig_out = self.modules.diffusion.inference(
                 unconditional=self.hparams.unconditional,
                 scale=self.hparams.spec_hop_length,
