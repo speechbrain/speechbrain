@@ -9,10 +9,13 @@ Authors:
  * Abdel Heba 2021
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023
 """
 import logging
 import hashlib
 import sys
+import warnings
 import speechbrain
 import torch
 import torchaudio
@@ -173,7 +176,13 @@ class Pretrained(torch.nn.Module):
          * data_parallel_backend
          * distributed_launch
          * distributed_backend
+         * jit
          * jit_module_keys
+         * compule
+         * compile_module_keys
+         * compile_mode
+         * compile_using_fullgraph
+         * compile_using_dynamic_shape_tracing
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -194,7 +203,13 @@ class Pretrained(torch.nn.Module):
             "data_parallel_backend": False,
             "distributed_launch": False,
             "distributed_backend": "nccl",
+            "jit": False,
             "jit_module_keys": None,
+            "compile": False,
+            "compile_module_keys": None,
+            "compile_mode": "reduce-overhead",
+            "compile_using_fullgraph": False,
+            "compile_using_dynamic_shape_tracing": False,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -242,7 +257,7 @@ class Pretrained(torch.nn.Module):
         """
 
         # Make jit-able
-        self._compile_jit()
+        self._compile()
         self._wrap_distributed()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -286,19 +301,74 @@ class Pretrained(torch.nn.Module):
         )
         return self.audio_normalizer(signal, sr)
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
+        if not compile_available and self.compile_module_keys is not None:
+            raise ValueError(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it."
+            )
+
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.modules)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
+                logger.warning(
+                    "--compile and --compile_module_keys are both specified. "
+                    "Only modules specified in --compile_module_keys will be compiled."
+                )
+
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.modules)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
+                logger.warning(
+                    "--jit and --jit_module_keys are both specified. "
+                    "Only modules specified in --jit_module_keys will be compiled."
+                )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
             if name not in self.mods:
                 raise ValueError(
-                    "module " + name + " cannot be jit compiled because "
-                    "it is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.mods[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_using_fullgraph,
+                    dynamic=self.compile_using_dynamic_shape_tracing,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
+
+            self.mods[name] = module.to(self.device)
+            jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
             module = torch.jit.script(self.mods[name])
             self.mods[name] = module.to(self.device)
+
+    def _compile_jit(self):
+        warnings.warn("'_compile_jit' is deprecated; use '_compile' instead")
+        self._compile()
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""

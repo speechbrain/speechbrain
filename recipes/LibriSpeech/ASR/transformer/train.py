@@ -349,7 +349,7 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if hasattr(hparams, "speed_perturb"):
+        if "speed_perturb" in hparams:
             sig = sb.dataio.dataio.read_audio(wav)
 
             sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)

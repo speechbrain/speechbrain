@@ -110,7 +110,7 @@ class G2PBrain(sb.Brain):
         """
         # Run this *after* starting all processes since jit modules cannot be
         # pickled.
-        self._compile_jit()
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
