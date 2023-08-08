@@ -100,7 +100,7 @@ The data will be automatically downloaded to the specified `data_folder`, and a 
 The results, including training logs and checkpoints, will be availabe in the output folder specified in the hparam file.
 
 
-## Run a Training Experiment on a Given Dataset
+### Run a Training Experiment on a Given Dataset
 
 To train models using either the Leave-One-Subject-Out or Leave-One-Session-Out approach and then average their performance, we have developed a convenient bash script called `run_experiment.sh`. This script orchestrates the necessary loops for easy execution.
 
