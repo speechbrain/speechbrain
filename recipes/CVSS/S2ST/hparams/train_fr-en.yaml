@@ -38,7 +38,7 @@ encoder_source: facebook/hubert-base-ls960
 layer: 6
 kmeans_source: chaanks/unit-hifigan-hubert-en-l6_k100
 kmeans_size: 100
-codes_folder: results/codes
+codes_folder: !ref <save_folder>/codes
 skip_extract: False
 
 # Vocoder model used for evaluation
