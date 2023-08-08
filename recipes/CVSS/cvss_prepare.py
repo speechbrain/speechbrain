@@ -188,8 +188,8 @@ def prepare_json(
     for i in tqdm.tqdm(range(len(tgt_meta))):
         session_id = tgt_meta[i][0].split(".")[0]
 
-        tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3"
-        src_audio = f"{src_audio_folder}/{session_id}.wav"
+        tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3.wav"
+        src_audio = f"{src_audio_folder}/{session_id}.mp3"
 
         src_sig, sr = torchaudio.load(src_audio)
         duration = src_sig.shape[1] / sr
