@@ -11,15 +11,16 @@ The benchmark leverages datasets supported by [MOABB](https://neurotechx.github.
 | Dataset ID | Task | nsbj | nsess |
 |------------|-------------|-----|-----|
 |[BNCI2014001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014001.html#moabb.datasets.BNCI2014001) | Motor Imagery | 9 | 2 |
-|[BNCI2014004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery | - | - |
-|[BNCI2015001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015001.html#moabb.datasets.BNCI2015001) | Motor Imagery | - | - |
-|[BNCI2015004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery | - | - |
-|[Zhou2016](https://neurotechx.github.io/moabb/generated/moabb.datasets.Zhou2016.html#moabb.datasets.Zhou2016) | Motor Imagery | - | - |
-|[BNCI2014009](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014009.html#moabb.datasets.BNCI2014009) | P300 | - | - |
-|[EPFLP300](https://neurotechx.github.io/moabb/generated/moabb.datasets.EPFLP300.html#moabb.datasets.EPFLP300) | P300 | - | - |
-|[Lee2019_ERP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | - | - |
-|[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | - | - |
-|[Nakanishi2015](https://neurotechx.github.io/moabb/generated/moabb.datasets.Nakanishi2015.html#moabb.datasets.Nakanishi2015) | SSVEP | - | - |
+|[BNCI2014004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014004.html#moabb.datasets.BNCI2014004) | Motor Imagery | 9 | 5 |
+|[BNCI2015001](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015001.html#moabb.datasets.BNCI2015001) | Motor Imagery | 12 | 2 |
+|[BNCI2015004](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2015004.html#moabb.datasets.BNCI2015004) | Motor Imagery | 9 | 2 |
+|[Lee2019_MI](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_MI.html#moabb.datasets.Lee2019_MI) | Motor Imagery | 54 | 2 |
+|[Zhou2016](https://neurotechx.github.io/moabb/generated/moabb.datasets.Zhou2016.html#moabb.datasets.Zhou2016) | Motor Imagery | 4 | 3 |
+|[BNCI2014009](https://neurotechx.github.io/moabb/generated/moabb.datasets.BNCI2014009.html#moabb.datasets.BNCI2014009) | P300 | 10 | 3 |
+|[EPFLP300](https://neurotechx.github.io/moabb/generated/moabb.datasets.EPFLP300.html#moabb.datasets.EPFLP300) | P300 | 8 | 4 |
+|[Lee2019_ERP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_ERP.html#moabb.datasets.Lee2019_ERP) | P300 | 54 | 2 |
+|[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.bi2015a.html#moabb.datasets.bi2015a) | P300 | 43 | 3 |
+|[Lee2019_SSVEP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_SSVEP.html#moabb.datasets.Lee2019_SSVEP) | SSVEP | 54 | 2 |
 
 The EEG datasets are automatically downloaded when running the provided recipes. Furthermore, the code is designed to allow easy integration of any other dataset from MOABB, as well as the ability to plug and test various deep neural networks. The benchmark includes recipes for using the datasets mentioned above with popular models such as EEGNET, ShallowConvNet, Bioformer, and PodNet.
 
