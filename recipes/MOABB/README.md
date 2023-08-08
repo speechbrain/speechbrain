@@ -126,10 +126,76 @@ The results of each experiment are saved in the specified output folder. To view
 
 ### Hyperparameter Tuning
 
-For proposing new models, performing hyperparameter tuning is essential. We support hyperparameter tuning with [Orion](https://orion.readthedocs.io/en/stable/).
-To run hyperparameter tuning, follow the instructions in the [Add here instructions on how to do hparam tuning] section.
 
-The default hyperparameter optimization uses the [Tree-structured Parzen Estimator (TPE) algorithm](https://orion.readthedocs.io/en/stable/user/algorithms.html#tpe) as it has shown the best performance on the addressed tasks. For more details, refer to our [paper](link_to_our_paper) on the validation of the proposed experimental protocol.
+Efficient hyperparameter tuning is paramount when introducing novel models or experimenting with diverse datasets. Our benchmark establishes a standardized protocol for hyperparameter tuning, utilizing [Orion](https://orion.readthedocs.io/en/stable/) to ensure fair model comparisons.
+
+#### **Overview**
+
+Hyperparameter tuning is orchestrated through the `./run_hparam_optimization.sh` script, which oversees the execution of multiple hyperparameter trials via `run_experiments.sh`. This script supports leave-one-subject-out and leave-one-session-out training.
+
+Please keep in mind the following points:
+In certain scenarios, you may find it advantageous to retain separate experiment folders for each hyperparameter trial. You can achieve this by employing the --store_all True flag. Conversely, setting it to false will consolidate results within a singular folder, a space-saving measure.
+The script effectively manages all essential phases for executing multi-step hyperparameter tuning. It further assesses performance on the test set using the optimal hyperparameters, with performance being averaged across --nruns_eval iterations to enhance result significance.
+
+#### **Incorporating Orion Flags in Hparam Files**
+
+The script assumes that Orion flags are directly included in the specified YAML hparam file using comments. To optimize, for instance, the dropout parameter within a defined range, you need to have the following line in the YAML file:
+
+```yaml
+dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
+```
+
+#### **Multi-Step Optimization**
+
+Our method supports multi-step hyperparameter optimization. This approach has shown superior results, particularly when separating training and architectural hyperparameters from data augmentation hyperparameters. To optimize a parameter in a second step, follow this syntax in the YAML file:
+
+```yaml
+snr_white_low: 9.1 # @orion_step2: --snr_white_low~"uniform(0.0, 15, precision=2)"
+```
+
+Users have the flexibility to define multiple optimization steps based on their experimental protocol, although two steps, as recommended, often suffice.
+
+#### **Workflow of the Script**
+
+The script operates as follows:
+
+1. Scans the specified hparam file for Orion flags.
+2. Executes hyperparameter tuning using the `orion-hunt` command. 
+3. Captures and saves the best hyperparameters for reference via `torch-info`.
+4. Continues until flags like `@orion_step<stepid>` are encountered in the YAML file.
+
+#### **Running Hyperparameter Optimization**
+
+Conduct hyperparameter optimization with commands similar to the following:
+
+```bash
+./run_hparam_optimization.sh --exp_name 'EEGNet_BNCI2014001_hopt' \
+                             --output_folder results/MotorImagery/BNCI2014001/EEGNet/hopt \
+                             --data_folder eeg_data/ \
+                             --hparams hparams/MotorImagery/BNCI2014001/EEGNet.yaml \
+                             --nsbj 9 --nsess 2 \
+                             --nruns 1 \
+                             --nruns_eval 10 \
+                             --eval_metric acc \
+                             --train_mode leave-one-session-out \
+                             --exp_max_trials 50
+```
+
+Note that hyperparameter tuning may take several hours depending on the model complexity and dataset.
+
+#### **Output Structure**
+
+Results are organized within the specified output folder (`--output_folder`):
+
+- The optimal hyperparameters are stored in `best_hparams.yaml`.
+- Subfolders `step1` and `step2` contain results from individual optimization steps.
+- The "best" subfolder contains performance metrics on test sets using the best hyperparameters. Refer to `aggregated_performance.txt` for averaged results across multiple runs.
+
+#### **Model Comparison**
+
+Our protocol ensures a model comparison that is as fair as possible. All reported results reported below are achieved with the same hyperparameter tuning methodology, enabling fair assessments across diverse models.
+
+For further details on arguments and customization options, consult `./run_hparam_optimization.sh`.
 
 ## 📈️ Results
 
