@@ -167,6 +167,7 @@ if __name__ == "__main__":
             retry = True
         except KeyboardInterrupt:
             retry = False
+            drawnow(plot_waveform)
             plt.savefig("streaming.png")
 
             raw_waveform = torch.Tensor(raw_waveform).unsqueeze(0)
