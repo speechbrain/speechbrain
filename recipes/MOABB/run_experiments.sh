@@ -5,7 +5,7 @@
 # This script loops over the different subjects and sessions and trains different models. 
 # At the end, the final performance is computed with the aggregate_results.py script that provides the average performance.
 #
-# Example:
+# Usage:
 # ./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data \
 # --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --seed=1986 --nruns=2 --number_of_epochs=10
 #
@@ -195,6 +195,7 @@ echo "additional flags: $additional_flags"
 
 
 # Creating output folder
+mkdir -p $output_folder
 mkdir -p $data_folder
 mkdir -p $cached_data_folder
 
