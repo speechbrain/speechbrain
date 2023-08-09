@@ -2,7 +2,7 @@
 
 ###########################################################
 # Script to run leave-one-subject-out and/or leave-one-session-out training, optionally with multiple seeds.
-# This script loops over the different subjects and sessions and trains different models. 
+# This script loops over the different subjects and sessions and trains different models.
 # At the end, the final performance is computed with the aggregate_results.py script that provides the average performance.
 #
 # Usage:
@@ -110,8 +110,8 @@ while [[ $# -gt 0 ]]; do
 
     --eval_set)
       eval_set="$2"
-      shift 
-      shift 
+      shift
+      shift
       ;;
 
     --train_mode)
@@ -119,7 +119,7 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-      
+
     --rnd_dir)
       rnd_dir="$2"
       shift
@@ -130,12 +130,12 @@ while [[ $# -gt 0 ]]; do
     --help)
       print_argument_descriptions
       ;;
-      
+
     -*|--*)
       additional_flags+="$1 $2 " # store additional flags
       shift # past argument
       ;;
-      
+
 
     *)
       POSITIONAL_ARGS+=("$1") # save positional arg
@@ -198,7 +198,7 @@ mkdir -p $cached_data_folder
 run_experiment() {
   local target_session_idx="$1"
   local output_folder_exp="$2"
-  
+
   for target_subject_idx in $(seq 0 1 $(( nsbj - 1 ))); do
     echo "Subject $target_subject_idx"
     python train.py $hparams --seed=$seed --data_folder=$data_folder --cached_data_folder=$cached_data_folder --output_folder=$output_folder_exp\
@@ -212,14 +212,14 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
   ((run_idx = i + 1))
   run_name=run"$run_idx"
   output_folder_exp="$output_folder"/"$run_name"/$seed
-  
+
   if [ "$train_mode" = "leave-one-subject-out" ]; then
-    run_experiment 0 $output_folder_exp 
-    
+    run_experiment 0 $output_folder_exp
+
   elif [ "$train_mode" = "leave-one-session-out" ]; then
     # Loop over sessions
     for j in $(seq 0 1 $(( nsess - 1 ))); do
-      run_experiment $j $output_folder_exp 
+      run_experiment $j $output_folder_exp
     done
   else
       echo "Invalid train_model value: $train_mode. It can be leave-one-subject-out or leave-one-session-out  only."

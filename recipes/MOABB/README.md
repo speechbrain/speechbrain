@@ -107,7 +107,7 @@ To train models using either the Leave-One-Subject-Out or Leave-One-Session-Out 
 To run a training experiment, use the following command:
 
 ```bash
-./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --nruns=2 --train_mode=leave-one-session-out --number_of_epochs=2 
+./run_experiments.sh --hparams=hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --output_folder=results/MotorImagery/BNCI2014001/EEGNet --nsbj=9 --nsess=2 --nruns=2 --train_mode=leave-one-session-out --number_of_epochs=2
 ```
 
 This command will execute the `leave_one_session_out` training on the BNCI2014001 dataset for Motor Imagery using the EEGNet.yaml configuration. The script will loop over 9 subjects and 2 sessions, running the experiment 2 times (--nruns=2) with different initialization seeds to ensure robustness. Running multiple experiments with varied seeds and averaging their performance is a recommended practice to improve result significance. The evaluation metric is accuracy, and the validation metrics are stored in `valid_metrics.pkl`.
@@ -119,7 +119,7 @@ The results of each experiment are saved in the specified output folder. To view
 - The default evaluation metric is accuracy (acc). If you wish to use F1 score instead, use the flag `--eval_metric=f1`.
 - By default, the evaluation is conducted on the test set. To use the dev set instead, use the flag `--eval_set=dev`.
 - Without specifying the `--seed flag`, a random seed is used.
-- Beyond the flags expected by the `./run_experiments.sh` script, you can use additional flags to override any value declared in the hparam file. In the example above, we changed the number of epochs to 2. 
+- Beyond the flags expected by the `./run_experiments.sh` script, you can use additional flags to override any value declared in the hparam file. In the example above, we changed the number of epochs to 2.
 
 
 **Note:** The number of subjects (`--nsbj`) and sessions (`--nsess`) is dataset dependent. You can find this information in the dataset table above.
@@ -161,7 +161,7 @@ Users have the flexibility to define multiple optimization steps based on their 
 The script operates as follows:
 
 1. Scans the specified hparam file for Orion flags.
-2. Executes hyperparameter tuning using the `orion-hunt` command. 
+2. Executes hyperparameter tuning using the `orion-hunt` command.
 3. Captures and saves the best hyperparameters for reference via `torch-info`.
 4. Continues until flags like `@orion_step<stepid>` are encountered in the YAML file.
 

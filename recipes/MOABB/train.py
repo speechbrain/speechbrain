@@ -332,7 +332,7 @@ if __name__ == "__main__":
         data_iterator = LeaveOneSubjectOut(
             seed=hparams["seed"]
         )  # cross-subject and cross-session
-    
+
     if data_iterator is not None:
         tail_path, datasets = data_iterator.prepare(hparams)
 
@@ -345,20 +345,20 @@ if __name__ == "__main__":
             "--n_train_examples",
             str(datasets["train"].dataset.tensors[0].shape[0]),
         ]
-        
+
         # loading hparams for the each training and evaluation processes
         hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
         with open(hparams_file) as fin:
             hparams = load_hyperpyyaml(fin, overrides)
         hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
-        
+
         # creating experiment directory
         sb.create_experiment_directory(
             experiment_directory=hparams["exp_dir"],
             hyperparams_to_save=hparams_file,
             overrides=overrides,
         )
-        
+
         # Run training
         run_experiment(hparams, run_opts, datasets)
 
