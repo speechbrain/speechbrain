@@ -837,7 +837,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
 
-    # Test
+    # Testing
     asr_brain.hparams.wer_file = hparams["wer_file"]
     asr_brain.evaluate(
         test_data,

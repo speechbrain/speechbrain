@@ -320,11 +320,11 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
 
+    from speechbrain.utils.data_utils import generate_wer_filename
+
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
-        )
+        asr_brain.hparams.wer_file = generate_wer_filename(hparams["wer_file"], k)
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_loader_kwargs"]
         )

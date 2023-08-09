@@ -318,15 +318,18 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
 
+
+    from speechbrain.utils.data_utils import generate_wer_filename
+
     # Testing
-    asr_brain.hparams.wer_file = hparams["wer_file"]
+    asr_brain.hparams.wer_file = generate_wer_filename(hparams["wer_file"], 'test')
     asr_brain.evaluate(
         test_data,
         min_key="WER",
         test_loader_kwargs=hparams["test_loader_kwargs"],
     )
 
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_valid.txt"
+    asr_brain.hparams.wer_file = generate_wer_filename(hparams["wer_file"], 'valid')
     asr_brain.evaluate(
         valid_data,
         min_key="WER",

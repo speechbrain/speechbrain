@@ -406,7 +406,6 @@ if __name__ == "__main__":
     )
 
     # Test
-    asr_brain.hparams.wer_file = hparams["wer_file"]
     asr_brain.evaluate(
         test_data,
         min_key="WER",
