@@ -1,18 +1,30 @@
 #!/usr/bin/python
 """
-Snippet to aggregate results based on four different EEG training paradigms
-(within-session, cross-session, leave-one-session-out, leave-one-subject-out).
+Aggregate EEG training results from different sessions and subjects.
 
-To run this script (e.g., exp_results: results/MOABB/EEGNet_BNCI2014001/<seed>; required metrics: ["acc", "loss", "f1"]):
+This script aggregates results for four EEG training paradigms:
+1. Within-Session
+2. Cross-Session
+3. Leave-One-Session-Out
+4. Leave-One-Subject-Out
 
-    > python3 parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 test_metrics.pkl acc loss f1
+Usage:
+python parse_results.py <results_dir> <metric_file> <metrics>...
 
-Use valid_metrics.pkl for results on the validation test.
+Parameters:
+- results_dir: Path to the directory containing experiment results.
+- metric_file: Path to the metric file (generated during training).
+- metrics: List of metrics to aggregate (e.g., "acc", "loss", "f1").
 
-Author
-------
+Example:
+python3 parse_results.py results/MOABB/EEGNet_BNCI2014001/1234 test_metrics.pkl acc loss f1
+
+For validation results, use valid_metrics.pkl.
+
+Author:
 Francesco Paissan, 2021
 """
+
 
 from pathlib import Path
 from pickle import load
@@ -22,12 +34,18 @@ import sys
 
 
 def load_metrics(filepath: Path) -> dict:
-    """Loads pickles and parses into a dictionary
 
-    :param filepath: [description]
-    :type filepath: Path
-    :return: [description]
-    :rtype: dict
+    """
+    Loads pickles and parses into a dictionary
+
+    Arguments
+    ---------
+    filepath : path
+        Path of the metric file.
+
+    Returns
+    -------
+    rtype: dict
     """
 
     try:
@@ -41,14 +59,14 @@ def load_metrics(filepath: Path) -> dict:
 
 
 def visualize_results(paradigm: str, results: dict, vis_metrics: list) -> None:
-    """Prints aggregated strings
+    """
+    Function to visualize the results.
 
-    :param paradigm: [description]
-    :type paradigm: str
-    :param results: [description]
-    :type results: dict
-    :param vis_metrics: [description]
-    :type vis_metrics: list
+    Arguments
+    ---------
+    paradigm : str
+    results: dict
+    vis_metrics: list
     """
     print("\n----", paradigm.name, "----")
     for key in results:
@@ -77,14 +95,23 @@ def parse_one_session_out(
     stat_metrics: list = ["loss", "f1", "acc"],
     metric_file: str = "test_metrics.pkl",
 ) -> dict:
-    """Aggregates results obtain by helding back one session as test set and
+
+    """
+    Aggregates results obtain by helding back one session as test set and
     using the remaining ones to train the neural nets
 
-    :param paradigm: [description]
-    :type paradigm: Path
-    :return: [description]
-    :rtype: dict
+    Arguments
+    ---------
+    paradigm: path
+    vis_metrics: list
+    stat_metrics: list
+    metric_file: str
+
+    Returns
+    -------
+    out_stat: dict
     """
+
     folds = sorted(paradigm.iterdir())
     out_stat = {
         key.name: {metric: [] for metric in stat_metrics}
@@ -113,14 +140,22 @@ def parse_cross_section(
     stat_metrics: list = ["loss", "f1", "acc"],
     metric_file: str = "test_metrics.pkl",
 ) -> dict:
-    """Aggregates results obtained using all session' signals merged together.
+    """
+    Aggregates results obtained using all session' signals merged together.
     Training and test sets are defined using a stratified cross-validation partitioning.
 
-    :param paradigm: [description]
-    :type paradigm: Path
-    :return: [description]
-    :rtype: dict
+    Arguments
+    ---------
+    paradigm: path
+    vis_metrics: list
+    stat_metrics: list
+    metric_file: str
+
+    Returns
+    -------
+    out_stat: dict
     """
+
     folds = sorted(paradigm.iterdir())
     out_stat = {metric: [] for metric in stat_metrics}
 
@@ -152,14 +187,22 @@ def parse_one_sub_out(
     stat_metrics: list = ["loss", "f1", "acc"],
     metric_file: str = "test_metrics.pkl",
 ) -> dict:
-    """Aggregates results obtained helding out one subject
+    """
+    Aggregates results obtained helding out one subject
     as test set and using the remaining ones for training.
 
-    :param paradigm: [description]
-    :type paradigm: Path
-    :return: [description]
-    :rtype: dict
+    Arguments
+    ---------
+    paradigm: path
+    vis_metrics: list
+    stat_metrics: list
+    metric_file: str
+
+    Returns
+    -------
+    out_stat: dict
     """
+
     folds = sorted(paradigm.iterdir())
     out_stat = {metric: [] for metric in stat_metrics}
 
@@ -183,13 +226,20 @@ def parse_within_session(
     stat_metrics: list = ["loss", "f1", "acc"],
     metric_file: str = "test_metrics.pkl",
 ) -> dict:
-    """For each subject and for each session, the training
+    """
+    For each subject and for each session, the training
     and test sets were defined using a stratified cross-validation partitioning.
 
-    :param paradigm: [description]
-    :type paradigm: Path
-    :return: [description]
-    :rtype: dict
+    Arguments
+    ---------
+    paradigm: path
+    vis_metrics: list
+    stat_metrics: list
+    metric_file: str
+
+    Returns
+    -------
+    out_stat: dict
     """
     folds = sorted(paradigm.iterdir())
     out_stat = {
@@ -224,6 +274,19 @@ def aggregate_nested(
     metric_file: str = "test_metrics.pkl",
     stat_metrics: list = ["loss", "f1", "acc"],
 ):
+    """
+    Add description
+
+    Arguments
+    ---------
+    results: dict
+    metric_file: str
+    stat_metrics: list
+
+    Returns
+    -------
+    temp: dict
+    """
     temp = {key: [] for key in stat_metrics}
     for _, v in results.items():
         for k, r in v.items():
@@ -237,6 +300,19 @@ def aggregate_single(
     metric_file: str = "test_metrics.pkl",
     stat_metrics: list = ["loss", "f1", "acc"],
 ):
+    """
+    Add description
+
+    Arguments
+    ---------
+    results: dict
+    metric_file: str
+    stat_metrics: list
+
+    Returns
+    -------
+    temp: dict
+    """
     temp = {key: [] for key in stat_metrics}
     for k, r in results.items():
         temp[k].append(mean(r))
@@ -264,11 +340,19 @@ def aggregate_metrics(
     metric_file="test_metrics.pkl",
     stat_metrics=["loss", "f1", "acc"],
 ) -> Tuple:
-    """Parses results and computes statistics over all
+    """
+    Parses results and computes statistics over all
     paradigms.
 
-    :return: [mean and std on different paradigms]
-    :rtype: [Tuple]
+    Arguments
+    ---------
+    verbode: int
+    metric_file: str
+    stat_metrics: list
+
+    Returns
+    -------
+    overall_stat: tuple
     """
     results_folder = Path(sys.argv[1])
     vis_metrics = stat_metrics
