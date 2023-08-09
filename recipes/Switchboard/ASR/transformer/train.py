@@ -32,8 +32,8 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dominik Wagner 2022
 """
+
 import functools
-import os
 import sys
 
 import torch
@@ -544,7 +544,9 @@ if __name__ == "__main__":
 
     # Testing
     for k in test_datasets.keys():  # keys are test_swbd and test_callhome
-        asr_brain.hparams.wer_file = generate_wer_filename(hparams["wer_file"], k)
+        asr_brain.hparams.wer_file = generate_wer_filename(
+            hparams["wer_file"], k
+        )
         asr_brain.evaluate(
             test_datasets[k],
             max_key="ACC",

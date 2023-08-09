@@ -34,7 +34,6 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dongwon Kim, Dongwoo Kim 2023
 """
-import os
 import sys
 import torch
 import logging
@@ -505,7 +504,9 @@ if __name__ == "__main__":
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = generate_wer_filename(hparams["wer_file"], k)
+        asr_brain.hparams.wer_file = generate_wer_filename(
+            hparams["wer_file"], k
+        )
         asr_brain.evaluate(
             test_datasets[k],
             max_key="ACC",

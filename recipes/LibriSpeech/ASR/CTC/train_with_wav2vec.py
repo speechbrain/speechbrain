@@ -430,9 +430,11 @@ if __name__ == "__main__":
     from speechbrain.utils.data_utils import generate_wer_filename
 
     # Testing
-    wer_file = hparams["wer_file"].split(".") 
+    wer_file = hparams["wer_file"].split(".")
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = generate_wer_filename(hparams["wer_file"], k)
+        asr_brain.hparams.wer_file = generate_wer_filename(
+            hparams["wer_file"], k
+        )
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )
