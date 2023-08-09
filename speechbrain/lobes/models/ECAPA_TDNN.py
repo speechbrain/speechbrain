@@ -521,7 +521,7 @@ class Classifier(torch.nn.Module):
     -------
     >>> classify = Classifier(input_size=2, lin_neurons=2, out_neurons=2)
     >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
-    >>> outupts = outputs.unsqueeze(1)
+    >>> outputs = outputs.unsqueeze(1)
     >>> cos = classify(outputs)
     >>> (cos < -1.0).long().sum()
     tensor(0)

@@ -47,7 +47,7 @@ class SEBlock(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([1, 64, 80, 40])
-    >>> se_layer = ResNet.SEBlock(64)
+    >>> se_layer = SEBlock(64)
     >>> out_tensor = se_layer(inp_tensor)
     >>> out_tensor.shape
     torch.Size([1, 64, 80, 40])
@@ -167,7 +167,7 @@ class SEBasicBlock(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([1, 64, 80, 40])
-    >>> layer = BasicBlock(64, 64, stride=1)
+    >>> layer = SEBasicBlock(64, 64, stride=1)
     >>> out_tensor = layer(inp_tensor)
     >>> out_tensor.shape
     torch.Size([1, 64, 80, 40])
@@ -247,7 +247,7 @@ class ResNet(nn.Module):
 
     Example
     -------
-    >>> input_feats = torch.rand([2, 1, 400, 80])
+    >>> input_feats = torch.rand([2, 400, 80])
     >>> compute_embedding = ResNet(lin_neurons=256)
     >>> outputs = compute_embedding(input_feats)
     >>> outputs.shape
@@ -439,7 +439,7 @@ class Classifier(torch.nn.Module):
     -------
     >>> classify = Classifier(input_size=2, lin_neurons=2, out_neurons=2)
     >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
-    >>> outupts = outputs.unsqueeze(1)
+    >>> outputs = outputs.unsqueeze(1)
     >>> cos = classify(outputs)
     >>> (cos < -1.0).long().sum()
     tensor(0)
