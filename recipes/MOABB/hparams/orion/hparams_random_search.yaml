@@ -1,4 +1,0 @@
-experiment:
-    algorithms:
-        random:
-            seed: 1986
