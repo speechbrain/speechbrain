@@ -66,6 +66,7 @@ orion_db_address=""
 orion_db_type="PickledDB"
 exp_max_trials=50
 store_all=False
+compress_exp=False
 
 # Function to print argument descriptions and exit
 print_argument_descriptions() {
@@ -88,7 +89,8 @@ print_argument_descriptions() {
     echo "  --orion_db_address [Optional]         Path of the database where orion will store hparams and performance"
     echo "  --orion_db_type db_type [Optional]    Type of the dataset that orion will use. Default: PickledDB"
     echo "  --exp_max_trials int [Optional]       Maximum number of hparam trials for each oprimization step. Default:50"
-    echo "  --store_all Bool [Optional]           If set to True, the output folders of all hparam trials will be stored in randomly named folders. Default: False"
+    echo "  --store_all Bool [Optional]           When set to True, the output folders of all hparam trials will be stored in randomly named folders. Default: False"
+    echo "  --compress_exp Bool [Optional]        When set to True, this option compresses the output folders of all hyperparameter trials into a single tar.gz file. This is particularly useful when store_all is set to True, as it helps prevent the accumulation of a large number of files. Default: False"
     exit 1
 }
 
@@ -205,7 +207,12 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-
+      
+    --compress_exp)
+      compress_exp="$2"
+      shift
+      shift
+      ;;
 
     --help)
       print_argument_descriptions
@@ -358,7 +365,7 @@ while [ -n "$opt_flags" ]; do
     	./run_experiments.sh --hparams $hparams_step --data_folder $data_folder --seed $seed \
     	--output_folder $output_folder_step/exp  --nsbj $nsbj --nsess $nsess --nruns $nruns \
     	--eval_metric $eval_metric --eval_set dev --train_mode $train_mode --rnd_dir $store_all $additional_flags"
-
+    	
 
     # Appending the optimization flags
     orion_hunt_command="$orion_hunt_command $opt_flags"
@@ -367,6 +374,15 @@ while [ -n "$opt_flags" ]; do
 
     # Execute the command for hparm tuning
     eval $orion_hunt_command
+    
+    # Compress the exp folder (if required)
+    if [ "$compress_exp" = True ]; then
+        tar -czf "$output_folder_step/exp.tar.gz" "$output_folder_step/exp"
+        if [ -d "$output_folder_step/exp" ]; then
+            rm -rf "$output_folder_step/exp"
+        fi
+
+    fi
 
     # Storing best haprams
     orion info --name $exp_name_step &> $output_folder_step/orion-info.txt
