@@ -97,7 +97,7 @@ In this example, we will train EEGNET for Motor Imagery using the BNCI2014001 da
 
 The data will be automatically downloaded to the specified `data_folder`, and a cached version of the data will be stored in `cached_data_folder` for future reuse.
 
-The results, including training logs and checkpoints, will be availabe in the output folder specified in the hparam file.
+The results, including training logs and checkpoints, will be availabel in the output folder specified in the hparam file.
 
 
 ### Run a Training Experiment on a Given Dataset
@@ -118,7 +118,7 @@ The results of each experiment are saved in the specified output folder. To view
 - By default, the training modality is set to `leave_one_session_out`. If you prefer to use `leave_one_subject_out`, simply add the flag `--train_mode=leave_one_subject_out`.
 - The default evaluation metric is accuracy (acc). If you wish to use F1 score instead, use the flag `--eval_metric=f1`.
 - By default, the evaluation is conducted on the test set. To use the dev set instead, use the flag `--eval_set=dev`.
-- Without specifyng the `--seed flag`, a random seed is used.
+- Without specifying the `--seed flag`, a random seed is used.
 - Beyond the flags expected by the `./run_experiments.sh` script, you can use additional flags to override any value declared in the hparam file. In the example above, we changed the number of epochs to 2. 
 
 
@@ -215,7 +215,7 @@ To ensure transparency and reproducibility, we release the output folder contain
 | 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_1 | 'acc'| 0.9370±0.1170 | 1xNVIDIA A100 (40 GB) |
 | 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_2 | 'acc'| 0.9287±0.1157 | 1xNVIDIA A100 (40 GB) |
 
-Note that the experiments runs with any GPU with memory >= 12 GB.
+Note that the experiments run with any GPU with memory >= 12 GB.
 
 ## 📧 Contact
 
