@@ -82,9 +82,9 @@ The scripts will output a synthesized audio to `<output_folder>/samples` for a c
 
 We suggest using tensorboard_logger by setting `use_tensorboard: True` in the yaml file, thus Tensorboard should be installed.
 
-Training takes about 6 minutes/epoch on an nvidia RTX8000.
+Training takes about 6 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](to add)
+The training logs are available [here](https://www.dropbox.com/sh/tbhpn1xirtaix68/AACvYaVDiUGAKURf2o-fvgMoa?dl=0)
 
 For inference, by setting `fast_sampling: True` , a fast sampling can be realized by passing user-defined variance schedules. According to the paper, high-quality audios can be generated with only 6 steps. This is highly recommanded.
 
