@@ -2,6 +2,7 @@
 
 Authors
  * Peter Plantinga 2020
+ * Jarod Duret 2023
 """
 import logging
 import torch
@@ -180,29 +181,35 @@ class WandBLogger(TrainLogger):
     Logger for WandB (Weights & Biases). This logger is designed to be used in the same way as TrainLogger
     and supports handling nested dictionaries as well.
 
-    Parameters:
-        initializer (callable): A callable function that initializes the WandB run.
-            For more information on the parameters that can be passed to the initializer, refer to
-            the documentation: https://docs.wandb.ai/ref/python/init
-        *args: Positional arguments to be passed to the initializer function.
-        **kwargs: Keyword arguments to be passed to the initializer function.
+    Arguments
+    ---------
+    initializer: callable
+        A callable function that initializes the WandB run.
+        For more information on the parameters that can be passed to the initializer, refer to
+        the documentation: https://docs.wandb.ai/ref/python/init
+    *args: tuple
+        Positional arguments to be passed to the initializer function.
+    **kwargs: dict
+        Keyword arguments to be passed to the initializer function.
 
-    Example:
-        To initialize the logger, use the following pattern in hparams.yaml:
+    Example
+    -------
+    To initialize the logger, use the following pattern in hparams.yaml:
 
-        ```
-        train_logger: !new:speechbrain.utils.train_logger.WandBLogger
-            initializer: !name:wandb.init
-                entity: speechbrain
-                project: sb_project
-                name: sb_run
-                reinit: True
-                resume: False
-                dir: !ref <output_folder>/wandb
-        ```
+    ```
+    train_logger: !new:speechbrain.utils.train_logger.WandBLogger
+        initializer: !name:wandb.init
+            entity: speechbrain
+            project: sb_project
+            name: sb_run
+            reinit: True
+            resume: False
+            dir: !ref <output_folder>/wandb
+    ```
 
-    Raises:
-        Exception: If there is an issue with the WandB Logger initialization, it raises an exception.
+    NOTE
+    ----
+    If there is an issue with the WandB Logger initialization, it raises an exception.
     """
 
     def __init__(self, initializer, *args, **kwargs):
