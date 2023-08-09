@@ -207,7 +207,7 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-      
+
     --compress_exp)
       compress_exp="$2"
       shift
@@ -365,7 +365,7 @@ while [ -n "$opt_flags" ]; do
     	./run_experiments.sh --hparams $hparams_step --data_folder $data_folder --seed $seed \
     	--output_folder $output_folder_step/exp  --nsbj $nsbj --nsess $nsess --nruns $nruns \
     	--eval_metric $eval_metric --eval_set dev --train_mode $train_mode --rnd_dir $store_all $additional_flags"
-    	
+
 
     # Appending the optimization flags
     orion_hunt_command="$orion_hunt_command $opt_flags"
@@ -374,7 +374,7 @@ while [ -n "$opt_flags" ]; do
 
     # Execute the command for hparm tuning
     eval $orion_hunt_command
-    
+
     # Compress the exp folder (if required)
     if [ "$compress_exp" = True ]; then
         tar -czf "$output_folder_step/exp.tar.gz" "$output_folder_step/exp"
