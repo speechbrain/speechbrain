@@ -650,7 +650,7 @@ def generate_wer_filename(wer_file: str, label: str) -> str:
     prefix_wer_file = "".join(wer_file[:-1])
     extension_wer_file = wer_file[-1]
 
-    new_extension = f"_{label}." + extension_wer_file
+    label_and_extension = f"_{label}.{extension_wer_file}"
 
-    new_wer_file = prefix_wer_file + new_extension
+    new_wer_file = prefix_wer_file + label_and_extension
     return new_wer_file
