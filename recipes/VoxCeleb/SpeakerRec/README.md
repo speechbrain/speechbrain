@@ -85,20 +85,23 @@ Below results are all obtained with the official verification split of voxceleb1
 |-----------------|------------|------| -----|
 | Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://www.dropbox.com/sh/mau2nrt6i81ctfc/AAAUkAECzVaVWUMjD3mytjgea?dl=0 |
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.80% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
-| ResNet TDNN     | VoxCeleb 1,2 | 0.95% | (to be updated) |
+| ResNet TDNN     | VoxCeleb 1,2 | 0.95% | https://www.dropbox.com/sh/yvqn7tn6iqztx9k/AAAhhhbOCUJ47C0LbcpUlzYUa?dl=0 |
 
 [Speaker verification results (in EER), no score normalization]
 | System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
 |-----------------|------------|------|------|------| -----|
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.90% | - | - | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 | ECAPA-TDNN      | VoxCeleb 2 | 1.30% | 1.98% | 3.62% | (to be updated) |
-| ResNet TDNN     | VoxCeleb 1,2 | 1.05% | - | - | (to be updated) |
+| ResNet TDNN     | VoxCeleb 1,2 | 1.05% | - | - | https://www.dropbox.com/sh/yvqn7tn6iqztx9k/AAAhhhbOCUJ47C0LbcpUlzYUa?dl=0  |
 
 
 ## PreTrained Model + Easy-Inference
-You can find the pre-trained ECAPA-TDNN model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb).
-You can find the pre-trained xvector models as well on [HuggingFace](https://huggingface.co/speechbrain/spkrec-xvect-voxceleb)
-
+You can perform the easy-inference of various models provided on [HuggingFace](https://huggingface.co) via the links below. They are specified in the hyperparameter yaml files as well.
+| System          | Hugging Face model link |
+|-----------------|-------------------------|
+| Xvector         | https://huggingface.co/speechbrain/spkrec-xvect-voxceleb |
+| ECAPA-TDNN      | https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb |
+| ResNet TDNN     | https://huggingface.co/underdogliu1005/spkrec-resnet-voxceleb |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
