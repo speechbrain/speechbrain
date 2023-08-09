@@ -45,7 +45,7 @@ class DeepConvNet(torch.nn.Module):
         Dropout probability.
     dense_n_neurons: int
         Number of output neurons.
-        
+
     Example
     -------
     >>> inp_tensor = torch.rand([1, 1000, 32, 1])

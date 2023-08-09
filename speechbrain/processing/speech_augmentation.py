@@ -1446,7 +1446,7 @@ class RandAmp(torch.nn.Module):
     -------
     >>> from speechbrain.dataio.dataio import read_audio
     >>> rand_amp = RandAmp(amp_low=0.25, amp_high=1.75)
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> output_signal = rand_amp(signal.unsqueeze(0))
     """
 
@@ -1647,7 +1647,6 @@ class CutCat(torch.nn.Module):
     >>> signal = torch.ones((4, 256, 22)) * torch.arange(4).reshape((4, 1, 1,))
     >>> cutcat =  CutCat()
     >>> output_signal = cutcat(signal)
-    >>> print(output_signal[0,...])
     """
 
     def __init__(self, min_num_segments=2, max_num_segments=10):
@@ -1841,9 +1840,11 @@ def muscolar_noise(
         }
 
         def stage1_model(f, a, b, d):
+            """Compute stage 1 decay"""
             return b / ((f) ** a) + d
 
         def stage2_model(f, b, d, e):
+            """Compute stage 2 decay"""
             return -1 * (f) ** b + d * f + e
 
         k = 20
