@@ -1,4 +1,4 @@
-moabb==0.4.6
+moabb
 mne==0.24.1
 orion[profet]
 sklearn
