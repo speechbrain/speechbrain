@@ -334,7 +334,24 @@ if __name__ == "__main__":
         )  # cross-subject and cross-session
 
     if data_iterator is not None:
-        tail_path, datasets = data_iterator.prepare(hparams)
+        tail_path, datasets = data_iterator.prepare(
+            data_folder=hparams["data_folder"],
+            dataset=hparams["dataset"],
+            cached_data_folder=hparams["cached_data_folder"],
+            batch_size=hparams["batch_size"],
+            valid_ratio=hparams["valid_ratio"],
+            target_subject_idx=hparams["target_subject_idx"],
+            target_session_idx=hparams["target_session_idx"],
+            events_to_load=hparams["events_to_load"],
+            original_sample_rate=hparams["original_sample_rate"],
+            sample_rate=hparams["sample_rate"],
+            fmin=hparams["fmin"],
+            fmax=hparams["fmax"],
+            tmin=hparams["tmin"],
+            tmax=hparams["tmax"],
+            save_prepared_dataset=hparams["save_prepared_dataset"],
+            n_steps_channel_selection=hparams["n_steps_channel_selection"],
+        )
 
         # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
         argv += [
@@ -361,4 +378,3 @@ if __name__ == "__main__":
 
         # Run training
         run_experiment(hparams, run_opts, datasets)
-

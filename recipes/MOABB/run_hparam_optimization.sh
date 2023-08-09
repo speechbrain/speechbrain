@@ -5,7 +5,7 @@
 ###########################################################
 
 # Description:
-# This script facilitates hyperparameter tuning for a given EEG model and dataset using Orion. 
+# This script facilitates hyperparameter tuning for a given EEG model and dataset using Orion.
 # It supports leave-one-subject-out and/or leave-one-session-out training strategies.
 
 # Usage:
@@ -22,21 +22,21 @@
 #                             --device 'cpu'
 #
 # Optimization Steps:
-# The script supports multiple hyperparameter optimization steps. 
-# We found it convenient to first optimize training and model hyperparameters, 
+# The script supports multiple hyperparameter optimization steps.
+# We found it convenient to first optimize training and model hyperparameters,
 # and then optimize data augmentation hyperparameters in a separate step.
 
 # Script Workflow:
 # 1. Search for the orion flags in the specified hparam file.
-# 2. Run the orion-hunt command for hyperparameter tuning. 
+# 2. Run the orion-hunt command for hyperparameter tuning.
 #    By default, TPE (Tree-structured Parzen Estimator) hyperparameter tuning is
 #    performed, as specified in the default orion config file at hparams/orion/hparams_tpe.yaml.
 # 3. Save the best hyperparameters, which can be viewed using torch-info.
 # 4. Loop until flags like @orion_step<stepid> are found in the YAML file.
 #
 # Final Performance Evaluation:
-# At the end of the optimization process, the script computes the final performance 
-# using the best hyperparameters on the test set. 
+# At the end of the optimization process, the script computes the final performance
+# using the best hyperparameters on the test set.
 # This is done by averaging over nruns_eval different seeds.
 #
 # Note: More detailed information can be found in the README.md file.
@@ -62,7 +62,7 @@ train_mode="leave-one-session-out"
 seed=1986
 config_file="hparams/orion/hparams_tpe.yaml"
 mne_dir=""
-orion_db_address="" 
+orion_db_address=""
 orion_db_type="PickledDB"
 exp_max_trials=50
 store_all=False
@@ -96,31 +96,31 @@ POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-  
+
     --exp_name)
       exp_name="$2"
       shift
       shift
       ;;
-      
+
     --output_folder)
       output_folder="$2"
       shift
       shift
       ;;
-  
+
     --data_folder)
       data_folder="$2"
       shift
       shift
       ;;
-      
+
     --hparams)
       hparams="$2"
       shift
       shift
       ;;
-      
+
     --cached_data_folder)
       cached_data_folder="$2"
       shift
@@ -150,7 +150,7 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-      
+
     --nruns_eval)
       nruns_eval="$2"
       shift
@@ -175,7 +175,7 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-      
+
     --mne_dir)
       mne_dir="$2"
       shift
@@ -187,13 +187,13 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-      
+
     --orion_db_type)
       orion_db_type="$2"
       shift
       shift
       ;;
-      
+
     --exp_max_trials)
       exp_max_trials="$2"
       shift
@@ -205,17 +205,17 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-      
+
 
     --help)
       print_argument_descriptions
       ;;
-      
+
     -*|--*)
       additional_flags+="$1 $2 " # store additional flags
       shift # past argument
       ;;
-      
+
 
     *)
       POSITIONAL_ARGS+=("$1") # save positional arg
@@ -244,7 +244,7 @@ fi
 
 # Set mne_dir is specified
 if [ -z "$orion_db_address" ]; then
-    orion_db_address=$output_folder'/'$exp_name'.pkl'   
+    orion_db_address=$output_folder'/'$exp_name'.pkl'
 fi
 
 echo "-------------------------------------"
@@ -297,18 +297,18 @@ update_hparams() {
     while IFS=": " read -r key value; do
         best_hparams["$key"]=$value
     done < "$best_hparams_file"
-    
+
 
     # Read the hparams.yaml file into a variable
     local hparams_content=$(cat "$hparams_yaml_file")
-    
+
     # Update values in hparams_content using values from best_hparams
     for key in "${!best_hparams[@]}"; do
         local pattern="^$key: .*"
         local replacement="$key: ${best_hparams[$key]}"
         hparams_content=$(sed "s/$pattern/$replacement/g" <<< "$hparams_content")
     done
-        
+
     # Write the updated content to a new YAML file
     echo "$hparams_content" > "$output_yaml_file"
 }
@@ -342,51 +342,51 @@ while [ -n "$opt_flags" ]; do
     output_folder_step="$output_folder"/step"$step_id"
     mkdir -p $output_folder_step
     exp_name_step="$exp_name"_step"$step_id"
-    
+
     echo
     echo "**********************************************************************************************"
-    echo "Running hparam tuning (step $step_id)..." 
+    echo "Running hparam tuning (step $step_id)..."
     echo "- This might take several hours!"
     echo "- The best set of hparams will be save in $output_folder_step"
     echo "- You can monitor the evolution of the hparam optimization with: orion status -n $exp_name"
-    echo "......" 
+    echo "......"
     echo "**********************************************************************************************"
     echo
-        
+
     # Setting up orion command
     orion_hunt_command="orion hunt -n $exp_name_step -c $config_file --exp-max-trials $exp_max_trials \
     	./run_experiments.sh --hparams $hparams_step --data_folder $data_folder --seed $seed \
     	--output_folder $output_folder_step/exp  --nsbj $nsbj --nsess $nsess --nruns $nruns \
-    	--eval_metric $eval_metric --eval_set dev --train_mode $train_mode --rnd_dir $store_all $additional_flags" 
-    
-    
-    # Appending the optimization flags	
+    	--eval_metric $eval_metric --eval_set dev --train_mode $train_mode --rnd_dir $store_all $additional_flags"
+
+
+    # Appending the optimization flags
     orion_hunt_command="$orion_hunt_command $opt_flags"
-    
+
     echo $orion_hunt_command
-    
+
     # Execute the command for hparm tuning
     eval $orion_hunt_command
-    
-    # Storing best haprams 
+
+    # Storing best haprams
     orion info --name $exp_name_step &> $output_folder_step/orion-info.txt
-    
+
     # Extract list of the best hparams from orion-info
     # Find the line number where "best trial:" appears
     best_trial_line=$(grep -n "best trial:" $output_folder_step/orion-info.txt | cut -d ":" -f 1)
-    
+
     # Extract and store the best set of hparams
     best_params_output=$(extract_best_params "$output_folder_step/orion-info.txt")
     best_hparams_file="$output_folder_step/best_hparams.txt"
     echo "$best_params_output" > $best_hparams_file
-    
-    # Store the current best yaml file 
+
+    # Store the current best yaml file
     best_yaml_file="$output_folder_step/best_hparams.yaml"
     update_hparams "$best_hparams_file" "$hparams_step" "$best_yaml_file"
-    
+
     # Update best hparam step
     hparams_step=$best_yaml_file
-    
+
     # Update step variable
     ((step_id++))
 
@@ -399,7 +399,7 @@ done
 
 echo
 echo "**********************************************************************************************"
-echo "Running Final Evaluation on the best hparams (test-set)..." 
+echo "Running Final Evaluation on the best hparams (test-set)..."
 echo "**********************************************************************************************"
 echo
 
@@ -411,7 +411,7 @@ scp $best_yaml_file $final_yaml_file
   --seed $seed --output_folder $output_folder/best --nsbj $nsbj --nsess $nsess \
   --nruns $nruns_eval --eval_metric $eval_metric --eval_set test \
   --train_mode $train_mode --rnd_dir $store_all $additional_flags
- 
+
 
 echo "The test performance with best hparams is available at  $output_folder/best"
 

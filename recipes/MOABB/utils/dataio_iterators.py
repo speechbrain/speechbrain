@@ -27,9 +27,7 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
 
     idx_valid = []
     for c in range(nclasses):
-        to_select_c = idx_train[
-            np.where(y[idx_train] == c)[0]
-        ]
+        to_select_c = idx_train[np.where(y[idx_train] == c)[0]]
         # fixed validation examples equally spaced within recording
         idx = np.linspace(
             0,
@@ -150,33 +148,54 @@ class LeaveOneSessionOut(object):
         np.random.seed(seed)
 
     def prepare(
-        self, hparams,
+        self,
+        data_folder=None,
+        cached_data_folder=None,
+        dataset=None,
+        batch_size=None,
+        valid_ratio=None,
+        target_subject_idx=None,
+        target_session_idx=None,
+        events_to_load=None,
+        original_sample_rate=None,
+        sample_rate=None,
+        fmin=None,
+        fmax=None,
+        tmin=None,
+        tmax=None,
+        save_prepared_dataset=None,
+        n_steps_channel_selection=None,
     ):
         """This function returns the pre-processed datasets (training, validation and test sets)
+        
         Arguments
         ---------
-        hparams : dict
-            Hyperparameter dictionary containing pre-processing hyper-parameters.
+        dataset : type
+            add description
+        ...
+            
+        Returns
+        ---------
+        tail_path: type
+            add description
+        datasets: type
+            add description
+         ---------
         """
-        dataset = hparams["dataset"]
-        batch_size = hparams["batch_size"]
-        interval = [hparams["tmin"], hparams["tmax"]]
-        valid_ratio = hparams["valid_ratio"]
-        target_subject_idx = hparams["target_subject_idx"]
-        target_session_idx = hparams["target_session_idx"]
+        interval = [tmin, tmax]
 
         # preparing or loading dataset
         data_dict = prepare_data(
-            data_folder=hparams["data_folder"],
-            cached_data_folder=hparams["cached_data_folder"],
+            data_folder=data_folder,
+            cached_data_folder=cached_data_folder,
             dataset=dataset,
-            events_to_load=hparams["events_to_load"],
-            srate_in=hparams["original_sample_rate"],
-            srate_out=hparams["sample_rate"],
-            fmin=hparams["fmin"],
-            fmax=hparams["fmax"],
+            events_to_load=events_to_load,
+            srate_in=original_sample_rate,
+            srate_out=sample_rate,
+            fmin=fmin,
+            fmax=fmax,
             idx_subject_to_prepare=target_subject_idx,
-            save_prepared_dataset=hparams["save_prepared_dataset"],
+            save_prepared_dataset=save_prepared_dataset,
         )
 
         x = data_dict["x"]
@@ -251,24 +270,24 @@ class LeaveOneSessionOut(object):
             )
 
         # channel sampling
-        if hparams["n_steps_channel_selection"] is not None:
+        if n_steps_channel_selection is not None:
             x_train = sample_channels(
                 x_train,
                 data_dict["adjacency_mtx"],
                 data_dict["channels"],
-                n_steps=hparams["n_steps_channel_selection"],
+                n_steps=n_steps_channel_selection,
             )
             x_valid = sample_channels(
                 x_valid,
                 data_dict["adjacency_mtx"],
                 data_dict["channels"],
-                n_steps=hparams["n_steps_channel_selection"],
+                n_steps=n_steps_channel_selection,
             )
             x_test = sample_channels(
                 x_test,
                 data_dict["adjacency_mtx"],
                 data_dict["channels"],
-                n_steps=hparams["n_steps_channel_selection"],
+                n_steps=n_steps_channel_selection,
             )
 
         # swap axes: from (N_examples, C, T) to (N_examples, T, C)
@@ -287,9 +306,7 @@ class LeaveOneSessionOut(object):
         tail_path = os.path.join(
             self.iterator_tag,
             "sub-{0}".format(
-                str(dataset.subject_list[hparams["target_subject_idx"]]).zfill(
-                    3
-                )
+                str(dataset.subject_list[target_subject_idx]).zfill(3)
             ),
             sessions[target_session_idx],
         )
@@ -313,37 +330,60 @@ class LeaveOneSubjectOut(object):
         self.iterator_tag = "leave-one-subject-out"
         np.random.seed(seed)
 
-    def prepare(self, hparams):
+    def prepare(
+        self,
+        data_folder=None,
+        cached_data_folder=None,
+        dataset=None,
+        batch_size=None,
+        valid_ratio=None,
+        target_subject_idx=None,
+        target_session_idx=None,
+        events_to_load=None,
+        original_sample_rate=None,
+        sample_rate=None,
+        fmin=None,
+        fmax=None,
+        tmin=None,
+        tmax=None,
+        save_prepared_dataset=None,
+        n_steps_channel_selection=None,
+    ):
         """This function returns the pre-processed datasets (training, validation and test sets)
+        
         Arguments
         ---------
-        hparams : dict
-            Hyperparameter dictionary containing pre-processing hyper-parameters.
+        dataset : type
+            add description
+        ...
+            
+        Returns
+        ---------
+        tail_path: type
+            add description
+        datasets: type
+            add description
+         ---------
         """
-        dataset = hparams["dataset"]
         if len(dataset.subject_list) < 2:
             raise (
                 ValueError(
                     "The number of subjects in the dataset must be >= 2 for leave-one-subject-out iterations"
                 )
             )
-        batch_size = hparams["batch_size"]
-        interval = [hparams["tmin"], hparams["tmax"]]
-        valid_ratio = hparams["valid_ratio"]
-        target_subject_idx = hparams["target_subject_idx"]
 
         # preparing or loading test set
         data_dict = prepare_data(
-            data_folder=hparams["data_folder"],
-            cached_data_folder=hparams["cached_data_folder"],
+            data_folder=data_folder,
+            cached_data_folder=ached_data_folder,
             dataset=dataset,
-            events_to_load=hparams["events_to_load"],
-            srate_in=hparams["original_sample_rate"],
-            srate_out=hparams["sample_rate"],
-            fmin=hparams["fmin"],
-            fmax=hparams["fmax"],
+            events_to_load=events_to_load,
+            srate_in=original_sample_rate,
+            srate_out=sample_rate,
+            fmin=fmin,
+            fmax=fmax,
             idx_subject_to_prepare=target_subject_idx,
-            save_prepared_dataset=hparams["save_prepared_dataset"],
+            save_prepared_dataset=ave_prepared_dataset,
         )
 
         x_test = data_dict["x"]
@@ -375,16 +415,16 @@ class LeaveOneSubjectOut(object):
         for subject_idx in subject_idx_train:
             # preparing or loading training/valid set
             data_dict = prepare_data(
-                data_folder=hparams["data_folder"],
-                cached_data_folder=hparams["cached_data_folder"],
+                data_folder=data_folder,
+                cached_data_folder=cached_data_folder,
                 dataset=dataset,
-                events_to_load=hparams["events_to_load"],
-                srate_in=hparams["original_sample_rate"],
-                srate_out=hparams["sample_rate"],
-                fmin=hparams["fmin"],
-                fmax=hparams["fmax"],
+                events_to_load=events_to_load,
+                srate_in=original_sample_rate,
+                srate_out=sample_rate,
+                fmin=fmin,
+                fmax=fmax,
                 idx_subject_to_prepare=subject_idx,
-                save_prepared_dataset=hparams["save_prepared_dataset"],
+                save_prepared_dataset=save_prepared_dataset,
             )
 
             tmp_x_train = data_dict["x"]
@@ -443,24 +483,24 @@ class LeaveOneSubjectOut(object):
             )
 
         # channel sampling
-        if hparams["n_steps_channel_selection"] is not None:
+        if n_steps_channel_selection is not None:
             x_train = sample_channels(
                 x_train,
                 data_dict["adjacency_mtx"],
                 data_dict["channels"],
-                n_steps=hparams["n_steps_channel_selection"],
+                n_steps=n_steps_channel_selection,
             )
             x_valid = sample_channels(
                 x_valid,
                 data_dict["adjacency_mtx"],
                 data_dict["channels"],
-                n_steps=hparams["n_steps_channel_selection"],
+                n_steps=n_steps_channel_selection,
             )
             x_test = sample_channels(
                 x_test,
                 data_dict["adjacency_mtx"],
                 data_dict["channels"],
-                n_steps=hparams["n_steps_channel_selection"],
+                n_steps=n_steps_channel_selection,
             )
 
         # swap axes: from (N_examples, C, T) to (N_examples, T, C)
