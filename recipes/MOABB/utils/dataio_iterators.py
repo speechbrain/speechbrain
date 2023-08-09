@@ -167,13 +167,13 @@ class LeaveOneSessionOut(object):
         n_steps_channel_selection=None,
     ):
         """This function returns the pre-processed datasets (training, validation and test sets)
-        
+
         Arguments
         ---------
         dataset : type
             add description
         ...
-            
+
         Returns
         ---------
         tail_path: type
@@ -350,13 +350,13 @@ class LeaveOneSubjectOut(object):
         n_steps_channel_selection=None,
     ):
         """This function returns the pre-processed datasets (training, validation and test sets)
-        
+
         Arguments
         ---------
         dataset : type
             add description
         ...
-            
+
         Returns
         ---------
         tail_path: type
@@ -365,6 +365,7 @@ class LeaveOneSubjectOut(object):
             add description
          ---------
         """
+        interval = [tmin, tmax]
         if len(dataset.subject_list) < 2:
             raise (
                 ValueError(
@@ -375,7 +376,7 @@ class LeaveOneSubjectOut(object):
         # preparing or loading test set
         data_dict = prepare_data(
             data_folder=data_folder,
-            cached_data_folder=ached_data_folder,
+            cached_data_folder=cached_data_folder,
             dataset=dataset,
             events_to_load=events_to_load,
             srate_in=original_sample_rate,
@@ -383,7 +384,7 @@ class LeaveOneSubjectOut(object):
             fmin=fmin,
             fmax=fmax,
             idx_subject_to_prepare=target_subject_idx,
-            save_prepared_dataset=ave_prepared_dataset,
+            save_prepared_dataset=save_prepared_dataset,
         )
 
         x_test = data_dict["x"]

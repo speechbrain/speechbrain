@@ -25,7 +25,7 @@ class BioformerMHSA(nn.Module):
             activation=nn.GELU,
         )
 
-        self.l = nnet.containers.Sequential(
+        self.model = nnet.containers.Sequential(
             nnet.linear.Linear(n_neurons=128, input_size=64, bias=False),
             nn.GELU(),
             nnet.dropout.Dropout2d(drop_rate=dropout),
@@ -35,7 +35,7 @@ class BioformerMHSA(nn.Module):
 
     def forward(self, x):
         x = self.mhsa(x)[0] + x  # reduntant skip ? ...just did multiplication
-        x = self.l(x) + x
+        x = self.model(x) + x
 
         return x
 
