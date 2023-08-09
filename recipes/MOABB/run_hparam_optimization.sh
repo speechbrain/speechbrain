@@ -247,8 +247,6 @@ if [ -z "$orion_db_address" ]; then
     orion_db_address=$output_folder'/'$exp_name'.pkl'   
 fi
 
-
-
 echo "-------------------------------------"
 echo "Experiment Name: $exp_name"
 echo "Output Folder: $output_folder"
@@ -288,7 +286,6 @@ get_flag() {
 }
 
 
-
 # Function for updatading the hparam yaml file with the best hparams found at step 1
 update_hparams() {
     local best_hparams_file="$1"
@@ -316,7 +313,6 @@ update_hparams() {
     echo "$hparams_content" > "$output_yaml_file"
 }
 
-
 # Function for extracting the best hparams from orion-info
 function extract_best_params() {
     local input_file="$1"
@@ -326,17 +322,11 @@ function extract_best_params() {
     echo "$formatted_params"
 }
 
-
-
 # Running hparam tuning (loop over multiple steps)
-
-
 step_id=1
 hparams_step=$hparams
 pattern="@orion_step1:"
 opt_flags=$(get_flag "$hparams_step" "$pattern")
-
-
 
 # Check if the string is empty and exit with an error if it is
 if [ -z "$opt_flags" ]; then
@@ -347,13 +337,11 @@ if [ -z "$opt_flags" ]; then
 fi
 
 
-
 while [ -n "$opt_flags" ]; do
     # Do something
     output_folder_step="$output_folder"/step"$step_id"
     mkdir -p $output_folder_step
     exp_name_step="$exp_name"_step"$step_id"
-
     
     echo
     echo "**********************************************************************************************"
@@ -364,8 +352,7 @@ while [ -n "$opt_flags" ]; do
     echo "......" 
     echo "**********************************************************************************************"
     echo
-    
-    
+        
     # Setting up orion command
     orion_hunt_command="orion hunt -n $exp_name_step -c $config_file --exp-max-trials $exp_max_trials \
     	./run_experiments.sh --hparams $hparams_step --data_folder $data_folder --seed $seed \
@@ -410,13 +397,11 @@ while [ -n "$opt_flags" ]; do
     opt_flags=$(get_flag "$hparams_step" "$pattern")
 done
 
-
 echo
 echo "**********************************************************************************************"
 echo "Running Final Evaluation on the best hparams (test-set)..." 
 echo "**********************************************************************************************"
 echo
-
 
 final_yaml_file="$output_folder/best_hparams.yaml"
 scp $best_yaml_file $final_yaml_file

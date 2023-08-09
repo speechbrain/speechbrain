@@ -161,7 +161,6 @@ else
   exit 1
 fi
 
-
 # Manage Seed (optional argument)
 seed="${seed:-$RANDOM}"
 
@@ -176,9 +175,6 @@ if [ "$rnd_dir" = True ]; then
     output_folder="$output_folder/$rnd_dirname"
 fi
 
-    
-    
-
 # Print command line arguments
 echo "hparams: $hparams"
 echo "data_folder: $data_folder"
@@ -192,7 +188,6 @@ echo "eval_metric: $eval_metric"
 echo "eval_set: $eval_set"
 echo "train_mode: $train_mode"
 echo "additional flags: $additional_flags"
-
 
 # Creating output folder
 mkdir -p $output_folder
@@ -218,10 +213,9 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
   run_name=run"$run_idx"
   output_folder_exp="$output_folder"/"$run_name"/$seed
   
-  # LEAVE-ONE-SUBJECT-OUT
   if [ "$train_mode" = "leave-one-subject-out" ]; then
     run_experiment 0 $output_folder_exp 
-  # LEAVE-ONE-SESSION-OUT
+    
   elif [ "$train_mode" = "leave-one-session-out" ]; then
     # Loop over sessions
     for j in $(seq 0 1 $(( nsess - 1 ))); do
@@ -231,7 +225,6 @@ for i in $(seq 0 1 $(( nruns - 1 ))); do
       echo "Invalid train_model value: $train_mode. It can be leave-one-subject-out or leave-one-session-out  only."
   exit 1
   fi
-
 
   # Store the results
   python utils/parse_results.py $output_folder_exp $metric_file $eval_metric | tee -a  $output_folder/$run_name\_results.txt
@@ -243,4 +236,3 @@ done
 
 echo 'Final Results (Performance Aggregation)'
 python utils/aggregate_results.py $output_folder $eval_metric | tee -a  $output_folder/aggregated_performance.txt
-
