@@ -1,14 +1,15 @@
 #!/usr/bin/python
 """
-Recipe for training neural networks to decode single EEG trials with different paradigms on MOABB datasets.
-See the supported datasets and paradigms at http://moabb.neurotechx.com/docs/api.html.
+This script implements raining neural networks to decode single EEG trials using various paradigms on MOABB datasets.
+For a list of supported datasets and paradigms, please refer to the official documentation at http://moabb.neurotechx.com/docs/api.html.
 
-To run this recipe (e.g., architecture: EEGNet; dataset: BNCI2014001) for a specific subject, recording session and training strategy:
-    > python3 train.py hparams/EEGNet_BNCI2014001.yaml --data_folder '/path/to/data' --target_subject_idx 0 --target_session_idx 0 --data_iterator_name 'leave-one-session-out'
+To run training (e.g., architecture: EEGNet; dataset: BNCI2014001) for a specific subject, recording session and training strategy:
+    > python train.py hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder=eeg_data --cached_data_folder=eeg_pickled_data --target_subject_idx=0 --target_session_idx=0 --data_iterator_name=leave-one-session-out
 
 Author
 ------
 Davide Borra, 2022
+Mirco Ravanelli, 2023
 """
 
 import pickle
@@ -191,7 +192,7 @@ class MOABBBrain(sb.Brain):
                     )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint average if needed"""
+        """Perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
@@ -312,32 +313,6 @@ def perform_evaluation(brain, hparams, datasets, dataset_key="test"):
         )
 
 
-def run_single_process(argv, tail_path, datasets):
-    """This function wraps up a single process (e.g., the training of a single cross-validation fold
-    with a specific hparams file and experiment directory)"""
-    # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
-    argv += [
-        "--T",
-        str(datasets["train"].dataset.tensors[0].shape[1]),
-        "--C",
-        str(datasets["train"].dataset.tensors[0].shape[-2]),
-        "--n_train_examples",
-        str(datasets["train"].dataset.tensors[0].shape[0]),
-    ]
-    # loading hparams for the each training and evaluation processes
-    hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
-    hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
-    # creating experiment directory
-    sb.create_experiment_directory(
-        experiment_directory=hparams["exp_dir"],
-        hyperparams_to_save=hparams_file,
-        overrides=overrides,
-    )
-    run_experiment(hparams, run_opts, datasets)
-
-
 if __name__ == "__main__":
     argv = sys.argv[1:]
     # loading hparams to prepare the dataset and the data iterators
@@ -357,6 +332,33 @@ if __name__ == "__main__":
         data_iterator = LeaveOneSubjectOut(
             seed=hparams["seed"]
         )  # cross-subject and cross-session
+    
     if data_iterator is not None:
         tail_path, datasets = data_iterator.prepare(hparams)
-        run_single_process(argv, tail_path=tail_path, datasets=datasets)
+
+        # override C and T, to be sure that network input shape matches the dataset (e.g., after time cropping or channel sampling)
+        argv += [
+            "--T",
+            str(datasets["train"].dataset.tensors[0].shape[1]),
+            "--C",
+            str(datasets["train"].dataset.tensors[0].shape[-2]),
+            "--n_train_examples",
+            str(datasets["train"].dataset.tensors[0].shape[0]),
+        ]
+        
+        # loading hparams for the each training and evaluation processes
+        hparams_file, run_opts, overrides = sb.core.parse_arguments(argv)
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin, overrides)
+        hparams["exp_dir"] = os.path.join(hparams["output_folder"], tail_path)
+        
+        # creating experiment directory
+        sb.create_experiment_directory(
+            experiment_directory=hparams["exp_dir"],
+            hyperparams_to_save=hparams_file,
+            overrides=overrides,
+        )
+        
+        # Run training
+        run_experiment(hparams, run_opts, datasets)
+

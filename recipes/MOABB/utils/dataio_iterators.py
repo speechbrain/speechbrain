@@ -1,12 +1,10 @@
 """
-Data iterators defined for MOABB datasets and paradigms.
-Different training strategies are implemented as different data iterators:
-* Leave-one-session-out;
-* Leave-one-subject-out.
+Data Iterators for MOABB Datasets and Paradigms
 
-Author
-------
-Davide Borra, 2022
+This module provides various data iterators tailored for MOABB datasets and paradigms.
+Different training strategies have been implemented as distinct data iterators, including:
+- Leave-One-Session-Out
+- Leave-One-Subject-Out
 """
 
 import numpy as np
@@ -31,17 +29,7 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
     for c in range(nclasses):
         to_select_c = idx_train[
             np.where(y[idx_train] == c)[0]
-        ]  # training indices for the class c
-        ## fixed validation examples (last portion of training set): not suitable for EEG as it changes over recording time
-        # tmp_idx_valid_c = to_select_c[-round(valid_ratio * to_select_c.shape[0]):]
-
-        ## random validation examples: not suitable for hparam optimization with different seeds across experiments
-        # tmp_idx_valid_c = np.random.choice(
-        #     to_select_c,
-        #     round(valid_ratio * to_select_c.shape[0]),
-        #     replace=False,
-        # )
-
+        ]
         # fixed validation examples equally spaced within recording
         idx = np.linspace(
             0,
@@ -58,6 +46,7 @@ def get_idx_train_valid_classbalanced(idx_train, valid_ratio, y):
 
 
 def get_dataloader(batch_size, xy_train, xy_valid, xy_test):
+    """This function returns dataloaders for training, validation and test"""
     x_train, y_train = xy_train[0], xy_train[1]
     x_valid, y_valid = xy_valid[0], xy_valid[1]
     x_test, y_test = xy_test[0], xy_test[1]
