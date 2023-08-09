@@ -8,6 +8,7 @@ from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
 from .checkpoints import mark_as_loader
 import logging
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -158,3 +159,29 @@ class EpochCounterWithStopper(EpochCounter):
                     f"{epochs_without_improvement} epochs without improvement.\n"
                     f"Patience of {self.limit_to_stop} is exhausted, stopping."
                 )
+
+    @mark_as_saver
+    def _save(self, path):
+        with open(path, "w") as fo:
+            yaml.dump(
+                {
+                    "current_epoch": self.current,
+                    "best_epoch": self.best_limit,
+                    "best_score": self.best_score,
+                    "should_stop": self.should_stop,
+                },
+                fo,
+            )
+
+    @mark_as_loader
+    def _recover(self, path, end_of_epoch=True, device=None):
+        del device  # Not used.
+        with open(path) as fi:
+            saved_dict = yaml.safe_load(fi)
+            if end_of_epoch:
+                self.current = saved_dict["current_epoch"]
+            else:
+                self.current = saved_dict["current_epoch"] - 1
+            self.best_limit = saved_dict["best_epoch"]
+            self.best_score = saved_dict["best_score"]
+            self.should_stop = saved_dict["should_stop"]
