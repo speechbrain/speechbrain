@@ -45,6 +45,14 @@ class DeepConvNet(torch.nn.Module):
         Dropout probability.
     dense_n_neurons: int
         Number of output neurons.
+        
+    Example
+    -------
+    >>> inp_tensor = torch.rand([1, 1000, 32, 1])
+    >>> model = DeepConvNet(input_shape=inp_tensor.shape)
+    >>> output = model(inp_tensor)
+    >>> output.shape
+    torch.Size([1,4])
     """
 
     def __init__(
@@ -84,7 +92,7 @@ class DeepConvNet(torch.nn.Module):
                 kernel_size=cnn_temporal_kernelsize,
                 padding="valid",
                 bias=True,
-                transpose=True,
+                swap=True,
             ),
         )
 
@@ -97,7 +105,7 @@ class DeepConvNet(torch.nn.Module):
                 kernel_size=(1, C),
                 padding="valid",
                 bias=False,
-                transpose=True,
+                swap=True,
             ),
         )
         self.conv_module.add_module(
@@ -145,7 +153,7 @@ class DeepConvNet(torch.nn.Module):
                     kernel_size=cnn_temporal_block_kernelsizes[i],
                     padding="valid",
                     bias=False,
-                    transpose=True,
+                    swap=True,
                 ),
             )
             self.conv_module.add_module(

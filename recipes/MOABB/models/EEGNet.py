@@ -42,6 +42,14 @@ class EEGNet(torch.nn.Module):
         Number of output neurons.
     activation: torch.nn.??
         Activation function of the hidden layers.
+        
+    Example
+    -------
+    >>> inp_tensor = torch.rand([1, 200, 32, 1])
+    >>> model = EEGNet(input_shape=inp_tensor.shape)
+    >>> output = model(inp_tensor)
+    >>> output.shape
+    torch.Size([1,4])
     """
 
     def __init__(
