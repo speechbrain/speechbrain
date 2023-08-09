@@ -344,5 +344,5 @@ if __name__ == "__main__":
     )
 
     # Test
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    slu_brain.hparams.wer_file = hparams["wer_file"]
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])
