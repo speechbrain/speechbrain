@@ -59,7 +59,7 @@ class ShallowConvNet(torch.nn.Module):
             raise ValueError("Must specify input_shape")
         self.default_sf = 250  # sampling rate of the original publication (Hz)
 
-        T = input_shape[1]
+        # T = input_shape[1]
         C = input_shape[2]
         # CONVOLUTIONAL MODULE
         self.conv_module = torch.nn.Sequential()
