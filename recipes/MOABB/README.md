@@ -114,6 +114,8 @@ This command will execute the `leave_one_session_out` training on the BNCI201400
 
 The results of each experiment are saved in the specified output folder. To view the final aggregated performance, refer to the `aggregated_performance.txt` file.
 
+For training the model using the `leave_one_subject_out` training approach, just use the flag `--train_mode leave-one-subject-out`.
+
 
 **Default Values:**
 - By default, the training modality is set to `leave_one_session_out`. If you prefer to use `leave_one_subject_out`, simply add the flag `--train_mode=leave_one_subject_out`.
@@ -185,12 +187,17 @@ Conduct hyperparameter optimization with commands similar to the following:
 
 Note that hyperparameter tuning may take several hours depending on the model complexity and dataset.
 
+As evident from the example, you need to configure the hyperparameter file, specify the number of subjects (nsbj), and designate the number of sessions (nsess). The table above provides these values for each compatible dataset.
+
+When it comes to training the model utilizing the leave_one_subject_out approach, simply employ the `--train_mode leave-one-subject-out flag`.
+
 #### **Output Structure**
 
 Results are organized within the specified output folder (`--output_folder`):
 
 - The optimal hyperparameters are stored in `best_hparams.yaml`.
-- Subfolders `step1` and `step2` contain results from individual optimization steps.
+- The outcomes of individual optimization steps are stored within the subfolders `step1` and `step2`. When the `--store_all True` flag is employed, all hyperparameter trials are saved within the `exp` folder, each contained in subfolders with random names.
+- To circumvent the generation of excessive files and folders within the `exp` directory, which can be an issue on certain HPC clusters due to file quantity restrictions, consider activating the `--compress_exp True` option.
 - The "best" subfolder contains performance metrics on test sets using the best hyperparameters. Refer to `aggregated_performance.txt` for averaged results across multiple runs.
 
 #### **Model Comparison**
