@@ -77,7 +77,7 @@ class DeepConvNet(torch.nn.Module):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
-        if activation_type == 'gelu':
+        if activation_type == "gelu":
             activation = torch.nn.GELU()
         elif activation_type == "elu":
             activation = torch.nn.ELU()
@@ -90,7 +90,7 @@ class DeepConvNet(torch.nn.Module):
         else:
             raise ValueError("Wrong hidden activation function")
         self.default_sf = 250  # sampling rate of the original publication (Hz)
-        #T = input_shape[1]
+        # T = input_shape[1]
         C = input_shape[2]
         # CONVOLUTIONAL MODULE
         self.conv_module = torch.nn.Sequential()

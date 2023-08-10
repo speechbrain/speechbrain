@@ -108,7 +108,9 @@ class ShallowConvNet(torch.nn.Module):
         out = self.conv_module(
             torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
         )
-        out = self.pool(out)  # pooling activations (in fwd after squaring values)
+        out = self.pool(
+            out
+        )  # pooling activations (in fwd after squaring values)
         dense_input_size = self._num_flat_features(out)
         # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
