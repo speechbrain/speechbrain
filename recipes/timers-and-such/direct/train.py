@@ -367,7 +367,7 @@ if __name__ == "__main__":
 
     # Test (ALL real data)
     if slu_brain.hparams.test_on_all_real:
-        slu_brain.hparams.wer_file = hparams["all_real_wer_file"]
+        slu_brain.hparams.test_wer_file = hparams["all_real_wer_file"]
         slu_brain.evaluate(
             all_real_set,
             test_loader_kwargs=hparams["dataloader_opts"],
@@ -375,7 +375,7 @@ if __name__ == "__main__":
         )
 
     # Test (real data)
-    slu_brain.hparams.wer_file = hparams["test_real_wer_file"]
+    slu_brain.hparams.test_wer_file = hparams["test_real_wer_file"]
     slu_brain.evaluate(
         test_real_set,
         test_loader_kwargs=hparams["dataloader_opts"],
@@ -383,7 +383,7 @@ if __name__ == "__main__":
     )
 
     # Test (synth data)
-    slu_brain.hparams.wer_file = hparams["test_synth_wer_file"]
+    slu_brain.hparams.test_wer_file = hparams["test_synth_wer_file"]
     slu_brain.evaluate(
         test_synth_set,
         test_loader_kwargs=hparams["dataloader_opts"],
