@@ -1243,7 +1243,6 @@ class VAD(Pretrained):
         super().__init__(*args, **kwargs)
         self.time_resolution = self.hparams.time_resolution
         self.sample_rate = self.hparams.sample_rate
-        self.device = self.hparams.device
 
     def get_speech_prob_file(
         self,
