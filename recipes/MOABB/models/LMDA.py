@@ -2,6 +2,8 @@
 Lightweight and interpretable convolutional neural network proposed for a general decoding of single-trial EEG signals.
 It was proposed for P300, and motor imagery decoding.
 
+This code was adapted from https://github.com/MiaoZhengQing/LMDA-Code.git in order to be compliant with speechbrain.
+
 Authors
  * Davide Borra, 2023
 """
