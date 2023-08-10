@@ -62,10 +62,10 @@ class ResGenBrain(sb.Brain):
             predictions.flatten(end_dim=-2), lm_labels.flatten()
         )
 
-        if stage == sb.Stage.TRAIN:
-            tokenizer.padding_side = "right" 
-        else:
-             tokenizer.padding_side = "left" 
+        # if stage == sb.Stage.TRAIN:
+        #     tokenizer.padding_side = "right" 
+        # else:
+        #      tokenizer.padding_side = "left" 
         if stage == sb.Stage.VALID:
             # hyps = None
             # current_epoch = self.hparams.epoch_counter.current
@@ -167,7 +167,7 @@ class ResGenBrain(sb.Brain):
             )
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"loss": stage_stats["loss"]}, min_keys=["loss"],
+                meta={"PPL": stage_stats["PPL"]}, min_keys=["PPL"],
             )
             if epoch == hparams['number_of_epochs']-1:
                 with open(self.hparams.blue_4_valid_file, "w") as w:
@@ -431,18 +431,23 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            for k in ["input_ids", "history_bos","lm_labels"]:
+            for k in ["input_ids", "history_bos","lm_labels","token_type_ids","history_token_type"]:
                 max_len = max([len(x[k]) for x in examples])
                 pad_value = 0.0
-                if k in ["input_ids","history_bos"]:
+                if k in ["input_ids","history_bos","token_type_ids","history_token_type"]:
                     pad_value = tokenizer.eos_token_id
                 elif k == "lm_labels":
                     pad_value = hparams["ignore_index"]
                 for example in examples:
                     x = example[k]
-                    example[k] = torch.nn.functional.pad(
-                        x, [0, max_len - len(x)], value=pad_value
-                    )
+                    if k in ["history_bos","history_token_type"]:
+                        example[k] = torch.nn.functional.pad(
+                            x, [max_len - len(x),0], value=pad_value
+                        )
+                    else:
+                        example[k] = torch.nn.functional.pad(
+                            x, [0, max_len - len(x)], value=pad_value
+                        )
             super().__init__(examples, *args, **kwargs)
 
     hparams["train_dataloader_options"]["collate_fn"] = CustomPaddedBatch
@@ -480,6 +485,6 @@ if __name__ == "__main__":
     # Load the best checkpoint for evaluation
     test_stats = res_gen_brain.evaluate(
         test_set=datasets["test"],
-        min_key="error_rate",
+        min_key="PPL",
         test_loader_kwargs=hparams["test_dataloader_options"],
     )
