@@ -110,7 +110,7 @@ class G2PBrain(sb.Brain):
         """
         # Run this *after* starting all processes since jit modules cannot be
         # pickled.
-        self._compile_jit()
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -1181,7 +1181,10 @@ if __name__ == "__main__":
 
         # Validate hyperparameters
         if not validate_hparams(hparams):
-            sys.exit(1)
+            raise ValueError(
+                "Non-wordwise tokenization is not supported with "
+                "homograph disambiguation training"
+            )
 
         # Initialize ddp (useful only for multi-GPU DDP training)
         sb.utils.distributed.ddp_init_group(run_opts)
