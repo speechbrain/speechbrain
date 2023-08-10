@@ -838,7 +838,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.hparams.test_wer_file = hparams["wer_file"]
+    asr_brain.hparams.test_wer_file = hparams["test_wer_file"]
     asr_brain.evaluate(
         test_data,
         min_key="WER",
