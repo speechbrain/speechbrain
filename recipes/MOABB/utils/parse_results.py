@@ -121,12 +121,21 @@ def parse_one_session_out(
 
     out_stat = {
         key.name: {metric: [] for metric in stat_metrics}
-        for key in sorted(folder for folder in folds[0].iterdir() if folder.is_dir() and folder.name.startswith("session"))
+        for key in sorted(
+            folder
+            for folder in folds[0].iterdir()
+            if folder.is_dir() and folder.name.startswith("session")
+        )
     }
-    
 
     for f in folds:
-        child = sorted([folder for folder in f.iterdir() if folder.is_dir() and folder.name.startswith("session")])
+        child = sorted(
+            [
+                folder
+                for folder in f.iterdir()
+                if folder.is_dir() and folder.name.startswith("session")
+            ]
+        )
         for sess in child:
             metrics = load_metrics(sess.joinpath(metric_file))
             if metrics is not None:
@@ -171,11 +180,21 @@ def parse_cross_section(
     folds = sorted(sub_folders)
     out_stat = {
         key.name: {metric: [] for metric in stat_metrics}
-        for key in sorted(folder for folder in folds[0].iterdir() if folder.is_dir() and folder.name.startswith("session"))
+        for key in sorted(
+            folder
+            for folder in folds[0].iterdir()
+            if folder.is_dir() and folder.name.startswith("session")
+        )
     }
 
     for f in folds:
-        child = sorted([folder for folder in f.iterdir() if folder.is_dir() and folder.name.startswith("session")])
+        child = sorted(
+            [
+                folder
+                for folder in f.iterdir()
+                if folder.is_dir() and folder.name.startswith("session")
+            ]
+        )
         sess_metrics = {metric: [] for metric in stat_metrics}
 
         for sess in child:
@@ -274,7 +293,13 @@ def parse_within_session(
     }
 
     for f in folds:
-        child = sorted([folder for folder in f.iterdir() if folder.is_dir() and folder.name.startswith("session")])
+        child = sorted(
+            [
+                folder
+                for folder in f.iterdir()
+                if folder.is_dir() and folder.name.startswith("session")
+            ]
+        )
         for sess in child:
             sub_perf = {metric: [] for metric in stat_metrics}
 
@@ -386,19 +411,23 @@ def aggregate_metrics(
     available_paradigms = list(
         map(lambda x: x.stem, sorted(results_folder.iterdir()))
     )
-    
-    available_paradigms = [paradigm for paradigm in available_paradigms if paradigm in available_parsers.keys()]
-      
+
+    available_paradigms = [
+        paradigm
+        for paradigm in available_paradigms
+        if paradigm in available_parsers.keys()
+    ]
+
     overall_stat = {key: [] for key in stat_metrics}
 
     parsers = {k: available_parsers[k] for k in available_paradigms}
     aggr = {k: available_aggrs[k] for k in available_paradigms}
 
     for paradigm in sorted(results_folder.iterdir()):
-        
+
         if paradigm.name not in available_paradigms:
             continue
-        
+
         results = parsers[paradigm.name](
             paradigm,
             vis_metrics,
