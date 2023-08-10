@@ -104,11 +104,13 @@ class ShallowConvNet(torch.nn.Module):
 
         self.dropout = torch.nn.Dropout(p=dropout)
 
-        # DENSE MODULE
-        dense_input_size = (T - cnn_temporal_kernelsize[0]) + 1
-        dense_input_size = cnn_spatial_kernels * (
-            int((dense_input_size - cnn_poolsize[0]) / cnn_poolstride[0]) + 1
+        # Shape of intermediate feature maps
+        out = self.conv_module(
+            torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
         )
+        out = self.pool(out)  # pooling activations (in fwd after squaring values)
+        dense_input_size = self._num_flat_features(out)
+        # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
         self.dense_module.add_module(
             "flatten", torch.nn.Flatten(),
@@ -120,6 +122,20 @@ class ShallowConvNet(torch.nn.Module):
             ),
         )
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
+
+    def _num_flat_features(self, x):
+        """Returns the number of flattened features from a tensor
+
+        Arguments
+        ---------
+        x : torch.Tensor
+        """
+
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
 
     def forward(self, x):
         """Returns the output of the model.
