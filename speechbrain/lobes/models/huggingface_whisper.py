@@ -7,6 +7,7 @@ Authors
  * Adel Moumen 2022
  * Titouan Parcollet 2022
  * Luca Della Libera 2022
+ * Ha Nguyen 2023
 """
 
 import torch

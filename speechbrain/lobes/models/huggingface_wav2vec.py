@@ -9,6 +9,7 @@ https://huggingface.co/transformers/installation.html
 Authors
  * Titouan Parcollet 2021
  * Boumadane Abdelmoumene 2021
+ * Ha Nguyen 2023
 """
 
 import torch
