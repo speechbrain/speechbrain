@@ -69,7 +69,7 @@ class HuggingFaceTransformer(nn.Module):
     source : str
         HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
     save_path : str
-        norm_output (dir) of the downloaded model.
+        save directory of the downloaded model.
     tokenizer: bool (default: False)
         If True, load the tokenizer (necessary for certain models, for example, mbart, whisper, etc.)
     for_pretraining: bool (default: False)
@@ -80,7 +80,7 @@ class HuggingFaceTransformer(nn.Module):
     cache_dir: str or Path (default: None)
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
 
-    Example TO BE MODIFIED
+    Example
     -------
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
@@ -176,7 +176,10 @@ class HuggingFaceTransformer(nn.Module):
             )
         else:
             if self.for_pretraining:
-                self.model = model   # Don't need to load pretrained model for pretraining
+                # For now, we don't need to load pretrained model for pretraining
+                # To be modified in the future to support more complicated scenerios
+                # For example fine-tuning in the SSL manner
+                self.model = model
             else:
                 self.model = model.from_pretrained(source, config=config, cache_dir=save_path)
 
