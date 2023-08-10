@@ -4,7 +4,6 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Samuele Cornell 2020
- * Adel Moumen 2023
 """
 
 import os
