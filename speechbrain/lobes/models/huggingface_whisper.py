@@ -13,21 +13,12 @@ import torch
 import logging
 from torch import nn
 
-try:
-    from transformers import WhisperModel
-    from transformers import WhisperFeatureExtractor
-    from transformers.models.whisper.tokenization_whisper import (
-        WhisperTokenizer,
-    )
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use Whisper\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
+from speechbrain.lobes.models.huggingface import HuggingFaceTransformer
 
 logger = logging.getLogger(__name__)
 
 
-class HuggingFaceWhisper(nn.Module):
+class HuggingFaceWhisper(HuggingFaceTransformer):
     """This lobe enables the integration of HuggingFace pretrained Whisper model.
     Source paper whisper:
         https://cdn.openai.com/papers/whisper.pdf
@@ -83,56 +74,52 @@ class HuggingFaceWhisper(nn.Module):
         output_attentions=True,
         output_all_hiddens=False,
     ):
-        super().__init__()
+        super().__init__(
+            source=source,
+            save_path=save_path,
+            freeze=freeze,
+            tokenizer=True,
+            sampling_rate=sampling_rate,
+        )
         self.sampling_rate = sampling_rate
         self.encoder_only = encoder_only
-        self.freeze = freeze
         self.freeze_encoder = freeze_encoder
         self.output_attentions = output_attentions
         self.output_all_hiddens = output_all_hiddens
 
-        self.tokenizer = None
-        # Download the tokenizer only if we are going to use the Decoder.
-        if not encoder_only:
-            self.tokenizer = WhisperTokenizer.from_pretrained(source)
+        if encoder_only:
+            self.tokenizer = None
 
-        # Download the extractor from HuggingFace.
-        feature_extractor = WhisperFeatureExtractor.from_pretrained(
-            source, cache_dir=save_path, sampling_rate=sampling_rate,
-        )
-        self._n_fft = feature_extractor.n_fft
-        self._hop_length = feature_extractor.hop_length
-        self._n_samples = feature_extractor.n_samples
+        self._n_fft = self.feature_extractor.n_fft
+        self._hop_length = self.feature_extractor.hop_length
+        self._n_samples = self.feature_extractor.n_samples
         # The following breaking changes were introduced in transformers>=4.29:
         # 1) mel_filters.shape = (..., feature_extractor.feature_size) instead of (feature_extractor.feature_size, ...)
         # 2) mel_filters.dtype = float64 instead of float32
         # The following code fixes the issue in a backward compatible way
-        mel_filters = feature_extractor.mel_filters
-        if mel_filters.shape[0] != feature_extractor.feature_size:
+        mel_filters = self.feature_extractor.mel_filters
+        if mel_filters.shape[0] != self.feature_extractor.feature_size:
             mel_filters = mel_filters.T
-        assert mel_filters.shape[0] == feature_extractor.feature_size
+        assert mel_filters.shape[0] == self.feature_extractor.feature_size
         self.register_buffer(
             "_mel_filters", torch.as_tensor(mel_filters, dtype=torch.float32)
         )
         #################################################################
 
-        self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
-
-        if self.freeze:
+        if not self.freeze and self.freeze_encoder:
             logger.warning(
-                "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
+                "speechbrain.lobes.models.huggingface_whisper - whisper encoder is frozen."
             )
-            self.model.train()  # we keep it to train to have dropout and LN computed adequaly
-            for param in self.model.parameters():
+            for param in self.model.encoder.parameters():
                 param.requires_grad = False
-        else:
-            self.model.train()
-            if self.freeze_encoder:
-                logger.warning(
-                    "speechbrain.lobes.models.huggingface_whisper - whisper encoder is frozen."
-                )
-                for param in self.model.encoder.parameters():
-                    param.requires_grad = False
+
+    def freeze_model(self, model):
+        logger.warning(
+            "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
+        )
+        model.train()  # we keep it to train to have dropout and LN computed adequaly
+        for param in model.parameters():
+            param.requires_grad = False
 
     def forward(self, wav, decoder_input_ids=None):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
