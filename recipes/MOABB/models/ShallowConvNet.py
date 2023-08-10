@@ -126,11 +126,12 @@ class ShallowConvNet(torch.nn.Module):
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
 
     def _num_flat_features(self, x):
-        """Returns the number of flattened features from a tensor
+        """Returns the number of flattened features from a tensor.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input feature map.
         """
 
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -145,7 +146,7 @@ class ShallowConvNet(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor (batch, time, EEG channel, channel)
-            input to convolve. 4d tensors are expected.
+            Input to convolve. 4d tensors are expected.
         """
         x = self.conv_module(x)
         # square-pool-log-dropout module

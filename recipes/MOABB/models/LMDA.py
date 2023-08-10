@@ -17,8 +17,8 @@ class EEGDepthAttention(torch.nn.Module):
     ---------
     input_shape : tuple
         The shape of the input.
-    depth_attn_kernel_size : tuple
-        The kernel size of the convolutional layer used in EEGDepthAttention class
+    cnn_depth_attn_kernelsize : tuple
+        The kernel size of the convolutional layer. The convolution is applied along feature maps dimension.
     """
 
     def __init__(self, input_shape, cnn_depth_attn_kernelsize=(1, 7)):
@@ -42,7 +42,7 @@ class EEGDepthAttention(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor (batch, time, EEG channel, channel)
-            input to convolve. 4d tensors are expected.
+            Input to convolve. 4d tensors are expected.
         """
         D = x.shape[-1]  # num of feature maps
 
@@ -257,11 +257,12 @@ class LMDA(torch.nn.Module):
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
 
     def _num_flat_features(self, x):
-        """Returns the number of flattened features from a tensor
+        """Returns the number of flattened features from a tensor.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input feature map.
         """
 
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -276,7 +277,7 @@ class LMDA(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor (batch, time, EEG channel, channel)
-            input to convolve. 4d tensors are expected.
+            Input to convolve. 4d tensors are expected.
         """
 
         x = torch.einsum(
