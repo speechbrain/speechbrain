@@ -115,6 +115,8 @@ class HuggingFaceTransformer(nn.Module):
             return_unused_kwargs=True,
         )
 
+        self.config = self.override_config(self.config)
+
         self.for_pretraining = for_pretraining
         if for_pretraining:
             model = AutoModelForPreTraining.from_config(self.config)
@@ -176,7 +178,8 @@ class HuggingFaceTransformer(nn.Module):
             if self.for_pretraining:
                 self.model = model   # Don't need to load pretrained model for pretraining
             else:
-                self.model = model.from_pretrained(source, cache_dir=save_path)
+                self.model = model.from_pretrained(source, config=config, cache_dir=save_path)
+
 
     def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and
@@ -326,6 +329,11 @@ class HuggingFaceTransformer(nn.Module):
         model.eval()
         for param in model.parameters():
             param.requires_grad = False
+
+    def override_config(self, config):
+        """Users should modify this function according to their own tasks."""
+        return config
+
 
 def make_padding_masks(src, wav_len=None, pad_idx=0):
     """This method generates the padding masks.
