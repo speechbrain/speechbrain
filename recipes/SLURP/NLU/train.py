@@ -360,5 +360,4 @@ if __name__ == "__main__":
     for i in range(len(df)):
         id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
 
-    slu_brain.hparams.test_wer_file = hparams["test_wer_file"]
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])
