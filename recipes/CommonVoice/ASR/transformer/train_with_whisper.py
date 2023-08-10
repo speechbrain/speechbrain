@@ -141,7 +141,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -319,14 +319,14 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.hparams.wer_file = hparams["test_wer_file:"]
+    asr_brain.hparams.test_wer_file = hparams["test_wer_file:"]
     asr_brain.evaluate(
         test_data,
         min_key="WER",
         test_loader_kwargs=hparams["test_loader_kwargs"],
     )
 
-    asr_brain.hparams.wer_file = hparams["valid_wer_file:"]
+    asr_brain.hparams.test_wer_file = hparams["valid_wer_file:"]
     asr_brain.evaluate(
         valid_data,
         min_key="WER",

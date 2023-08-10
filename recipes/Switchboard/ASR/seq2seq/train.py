@@ -227,7 +227,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -471,7 +471,7 @@ if __name__ == "__main__":
 
     # Testing
     for k in test_datasets.keys():  # keys are test_swbd and test_callhome
-        asr_brain.hparams.wer_file = generate_wer_filename(
+        asr_brain.hparams.test_wer_file = generate_wer_filename(
             hparams["wer_file"], k
         )
         asr_brain.evaluate(

@@ -190,7 +190,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -379,7 +379,7 @@ if __name__ == "__main__":
     )
 
     # Test
-    asr_brain.hparams.wer_file = hparams["wer_file"]
+    asr_brain.hparams.test_wer_file = hparams["test_wer_file"]
     asr_brain.evaluate(
         test_data,
         min_key="WER",

@@ -214,7 +214,7 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -368,5 +368,5 @@ if __name__ == "__main__":
     for i in range(len(df)):
         id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
 
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+    slu_brain.hparams.test_wer_file = hparams["test_wer_file"]
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])
