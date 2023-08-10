@@ -370,7 +370,7 @@ while [ -n "$opt_flags" ]; do
     # Appending the optimization flags
     orion_hunt_command="$orion_hunt_command $opt_flags"
 
-    echo $orion_hunt_command
+    echo $orion_hunt_command &> "$output_folder_step/orion_hunt_command.txt"
 
     # Execute the command for hparm tuning
     eval $orion_hunt_command
