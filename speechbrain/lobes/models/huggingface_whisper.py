@@ -114,6 +114,15 @@ class HuggingFaceWhisper(HuggingFaceTransformer):
                 param.requires_grad = False
 
     def freeze_model(self, model):
+        """
+        Freezes parameters of a model.
+
+        Arguments
+        ---------
+        model : from AutoModel.from_config
+            Valid HuggingFace transformers model object.
+        """
+
         logger.warning(
             "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
         )
