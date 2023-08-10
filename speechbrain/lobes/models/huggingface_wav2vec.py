@@ -123,20 +123,10 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
         """A custom loading ensures SpeechBrain compatibility for Pretrain and model
         de/serialization. Here, the scope is to remove '.wav2vec2' before loading.
 
-        To be used as HuggingFaceTransformer init argument:
-            `modify_state_dict_partial_fn=partial(modify_state_dict_wav2vec2)`.
-
-        Called in: HuggingFaceTransformer._load_sb_pretrained_parameters; `path` argument is handled in that scope.
-
-        If you have another state dict to be modified:
-            * create your function in your recipe (copy this one and modify as you see fit)
-            * pass it to HuggingFaceTransformer init as a partial callable
-        This function serves as a reference example to your implementation, only.
-
         Arguments
         ---------
         path : str
-            Checkpoint path; file name relative to the repo root.
+            Checkpoint path, file name relative to the repo root.
         replacables : List[str]
             State dict sub-keys that if found, shall be dropped (incl. the 'model.' parent key), elevating key structures.
 
@@ -322,6 +312,17 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
         )
 
     def override_config(self, config):
+        """If the config needs to be overrided, here is the place
+
+        Arguments
+        ---------
+        config : Wav2Vec2Config
+            The original config needs to be overrided.
+            
+        Returns
+        -------
+            Overrided config
+        """
         config.output_hidden_states = True
         return config
 
@@ -389,5 +390,16 @@ class WeightedSSLModel(HuggingFaceTransformer):
         return weighted_feats
 
     def override_config(self, config):
+        """If the config needs to be overrided, here is the place
+        
+        Arguments
+        ---------
+        config : Wav2Vec2Config
+            The original config needs to be overrided.
+            
+        Returns
+        -------
+        Overrided config
+        """
         config.output_hidden_states = True
         return config
