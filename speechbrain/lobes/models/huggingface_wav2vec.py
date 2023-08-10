@@ -11,16 +11,10 @@ Authors
  * Boumadane Abdelmoumene 2021
 """
 
-import os
 import torch
 import logging
-import pathlib
 import numpy as np
 import torch.nn.functional as F
-from torch import nn
-from huggingface_hub import model_info
-from speechbrain.pretrained.fetching import fetch
-from speechbrain.dataio.dataio import length_to_mask
 
 from speechbrain.lobes.models.huggingface import HuggingFaceTransformer
 from speechbrain.lobes.models.huggingface import make_masks, make_padding_masks
@@ -28,7 +22,6 @@ from speechbrain.lobes.models.huggingface import make_masks, make_padding_masks
 # We check if transformers is installed.
 try:
     import transformers
-    from transformers import AutoModel
     from transformers.models.wav2vec2.modeling_wav2vec2 import (
         _compute_mask_indices,
     )
@@ -39,6 +32,7 @@ except ImportError:
     raise ImportError(MSG)
 
 logger = logging.getLogger(__name__)
+
 
 class HuggingFaceWav2Vec2(HuggingFaceTransformer):
     """This lobe enables the integration of HuggingFace and SpeechBrain
@@ -96,11 +90,7 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
         apply_spec_augment=False,
         output_all_hiddens=False,
     ):
-        super().__init__(
-            source=source,
-            save_path=save_path,
-            freeze=freeze
-        )
+        super().__init__(source=source, save_path=save_path, freeze=freeze)
 
         self.model.config.apply_spec_augment = apply_spec_augment
 
@@ -115,7 +105,7 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
             self.model.feature_extractor.eval()
             for param in self.model.feature_extractor.parameters():
                 param.requires_grad = False
-        
+
         self.output_norm = output_norm
         self.output_all_hiddens = output_all_hiddens
 
@@ -243,9 +233,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
         normalize_wav=True,
     ):
         super().__init__(
-            source=source,
-            save_path=save_path,
-            for_pretraining=True
+            source=source, save_path=save_path, for_pretraining=True
         )
 
         self.mask_prob = mask_prob
@@ -318,7 +306,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
         ---------
         config : Wav2Vec2Config
             The original config needs to be overrided.
-            
+
         Returns
         -------
             Overrided config
@@ -391,12 +379,12 @@ class WeightedSSLModel(HuggingFaceTransformer):
 
     def override_config(self, config):
         """If the config needs to be overrided, here is the place
-        
+
         Arguments
         ---------
         config : Wav2Vec2Config
             The original config needs to be overrided.
-            
+
         Returns
         -------
         Overrided config

@@ -25,10 +25,8 @@ import os
 import torch
 import logging
 import pathlib
-import numpy as np
 from torch import nn
-from functools import partial
-from typing import Union, Callable
+from typing import Union
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
@@ -36,17 +34,13 @@ from speechbrain.dataio.dataio import length_to_mask
 
 # We check if transformers is installed.
 try:
-    import transformers
     from transformers import (
         AutoConfig,
         AutoTokenizer,
         AutoFeatureExtractor,
         AutoModelForPreTraining,
-        #AutoProcessor,
+        # AutoProcessor,
         AutoModel,
-    )
-    from transformers.models.wav2vec2.modeling_wav2vec2 import (
-        _compute_mask_indices,
     )
 
 except ImportError:
@@ -108,9 +102,7 @@ class HuggingFaceTransformer(nn.Module):
 
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
-            source,
-            cache_dir=save_path,
-            return_unused_kwargs=True,
+            source, cache_dir=save_path, return_unused_kwargs=True,
         )
 
         self.config = self.override_config(self.config)
@@ -130,7 +122,6 @@ class HuggingFaceTransformer(nn.Module):
             cache_dir=cache_dir,
         )
 
-
         # Prepare for training, fine-tuning, or inference
         self.freeze = freeze
         if self.freeze:
@@ -143,12 +134,7 @@ class HuggingFaceTransformer(nn.Module):
             self.model.train()
 
     def _from_pretrained(
-        self,
-        source,
-        config,
-        model,
-        save_path,
-        cache_dir,
+        self, source, config, model, save_path, cache_dir,
     ):
         """This function manages the source checking and loading of the params.
         # 1. Is the model from HF or a local path
@@ -179,8 +165,9 @@ class HuggingFaceTransformer(nn.Module):
                 # For example fine-tuning in the SSL manner
                 self.model = model
             else:
-                self.model = model.from_pretrained(source, config=config, cache_dir=save_path)
-
+                self.model = model.from_pretrained(
+                    source, config=config, cache_dir=save_path
+                )
 
     def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and
