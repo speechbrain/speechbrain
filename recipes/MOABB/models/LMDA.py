@@ -25,9 +25,15 @@ class EEGDepthAttention(torch.nn.Module):
         super(EEGDepthAttention, self).__init__()
         _, T, C, _ = input_shape
         self.adaptive_pool = torch.nn.AdaptiveAvgPool2d((T, 1))
-        self.conv = sb.nnet.CNN.Conv2d(in_channels=1, out_channels=1, kernel_size=cnn_depth_attn_kernelsize,
-                                       padding="same", padding_mode="constant", bias=True, swap=True,
-                                       )
+        self.conv = sb.nnet.CNN.Conv2d(
+            in_channels=1,
+            out_channels=1,
+            kernel_size=cnn_depth_attn_kernelsize,
+            padding="same",
+            padding_mode="constant",
+            bias=True,
+            swap=True,
+        )
         self.softmax = torch.nn.Softmax(dim=-2)
 
     def forward(self, x):
@@ -91,23 +97,25 @@ class LMDA(torch.nn.Module):
     #torch.Size([1,4])
     """
 
-    def __init__(self,
-                 input_shape=None,  # (1, T, C, 1)
-                 cnn_ch_attn_kernels=9,
-                 cnn_temporal_kernels=24,
-                 cnn_temporal_kernelsize=(75, 1),
-                 cnn_spatial_kernels=9,
-                 cnn_depth_attn_kernelsize=(1, 7),
-                 cnn_pool=(5, 1),
-                 cnn_pool_type="avg",
-                 dropout=0.65,
-                 dense_n_neurons=4,
-                 activation_type="gelu", ):
+    def __init__(
+        self,
+        input_shape=None,  # (1, T, C, 1)
+        cnn_ch_attn_kernels=9,
+        cnn_temporal_kernels=24,
+        cnn_temporal_kernelsize=(75, 1),
+        cnn_spatial_kernels=9,
+        cnn_depth_attn_kernelsize=(1, 7),
+        cnn_pool=(5, 1),
+        cnn_pool_type="avg",
+        dropout=0.65,
+        dense_n_neurons=4,
+        activation_type="gelu",
+    ):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
 
-        if activation_type == 'gelu':
+        if activation_type == "gelu":
             activation = torch.nn.GELU()
         elif activation_type == "elu":
             activation = torch.nn.ELU()
@@ -124,69 +132,87 @@ class LMDA(torch.nn.Module):
         C = input_shape[2]
         # CONV MODULE
         # EEG channel attention mechanism
-        self.channel_weight = torch.nn.Parameter(torch.randn(C, 1, cnn_ch_attn_kernels), requires_grad=True)
+        self.channel_weight = torch.nn.Parameter(
+            torch.randn(C, 1, cnn_ch_attn_kernels), requires_grad=True
+        )
         torch.nn.init.xavier_uniform_(self.channel_weight.data)
         # Temporal convolutional module
         self.time_conv_module = torch.nn.Sequential()
-        self.time_conv_module.add_module('conv_0',
-                                         sb.nnet.CNN.Conv2d(
-                                             in_channels=cnn_ch_attn_kernels,
-                                             out_channels=cnn_temporal_kernels,
-                                             kernel_size=(1, 1),
-                                             groups=1,
-                                             padding="valid",
-                                             bias=False,
-                                             swap=True,
-                                         ))
-        self.time_conv_module.add_module('bnorm_0',
-                                         sb.nnet.normalization.BatchNorm2d(
-                                             input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
-                                         ))
-        self.time_conv_module.add_module('conv_1',
-                                         sb.nnet.CNN.Conv2d(
-                                             in_channels=cnn_temporal_kernels,
-                                             out_channels=cnn_temporal_kernels,
-                                             kernel_size=cnn_temporal_kernelsize,
-                                             groups=cnn_temporal_kernels,
-                                             padding="valid",
-                                             bias=False,
-                                             swap=True,
-                                         ))
-        self.time_conv_module.add_module('bnorm_1',
-                                         sb.nnet.normalization.BatchNorm2d(
-                                             input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
-                                         ))
+        self.time_conv_module.add_module(
+            "conv_0",
+            sb.nnet.CNN.Conv2d(
+                in_channels=cnn_ch_attn_kernels,
+                out_channels=cnn_temporal_kernels,
+                kernel_size=(1, 1),
+                groups=1,
+                padding="valid",
+                bias=False,
+                swap=True,
+            ),
+        )
+        self.time_conv_module.add_module(
+            "bnorm_0",
+            sb.nnet.normalization.BatchNorm2d(
+                input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
+            ),
+        )
+        self.time_conv_module.add_module(
+            "conv_1",
+            sb.nnet.CNN.Conv2d(
+                in_channels=cnn_temporal_kernels,
+                out_channels=cnn_temporal_kernels,
+                kernel_size=cnn_temporal_kernelsize,
+                groups=cnn_temporal_kernels,
+                padding="valid",
+                bias=False,
+                swap=True,
+            ),
+        )
+        self.time_conv_module.add_module(
+            "bnorm_1",
+            sb.nnet.normalization.BatchNorm2d(
+                input_size=cnn_temporal_kernels, momentum=0.01, affine=True,
+            ),
+        )
         self.time_conv_module.add_module("act_1", activation)
         # Spatial convolutional module
         self.channel_conv_module = torch.nn.Sequential()
-        self.channel_conv_module.add_module("conv_0",
-                                            sb.nnet.CNN.Conv2d(
-                                                in_channels=cnn_temporal_kernels,
-                                                out_channels=cnn_spatial_kernels,
-                                                kernel_size=(1, 1),
-                                                groups=1,
-                                                padding="valid",
-                                                bias=False,
-                                                swap=True,
-                                            ))
-        self.channel_conv_module.add_module('bnorm_0',
-                                            sb.nnet.normalization.BatchNorm2d(
-                                                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
-                                            ))
-        self.channel_conv_module.add_module('conv_1',
-                                            sb.nnet.CNN.Conv2d(
-                                                in_channels=cnn_spatial_kernels,
-                                                out_channels=cnn_spatial_kernels,
-                                                kernel_size=(1, C),
-                                                groups=cnn_spatial_kernels,
-                                                padding="valid",
-                                                bias=False,
-                                                swap=True,
-                                            ))
-        self.channel_conv_module.add_module('bnorm_1',
-                                            sb.nnet.normalization.BatchNorm2d(
-                                                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
-                                            ))
+        self.channel_conv_module.add_module(
+            "conv_0",
+            sb.nnet.CNN.Conv2d(
+                in_channels=cnn_temporal_kernels,
+                out_channels=cnn_spatial_kernels,
+                kernel_size=(1, 1),
+                groups=1,
+                padding="valid",
+                bias=False,
+                swap=True,
+            ),
+        )
+        self.channel_conv_module.add_module(
+            "bnorm_0",
+            sb.nnet.normalization.BatchNorm2d(
+                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
+            ),
+        )
+        self.channel_conv_module.add_module(
+            "conv_1",
+            sb.nnet.CNN.Conv2d(
+                in_channels=cnn_spatial_kernels,
+                out_channels=cnn_spatial_kernels,
+                kernel_size=(1, C),
+                groups=cnn_spatial_kernels,
+                padding="valid",
+                bias=False,
+                swap=True,
+            ),
+        )
+        self.channel_conv_module.add_module(
+            "bnorm_1",
+            sb.nnet.normalization.BatchNorm2d(
+                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
+            ),
+        )
         self.channel_conv_module.add_module("act_1", activation)
         self.channel_conv_module.add_module(
             "pool_1",
@@ -197,18 +223,25 @@ class LMDA(torch.nn.Module):
                 pool_axis=[1, 2],
             ),
         )
-        self.channel_conv_module.add_module("dropout_1", torch.nn.Dropout(p=dropout))
+        self.channel_conv_module.add_module(
+            "dropout_1", torch.nn.Dropout(p=dropout)
+        )
 
         # Shape of intermediate feature maps
         out = torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
-        out = torch.einsum('bwcd, cdh->bwch', out, self.channel_weight)
+        out = torch.einsum("bwcd, cdh->bwch", out, self.channel_weight)
         out = self.time_conv_module(out)
-        input_shape_depth_attn = out.shape  # storing shape of this tensor that represents the input for depth attention mechanism
+        input_shape_depth_attn = (
+            out.shape
+        )  # storing shape of this tensor that represents the input for depth attention mechanism
         out = self.channel_conv_module(out)
         dense_input_size = self._num_flat_features(out)
 
         # Depth attention mechanism
-        self.depth_attn = EEGDepthAttention(input_shape=input_shape_depth_attn, cnn_depth_attn_kernelsize=cnn_depth_attn_kernelsize)
+        self.depth_attn = EEGDepthAttention(
+            input_shape=input_shape_depth_attn,
+            cnn_depth_attn_kernelsize=cnn_depth_attn_kernelsize,
+        )
 
         # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
@@ -218,8 +251,7 @@ class LMDA(torch.nn.Module):
         self.dense_module.add_module(
             "fc_out",
             sb.nnet.linear.Linear(
-                input_size=dense_input_size,
-                n_neurons=dense_n_neurons,
+                input_size=dense_input_size, n_neurons=dense_n_neurons,
             ),
         )
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
@@ -247,7 +279,9 @@ class LMDA(torch.nn.Module):
             input to convolve. 4d tensors are expected.
         """
 
-        x = torch.einsum('bwcd, cdh->bwch', x, self.channel_weight)  # EEG channel attention
+        x = torch.einsum(
+            "bwcd, cdh->bwch", x, self.channel_weight
+        )  # EEG channel attention
         x = self.time_conv_module(x)  # temporal convolution
         x = self.depth_attn(x)  # depth attention
         x = self.channel_conv_module(x)  # spatial convolution

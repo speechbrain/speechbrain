@@ -73,7 +73,7 @@ class EEGNet(torch.nn.Module):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
-        if activation_type == 'gelu':
+        if activation_type == "gelu":
             activation = torch.nn.GELU()
         elif activation_type == "elu":
             activation = torch.nn.ELU()
