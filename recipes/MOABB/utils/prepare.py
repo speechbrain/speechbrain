@@ -26,8 +26,6 @@ import pickle
 import argparse
 from mne.channels import find_ch_adjacency
 import scipy
-import warnings
-
 
 # Set mne verbosity
 mne.set_log_level(verbose="error")
