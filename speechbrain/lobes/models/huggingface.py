@@ -82,11 +82,9 @@ class HuggingFaceTransformer(nn.Module):
 
     Example
     -------
-    >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "tmp"
     >>> model = HuggingFaceTransformer(model_hub, save_path=save_path)
-    >>> outputs = model(inputs)
     """
 
     def __init__(
@@ -310,13 +308,13 @@ class HuggingFaceTransformer(nn.Module):
         raise NotImplementedError
 
     def decode(self, **kwargs):
-        """Might be useful for models like mbart, which can exploit SB's beamsearch for inference"""
-        """Users should modify this function according to their own tasks."""
+        """Might be useful for models like mbart, which can exploit SB's beamsearch for inference
+        Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
     def encode(self, **kwargs):
-        """Customed encoding for inference"""
-        """Users should modify this function according to their own tasks."""
+        """Customed encoding for inference
+        Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
     def freeze_model(self, model):
