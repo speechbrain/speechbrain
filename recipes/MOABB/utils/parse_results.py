@@ -150,71 +150,6 @@ def parse_one_session_out(
     return out_stat
 
 
-def parse_cross_section(
-    paradigm: Path,
-    vis_metrics: list = [],
-    stat_metrics: list = ["loss", "f1", "acc"],
-    metric_file: str = "test_metrics.pkl",
-) -> dict:
-    """
-    Aggregates results obtained using all session' signals merged together.
-    Training and test sets are defined using a stratified cross-validation partitioning.
-
-    Arguments
-    ---------
-    paradigm: path
-    vis_metrics: list
-    stat_metrics: list
-    metric_file: str
-
-    Returns
-    -------
-    out_stat: dict
-    """
-
-    sub_folders = [
-        folder
-        for folder in paradigm.iterdir()
-        if folder.is_dir() and folder.name.startswith("sub-")
-    ]
-    folds = sorted(sub_folders)
-    out_stat = {
-        key.name: {metric: [] for metric in stat_metrics}
-        for key in sorted(
-            folder
-            for folder in folds[0].iterdir()
-            if folder.is_dir() and folder.name.startswith("session")
-        )
-    }
-
-    for f in folds:
-        child = sorted(
-            [
-                folder
-                for folder in f.iterdir()
-                if folder.is_dir() and folder.name.startswith("session")
-            ]
-        )
-        sess_metrics = {metric: [] for metric in stat_metrics}
-
-        for sess in child:
-            metrics = load_metrics(sess.joinpath(metric_file))
-            if metrics is not None:
-                for m in stat_metrics:
-                    sess_metrics[m].append(metrics[m])
-
-            else:
-                print("Something was wrong when computing ", f)
-
-        for m in stat_metrics:
-            out_stat[m].append(mean(sess_metrics[m]))
-
-    if len(vis_metrics) != 0:
-        visualize_results(paradigm, out_stat, vis_metrics)
-
-    return out_stat
-
-
 def parse_one_sub_out(
     paradigm: Path,
     vis_metrics: list = [],
@@ -253,66 +188,6 @@ def parse_one_sub_out(
                 out_stat[m].append(metrics[m])
         else:
             print("Something was wrong when computing ", f)
-
-    if len(vis_metrics) != 0:
-        visualize_results(paradigm, out_stat, vis_metrics)
-
-    return out_stat
-
-
-def parse_within_session(
-    paradigm: Path,
-    vis_metrics: list = [],
-    stat_metrics: list = ["loss", "f1", "acc"],
-    metric_file: str = "test_metrics.pkl",
-) -> dict:
-    """
-    For each subject and for each session, the training
-    and test sets were defined using a stratified cross-validation partitioning.
-
-    Arguments
-    ---------
-    paradigm: path
-    vis_metrics: list
-    stat_metrics: list
-    metric_file: str
-
-    Returns
-    -------
-    out_stat: dict
-    """
-    sub_folders = [
-        folder
-        for folder in paradigm.iterdir()
-        if folder.is_dir() and folder.name.startswith("sub-")
-    ]
-    folds = sorted(sub_folders)
-    out_stat = {
-        key.name: {metric: [] for metric in stat_metrics}
-        for key in sorted(folds[0].iterdir())
-    }
-
-    for f in folds:
-        child = sorted(
-            [
-                folder
-                for folder in f.iterdir()
-                if folder.is_dir() and folder.name.startswith("session")
-            ]
-        )
-        for sess in child:
-            sub_perf = {metric: [] for metric in stat_metrics}
-
-            for sub in sess.iterdir():
-                metrics = load_metrics(sub.joinpath(metric_file))
-                if metrics is not None:
-                    for m in stat_metrics:
-                        sub_perf[m].append(metrics[m])
-                else:
-                    print("Something was wrong when computing ", f)
-
-            for k in sub_perf.keys():
-                out_stat[sess.name][k].append(mean(sub_perf[k]))
 
     if len(vis_metrics) != 0:
         visualize_results(paradigm, out_stat, vis_metrics)
@@ -373,16 +248,12 @@ def aggregate_single(
 
 available_parsers = {
     "leave-one-session-out": parse_one_session_out,
-    "cross-session": parse_cross_section,
     "leave-one-subject-out": parse_one_sub_out,
-    "within-session": parse_within_session,
 }
 
 available_aggrs = {
     "leave-one-session-out": aggregate_nested,
-    "within-session": aggregate_nested,
     "leave-one-subject-out": aggregate_single,
-    "cross-session": aggregate_single,
 }
 
 
