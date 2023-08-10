@@ -1,6 +1,11 @@
 """Recipe for evaluating a grapheme-to-phoneme system with librispeech lexicon.
+
 The script may be use in isolation or in combination with Orion to fit
 hyperparameters that do not require model retraining (e.g. Beam Search)
+
+Authors
+ * Mirco Ravanelli 2022
+ * Artem Ploujnikov 2022
 """
 
 
@@ -367,17 +372,17 @@ class G2PEvaluator:
                 )
             for batch in tqdm(dataloader_it, total=batch_count):
                 self.evaluate_batch(batch)
-            if self.hparams.eval_output_test_wer_file:
+            if self.hparams.eval_output_wer_file:
                 self._output_wer_file()
             return self.per_metrics.summarize()
 
     def _output_wer_file(self):
-        with open(self.hparams.eval_test_wer_file, "w") as w:
+        with open(self.hparams.eval_wer_file, "w") as w:
             w.write("\nPER stats:\n")
             self.per_metrics.write_stats(w)
             print(
                 "seq2seq, and PER stats written to file",
-                self.hparams.eval_test_wer_file,
+                self.hparams.eval_wer_file,
             )
 
 

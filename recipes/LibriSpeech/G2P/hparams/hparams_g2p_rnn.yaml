@@ -171,8 +171,8 @@ eval_batch_count: 1
 eval_reporting: raw
 eval_prediction_sample_size: 10
 eval_mode: sentence
-eval_output_test_wer_file: False
-eval_test_wer_file: !ref <save_folder>/wer_eval.txt
+eval_output_wer_file: False
+eval_wer_file: !ref <save_folder>/wer_eval.txt
 
 
 select_n_sentences: None
@@ -607,7 +607,7 @@ train_steps:
       test_data: !ref <lexicon_test_data>
       epoch_counter: !ref <lexicon_epoch_counter>
       ctc_epochs: !ref <lexicon_ctc_epochs>
-      test_wer_file: !ref <save_folder>/wer_lexicon.txt
+      wer_file: !ref <save_folder>/wer_lexicon.txt
       sample: !ref <lexicon_sample>
       sample_random: !ref <lexicon_sample_random>
       performance_key: PER
@@ -620,7 +620,7 @@ train_steps:
       test_data: !ref <sentence_test_data>
       epoch_counter: !ref <sentence_epoch_counter>
       ctc_epochs: !ref <sentence_ctc_epochs>
-      test_wer_file: !ref <save_folder>/wer_sentence.txt
+      wer_file: !ref <save_folder>/wer_sentence.txt
       sample: !ref <sentence_sample>
       sample_random: !ref <sentence_sample_random>
       performance_key: PER
@@ -638,7 +638,7 @@ train_steps:
       balance_on: homograph_wordid
       sample: !ref <homograph_sample>
       sample_random: !ref <homograph_sample_random>
-      test_wer_file: !ref <save_folder>/wer_homograph.txt
+      wer_file: !ref <save_folder>/wer_homograph.txt
       homograph_stats_file: !ref <save_folder>/homograph_stats.txt
       performance_key: PER_homograph
       dataloader_opts:
