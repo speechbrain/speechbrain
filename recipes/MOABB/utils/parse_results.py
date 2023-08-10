@@ -3,10 +3,8 @@
 Aggregate EEG training results from different sessions and subjects.
 
 This script aggregates results for four EEG training paradigms:
-1. Within-Session
-2. Cross-Session
-3. Leave-One-Session-Out
-4. Leave-One-Subject-Out
+1. Leave-One-Session-Out
+2. Leave-One-Subject-Out
 
 Usage:
 python parse_results.py <results_dir> <metric_file> <metrics>...
