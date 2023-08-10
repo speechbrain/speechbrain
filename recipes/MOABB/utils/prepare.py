@@ -6,7 +6,7 @@ Author
 ------
 Davide Borra, 2022
 """
-
+import mne
 import numpy as np
 from moabb.datasets import (
     BNCI2014001,
@@ -26,6 +26,11 @@ import pickle
 import argparse
 from mne.channels import find_ch_adjacency
 import scipy
+import warnings
+
+
+# Set mne verbosity
+mne.set_log_level(verbose="error")
 
 
 def get_output_dict(
