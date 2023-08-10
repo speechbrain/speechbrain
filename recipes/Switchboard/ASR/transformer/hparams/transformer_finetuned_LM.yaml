@@ -12,7 +12,7 @@
 seed: 1312
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer_finetuned_lm/<seed>
-test_wer_file: !ref <output_folder>/wer_test.txt
+wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
