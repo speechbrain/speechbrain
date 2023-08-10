@@ -14,7 +14,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_large/<seed>
 test-clean_wer_file: !ref <output_folder>/wer_test-clean.txt
 test-other_wer_file: !ref <output_folder>/wer_test-other.txt
-dev-clean_wer_file: !ref <output_folder>/wer_test-other.txt
+dev-clean_wer_file: !ref <output_folder>/wer_dev-clean.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
