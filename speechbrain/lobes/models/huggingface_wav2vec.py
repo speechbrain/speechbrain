@@ -262,13 +262,6 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
         self.mask_length = mask_length
         self.normalize_wav = normalize_wav
 
-        self.config.output_hidden_states = (
-            True  # We want the hidden states as well!
-        )
-
-        self.model.gradient_checkpointing_disable()  # Required by DDP
-        self.model.train()
-
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
 
     def forward(self, wav, wav_lens=None):
@@ -328,8 +321,12 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
             torch_mask_time_indices,
         )
 
+    def override_config(self, config):
+        config.output_hidden_states = True
+        return config
 
-class WeightedSSLModel(torch.nn.Module):
+
+class WeightedSSLModel(HuggingFaceTransformer):
     """This lobe enables the integration of use of weighted sum representations
     from different layers in a SSL encoder.
 
@@ -356,8 +353,8 @@ class WeightedSSLModel(torch.nn.Module):
     """
 
     def __init__(self, hub, num_layers, layernorm=False):
-        super().__init__()
-        self.encoder = AutoModel.from_pretrained(hub, output_hidden_states=True)
+        super().__init__(source=hub, save_path=".")
+        self.model.eval()
         self.num_layers = num_layers
         # Initializing the learnable weights
         zero_init = torch.cat([torch.zeros(self.num_layers)])
@@ -372,7 +369,7 @@ class WeightedSSLModel(torch.nn.Module):
             The wavs
         """
 
-        feats = self.encoder(wav)
+        feats = self.model(wav)
         hidden_states = torch.stack(feats.hidden_states, dim=0).detach()
         # First dimension should be equal to the number of layers in the hparams
         assert (
@@ -390,3 +387,7 @@ class WeightedSSLModel(torch.nn.Module):
             weighted_feats += hidden_states[i] * norm_weights[i]
 
         return weighted_feats
+
+    def override_config(self, config):
+        config.output_hidden_states = True
+        return config
