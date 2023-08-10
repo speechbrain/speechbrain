@@ -107,7 +107,7 @@ To train models using either the Leave-One-Subject-Out or Leave-One-Session-Out 
 To run a training experiment, use the following command:
 
 ```bash
-./run_experiments.sh --hparams hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder eeg_data --output_folder results/MotorImagery/BNCI2014001/EEGNet --nsbj 9 --nsess 2 --nruns=10 --train_mode leave-one-session-out --number_of_epochs 2
+./run_experiments.sh --hparams hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder eeg_data --output_folder results/MotorImagery/BNCI2014001/EEGNet --nsbj 9 --nsess 2 --nruns 10 --train_mode leave-one-session-out --number_of_epochs 250 --device=cpu
 ```
 
 This command will execute the `leave_one_session_out` training on the BNCI2014001 dataset for Motor Imagery using the EEGNet.yaml configuration. The script will loop over 9 subjects and 2 sessions, running the experiment 10 times (--nruns 10) with different initialization seeds to ensure robustness. Running multiple experiments with varied seeds and averaging their performance is a recommended practice to improve result significance. The evaluation metric is accuracy, and the validation metrics are stored in `valid_metrics.pkl`.
