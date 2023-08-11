@@ -11,8 +11,7 @@
 seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer/<seed>
-eval_clean_wer_file: !ref <output_folder>/wer_eval_clean.txt
-eval_other_wer_file: !ref <output_folder>/wer_eval_other.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
