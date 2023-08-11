@@ -41,7 +41,7 @@ train_len: 28520
 sort: null
 batch_shuffle: True
 number_of_epochs: 20
-batch_size: 32
+batch_size: 16 # If GPU memory exceeds 32 GB, consider using batch_size: 32
 lr: 0.0005
 lr_warmup_steps: 500
 lr_cooldown_steps: 500
