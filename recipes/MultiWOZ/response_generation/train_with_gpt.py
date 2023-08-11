@@ -33,13 +33,12 @@ class ResGenBrain(sb.Brain):
         token_type_ids, _ = batch.token_type_ids
 
         # Forward Pass
-        padding_mask = ~self.hparams.padding_mask(input_ids, pad_idx=tokenizer.eos_token_id)
+        padding_mask = ~self.hparams.padding_mask(
+            input_ids, pad_idx=tokenizer.eos_token_id
+        )
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
         ).logits
-
-        #  apply softmax if necessary
-        # outputs = self.hparams.log_softmax(outputs)
 
         return outputs
 
@@ -54,30 +53,27 @@ class ResGenBrain(sb.Brain):
         reply_eos, reply_lens = batch.reply_eos
         history_token_type, _ = batch.history_token_type
 
-        # nll_loss unfortunately considers the position of -100 in the label
-        # we need to compute it manually after removing the padding
-        # loss = self.hparams.compute_cost(predictions, lm_labels, labels_lens, reduction="none")
-        # loss = loss.sum()/(loss != 0).sum()
         loss = self.hparams.ce_loss(
             predictions.flatten(end_dim=-2), lm_labels.flatten()
         )
 
-        # if stage == sb.Stage.TRAIN:
-        #     tokenizer.padding_side = "right" 
-        # else:
-        #      tokenizer.padding_side = "left" 
         if stage == sb.Stage.VALID:
             # hyps = None
             # current_epoch = self.hparams.epoch_counter.current
             # if current_epoch % self.hparams.valid_search_interval == 0:
-            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.eos_token_id)
+            # history_bos = torch.LongTensor([hparams["bos_index"]] + (history_bos))
+            padding_mask = ~self.hparams.padding_mask(
+                history_bos, pad_idx=tokenizer.eos_token_id
+            )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
                 history_token_type.detach(),
                 padding_mask.detach(),
             )
         elif stage == sb.Stage.TEST:
-            padding_mask = ~self.hparams.padding_mask(history_bos, pad_idx=tokenizer.eos_token_id)
+            padding_mask = ~self.hparams.padding_mask(
+                history_bos, pad_idx=tokenizer.eos_token_id
+            )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
                 history_token_type.detach(),
@@ -102,8 +98,8 @@ class ResGenBrain(sb.Brain):
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
-            self.blue_4_metric.append(ids, predicted_words, target_words)
-            self.blue_2_metric.append(ids, predicted_words, target_words)
+            self.bleu_4_metric.append(ids, predicted_words, target_words)
+            self.bleu_2_metric.append(ids, predicted_words, target_words)
             if stage != sb.Stage.TRAIN:
                 self.hyps.extend(predicted_words)
                 self.references.extend(target_words)
@@ -125,8 +121,8 @@ class ResGenBrain(sb.Brain):
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
-            self.blue_4_metric = self.hparams.blue_4_computer()
-            self.blue_2_metric = self.hparams.blue_2_computer()
+            self.bleu_4_metric = self.hparams.bleu_4_computer()
+            self.bleu_2_metric = self.hparams.bleu_2_computer()
             self.hyps = []
             self.references = []
 
@@ -150,8 +146,8 @@ class ResGenBrain(sb.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            stage_stats["Blue_4"] = self.blue_4_metric.summarize("BLEU")
-            stage_stats["Blue_2"] = self.blue_2_metric.summarize("BLEU")
+            stage_stats["BLEU_4"] = self.bleu_4_metric.summarize("BLEU")
+            stage_stats["BLEU_2"] = self.bleu_2_metric.summarize("BLEU")
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             # Update learning rate
@@ -159,7 +155,7 @@ class ResGenBrain(sb.Brain):
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
             # The train_logger writes a summary to stdout and to the logfile.
-           
+
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -169,15 +165,15 @@ class ResGenBrain(sb.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"PPL": stage_stats["PPL"]}, min_keys=["PPL"],
             )
-            if epoch == hparams['number_of_epochs']-1:
-                with open(self.hparams.blue_4_valid_file, "w") as w:
-                    self.blue_4_metric.write_stats(w)
+            if epoch == hparams["number_of_epochs"] - 1:
+                with open(self.hparams.bleu_4_valid_file, "w") as w:
+                    self.bleu_4_metric.write_stats(w)
                     for i in range(len(self.hyps)):
                         w.write("target: " + str(self.references[i]) + "\n")
                         w.write("predicted:" + str(self.hyps[i]) + "\n")
                         w.write(
                             "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
-                    )
+                        )
 
         # We also write statistics about test data to stdout and to the logfile.
         elif stage == sb.Stage.TEST:
@@ -186,8 +182,8 @@ class ResGenBrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.blue_4_test_file, "w") as w:
-                self.blue_4_metric.write_stats(w)
+            with open(self.hparams.bleu_4_test_file, "w") as w:
+                self.bleu_4_metric.write_stats(w)
                 for i in range(len(self.hyps)):
                     w.write("target: " + str(self.references[i]) + "\n")
                     w.write("predicted:" + str(self.hyps[i]) + "\n")
@@ -245,7 +241,11 @@ def dataio_prep(hparams, tokenizer):
     #  Define histoy pipeline:
     @sb.utils.data_pipeline.takes("history")
     @sb.utils.data_pipeline.provides(
-        "history", "history_tokens_lists", "history_ids", "history_bos", "history_token_type",
+        "history",
+        "history_tokens_lists",
+        "history_ids",
+        "history_bos",
+        "history_token_type",
     )
     def history_pipeline(history):
         yield history
@@ -294,7 +294,11 @@ def dataio_prep(hparams, tokenizer):
     #  Define reply pipeline:
     @sb.utils.data_pipeline.takes("reply")
     @sb.utils.data_pipeline.provides(
-        "reply", "reply_tokens_list", "reply_ids", "reply_eos", "reply_token_type"
+        "reply",
+        "reply_tokens_list",
+        "reply_ids",
+        "reply_eos",
+        "reply_token_type",
     )
     def reply_pipeline(reply):
         yield reply
@@ -303,9 +307,7 @@ def dataio_prep(hparams, tokenizer):
         yield reply_tokens_list
 
         # specify that the system will say the reply
-        reply_input_list = (
-            [system] + reply_tokens_list
-        )
+        reply_input_list = [system] + reply_tokens_list
         reply_ids = torch.LongTensor(reply_input_list)
         yield reply_ids
 
@@ -319,11 +321,21 @@ def dataio_prep(hparams, tokenizer):
 
     # Define input_and_token_type_pipeline
     @sb.utils.data_pipeline.takes(
-        "history_ids", "history_bos", "history_token_type", "reply_ids", "reply_eos", "reply_token_type"
+        "history_ids",
+        "history_bos",
+        "history_token_type",
+        "reply_ids",
+        "reply_eos",
+        "reply_token_type",
     )
     @sb.utils.data_pipeline.provides("input_ids", "token_type_ids", "lm_labels")
     def input_and_token_type_pipeline(
-        history_ids, history_bos, history_token_type, reply_ids, reply_eos, reply_token_type
+        history_ids,
+        history_bos,
+        history_token_type,
+        reply_ids,
+        reply_eos,
+        reply_token_type,
     ):
 
         # put history and reply together
@@ -333,13 +345,15 @@ def dataio_prep(hparams, tokenizer):
 
         token_type_ids = torch.cat((history_token_type, reply_token_type), -1)
         yield token_type_ids
-            
+
         # create the language model label (ground truth) for the current input
         # -100 is a special tokens that is ignored during the loss computation
         # the idea is to mask everything except the reply (withouth the speaker token)
         # N.B. we don't have bos in the input
         lm_labels = (
-           [hparams["ignore_index"]] * history_ids.shape[0] + [hparams["ignore_index"]] + reply_eos[1:].tolist()
+            [hparams["ignore_index"]] * history_ids.shape[0]
+            + [hparams["ignore_index"]]
+            + reply_eos[1:].tolist()
         )
         lm_labels = torch.LongTensor(lm_labels)
 
@@ -431,18 +445,35 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            for k in ["input_ids", "history_bos","lm_labels","token_type_ids","history_token_type"]:
+            bos, eos, system, user = tokenizer.convert_tokens_to_ids(
+                hparams["special_tokens"]
+            )
+            for k in [
+                "input_ids",
+                "history_bos",
+                "lm_labels",
+                "token_type_ids",
+                "history_token_type",
+            ]:
                 max_len = max([len(x[k]) for x in examples])
                 pad_value = 0.0
-                if k in ["input_ids","history_bos","token_type_ids","history_token_type"]:
+                if k in [
+                    "input_ids",
+                    "history_bos",
+                    "token_type_ids",
+                    "history_token_type",
+                ]:
                     pad_value = tokenizer.eos_token_id
                 elif k == "lm_labels":
                     pad_value = hparams["ignore_index"]
                 for example in examples:
                     x = example[k]
-                    if k in ["history_bos","history_token_type"]:
+                    if k in ["history_bos", "history_token_type"]:
+                        example[k] = torch.cat(
+                            (example[k], torch.LongTensor([system])), -1
+                        )
                         example[k] = torch.nn.functional.pad(
-                            x, [max_len - len(x),0], value=pad_value
+                            x, [max_len - len(x), 0], value=pad_value
                         )
                     else:
                         example[k] = torch.nn.functional.pad(
