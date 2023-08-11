@@ -175,19 +175,23 @@ if [ "$rnd_dir" = True ]; then
     output_folder="$output_folder/$rnd_dirname"
 fi
 
-# Print command line arguments
-echo "hparams: $hparams"
-echo "data_folder: $data_folder"
-echo "cached_data_folder: $cached_data_folder"
-echo "output_folder: $output_folder"
-echo "nsbj: $nsbj"
-echo "nsess: $nsess"
-echo "seed: $seed"
-echo "nruns: $nruns"
-echo "eval_metric: $eval_metric"
-echo "eval_set: $eval_set"
-echo "train_mode: $train_mode"
-echo "additional flags: $additional_flags"
+# Print command line arguments and save to file
+{
+    echo "hparams: $hparams"
+    echo "data_folder: $data_folder"
+    echo "cached_data_folder: $cached_data_folder"
+    echo "output_folder: $output_folder"
+    echo "nsbj: $nsbj"
+    echo "nsess: $nsess"
+    echo "seed: $seed"
+    echo "nruns: $nruns"
+    echo "eval_metric: $eval_metric"
+    echo "eval_set: $eval_set"
+    echo "train_mode: $train_mode"
+    echo "rnd_dir: $rnd_dir"
+    echo "additional flags: $additional_flags"
+} | tee "$output_folder/flags.txt"
+
 
 # Creating output folder
 mkdir -p $output_folder

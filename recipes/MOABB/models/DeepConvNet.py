@@ -39,12 +39,12 @@ class DeepConvNet(torch.nn.Module):
         Pool size and stride after each block.
     cnn_pool_type: string
         Pooling type.
-    activation: torch.nn.??
-        Activation function of the hidden layers.
     dropout: float
         Dropout probability.
     dense_n_neurons: int
         Number of output neurons.
+    activation_type: str
+        Activation function of the hidden layers.
 
     Example
     -------
@@ -57,7 +57,7 @@ class DeepConvNet(torch.nn.Module):
 
     def __init__(
         self,
-        input_shape=None,
+        input_shape=None,  # (1, T, C, 1)
         cnn_temporal_kernels=25,
         cnn_temporal_kernelsize=(10, 1),
         cnn_spatial_kernels=25,
@@ -70,16 +70,27 @@ class DeepConvNet(torch.nn.Module):
         cnn_temporal_block_kernelsize2=(10, 1),
         cnn_temporal_block_pool=(3, 1),
         cnn_pool_type="max",
-        activation=torch.nn.ELU(),
+        activation_type="elu",
         dropout=0.5,
         dense_n_neurons=4,
     ):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
+        if activation_type == "gelu":
+            activation = torch.nn.GELU()
+        elif activation_type == "elu":
+            activation = torch.nn.ELU()
+        elif activation_type == "relu":
+            activation = torch.nn.ReLU()
+        elif activation_type == "leaky_relu":
+            activation = torch.nn.LeakyReLU()
+        elif activation_type == "prelu":
+            activation = torch.nn.PReLU()
+        else:
+            raise ValueError("Wrong hidden activation function")
         self.default_sf = 250  # sampling rate of the original publication (Hz)
-
-        T = input_shape[1]
+        # T = input_shape[1]
         C = input_shape[2]
         # CONVOLUTIONAL MODULE
         self.conv_module = torch.nn.Sequential()
@@ -177,24 +188,13 @@ class DeepConvNet(torch.nn.Module):
             )
             in_channels = cnn_temporal_block_kernels[i]
 
-        # DENSE MODULE
-        temporal_kernel_sizes = [
-            cnn_temporal_kernelsize
-        ] + cnn_temporal_block_kernelsizes
-        pool_sizes = [cnn_spatial_pool] + [cnn_temporal_block_pool] * len(
-            cnn_temporal_block_kernelsizes
+        # Shape of intermediate feature maps
+        out = self.conv_module(
+            torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
         )
-        dense_input_size = T
-        for i in range(len(temporal_kernel_sizes)):
-            dense_input_size = (
-                dense_input_size - temporal_kernel_sizes[i][0] + 1
-            )
-            dense_input_size = (
-                int((dense_input_size - pool_sizes[i][0]) / pool_sizes[i][0])
-                + 1
-            )
-        dense_input_size *= cnn_temporal_block_kernels[-1]
+        dense_input_size = self._num_flat_features(out)
 
+        # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
         self.dense_module.add_module(
             "flatten", torch.nn.Flatten(),
@@ -207,13 +207,28 @@ class DeepConvNet(torch.nn.Module):
         )
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
 
+    def _num_flat_features(self, x):
+        """Returns the number of flattened features from a tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input feature map.
+        """
+
+        size = x.size()[1:]  # all dimensions except the batch dimension
+        num_features = 1
+        for s in size:
+            num_features *= s
+        return num_features
+
     def forward(self, x):
         """Returns the output of the model.
 
         Arguments
         ---------
         x : torch.Tensor (batch, time, EEG channel, channel)
-            input to convolve. 4d tensors are expected.
+            Input to convolve. 4d tensors are expected.
         """
         x = self.conv_module(x)
         x = self.dense_module(x)

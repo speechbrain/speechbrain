@@ -107,12 +107,14 @@ To train models using either the Leave-One-Subject-Out or Leave-One-Session-Out 
 To run a training experiment, use the following command:
 
 ```bash
-./run_experiments.sh --hparams hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder eeg_data --output_folder results/MotorImagery/BNCI2014001/EEGNet --nsbj 9 --nsess 2 --nruns=10 --train_mode leave-one-session-out --number_of_epochs 2
+./run_experiments.sh --hparams hparams/MotorImagery/BNCI2014001/EEGNet.yaml --data_folder eeg_data --output_folder results/MotorImagery/BNCI2014001/EEGNet --nsbj 9 --nsess 2 --nruns 10 --train_mode leave-one-session-out --number_of_epochs 250 --device=cpu
 ```
 
 This command will execute the `leave_one_session_out` training on the BNCI2014001 dataset for Motor Imagery using the EEGNet.yaml configuration. The script will loop over 9 subjects and 2 sessions, running the experiment 10 times (--nruns 10) with different initialization seeds to ensure robustness. Running multiple experiments with varied seeds and averaging their performance is a recommended practice to improve result significance. The evaluation metric is accuracy, and the validation metrics are stored in `valid_metrics.pkl`.
 
 The results of each experiment are saved in the specified output folder. To view the final aggregated performance, refer to the `aggregated_performance.txt` file.
+
+For training the model using the `leave_one_subject_out` training approach, just use the flag `--train_mode leave-one-subject-out`.
 
 
 **Default Values:**
@@ -185,12 +187,17 @@ Conduct hyperparameter optimization with commands similar to the following:
 
 Note that hyperparameter tuning may take several hours depending on the model complexity and dataset.
 
+As evident from the example, you need to configure the hyperparameter file, specify the number of subjects (nsbj), and designate the number of sessions (nsess). The table above provides these values for each compatible dataset.
+
+When it comes to training the model utilizing the leave_one_subject_out approach, simply employ the `--train_mode leave-one-subject-out flag`.
+
 #### **Output Structure**
 
 Results are organized within the specified output folder (`--output_folder`):
 
 - The optimal hyperparameters are stored in `best_hparams.yaml`.
-- Subfolders `step1` and `step2` contain results from individual optimization steps.
+- The outcomes of individual optimization steps are stored within the subfolders `step1` and `step2`. When the `--store_all True` flag is employed, all hyperparameter trials are saved within the `exp` folder, each contained in subfolders with random names.
+- To circumvent the generation of excessive files and folders within the `exp` directory, which can be an issue on certain HPC clusters due to file quantity restrictions, consider activating the `--compress_exp True` option.
 - The "best" subfolder contains performance metrics on test sets using the best hyperparameters. Refer to `aggregated_performance.txt` for averaged results across multiple runs.
 
 #### **Model Comparison**

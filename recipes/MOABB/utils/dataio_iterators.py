@@ -90,7 +90,7 @@ def crop_signals(x, srate, interval_in, interval_out):
 def get_neighbour_channels(
     adjacency_mtx, ch_names, n_steps=1, seed_nodes=["Cz"]
 ):
-    """Function that samples a subset of channels from a seed channel including neighbour channels within a fixed number of steps in the adjacency matrix"""
+    """Function that samples a subset of channels from a seed channel including neighbour channels within a fixed number of steps in the adjacency matrix."""
     sel_channels = []
     for i in np.arange(n_steps):
         tmp_sel_channels = []
@@ -166,20 +166,56 @@ class LeaveOneSessionOut(object):
         save_prepared_dataset=None,
         n_steps_channel_selection=None,
     ):
-        """This function returns the pre-processed datasets (training, validation and test sets)
+        """This function returns the pre-processed datasets (training, validation and test sets).
 
         Arguments
         ---------
-        dataset : type
-            add description
+        data_folder: str
+            String containing the path where data were downloaded.
+        cached_data_folder: str
+            String containing the path where data will be cached (into .pkl files) during preparation.
+            This is convenient to speed up overall training when performing multiple trainings on EEG signals
+            pre-processed always in the same way.
+        dataset: moabb.datasets.?
+            MOABB dataset.
+        batch_size: int
+            Mini-batch size.
+        valid_ratio: float
+            Ratio for extracting the validation set from the available training set (between 0 and 1).
+        target_subject_idx: int
+            Index of the subject to use to train the network.
+        target_session_idx: int
+            Index of the session to use to train the network.
+        events_to_load: list
+            List of 'events' considered when loading the MOABB dataset.
+            It serves to load specific conditions (e.g., ["right_hand", "left_hand"] for specific movement conditions).
+            See MOABB documentation and reference publications of each dataset for additional details about datasets.
+        original_sample_rate: int
+            Sampling rate of the loaded dataset (Hz).
+        sample_rate: int
+            Target sampling rate (Hz).
+        fmin: float
+            Low cut-off frequency of the applied band-pass filtering (Hz).
+        fmax: float
+            High cut-off frequency of the applied band-pass filtering (Hz).
+        tmin: float
+            Start time of the EEG epoch, with respect to the event as defined in the dataset (s).
+            See MOABB documentation and reference publications of each dataset for additional details about datasets.
+        tmax: float
+            Stop time of the EEG epoch, with respect to the event as defined in the dataset (s).
+            See MOABB documentation and reference publications of each dataset for additional details about datasets.
+        save_prepared_dataset: bool
+            Flag to save the prepared dataset into a pkl file.
+        n_steps_channel_selection: int
+            Number of steps to perform when sampling a subset of channels from a seed channel, based on the adjacency matrix.
         ...
 
         Returns
         ---------
-        tail_path: type
-            add description
-        datasets: type
-            add description
+        tail_path: str
+            String containing the relative path where results will be stored for the specified iterator, subject and session.
+        datasets: dict
+            Dictionary containing all sets (keys: 'train', 'test', 'valid').
          ---------
         """
         interval = [tmin, tmax]
@@ -317,7 +353,7 @@ class LeaveOneSubjectOut(object):
     """Leave one subject out iterator for MOABB datasets.
     Designing cross-subject, cross-session and subject-agnostic iterations on the dataset for a specific paradigm.
     One subject is held back as test set and the remaining ones are used to train neural networks.
-    The validation set can be sampled from a separate (and held back) subject if enough subjects are available; otherwise, the validation set is sampled from the training set.
+    The validation set is sampled from the training set.
     All sets are extracted balanced across subjects, sessions and classes.
 
     Arguments
@@ -349,20 +385,58 @@ class LeaveOneSubjectOut(object):
         save_prepared_dataset=None,
         n_steps_channel_selection=None,
     ):
-        """This function returns the pre-processed datasets (training, validation and test sets)
+        """This function returns the pre-processed datasets (training, validation and test sets).
 
         Arguments
         ---------
-        dataset : type
-            add description
+        data_folder: str
+            String containing the path where data were downloaded.
+        cached_data_folder: str
+            String containing the path where data will be cached (into .pkl files) during preparation.
+            This is convenient to speed up overall training when performing multiple trainings on EEG signals
+            pre-processed always in the same way.
+        dataset: moabb.datasets.?
+            MOABB dataset.
+        batch_size: int
+            Mini-batch size.
+        valid_ratio: float
+            Ratio for extracting the validation set from the available training set (between 0 and 1).
+        target_subject_idx: int
+            Index of the subject to use to train the network.
+        target_session_idx: int
+            Index of the session to use to train the network.
+            For leave-one-subject-out this parameter is ininfluent (it is not used).
+            It was held for symmetry with leave-one-session-out iterator and for convenience with the rest of the code.
+        events_to_load: list
+            List of 'events' considered when loading the MOABB dataset.
+            It serves to load specific conditions (e.g., ["right_hand", "left_hand"] for specific movement conditions).
+            See MOABB documentation and reference publications of each dataset for additional details about datasets.
+        original_sample_rate: int
+            Sampling rate of the loaded dataset (Hz).
+        sample_rate: int
+            Target sampling rate (Hz).
+        fmin: float
+            Low cut-off frequency of the applied band-pass filtering (Hz).
+        fmax: float
+            High cut-off frequency of the applied band-pass filtering (Hz).
+        tmin: float
+            Start time of the EEG epoch, with respect to the event as defined in the dataset (s).
+            See MOABB documentation and reference publications of each dataset for additional details about datasets.
+        tmax: float
+            Stop time of the EEG epoch, with respect to the event as defined in the dataset (s).
+            See MOABB documentation and reference publications of each dataset for additional details about datasets.
+        save_prepared_dataset: bool
+            Flag to save the prepared dataset into a pkl file.
+        n_steps_channel_selection: int
+            Number of steps to perform when sampling a subset of channels from a seed channel, based on the adjacency matrix.
         ...
 
         Returns
         ---------
-        tail_path: type
-            add description
-        datasets: type
-            add description
+        tail_path: str
+            String containing the relative path where results will be stored for the specified iterator, subject and session.
+        datasets: dict
+            Dictionary containing all sets (keys: 'train', 'test', 'valid').
          ---------
         """
         interval = [tmin, tmax]
@@ -448,15 +522,15 @@ class LeaveOneSubjectOut(object):
             idx_train = np.array(idx_train)
             idx_valid = np.array(idx_valid)
 
-            tmp_x_train = tmp_x_train[idx_train, ...]
-            tmp_y_train = tmp_y_train[idx_train]
             tmp_x_valid = tmp_x_train[idx_valid, ...]
             tmp_y_valid = tmp_y_train[idx_valid]
+            tmp_x_train = tmp_x_train[idx_train, ...]
+            tmp_y_train = tmp_y_train[idx_train]
 
-            x_train.extend(tmp_x_valid)
-            y_train.extend(tmp_y_valid)
-            x_valid.extend(tmp_x_train)
-            y_valid.extend(tmp_y_train)
+            x_train.extend(tmp_x_train)
+            y_train.extend(tmp_y_train)
+            x_valid.extend(tmp_x_valid)
+            y_valid.extend(tmp_y_valid)
         x_train = np.array(x_train)
         y_train = np.array(y_train)
         x_valid = np.array(x_valid)

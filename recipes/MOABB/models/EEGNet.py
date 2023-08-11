@@ -14,15 +14,15 @@ class EEGNet(torch.nn.Module):
 
     Arguments
     ---------
-    input_shape : tuple
+    input_shape: tuple
         The shape of the input.
-    cnn_temporal_kernels : int
+    cnn_temporal_kernels: int
         Number of kernels in the 2d temporal convolution.
-    cnn_temporal_kernelsize : tuple
+    cnn_temporal_kernelsize: tuple
         Kernel size of the 2d temporal convolution.
-    cnn_spatial_depth_multiplier : int
+    cnn_spatial_depth_multiplier: int
         Depth multiplier of the 2d spatial depthwise convolution.
-    cnn_spatial_max_norm : float
+    cnn_spatial_max_norm: float
         Kernel max norm of the 2d spatial depthwise convolution.
     cnn_spatial_pool: tuple
         Pool size and stride after the 2d spatial depthwise convolution.
@@ -40,10 +40,10 @@ class EEGNet(torch.nn.Module):
         Weight max norm of the fully-connected layer.
     dense_n_neurons: int
         Number of output neurons.
-    activation: torch.nn.??
+    activation_type: str
         Activation function of the hidden layers.
 
-    Example (to fix)
+    Example
     -------
     #>>> inp_tensor = torch.rand([1, 200, 32, 1])
     #>>> model = EEGNet(input_shape=inp_tensor.shape)
@@ -73,9 +73,9 @@ class EEGNet(torch.nn.Module):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
-        self.default_sf = 128  # sampling rate of the original publication (Hz)
-
-        if activation_type == "elu":
+        if activation_type == "gelu":
+            activation = torch.nn.GELU()
+        elif activation_type == "elu":
             activation = torch.nn.ELU()
         elif activation_type == "relu":
             activation = torch.nn.ReLU()
@@ -85,7 +85,7 @@ class EEGNet(torch.nn.Module):
             activation = torch.nn.PReLU()
         else:
             raise ValueError("Wrong hidden activation function")
-
+        self.default_sf = 128  # sampling rate of the original publication (Hz)
         # T = input_shape[1]
         C = input_shape[2]
 
@@ -197,19 +197,16 @@ class EEGNet(torch.nn.Module):
         )
         self.conv_module.add_module("dropout_3", torch.nn.Dropout(p=dropout))
 
+        # Shape of intermediate feature maps
+        out = self.conv_module(
+            torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
+        )
+        dense_input_size = self._num_flat_features(out)
         # DENSE MODULE
         self.dense_module = torch.nn.Sequential()
         self.dense_module.add_module(
             "flatten", torch.nn.Flatten(),
         )
-
-        out = self.conv_module(
-            torch.ones((1,) + tuple(input_shape[1:-1]) + (1,))
-        )
-        dense_input_size = self._num_flat_features(out)
-        # dense_input_size = cnn_septemporal_kernels * int(
-        #     T / (cnn_spatial_pool[0] * cnn_septemporal_pool[0])
-        # )
         self.dense_module.add_module(
             "fc_out",
             sb.nnet.linear.Linear(
@@ -221,11 +218,12 @@ class EEGNet(torch.nn.Module):
         self.dense_module.add_module("act_out", torch.nn.LogSoftmax(dim=1))
 
     def _num_flat_features(self, x):
-        """Returns the number of flattened features from a tensor
+        """Returns the number of flattened features from a tensor.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input feature map.
         """
 
         size = x.size()[1:]  # all dimensions except the batch dimension
@@ -240,7 +238,7 @@ class EEGNet(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor (batch, time, EEG channel, channel)
-            input to convolve. 4d tensors are expected.
+            Input to convolve. 4d tensors are expected.
         """
         x = self.conv_module(x)
         x = self.dense_module(x)
