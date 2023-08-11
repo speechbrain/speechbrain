@@ -49,7 +49,8 @@ class HuggingFaceGPT(nn.Module):
     >>> model = HuggingFaceGPT(model_hub, save_path)
     >>> tokens = torch.tensor([[1, 1]])
     >>> tokens_type = torch.tensor([[1, 1]])
-    >>> outputs = model(tokens, tokens_type)
+    >>> attention_mask = torch.tensor([[1, 1]])
+    >>> outputs = model(tokens, tokens_type, attention_mask)
     """
 
     def __init__(
@@ -92,6 +93,8 @@ class HuggingFaceGPT(nn.Module):
             A batch of input-id to transform to features.
         token_type_ids : torch.Tensor
             Token Type(Speaker) for each token in input_ids.
+        attention_mask : torch.Tensor ()
+            A batch of attention_mask.
         """
         with torch.set_grad_enabled(not self.freeze):
             output = self.model.forward(
@@ -116,6 +119,8 @@ class HuggingFaceGPT(nn.Module):
             A batch of input-id   which are dialogue context tokens
         decoder_type : Str
             It shows strategy for autoregressive decoding either beam seach or greedy.
+        attention_mask : torch.Tensor ()
+            A batch of attention_mask.
         """
 
         with torch.no_grad():
@@ -133,6 +138,7 @@ class HuggingFaceGPT(nn.Module):
                     num_beams=self.num_beams,
                     num_return_sequences=1,
                     pad_token_id=50256,
+                    # eos_token_id=50258,
                     early_stopping=self.early_stopping,
                 )
             else:
@@ -142,6 +148,7 @@ class HuggingFaceGPT(nn.Module):
                     token_type_ids=token_type_ids,
                     max_new_tokens=self.max_new_tokens,
                     pad_token_id=50256,
+                    # eos_token_id=50258,
                     attention_mask=attention_mask,
                 )
         return hyp
