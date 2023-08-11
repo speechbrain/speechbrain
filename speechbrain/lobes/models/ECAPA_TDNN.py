@@ -4,7 +4,6 @@ Authors
  * Hwidong Na 2020
 """
 
-# import os
 import torch  # noqa: F401
 import torch.nn as nn
 import torch.nn.functional as F
@@ -77,7 +76,7 @@ class TDNNBlock(nn.Module):
         self.norm = BatchNorm1d(input_size=out_channels)
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         return self.norm(self.activation(self.conv(x)))
 
 
@@ -130,7 +129,7 @@ class Res2NetBlock(torch.nn.Module):
         self.scale = scale
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         y = []
         for i, x_i in enumerate(torch.chunk(x, self.scale, dim=1)):
             if i == 0:
@@ -179,7 +178,7 @@ class SEBlock(nn.Module):
         self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, x, lengths=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         L = x.shape[-1]
         if lengths is not None:
             mask = length_to_mask(lengths * L, max_len=L, device=x.device)
@@ -353,7 +352,7 @@ class SERes2NetBlock(nn.Module):
             )
 
     def forward(self, x, lengths=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         residual = x
         if self.shortcut:
             residual = self.shortcut(x)
@@ -412,7 +411,6 @@ class ECAPA_TDNN(torch.nn.Module):
         global_context=True,
         groups=[1, 1, 1, 1, 1],
     ):
-
         super().__init__()
         assert len(channels) == len(kernel_sizes)
         assert len(channels) == len(dilations)
@@ -523,7 +521,7 @@ class Classifier(torch.nn.Module):
     -------
     >>> classify = Classifier(input_size=2, lin_neurons=2, out_neurons=2)
     >>> outputs = torch.tensor([ [1., -1.], [-9., 1.], [0.9, 0.1], [0.1, 0.9] ])
-    >>> outupts = outputs.unsqueeze(1)
+    >>> outputs = outputs.unsqueeze(1)
     >>> cos = classify(outputs)
     >>> (cos < -1.0).long().sum()
     tensor(0)
@@ -539,7 +537,6 @@ class Classifier(torch.nn.Module):
         lin_neurons=192,
         out_neurons=1211,
     ):
-
         super().__init__()
         self.blocks = nn.ModuleList()
 

@@ -315,7 +315,7 @@ class Pretrained(torch.nn.Module):
         compile_module_keys = set()
         if self.compile:
             if self.compile_module_keys is None:
-                compile_module_keys = set(self.modules)
+                compile_module_keys = set(self.mods)
             else:
                 compile_module_keys = set(self.compile_module_keys)
                 logger.warning(
@@ -327,7 +327,7 @@ class Pretrained(torch.nn.Module):
         jit_module_keys = set()
         if self.jit:
             if self.jit_module_keys is None:
-                jit_module_keys = set(self.modules)
+                jit_module_keys = set(self.mods)
             else:
                 jit_module_keys = set(self.jit_module_keys)
                 logger.warning(
@@ -1185,8 +1185,8 @@ class SpeakerRecognition(EncoderClassifier):
             The prediction is 1 if the two signals in input are from the same
             speaker and 0 otherwise.
         """
-        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=True)
-        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=True)
+        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=False)
+        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=False)
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
@@ -1243,7 +1243,6 @@ class VAD(Pretrained):
         super().__init__(*args, **kwargs)
         self.time_resolution = self.hparams.time_resolution
         self.sample_rate = self.hparams.sample_rate
-        self.device = self.hparams.device
 
     def get_speech_prob_file(
         self,

@@ -10,6 +10,7 @@ To run this recipe, run the following command:
 Authors
     * Hwidong Na 2020
     * Mirco Ravanelli 2020
+    * Xuechen Liu 2023
 """
 import os
 import sys
@@ -89,7 +90,6 @@ def get_verification_scores(veri_test):
         train_cohort = torch.stack(list(train_dict.values()))
 
     for i, line in enumerate(veri_test):
-
         # Reading verification file (enrol_file test_file label)
         lab_pair = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
