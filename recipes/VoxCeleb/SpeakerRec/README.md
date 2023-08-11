@@ -101,7 +101,7 @@ You can perform the easy-inference of various models provided on [HuggingFace](h
 |-----------------|-------------------------|
 | Xvector         | https://huggingface.co/speechbrain/spkrec-xvect-voxceleb |
 | ECAPA-TDNN      | https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb |
-| ResNet TDNN     | https://huggingface.co/underdogliu1005/spkrec-resnet-voxceleb |
+| ResNet TDNN     | https://huggingface.co/speechbrain/spkrec-resnet-voxceleb |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
