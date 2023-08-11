@@ -302,6 +302,8 @@ def download_file(
         Destination path.
     unpack : bool
         If True, it unpacks the data in the dest folder.
+    dest_unpack: path
+        Path where to store the unpacked dataset
     replace_existing : bool
         If True, replaces the existing files.
     write_permissions: bool

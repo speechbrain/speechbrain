@@ -14,11 +14,11 @@ data_folder: !PLACEHOLDER
 metadata_folder: null
 output_folder: !ref ./results/diffusion/baseline/<seed>
 save_folder: !ref <output_folder>/save
-data_save_folder: !ref <save_folder>/audiomnist_prepared
+data_save_folder: !ref <data_folder>/audiomnist_prepared
 sample_folder: !ref <output_folder>/samples
-train_json: !ref <data_save_folder>/train.json
-valid_json: !ref <data_save_folder>/valid.json
-test_json: !ref <data_save_folder>/test.json
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
 train_log: !ref <output_folder>/train_log.txt
 skip_prep: False
 

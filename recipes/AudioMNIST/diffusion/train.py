@@ -1570,6 +1570,9 @@ if __name__ == "__main__":
         kwargs={
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["data_save_folder"],
+            "train_json": hparams["train_json"],
+            "valid_json": hparams["valid_json"],
+            "test_json": hparams["test_json"],
             "metadata_folder": hparams["metadata_folder"],
             "norm": hparams["data_prepare_norm"],
             "trim": hparams["data_prepare_trim"],

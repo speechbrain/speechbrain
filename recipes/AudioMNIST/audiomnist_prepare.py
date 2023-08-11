@@ -1,11 +1,15 @@
 """
 Data preparation for the AudioMNIST dataset
 
-Download: https://github.com/soerenab/AudioMNIST.git
+Data download: https://github.com/soerenab/AudioMNIST.git
+Meta info download: https://www.dropbox.com/scl/fi/ekibujzmvakufvm31ptrf/audiominist-meta.zip?rlkey=69vwmqcoc1xl7t5j94yjilxoc&dl=1
+
+By default, the script will automatically download the dataset and the meta information.
 
 Author
 ------
-Artem Ploujnikov 2020
+Artem Ploujnikov 2023
+Mirco Ravanelli 2023
 """
 
 import logging
@@ -22,14 +26,15 @@ from tqdm.auto import tqdm
 from torchaudio import functional as F
 from subprocess import list2cmdline
 from speechbrain.utils.superpowers import run_shell
+from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
 )
 
-
 DEFAULT_SPLITS = ["train", "valid", "test"]
 DEFAULT_AUDIOMNIST_REPO = "https://github.com/soerenab/AudioMNIST.git"
+DEFAULT_METADATA_REPO = "https://www.dropbox.com/scl/fi/ekibujzmvakufvm31ptrf/audiominist-meta.zip?rlkey=69vwmqcoc1xl7t5j94yjilxoc&dl=1"
 DEFAULT_SRC_SAMPLE_RATE = 48000
 DEFAULT_TGT_SAMPLE_RATE = 48000
 DB_BASE = 10.0
@@ -43,10 +48,14 @@ logger = logging.getLogger(__name__)
 def prepare_audiomnist(
     data_folder,
     save_folder,
+    train_json,
+    valid_json,
+    test_json,
     metadata_folder=None,
     splits=DEFAULT_SPLITS,
     download=True,
     audiomnist_repo=None,
+    metadata_repo=None,
     src_sample_rate=DEFAULT_SRC_SAMPLE_RATE,
     tgt_sample_rate=DEFAULT_TGT_SAMPLE_RATE,
     trim=True,
@@ -61,19 +70,32 @@ def prepare_audiomnist(
     Arguments
     ---------
     data_folder: str
-        the folder where the original dataset exists
+        the folder where the original dataset exists. It assumes the data are stored
+        in data_folder/audiomnist_original. If not, data will be automatically downloaded here.
 
     save_folder: str
         the destination folder
+
+    train_json: str
+        the destination of the training data manifest JSON file.
+
+    valid_json: str
+        the destination of the valid data manifest JSON file.
+
+    test_json: str
+        the destination of the test data manifest JSON file.
 
     metadata_folder: str
         the folder for additional metadata
 
     download: bool
-        whether the dataset should be auto-downloaded (enabled by default)
+        whether the dataset and meta info should be auto-downloaded (enabled by default)
 
     audiomnist_repo: str
         the URL of the AudioMNIST repository
+
+    metadata_repo: str
+        the URL of the repository with meta information (e.g., train, valid, test splits)
 
     src_sample_rate: int
         the source sampling rate
@@ -103,12 +125,16 @@ def prepare_audiomnist(
     """
     if skip_prep:
         return
+
+    # Create a dictionary with all the data-manifest files.
+    json_files = {"train": train_json, "valid": valid_json, "test": test_json}
+
     # Check if the target folder exists. Create it if it does not.
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
     if metadata_folder is None:
-        metadata_folder = data_folder
+        metadata_folder = os.path.join(data_folder, "metadata")
 
     conf = {
         "trim_threshold": trim_threshold,
@@ -118,20 +144,35 @@ def prepare_audiomnist(
 
     save_opt = os.path.join(save_folder, OPT_FILE)
 
-    if skip(splits, save_folder, conf):
+    if skip(json_files, save_opt, conf):
         logger.info("Skipping preparation, completed in previous run.")
         return
     else:
         logger.info("Data_preparation...")
 
+    # Path where the original dataset will be downloaded
+    data_folder_original = os.path.join(data_folder, "audiomnist_original")
+    if not os.path.exists(data_folder_original):
+        os.makedirs(data_folder_original)
+
     # Download AudioMNIST if not present
-    if not os.path.exists(data_folder) or not os.listdir(data_folder):
+    if not os.path.exists(data_folder) or not os.listdir(data_folder_original):
         if download:
             if not audiomnist_repo:
                 audiomnist_repo = DEFAULT_AUDIOMNIST_REPO
-            download_dataset(data_folder, audiomnist_repo)
+            download_dataset(data_folder_original, audiomnist_repo)
         else:
             raise ValueError(f"AudioMNIST not found in {data_folder}")
+
+    # Download meta info (needed for train, valid, and test splits)
+    if not os.path.exists(metadata_folder) or not os.listdir(metadata_folder):
+        if download:
+            if not metadata_repo:
+                metadata_repo = DEFAULT_METADATA_REPO
+            metadata_file = os.path.join(metadata_folder, "metadata.zip")
+            download_file(metadata_repo, metadata_file, unpack=True)
+        else:
+            raise ValueError(f"Metadata not found in {metadata_folder}")
 
     # Set up the audio preprocessing function
     if not process_audio:
@@ -147,6 +188,8 @@ def prepare_audiomnist(
 
     # Get file lists for train/valid/test splits
     splits = get_splits(metadata_folder, splits)
+    json_files = {"train": train_json, "valid": valid_json, "test": test_json}
+
     digit_lookup_file_name = os.path.join(metadata_folder, "digits.csv")
 
     # Read the digit look-up file providing annotations text and
@@ -155,9 +198,10 @@ def prepare_audiomnist(
 
     # Convert the dataset
     convert_dataset(
-        src=data_folder,
+        src=data_folder_original,
         tgt=save_folder,
         splits=splits,
+        json_files=json_files,
         lookup=lookup,
         process_audio=process_audio,
         sample_rate=tgt_sample_rate,
@@ -167,16 +211,18 @@ def prepare_audiomnist(
     save_pkl(conf, save_opt)
 
 
-def skip(splits, save_folder, conf):
+def skip(json_files, save_opt, conf):
     """
     Detect when the librispeech data prep can be skipped.
 
     Arguments
     ---------
-    splits : list
-        A list of the splits expected in the preparation.
-    save_folder : str
-        The location of the seave directory
+    json_files : dict
+        Dictionary containing the paths where json files will be stored for train, valid, and test.
+
+    save_opt: str
+        Path to the file where options will be saved.
+
     conf : dict
         The configuration options to ensure they haven't changed.
 
@@ -188,14 +234,9 @@ def skip(splits, save_folder, conf):
     """
 
     # Checking csv files
-    skip = True
-
-    for split in splits:
-        if not os.path.isfile(os.path.join(save_folder, split + ".json")):
-            skip = False
+    skip = any(not os.path.isfile(json_file) for json_file in json_files)
 
     #  Checking saved options
-    save_opt = os.path.join(save_folder, OPT_FILE)
     if skip is True:
         if os.path.isfile(save_opt):
             opts_old = load_pkl(save_opt)
@@ -561,7 +602,15 @@ def get_file_metadata(meta, split, file_list, lookup):
 
 
 def convert_split(
-    src, tgt, split, file_list, meta, lookup, process_audio, sample_rate
+    src,
+    tgt,
+    split,
+    file_list,
+    meta,
+    metadata_file_path,
+    lookup,
+    process_audio,
+    sample_rate,
 ):
     """
     Converts a single split of data
@@ -576,6 +625,8 @@ def convert_split(
         the list of files in the data split
     meta: dict
         the metadata dictionary
+    metadata_file_path: str
+        the path where to store the data-manifest JSON file
     lookup: dict
         the digit look-up file
     process_audio: callable
@@ -585,15 +636,16 @@ def convert_split(
 
     """
     metadata = dict(get_file_metadata(meta, split, file_list, lookup))
-    metadata_file_path = os.path.join(tgt, f"{split}.json")
+
     wav_files = [
         (
             os.path.join(src, file_name),
-            os.path.join(tgt, metadata[get_item_id(file_name)]["file_name"]),
+            os.path.join(
+                tgt, metadata[get_item_id(file_name)]["file_name"]
+            ).replace("{data_root}", ""),
         )
         for file_name in file_list
     ]
-
     for file_path, process_meta in process_files(
         wav_files, process_audio, sample_rate
     ):
@@ -605,7 +657,9 @@ def convert_split(
         json.dump(metadata, metadata_file, indent=2)
 
 
-def convert_dataset(src, tgt, splits, lookup, process_audio, sample_rate):
+def convert_dataset(
+    src, tgt, splits, json_files, lookup, process_audio, sample_rate
+):
     """Converts the dataset from the original format to the SpeechBrain-friendly
     format
 
@@ -621,7 +675,9 @@ def convert_dataset(src, tgt, splits, lookup, process_audio, sample_rate):
         a dictionary with split identifiers as keys
         and the file list for the split corresponding to the
         key as the value
-
+    json_files: dict
+        a dictionary containing the path where to store the data mafinest files
+        for each split
     lookup: dict
         the digit look-up
 
@@ -645,6 +701,7 @@ def convert_dataset(src, tgt, splits, lookup, process_audio, sample_rate):
             split=split,
             file_list=file_list,
             meta=meta,
+            metadata_file_path=json_files[split],
             lookup=lookup,
             process_audio=process_audio,
             sample_rate=sample_rate,
