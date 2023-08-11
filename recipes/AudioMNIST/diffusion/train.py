@@ -1068,7 +1068,7 @@ class DiffusionBrain(sb.Brain):
             `None` during the test stage.
         """
 
-        self.train_diffusion = (epoch is not None) and (
+        self.train_diffusion = (epoch is None) or (
             epoch >= self.hparams.train_diffusion_start_epoch
         )
         self.train_autoencoder = (
