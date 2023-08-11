@@ -40,21 +40,21 @@ To train the unconditioned model, run the following command:
 To train the model with speaker conditioning, execute the following command:
 
 ```bash
-python train.py hparams/train.yaml --speaker_conditioned true
+python train.py hparams/train.yaml --speaker_conditioned true  --data_folder=your/data/folder
 ```
 
 ## Digit-Conditioned Model (Simplified TTS)
 For a model focused on digit conditioning, useful for a simplified Text-to-Speech (TTS) use case, run the following command:
 
 ```bash
-python train.py hparams/train.yaml --digit_conditioned true
+python train.py hparams/train.yaml --digit_conditioned true  --data_folder=your/data/folder
 ```
 
 ## Latent Diffusion Model
 To train the latent diffusion model, use the following command:
 
 ```bash
-python train.py hparams/train_latent.yaml
+python train.py hparams/train_latent.yaml  --data_folder=your/data/folder
 ```
 
 The training scripts will produce results that can be found in the `<output_folder>/samples` directory after each training epoch.
