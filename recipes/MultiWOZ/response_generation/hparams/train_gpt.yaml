@@ -65,8 +65,6 @@ with_eos: True
 ignore_index: -100
 label_smoothing: 0
 
-
-
 # Training parameters
 number_of_epochs: 2
 batch_size: 8
