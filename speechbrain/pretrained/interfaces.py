@@ -1185,8 +1185,8 @@ class SpeakerRecognition(EncoderClassifier):
             The prediction is 1 if the two signals in input are from the same
             speaker and 0 otherwise.
         """
-        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=True)
-        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=True)
+        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=False)
+        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=False)
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
