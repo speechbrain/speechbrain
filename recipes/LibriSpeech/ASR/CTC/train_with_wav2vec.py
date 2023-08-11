@@ -385,7 +385,7 @@ if __name__ == "__main__":
             except ImportError:
                 err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
                 err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
-            raise ImportError(err_msg)
+                raise ImportError(err_msg)
 
             ind2lab = label_encoder.ind2lab
             labels = [ind2lab[x] for x in range(len(ind2lab))]
@@ -428,8 +428,15 @@ if __name__ == "__main__":
     )
 
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.test_wer_file = hparams[f"{k}_wer_file"]
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
+        )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k],
+            max_key="ACC",
+            test_loader_kwargs=hparams["test_dataloader_opts"],
         )
