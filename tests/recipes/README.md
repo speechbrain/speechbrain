@@ -21,6 +21,18 @@ To target a specific recipe (here by its hparam yaml):
 python -c 'from tests.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Hparam_file"], filters=[["recipes/TIMIT/ASR/transducer/hparams/train_wav2vec.yaml"]], do_checks=False, run_opts="--device=cuda")) else print("TEST PASSED")'
 ```
 
+We also support full inference tests, where we download specific data and an output folder, then conduct inference using the downloaded data.
+
+To run full inference tests, please run:
+
+```
+python -c 'from tests.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Task"], filters=[["full_inference"]], do_checks=True, run_opts="--device=cuda")) else print("TEST PASSED")'
+```
+
+Note that this tests might take a few hours to complete.
+
+
+
 Note: the above examples excluded checks for reaching a specific performance criterion. Their scope is: does the data flow break? [yes/no]
 <br/> (to that extent, data preparation is ignored)
 

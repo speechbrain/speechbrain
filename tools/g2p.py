@@ -388,14 +388,12 @@ def main():
 
     # Ensure the model directory exists
     if not os.path.isdir(arguments.model):
-        print(MSG_MODEL_NOT_FOUND, file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(MSG_MODEL_NOT_FOUND)
 
     # Determine the path to the hyperparameters file
     hparams_file_name = os.path.join(arguments.model, arguments.hparams)
     if not os.path.isfile(hparams_file_name):
-        print(MSG_HPARAMS_NOT_FILE, file=sys.stderr)
-        sys.exit(1)
+        raise ValueError(MSG_HPARAMS_NOT_FILE)
 
     # Initialize the pretrained grapheme-to-phoneme model
     if arguments.ckpt or arguments.ckpt_best:

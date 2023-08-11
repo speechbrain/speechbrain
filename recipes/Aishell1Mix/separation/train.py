@@ -569,11 +569,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Check if storage folder for dataset exists
-    if not hparams["data_folder"]:
-        print("Please, specify a valid data_folder for dataset storage")
-        sys.exit(1)
-
     # Data preparation
     from prepare_data import prepare_aishell1mix
 
@@ -666,15 +661,15 @@ if __name__ == "__main__":
     if "pretrained_separator" not in hparams:
         for module in separator.modules.values():
             separator.reset_layer_recursively(module)
-    if not hparams["test_only"]:
-        # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+
+    # Training
+    separator.fit(
+        separator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     separator.evaluate(test_data, min_key="si-snr")
