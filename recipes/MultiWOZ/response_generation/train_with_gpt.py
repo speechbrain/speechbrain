@@ -4,7 +4,7 @@ The system employs GPT2 (https://life-extension.github.io/2020/05/27/GPT%E6%8A%8
 This recipe take the GPT2LMHeadModel to fine-tune for response generation task on the NLL.
 
 To run this recipe, do the following:
-> python train_with_gpt.py hparams/train_with_gpt.yaml
+> python train_with_gpt.py hparams/train_gpt.yaml
 
 Authors
  * Pooneh Mousavi 2023

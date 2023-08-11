@@ -13,15 +13,15 @@ pip install -r extra_requirements.txt
 
 # How to run
 ```
-python train_with_gpt.py hparams/train_with_gpt.yaml
+python train_with_gpt.py hparams/train_gpt.yaml
 ```
 
 
 # Results
 
-| Release | Hyperparams file | Finetuning Split | Test Clean WER | HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|
-
+| Model | Release | Hyperparams file | Test Loss | Test PPL | Test BLEU 4| HuggingFace link | Full model link | GPUs |
+|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
+| GPT2 | 2023-08-15 | train_gpt.yaml |  - | - | - |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
 
 
 
