@@ -26,7 +26,9 @@
 #
 # *****************************************************************************
 import re
+import logging
 
+logger = logging.getLogger(__name__)
 
 valid_symbols = [
     "AA",
@@ -316,3 +318,50 @@ def _should_keep_symbol(s):
     """whether to keep a certain symbol
     """
     return s in _symbol_to_id and s != "_" and s != "~"
+
+
+def _g2p_keep_punctuations(g2p_model, text):
+    """do grapheme to phoneme and keep the punctuations between the words
+    """
+    # find the words where a "-" or "'" or "." or ":" appears in the middle
+    special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
+
+    # remove intra-word punctuations ("-':."), this does not change the output of speechbrain g2p
+    for special_word in special_words:
+        rmp = special_word.replace("-", "")
+        rmp = rmp.replace("'", "")
+        rmp = rmp.replace(":", "")
+        rmp = rmp.replace(".", "")
+        text = text.replace(special_word, rmp)
+
+    # keep inter-word punctuations
+    all_ = re.findall(r"[\w]+|[-!'(),.:;? ]", text)
+    try:
+        phonemes = g2p_model(text)
+    except:
+        logger.info(f"error with {text}")
+        quit()
+    word_phonemes = "-".join(phonemes).split(" ")
+
+    phonemes_with_punc = []
+    try:
+        # if the g2p model splits the words correctly
+        for i in all_:
+            if i not in "-!'(),.:;? ":
+                phonemes_with_punc.extend(word_phonemes[count].split("-"))
+            else:
+                phonemes_with_punc.append(i)
+    except:
+        # sometimes the g2p model cannot split the words correctly
+        logger.warning(f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}")
+        for i in all_:
+            if i not in "-!'(),.:;? ":
+                p = g2p_model.g2p(i)
+                p_without_space = [i for i in p if i != " "]
+                phonemes_with_punc.extend(p_without_space)
+            else:
+                phonemes_with_punc.append(i)
+
+    while "" in phonemes_with_punc:
+        phonemes_with_punc.remove("")
+    return phonemes_with_punc
