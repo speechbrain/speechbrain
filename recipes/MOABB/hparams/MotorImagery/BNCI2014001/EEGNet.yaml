@@ -96,7 +96,7 @@ valid_ratio: 0.2
 
 # DATA AUGMENTATION
 # cutcat (disabled when min_num_segments=max_num_segments=1)
-max_num_segments: 3 # --max_num_segments~"uniform(2, 6, discrete=True)"
+max_num_segments: 3 # @orion_step2: --max_num_segments~"uniform(2, 6, discrete=True)"
 cutcat: !new:speechbrain.processing.speech_augmentation.CutCat
     min_num_segments: 2
     max_num_segments: !ref <max_num_segments>
