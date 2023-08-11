@@ -1,4 +1,4 @@
-# Denoising Diffusion Probabilistic Model Demo
+# Denoising Diffusion Probabilistic Model
 This folder contrains scripts for running a Denoising Diffusion Probabilistic Model
 generative model with the [AudioMNIST](https://huggingface.co/datasets/flexthink/audiomnist) dataset, which contains recordings
 of spoken English digits in a variety of voices and accents.
@@ -26,19 +26,38 @@ This recipe implements a basic DDPM to generate speech samples using
 the AudioMNIST dataset. It can be used to train an unconditioned model, a model conditioned on the speaker or on the digit label.
 
 # Training
-For the unconditioned model, run the following:
-`python train.py hparams/train.yaml`
 
-For the model conditioned on the speaker, run the following:
-`python train.py hparams/train.yaml --speaker_conditioned true`
+## Unconditioned Model
+To train the unconditioned model, run the following command:
 
-For the model conditioned on the digit (i.e. a vastly simplified TTS use case), run the following:
-`python train.py hparams/train.yaml --digit_conditioned true`
+   ```bash
+   python train.py hparams/train.yaml --data_folder=your/data/folder
+   ```
 
-For the latent diffusion model, run the following:
-`python train.py hparams/train_latent.yaml`
+   The required data will be automatically downloaded into the specified data folder. Keep in mind that AudioMNIST is a relatively small dataset, which may pose challenges in training a diffusion model capable of generating extremely high-quality samples. Nonetheless, the generated samples should maintain intelligibility and exhibit digit-like sounds.
 
-The scripts will output the results to <output_folder>/samples, for every training epoch
+## Speaker-Conditioned Model
+To train the model with speaker conditioning, execute the following command:
+
+```bash
+python train.py hparams/train.yaml --speaker_conditioned true
+```
+
+## Digit-Conditioned Model (Simplified TTS)
+For a model focused on digit conditioning, useful for a simplified Text-to-Speech (TTS) use case, run the following command:
+
+```bash
+python train.py hparams/train.yaml --digit_conditioned true
+```
+
+## Latent Diffusion Model
+To train the latent diffusion model, use the following command:
+
+```bash
+python train.py hparams/train_latent.yaml
+```
+
+The training scripts will produce results that can be found in the `<output_folder>/samples` directory after each training epoch.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
