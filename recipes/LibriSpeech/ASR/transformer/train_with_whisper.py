@@ -14,6 +14,7 @@ Authors
  * Titouan Parcollet 2022
 """
 
+import os
 import sys
 import torch
 import logging
@@ -318,8 +319,6 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_loader_kwargs"],
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
-
-    import os
 
     # Testing
     if not os.path.exists(hparams["output_wer_folder"]):

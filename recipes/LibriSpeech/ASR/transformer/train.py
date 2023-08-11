@@ -34,6 +34,7 @@ Authors
  * Titouan Parcollet 2021, 2022
 """
 
+import os
 import sys
 import torch
 import logging
@@ -514,8 +515,6 @@ if __name__ == "__main__":
         train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=valid_dataloader_opts,
     )
-
-    import os
 
     # Testing
     if not os.path.exists(hparams["output_wer_folder"]):
