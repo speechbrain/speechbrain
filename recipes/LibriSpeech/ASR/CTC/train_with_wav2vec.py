@@ -23,7 +23,7 @@ import sys
 import torch
 import logging
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
@@ -118,9 +118,9 @@ class ASR(sb.Brain):
                     "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                     for utt_seq in predicted_tokens
                 ]
-                target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metric.append(ids, predicted_words, target_words)
-                self.cer_metric.append(ids, predicted_words, target_words)
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            self.wer_metric.append(ids, predicted_words, target_words)
+            self.cer_metric.append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -209,8 +209,9 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -384,7 +385,7 @@ if __name__ == "__main__":
             except ImportError:
                 err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
                 err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
-            raise ImportError(err_msg)
+                raise ImportError(err_msg)
 
             ind2lab = label_encoder.ind2lab
             labels = [ind2lab[x] for x in range(len(ind2lab))]

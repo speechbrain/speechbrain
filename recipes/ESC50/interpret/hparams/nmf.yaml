@@ -21,7 +21,6 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-test_only: False
 
 # if true we save the nmf dictionary at the end of training
 save_nmfdictionary: False

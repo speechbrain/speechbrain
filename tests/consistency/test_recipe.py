@@ -7,8 +7,7 @@ import os
 import csv
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
-
-__skip_list = ["README.md", "setup"]
+__skip_list = ["README.md", "setup", "full_inference.csv"]
 
 
 def test_recipe_list(
@@ -172,7 +171,7 @@ def test_README_links(
     readme_field="Readme_file",
     must_link=["Result_url", "HF_repo"],
 ):
-    """This test checks if the README file contains the correct GDRIVE and HF repositories.
+    """This test checks if the README file contains the correct DropBox and HF repositories.
 
     Arguments
     ---------.
