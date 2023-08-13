@@ -15,17 +15,12 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
 cached_data_folder: !PLACEHOLDER  #'/path/to/pickled/dataset'.
-output_folder: !ref results/SSVEP/Lee2019/EEGNet/<seed>
+output_folder: !ref results/SSVEP/Lee2019_SSVEP/EEGNet/<seed>
 
 
 # DATASET HPARS
 # Defining the MOABB dataset.
 dataset: !new:moabb.datasets.Lee2019_SSVEP
-to_download: False
-to_prepare: False # set to True if you want to always prepare data
-# data preparation may be slow if the dataset contains many channels with long recordings
-# eventually, save the prepared dataset (save_prepared_dataset: True) and set to_prepare to False
-# to optionally load previously prepared data (cached dataset in pkl files)
 save_prepared_dataset: True # set to True if you want to save the prepared dataset as a pkl file to load and use afterwards
 
 data_iterator_name: !PLACEHOLDER
@@ -34,6 +29,8 @@ target_session_idx: !PLACEHOLDER
 events_to_load: null # all events will be loaded
 original_sample_rate: 1000 # Original sampling rate provided by dataset authors
 sample_rate: 125 # Target sampling rate (Hz)
+
+# band-pass filtering cut-off frequencies
 fmin: 4.8  # @orion_step1:~"uniform(0.1, 5, precision=2)"
 fmax: 49.9 # @orion_step1:~"uniform(20.0, 50.0, precision=3)"
 
