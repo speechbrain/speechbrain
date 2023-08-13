@@ -446,7 +446,7 @@ class ECAPA_TDNN(torch.nn.Module):
 
         # Multi-layer feature aggregation
         self.mfa = TDNNBlock(
-            channels[-1],
+            channels[-2] * (len(channels) - 2),
             channels[-1],
             kernel_sizes[-1],
             dilations[-1],
