@@ -9,13 +9,9 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
-# collected from the YAML_params
-extra_exp_name: ''
-experiment_name: !ref ls_<encoder_type_experiment>_<attention_type_experiment>_<extra_exp_name>_<d_model>dim_<nhead>-heads_<num_encoder_layers>encL_<num_decoder_layers>decL_<d_ffn>-dffn_<transformer_dropout>-dp_<lr_adam>lr
-
-seed: 3333
+seed: 7775
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/<attention_type_experiment>/<experiment_name>/<seed>
+output_folder: !ref results/hyperconformer_8M/<seed>
 wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -26,23 +22,23 @@ train_log: !ref <output_folder>/train_log.txt
 # speechbrain HuggingFace repository. However, a local path pointing to a
 # directory containing the lm.ckpt and tokenizer.ckpt may also be specified
 # instead. E.g if you want to use your own LM / tokenizer.
-# pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
-pretrained_lm_tokenizer_path: !PLACEHOLDER  # e.g., /path/to/tokenizer/5K_subword_unigram_960h_LM
+pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
-data_csv_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech/data/
+# If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
+# then data_folder_rirs should be /localscratch/xxx_corpus
+# otherwise the dataset will automatically be downloaded
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-skip_prep: True
-# ckpt_interval_minutes: 25 # save checkpoint every N min
-# train_csv: data/train.csv
-train_csv: !ref <data_csv_folder>/train.csv
-valid_csv: !ref <data_csv_folder>/dev-clean.csv
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-   - !ref <data_csv_folder>/test-clean.csv
-   - !ref <data_csv_folder>/test-other.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
@@ -50,7 +46,7 @@ test_csv:
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 110
-# batch_size: 16 # This works for 2x GPUs with 32GB
+batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 1
 max_grad_norm: 5.0
@@ -83,11 +79,12 @@ dynamic_batch_sampler:
 
 # Dataloader options
 train_dataloader_opts:
+    batch_size: !ref <batch_size>
     shuffle: True
     num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
-    batch_size: 16
+    batch_size: 1
 
 test_dataloader_opts:
     batch_size: 1
@@ -103,9 +100,10 @@ transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 # specify 'hypermixing' for usage of multi-head HyperMixer instead of MultiHeadAttention
+# You can also specify RelPosMHAXL
 attention_type_experiment: hypermixing
 
-# 'conformer' or 'transformer' (means no Convolution module)
+# option 1) 'conformer' for HyperConformer; option 2) 'transformer' for vanilla HyperMixer
 encoder_type_experiment: conformer
 
 # Outputs
@@ -154,16 +152,16 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 # Visit the HuggingFace model corresponding to the pretrained_lm_tokenizer_path
 # For more details about the model!
 # NB: It has to match the pre-trained TransformerLM!!
-# lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
-#     vocab: !ref <output_neurons>
-#     d_model: 768
-#     nhead: 12
-#     num_encoder_layers: 12
-#     num_decoder_layers: 0
-#     d_ffn: 3072
-#     dropout: 0.0
-#     activation: !name:torch.nn.GELU
-#     normalize_before: False
+lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    vocab: !ref <output_neurons>
+    d_model: 768
+    nhead: 12
+    num_encoder_layers: 12
+    num_decoder_layers: 0
+    d_ffn: 3072
+    dropout: 0.0
+    activation: !name:torch.nn.GELU
+    normalize_before: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -207,7 +205,6 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     using_eos_threshold: False
     length_normalization: False
 
-
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
     bos_index: !ref <bos_index>
@@ -217,12 +214,12 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
     ctc_weight: !ref <ctc_weight_decode>
+    lm_weight: !ref <lm_weight>
+    lm_modules: !ref <lm_model>
     temperature: 1.15
+    temperature_lm: 1.15
     using_eos_threshold: False
     length_normalization: True
-    # temperature_lm: 1.15    
-    # lm_weight: !ref <lm_weight>
-    # lm_modules: !ref <lm_model>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
@@ -246,18 +243,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         noam_scheduler: !ref <noam_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
-
-# define Weight and Biases logger
-yaml_path: hparams/wandb_params.yaml
-# train_logger_wb: !new:speechbrain.utils.train_logger.WandBLogger
-#     initializer: !name:wandb.init
-#     project: hypermixer_speech
-#     name: !ref <experiment_name>
-#     id: !ref <experiment_name>
-#     yaml_config: !ref <yaml_path>
-#     reinit: True
-#     resume: True
-
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -296,8 +281,8 @@ acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
-        # lm: !ref <lm_model>
+        lm: !ref <lm_model>
         tokenizer: !ref <tokenizer>
     paths:
-        # lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
-        tokenizer: !ref <pretrained_lm_tokenizer_path>/5000_unigram.model
+        lm: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
+        tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt
