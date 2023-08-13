@@ -238,7 +238,7 @@ if [ -z "$exp_name" ] || [ -z "$output_folder" ] || [ -z "$data_folder" ]  || [ 
     print_argument_descriptions
 fi
 
-# Set mne_dir is specified
+# Set mne_dir if specified
 if [ "$mne_dir" ]; then
    export _MNE_FAKE_HOME_DIR=$mne_dir
 fi
@@ -249,10 +249,12 @@ if [ -z "$cached_data_folder" ]; then
 fi
 
 
-# Set mne_dir is specified
+# Set orion db address if specified
 if [ -z "$orion_db_address" ]; then
     orion_db_address=$output_folder'/'$exp_name'.pkl'
+    export ORION_DB_ADDRESS=orion_db_address
 fi
+export ORION_DB_TYPE=$orion_db_type
 
 echo "-------------------------------------"
 echo "Experiment Name: $exp_name"
