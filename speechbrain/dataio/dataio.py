@@ -143,16 +143,17 @@ def load_data_csv(csv_path, replacements={}):
             if data_id in result:
                 raise ValueError(f"Duplicate id: {data_id}")
             # Replacements:
-            for key, value in row.items():
-                try:
-                    row[key] = variable_finder.sub(
-                        lambda match: str(replacements[match[1]]), value
-                    )
-                except KeyError:
-                    raise KeyError(
-                        f"The item {value} requires replacements "
-                        "which were not supplied."
-                    )
+            try:
+                data_wav = row["wav"]
+                row["wav"] = variable_finder.sub(
+                    lambda match: str(replacements[match[1]]), data_wav
+                )
+            except KeyError:
+                raise KeyError(
+                    f"The item {data_wav} requires replacements "
+                    "which were not supplied."
+                )
+
             # Duration:
             if "duration" in row:
                 row["duration"] = float(row["duration"])
