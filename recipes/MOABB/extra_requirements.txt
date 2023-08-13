@@ -1,3 +1,4 @@
+braindecode
 mne
 moabb
 orion[profet]

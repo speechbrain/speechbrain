@@ -46,7 +46,6 @@
 # - Davide Borra (2023)
 ###########################################################
 
-
 # Initialize variables
 exp_name=""
 output_folder=""
@@ -65,8 +64,8 @@ mne_dir=""
 orion_db_address=""
 orion_db_type="PickledDB"
 exp_max_trials=50
-store_all=False
-compress_exp=False
+store_all=True
+compress_exp=True
 
 # Function to print argument descriptions and exit
 print_argument_descriptions() {
