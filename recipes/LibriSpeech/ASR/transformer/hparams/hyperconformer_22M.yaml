@@ -100,10 +100,11 @@ transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 # specify 'hypermixing' for usage of multi-head HyperMixer instead of MultiHeadAttention
-attention_type_experiment: hypermixing
+# You can also specify RelPosMHAXL for conformer
+attention_type: hypermixing
 
 # option 1) 'conformer' for HyperConformer; option 2) 'transformer' for vanilla HyperMixer
-encoder_type_experiment: conformer
+encoder_module: conformer
 
 # Outputs
 blank_index: 0
@@ -142,8 +143,8 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
-    encoder_module: !ref <encoder_type_experiment>
-    attention_type: !ref <attention_type_experiment>
+    encoder_module: !ref <encoder_module>
+    attention_type: !ref <attention_type>
     normalize_before: True
     causal: False
 
