@@ -26,7 +26,7 @@ save_prepared_dataset: True # set to True if you want to save the prepared datas
 data_iterator_name: !PLACEHOLDER
 target_subject_idx: !PLACEHOLDER
 target_session_idx: !PLACEHOLDER
-events_to_load: null # all events will be loaded
+events_to_load: ['right_hand', 'feet']
 original_sample_rate: 256 # Original sampling rate provided by dataset authors
 sample_rate: 128 # Target sampling rate (Hz)
 
