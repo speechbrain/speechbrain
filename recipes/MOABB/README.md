@@ -130,7 +130,6 @@ For training the model using the `leave_one_subject_out` training approach, just
 
 ### Hyperparameter Tuning
 
-
 Efficient hyperparameter tuning is paramount when introducing novel models or experimenting with diverse datasets. Our benchmark establishes a standardized protocol for hyperparameter tuning, utilizing [Orion](https://orion.readthedocs.io/en/stable/) to ensure fair model comparisons.
 
 #### **Overview**
@@ -192,6 +191,19 @@ As evident from the example, you need to configure the hyperparameter file, spec
 When it comes to training the model utilizing the leave_one_subject_out approach, simply employ the `--train_mode leave-one-subject-out` flag.
 
 By default trainings are performed on gpu. However, in case you do not have any gpu available on your machine, you can train models on cpu by specifying the `--device cpu` flag.
+
+**Note:** 
+- To monitor the status of the hyperparameter optimization, simply enter the following command: `orion status --all`. Ensure that you have added the necessary variables required by orion to your bash environment. You can achieve this by executing the following code within your terminal:
+
+```bash
+export ORION_DB_ADDRESS=results/MotorImagery/BNCI2014001/EEGNet/hopt/EEGNet_BNCI2014001_hopt.pkl
+export ORION_DB_TYPE=pickleddb
+```
+
+Please note that the value of the `ORION_DB_ADDRESS` variable will vary depending on the experiment. Adjust it accordingly.
+
+- If needed, you can interrupt the code at any point, and it will resume from the last successfully completed experiment.
+
 #### **Output Structure**
 
 Results are organized within the specified output folder (`--output_folder`):
@@ -212,8 +224,6 @@ For further details on arguments and customization options, consult `./run_hpara
 - The quantities of subjects (`--nsbj`) and sessions (`--nsess`) are dataset-dependent. Please consult the dataset table above for this information. When conducting a hyperparameter optimization experiment using an alternative dataset or model, kindly adjust both the hparam file and the subject/session counts accordingly.
 
 - If you intend to perform multiple repetitions of the same hparam optimization, it is necessary to modify the `--exp_name`.
-
-- Feel free to interrupt and resume the hyperparameter optimization script at any point without encountering any complications. Orion is resumable and will restart from the last experiment completed.
 
 - This script is designed for a Linux-based system. In this context, we provide a bash script instead of a Python script due to its natural ability of orchestrating diverse training loops across various subjects and sessions.
 
