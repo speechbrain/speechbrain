@@ -1,11 +1,13 @@
 """Core SpeechBrain code for running experiments.
 
 Authors
- * Peter Plantinga 2020
+ * Peter Plantinga 2020, 2023
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023
 """
 
 import os
@@ -33,7 +35,8 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import if_main_process
+from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
@@ -167,6 +170,14 @@ def parse_arguments(arg_list=None):
         "defined by SpeechBrain.",
     )
     parser.add_argument(
+        "--test_only",
+        default=False,
+        action="store_true",
+        help="Run the experiment in evaluate only mode."
+        "It skipps the training and goes directly to the evaluation."
+        "The model is expected to be already trained.",
+    )
+    parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
@@ -198,7 +209,12 @@ def parse_arguments(arg_list=None):
         help="A file storing the configuration options for logging",
     )
     # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
+    parser.add_argument(
+        "--local_rank",
+        "--local-rank",  # alias required for PyTorch 2.x
+        type=int,
+        help="Rank on local machine",
+    )
     parser.add_argument(
         "--device",
         type=str,
@@ -231,10 +247,53 @@ def parse_arguments(arg_list=None):
         help="This flag disable unused parameters detection",
     )
     parser.add_argument(
+        "--jit",
+        default=False,
+        action="store_true",
+        help="Enables jit compilation for all modules. "
+        "Compilation may fail depending on the modules. "
+        "Use --jit_module_keys to compile a subset of modules.",
+    )
+    parser.add_argument(
         "--jit_module_keys",
         type=str,
         nargs="*",
         help="A list of keys in the 'modules' dict to jitify",
+    )
+    parser.add_argument(
+        "--compile",
+        default=False,
+        action="store_true",
+        help="Enabling this flag compiles all modules using torch.compile (if available). "
+        "Beta feature. Use --compile_module_keys to compile a subset of modules. "
+        "Set the compilation flags below properly. "
+        "Compilation can be time-consuming and might fail.",
+    )
+    parser.add_argument(
+        "--compile_module_keys",
+        type=str,
+        nargs="*",
+        help="A list of keys in the 'modules' dict to compile using "
+        "TorchInductor. If a module also has a JIT key specified, "
+        "TorchInductor will take precedence when available.",
+    )
+    parser.add_argument(
+        "--compile_mode",
+        type=str,
+        nargs="*",
+        help="One of {default, reduce-overhead, max-autotune}",
+    )
+    parser.add_argument(
+        "--compile_using_fullgraph",
+        type=bool,
+        nargs="*",
+        help="Whether it is ok to break model into several subgraphs",
+    )
+    parser.add_argument(
+        "--compile_using_dynamic_shape_tracing",
+        type=bool,
+        nargs="*",
+        help="Use dynamic shape tracing for compilation",
     )
     parser.add_argument(
         "--auto_mix_prec",
@@ -272,6 +331,12 @@ def parse_arguments(arg_list=None):
         "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
     )
     parser.add_argument(
+        "--ckpt_interval_steps",
+        type=int,
+        help="Save an intra-epoch checkpoint after this many steps."
+        "If non-positive, intra-epoch checkpoints are not saved.",
+    )
+    parser.add_argument(
         "--grad_accumulation_factor",
         type=int,
         help="Number of batches to accumulate gradients before optimizer step",
@@ -287,6 +352,12 @@ def parse_arguments(arg_list=None):
         action="store_true",
         help="Enable colored progress-bar in tqdm. If this is "
         "false, tqdm shall use default colors.",
+    )
+    parser.add_argument(
+        "--remove_vector_weight_decay",
+        default=False,
+        action="store_true",
+        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
     )
 
     # Accept extra args to override yaml
@@ -400,8 +471,22 @@ class Brain:
             If a non-positive number is passed, all epochs are run.
         debug_persistently (bool)
             Keep data stored during debug mode (not using /tmp), Default ``False``.
+        jit (bool)
+            Enable to compile all modules using jit, Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
+        compile (bool)
+            Enable to compile all modules using torch.compile, Default ``False``.
+        compile_module_keys (list of str)
+            List of keys in ``modules`` that should be compiled using
+            ``torch.compile``. If ``torch.compile`` is unavailable,
+            an error is raised.
+        compile_mode (str)
+            One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
+        compile_using_fullgraph (bool)
+            Whether it is ok to break model into several subgraphs, Default ``False``.
+        compile_using_dynamic_shape_tracing (bool)
+            Use dynamic shape tracing for compilation, Default ``False``.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
@@ -420,6 +505,10 @@ class Brain:
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
+        ckpt_interval_steps (int)
+            Number of steps between saving intra-epoch checkpoints.
+            If non-positive, these are not saved. Default: ``0``.
+
 
         Typically in a script this comes from ``speechbrain.parse_args``, which
         has different defaults than Brain. If an option is not defined here
@@ -460,6 +549,7 @@ class Brain:
 
         # Arguments passed via the run opts dictionary
         run_opt_defaults = {
+            "test_only": False,
             "debug": False,
             "debug_batches": 2,
             "debug_epochs": 2,
@@ -469,13 +559,20 @@ class Brain:
             "distributed_launch": False,
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
+            "jit": False,
             "jit_module_keys": None,
+            "compile": False,
+            "compile_module_keys": None,
+            "compile_mode": "reduce-overhead",
+            "compile_using_fullgraph": False,
+            "compile_using_dynamic_shape_tracing": False,
             "auto_mix_prec": False,
             "bfloat16_mix_prec": False,
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "noprogressbar": False,
             "ckpt_interval_minutes": 0,
+            "ckpt_interval_steps": 0,
             "grad_accumulation_factor": 1,
             "optimizer_step_limit": None,
             "tqdm_colored_bar": False,
@@ -484,6 +581,7 @@ class Brain:
                 "valid": "MAGENTA",
                 "test": "CYAN",
             },
+            "remove_vector_weight_decay": False,
         }
 
         for arg, default in run_opt_defaults.items():
@@ -512,7 +610,7 @@ class Brain:
             sys.version_info.major == PYTHON_VERSION_MAJOR
             and sys.version_info.minor >= PYTHON_VERSION_MINOR
         ):
-            logger.warn(
+            logger.warning(
                 "Detected Python "
                 + str(sys.version_info.major)
                 + "."
@@ -524,7 +622,7 @@ class Brain:
             )
 
         if self.data_parallel_backend and self.distributed_launch:
-            sys.exit(
+            raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
                 "--data_parallel_backend=True"
@@ -532,6 +630,22 @@ class Brain:
                 "python -m torch.distributed.lunch [args]\n"
                 "experiment.py hyperparams.yaml --distributed_launch=True "
                 "--distributed_backend=nccl"
+            )
+
+        if self.distributed_launch and self.ckpt_interval_minutes > 0:
+            logger.warning(
+                "The --ckpt_interval_minutes option saves only on the main "
+                "process to avoid race conditions. If you need to save an "
+                "intra-epoch checkpoint on multiple processes (e.g. FSDP), "
+                "consider switching to intervals based on # of steps with the "
+                "argument --ckpt_interval_steps."
+            )
+
+        if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
+            sys.exit(
+                "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
+                "are mutually exclusive to prevent race conditions. "
+                "Please keep only one active per experiment run."
             )
 
         # Switch to the right context
@@ -542,6 +656,12 @@ class Brain:
 
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
+
+        # The next line ensures that both tensors marked as parameters and standard tensors,
+        # such as those used in InputNormalization, are placed on the right device.
+        for module in self.modules:
+            if hasattr(self.modules[module], "to"):
+                self.modules[module] = self.modules[module].to(self.device)
 
         # Make hyperparams available with dot notation too
         if hparams is not None:
@@ -589,7 +709,7 @@ class Brain:
             self.rank = int(os.environ["RANK"])
             if not torch.distributed.is_initialized():
                 if self.rank > 0:
-                    sys.exit(
+                    raise ValueError(
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
@@ -598,7 +718,7 @@ class Brain:
                         "--distributed_launch=True --distributed_backend=nccl"
                     )
                 else:
-                    logger.warn(
+                    logger.warning(
                         "To use DDP, please add "
                         "sb.utils.distributed.ddp_init_group() into your exp.py"
                     )
@@ -610,6 +730,7 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.valid_step = 0
         self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
@@ -736,6 +857,12 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
+        # This commented-out code block is useful when one can ensure
+        # metric reporting is DDP-valid for VALID & EVAL datasets.
+        # elif self.distributed_launch:
+        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+        #         self.distributed_launch, self.rank, dataset, loader_kwargs
+        #     )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
@@ -829,9 +956,9 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* starting all processes since jit modules cannot be
-        # pickled.
-        self._compile_jit()
+        # Run this *after* starting all processes since jit/compiled modules
+        # cannot be pickled.
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -856,8 +983,14 @@ class Brain:
 
         Override this class if there are multiple optimizers.
         """
+
+        all_params = self.modules.parameters()
+
         if self.opt_class is not None:
-            self.optimizer = self.opt_class(self.modules.parameters())
+            if self.remove_vector_weight_decay:
+                all_params = rm_vector_weight_decay(self.modules)
+
+            self.optimizer = self.opt_class(all_params)
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
@@ -917,7 +1050,8 @@ class Brain:
         -------
         detached loss
         """
-        should_step = self.step % self.grad_accumulation_factor == 0
+        valid_loss = False
+
         # Managing automatic mixed precision
         if self.auto_mix_prec:
             with torch.autocast(device_type=torch.device(self.device).type):
@@ -925,17 +1059,23 @@ class Brain:
 
             # Losses are excluded from mixed precision to avoid instabilities
             loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
+
+            if self.check_gradients(loss):
+                valid_loss = True
+                self.valid_step += 1
+
+            should_step = self.valid_step % self.grad_accumulation_factor == 0
+            if valid_loss:
+                with self.no_sync(not should_step):
+                    self.scaler.scale(
+                        loss / self.grad_accumulation_factor
+                    ).backward()
+                if should_step:
+                    self.scaler.unscale_(self.optimizer)
                     self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
+                    self.scaler.update()
+                    self.zero_grad()
+                    self.optimizer_step += 1
         else:
             if self.bfloat16_mix_prec:
                 with torch.autocast(
@@ -948,13 +1088,18 @@ class Brain:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
 
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
+            if self.check_gradients(loss):
+                valid_loss = True
+                self.valid_step += 1
+
+            should_step = self.valid_step % self.grad_accumulation_factor == 0
+            if valid_loss:
+                with self.no_sync(not should_step):
+                    (loss / self.grad_accumulation_factor).backward()
+                if should_step:
                     self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
+                    self.zero_grad()
+                    self.optimizer_step += 1
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
@@ -978,7 +1123,6 @@ class Brain:
 
     def check_gradients(self, loss):
         """Check if gradients are finite and not too large.
-
         Automatically clips large gradients.
 
         Arguments
@@ -996,10 +1140,10 @@ class Brain:
             self.nonfinite_count += 1
 
             # Print helpful debug info
-            logger.warn(f"Loss is {loss}.")
+            logger.warning(f"Loss is {loss}.")
             for p in self.modules.parameters():
                 if not torch.isfinite(p).all():
-                    logger.warn("Parameter is not finite: " + str(p))
+                    logger.warning("Parameter is not finite: " + str(p))
 
             # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
@@ -1010,10 +1154,11 @@ class Brain:
                     "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
                 )
             else:
-                logger.warn("Patience not yet exhausted, ignoring this batch.")
+                logger.warning(
+                    "Patience not yet exhausted, ignoring this batch."
+                )
                 return False
 
-        # Clip gradient norm
         if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
@@ -1063,6 +1208,7 @@ class Brain:
 
         # Time since last intra-epoch checkpoint
         last_ckpt_time = time.time()
+        steps_since_ckpt = 0
         with tqdm(
             train_set,
             initial=self.step,
@@ -1075,6 +1221,7 @@ class Brain:
                     logger.info("Train iteration limit exceeded")
                     break
                 self.step += 1
+                steps_since_ckpt += 1
                 loss = self.fit_batch(batch)
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
@@ -1090,27 +1237,38 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-                if (
-                    self.checkpointer is not None
-                    and self.ckpt_interval_minutes > 0
-                    and time.time() - last_ckpt_time
-                    >= self.ckpt_interval_minutes * 60.0
+                if self._should_save_intra_epoch_ckpt(
+                    last_ckpt_time, steps_since_ckpt
                 ):
-                    # This should not use run_on_main, because that
-                    # includes a DDP barrier. That eventually leads to a
-                    # crash when the processes'
-                    # time.time() - last_ckpt_time differ and some
-                    # processes enter this block while others don't,
-                    # missing the barrier.
-                    if sb.utils.distributed.if_main_process():
-                        self._save_intra_epoch_ckpt()
+                    # Checkpointer class will handle running this on main only
+                    self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
+                    steps_since_ckpt = 0
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
+        self.valid_step = 0
+
+    def _should_save_intra_epoch_ckpt(self, last_ckpt_time, steps_since_ckpt):
+        """Determines if an intra-epoch checkpoint should be saved.
+
+        Returns True if there's a checkpointer and time or steps has exceeded limit.
+        """
+        if self.checkpointer is None:
+            return False
+
+        # Check if we've run for the requested amount of time
+        if 0 < self.ckpt_interval_minutes * 60.0 < time.time() - last_ckpt_time:
+            # Only save on the main process to avoid race conditions
+            return if_main_process()
+
+        # Save after requested # of steps. This option is the only one that
+        # allows saving on multiple processes. The logic for whether saving
+        # is run only on the main process is handled by the checkpointer.
+        return 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage
@@ -1138,12 +1296,8 @@ class Brain:
                     if self.debug and self.step == self.debug_batches:
                         break
 
-                # Only run validation "on_stage_end" on main process
                 self.step = 0
-                run_on_main(
-                    self.on_stage_end,
-                    args=[Stage.VALID, avg_valid_loss, epoch],
-                )
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
         self,
@@ -1194,6 +1348,12 @@ class Brain:
         progressbar : bool
             Whether to display the progress of each epoch in a progressbar.
         """
+        if self.test_only:
+            logger.info(
+                "Test only mode, skipping training and validation stages."
+            )
+            return
+
         if not (
             isinstance(train_set, DataLoader)
             or isinstance(train_set, LoopedLoader)
@@ -1250,16 +1410,67 @@ class Brain:
             verbosity=logging.DEBUG,
         )
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
+        if not compile_available and self.compile_module_keys is not None:
+            raise ValueError(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it."
+            )
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.modules)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
+                logger.warning(
+                    "--compile and --compile_module_keys are both specified. "
+                    "Only modules specified in --compile_module_keys will be compiled."
+                )
+
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.modules)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
+                logger.warning(
+                    "--jit and --jit_module_keys are both specified. "
+                    "Only modules specified in --jit_module_keys will be compiled."
+                )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
                 raise ValueError(
-                    "module" + name + " is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.modules[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_using_fullgraph,
+                    dynamic=self.compile_using_dynamic_shape_tracing,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
+
+            self.modules[name] = module.to(self.device)
+            jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
 
@@ -1360,10 +1571,7 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-            # Only run evaluation "on_stage_end" on main process
-            run_on_main(
-                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
-            )
+            self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss
 

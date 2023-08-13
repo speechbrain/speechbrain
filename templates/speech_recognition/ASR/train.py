@@ -292,7 +292,7 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
 
@@ -461,3 +461,6 @@ if __name__ == "__main__":
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
+
+    # Save final checkpoint (fixed name)
+    asr_brain.checkpointer.save_checkpoint(name="latest")

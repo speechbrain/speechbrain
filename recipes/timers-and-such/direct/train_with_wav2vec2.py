@@ -21,7 +21,7 @@ import torch
 import speechbrain as sb
 import logging
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 
 logger = logging.getLogger(__name__)
@@ -179,8 +179,9 @@ class SLU(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -386,9 +387,7 @@ if __name__ == "__main__":
 
     # Test (ALL real data)
     if slu_brain.hparams.test_on_all_real:
-        slu_brain.hparams.wer_file = (
-            hparams["output_folder"] + "/wer_all_real.txt"
-        )
+        slu_brain.hparams.test_wer_file = hparams["all_real_wer_file"]
         slu_brain.evaluate(
             all_real_set,
             test_loader_kwargs=hparams["dataloader_opts"],
@@ -396,7 +395,7 @@ if __name__ == "__main__":
         )
 
     # Test (real data)
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+    slu_brain.hparams.test_wer_file = hparams["test_real_wer_file"]
     slu_brain.evaluate(
         test_real_set,
         test_loader_kwargs=hparams["dataloader_opts"],
@@ -404,9 +403,7 @@ if __name__ == "__main__":
     )
 
     # Test (synth data)
-    slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_synth.txt"
-    )
+    slu_brain.hparams.test_wer_file = hparams["test_synth_wer_file"]
     slu_brain.evaluate(
         test_synth_set,
         test_loader_kwargs=hparams["dataloader_opts"],

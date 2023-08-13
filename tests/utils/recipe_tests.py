@@ -12,7 +12,9 @@ import pydoc
 from time import time
 import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
-from tests.consistency.test_recipe import __skip_list
+from speechbrain.utils.data_utils import download_file  # noqa: F401
+
+__skip_list = ["README.md", "setup"]
 
 
 def check_row_for_test(row, filters_fields, filters, test_field):
@@ -67,6 +69,8 @@ def prepare_test(
     hparam_field="Hparam_file",
     test_field="test_debug_flags",
     check_field="test_debug_checks",
+    download_field="test_download",
+    message_field="test_message",
     filters_fields=[],
     filters=[],
 ):
@@ -84,6 +88,11 @@ def prepare_test(
         Field of the csv recipe file containing the test flags.
     check_field: string
         Field of the csv recipe file containing the checks to perform.
+    download_field: string
+        Field of the csv recipe file containing files or folders to download for
+        each test (optional).
+    message_field: string
+        Field of the csv recipe file containing optional messages to show before running the test.
     filters_fields: list
         This can be used with the "filter" variable
         to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
@@ -101,6 +110,10 @@ def prepare_test(
         A dictionary containing recipe IDs as keys and the test flags as values.
     test_check: dict
         A dictionary containing recipe IDs as keys and the checks as values.
+    test_download: dict
+        A dictionary containing recipe IDs as keys and the checks as values.
+    test_message: dict
+        A dictionary containing recipe IDs as keys and the checks as values.
     """
 
     # Dictionary initialization
@@ -108,6 +121,8 @@ def prepare_test(
     test_hparam = {}
     test_flag = {}
     test_check = {}
+    test_download = {}
+    test_message = {}
 
     # Loop over all recipe CSVs
     print(f"\tfilters_fields={filters_fields} => filters={filters}")
@@ -127,16 +142,27 @@ def prepare_test(
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
-                    print(
-                        f"\tSkipped {recipe_id} - lacking test_field={test_field}"
-                    )
+                    print(f"\tSkipped {recipe_id}")
                     continue
                 test_script[recipe_id] = row[script_field].strip()
                 test_hparam[recipe_id] = row[hparam_field].strip()
                 test_flag[recipe_id] = row[test_field].strip()
                 test_check[recipe_id] = row[check_field].strip()
 
-    return test_script, test_hparam, test_flag, test_check
+                # Manage test_download (optional field)
+                if download_field in row:
+                    test_download[recipe_id] = row[download_field].strip()
+                if message_field in row:
+                    test_message[recipe_id] = row[message_field].strip()
+
+    return (
+        test_script,
+        test_hparam,
+        test_flag,
+        test_check,
+        test_download,
+        test_message,
+    )
 
 
 def check_files(
@@ -184,7 +210,8 @@ def check_performance(
     check field of the csv recipe file
     For instance: performance_check=[train_log.txt, train loss, <=15, epoch: 2]),
     will check the variable "train_loss" in the train_log.txt at epoch 2. It will
-    raise an error if the train_loss is >15.
+    raise an error if the train_loss is >15. If epoch is -1, we check the last
+    line of the file.
 
     Arguments
     ---------
@@ -230,9 +257,17 @@ def check_performance(
 
     # Fitler the lines
     lines_filt = []
+    last_line = ""
     for line in lines:
+        if len(line.strip()) > 0:
+            last_line = line
         if epoch in line:
             lines_filt.append(line)
+
+    # If epoch: -1, we take the last line of the file
+    epoch_id = int(epoch.split(":")[-1].strip())
+    if epoch_id == -1:
+        lines_filt.append(last_line)
 
     # Raising an error if there are no lines after applying the filter
     if len(lines_filt) == 0:
@@ -245,8 +280,7 @@ def check_performance(
     for line in lines_filt:
 
         # Search variable value
-        pattern = variable + ": " + "(.*?) "
-        var_value = re.search(pattern, line)
+        var_value = extract_value(line, variable)
 
         if var_value is None:
             print(
@@ -254,7 +288,7 @@ def check_performance(
                 % (filename, recipe_id, variable)
             )
             return False
-        var_value = float(var_value.group(1))
+        var_value = float(var_value)
         check = check_threshold(threshold, var_value)
 
         if not (check):
@@ -266,6 +300,41 @@ def check_performance(
         break
 
     return check
+
+
+def extract_value(string, key):
+    """Extracts from the input string the value given a key. For instance:
+    input_string = "Epoch loaded: 49 - test loss: 4.71e-01, test PER: 14.21"
+    print(extract_value(input_string, "test loss"))    # Output: 0.471
+    print(extract_value(input_string, "test PER"))     # Output: 14.21
+
+    Arguments
+    ---------
+    string: str
+        The input string. It should be in the format mentioned above.
+    key: str
+        The key argument to extract.
+
+    Returns
+    ---------
+    value: float or str
+        The value corresponding to the specified key.
+    """
+    escaped_key = re.escape(key)
+
+    # Create the regular expression pattern to match the argument and its corresponding value
+    pattern = r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
+        escaped_key
+    )
+
+    # Search for the pattern in the input string
+    match = re.search(pattern, string)
+
+    if match:
+        value = match.group("value")
+        return value
+    else:
+        return None
 
 
 def check_threshold(threshold, value):
@@ -396,7 +465,14 @@ def run_recipe_tests(
     print("Test ouputs will be put in %s" % (output_folder))
 
     # Read the csv recipe file and detect which tests we have to run
-    test_script, test_hparam, test_flag, test_check = prepare_test(
+    (
+        test_script,
+        test_hparam,
+        test_flag,
+        test_check,
+        test_download,
+        test_message,
+    ) = prepare_test(
         recipe_folder,
         script_field,
         hparam_field,
@@ -413,56 +489,36 @@ def run_recipe_tests(
 
     # Download all upfront
     if download_only:
-        for i, recipe_id in enumerate(test_script.keys()):
-            # If we are interested in performance checks only, skip
-            check_str = test_check[recipe_id].strip()
-            if run_tests_with_checks_only:
-                if len(check_str) == 0:
-                    continue
-
-            print(
-                "(%i/%i) Collecting pretrained models for %s..."
-                % (i + 1, len(test_script.keys()), recipe_id)
-            )
-
-            output_fold = os.path.join(output_folder, recipe_id)
-            os.makedirs(output_fold, exist_ok=True)
-            stdout_file = os.path.join(output_fold, "stdout.txt")
-            stderr_file = os.path.join(output_fold, "stderr.txt")
-
-            cmd = (
-                "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
-                "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
-                "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
-                # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
-                # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
-            )
-            with open(test_hparam[recipe_id]) as hparam_file:
-                for line in hparam_file:
-                    if "pretrainer" in line:
-                        cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
-                    elif "from_pretrained" in line:
-                        field = line.split(":")[0].strip()
-                        cmd += f'hparams["{field}"]'
-            cmd += (
-                "' "
-                + test_hparam[recipe_id]
-                + " --output_folder="
-                + output_fold
-                + " "
-                + test_flag[recipe_id]
-                + " "
-                + run_opts
-            )
-
-            # Prepare the test
-            run_test_cmd(cmd, stdout_file, stderr_file)
-
+        download_only_test(
+            test_script,
+            test_hparam,
+            test_flag,
+            test_check,
+            run_opts,
+            run_tests_with_checks_only,
+            output_folder,
+        )
         return False
 
     # Run  script (check how to get std out, std err and save them in files)
     check = True
     for i, recipe_id in enumerate(test_script.keys()):
+
+        # Check if the output folder is specified in test_field
+        spec_outfold = False
+        if "--output_folder" in test_flag[recipe_id]:
+            pattern = r"--output_folder\s*=?\s*([^\s']+|'[^']*')"
+            match = re.search(pattern, test_flag[recipe_id])
+            output_fold = match.group(1).strip("'")
+            spec_outfold = True
+        else:
+            output_fold = os.path.join(output_folder, recipe_id)
+            os.makedirs(output_fold, exist_ok=True)
+
+        # Create files for storing standard input and standard output
+        stdout_file = os.path.join(output_fold, "stdout.txt")
+        stderr_file = os.path.join(output_fold, "stderr.txt")
+
         # If we are interested in performance checks only, skip
         check_str = test_check[recipe_id].strip()
         if run_tests_with_checks_only:
@@ -474,10 +530,11 @@ def run_recipe_tests(
             % (i + 1, len(test_script.keys()), recipe_id)
         )
 
-        output_fold = os.path.join(output_folder, recipe_id)
-        os.makedirs(output_fold, exist_ok=True)
-        stdout_file = os.path.join(output_fold, "stdout.txt")
-        stderr_file = os.path.join(output_fold, "stderr.txt")
+        if recipe_id in test_download:
+            download_cmds = test_download[recipe_id].split(";")
+            for download_cmd in download_cmds:
+                print("\t" + download_cmd)
+                eval(download_cmd)
 
         # Check for setup scripts
         setup_script = os.path.join(
@@ -496,17 +553,22 @@ def run_recipe_tests(
             + test_script[recipe_id]
             + " "
             + test_hparam[recipe_id]
-            + " --output_folder="
-            + output_fold
             + " "
             + test_flag[recipe_id]
             + " "
             + run_opts
         )
 
+        if not spec_outfold:
+            cmd = cmd + " --output_folder=" + output_fold
+
         # add --debug if no do_checks to save testing time
         if not do_checks:
             cmd += " --debug --debug_persistently"
+
+        # Print message (if any)
+        if recipe_id in test_message:
+            print("\t\t" + test_message[recipe_id])
 
         # Running the test
         time_start = time()
@@ -538,11 +600,88 @@ def run_recipe_tests(
     return check
 
 
+def download_only_test(
+    test_script,
+    test_hparam,
+    test_flag,
+    test_check,
+    run_opts,
+    run_tests_with_checks_only,
+    output_folder,
+):
+    """Downloads only the needed data (useful for off-line tests).
+
+    Arguments
+    ---------
+    test_script: dict
+        A Dictionary containing recipe IDs as keys and test_scripts as values.
+    test_hparam: dict
+        A dictionary containing recipe IDs as keys and hparams as values.
+    test_flag: dict
+        A dictionary containing recipe IDs as keys and the test flags as values.
+    test_check: dict
+        A dictionary containing recipe IDs as keys and the checks as values.
+    run_opts: str
+        Running options to append to each test.
+    run_tests_with_checks_only: str
+            Running options to append to each test.
+    run_tests_with_checks_only: bool
+        If True skips all tests that do not have performance check criteria defined.
+    output_folder: path
+        The output folder where to store all the test outputs.
+    """
+
+    for i, recipe_id in enumerate(test_script.keys()):
+        # If we are interested in performance checks only, skip
+        check_str = test_check[recipe_id].strip()
+        if run_tests_with_checks_only:
+            if len(check_str) == 0:
+                continue
+
+        print(
+            "(%i/%i) Collecting pretrained models for %s..."
+            % (i + 1, len(test_script.keys()), recipe_id)
+        )
+
+        output_fold = os.path.join(output_folder, recipe_id)
+        os.makedirs(output_fold, exist_ok=True)
+        stdout_file = os.path.join(output_fold, "stdout.txt")
+        stderr_file = os.path.join(output_fold, "stderr.txt")
+
+        cmd = (
+            "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
+            "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
+            "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+            # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
+            # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
+        )
+        with open(test_hparam[recipe_id]) as hparam_file:
+            for line in hparam_file:
+                if "pretrainer" in line:
+                    cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
+                elif "from_pretrained" in line:
+                    field = line.split(":")[0].strip()
+                    cmd += f'hparams["{field}"]'
+        cmd += (
+            "' "
+            + test_hparam[recipe_id]
+            + " --output_folder="
+            + output_fold
+            + " "
+            + test_flag[recipe_id]
+            + " "
+            + run_opts
+        )
+
+        # Prepare the test
+        run_test_cmd(cmd, stdout_file, stderr_file)
+
+
 def load_yaml_test(
     recipe_folder="tests/recipes",
     script_field="Script_file",
     hparam_field="Hparam_file",
-    test_field="Hparam_file",
+    test_field="test_debug_flags",
     filters_fields=[],
     filters=[],
     avoid_list=[],

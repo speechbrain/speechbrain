@@ -88,7 +88,6 @@ class SpecAugment(torch.nn.Module):
         self.apply_time_warp = time_warp
         self.time_warp_window = time_warp_window
         self.time_warp_mode = time_warp_mode
-
         self.freq_mask = freq_mask
         if isinstance(freq_mask_width, int):
             freq_mask_width = (0, freq_mask_width)
@@ -402,6 +401,7 @@ class EnvCorrupt(torch.nn.Module):
             self.add_reverb = AddReverb(
                 reverb_prob=reverb_prob,
                 csv_file=reverb_csv,
+                replacements={"rir_root": openrir_folder},
                 rir_scale_factor=rir_scale_factor,
                 reverb_sample_rate=reverb_sample_rate,
                 clean_sample_rate=clean_sample_rate,
@@ -419,6 +419,7 @@ class EnvCorrupt(torch.nn.Module):
             self.add_noise = AddNoise(
                 mix_prob=noise_prob,
                 csv_file=noise_csv,
+                replacements={"rir_root": openrir_folder},
                 num_workers=noise_num_workers,
                 snr_low=noise_snr_low,
                 snr_high=noise_snr_high,
@@ -541,14 +542,22 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                             csv_row = (
                                 f"{ID}_{i}",
                                 str((stop - start) / rate),
-                                new_filename,
+                                "$rir_root/" + new_filename[len(folder) :],
                                 ext,
                                 "\n",
                             )
                             w.write(",".join(csv_row))
                     else:
                         w.write(
-                            ",".join((ID, str(duration), filename, ext, "\n"))
+                            ",".join(
+                                (
+                                    ID,
+                                    str(duration),
+                                    "$rir_root/" + filename[len(folder) :],
+                                    ext,
+                                    "\n",
+                                )
+                            )
                         )
     finally:
         sb.utils.distributed.ddp_barrier()

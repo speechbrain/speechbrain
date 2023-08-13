@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-import functools
-import os
-import sys
-from pathlib import Path
-
-import torch
-import logging
-import speechbrain as sb
-import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-
-from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main
-
 """Recipe for training a sequence-to-sequence ASR system with Switchboard.
 The system employs a wav2vec2 encoder and a CTC decoder.
 Decoding is performed with greedy decoding.
@@ -36,6 +21,21 @@ Authors
  * Titouan Parcollet 2021
  * Dominik Wagner 2022
 """
+
+import functools
+import os
+import sys
+from pathlib import Path
+
+import torch
+import logging
+import speechbrain as sb
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -212,8 +212,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -434,10 +435,13 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
-    # Test
+    # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], "wer_{}.txt".format(k)
         )
         asr_brain.evaluate(
             test_datasets[k],

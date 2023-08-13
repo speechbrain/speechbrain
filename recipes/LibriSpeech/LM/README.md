@@ -6,9 +6,13 @@ large text corpora.
 
 You can download LibriSpeech at http://www.openslr.org/12
 
-# Extra Dependency:
-Make sure you have the HuggingFace dataset installed. If not, type:
-pip install datasets
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 # How to run:
 ```shell
@@ -18,9 +22,9 @@ python train.py hparams/transformer.yaml
 
 | Release | hyperparams file | Test PP | Model link | GPUs |
 | :---     | :---: | :---: | :---: | :---: |
-| 20-05-22 | RNNLM.yaml (1k BPE) | --.-- | [link](https://drive.google.com/drive/folders/1CCsGfq0mbHTvOVL7cJRl6hwmXDQB2Xcy?usp=sharing) | 1xV100 32GB |
-| 20-05-22 | RNNLM.yaml (5k BPE) | --.-- | [link](https://drive.google.com/drive/folders/17Qa2-3Q9KF-8huxxH_oZGdEwz4igCJ4o?usp=sharing) | 1xV100 32GB |
-| 20-05-22 | transformer.yaml | --.-- | [link](https://drive.google.com/drive/folders/1oCEAjYUyummzcQSkhCbl_3Vf2ozy0BXp?usp=sharing) | 1xV100 32GB |
+| 20-05-22 | RNNLM.yaml (1k BPE) | --.-- | [link](https://www.dropbox.com/sh/8xpybezuv70ibcg/AAByv2NuNv_ZFXuDdG89-MVPa?dl=0) | 1xV100 32GB |
+| 20-05-22 | RNNLM.yaml (5k BPE) | --.-- | [link](https://www.dropbox.com/sh/8462ef441wvava2/AABNfHr07J_0SsdaM1yO5qkxa?dl=0) | 1xV100 32GB |
+| 20-05-22 | transformer.yaml | --.-- | [link](https://www.dropbox.com/sh/6uwqlw2tvv3kiy6/AACgvTR5jihyMrugBrpZPFNha?dl=0) | 1xV100 32GB |
 
 
 # Training time
