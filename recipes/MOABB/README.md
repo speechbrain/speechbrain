@@ -189,8 +189,9 @@ Note that hyperparameter tuning may take several hours depending on the model co
 
 As evident from the example, you need to configure the hyperparameter file, specify the number of subjects (nsbj), and designate the number of sessions (nsess). The table above provides these values for each compatible dataset.
 
-When it comes to training the model utilizing the leave_one_subject_out approach, simply employ the `--train_mode leave-one-subject-out flag`.
+When it comes to training the model utilizing the leave_one_subject_out approach, simply employ the `--train_mode leave-one-subject-out` flag.
 
+By default trainings are performed on gpu. However, in case you do not have any gpu available on your machine, you can train models on cpu by specifying the `--device cpu` flag.
 #### **Output Structure**
 
 Results are organized within the specified output folder (`--output_folder`):
