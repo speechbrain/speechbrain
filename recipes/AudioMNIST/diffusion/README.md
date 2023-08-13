@@ -65,10 +65,10 @@ python train.py hparams/train_latent.yaml  --data_folder=your/data/folder
 The quality of the generated digit is lower with latent diffusion. The generated signals should, however, sounds like a digit.
 
 
-## Checkpoints and Training logs
+## Samples, checkpoints and Training logs
 The training scripts will produce results that can be found in the `<output_folder>/samples` directory after each training epoch.
 
-The output folder containing the checkpoints and training logs for all the aforementioned experiments can be found here:
+The output folder containing the generated samples, model checkpoints and training logs for all the aforementioned experiments can be found here:
 https://www.dropbox.com/sh/szpmkp8aok1nquf/AABziohiZ8UhYBJz5TXscu93a?dl=0
 
 # **About SpeechBrain**
