@@ -50,7 +50,7 @@ class HyperMixing(nn.Module):
     ) -> None:
         super().__init__()
         self.input_output_dim = input_output_dim
-        self.hyper = _HyperNetwork(input_output_dim, hypernet_size, tied=tied, num_heads=num_heads, keep_output_size=fix_tm_hidden_size)
+        self.hyper = HyperNetwork(input_output_dim, hypernet_size, tied=tied, num_heads=num_heads, keep_output_size=fix_tm_hidden_size)
         self.activation = nn.GELU()
         self.layer_norm = nn.LayerNorm(input_output_dim)
         self.num_heads = num_heads
@@ -59,6 +59,14 @@ class HyperMixing(nn.Module):
         self.positional_encoding = sb.lobes.models.transformer.Transformer.PositionalEncoding(
                 input_output_dim, max_length
         )
+
+
+    def _mlp_pass_from_components(out, W1, W2, activation):
+        """function to stick MLP1 together manually"""
+        out = torch.bmm(out, W1)
+        out = activation(out)
+        out = torch.bmm(out, W2.transpose(1, 2))
+        return out
 
     def forward(
         self,
@@ -138,7 +146,7 @@ class HyperMixing(nn.Module):
         
 
         # we stick the token-mixing MLP together manually
-        out = _mlp_pass_from_components(out, W1, W2, self.activation)
+        out = self._mlp_pass_from_components(out, W1, W2, self.activation)
 
         # concatenate heads
         out = out.reshape((bsize, self.input_output_dim, seq_len))
@@ -152,18 +160,23 @@ class HyperMixing(nn.Module):
         dummy_att_weights = torch.zeros((bsize, seq_len, seq_len), device=out.device)
         return out, dummy_att_weights
 
-class _HyperNetwork(nn.Module):
+class HyperNetwork(nn.Module):
     def __init__(
-        self, input_output_dim: int, hypernet_size: int, tied=False, num_heads=1, keep_output_size=True
+        self, i
+        nput_output_dim: int, 
+        hypernet_size: int, 
+        tied=False, 
+        num_heads=1, 
+        keep_output_size=True,
     ) -> None:
-        super().__init__()
+        super(HyperNetwork, self).__init__()
 
         self.tied = tied
-        self.w1_gen = _ParallelMLPs(input_output_dim, input_output_dim, output_size=hypernet_size, num_mlps=num_heads, keep_output_size=keep_output_size)
+        self.w1_gen = ParallelMLPs(input_output_dim, input_output_dim, output_size=hypernet_size, num_mlps=num_heads, keep_output_size=keep_output_size)
         if self.tied:
             self.w2_gen = self.w1_gen
         else:
-            self.w2_gen = _ParallelMLPs(input_output_dim, input_output_dim, output_size=hypernet_size, num_mlps=num_heads, keep_output_size=keep_output_size)
+            self.w2_gen = ParallelMLPs(input_output_dim, input_output_dim, output_size=hypernet_size, num_mlps=num_heads, keep_output_size=keep_output_size)
 
     def forward(self, input_tensor: torch.Tensor):
         """
@@ -179,9 +192,16 @@ class _HyperNetwork(nn.Module):
 
         return W1, W2
 
-class _ParallelMLPs(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size=None, num_mlps=1, keep_output_size=True):
-        super(_ParallelMLPs, self).__init__()
+class ParallelMLPs(nn.Module):
+    def __init__(
+        self, 
+        input_size, 
+        hidden_size, 
+        output_size=None, 
+        num_mlps=1, 
+        keep_output_size=True,
+    ) -> None:
+        super(ParallelMLPs, self).__init__()
 
         if output_size is None:
             output_size = input_size
@@ -227,59 +247,3 @@ class _ParallelMLPs(nn.Module):
         x = torch.einsum("bmlh,mfh->bmlf", x, self.fc2_weights) + self.fc2_biases.unsqueeze(0).unsqueeze(2)
 
         return x
-
-def _mlp_pass_from_components(out, W1, W2, activation):
-    # we stick MLP1 together manually
-    out = torch.bmm(out, W1)
-    out = activation(out)
-    out = torch.bmm(out, W2.transpose(1, 2))
-    return out
-
-# NOTE: this is the same implementation as in speechbrain.lobes.models.transformer.Transformer.
-# Importing it here leads to a circular dependency. In the future, PositionalEncoding should probably be part of sb.nnet
-class _PositionalEncoding(nn.Module):
-    """This class implements the absolute sinusoidal positional encoding function.
-
-    PE(pos, 2i)   = sin(pos/(10000^(2i/dmodel)))
-    PE(pos, 2i+1) = cos(pos/(10000^(2i/dmodel)))
-
-    Arguments
-    ---------
-    input_size: int
-        Embedding dimension.
-    max_len : int, optional
-        Max length of the input sequences (default 2500).
-
-    Example
-    -------
-    >>> a = torch.rand((8, 120, 512))
-    >>> enc = _PositionalEncoding(input_size=a.shape[-1])
-    >>> b = enc(a)
-    >>> b.shape
-    torch.Size([1, 120, 512])
-    """
-
-    def __init__(self, input_size, max_len=2500):
-        super().__init__()
-        self.max_len = max_len
-        pe = torch.zeros(self.max_len, input_size, requires_grad=False)
-        positions = torch.arange(0, self.max_len).unsqueeze(1).float()
-        denominator = torch.exp(
-            torch.arange(0, input_size, 2).float()
-            * -(math.log(10000.0) / input_size)
-        )
-
-        pe[:, 0::2] = torch.sin(positions * denominator)
-        pe[:, 1::2] = torch.cos(positions * denominator)
-        pe = pe.unsqueeze(0)
-        self.register_buffer("pe", pe)
-
-    def forward(self, x):
-        """
-        Arguments
-        ---------
-        x : tensor
-            Input feature shape (batch, time, fea)
-        """
-        return self.pe[:, : x.size(1)].clone().detach()
-
