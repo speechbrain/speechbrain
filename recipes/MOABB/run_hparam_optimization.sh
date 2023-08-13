@@ -333,6 +333,7 @@ function extract_best_params() {
 
 # Running hparam tuning (loop over multiple steps)
 step_id=1
+augment_flag="--repeat_augment 0" # no data augmentation in hparam tuning step 1
 hparams_step=$hparams
 pattern="@orion_step1:"
 opt_flags=$(get_flag "$hparams_step" "$pattern")
@@ -351,7 +352,9 @@ while [ -n "$opt_flags" ]; do
     output_folder_step="$output_folder"/step"$step_id"
     mkdir -p $output_folder_step
     exp_name_step="$exp_name"_step"$step_id"
-
+    if [ $step_id -gt 1 ]; then
+        augment_flag="--repeat_augment 1" # enable data augmentation in hparam tuning step >1
+    fi
     echo
     echo "**********************************************************************************************"
     echo "Running hparam tuning (step $step_id)..."
@@ -361,7 +364,6 @@ while [ -n "$opt_flags" ]; do
     echo "......"
     echo "**********************************************************************************************"
     echo
-
     # Setting up orion command
     orion_hunt_command="orion hunt -n $exp_name_step -c $config_file --exp-max-trials $exp_max_trials \
     	./run_experiments.sh --hparams $hparams_step --data_folder $data_folder --seed $seed \
@@ -370,7 +372,7 @@ while [ -n "$opt_flags" ]; do
 
 
     # Appending the optimization flags
-    orion_hunt_command="$orion_hunt_command $opt_flags"
+    orion_hunt_command="$orion_hunt_command $augment_flag $opt_flags"
 
     echo $orion_hunt_command &> "$output_folder_step/orion_hunt_command.txt"
 
