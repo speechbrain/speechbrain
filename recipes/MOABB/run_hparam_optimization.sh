@@ -252,7 +252,7 @@ fi
 # Set orion db address if specified
 if [ -z "$orion_db_address" ]; then
     orion_db_address=$output_folder'/'$exp_name'.pkl'
-    export ORION_DB_ADDRESS=orion_db_address
+    export ORION_DB_ADDRESS=$orion_db_address
 fi
 export ORION_DB_TYPE=$orion_db_type
 
