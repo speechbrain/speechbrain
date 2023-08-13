@@ -56,7 +56,7 @@ class HyperMixing(nn.Module):
         self.num_heads = num_heads
 
         # add pos encoding
-        self.positional_encoding = _PositionalEncoding(
+        self.positional_encoding = sb.lobes.models.transformer.Transformer.PositionalEncoding(
                 input_output_dim, max_length
         )
 
