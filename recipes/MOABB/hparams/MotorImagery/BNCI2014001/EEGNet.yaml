@@ -15,7 +15,7 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
 cached_data_folder: !PLACEHOLDER #'path/to/pickled/dataset'
-output_folder: !ref results/MotorImagery/EEGNet_BNCI2014001/EEGNet/<seed>
+output_folder: !ref results/MotorImagery/BNCI2014001/EEGNet/<seed>
 
 
 # DATASET HPARS
@@ -91,7 +91,7 @@ optimizer: !name:torch.optim.Adam
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
     limit: !ref <number_of_epochs>
 batch_size_exponent: 4 # @orion_step1: --batch_size_exponent~"uniform(4, 6,discrete=True)"
-batch_size: !ref 2 ** <batch_size_exponent> #64
+batch_size: !ref 2 ** <batch_size_exponent>
 valid_ratio: 0.2
 
 # DATA AUGMENTATION
