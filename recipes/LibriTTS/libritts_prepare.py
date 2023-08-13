@@ -177,8 +177,6 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         Model name (used to prepare additional model specific data)
     """
 
-    wav_list = wav_list[:4]
-
     # Downloads and initializes the G2P model to compute the phonemes if data is being prepared for Tacotron2 experiments
     if model_name == "Tacotron2":
         logger.info(
