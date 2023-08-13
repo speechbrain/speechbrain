@@ -173,6 +173,7 @@ fi
 if [ "$rnd_dir" = True ]; then
     rnd_dirname=$(tr -dc 'a-zA-Z' < /dev/urandom | head -c 6)
     output_folder="$output_folder/$rnd_dirname"
+    mkdir -p $output_folder
 fi
 
 # Print command line arguments and save to file
