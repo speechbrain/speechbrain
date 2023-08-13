@@ -189,8 +189,8 @@ def prepare_data(
                 str(
                     int(srate_out if srate_out is not None else srate_in)
                 ).zfill(4),
-                str(int(fmin)).zfill(3),
-                str(int(fmax)).zfill(3),
+                str(fmin).zfill(3),
+                str(fmax).zfill(3),
             ),
         )
     )
