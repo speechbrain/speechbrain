@@ -1,7 +1,7 @@
 ###################################################
-# Classification of P300 of BNCI2014009 MOABB dataset using EEGNet.
-# EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
-# BNCI2014009 from .
+# Classification of P300 of EPFLP300 MOABB dataset using LMDA.
+# LMDA from .
+# EPFLP300 from .
 #
 # Author
 # ------
@@ -15,19 +15,19 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
 cached_data_folder: !PLACEHOLDER  #'/path/to/pickled/dataset'
-output_folder: !ref results/P300/BNCI2014009/EEGNet/<seed>
+output_folder: !ref results/P300/EPFLP300/LMDA/<seed>
 
 
 # DATASET HPARS
 # Defining the MOABB dataset.
-dataset: !new:moabb.datasets.BNCI2014009
+dataset: !new:moabb.datasets.EPFLP300
 save_prepared_dataset: True # set to True if you want to save the prepared dataset as a pkl file to load and use afterwards
 
 data_iterator_name: !PLACEHOLDER
 target_subject_idx: !PLACEHOLDER
 target_session_idx: !PLACEHOLDER
 events_to_load: null # all events will be loaded
-original_sample_rate: 256 # Original sampling rate provided by dataset authors
+original_sample_rate: 512 # Original sampling rate provided by dataset authors
 sample_rate: 128 # Target sampling rate (Hz)
 
 # band-pass filtering cut-off frequencies
@@ -46,7 +46,7 @@ n_steps_channel_selection: 3 # @orion_step1: --n_steps_channel_selection~"unifor
 
 T: !apply:math.ceil
     - !ref <sample_rate> * (<tmax> - <tmin>)
-C: 16
+C: 32
 n_train_examples: 100  # it will be replaced in the train script
 # We here specify how to perfom test:
 # - If test_with: 'last' we perform test with the latest model.
@@ -142,44 +142,32 @@ dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
     dims: !ref <dims_to_normalize>
 
-# MODEL: BASELINE EEGNET
+# MODEL: LMDA-Net
 input_shape: [null, !ref <T>, !ref <C>, null]
-cnn_temporal_kernels: 39 # @orion_step1: --cnn_temporal_kernels~"uniform(4, 64,discrete=True)"
-cnn_temporal_kernelsize: 29  # @orion_step1: --cnn_temporal_kernelsize~"uniform(24, 62,discrete=True)"
-cnn_spatial_depth_multiplier: 1   # @orion_step1: --cnn_spatial_depth_multiplier~"uniform(1, 4,discrete=True)"
-cnn_spatial_max_norm: 1.  # kernel max-norm constaint of the spatial depthwise conv. layer
-cnn_spatial_pool: 4
-cnn_septemporal_depth_multiplier: 1  # depth multiplier for the separable temporal conv. layer
-cnn_septemporal_point_kernels_ratio_: 7 # @orion_step1: --cnn_septemporal_point_kernels_ratio_~"uniform(0, 8, discrete=True)"
-cnn_septemporal_point_kernels_ratio: !ref <cnn_septemporal_point_kernels_ratio_> / 4
-cnn_septemporal_point_kernels_: !ref <cnn_temporal_kernels> * <cnn_spatial_depth_multiplier> * <cnn_septemporal_depth_multiplier>
-cnn_septemporal_point_kernels: !apply:math.ceil
-    - !ref <cnn_septemporal_point_kernels_ratio> * <cnn_septemporal_point_kernels_> + 1
-cnn_septemporal_kernelsize_: 24  # @orion_step1: --cnn_septemporal_kernelsize_~"uniform(3, 24,discrete=True)"
-max_cnn_spatial_pool: 4
-cnn_septemporal_kernelsize: !apply:round
-    - !ref <cnn_septemporal_kernelsize_> * <max_cnn_spatial_pool> / <cnn_spatial_pool>
-cnn_septemporal_pool: 7 # @orion_step1: --cnn_septemporal_pool~"uniform(1, 8,discrete=True)"
-cnn_pool_type: 'avg'
-dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
+cnn_ch_attn_kernels: 9  # @orion_step1: --cnn_ch_attn_kernels~"uniform(4, 64,discrete=True)"
+cnn_temporal_kernels: 24  # @orion_step1: --cnn_temporal_kernels~"uniform(4, 64,discrete=True)"
+cnn_temporal_kernelsize: 32  # @orion_step1: --cnn_temporal_kernelsize~"uniform(24, 62,discrete=True)"
+cnn_spatial_kernels: 9  # @orion_step1: --cnn_spatial_kernels~"uniform(4, 64,discrete=True)"
 
-dropout: 0.3847   # @orion_step1: --dropout~"uniform(0.0, 0.5)"
-activation_type: 'elu'
+# cnn_depth_attn_kernelsize_ratio from 1 to 4 with a step of 0.5 (1., 1.5, 2.,..., 3.5, 4.)
+# ->cnn_depth_attn_kernelsize_ratio_ from 2 to 8 with a step of 1 then / 2
+cnn_depth_attn_kernelsize_ratio_: 7  # @orion_step1: --cnn_depth_attn_kernelsize_ratio_~"uniform(2, 8,discrete=True)"
+cnn_depth_attn_kernelsize_ratio: !ref <cnn_depth_attn_kernelsize_ratio_> / 2
+cnn_depth_attn_kernelsize: !apply:round
+    - !ref <cnn_temporal_kernels> / <cnn_depth_attn_kernelsize_ratio>  # using the original ratio as in the publication (3.5)
+cnn_pool: 5  # @orion_step1: --cnn_pool~"uniform(1, 8,discrete=True)"
+dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
+activation_type: 'gelu'
 
-model: !new:models.EEGNet.EEGNet
+model: !new:models.LMDA.LMDA
     input_shape: !ref <input_shape>
+    cnn_ch_attn_kernels: !ref <cnn_ch_attn_kernels>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
     cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
-    cnn_spatial_depth_multiplier: !ref <cnn_spatial_depth_multiplier>
-    cnn_spatial_max_norm: !ref <cnn_spatial_max_norm>
-    cnn_spatial_pool: [!ref <cnn_spatial_pool>, 1]
-    cnn_septemporal_depth_multiplier: !ref <cnn_septemporal_depth_multiplier>
-    cnn_septemporal_point_kernels: !ref <cnn_septemporal_point_kernels>
-    cnn_septemporal_kernelsize: [!ref <cnn_septemporal_kernelsize>, 1]
-    cnn_septemporal_pool: [!ref <cnn_septemporal_pool>, 1]
-    cnn_pool_type: !ref <cnn_pool_type>
+    cnn_spatial_kernels: !ref <cnn_spatial_kernels>
+    cnn_depth_attn_kernelsize: [1, !ref <cnn_depth_attn_kernelsize>]
+    cnn_pool: [!ref <cnn_pool>, 1]
     activation_type: !ref <activation_type>
-    dense_max_norm: !ref <dense_max_norm>
     dropout: !ref <dropout>
     dense_n_neurons: !ref <n_classes>
 

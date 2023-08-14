@@ -1,5 +1,5 @@
 ###################################################
-# Classification of imagined movements of BNCI2014001 MOABB dataset using EEGNet.
+# Classification of imagined movements of Lee2019_MI MOABB dataset using EEGNet.
 # EEGNet from https://doi.org/10.1088/1741-2552/aace8c.
 # Lee2019_MI from .
 #
@@ -31,7 +31,7 @@ original_sample_rate: 1000 # Original sampling rate provided by dataset authors
 sample_rate: 125 # Target sampling rate (Hz)
 
 # band-pass filtering cut-off frequencies
-fmin: 0.14 # @orion_step1: --fmin~"uniform(0.1, 5, precision=2)"
+fmin: 0.14 # @orion_step1: --fmin~"uniform(1, 5, precision=2)"
 fmax: 45.7 # @orion_step1: --fmax~"uniform(30.0, 50.0, precision=3)"
 
 n_classes: 2

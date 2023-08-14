@@ -15,7 +15,7 @@ __set_torchseed: !apply:torch.manual_seed [!ref <seed>]
 # DIRECTORIES
 data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
 cached_data_folder: !PLACEHOLDER #'path/to/pickled/dataset'
-output_folder: !ref results/MotorImagery/BNCI2014001/EEGNet/<seed>
+output_folder: !ref results/MotorImagery/BNCI2014001/LMDA/<seed>
 
 
 # DATASET HPARS
@@ -31,7 +31,7 @@ original_sample_rate: 250 # Original sampling rate provided by dataset authors
 sample_rate: 125 # Target sampling rate (Hz)
 
 # band-pass filtering cut-off frequencies
-fmin: 0.14 # @orion_step1: --fmin~"uniform(0.1, 5, precision=2)"
+fmin: 0.14 # @orion_step1: --fmin~"uniform(1, 5, precision=2)"
 fmax: 45.7 # @orion_step1: --fmax~"uniform(30.0, 50.0, precision=3)"
 
 n_classes: 4

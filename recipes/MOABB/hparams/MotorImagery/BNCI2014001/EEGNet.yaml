@@ -31,7 +31,7 @@ original_sample_rate: 250 # Original sampling rate provided by dataset authors
 sample_rate: 125 # Target sampling rate (Hz)
 
 # band-pass filtering cut-off frequencies
-fmin: 0.14 # @orion_step1: --fmin~"uniform(0.1, 5, precision=2)"
+fmin: 0.14 # @orion_step1: --fmin~"uniform(1, 5, precision=2)"
 fmax: 45.7 # @orion_step1: --fmax~"uniform(30.0, 50.0, precision=3)"
 
 n_classes: 4
