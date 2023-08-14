@@ -1138,6 +1138,135 @@ def split_word(sequences, space="_"):
     return results
 
 
+def clean_padding_(tensor, length, len_dim=1, mask_value=0.0):
+    """Sets the value of any padding on the specified tensor to mask_value.
+
+    For instance, this can be used to zero out the outputs of an autoencoder
+    during training past the specified length.
+
+    This is an in-place operation
+
+    Arguments
+    ---------
+    tensor: torch.Tensor
+        a tensor of arbitrary dimension
+    length: torch.Tensor
+        a 1-D tensor of lengths
+    len_dim: int
+        the dimension representing the length
+    mask_value: mixed
+        the value to be assigned to padding positions
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.arange(5).unsqueeze(0).repeat(3, 1)
+    >>> x = x + torch.arange(3).unsqueeze(-1)
+    >>> x
+    tensor([[0, 1, 2, 3, 4],
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6]])
+    >>> length = torch.tensor([0.4, 1.0, 0.6])
+    >>> clean_padding_(x, length=length, mask_value=10.)
+    >>> x
+    tensor([[ 0,  1, 10, 10, 10],
+            [ 1,  2,  3,  4,  5],
+            [ 2,  3,  4, 10, 10]])
+    >>> x = torch.arange(5)[None, :, None].repeat(3, 1, 2)
+    >>> x = x + torch.arange(3)[:, None, None]
+    >>> x = x * torch.arange(1, 3)[None, None, :]
+    >>> x = x.transpose(1, 2)
+    >>> x
+    tensor([[[ 0,  1,  2,  3,  4],
+             [ 0,  2,  4,  6,  8]],
+    <BLANKLINE>
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4,  5,  6],
+             [ 4,  6,  8, 10, 12]]])
+    >>> clean_padding_(x, length=length, mask_value=10., len_dim=2)
+    >>> x
+    tensor([[[ 0,  1, 10, 10, 10],
+             [ 0,  2, 10, 10, 10]],
+    <BLANKLINE>
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4, 10, 10],
+             [ 4,  6,  8, 10, 10]]])
+    """
+    max_len = tensor.size(len_dim)
+    mask = length_to_mask(length * max_len, max_len).bool()
+    mask_unsq = mask[(...,) + (None,) * (tensor.dim() - 2)]
+    mask_t = mask_unsq.transpose(1, len_dim).expand_as(tensor)
+    tensor[~mask_t] = mask_value
+
+
+def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
+    """Sets the value of any padding on the specified tensor to mask_value.
+
+    For instance, this can be used to zero out the outputs of an autoencoder
+    during training past the specified length.
+
+    This version of the operation does not modify the original tensor
+
+    Arguments
+    ---------
+    tensor: torch.Tensor
+        a tensor of arbitrary dimension
+    length: torch.Tensor
+        a 1-D tensor of lengths
+    len_dim: int
+        the dimension representing the length
+    mask_value: mixed
+        the value to be assigned to padding positions
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.arange(5).unsqueeze(0).repeat(3, 1)
+    >>> x = x + torch.arange(3).unsqueeze(-1)
+    >>> x
+    tensor([[0, 1, 2, 3, 4],
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6]])
+    >>> length = torch.tensor([0.4, 1.0, 0.6])
+    >>> x_p = clean_padding(x, length=length, mask_value=10.)
+    >>> x_p
+    tensor([[ 0,  1, 10, 10, 10],
+            [ 1,  2,  3,  4,  5],
+            [ 2,  3,  4, 10, 10]])
+    >>> x = torch.arange(5)[None, :, None].repeat(3, 1, 2)
+    >>> x = x + torch.arange(3)[:, None, None]
+    >>> x = x * torch.arange(1, 3)[None, None, :]
+    >>> x = x.transpose(1, 2)
+    >>> x
+    tensor([[[ 0,  1,  2,  3,  4],
+             [ 0,  2,  4,  6,  8]],
+    <BLANKLINE>
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4,  5,  6],
+             [ 4,  6,  8, 10, 12]]])
+    >>> x_p = clean_padding(x, length=length, mask_value=10., len_dim=2)
+    >>> x_p
+    tensor([[[ 0,  1, 10, 10, 10],
+             [ 0,  2, 10, 10, 10]],
+    <BLANKLINE>
+            [[ 1,  2,  3,  4,  5],
+             [ 2,  4,  6,  8, 10]],
+    <BLANKLINE>
+            [[ 2,  3,  4, 10, 10],
+             [ 4,  6,  8, 10, 10]]])
+    """
+
+    result = tensor.clone()
+    clean_padding_(result, length, len_dim, mask_value)
+    return result
+
+
 def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
     """keep the semantic concepts and values for evaluation.
 

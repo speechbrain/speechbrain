@@ -339,6 +339,8 @@ class Conv1d(nn.Module):
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
+    conv_init : str
+        Weight initialization for the convolution network
     default_padding: str or int
         This sets the default padding mode that will be used by the pytorch Conv1d backend.
 
@@ -400,7 +402,9 @@ class Conv1d(nn.Module):
 
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
-        if conv_init == "normal":
+        elif conv_init == "zero":
+            nn.init.zeros_(self.conv.weight)
+        elif conv_init == "normal":
             nn.init.normal_(self.conv.weight, std=1e-6)
 
         if weight_norm:
@@ -552,6 +556,8 @@ class Conv2d(nn.Module):
     weight_norm : bool
         If True, use weight normalization,
         to be removed with self.remove_weight_norm() at inference
+    conv_init : str
+        Weight initialization for the convolution network
 
     Example
     -------
@@ -624,6 +630,8 @@ class Conv2d(nn.Module):
 
         if conv_init == "kaiming":
             nn.init.kaiming_normal_(self.conv.weight)
+        elif conv_init == "zero":
+            nn.init.zeros_(self.conv.weight)
 
         if weight_norm:
             self.conv = nn.utils.weight_norm(self.conv)
