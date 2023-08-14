@@ -155,7 +155,7 @@ cnn_spatial_kernels: 9  # @orion_step1: --cnn_spatial_kernels~"uniform(4, 64,dis
 
 # cnn_depth_attn_kernelsize_ratio from 1 to 4 with a step of 0.5 (1., 1.5, 2.,..., 3.5, 4.)
 # ->cnn_depth_attn_kernelsize_ratio_ from 2 to 8 with a step of 1 then / 2
-cnn_depth_attn_kernelsize_ratio_: 7  # @orion_step1: --cnn_pool~"uniform(2, 8,discrete=True)"
+cnn_depth_attn_kernelsize_ratio_: 7  # @orion_step1: --cnn_depth_attn_kernelsize_ratio_~"uniform(2, 8,discrete=True)"
 cnn_depth_attn_kernelsize_ratio: !ref <cnn_depth_attn_kernelsize_ratio_> / 2
 cnn_depth_attn_kernelsize: !apply:round
     - !ref <cnn_temporal_kernels> / <cnn_depth_attn_kernelsize_ratio>  # using the original ratio as in the publication (3.5)
