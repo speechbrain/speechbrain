@@ -8,7 +8,7 @@
 seed: 1312
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/wav2vec2_large_ctc/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -121,7 +121,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
   activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.huggingface_wav2vec.HuggingFaceWav2Vec2
   source: !ref <wav2vec2_hub>
   output_norm: True
   freeze: !ref <freeze_wav2vec>
