@@ -168,7 +168,7 @@ dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
 dropout: 0.2662   # @orion_step1: --dropout~"uniform(0.0, 0.5)"
 activation_type: 'elu'
 
-model: !new:speechbrain.lobes.models.EEGNet.EEGNet
+model: !new:models.EEGNet.EEGNet
     input_shape: !ref <input_shape>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
     cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
