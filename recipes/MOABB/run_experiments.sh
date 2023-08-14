@@ -175,6 +175,9 @@ if [ "$rnd_dir" = True ]; then
     output_folder="$output_folder/$rnd_dirname"
 fi
 
+# Make sure  the output_folder is created
+mkdir -p $output_folder
+
 # Print command line arguments and save to file
 {
     echo "hparams: $hparams"

@@ -1,5 +1,5 @@
 mne
 moabb
 orion[profet]
-sklearn
+scikit-learn
 torchinfo
