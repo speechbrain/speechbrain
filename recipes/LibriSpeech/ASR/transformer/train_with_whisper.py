@@ -329,5 +329,7 @@ if __name__ == "__main__":
             hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_loader_kwargs"],
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_loader_kwargs"],
+            min_key="WER",
         )
