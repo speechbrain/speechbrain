@@ -27,10 +27,17 @@ class EEGDepthAttention(torch.nn.Module):
         super(EEGDepthAttention, self).__init__()
         _, T, C, _ = input_shape
         self.adaptive_pool = torch.nn.AdaptiveAvgPool2d((T, 1))
+
+        # forcing odd ksize in padded conv.
+        if cnn_depth_attn_kernelsize[-1] % 2 == 0:
+            self.cnn_depth_attn_kernelsize = (1, cnn_depth_attn_kernelsize[-1] + 1)
+        else:
+            self.cnn_depth_attn_kernelsize = cnn_depth_attn_kernelsize
+
         self.conv = sb.nnet.CNN.Conv2d(
             in_channels=1,
             out_channels=1,
-            kernel_size=cnn_depth_attn_kernelsize,
+            kernel_size=self.cnn_depth_attn_kernelsize,
             padding="same",
             padding_mode="constant",
             bias=True,
