@@ -488,7 +488,7 @@ class TransformerG2P(TransformerInterface):
         tgt_mask = get_lookahead_mask(tgt)
         return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
-    def decode(self, tgt, encoder_out):
+    def decode(self, tgt, encoder_out, enc_lens):
         """This method implements a decoding step for the transformer model.
 
         Arguments
