@@ -5,7 +5,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1986
+seed: 1368
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_wav2vec2_char_k2/<seed>
 wer_file: !ref <output_folder>/wer.txt
@@ -64,7 +64,7 @@ dnn_neurons: 1024
 freeze_wav2vec: True
 
 # Outputs
-output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 30  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
@@ -169,6 +169,6 @@ lang_dir: !ref <output_folder>/lang
 vocab_file: !ref <data_folder>/librispeech-vocab.txt
 sil_prob: 0.5
 # For k2 decoding
-test_search_beam: 16
-test_output_beam: 8
+test_search_beam: 32
+test_output_beam: 4
 test_max_active_state: 2000
