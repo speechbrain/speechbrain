@@ -412,7 +412,6 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files):
     os.makedirs(lang_dir, exist_ok=True)
     with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
         fc = "<UNK> UNK\n"
-        fc += "<SIL> SIL\n"
         for word in lexicon:
             fc += word + " " + " ".join(lexicon[word]) + "\n"
         f.write(fc)

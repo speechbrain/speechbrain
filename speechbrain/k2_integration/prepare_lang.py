@@ -39,17 +39,21 @@ def write_mapping(filename: str, sym2id: Dict[str, int]) -> None:
             f.write(f"{sym} {i}\n")
 
 
-def get_tokens(lexicon: Lexicon) -> List[str]:
+def get_tokens(lexicon: Lexicon, sil_token="SIL") -> List[str]:
     """Get tokens from a lexicon.
 
     Args:
       lexicon:
         It is the return value of :func:`read_lexicon`.
+      sil_token:
+        The optional silence token between words. It should not appear in the lexicon, otherwise it will cause an error.
     Returns:
       Return a list of unique tokens.
     """
     ans = set()
+    ans.add(sil_token)
     for _, tokens in lexicon:
+        assert sil_token not in tokens, f"{sil_token} should not appear in the lexicon but it is found in {_}"
         ans.update(tokens)
     sorted_ans = sorted(list(ans))
     return sorted_ans
@@ -325,7 +329,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
 
 
     lexicon = read_lexicon(lexicon_filename)
-    tokens = get_tokens(lexicon)
+    tokens = get_tokens(lexicon, sil_token=sil_token)
     words = get_words(lexicon)
 
     lexicon_disambig, max_disambig = add_disambig_symbols(lexicon)
