@@ -161,7 +161,7 @@ cnn_depth_attn_kernelsize: !apply:round
     - !ref <cnn_temporal_kernels> / <cnn_depth_attn_kernelsize_ratio>  # using the original ratio as in the publication (3.5)
 cnn_pool: 5  # @orion_step1: --cnn_pool~"uniform(1, 8,discrete=True)"
 dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
-activation_type: 'elu'
+activation_type: 'gelu'
 
 model: !new:models.LMDA.LMDA
     input_shape: !ref <input_shape>
