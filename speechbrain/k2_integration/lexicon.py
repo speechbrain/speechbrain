@@ -235,7 +235,7 @@ class Lexicon(object):
         ans.sort()
         return ans
     
-    def texts2tids(self, texts: List[str], sil_token="SIL", add_sil_token_as_separator=False) -> List[List[int]]:
+    def texts2tids(self, texts: List[str], sil_token="SIL", add_sil_token_as_separator=False, oov_token="<UNK>") -> List[List[int]]:
         """
         Args:
         texts: A list of strings. Each string is a sentence to be converted
@@ -255,7 +255,8 @@ class Lexicon(object):
             words = text.split()
             for i, word in enumerate(words):
                 if word not in self.word2tids:
-                    raise ValueError(f"Cannot find word {word} in the lexicon, please check {self.lang_dir}/lexicon.txt.")
+                    logging.warn(f"Cannot find word {word} in the lexicon. Replacing it with {oov_token}. please check {self.lang_dir}/lexicon.txt. Note that this is fine if you are testing.")
+                    word = oov_token
                 tids.extend(self.word2tids[word][0])
                 if add_sil_token_as_separator and i < len(words) - 1:
                     tids.append(self.token2idx[sil_token])

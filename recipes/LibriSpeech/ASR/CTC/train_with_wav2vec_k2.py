@@ -124,8 +124,6 @@ class ASR(sb.Brain):
             predicted_texts = self.graph_compiler.decode(p_ctc, wav_lens) # list of strings
             predicted_words = [wrd.split(" ") for wrd in predicted_texts]
             target_words = [wrd.split(" ") for wrd in texts]
-            logging.info(f"predicted_words: {predicted_words}")
-            logging.info(f"target_words: {target_words}")
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
         if stage == sb.Stage.TEST:  # Language model decoding only used for test
@@ -134,7 +132,11 @@ class ASR(sb.Brain):
                     "Language modelling is not implemented for models trained with k2"
                 )
             else:
-                predicted_texts = self.graph_compiler.decode(p_ctc, wav_lens) # list of strings
+                predicted_texts = self.graph_compiler.decode(p_ctc, 
+                                                             wav_lens, 
+                                                             search_beam=self.hparams.test_search_beam, 
+                                                             output_beam=self.hparams.test_output_beam, 
+                                                             max_active_states=self.hparams.test_max_active_state) # list of strings
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
             target_words = [wrd.split(" ") for wrd in texts]
             self.wer_metric.append(ids, predicted_words, target_words)

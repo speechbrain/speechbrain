@@ -21,7 +21,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: ["dev-clean"]
+dev_splits: ["dev-clean", "dev-other"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
@@ -30,6 +30,8 @@ valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
+   - !ref <output_folder>/dev-clean.csv
+   - !ref <output_folder>/dev-other.csv
 
 # Training parameters
 number_of_epochs: 1
@@ -43,7 +45,7 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
-test_batch_size: 8
+test_batch_size: 1
 
 # Dataloader options
 train_dataloader_opts:
@@ -166,3 +168,7 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 lang_dir: !ref <output_folder>/lang
 vocab_file: !ref <data_folder>/librispeech-vocab.txt
 sil_prob: 0.5
+# For k2 decoding
+test_search_beam: 16
+test_output_beam: 8
+test_max_active_state: 2000
