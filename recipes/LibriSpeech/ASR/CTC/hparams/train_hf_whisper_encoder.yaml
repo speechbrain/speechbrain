@@ -8,7 +8,7 @@
 seed: 3407 # The secret perfect seed
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_whisper_char/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -104,7 +104,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
    bn3: !name:speechbrain.nnet.normalization.LayerNorm
    activation3: !new:torch.nn.LeakyReLU
 
-whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+whisper: !new:speechbrain.lobes.models.huggingface_transformers.huggingface_whisper.HuggingFaceWhisper
    source: !ref <whisper_hub>
    freeze: !ref <freeze_whisper>
    save_path: !ref <whisper_folder>
