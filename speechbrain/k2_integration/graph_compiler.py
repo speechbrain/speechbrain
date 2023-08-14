@@ -216,7 +216,7 @@ class CtcTrainingGraphCompiler(object):
             texts = []
             for wids in list_wids:
                 texts.append(" ".join([self.word_table[wid]
-                             for wid in wids if wid != self.oov_id]))
+                             for wid in wids]))
             del lattice
             del one_best
             torch.cuda.empty_cache()
