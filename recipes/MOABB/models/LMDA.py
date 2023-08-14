@@ -30,7 +30,10 @@ class EEGDepthAttention(torch.nn.Module):
 
         # forcing odd ksize in padded conv.
         if cnn_depth_attn_kernelsize[-1] % 2 == 0:
-            self.cnn_depth_attn_kernelsize = (1, cnn_depth_attn_kernelsize[-1] + 1)
+            self.cnn_depth_attn_kernelsize = (
+                1,
+                cnn_depth_attn_kernelsize[-1] + 1,
+            )
         else:
             self.cnn_depth_attn_kernelsize = cnn_depth_attn_kernelsize
 

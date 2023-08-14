@@ -152,7 +152,9 @@ def download_data(data_folder, dataset):
     # changing default download directory
     mne_cfg = get_config()
     for a in mne_cfg.keys():
-        if mne_cfg[a] != data_folder:  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
+        if (
+            mne_cfg[a] != data_folder
+        ):  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
             set_config(a, data_folder)
     dataset.download()
 
@@ -180,7 +182,9 @@ def prepare_data(
     # changing default download directory
     mne_cfg = get_config()
     for a in mne_cfg.keys():
-        if mne_cfg[a] != data_folder:  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
+        if (
+            mne_cfg[a] != data_folder
+        ):  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
             set_config(a, data_folder)
     if cached_data_folder is None:
         cached_data_folder = data_folder
