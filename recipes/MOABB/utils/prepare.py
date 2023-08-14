@@ -150,8 +150,10 @@ def load_data(paradigm, dataset, idx):
 def download_data(data_folder, dataset):
     """This function download a specific MOABB dataset in a directory."""
     # changing default download directory
-    for a in get_config().keys():
-        set_config(a, data_folder)
+    mne_cfg = get_config()
+    for a in mne_cfg.keys():
+        if mne_cfg[a] != data_folder:  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
+            set_config(a, data_folder)
     dataset.download()
 
 
@@ -176,8 +178,10 @@ def prepare_data(
         os.makedirs(data_folder)
 
     # changing default download directory
-    for a in get_config().keys():
-        set_config(a, data_folder)
+    mne_cfg = get_config()
+    for a in mne_cfg.keys():
+        if mne_cfg[a] != data_folder:  # reducing writes on mne cfg file to avoid conflicts in parallel trainings
+            set_config(a, data_folder)
     if cached_data_folder is None:
         cached_data_folder = data_folder
     tmp_output_dir = os.path.join(
