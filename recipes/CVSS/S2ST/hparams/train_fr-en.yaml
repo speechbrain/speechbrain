@@ -17,8 +17,8 @@ epochs: 30
 
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
-progress_samples_interval: 2
-progress_batch_sample_size: 20
+progress_samples_interval: 1
+progress_batch_sample_size: 4
 
 #################################
 # Data files and pre-processing #
@@ -27,10 +27,11 @@ src_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr
 tgt_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr-en
 sample_rate: 16000
 
-train_json: !ref <save_folder>/train.json
+train_json: !ref <save_folder>/train_debug.json
 valid_json: !ref <save_folder>/valid.json
+valid_small_json: !ref <save_folder>/train_debug.json
 test_json: !ref <save_folder>/test.json
-splits: ["train", "valid", "test"]
+splits: ["train", "valid_small", "valid", "test"]
 skip_prep: False
 
 # SSL model used to encode target features
@@ -73,8 +74,7 @@ label_smoothing: 0.2
 sorting: random
 num_workers: 4
 dynamic_batching: True
-max_batch_len: 180 # 40 Gb GPU
-max_batch_len_val: 150
+max_batch_len: 180 # 40 GB GPU
 num_bucket: 200
 
 train_batch_size: 32 # if not using dynamic batching
@@ -82,7 +82,6 @@ valid_batch_size: 16
 
 dynamic_batch_sampler:
     max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
     num_buckets: !ref <num_bucket>
     shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
@@ -220,8 +219,6 @@ test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
     beam_size: 10
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
-error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
     merge_words: False
 
