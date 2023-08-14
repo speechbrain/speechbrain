@@ -15,6 +15,9 @@ experiment: wav2vec2-train-real
 output_folder: !ref results/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+all_real_wer_file: !ref <output_folder>/all_real_wer.txt
+test_real_wer_file: !ref <output_folder>/test_real_wer.txt
+test_synth_wer_file: !ref <output_folder>/test_synth_wer.txt
 
 # URL for the wav2vec 2.0 model, you can change to benchmark different models
 wav2vec2_hub: "facebook/wav2vec2-base-960h"
@@ -70,7 +73,7 @@ dataloader_opts:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.huggingface_wav2vec.HuggingFaceWav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
