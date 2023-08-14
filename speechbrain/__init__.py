@@ -11,6 +11,7 @@ from . import nnet  # noqa
 from . import processing  # noqa
 from . import tokenizers  # noqa
 from . import utils  # noqa
+from . import k2_integration
 
 with open(os.path.join(os.path.dirname(__file__), "version.txt")) as f:
     version = f.read().strip()
