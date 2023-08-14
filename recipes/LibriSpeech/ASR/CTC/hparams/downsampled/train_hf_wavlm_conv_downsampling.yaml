@@ -10,7 +10,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_wav2vec2_char/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -93,7 +93,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.huggingface_wav2vec.HuggingFaceWav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze_feature_extractor: True
