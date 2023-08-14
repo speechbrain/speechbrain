@@ -127,7 +127,7 @@ add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
     snr_low: !ref <snr_white_low>
     snr_high: !ref <snr_white_high>
 
-repeat_augment: 1 # @orion_step1: --repeat_augment 0
+repeat_augment: 1 # @orion_step1: --repeat_augment~"uniform(0, 0.1, discrete=True)"
 augment: !new:speechbrain.processing.augmentation.Augmenter
     parallel_augment: True
     concat_original: True
