@@ -37,6 +37,9 @@ TGT_AUDIO = {
     "test": "test",
 }
 
+# Number of samples for the small evalution subset
+SMALL_EVAL_SIZE = 1000
+
 log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -99,6 +102,7 @@ def prepare_cvss(
     save_opt = pl.Path(save_folder) / OPT_FILE
     save_json_train = pl.Path(save_folder) / "train.json"
     save_json_valid = pl.Path(save_folder) / "valid.json"
+    save_json_valid_small = pl.Path(save_folder) / "valid_small.json"
     save_json_test = pl.Path(save_folder) / "test.json"
 
     # Check if this phase is already done (if so, skip it)
@@ -125,6 +129,14 @@ def prepare_cvss(
             tgt_audio_valid,
             src_validated,
             tgt_valid,
+        )
+        prepare_json(
+            save_json_valid_small,
+            src_audio,
+            tgt_audio_valid,
+            src_validated,
+            tgt_valid,
+            limit_to_n_sample=SMALL_EVAL_SIZE,
         )
     if "test" in splits:
         prepare_json(
@@ -173,7 +185,12 @@ def skip(splits, save_folder, conf):
 
 
 def prepare_json(
-    json_file, src_audio_folder, tgt_audio_folder, src_validated, tgt_split,
+    json_file,
+    src_audio_folder,
+    tgt_audio_folder,
+    src_validated,
+    tgt_split,
+    limit_to_n_sample=None,
 ):
     """
     Creates json file.
@@ -185,7 +202,11 @@ def prepare_json(
         csv.reader(open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE)
     )
 
-    for i in tqdm.tqdm(range(len(tgt_meta))):
+    limit_to_n_sample = (
+        len(tgt_meta) if not limit_to_n_sample else limit_to_n_sample
+    )
+
+    for i in tqdm.tqdm(range(limit_to_n_sample)):
         session_id = tgt_meta[i][0].split(".")[0]
 
         tgt_audio = f"{tgt_audio_folder}/{session_id}.mp3.wav"
@@ -194,13 +215,10 @@ def prepare_json(
         src_sig, sr = torchaudio.load(src_audio)
         duration = src_sig.shape[1] / sr
 
-        if duration < 1.5:
-            continue
-
         # src_text = meta_dict[session_id]["sentence"]
         tgt_text = tgt_meta[i][1]
 
-        if len(tgt_text) < 10:
+        if duration < 1.5 or len(tgt_text) < 10:
             continue
 
         json_dict[session_id] = {

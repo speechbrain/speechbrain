@@ -64,35 +64,36 @@ class S2UT(sb.core.Brain):
         p_seq = self.hparams.log_softmax(pred)
 
         hyps = None
-        if stage == sb.Stage.VALID:
-            current_epoch = self.hparams.epoch_counter.current
-            output_progress_sample = (
-                self.hparams.progress_samples
-                and current_epoch % self.hparams.progress_samples_interval == 0
-            )
-            if output_progress_sample:
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
-
-        elif stage == sb.Stage.TEST:
+        wavs = None
+        transcripts = None
+        if stage != sb.Stage.TRAIN:
             ids = batch.id
             tgt_text = batch.tgt_text
 
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
-            code = torch.LongTensor(hyps[0])
-            wav = self.test_vocoder.decode_unit(code)
-            wav_len = torch.tensor([1.0]).to(self.device)
-            transcript, _ = self.test_asr.transcribe_batch(wav, wav_len)
-            transcript = transcript[0].lower()
-            print(transcript)
-            print(tgt_text)
+            search = (
+                self.hparams.valid_search
+                if stage == sb.Stage.VALID
+                else self.hparams.test_search
+            )
+            hyps, _ = search(enc_out.detach(), wav_lens)
 
-            self.bleu_metric.append(ids, [transcript], [tgt_text])
+            # generate speech
+            wavs = []
+            for hyp in hyps:
+                code = torch.LongTensor(hyp)
+                wav = self.test_vocoder.decode_unit(code)
+                wavs.append(wav.squeeze(0))
+
+            wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
+            transcripts, _ = self.test_asr.transcribe_batch(wavs, wav_lens)
+            transcripts = [transcript.lower() for transcript in transcripts]
+
+            self.bleu_metric.append(ids, transcripts, [tgt_text])
 
         return (
-            enc_out.detach(),
             p_seq,
-            wav_lens,
-            hyps,
+            wavs,
+            transcripts,
         )
 
     def compute_objectives(self, predictions, batch, stage):
@@ -110,7 +111,7 @@ class S2UT(sb.core.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        (enc_out, p_seq, wav_lens, hyps) = predictions
+        (p_seq, wavs, transcripts) = predictions
         tokens_eos, tokens_eos_lens = batch.code_eos
         ids = batch.id
 
@@ -118,32 +119,21 @@ class S2UT(sb.core.Brain):
         loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
-            wavs, wav_lens = batch.tgt_sig
-            tgt_text = batch.tgt_text
-
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
 
             if stage == sb.Stage.VALID:
+                tgt_wavs, _ = batch.tgt_sig
+                tgt_transcripts = batch.tgt_text
+
                 # Save last batch
+                wavs = [wav.cpu() for wav in wavs]
+                tgt_wavs = [wav.cpu() for wav in tgt_wavs]
                 self.last_batch = [
                     ids,
-                    enc_out,
-                    (tokens_eos, tokens_eos_lens),
-                    (wavs, wav_lens),
-                    tgt_text,
+                    (wavs, transcripts),
+                    (tgt_transcripts, tgt_wavs),
                 ]
-
-                current_epoch = self.hparams.epoch_counter.current
-                output_progress_sample = (
-                    self.hparams.progress_samples
-                    and current_epoch % self.hparams.progress_samples_interval
-                    == 0
-                )
-                if output_progress_sample:
-                    self.wer_metric_st_greedy.append(
-                        ids, hyps, tokens_eos, target_len=tokens_eos_lens
-                    )
 
         return loss
 
@@ -248,25 +238,23 @@ class S2UT(sb.core.Brain):
         """
         if stage != sb.Stage.TRAIN:
             self.acc_metric = self.hparams.acc_computer()
-            self.wer_metric_st_greedy = self.hparams.error_rate_computer()
             self.bleu_metric = self.hparams.bleu_computer()
             self.last_batch = None
             self.last_epoch = 0
 
-            if stage == sb.Stage.TEST:
-                logger.info("Loading pretrained HiFi-GAN ...")
-                self.test_vocoder = UnitHIFIGAN.from_hparams(
-                    source=self.hparams.vocoder_source,
-                    savedir=self.hparams.vocoder_download_path,
-                    run_opts={"device": self.device},
-                )
+            logger.info("Loading pretrained HiFi-GAN ...")
+            self.test_vocoder = UnitHIFIGAN.from_hparams(
+                source=self.hparams.vocoder_source,
+                savedir=self.hparams.vocoder_download_path,
+                run_opts={"device": self.device},
+            )
 
-                logger.info("Loading pretrained ASR ...")
-                self.test_asr = EncoderDecoderASR.from_hparams(
-                    source=self.hparams.asr_source,
-                    savedir=self.hparams.asr_download_path,
-                    run_opts={"device": self.device},
-                )
+            logger.info("Loading pretrained ASR ...")
+            self.test_asr = EncoderDecoderASR.from_hparams(
+                source=self.hparams.asr_source,
+                savedir=self.hparams.asr_download_path,
+                run_opts={"device": self.device},
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -285,8 +273,13 @@ class S2UT(sb.core.Brain):
 
         # At the end of validation, we can write
         elif stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+            # delete vocoder and asr to free memory for next training epoch
+            del self.test_vocoder
+            del self.test_asr
+
             stage_stats = {"loss": stage_loss}
             stage_stats["ACC"] = self.acc_metric.summarize()
+            stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
 
             output_progress_sample = (
                 self.hparams.progress_samples
@@ -295,12 +288,7 @@ class S2UT(sb.core.Brain):
 
             if output_progress_sample:
                 # Compute BLEU scores
-                self._run_evaluation_pipeline(epoch)
-
-                stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
-                stage_stats["WER"] = self.wer_metric_st_greedy.summarize(
-                    "error_rate"
-                )
+                self._save_progress_sample(epoch)
 
             self.last_epoch = epoch
             current_epoch = self.hparams.epoch_counter.current
@@ -348,7 +336,7 @@ class S2UT(sb.core.Brain):
             with open(bleu_file, "a+", encoding="utf-8") as w:
                 self.bleu_metric.write_stats(w)
 
-    def _run_evaluation_pipeline(self, epoch):
+    def _save_progress_sample(self, epoch):
         """Run the complete evaluation pipeline by computing BLEU scores on transcripts extracted from synthesized speech
         using the unit-to-speech (U2S) model.
         Arguments
@@ -359,75 +347,46 @@ class S2UT(sb.core.Brain):
         """
         if self.last_batch is None:
             return
+
         (
             ids,
-            enc_out,
-            (tokens_eos, tokens_eos_lens),
-            (wavs, wav_lens),
-            tgt_text,
+            (wavs, transcripts),
+            (tgt_transcripts, tgt_wavs),
         ) = self.last_batch
 
         save_folder = pl.Path(self.hparams.progress_sample_path) / f"{epoch}"
         save_folder.mkdir(parents=True, exist_ok=True)
 
-        logger.info("Loading pretrained HiFi-GAN ...")
-        hifi_gan = UnitHIFIGAN.from_hparams(
-            source=self.hparams.vocoder_source,
-            savedir=self.hparams.vocoder_download_path,
-        )
-
-        logger.info("Loading pretrained ASR ...")
-        asr_model = EncoderDecoderASR.from_hparams(
-            source=self.hparams.asr_source,
-            savedir=self.hparams.asr_download_path,
-        )
-
         sample_size = self.hparams.progress_batch_sample_size
         if len(ids) < sample_size:
             sample_size = len(ids)
 
-        # Beamsearch decoding
-        hyps, _ = self.hparams.test_search(
-            enc_out[:sample_size], wav_lens[:sample_size]
-        )
-
-        tokens_eos = tokens_eos.cpu()
-        tokens_eos_lens = tokens_eos_lens.cpu()
-
-        tokens_eos = sb.utils.data_utils.undo_padding(
-            tokens_eos, tokens_eos_lens
-        )
-        wavs = sb.utils.data_utils.undo_padding(wavs, wav_lens)
-
-        transcripts = []
         for i in tqdm.tqdm(range(sample_size)):
             utt_id = ids[i]
-            code = hyps[i]
-            code = torch.LongTensor(code)
+            wav = wavs[i]
+            transcript = transcripts[i]
+            tgt_transcript = tgt_transcripts[i]
+            tgt_wav = tgt_wavs[i]
 
-            wav = hifi_gan.decode_unit(code)
             sample_path = save_folder / f"{utt_id}_pred.wav"
             sb.dataio.dataio.write_audio(
-                sample_path, wav.transpose(0, 1), self.hparams.sample_rate
+                sample_path, wav, self.hparams.sample_rate
             )
 
-            transcript = asr_model.transcribe_file(sample_path.as_posix())
-            transcript = transcript.lower()
-            transcripts.append(transcript)
-
-            wav = torch.FloatTensor(wavs[i])
             sample_path = save_folder / f"{utt_id}_ref.wav"
             sb.dataio.dataio.write_audio(
-                sample_path, wav, self.hparams.sample_rate
+                sample_path, tgt_wav, self.hparams.sample_rate
             )
 
             sample_path = save_folder / f"{utt_id}.txt"
             with open(sample_path, "w") as file:
                 file.write(f"pred: {transcript}\n")
-                file.write(f"ref: {tgt_text[i]}\n")
+                file.write(f"ref: {tgt_transcript}\n")
 
         self.bleu_metric.append(
-            ids[:sample_size], transcripts, [tgt_text[:sample_size]]
+            ids[:sample_size],
+            transcripts[:sample_size],
+            [tgt_transcripts[:sample_size]],
         )
 
         bleu_path = save_folder / "bleu.txt"
@@ -534,7 +493,6 @@ def dataio_prepare(hparams):
 
     # Dynamic Batching is used, we instantiate the needed samplers.
     train_batch_sampler = None
-    valid_batch_sampler = None
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
@@ -551,16 +509,7 @@ def dataio_prepare(hparams):
             max_batch_ex=dynamic_hparams["max_batch_ex"],
         )
 
-        valid_batch_sampler = DynamicBatchSampler(
-            datasets["valid"],
-            dynamic_hparams["max_batch_len_val"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=False,
-            batch_ordering=dynamic_hparams["batch_ordering"],
-        )
-
-    return datasets, (train_batch_sampler, valid_batch_sampler)
+    return datasets, train_batch_sampler
 
 
 if __name__ == "__main__":
@@ -611,8 +560,7 @@ if __name__ == "__main__":
         },
     )
 
-    datasets, samplers = dataio_prepare(hparams)
-    (train_bsampler, valid_bsampler) = samplers
+    datasets, train_bsampler = dataio_prepare(hparams)
 
     s2ut_brain = S2UT(
         modules=hparams["modules"],
@@ -632,16 +580,10 @@ if __name__ == "__main__":
             "collate_fn": hparams["train_dataloader_opts"]["collate_fn"],
         }
 
-    if valid_bsampler is not None:
-        valid_dataloader_opts = {
-            "batch_sampler": valid_bsampler,
-            "collate_fn": hparams["valid_dataloader_opts"]["collate_fn"],
-        }
-
     s2ut_brain.fit(
         s2ut_brain.hparams.epoch_counter,
         datasets["train"],
-        datasets["valid"],
+        datasets["valid_small"],
         train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=valid_dataloader_opts,
     )
@@ -650,7 +592,7 @@ if __name__ == "__main__":
         "batch_size": 1,
     }
 
-    for dataset in ["test"]:
+    for dataset in ["valid", "test"]:
         s2ut_brain.evaluate(
             datasets[dataset],
             max_key="ACC",
