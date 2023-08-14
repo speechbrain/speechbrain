@@ -169,6 +169,6 @@ lang_dir: !ref <output_folder>/lang
 vocab_file: !ref <data_folder>/librispeech-vocab.txt
 sil_prob: 0.5
 # For k2 decoding
-test_search_beam: 16
-test_output_beam: 8
+test_search_beam: 32 
+test_output_beam: 4
 test_max_active_state: 2000
