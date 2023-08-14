@@ -149,7 +149,7 @@ normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
 # MODEL: SHALLOWCONVNET
 input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels: 40 # @orion_step1: --cnn_temporal_kernels~"uniform(4, 64,discrete=True)"
-cnn_spatial_kernels: 40 # @orion_step1: --cnn_temporal_kernels~"uniform(4, 64,discrete=True)"
+cnn_spatial_kernels: 40 # @orion_step1: --cnn_spatial_kernels~"uniform(4, 64,discrete=True)"
 cnn_temporal_kernelsize: 13 # @orion_step1: --cnn_temporal_kernelsize~"uniform(5, 62,discrete=True)"
 cnn_poolsize: 37 # @orion_step1: --cnn_poolsize~"uniform(5, 62,discrete=True)"
 cnn_poolstride: 20 # @orion_step1: --cnn_poolstride~"uniform(5, 62,discrete=True)"
