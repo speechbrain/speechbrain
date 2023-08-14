@@ -530,10 +530,7 @@ class G2PBrain(sb.Brain):
                 if self.hparams.enable_metrics:
                     self._write_reports(epoch, final=False)
 
-            if self.epoch_counter.should_stop(
-                current=epoch, current_metric=per,
-            ):
-                self.epoch_counter.current = self.epoch_counter.limit
+            self.epoch_counter.update_metric(per)
 
         if stage == sb.Stage.TEST:
             test_stats = {"loss": stage_loss}

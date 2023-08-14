@@ -104,13 +104,14 @@ class ASR_Brain(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nPER stats:\n")
                     self.per_metrics.write_stats(w)
                     print(
-                        "CTC and PER stats written to ", self.hparams.wer_file
+                        "CTC and PER stats written to ",
+                        self.hparams.test_wer_file,
                     )
 
 

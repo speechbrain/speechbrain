@@ -340,7 +340,7 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
     def add_speed_perturb(self, clean, targ_lens):
@@ -841,8 +841,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_loader_kwargs"],
     )
 
-    # Test
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    # Testing
     asr_brain.evaluate(
         test_data,
         min_key="WER",

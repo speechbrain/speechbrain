@@ -928,3 +928,181 @@ class ClassificationStats(MetricStats):
         else:
             label = key
         return label
+
+
+class MultiMetricStats:
+    """A wrapper that evaluates multiple metrics simultaneously
+
+    Arguments
+    ---------
+    metric : function
+        The function to use to compute the relevant metrics. Should take
+        at least two arguments (predictions and targets) and can
+        optionally take the relative lengths of either or both arguments.
+        The function should return a dict or a namedtuple
+
+    batch_eval: bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
+    n_jobs : int
+        The number of jobs to use for computing the metric. If this is
+        more than one, every sample is processed individually, otherwise
+        the whole batch is passed at once.
+
+    Example
+    -------
+    >>> def metric(a, b):
+    ...    return {
+    ...        "sum": a + b,
+    ...        "diff": a - b,
+    ...        "sum_sq": a**2 + b**2
+    ...    }
+    >>> multi_metric = MultiMetricStats(metric, batch_eval=True)
+    >>> multi_metric.append([1, 2], a=torch.tensor([2.0, 1.0]), b=torch.tensor([1.0, 2.0]))
+    >>> multi_metric.append([3, 4], a=torch.tensor([4.0, 5.0]), b=torch.tensor([0.0, 1.0]))
+    >>> multi_metric.append([5, 6], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
+    >>> multi_metric.append([7, 8], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
+    >>> multi_metric.summarize() #doctest: +NORMALIZE_WHITESPACE
+    {'sum': {'average': 5.0,
+      'min_score': 3.0,
+      'min_id': 1,
+      'max_score': 6.0,
+      'max_id': 4},
+     'diff': {'average': 1.0,
+      'min_score': -2.0,
+      'min_id': 5,
+      'max_score': 4.0,
+      'max_id': 3},
+     'sum_sq': {'average': 16.5,
+      'min_score': 5.0,
+      'min_id': 1,
+      'max_score': 26.0,
+      'max_id': 4}}
+    >>> multi_metric.summarize(flat=True) #doctest: +NORMALIZE_WHITESPACE
+    {'sum_average': 5.0,
+     'sum_min_score': 3.0,
+     'sum_min_id': 1,
+     'sum_max_score': 6.0,
+     'sum_max_id': 4,
+     'diff_average': 1.0,
+     'diff_min_score': -2.0,
+     'diff_min_id': 5,
+     'diff_max_score': 4.0,
+     'diff_max_id': 3,
+     'sum_sq_average': 16.5,
+     'sum_sq_min_score': 5.0,
+     'sum_sq_min_id': 1,
+     'sum_sq_max_score': 26.0,
+     'sum_sq_max_id': 4}
+    """
+
+    def __init__(self, metric, n_jobs=1, batch_eval=False):
+        self.metric = _dictify(metric)
+        self.n_jobs = n_jobs
+        self.batch_eval = batch_eval
+        self.ids = []
+        self.metrics = {}
+
+    def append(self, ids, *args, **kwargs):
+        """Store a particular set of metric scores.
+
+        Arguments
+        ---------
+        ids : list
+            List of ids corresponding to utterances.
+        *args, **kwargs
+            Arguments to pass to the metric function.
+        """
+        self.ids.extend(ids)
+
+        # Batch evaluation
+        if self.batch_eval:
+            scores = self.eval_simple(*args, **kwargs)
+
+        else:
+            if "predict" not in kwargs or "target" not in kwargs:
+                raise ValueError(
+                    "Must pass 'predict' and 'target' as kwargs if batch_eval=False"
+                )
+            if self.n_jobs == 1:
+                # Sequence evaluation (loop over inputs)
+                scores_raw = sequence_evaluation(self.metric, **kwargs)
+            else:
+                # Multiprocess evaluation
+                scores_raw = multiprocess_evaluation(
+                    metric=self.metric, n_jobs=self.n_jobs, **kwargs
+                )
+
+            keys = scores_raw[0].keys()
+            scores = {
+                key: torch.tensor([score[key] for score in scores_raw])
+                for key in keys
+            }
+
+        for key, metric_scores in scores.items():
+            if key not in self.metrics:
+                self.metrics[key] = MetricStats(lambda x: x, batch_eval=True)
+            self.metrics[key].append(ids, metric_scores)
+
+    def eval_simple(self, *args, **kwargs):
+        """Evaluates the metric in a simple, sequential
+        manner"""
+        scores = self.metric(*args, **kwargs)
+        return {key: score.detach() for key, score in scores.items()}
+
+    def summarize(self, field=None, flat=False):
+        """Summarize the metric scores, returning relevant stats.
+
+        Arguments
+        ---------
+        field : str
+            If provided, only returns selected statistic. If not,
+            returns all computed statistics.
+        flat: bool
+            whether to flatten the dictionary
+
+        Returns
+        -------
+         dict
+            Returns a dictionary of all computed stats
+        """
+
+        result = {
+            key: metric.summarize(field) for key, metric in self.metrics.items()
+        }
+        if flat:
+            result = {
+                f"{key}_{field}": value
+                for key, fields in result.items()
+                for field, value in fields.items()
+            }
+        return result
+
+
+def _dictify(f):
+    """A wrapper that converts functions returning
+    namedtuples to functions returning dicts while leaving
+    functions returning dicts intact
+
+    Arguments
+    ---------
+    f: callable
+        a function
+
+    Returns
+    -------
+    result: callable
+        a wrapped function"""
+    has_asdict = None
+
+    def wrapper(*args, **kwargs):
+        """The wrapper function"""
+        nonlocal has_asdict
+        result = f(*args, **kwargs)
+        if has_asdict is None:
+            has_asdict = hasattr(result, "_asdict")
+        return result._asdict() if has_asdict else result
+
+    return wrapper

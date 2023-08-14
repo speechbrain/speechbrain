@@ -153,7 +153,7 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nseq2seq loss stats:\n")
@@ -162,7 +162,7 @@ class ASR(sb.Brain):
                     self.per_metrics.write_stats(w)
                     print(
                         "CTC, seq2seq, and PER stats written to file",
-                        self.hparams.wer_file,
+                        self.hparams.test_wer_file,
                     )
 
 
