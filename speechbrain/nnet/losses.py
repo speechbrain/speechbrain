@@ -2,8 +2,6 @@
 Losses for training neural networks.
 
 Authors
- * Zeyu Zhao 2023
- * Georgios Karakasidis 2023
  * Mirco Ravanelli 2020
  * Samuele Cornell 2020
  * Hwidong Na 2020
