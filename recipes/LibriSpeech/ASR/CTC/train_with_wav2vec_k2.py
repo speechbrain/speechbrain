@@ -121,7 +121,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_texts = self.graph_compiler.decode(p_ctc, wav_lens) # list of strings
+            predicted_texts = self.graph_compiler.decode(p_ctc, wav_lens, ac_scale=self.hparams.ac_scale) # list of strings
             predicted_words = [wrd.split(" ") for wrd in predicted_texts]
             target_words = [wrd.split(" ") for wrd in texts]
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -136,6 +136,7 @@ class ASR(sb.Brain):
                                                              wav_lens, 
                                                              search_beam=self.hparams.test_search_beam, 
                                                              output_beam=self.hparams.test_output_beam, 
+                                                             ac_scale=self.hparams.ac_scale,
                                                              max_active_states=self.hparams.test_max_active_state) # list of strings
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
             target_words = [wrd.split(" ") for wrd in texts]
