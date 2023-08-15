@@ -18,6 +18,8 @@ np.random.seed(0)
 
 
 def is_clipped(audio, clipping_threshold=0.99):
+    """Check if an audio signal is clipped.
+    """
     return any(abs(audio) > clipping_threshold)
 
 

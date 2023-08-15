@@ -5,6 +5,7 @@ Taken from https://github.com/facebookresearch/denoiser/blob/master/scripts/matl
 Authors
  * adiyoss (https://github.com/adiyoss)
 """
+
 from scipy.linalg import toeplitz
 from tqdm import tqdm
 from pesq import pesq
@@ -15,6 +16,12 @@ import sys
 
 
 def eval_composite(ref_wav, deg_wav, sample_rate):
+    """Evaluate audio quality metrics based on reference
+    and degraded audio signals.
+    This function computes various audio quality metrics,
+    including PESQ, CSIG, CBAK, and COVL, based on the
+    reference and degraded audio signals provided.
+    """
     ref_wav = ref_wav.reshape(-1)
     deg_wav = deg_wav.reshape(-1)
 
@@ -54,10 +61,16 @@ def eval_composite(ref_wav, deg_wav, sample_rate):
 
 # ----------------------------- HELPERS ------------------------------------ #
 def trim_mos(val):
+    """Trim a value to be within the MOS (Mean Opinion Score)
+    range [1, 5].
+    """
     return min(max(val, 1), 5)
 
 
 def lpcoeff(speech_frame, model_order):
+    """Calculate linear prediction (LP) coefficients using
+    the autocorrelation method.
+    """
     # (1) Compute Autocor lags
     winlength = speech_frame.shape[0]
     R = []
@@ -97,6 +110,8 @@ def lpcoeff(speech_frame, model_order):
 
 # ---------------------- Speech Quality Metric ----------------------------- #
 def PESQ(ref_wav, deg_wav, sample_rate):
+    """Compute PESQ score.
+    """
     psq_mode = "wb" if sample_rate == 16000 else "nb"
     return pesq(sample_rate, ref_wav, deg_wav, psq_mode)
 
@@ -156,6 +171,11 @@ def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
 
 
 def wss(ref_wav, deg_wav, srate):
+    """ Calculate Weighted Spectral Slope (WSS) distortion
+    measure between reference and degraded audio signals.
+    This function computes the WSS distortion measure using
+    critical band filters and spectral slope differences.
+    """
     clean_speech = ref_wav
     processed_speech = deg_wav
     clean_length = ref_wav.shape[0]
@@ -367,6 +387,12 @@ def wss(ref_wav, deg_wav, srate):
 
 
 def llr(ref_wav, deg_wav, srate):
+    """Calculate Log Likelihood Ratio (LLR) distortion measure
+    between reference and degraded audio signals. This function
+    computes the LLR distortion measure between reference and
+    degraded audio signals using LPC analysis and autocorrelation
+    logs.
+    """
     clean_speech = ref_wav
     processed_speech = deg_wav
     clean_length = ref_wav.shape[0]

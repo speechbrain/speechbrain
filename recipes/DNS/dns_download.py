@@ -197,6 +197,11 @@ SPLIT_LIST = [
 
 
 def prepare_download():
+    """
+    Downloads and prepares various data files and resources. It
+    downloads real-time DNS track data files (train set and dev
+    noisy set), RIR and BLIND test set data files.
+    """
     # Real-time DNS track (train set + dev noisy set)
     for file_url in BLOB_NAMES:
 
@@ -338,6 +343,16 @@ def download_file(
 
 
 def download_file_parallel(args):
+    """
+    Downloads a file in parallel using the provided arguments. It
+    makes use of `download_file` function to download the required file.
+
+    Arguments
+    ---------
+    args : tuple
+        Tuple containing the download URL, download path, split
+        name, filename, and required bytes to be downloaded.
+    """
     download_url, download_path, split_name, filename, resume_byte_pos = args
     download_file(
         download_url,

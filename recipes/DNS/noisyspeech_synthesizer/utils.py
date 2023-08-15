@@ -38,10 +38,14 @@ def write_log_file(log_dir, log_filename, data):
 
 
 def str2bool(string):
+    """Convert a string to a boolean value.
+    """
     return string.lower() in ("yes", "true", "t", "1")
 
 
 def rename_copyfile(src_path, dest_dir, prefix="", ext="*.wav"):
+    """Copy and rename files from a source directory to a destination directory.
+    """
     srcfiles = glob.glob(f"{src_path}/" + ext)
     for i in range(len(srcfiles)):
         dest_path = os.path.join(

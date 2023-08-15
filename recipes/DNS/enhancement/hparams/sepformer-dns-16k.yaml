@@ -1,9 +1,9 @@
 # ################################
-# Model: SepFormer for source separation
+# Model: SepFormer model for speech enhancement
 # https://arxiv.org/abs/2010.13154
 #
 # Author:  Sangeet Sagar 2022
-# Dataset : Microsoft-DNS
+# Dataset : Microsoft-DNS 4
 # ################################
 
 # Basic parameters

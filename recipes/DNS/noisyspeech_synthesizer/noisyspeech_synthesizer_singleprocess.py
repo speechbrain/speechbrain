@@ -45,7 +45,9 @@ start = time.time()
 
 
 def add_pyreverb(clean_speech, rir):
-
+    """
+    Add reverb to cean signal
+    """
     reverb_speech = signal.fftconvolve(clean_speech, rir, mode="full")
 
     # make reverb_speech same length as clean_speech
