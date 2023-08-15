@@ -573,7 +573,8 @@ class Checkpointer:
             )
 
         # Communicate ckpt_dir to all procs
-        torch.distributed.broadcast_object_list([ckpt_dir], src=0)
+        if torch.distributed.is_initialized():
+            torch.distributed.broadcast_object_list([ckpt_dir], src=0)
 
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
