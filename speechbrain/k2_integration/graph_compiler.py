@@ -173,6 +173,7 @@ class CtcTrainingGraphCompiler(object):
                input_lens: torch.Tensor,
                search_beam=5,
                output_beam=5,
+               ac_scale=1.0,
                min_active_states=30,
                max_active_states=1000) -> List[str]:
         """
@@ -186,6 +187,7 @@ class CtcTrainingGraphCompiler(object):
             each sequence in `log_probs`.
           search_beam: int, decoding beam size
           output_beam: int, lattice beam size
+          ac_scale: float, acoustic scale applied to `log_probs`
           min_active_states: int, minimum #states that are not pruned during decoding
           max_active_states: int, maximum #active states that are kept during decoding
 
@@ -200,6 +202,7 @@ class CtcTrainingGraphCompiler(object):
         input_lens = input_lens.to(device)
 
         input_lens = (input_lens * log_probs.shape[1]).round().int()
+        log_probs *= ac_scale
 
         with torch.no_grad():
             lattice = k2.get_lattice(
@@ -216,7 +219,7 @@ class CtcTrainingGraphCompiler(object):
             texts = []
             for wids in list_wids:
                 texts.append(" ".join([self.word_table[wid]
-                             for wid in wids if wid != self.oov_id]))
+                             for wid in wids]))
             del lattice
             del one_best
             torch.cuda.empty_cache()

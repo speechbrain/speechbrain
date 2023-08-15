@@ -255,7 +255,7 @@ class Lexicon(object):
             words = text.split()
             for i, word in enumerate(words):
                 if word not in self.word2tids:
-                    logging.warn(f"Cannot find word {word} in the lexicon. Replacing it with {oov_token}. please check {self.lang_dir}/lexicon.txt. Note that this is fine if you are testing.")
+                    logging.warn(f"Cannot find word {word} in the lexicon. Replacing it with {oov_token}. please check {self.lang_dir}/lexicon.txt. Note that it is fine if you are testing.")
                     word = oov_token
                 tids.extend(self.word2tids[word][0])
                 if add_sil_token_as_separator and i < len(words) - 1:

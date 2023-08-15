@@ -1,7 +1,7 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021
+# Authors: Zeyu Zhao 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
