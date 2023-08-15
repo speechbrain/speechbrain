@@ -60,7 +60,7 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
-from speechbrain.utils.distributed import main_process_only
+from speechbrain.utils.distributed import main_process_only, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -561,14 +561,20 @@ class Checkpointer:
         Checkpoint
             namedtuple [see above], the saved checkpoint.
         """
-        if name is None:
-            ckpt_dir = self._new_checkpoint_dirpath()
-        else:
-            ckpt_dir = self._custom_checkpoint_dirpath(name)
-        os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
-        saved_meta = self._save_checkpoint_metafile(
-            ckpt_dir / METAFNAME, meta, end_of_epoch
-        )
+        ckpt_dir = None
+        if if_main_process():
+            if name is None:
+                ckpt_dir = self._new_checkpoint_dirpath()
+            else:
+                ckpt_dir = self._custom_checkpoint_dirpath(name)
+            os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
+            saved_meta = self._save_checkpoint_metafile(
+                ckpt_dir / METAFNAME, meta, end_of_epoch
+            )
+
+        # Communicate ckpt_dir to all procs
+        torch.distributed.broadcast_object_list([ckpt_dir], src=0)
+
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
@@ -590,9 +596,13 @@ class Checkpointer:
             MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
-        ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
-        logger.log(verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}")
-        return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        if if_main_process():
+            ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
+            logger.log(
+                verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}"
+            )
+            return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
     def save_and_keep_only(
         self,
