@@ -10,7 +10,7 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_seq2seq/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
