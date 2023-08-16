@@ -51,11 +51,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class HuggingFaceTransformer(nn.Module):
+class HFTransformersInterface(nn.Module):
     """This lobe provides an interface for integrating any HuggingFace transformer model within SpeechBrain
     We use AutoClasses for loading any model from the hub and its necessary components.
-    For example, we build HuggingFaceWav2Vec2 class which inherits HuggingFaceTransformer for working with HuggingFace's wav2vec models
-    While HuggingFaceWav2Vec2 can enjoy some already built features like modeling loading, pretrained weights loading, all weights freezing,
+    For example, we build Wav2Vec2 class which inherits HFTransformersInterface for working with HuggingFace's wav2vec models
+    While Wav2Vec2 can enjoy some already built features like modeling loading, pretrained weights loading, all weights freezing,
     feature_extractor loading, etc.
     Users are expected to override the essential forward() function to fit their specific needs.
     Depending on the HuggingFace transformer model in question, one can also modify the state_dict by overwriting the _modify_state_dict() method,
@@ -82,7 +82,7 @@ class HuggingFaceTransformer(nn.Module):
     -------
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "tmp"
-    >>> model = HuggingFaceTransformer(model_hub, save_path=save_path)
+    >>> model = HFTransformersInterface(model_hub, save_path=save_path)
     """
 
     def __init__(
@@ -124,7 +124,7 @@ class HuggingFaceTransformer(nn.Module):
         self.freeze = freeze
         if self.freeze:
             logger.warning(
-                "speechbrain.lobes.models.HuggingFaceTransformer is frozen."
+                f"speechbrain.lobes.models.huggingface_transformers.huggingface - {type(self.model).__name__} is frozen."
             )
             self.freeze_model(self.model)
         else:
@@ -181,7 +181,7 @@ class HuggingFaceTransformer(nn.Module):
     def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and
         is hosted locally or on a HuggingFace hub.
-        Called as static function in HuggingFaceTransformer._from_pretrained.
+        Called as static function in HFTransformersInterface._from_pretrained.
         Arguments
         ---------
         path : str
@@ -255,11 +255,16 @@ class HuggingFaceTransformer(nn.Module):
         err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
 
-    def _modify_state_dict(self):
-        """"A custom loading ensures SpeechBrain compatibility for pretrain and model
-        For example, wav2vec2 model pretrained with SB (HuggingFaceWav2Vec2Pretrain) has slightly different keys from HuggingFaceWav2Vec2.
+    def _modify_state_dict(self, path, **args):
+        """A custom loading ensures SpeechBrain compatibility for pretrain and model
+        For example, wav2vec2 model pretrained with SB (Wav2Vec2Pretrain) has slightly different keys from Wav2Vec2.
         This method handle the compatibility between the two.
-        Users should modify this function according to their own tasks."""
+        Users should modify this function according to their own tasks.
+        Arguments
+        ---------
+        path : str
+            Checkpoint path, file name relative to the repo root.
+        """
         return
 
     def _load_sb_pretrained_parameters(self, path, modify_state_dict_fn):
@@ -268,8 +273,8 @@ class HuggingFaceTransformer(nn.Module):
         loading because HuggingFace adds a level to the checkpoint when storing
         the model breaking the compatibility Pretrain and model de/serialization.
 
-        For example, a typical HuggingFaceWav2Vec2 checkpoint for a given parameter
-        would be: model.conv.weight.data while for HuggingFaceWav2Vec2Pretrain it
+        For example, a typical Wav2Vec2 checkpoint for a given parameter
+        would be: model.conv.weight.data while for Wav2Vec2Pretrain it
         is: model.wav2vec2.weight.data (wav2vec2 must be removed before loading).
         Arguments
         ---------
@@ -295,7 +300,7 @@ class HuggingFaceTransformer(nn.Module):
         for unexpected_key in incompatible_keys.unexpected_keys:
             logger.warning(
                 f"The param with the key: {unexpected_key} is discarded as it "
-                + "is useless for finetuning this HuggingFaceTransformer."
+                + f"is useless for finetuning this {type(self.model).__name__} model."
             )
 
     def forward(self, **kwargs):

@@ -18,7 +18,7 @@ import numpy as np
 import torch.nn.functional as F
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    HuggingFaceTransformer,
+    HFTransformersInterface,
 )
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     make_masks,
@@ -40,7 +40,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class HuggingFaceWav2Vec2(HuggingFaceTransformer):
+class Wav2Vec2(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace and SpeechBrain
     pretrained wav2vec2.0/Hubert models.
 
@@ -82,7 +82,7 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "savedir"
-    >>> model = HuggingFaceWav2Vec2(model_hub, save_path)
+    >>> model = Wav2Vec2(model_hub, save_path)
     >>> outputs = model(inputs)
     """
 
@@ -106,7 +106,7 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
         self.freeze_feature_extractor = freeze_feature_extractor
         if not self.freeze and self.freeze_feature_extractor:
             logger.warning(
-                "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 feature extractor is frozen."
+                "speechbrain.lobes.models.huggingface_transformers.wav2vec - wav2vec 2.0 feature extractor is frozen."
             )
             self.model.feature_extractor.eval()
             for param in self.model.feature_extractor.parameters():
@@ -197,7 +197,7 @@ class HuggingFaceWav2Vec2(HuggingFaceTransformer):
         return out
 
 
-class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
+class Wav2Vec2Pretrain(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace
      wav2vec2.0 models to be pretrained.
 
@@ -226,7 +226,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
     >>> inputs = torch.rand([10, 32000])
     >>> model_hub = "facebook/wav2vec2-base-960h"
     >>> save_path = "savedir"
-    >>> model = HuggingFaceWav2Vec2Pretrain(model_hub, save_path)
+    >>> model = Wav2Vec2Pretrain(model_hub, save_path)
     >>> outputs, _ = model(inputs, wav_lens=None)
     """
 
@@ -321,7 +321,7 @@ class HuggingFaceWav2Vec2Pretrain(HuggingFaceTransformer):
         return config
 
 
-class WeightedSSLModel(HuggingFaceTransformer):
+class WeightedSSLModel(HFTransformersInterface):
     """This lobe enables the integration of use of weighted sum representations
     from different layers in a SSL encoder.
 
