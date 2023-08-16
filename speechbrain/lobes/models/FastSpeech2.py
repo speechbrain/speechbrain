@@ -19,7 +19,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.losses import bce_loss
-import numpy as np 
+import numpy as np
 
 
 class PositionalEmbedding(nn.Module):
@@ -1880,7 +1880,9 @@ def maximum_path_numpy(value, mask):
     v = np.zeros((b, t_x), dtype=np.float32)
     x_range = np.arange(t_x, dtype=np.float32).reshape(1, -1)
     for j in range(t_y):
-        v0 = np.pad(v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val)[:, :-1]
+        v0 = np.pad(
+            v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val
+        )[:, :-1]
         v1 = v
         max_mask = v1 >= v0
         v_max = np.where(max_mask, v1, v0)
@@ -1902,7 +1904,7 @@ def maximum_path_numpy(value, mask):
 
 
 class AlignmentNetwork(torch.nn.Module):
-    """Learns the alignment between the input text 
+    """Learns the alignment between the input text
     and the spectrogram with Gaussian Attention.
 
     query -> conv1d -> relu -> conv1d -> relu -> conv1d -> L2_dist -> softmax -> alignment
@@ -2005,9 +2007,13 @@ class AlignmentNetwork(torch.nn.Module):
         attn_factor = (query_out[:, :, :, None] - key_out[:, :, None]) ** 2
         attn_logp = -self.temperature * attn_factor.sum(1, keepdim=True)
         if attn_prior is not None:
-            attn_logp = self.log_softmax(attn_logp) + torch.log(attn_prior[:, None] + 1e-8)
+            attn_logp = self.log_softmax(attn_logp) + torch.log(
+                attn_prior[:, None] + 1e-8
+            )
         if mask is not None:
-            attn_logp.data.masked_fill_(~mask.bool().unsqueeze(2), -float("inf"))
+            attn_logp.data.masked_fill_(
+                ~mask.bool().unsqueeze(2), -float("inf")
+            )
         attn = self.softmax(attn_logp)
         return attn, attn_logp
 
@@ -2018,7 +2024,7 @@ class FastSpeech2WithAlignment(nn.Module):
     for instantiating all submodules, which, in turn, manage the individual
     neural network layers.
 
-    Simplified STRUCTURE: 
+    Simplified STRUCTURE:
     input -> token embedding -> encoder -> aligner -> duration -> upsampler -> decoder -> output
 
     During training, teacher forcing is used (ground truth spectrograms are used for learning the alignment)
@@ -2303,23 +2309,17 @@ class FastSpeech2WithAlignment(nn.Module):
             hard alignment map [B, T_en, T_de].
         """
         attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
-        # print("attn_mask: ", attn_mask.shape)
-        alignment_soft, alignment_logprob = self.aligner(y.transpose(1, 2), x.transpose(1, 2), x_mask, None)
-        # print("alignment_soft: ", alignment_soft.shape)
-        # print("alignment_logprob: ", alignment_logprob.shape)
-        alignment_mas = maximum_path_numpy(
-            alignment_soft.squeeze(1).transpose(1, 2).contiguous(), attn_mask.squeeze(1).contiguous()
+        alignment_soft, alignment_logprob = self.aligner(
+            y.transpose(1, 2), x.transpose(1, 2), x_mask, None
         )
-        # print("alignment_mas: ", alignment_mas.shape)
+        alignment_mas = maximum_path_numpy(
+            alignment_soft.squeeze(1).transpose(1, 2).contiguous(),
+            attn_mask.squeeze(1).contiguous(),
+        )
         durations = torch.sum(alignment_mas, -1).int()
         alignment_soft = alignment_soft.squeeze(1).transpose(1, 2)
         soft_durations = torch.sum(alignment_soft, -1).int()
-        # print(soft_durations[0])
-        # print(durations[0])
-        # print(alignment_soft[0], alignment_soft[0].shape)
-        # print(alignment_mas[0], alignment_mas[0].shape)
         return durations, alignment_soft, alignment_logprob, alignment_mas
-        # return durations, alignment_soft, alignment_logprob, alignment_mas
 
     def forward(
         self,
@@ -2394,7 +2394,9 @@ class FastSpeech2WithAlignment(nn.Module):
         alignment_logprob = None
         alignment_mas = None
         if mel_spectograms is not None:
-            y_mask = get_key_padding_mask(mel_spectograms, pad_idx=self.padding_idx)
+            y_mask = get_key_padding_mask(
+                mel_spectograms, pad_idx=self.padding_idx
+            )
             y_mask_inverted = (~y_mask).unsqueeze(-1)
 
             (
@@ -2428,7 +2430,9 @@ class FastSpeech2WithAlignment(nn.Module):
         # use a pitch rate to adjust the pitch
         predict_pitch = predict_pitch * pitch_rate
         if pitch is not None:
-            avg_pitch = average_over_durations(pitch.unsqueeze(1), alignment_durations)
+            avg_pitch = average_over_durations(
+                pitch.unsqueeze(1), alignment_durations
+            )
             pitch = self.pitchEmbed(avg_pitch)
             avg_pitch = avg_pitch.permute(0, 2, 1)
         else:
@@ -2440,7 +2444,9 @@ class FastSpeech2WithAlignment(nn.Module):
         avg_energy = None
         predict_energy = self.energyPred(token_feats, srcmask_inverted)
         if energy is not None:
-            avg_energy = average_over_durations(energy.unsqueeze(1), alignment_durations)
+            avg_energy = average_over_durations(
+                energy.unsqueeze(1), alignment_durations
+            )
             energy = self.energyEmbed(avg_energy)
             avg_energy = avg_energy.permute(0, 2, 1)
         else:
@@ -2451,7 +2457,9 @@ class FastSpeech2WithAlignment(nn.Module):
         # upsampling
         spec_feats, mel_lens = upsample(
             token_feats,
-            alignment_durations if alignment_durations is not None else predict_durations_reverse_log,
+            alignment_durations
+            if alignment_durations is not None
+            else predict_durations_reverse_log,
             pace=pace,
         )
         srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
@@ -2555,10 +2563,10 @@ class LossWithAlignment(nn.Module):
         self.energy_loss_weight = energy_loss_weight
         self.aligner_loss_weight = aligner_loss_weight
         self.binary_alignment_loss_weight = binary_alignment_loss_weight
-        self.binary_alignment_loss_warmup_epochs = binary_alignment_loss_warmup_epochs
+        self.binary_alignment_loss_warmup_epochs = (
+            binary_alignment_loss_warmup_epochs
+        )
         self.binary_alignment_loss_max_epochs = binary_alignment_loss_max_epochs
-
-
 
     def forward(self, predictions, targets, current_epoch):
         """Computes the value of the loss function and updates stats
@@ -2661,7 +2669,9 @@ class LossWithAlignment(nn.Module):
         loss["mel_loss"] = mel_loss * self.mel_loss_weight
 
         postnet_mel_loss = torch.div(postnet_mel_loss, len(mel_target))
-        loss["postnet_mel_loss"] = postnet_mel_loss * self.postnet_mel_loss_weight
+        loss["postnet_mel_loss"] = (
+            postnet_mel_loss * self.postnet_mel_loss_weight
+        )
 
         dur_loss = torch.div(dur_loss, len(mel_target))
         loss["dur_loss"] = dur_loss * self.duration_loss_weight
@@ -2673,16 +2683,32 @@ class LossWithAlignment(nn.Module):
         loss["energy_loss"] = energy_loss * self.energy_loss_weight
 
         if alignment_logprob is not None:
-            aligner_loss = self.aligner_loss(alignment_logprob, phon_len, mel_length)
+            aligner_loss = self.aligner_loss(
+                alignment_logprob, phon_len, mel_length
+            )
             loss["aligner_loss"] = aligner_loss * self.aligner_loss_weight
+
         if alignment_soft is not None and alignment_hard is not None:
             if current_epoch > self.binary_alignment_loss_max_epochs:
                 binary_loss_warmup_weight = 0
             else:
-                binary_loss_warmup_weight = min(current_epoch / self.binary_alignment_loss_warmup_epochs, 1.0) * 1.0
+                binary_loss_warmup_weight = (
+                    min(
+                        current_epoch
+                        / self.binary_alignment_loss_warmup_epochs,
+                        1.0,
+                    )
+                    * 1.0
+                )
 
-            binary_alignment_loss = self.binary_alignment_loss(alignment_hard, alignment_soft)
-            loss["binary_alignment_loss"] = binary_alignment_loss * self.binary_alignment_loss_weight * binary_loss_warmup_weight
+            binary_alignment_loss = self.binary_alignment_loss(
+                alignment_hard, alignment_soft
+            )
+            loss["binary_alignment_loss"] = (
+                binary_alignment_loss
+                * self.binary_alignment_loss_weight
+                * binary_loss_warmup_weight
+            )
 
         total_loss = sum(loss.values())
         loss["total_loss"] = total_loss
@@ -2699,12 +2725,16 @@ class ForwardSumLoss(nn.Module):
     def forward(self, attn_logprob, in_lens, out_lens):
         key_lens = in_lens
         query_lens = out_lens
-        attn_logprob_padded = torch.nn.functional.pad(input=attn_logprob, pad=(1, 0), value=self.blank_logprob)
+        attn_logprob_padded = torch.nn.functional.pad(
+            input=attn_logprob, pad=(1, 0), value=self.blank_logprob
+        )
 
         total_loss = 0.0
         for bid in range(attn_logprob.shape[0]):
             target_seq = torch.arange(1, key_lens[bid] + 1).unsqueeze(0)
-            curr_logprob = attn_logprob_padded[bid].permute(1, 0, 2)[: query_lens[bid], :, : key_lens[bid] + 1]
+            curr_logprob = attn_logprob_padded[bid].permute(1, 0, 2)[
+                : query_lens[bid], :, : key_lens[bid] + 1
+            ]
 
             curr_logprob = self.log_softmax(curr_logprob[None])[0]
             loss = self.ctc_loss(
@@ -2723,9 +2753,12 @@ class BinaryAlignmentLoss(nn.Module):
     """Binary loss that forces soft alignments to match the hard alignments as
     explained in `https://arxiv.org/pdf/2108.10447.pdf`.
     """
+
     def __init__(self):
         super().__init__()
 
     def forward(self, alignment_hard, alignment_soft):
-        log_sum = torch.log(torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)).sum()
+        log_sum = torch.log(
+            torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)
+        ).sum()
         return -log_sum / alignment_hard.sum()

@@ -676,7 +676,7 @@ def custom_clean(text, model_name):
         text = re.sub("[:;]", " - ", text)
         text = re.sub(r'[)(\[\]"]', " ", text)
         text = text.strip().strip().strip("-")
-        
+
     text = re.sub(" +", " ", text)
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)

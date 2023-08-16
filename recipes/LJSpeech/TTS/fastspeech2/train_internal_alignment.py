@@ -1,6 +1,6 @@
 """
 Recipe for training the FastSpeech2 Text-To-Speech model
-Instead of using pre-extracted phoneme durations from MFA, 
+Instead of using pre-extracted phoneme durations from MFA,
 This recipe trains an internal alignment from scratch, as introduced in:
 https://arxiv.org/pdf/2108.10447.pdf (One TTS Alignment To Rule Them All)
 To run this recipe, do the following:
@@ -84,7 +84,9 @@ class FastSpeech2Brain(sb.Brain):
         x, y, metadata = self.batch_to_device(batch, return_metadata=True)
         self.last_batch = [x[0], y[-1], y[-2], predictions[0], *metadata]
         self._remember_sample([x[0], *y, *metadata], predictions)
-        loss = self.hparams.criterion(predictions, y, self.hparams.epoch_counter.current)
+        loss = self.hparams.criterion(
+            predictions, y, self.hparams.epoch_counter.current
+        )
         self.last_loss_stats[stage] = scalarize(loss)
         return loss["total_loss"]
 
@@ -325,13 +327,11 @@ def dataio_prepare(hparams):
     input_encoder.add_unk()
 
     # load audio, text and durations on the fly; encode audio and text.
-    @sb.utils.data_pipeline.takes(
-        "wav", "phonemes", "pitch"
-    )
+    @sb.utils.data_pipeline.takes("wav", "phonemes", "pitch")
     @sb.utils.data_pipeline.provides("mel_text_pair")
     def audio_pipeline(wav, phonemes, pitch):
         phoneme_seq = input_encoder.encode_sequence_torch(phonemes).int()
-        
+
         audio, fs = torchaudio.load(wav)
         audio = audio.squeeze()
         mel, energy = hparams["mel_spectogram"](audio=audio)
@@ -349,7 +349,7 @@ def dataio_prepare(hparams):
             json_path=hparams[f"{dataset}_json"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
-            output_keys=["mel_text_pair", "wav", "label","pitch"],
+            output_keys=["mel_text_pair", "wav", "label", "pitch"],
         )
     return datasets
 

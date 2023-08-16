@@ -224,7 +224,7 @@ criterion: !new:speechbrain.lobes.models.FastSpeech2.LossWithAlignment
     aligner_loss_weight: 1.0
     binary_alignment_loss_weight: 0.2
     binary_alignment_loss_warmup_epochs: 1
-    binary_alignment_loss_max_epochs: 100
+    binary_alignment_loss_max_epochs: 80
 
 vocoder: "hifi-gan"
 pretrained_vocoder: True

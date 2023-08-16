@@ -353,7 +353,10 @@ def _g2p_keep_punctuations(g2p_model, text):
                 phonemes_with_punc.append(i)
     except:
         # sometimes the g2p model cannot split the words correctly
-        logger.warning(f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}")
+        logger.warning(
+            f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}"
+        )
+
         for i in all_:
             if i not in "-!'(),.:;? ":
                 p = g2p_model.g2p(i)
