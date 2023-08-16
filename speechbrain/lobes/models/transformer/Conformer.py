@@ -17,7 +17,7 @@ from speechbrain.nnet.attention import (
     MultiheadAttention,
     PositionalwiseFeedForward
 )
-from speechbrain.nnet.hypermixing import HyperMixing
+from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.activations import Swish
 
