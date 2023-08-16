@@ -138,6 +138,18 @@ class HuggingFaceTransformer(nn.Module):
         # 1. Is the model from HF or a local path
         # 2. Is the model pretrained with HF or SpeechBrain
         # 3. Download (if appropriate) and load with respect to 1. and 2.
+        Arguments
+        ---------
+        source : str
+            HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+        config : AutoConfig
+            HuggingFace generic configuration class.
+        model: AutoModel
+            HuggingFace generic model class.
+        save_path : str
+            Path (dir) of the downloaded model.
+        cache_dir : str
+            Path (dir) in which a downloaded pretrained model configuration should be cached.
         """
         is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
         if is_sb:
