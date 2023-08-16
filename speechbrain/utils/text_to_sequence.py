@@ -338,20 +338,22 @@ def _g2p_keep_punctuations(g2p_model, text):
     all_ = re.findall(r"[\w]+|[-!'(),.:;? ]", text)
     try:
         phonemes = g2p_model(text)
-    except:
-        logger.info(f"error with {text}")
+    except RuntimeError:
+        logger.info(f"error with text: {text}")
         quit()
     word_phonemes = "-".join(phonemes).split(" ")
 
     phonemes_with_punc = []
+    count = 0
     try:
         # if the g2p model splits the words correctly
         for i in all_:
             if i not in "-!'(),.:;? ":
                 phonemes_with_punc.extend(word_phonemes[count].split("-"))
+                count +=1
             else:
                 phonemes_with_punc.append(i)
-    except:
+    except IndexError:
         # sometimes the g2p model cannot split the words correctly
         logger.warning(
             f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}"

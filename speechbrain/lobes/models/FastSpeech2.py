@@ -2318,7 +2318,6 @@ class FastSpeech2WithAlignment(nn.Module):
         )
         durations = torch.sum(alignment_mas, -1).int()
         alignment_soft = alignment_soft.squeeze(1).transpose(1, 2)
-        soft_durations = torch.sum(alignment_soft, -1).int()
         return durations, alignment_soft, alignment_logprob, alignment_mas
 
     def forward(
