@@ -7,11 +7,15 @@ Authors
  * Florian Mai 2023
  * Juan Pablo Zuluaga 2023
 """
-import torch
+from typing import Optional
+
 import random, math
 import numpy as np
+
+import torch
 from torch import nn
-from typing import Optional
+
+import speechbrain as sb
 
 class HyperMixing(nn.Module):
     """ This class implements multi-head HyperMixing.
@@ -46,7 +50,13 @@ class HyperMixing(nn.Module):
     torch.Size([8, 60, 512])
     """
     def __init__(
-        self, input_output_dim: int, hypernet_size: int, tied: bool=False, num_heads: int=1, fix_tm_hidden_size=False, max_length=3000
+        self, 
+        input_output_dim: int, 
+        hypernet_size: int, 
+        tied: bool=False, 
+        num_heads: int=1, 
+        fix_tm_hidden_size=False, 
+        max_length=3000,
     ) -> None:
         super().__init__()
         self.input_output_dim = input_output_dim
@@ -61,7 +71,7 @@ class HyperMixing(nn.Module):
         )
 
 
-    def _mlp_pass_from_components(out, W1, W2, activation):
+    def _mlp_pass_from_components(self, out, W1, W2, activation):
         """function to stick MLP1 together manually"""
         out = torch.bmm(out, W1)
         out = activation(out)
@@ -75,7 +85,7 @@ class HyperMixing(nn.Module):
         value,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
-        return_attn_weights: Optional[torch.Tensor] = True,
+        return_attn_weights: Optional[bool] = True,
         pos_embs: Optional[torch.Tensor] = None,
     ):
         """
@@ -98,6 +108,8 @@ class HyperMixing(nn.Module):
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
             Currently unused.
+        attn_mask : torch.Tensor, optional
+            NOTE: Currently has NO effect.
         key_padding_mask : torch.Tensor, optional
             (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
@@ -105,7 +117,7 @@ class HyperMixing(nn.Module):
             unchanged. If a BoolTensor is provided, the positions with the
             value of True will be ignored while the position with the value
             of False will be unchanged.
-        attn_mask : torch.Tensor, optional
+        return_attn_weights: torch.Tensor, optional
             NOTE: Currently has NO effect.
         pos_embs: torch.Tensor, optional
             NOTE: Currently has NO effect.
@@ -143,7 +155,6 @@ class HyperMixing(nn.Module):
         out = out.reshape((bsize * self.num_heads, self.input_output_dim // self.num_heads, seq_len)) # [bsize * num_heads, input_output_dim // num_heads, seq_len]
         W1 = W1.reshape((bsize * self.num_heads, seq_len, -1))
         W2 = W2.reshape((bsize * self.num_heads, seq_len, -1))
-        
 
         # we stick the token-mixing MLP together manually
         out = self._mlp_pass_from_components(out, W1, W2, self.activation)
@@ -162,15 +173,35 @@ class HyperMixing(nn.Module):
 
 class HyperNetwork(nn.Module):
     def __init__(
-        self, i
-        nput_output_dim: int, 
+        self,
+        input_output_dim: int, 
         hypernet_size: int, 
         tied=False, 
         num_heads=1, 
         keep_output_size=True,
     ) -> None:
+        """This class implements The HyperNetwork. It is an approach of using a one network,
+        also known as a hypernetwork, to generate the weights for another network. 
+        Here, it is used to generate the labels of linear layers. 
+
+        Reference: https://arxiv.org/abs/1609.09106
+
+        Arguments
+        ----------
+            input_output_dim : int 
+                Dimension of the linear layers
+            hypernet_size:
+                Dimension of the HyperNetwork
+            tied : bool, optional 
+                Define whether weights of layer 1 and layer 2 are shared
+            num_heads: int, optional
+                Number of heads, akin to heads in MultiHeadAttention
+            keep_output_size: bool, optional
+                Set whether to keep the same output size independent of number of heads
+        """
         super(HyperNetwork, self).__init__()
 
+        # Define whether the two linear layers have tied weights
         self.tied = tied
         self.w1_gen = ParallelMLPs(input_output_dim, input_output_dim, output_size=hypernet_size, num_mlps=num_heads, keep_output_size=keep_output_size)
         if self.tied:
@@ -179,10 +210,20 @@ class HyperNetwork(nn.Module):
             self.w2_gen = ParallelMLPs(input_output_dim, input_output_dim, output_size=hypernet_size, num_mlps=num_heads, keep_output_size=keep_output_size)
 
     def forward(self, input_tensor: torch.Tensor):
-        """
-        input_tensor : [batchsize, max_positions, d]
-        The HyperNetwork is supposed to generate an MLP of the form W_2(GELU(W1 x)), where
-        W1 : N -> k and W2 : k -> N, so it has to return W1 and W2
+        """ Forward computation for a HyperNetwork.
+
+        Arguments
+        ----------
+            input_tensor : [batchsize, max_positions, d]
+                The HyperNetwork is supposed to generate an MLP of the form W_2(GELU(W1 x)), where
+                W1 : N -> k and W2 : k -> N, so it has to return tensors W1 and W2
+        
+        Outputs
+        -------
+        W1 : torch.Tensor
+            Generated weights of Layer 1
+        W2 : torch.Tensor
+            Generated weights of Layer 2
         """
         W1 = self.w1_gen(input_tensor)
         if self.tied:
@@ -201,6 +242,21 @@ class ParallelMLPs(nn.Module):
         num_mlps=1, 
         keep_output_size=True,
     ) -> None:
+        """Class that implements the MultiHead HyperMixer or HyperConformer.
+
+        Arguments
+        ----------
+            input_size : int 
+                Dimension of the linear layers
+            hidden_size: int
+                Dimension of the hidden layer
+            output_size : int 
+                Dimension of the HyperNetwork
+            num_mlps : int
+                Number of heads, akin to heads in MultiHeadAttention
+            keep_output_size : bool, optional
+                Set whether to keep the same output size independent of number of heads
+        """
         super(ParallelMLPs, self).__init__()
 
         if output_size is None:
@@ -223,11 +279,13 @@ class ParallelMLPs(nn.Module):
 
         self.num_mlps = num_mlps
 
+        # set the weights and biases parameters
         self.fc1_weights = nn.Parameter(torch.empty(num_mlps, hidden_size, input_size))
         self.fc1_biases = nn.Parameter(torch.empty(num_mlps, hidden_size))
         self.fc2_weights = nn.Parameter(torch.empty(num_mlps, output_size, hidden_size))
         self.fc2_biases = nn.Parameter(torch.empty(num_mlps, output_size))
 
+        # initialize the weights and biases
         nn.init.xavier_uniform_(self.fc1_weights, gain=math.sqrt(2.0))
         nn.init.xavier_uniform_(self.fc1_biases, gain=math.sqrt(2.0))
         nn.init.xavier_uniform_(self.fc2_weights, gain=math.sqrt(2.0))
@@ -236,13 +294,25 @@ class ParallelMLPs(nn.Module):
         self.activation = nn.GELU()
 
     def forward(self, x):
+        """Performs the forward computation of multi parallel MLPs.
+
+        Arguments
+        ----------
+            x : tensor
+                Input tensor
+        """
+        
         # x [bsize, seq_len, num_features]
 
         bsize = x.size(0)
         seq_len = x.size(1)
 
+        # TODO: comment
         x = x.reshape((bsize, seq_len, self.num_mlps, self.input_size))
+        
         x = torch.einsum("blmf,mhf->bmlh", x, self.fc1_weights) + self.fc1_biases.unsqueeze(0).unsqueeze(2)
+        
+        # TODO: comment
         x = self.activation(x)
         x = torch.einsum("bmlh,mfh->bmlf", x, self.fc2_weights) + self.fc2_biases.unsqueeze(0).unsqueeze(2)
 
