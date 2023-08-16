@@ -59,6 +59,7 @@ class HuggingFaceHuBERT(HuggingFaceWav2Vec2):
 
     Example
     -------
+    >>> import torch
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/hubert-base-ls960"
     >>> save_path = "savedir"

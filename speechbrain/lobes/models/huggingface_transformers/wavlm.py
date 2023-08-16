@@ -59,6 +59,7 @@ class HuggingFaceWavLM(HuggingFaceWav2Vec2):
 
     Example
     -------
+    >>> import torch
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "microsoft/wavlm-large"
     >>> save_path = "savedir"
