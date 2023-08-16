@@ -356,5 +356,7 @@ if __name__ == "__main__":
 
     # Testing
     asr_brain.evaluate(
-        test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
+        test_data,
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+        min_key="CER",
     )
