@@ -165,8 +165,7 @@ class HuggingFaceTransformer(nn.Module):
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_parameters(
-                ckpt_full_path,
-                modify_state_dict_partial_fn=self._modify_state_dict_partial_fn,
+                ckpt_full_path, modify_state_dict_fn=self._modify_state_dict,
             )
         else:
             if self.for_pretraining:
@@ -261,11 +260,9 @@ class HuggingFaceTransformer(nn.Module):
         For example, wav2vec2 model pretrained with SB (HuggingFaceWav2Vec2Pretrain) has slightly different keys from HuggingFaceWav2Vec2.
         This method handle the compatibility between the two.
         Users should modify this function according to their own tasks."""
-        raise NotImplementedError
+        return
 
-    def _load_sb_pretrained_parameters(
-        self, path, modify_state_dict_partial_fn
-    ):
+    def _load_sb_pretrained_parameters(self, path, modify_state_dict_fn):
         """Loads the parameter of a HuggingFace model pretrained with SpeechBrain
         and the HuggingFace Pretrain Object. It is necessary to perform a custom
         loading because HuggingFace adds a level to the checkpoint when storing
@@ -274,9 +271,15 @@ class HuggingFaceTransformer(nn.Module):
         For example, a typical HuggingFaceWav2Vec2 checkpoint for a given parameter
         would be: model.conv.weight.data while for HuggingFaceWav2Vec2Pretrain it
         is: model.wav2vec2.weight.data (wav2vec2 must be removed before loading).
+        Arguments
+        ---------
+        path : pathlib.Path
+            The full path to the checkpoint.
+        modify_state_dict_fn : method
+            A customized method which modifies the checkpoint's state_dict.
         """
-        if modify_state_dict_partial_fn is not None:
-            modified_state_dict = modify_state_dict_partial_fn(path)
+        if modify_state_dict_fn is not None:
+            modified_state_dict = modify_state_dict_fn(path)
         else:
             modified_state_dict = torch.load(path, map_location="cpu")
 
@@ -336,13 +339,25 @@ class HuggingFaceTransformer(nn.Module):
         return config
 
     def load_feature_extractor(self, source, cache_dir, **kwarg):
-        """Load model's feature_extractor from the hub"""
+        """Load model's feature_extractor from the hub
+        Arguments
+        ---------
+        source : str
+            HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+        cache_dir : str
+            Path (dir) in which a downloaded pretrained model configuration should be cached.
+        """
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(
             source, cache_dir=cache_dir, **kwarg
         )
 
     def load_tokenizer(self, source, **kwarg):
-        """Load model's tokenizer from the hub"""
+        """Load model's tokenizer from the hub
+        Arguments
+        ---------
+        source : str
+            HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+        """
         self.tokenizer = AutoTokenizer.from_pretrained(source, **kwarg)
 
 
