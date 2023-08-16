@@ -1920,7 +1920,7 @@ class AlignmentNetwork(torch.nn.Module):
         Number of inner channels in the attention layers. Defaults to 80.
     temperature: float
         Temperature for the softmax. Defaults to 0.0005.
-    
+
     Example
     -------
     >>> import torch
@@ -2745,6 +2745,7 @@ class LossWithAlignment(nn.Module):
 class ForwardSumLoss(nn.Module):
     """CTC alignment loss
     """
+
     def __init__(self, blank_logprob=-1):
         super().__init__()
         self.log_softmax = torch.nn.LogSoftmax(dim=3)
