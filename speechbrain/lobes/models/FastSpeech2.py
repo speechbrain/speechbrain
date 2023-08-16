@@ -387,7 +387,7 @@ class SPNPredictor(nn.Module):
         spn_token_feats, _ = self.spn_encoder(
             token_feats, src_mask=spn_mask, src_key_padding_mask=srcmask
         )
-        spn_decision = self.spn_linear(spn_token_feats).squeeze()
+        spn_decision = self.spn_linear(spn_token_feats).squeeze(-1)
 
         return spn_decision
 
@@ -717,9 +717,9 @@ class FastSpeech2(nn.Module):
         token_feats = token_feats * srcmask_inverted
 
         # duration predictor
-        predict_durations = self.durPred(
-            token_feats, srcmask_inverted
-        ).squeeze()
+        predict_durations = self.durPred(token_feats, srcmask_inverted).squeeze(
+            -1
+        )
 
         if predict_durations.dim() == 1:
             predict_durations = predict_durations.unsqueeze(0)
@@ -1068,13 +1068,13 @@ class Loss(nn.Module):
             spn_preds,
         ) = predictions
 
-        predicted_pitch = predicted_pitch.squeeze()
-        predicted_energy = predicted_energy.squeeze()
+        predicted_pitch = predicted_pitch.squeeze(-1)
+        predicted_energy = predicted_energy.squeeze(-1)
 
-        target_pitch = average_pitch.squeeze()
-        target_energy = average_energy.squeeze()
+        target_pitch = average_pitch.squeeze(-1)
+        target_energy = average_energy.squeeze(-1)
 
-        log_durations = log_durations.squeeze()
+        log_durations = log_durations.squeeze(-1)
         if self.log_scale_durations:
             log_target_durations = torch.log(target_durations.float() + 1)
         # change this to perform batch level using padding mask
