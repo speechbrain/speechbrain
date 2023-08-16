@@ -307,7 +307,7 @@ class FastSpeech2Brain(sb.Brain):
         pitch = pitch_padded.to(self.device, non_blocking=True).float()
         energy = energy_padded.to(self.device, non_blocking=True).float()
         mel_lengths = output_lengths.to(self.device, non_blocking=True).long()
-        x = (phonemes, spectogram, input_lengths, mel_lengths, pitch, energy)
+        x = (phonemes, spectogram, pitch, energy)
         y = (spectogram, pitch, energy, mel_lengths, input_lengths)
         metadata = (labels, wavs)
         if return_metadata:

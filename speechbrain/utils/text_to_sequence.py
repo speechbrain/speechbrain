@@ -350,7 +350,7 @@ def _g2p_keep_punctuations(g2p_model, text):
         for i in all_:
             if i not in "-!'(),.:;? ":
                 phonemes_with_punc.extend(word_phonemes[count].split("-"))
-                count +=1
+                count += 1
             else:
                 phonemes_with_punc.append(i)
     except IndexError:

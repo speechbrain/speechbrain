@@ -415,7 +415,7 @@ class FastSpeech2(nn.Module):
     This class is the main entry point for the model, which is responsible
     for instantiating all submodules, which, in turn, manage the individual
     neural network layers
-    Simplified STRUCTURE: input->token embedding ->encoder ->duration predictor ->duration
+    Simplified STRUCTURE: input->token embedding ->encoder ->duration/pitch/energy predictor ->duration
     upsampler -> decoder -> output
     During training, teacher forcing is used (ground truth durations are used for upsampling)
     Arguments
@@ -1920,6 +1920,22 @@ class AlignmentNetwork(torch.nn.Module):
         Number of inner channels in the attention layers. Defaults to 80.
     temperature: float
         Temperature for the softmax. Defaults to 0.0005.
+    
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import AlignmentNetwork
+    >>> aligner = AlignmentNetwork(
+    ...     in_query_channels=80,
+    ...     in_key_channels=512,
+    ...     attn_channels=80,
+    ...     temperature=0.0005,
+    ... )
+    >>> phoneme_feats = torch.rand(2, 512, 20)
+    >>> mels = torch.rand(2, 80, 100)
+    >>> alignment_soft, alignment_logprob = aligner(mels, phoneme_feats, None, None)
+    >>> alignment_soft.shape, alignment_logprob.shape
+    (torch.Size([2, 1, 100, 20]), torch.Size([2, 1, 100, 20]))
     """
 
     def __init__(
@@ -2019,15 +2035,15 @@ class AlignmentNetwork(torch.nn.Module):
 
 
 class FastSpeech2WithAlignment(nn.Module):
-    """The FastSpeech2 text-to-speech model.
+    """The FastSpeech2 text-to-speech model with internal alignment.
     This class is the main entry point for the model, which is responsible
     for instantiating all submodules, which, in turn, manage the individual
-    neural network layers.
+    neural network layers. Certain parts are adopted from the following implementation:
+    https://github.com/coqui-ai/TTS/blob/dev/TTS/tts/models/forward_tts.py
 
     Simplified STRUCTURE:
-    input -> token embedding -> encoder -> aligner -> duration -> upsampler -> decoder -> output
+    input -> token embedding -> encoder -> aligner -> duration/pitch/energy -> upsampler -> decoder -> output
 
-    During training, teacher forcing is used (ground truth spectrograms are used for learning the alignment)
     Arguments
     ---------
     #encoder parameters
@@ -2106,8 +2122,8 @@ class FastSpeech2WithAlignment(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
-    >>> model = FastSpeech2(
+    >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2WithAlignment
+    >>> model = FastSpeech2WithAlignment(
     ...    enc_num_layers=6,
     ...    enc_num_head=2,
     ...    enc_d_model=384,
@@ -2116,7 +2132,7 @@ class FastSpeech2WithAlignment(nn.Module):
     ...    enc_v_dim=384,
     ...    enc_dropout=0.1,
     ...    in_query_channels=80,
-    ...    in_key_channels=512,
+    ...    in_key_channels=384,
     ...    attn_channels=80,
     ...    temperature=0.0005,
     ...    dec_num_layers=6,
@@ -2144,16 +2160,14 @@ class FastSpeech2WithAlignment(nn.Module):
     ...     [13, 12, 31, 14, 19],
     ...     [31, 16, 30, 31, 0],
     ... ])
-    >>> input_lengths = torch.tensor([5, 4])
-    >>> durations = torch.tensor([
-    ...     [2, 4, 1, 5, 3],
-    ...     [1, 2, 4, 3, 0],
-    ... ])
-    >>> mel_post, postnet_output, durations, predict_pitch, avg_pitch, predict_energy, avg_energy, mel_lens = model(inputs, durations=durations)
+    >>> mels = torch.rand(2, 100, 80)
+    >>> mel_post, postnet_output, durations, predict_pitch, avg_pitch, predict_energy, avg_energy, mel_lens, alignment_durations, alignment_soft, alignment_logprob, alignment_mas = model(inputs, mels)
     >>> mel_post.shape, durations.shape
-    (torch.Size([2, 15, 80]), torch.Size([2, 5]))
+    (torch.Size([2, 100, 80]), torch.Size([2, 5]))
     >>> predict_pitch.shape, predict_energy.shape
     (torch.Size([2, 5, 1]), torch.Size([2, 5, 1]))
+    >>> alignment_soft.shape, alignment_mas.shape
+    (torch.Size([2, 100, 5]), torch.Size([2, 100, 5]))
     """
 
     def __init__(
@@ -2285,8 +2299,9 @@ class FastSpeech2WithAlignment(nn.Module):
         """Aligner forward pass.
         1. Compute a mask to apply to the attention map.
         2. Run the alignment network.
-        3. Apply MAS to compute the hard alignment map.
+        3. Apply MAS (Monotonic alignment search) to compute the hard alignment map.
         4. Compute the durations from the hard alignment map.
+
         Arguments
         ---------
         x: torch.Tensor
@@ -2324,20 +2339,19 @@ class FastSpeech2WithAlignment(nn.Module):
         self,
         tokens,
         mel_spectograms=None,
-        input_lengths=None,
-        output_lengths=None,
         pitch=None,
         energy=None,
         pace=1.0,
         pitch_rate=1.0,
+        energy_rate=1.0,
     ):
         """forward pass for training and inference
         Arguments
         ---------
         tokens: torch.Tensor
             batch of input tokens
-        durations: torch.Tensor
-            batch of durations for each token. If it is None, the model will infer on predicted durations
+        mel_spectograms: torch.Tensor
+            batch of mel_spectograms (used only for training)
         pitch: torch.Tensor
             batch of pitch for each frame. If it is None, the model will infer on predicted pitches
         energy: torch.Tensor
@@ -2346,13 +2360,15 @@ class FastSpeech2WithAlignment(nn.Module):
             scaling factor for durations
         pitch_rate: float
             scaling factor for pitches
+        energy_rate: float
+            scaling factor for energies
         Returns
         ---------
         mel_post: torch.Tensor
             mel outputs from the decoder
         postnet_output: torch.Tensor
             mel outputs from the postnet
-        durations: torch.Tensor
+        predict_durations: torch.Tensor
             predicted durations of each token
         predict_pitch: torch.Tensor
             predicted pitches of each token
@@ -2366,6 +2382,14 @@ class FastSpeech2WithAlignment(nn.Module):
             None if input energy is None
         mel_length:
             predicted lengths of mel spectrograms
+        alignment_durations:
+            durations from the hard alignment map
+        alignment_soft: torch.Tensor
+            soft alignment potentials
+        alignment_logprob: torch.Tensor
+            log scale alignment potentials
+        alignment_mas: torch.Tensor
+            hard alignment map
         """
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
@@ -2442,6 +2466,8 @@ class FastSpeech2WithAlignment(nn.Module):
         # energy predictor
         avg_energy = None
         predict_energy = self.energyPred(token_feats, srcmask_inverted)
+        # use an energy rate to adjust the energy
+        predict_energy = predict_energy * energy_rate
         if energy is not None:
             avg_energy = average_over_durations(
                 energy.unsqueeze(1), alignment_durations
@@ -2575,6 +2601,8 @@ class LossWithAlignment(nn.Module):
             model predictions
         targets: tuple
             ground truth data
+        current_epoch: int
+            used to determinate the start/end of the binary alignment loss
         Returns
         -------
         loss: torch.Tensor
@@ -2715,6 +2743,8 @@ class LossWithAlignment(nn.Module):
 
 
 class ForwardSumLoss(nn.Module):
+    """CTC alignment loss
+    """
     def __init__(self, blank_logprob=-1):
         super().__init__()
         self.log_softmax = torch.nn.LogSoftmax(dim=3)
@@ -2722,6 +2752,16 @@ class ForwardSumLoss(nn.Module):
         self.blank_logprob = blank_logprob
 
     def forward(self, attn_logprob, in_lens, out_lens):
+        """
+        Arguments
+        ---------
+        attn_logprob: torch.Tensor
+            log scale alignment potentials
+        in_lens: torch.Tensor
+            input (phoneme) lengths
+        out_lens: torch.Tensor
+            output (mel) lengths
+        """
         key_lens = in_lens
         query_lens = out_lens
         attn_logprob_padded = torch.nn.functional.pad(
@@ -2757,6 +2797,12 @@ class BinaryAlignmentLoss(nn.Module):
         super().__init__()
 
     def forward(self, alignment_hard, alignment_soft):
+        """
+        alignment_hard: torch.Tensor
+            hard alignment map
+        alignment_soft: torch.Tensor
+            soft alignment potentials
+        """
         log_sum = torch.log(
             torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)
         ).sum()
