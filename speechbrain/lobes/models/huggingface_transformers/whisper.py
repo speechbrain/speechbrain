@@ -15,13 +15,13 @@ import logging
 from torch import nn
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    HuggingFaceTransformer,
+    HFTransformersInterface,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class HuggingFaceWhisper(HuggingFaceTransformer):
+class Whisper(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace pretrained Whisper model.
     Source paper whisper:
         https://cdn.openai.com/papers/whisper.pdf
@@ -60,7 +60,7 @@ class HuggingFaceWhisper(HuggingFaceTransformer):
     >>> model_hub = "openai/whisper-tiny"
     >>> save_path = "savedir"
     >>> sampling_rate = 16000
-    >>> model = HuggingFaceWhisper(model_hub, save_path, sampling_rate)
+    >>> model = Whisper(model_hub, save_path, sampling_rate)
     >>> tokens = torch.tensor([[1, 1]]) * model.model.config.decoder_start_token_id
     >>> inputs = torch.randn([1, 93680])
     >>> outputs = model(inputs, tokens)
@@ -116,7 +116,7 @@ class HuggingFaceWhisper(HuggingFaceTransformer):
 
         if not self.freeze and self.freeze_encoder:
             logger.warning(
-                "speechbrain.lobes.models.huggingface_whisper - whisper encoder is frozen."
+                "speechbrain.lobes.models.huggingface_transformers.whisper - whisper encoder is frozen."
             )
             for param in self.model.encoder.parameters():
                 param.requires_grad = False
@@ -132,7 +132,7 @@ class HuggingFaceWhisper(HuggingFaceTransformer):
         """
 
         logger.warning(
-            "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
+            "speechbrain.lobes.models.huggingface_transformers.whisper - whisper encoder-decoder is frozen."
         )
         model.train()  # we keep it to train to have dropout and LN computed adequaly
         for param in model.parameters():

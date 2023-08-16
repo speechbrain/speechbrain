@@ -14,14 +14,12 @@ Authors
 
 import logging
 
-from speechbrain.lobes.models.huggingface_transformers.wav2vec import (
-    HuggingFaceWav2Vec2,
-)
+from speechbrain.lobes.models.huggingface_transformers.wav2vec import Wav2Vec2
 
 logger = logging.getLogger(__name__)
 
 
-class HuggingFaceHuBERT(HuggingFaceWav2Vec2):
+class HuBERT(Wav2Vec2):
     """This lobe enables the integration of HuggingFace and SpeechBrain
     pretrained HuBERT models.
 
@@ -63,7 +61,7 @@ class HuggingFaceHuBERT(HuggingFaceWav2Vec2):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/hubert-base-ls960"
     >>> save_path = "savedir"
-    >>> model = HuggingFaceHuBERT(model_hub, save_path)
+    >>> model = HuBERT(model_hub, save_path)
     >>> outputs = model(inputs)
     """
 
