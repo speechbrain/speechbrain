@@ -584,6 +584,8 @@ class Checkpointer:
         if torch.distributed.is_initialized():
             torch.distributed.broadcast_object_list([ckpt_dir], src=0)
 
+        print(ckpt_dir)
+
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT

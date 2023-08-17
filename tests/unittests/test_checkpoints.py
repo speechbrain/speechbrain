@@ -1,9 +1,9 @@
+import torch
 import pytest
 
 
 def test_checkpointer(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
-    import torch
 
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
@@ -142,7 +142,6 @@ def test_recovery_custom_io(tmpdir):
 
 def test_checkpoint_deletion(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
-    import torch
 
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
@@ -207,7 +206,6 @@ def test_checkpoint_deletion(tmpdir, device):
 
 def test_multiple_ckpts_and_criteria(tmpdir):
     from speechbrain.utils.checkpoints import Checkpointer
-    import torch
 
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
@@ -256,7 +254,6 @@ def test_multiple_ckpts_and_criteria(tmpdir):
 
 def test_torch_meta(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
-    import torch
 
     class Recoverable(torch.nn.Module):
         def __init__(self, param):
@@ -344,7 +341,6 @@ def test_checkpoint_hook_register(tmpdir):
 
 def test_torch_defaults(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
-    import torch
 
     module = torch.nn.Linear(10, 10).to(device)
     optimizer = torch.optim.Adam(module.parameters())
@@ -385,3 +381,44 @@ def test_torch_defaults(tmpdir, device):
     )
     checkpointer.load_checkpoint(ckpt)
     assert torch.allclose(module(inp), prev_output)
+
+
+def parallel_checkpoint(rank, world_size, tmpdir):
+    import os
+    from speechbrain.utils.checkpoints import Checkpointer
+
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+
+    # initialize the process group
+    torch.distributed.init_process_group(
+        "gloo", rank=rank, world_size=world_size
+    )
+
+    model = torch.nn.Linear(10, 10, device="cpu")
+    checkpointer = Checkpointer(tmpdir, recoverables={"model": model})
+    ckpt = checkpointer.save_checkpoint()
+
+    if rank != 0:
+        assert ckpt is None
+    if rank == 0:
+        # Check that only a single checkpoint is saved, even in ddp
+        assert len(os.listdir(tmpdir)) == 1
+
+        # Check that the model is saved
+        inp = torch.randn((3, 10), device="cpu")
+        prev_output = model(inp)
+        checkpointer.load_checkpoint(ckpt)
+        assert torch.allclose(model(inp), prev_output)
+
+    torch.distributed.destroy_process_group()
+
+
+def test_parallel_checkpoint(tmpdir):
+    world_size = 2
+    torch.multiprocessing.spawn(
+        parallel_checkpoint,
+        args=(world_size, tmpdir),
+        nprocs=world_size,
+        join=True,
+    )
