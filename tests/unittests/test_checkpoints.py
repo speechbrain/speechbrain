@@ -389,6 +389,8 @@ def parallel_checkpoint(rank, world_size, tmpdir):
 
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
+    os.environ["RANK"] = str(rank)
+    os.environ["LOCAL_RANK"] = str(rank)
 
     # initialize the process group
     torch.distributed.init_process_group(
