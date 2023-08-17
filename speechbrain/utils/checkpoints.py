@@ -586,8 +586,6 @@ class Checkpointer:
             torch.distributed.broadcast_object_list(communication_list, src=0)
         ckpt_dir = communication_list[0]
 
-        print(ckpt_dir)
-
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
