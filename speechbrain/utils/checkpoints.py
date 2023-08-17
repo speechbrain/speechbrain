@@ -541,6 +541,13 @@ class Checkpointer:
         The value of end_of_epoch is saved in the meta. This can affect how
         epoch counters and dataset iterators load their state.
 
+        For multi-process saving there are cases where we may want to run
+        saving code on multiple processes (e.g. FSDP where we need to collect
+        parameters before saving). This works by creating a save folder
+        on the main process and communicating it to all processes, and then
+        letting each saver/loader method control whether it should save
+        on one or all processes.
+
         Arguments
         ---------
         meta : mapping, optional
@@ -559,7 +566,8 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            namedtuple [see above], the saved checkpoint.
+            namedtuple [see above], the saved checkpoint, unless this is run
+            on a non-main process, in which case it returns None.
         """
         ckpt_dir = None
         if if_main_process():
@@ -604,6 +612,9 @@ class Checkpointer:
                 verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}"
             )
             return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        # Explicity return None if this is not the main process
+        return None
 
     def save_and_keep_only(
         self,
