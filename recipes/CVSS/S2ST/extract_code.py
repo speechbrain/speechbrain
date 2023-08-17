@@ -24,6 +24,7 @@ from huggingface_hub import hf_hub_download
 OPT_FILE = "opt_cvss_extract.pkl"
 TRAIN_JSON = "train.json"
 VALID_JSON = "valid.json"
+VALID_SMALL = "valid_small.json"
 TEST_JSON = "test.json"
 
 
@@ -66,6 +67,7 @@ def skip(splits, save_folder, conf):
     split_files = {
         "train": TRAIN_JSON,
         "valid": VALID_JSON,
+        "valid_small": VALID_SMALL,
         "test": TEST_JSON,
     }
 

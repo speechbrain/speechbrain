@@ -77,7 +77,7 @@ class S2UT(sb.core.Brain):
             )
             hyps, _ = search(enc_out.detach(), wav_lens)
 
-            # generate speech
+            # generate speech and transcriptions
             wavs = []
             for hyp in hyps:
                 code = torch.LongTensor(hyp)
@@ -272,7 +272,7 @@ class S2UT(sb.core.Brain):
             self.train_stats = stage_loss
 
         # At the end of validation, we can write
-        elif stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        elif stage == sb.Stage.VALID:
             # delete vocoder and asr to free memory for next training epoch
             del self.test_vocoder
             del self.test_asr
@@ -287,7 +287,6 @@ class S2UT(sb.core.Brain):
             )
 
             if output_progress_sample:
-                # Compute BLEU scores
                 self._save_progress_sample(epoch)
 
             self.last_epoch = epoch
@@ -315,8 +314,12 @@ class S2UT(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"ACC": stage_stats["ACC"], "epoch": epoch},
-                max_keys=["ACC"],
+                meta={
+                    "ACC": stage_stats["ACC"],
+                    "BLEU": stage_stats["BLEU"],
+                    "epoch": epoch,
+                },
+                max_keys=["BLEU"],
                 num_to_keep=10,
             )
 
@@ -595,6 +598,6 @@ if __name__ == "__main__":
     for dataset in ["valid", "test"]:
         s2ut_brain.evaluate(
             datasets[dataset],
-            max_key="ACC",
+            max_key="BLEU",
             test_loader_kwargs=test_dataloader_opts,
         )

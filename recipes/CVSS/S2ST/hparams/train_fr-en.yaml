@@ -27,9 +27,9 @@ src_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr
 tgt_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr-en
 sample_rate: 16000
 
-train_json: !ref <save_folder>/train_debug.json
+train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
-valid_small_json: !ref <save_folder>/train_debug.json
+valid_small_json: !ref <save_folder>/valid_small.json
 test_json: !ref <save_folder>/test.json
 splits: ["train", "valid_small", "valid", "test"]
 skip_prep: False
@@ -192,7 +192,7 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
 wav2vec_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_wav2vec>
     improvement_threshold: 0.0025
-    annealing_factor: 0.90
+    annealing_factor: 0.98
 
 #epoch object
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
