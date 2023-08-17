@@ -21,7 +21,6 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    make_masks,
     make_padding_masks,
 )
 
@@ -171,7 +170,7 @@ class Wav2Vec2(HFTransformersInterface):
             The relative length of the wav given in SpeechBrain format.
         """
 
-        padding_mask = make_masks(wav, wav_len=wav_lens)
+        padding_mask = make_padding_masks(wav, wav_len=wav_lens)
 
         if self.normalize_wav:
             wav = F.layer_norm(wav, wav.shape[1:])
@@ -221,6 +220,7 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
     mask_length : float (default: 10)
         Length (i.e. number of consecutive masked frames). Default is taken from
         the paper.
+
     Example
     -------
     >>> inputs = torch.rand([10, 32000])
@@ -315,7 +315,7 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
 
         Returns
         -------
-            Overrided config
+        Overridded config
         """
         config.output_hidden_states = True
         return config
@@ -338,6 +338,7 @@ class WeightedSSLModel(HFTransformersInterface):
         Number of internal layers: e.g 13 for "Base" models.
     layernorm: bool
         Whether layer representations should be layernormed before sum
+
     Example
     -------
     >>> inputs = torch.rand([10, 600])
@@ -348,7 +349,7 @@ class WeightedSSLModel(HFTransformersInterface):
     """
 
     def __init__(self, hub, num_layers, layernorm=False):
-        super().__init__(source=hub, save_path=".")
+        super().__init__(source=hub)
         self.model.eval()
         self.num_layers = num_layers
         # Initializing the learnable weights
@@ -358,6 +359,7 @@ class WeightedSSLModel(HFTransformersInterface):
 
     def forward(self, wav, wav_lens=None):
         """This method outputs a weighted sum of the layers representations of the SSL encoder
+
         Arguments
         ---------
         wav : tensor
@@ -393,7 +395,7 @@ class WeightedSSLModel(HFTransformersInterface):
 
         Returns
         -------
-        Overrided config
+        Overridded config
         """
         config.output_hidden_states = True
         return config

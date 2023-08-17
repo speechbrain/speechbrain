@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class Whisper(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace pretrained Whisper model.
+
     Source paper whisper:
         https://cdn.openai.com/papers/whisper.pdf
     Transformer from HuggingFace needs to be installed:
@@ -33,6 +34,7 @@ class Whisper(HFTransformersInterface):
 
     The model can be finetuned. It will download automatically the model from
     HuggingFace or use a local path.
+
     Arguments
     ---------
     source : str
@@ -55,6 +57,7 @@ class Whisper(HFTransformersInterface):
         For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),
         where the output of the CNN output is added to the beginning.
         If False, the forward function outputs the hidden states only from the last transformer layer of the encoder.
+
     Example
     -------
     >>> model_hub = "openai/whisper-tiny"
@@ -189,6 +192,7 @@ class Whisper(HFTransformersInterface):
 
     def forward_encoder(self, wav):
         """Perform one step of the whisper encoder with Mel FBANKs as Input.
+
         Arguments
         ---------
         wav : torch.Tensor (FBANKs)
@@ -205,6 +209,7 @@ class Whisper(HFTransformersInterface):
         """Takes an input waveform and return its corresponding encoder states.
         Returns the last hidden state of the encoder or all hidden states if
         output_all_hiddens is True.
+
         Arguments
         ---------
         wav : torch.Tensor (signal)
@@ -221,6 +226,7 @@ class Whisper(HFTransformersInterface):
         """Takes an input waveform and return its corresponding mel spectrogram
         according to HuggingFace implementation. WARNING: it's slow! Better push this
         in the DataLoader.
+
         Arguments
         ---------
         wav : torch.Tensor (signal)
@@ -305,6 +311,7 @@ class Whisper(HFTransformersInterface):
 
     def forward_decoder(self, audio_features, decoder_input_ids):
         """Perform one step of the whisper decoder.
+
         Arguments
         ---------
         audio_features : torch.Tensor
