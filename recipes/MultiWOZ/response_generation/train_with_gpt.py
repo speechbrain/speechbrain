@@ -90,12 +90,12 @@ class ResGenBrain(sb.Brain):
             ]
             predicted_words = tokenizer.batch_decode(
                 hyps[:, history_bos.shape[1] :],
-                skip_special_tokens=True,
+                skip_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
             target_words = tokenizer.batch_decode(
                 reply_truncated,
-                skip_special_tokens=True,
+                skip_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
             self.bleu_4_metric.append(ids, predicted_words, target_words)
