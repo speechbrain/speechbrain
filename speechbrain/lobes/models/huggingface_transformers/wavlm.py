@@ -30,6 +30,9 @@ class WavLM(Wav2Vec2):
     The model can be used as a fixed feature extractor or can be finetuned. It
     will download automatically the model from HuggingFace or use a local path.
 
+    For now, HuggingFace's HuBERT and WavLM model can be loaded using the exact code for Wav2Vec2 model.
+    For this reason, HuBERT and WavLM can be fine inheriting the Wav2Vec2 class.
+
     Arguments
     ---------
     source : str

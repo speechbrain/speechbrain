@@ -39,7 +39,6 @@ try:
         AutoTokenizer,
         AutoFeatureExtractor,
         AutoModelForPreTraining,
-        # AutoProcessor,
         AutoModel,
     )
 
@@ -52,9 +51,10 @@ logger = logging.getLogger(__name__)
 
 
 class HFTransformersInterface(nn.Module):
-    """This lobe provides an interface for integrating any HuggingFace transformer model within SpeechBrain
+    """This lobe provides an interface for integrating any HuggingFace transformer model within SpeechBrain.
+
     We use AutoClasses for loading any model from the hub and its necessary components.
-    For example, we build Wav2Vec2 class which inherits HFTransformersInterface for working with HuggingFace's wav2vec models
+    For example, we build Wav2Vec2 class which inherits HFTransformersInterface for working with HuggingFace's wav2vec models.
     While Wav2Vec2 can enjoy some already built features like modeling loading, pretrained weights loading, all weights freezing,
     feature_extractor loading, etc.
     Users are expected to override the essential forward() function to fit their specific needs.
@@ -88,7 +88,7 @@ class HFTransformersInterface(nn.Module):
     def __init__(
         self,
         source,
-        save_path,
+        save_path="",
         for_pretraining=False,
         freeze=False,
         cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",
@@ -135,9 +135,11 @@ class HFTransformersInterface(nn.Module):
         self, source, config, model, save_path, cache_dir,
     ):
         """This function manages the source checking and loading of the params.
+
         # 1. Is the model from HF or a local path
         # 2. Is the model pretrained with HF or SpeechBrain
         # 3. Download (if appropriate) and load with respect to 1. and 2.
+
         Arguments
         ---------
         source : str
@@ -164,9 +166,7 @@ class HFTransformersInterface(nn.Module):
                 cache_dir=cache_dir,
             )
             # We transfer the parameters from the checkpoint.
-            self._load_sb_pretrained_parameters(
-                ckpt_full_path, modify_state_dict_fn=self._modify_state_dict,
-            )
+            self._load_sb_pretrained_parameters(ckpt_full_path)
         else:
             if self.for_pretraining:
                 # For now, we don't need to load pretrained model for pretraining
@@ -182,18 +182,27 @@ class HFTransformersInterface(nn.Module):
         """Checks if the pretrained model has been trained with SpeechBrain and
         is hosted locally or on a HuggingFace hub.
         Called as static function in HFTransformersInterface._from_pretrained.
+
         Arguments
         ---------
         path : str
             Used as "source"; local path or HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
         save_path : str
             norm_output (dir) of the downloaded model.
+
         Returns
         -------
         is_sb : bool
             Whether/not the model is deserializable w/ SpeechBrain or not (then, model conversion is needed).
         checkpoint_filename : str
             as of HuggingFace documentation: file name relative to the repo root (guaranteed to be here).
+        is_local : bool
+            Whether/not the model is hosted locally or on a HuggingFace hub.
+
+        Raises
+        ------
+        ValueError
+            If file is not found
         """
         checkpoint_filename = ""
         source = pathlib.Path(path)
@@ -255,19 +264,22 @@ class HFTransformersInterface(nn.Module):
         err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
 
-    def _modify_state_dict(self, path, **args):
-        """A custom loading ensures SpeechBrain compatibility for pretrain and model
+    def _modify_state_dict(self, path, **kwargs):
+        """A custom loading ensures SpeechBrain compatibility for pretrain and model.
+
         For example, wav2vec2 model pretrained with SB (Wav2Vec2Pretrain) has slightly different keys from Wav2Vec2.
         This method handle the compatibility between the two.
+
         Users should modify this function according to their own tasks.
+
         Arguments
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
         """
-        return
+        return None
 
-    def _load_sb_pretrained_parameters(self, path, modify_state_dict_fn):
+    def _load_sb_pretrained_parameters(self, path):
         """Loads the parameter of a HuggingFace model pretrained with SpeechBrain
         and the HuggingFace Pretrain Object. It is necessary to perform a custom
         loading because HuggingFace adds a level to the checkpoint when storing
@@ -276,16 +288,15 @@ class HFTransformersInterface(nn.Module):
         For example, a typical Wav2Vec2 checkpoint for a given parameter
         would be: model.conv.weight.data while for Wav2Vec2Pretrain it
         is: model.wav2vec2.weight.data (wav2vec2 must be removed before loading).
+
         Arguments
         ---------
         path : pathlib.Path
             The full path to the checkpoint.
-        modify_state_dict_fn : method
-            A customized method which modifies the checkpoint's state_dict.
         """
-        if modify_state_dict_fn is not None:
-            modified_state_dict = modify_state_dict_fn(path)
-        else:
+        modified_state_dict = self._modify_state_dict(path)
+
+        if modified_state_dict is None:
             modified_state_dict = torch.load(path, map_location="cpu")
 
         incompatible_keys = self.model.load_state_dict(
@@ -340,34 +351,52 @@ class HFTransformersInterface(nn.Module):
             param.requires_grad = False
 
     def override_config(self, config):
-        """Users should modify this function according to their own tasks."""
+        """Users should modify this function according to their own tasks.
+
+        Arguments
+        ---------
+        config : HuggingFace config object
+            The orginal config.
+
+        Returns
+        ---------
+        config : HuggingFace config object
+            Overridden config.
+        """
         return config
 
     def load_feature_extractor(self, source, cache_dir, **kwarg):
-        """Load model's feature_extractor from the hub
+        """Load model's feature_extractor from the hub.
+
         Arguments
         ---------
         source : str
             HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
         cache_dir : str
             Path (dir) in which a downloaded pretrained model configuration should be cached.
+        **kwarg
+            Keyword arguments to pass to the AutoFeatureExtractor.from_pretrained() method.
         """
         self.feature_extractor = AutoFeatureExtractor.from_pretrained(
             source, cache_dir=cache_dir, **kwarg
         )
 
     def load_tokenizer(self, source, **kwarg):
-        """Load model's tokenizer from the hub
+        """Load model's tokenizer from the hub.
+
         Arguments
         ---------
         source : str
             HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+        **kwarg
+            Keyword arguments to pass to the AutoFeatureExtractor.from_pretrained() method.
         """
         self.tokenizer = AutoTokenizer.from_pretrained(source, **kwarg)
 
 
 def make_padding_masks(src, wav_len=None, pad_idx=0):
     """This method generates the padding masks.
+
     Arguments
     ---------
     src : tensor
@@ -376,25 +405,11 @@ def make_padding_masks(src, wav_len=None, pad_idx=0):
         The relative length of the wav given in SpeechBrain format.
     pad_idx : int
         The index for <pad> token (default=0).
-    """
-    src_key_padding_mask = None
-    if wav_len is not None:
-        abs_len = torch.round(wav_len * src.shape[1])
-        src_key_padding_mask = length_to_mask(abs_len).bool()
 
-    return src_key_padding_mask
-
-
-def make_masks(src, wav_len=None, pad_idx=0):
-    """This method generates the padding masks.
-    Arguments
+    Returns
     ---------
-    src : tensor
-        The sequence to the encoder (required).
-    wav_len : tensor
-        The relative length of the wav given in SpeechBrain format.
-    pad_idx : int
-        The index for <pad> token (default=0).
+    src_key_padding_mask : tensor
+        The padding mask.
     """
     src_key_padding_mask = None
     if wav_len is not None:
