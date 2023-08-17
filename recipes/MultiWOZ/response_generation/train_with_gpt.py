@@ -34,7 +34,7 @@ class ResGenBrain(sb.Brain):
 
         # Forward Pass
         padding_mask = ~self.hparams.padding_mask(
-            input_ids, pad_idx=tokenizer.eos_token_id
+            input_ids, pad_idx=tokenizer.unk_token_id
         )
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
@@ -63,7 +63,7 @@ class ResGenBrain(sb.Brain):
             # if current_epoch % self.hparams.valid_search_interval == 0:
             # history_bos = torch.LongTensor([hparams["bos_index"]] + (history_bos))
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx=tokenizer.eos_token_id
+                history_bos, pad_idx=tokenizer.unk_token_id
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -72,7 +72,7 @@ class ResGenBrain(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx=tokenizer.eos_token_id
+                history_bos, pad_idx=tokenizer.unk_token_id
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -445,7 +445,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            bos, eos, system, user = tokenizer.convert_tokens_to_ids(
+            _, _ , system, _ = tokenizer.convert_tokens_to_ids(
                 hparams["special_tokens"]
             )
             for k in [
@@ -463,7 +463,7 @@ if __name__ == "__main__":
                     "token_type_ids",
                     "history_token_type",
                 ]:
-                    pad_value = tokenizer.eos_token_id
+                    pad_value = tokenizer.unk_token_id
                 elif k == "lm_labels":
                     pad_value = hparams["ignore_index"]
                 for example in examples:
