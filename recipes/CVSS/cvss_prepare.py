@@ -163,6 +163,7 @@ def skip(splits, save_folder, conf):
     split_files = {
         "train": "train.json",
         "valid": "valid.json",
+        "valid_small": "valid_small.json",
         "test": "test.json",
     }
 
