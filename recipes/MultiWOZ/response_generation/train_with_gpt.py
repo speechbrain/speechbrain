@@ -445,7 +445,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            _, _ , system, _ = tokenizer.convert_tokens_to_ids(
+            _, _, system, _ = tokenizer.convert_tokens_to_ids(
                 hparams["special_tokens"]
             )
             for k in [
