@@ -581,8 +581,10 @@ class Checkpointer:
             )
 
         # Communicate ckpt_dir to all procs
+        communication_list = [ckpt_dir]
         if torch.distributed.is_initialized():
-            torch.distributed.broadcast_object_list([ckpt_dir], src=0)
+            torch.distributed.broadcast_object_list(communication_list, src=0)
+        ckpt_dir = communication_list[0]
 
         print(ckpt_dir)
 
