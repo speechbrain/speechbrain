@@ -9,7 +9,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Folders and train_log file
 data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
-output_folder: results/voxceleb1_2/speaker_verification_ecapa_big_vox2only
+output_folder: results/voxceleb1_2/speaker_verification_ecapa/<seed>
 save_folder: !ref <output_folder>/save/
 
 # Use the following links for the official voxceleb splits:
