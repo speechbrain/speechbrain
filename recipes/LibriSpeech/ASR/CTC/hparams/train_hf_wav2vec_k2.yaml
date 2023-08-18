@@ -167,7 +167,8 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 # For k2 CTC training
 lang_dir: !ref <output_folder>/lang
 vocab_file: !ref <data_folder>/librispeech-vocab.txt
-sil_prob: 0.999999
+sil_prob: 0.
+add_word_boundary: True
 # For k2 decoding
 test_search_beam: 32
 test_output_beam: 4

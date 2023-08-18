@@ -355,7 +355,10 @@ def dataio_prepare(hparams):
 
     return train_data, valid_data, test_datasets, label_encoder
 
-def get_lexicon(lang_dir, csv_files, extra_vocab_files):
+def get_lexicon(lang_dir, 
+                csv_files, 
+                extra_vocab_files, 
+                add_word_boundary=True):
     '''
     Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the output_folder.
@@ -366,6 +369,7 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files):
     lang_dir: the directory to store the lexicon.txt
     csv_files: a list of csv file paths 
     extra_vocab_files: a list of extra vocab files, librispeech-vocab.txt is an example
+    add_word_boundary: whether to add word boundary symbols <eow> at the end of each line to the lexicon for every word
 
     Note that in each csv_file, the first line is the header, and the remaining lines are in the following format:
 
@@ -399,7 +403,10 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files):
                 words = trans.split()
                 for word in words:
                     if word not in lexicon:
-                        lexicon[word] = list(word)
+                        if add_word_boundary:
+                            lexicon[word] = list(word) + ["<eow>"]
+                        else:
+                            lexicon[word] = list(word)
 
     for file in extra_vocab_files:
         with open(file) as f:
@@ -408,11 +415,14 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files):
                 word = line.strip().split()[0]
                 # Split the transcription into words
                 if word not in lexicon:
-                    lexicon[word] = list(word)
+                    if add_word_boundary:
+                        lexicon[word] = list(word) + ["<eow>"]
+                    else:
+                        lexicon[word] = list(word)
     # Write the lexicon to lang_dir/lexicon.txt
     os.makedirs(lang_dir, exist_ok=True)
     with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
-        fc = "<UNK> UNK\n"
+        fc = "<UNK> <unk>\n"
         for word in lexicon:
             fc += word + " " + " ".join(lexicon[word]) + "\n"
         f.write(fc)
@@ -466,6 +476,7 @@ if __name__ == "__main__":
                 "lang_dir": hparams["lang_dir"],
                 "csv_files": [hparams["output_folder"] + "/train.csv", hparams["output_folder"] + "/dev-clean.csv"],
                 "extra_vocab_files": [hparams["vocab_file"]],
+                "add_word_boundary": hparams["add_word_boundary"],
             },
         )
 
