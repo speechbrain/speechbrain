@@ -387,14 +387,13 @@ def parallel_checkpoint(rank, world_size, tmpdir):
     import os
     from speechbrain.utils.checkpoints import Checkpointer
 
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
     os.environ["RANK"] = str(rank)
     os.environ["LOCAL_RANK"] = str(rank)
 
     # initialize the process group
+    sync_file = f"file://{tmpdir}/sync"
     torch.distributed.init_process_group(
-        "gloo", rank=rank, world_size=world_size
+        "gloo", rank=rank, world_size=world_size, init_method=sync_file
     )
 
     model = torch.nn.Linear(10, 10, device="cpu")
