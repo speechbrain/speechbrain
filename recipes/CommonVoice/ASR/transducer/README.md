@@ -27,7 +27,7 @@ with our transducers:
 # Results
 
 | Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Model link | HuggingFace link | GPUs |
-| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------: :-----------:|
+| ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------: | :-----------:|
 | French | 2023-08-15 | train_fr.yaml | No | 5.75 | 14.53 | 7.61 | 17.58 | [model](https://huggingface.co/speechbrain/asr-transducer-commonvoice-14-fr) | [model](https://www.dropbox.com/sh/nv2pnpo5n3besn3/AADZ7l41oLt11ZuOE4MqoJhCa?dl=0) | 1xV100 16GB |
 | Italian | 2023-08-15 | train_it.yaml | No | 4.66 | 14.08 | 5.11 | 14.88 | [model](https://huggingface.co/speechbrain/asr-transducer-commonvoice-14-it) | [model](https://www.dropbox.com/sh/ksm08x0wwiomrgs/AABnjPePWGPxqIqW7bJHp1jea?dl=0) | 1xV100 16GB |
 | German | 2023-08-15 | train_de.yaml | No | 4.32 | 13.09 | 5.43 | 15.25 | [model](https://huggingface.co/speechbrain/asr-transducer-commonvoice-14-de) | [model](https://www.dropbox.com/sh/jfge6ixbtoje64t/AADeAgL5un0A8uEjPSM84ex8a?dl=0) | 1xV100 16GB |
