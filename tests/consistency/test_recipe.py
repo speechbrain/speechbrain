@@ -7,8 +7,7 @@ import os
 import csv
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
-
-__skip_list = ["README.md", "setup"]
+__skip_list = ["README.md", "setup", "full_inference.csv"]
 
 
 def test_recipe_list(
@@ -20,6 +19,7 @@ def test_recipe_list(
     avoid_list=[
         "/models/",
         "/results/",
+        "/pretrained_models/",
         "recipes/Voicebank/MTL/CoopNet/hparams/logger.yaml",
         "recipes/LibriParty/generate_dataset/dataset.yaml",
         "hpopt.yaml",

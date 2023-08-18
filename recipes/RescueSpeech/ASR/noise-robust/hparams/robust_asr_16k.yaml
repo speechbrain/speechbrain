@@ -7,7 +7,7 @@
 seed: 8200
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/robust_asr/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -26,7 +26,6 @@ unfreeze_epoch: !ref <epochs_before_lr_drop> + 1
 frozen_models: [encoder, decoder, masknet, whisper]
 unfrozen_models: [masknet, whisper]
 
-test_only: False
 
 # Dataset prep parameters
 data_folder: !PLACEHOLDER

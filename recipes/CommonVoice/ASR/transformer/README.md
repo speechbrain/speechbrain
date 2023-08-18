@@ -2,8 +2,14 @@
 This folder contains scripts necessary to run an ASR experiment with the CommonVoice 14.0 dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/) and pytorch 2.0
 
 # How to run
+```shell
 python train.py hparams/{hparam_file}.py
+```
 
+# How to run on test sets only
+```shell
+python train.py hparams/{hparam_file}.py --test_only
+```
 ## For Whisper finetuning:
 
 python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml e.g. train_<locale>_hf_whisper
