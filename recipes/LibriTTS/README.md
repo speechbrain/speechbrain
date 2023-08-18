@@ -6,6 +6,17 @@ The LibriTTS dataset is available here: https://www.openslr.org/60/, https://www
 
 The `libritts_prepare.py` file automatically downloads the dataset if not present and has facilities to provide the names of the subsets to be downloaded.
 
+# Zero-Shot Multi-Speaker Tacotron2
+The subfolder "TTS/mstacotron2" contains the recipe for training a zero-shot multi-speaker version of the [Tacotron2](https://arxiv.org/abs/1712.05884) model.
+To run this recipe, go into the `"TTS/mstacotron2"` folder and run:
+```
+python train.py hparams/train.yaml --data_folder=/path/to/libritts_data --device=cuda:0 --max_grad_norm=1.0
+```
+
+The training logs will be available here in the future.
+
+The pre-trained model with an easy-inference function will be available in the future.
+
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron2).
@@ -18,7 +29,7 @@ To run this recipe, go into the `"vocoder/hifigan/"` folder and run:
 python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
 ```
 
-The recipe will automatically download the librispeech dataset and resamples it as specified.
+The recipe will automatically download the LibriTTS dataset and resamples it as specified.
 
 The training logs and checkpoints are available [here](https://www.dropbox.com/sh/gjs1kslxkxz819q/AABPriN4dOoD1qL7NoIyVk0Oa?dl=0).
 
