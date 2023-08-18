@@ -413,8 +413,6 @@ def parallel_checkpoint(rank, world_size, tmpdir):
         checkpointer.load_checkpoint(ckpt)
         assert torch.allclose(model(inp), prev_output)
 
-    torch.distributed.destroy_process_group()
-
 
 def test_parallel_checkpoint(tmpdir):
     world_size = 2
