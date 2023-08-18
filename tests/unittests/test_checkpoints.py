@@ -404,7 +404,8 @@ def parallel_checkpoint(rank, world_size, tmpdir):
         assert ckpt is None
     if rank == 0:
         # Check that only a single checkpoint is saved, even in ddp
-        assert len(os.listdir(tmpdir)) == 1
+        # Second file is the DDP synchronization file
+        assert len(os.listdir(tmpdir)) == 2
 
         # Check that the model is saved
         inp = torch.randn((3, 10), device="cpu")
