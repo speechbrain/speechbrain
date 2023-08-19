@@ -90,12 +90,12 @@ class ResGenBrain(sb.Brain):
             ]
             predicted_words = tokenizer.batch_decode(
                 hyps[:, history_bos.shape[1] :],
-                skip_special_tokens=False,
+                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
             target_words = tokenizer.batch_decode(
                 reply_truncated,
-                skip_special_tokens=False,
+                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
             self.bleu_4_metric.append(ids, predicted_words, target_words)
@@ -312,7 +312,9 @@ def dataio_prep(hparams, tokenizer):
         yield reply_ids
 
         # create eos version of the reply for lm_labels
-        reply_eos = torch.cat((reply_ids, torch.tensor([tokenizer.eos_token_id])))
+        reply_eos = torch.cat(
+            (reply_ids, torch.tensor([tokenizer.eos_token_id]))
+        )
         yield reply_eos
 
         # specify the speaker for each token in the reply
@@ -445,7 +447,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            _ , system, _ = tokenizer.convert_tokens_to_ids(
+            _, system, _ = tokenizer.convert_tokens_to_ids(
                 hparams["special_tokens"]
             )
             for k in [
