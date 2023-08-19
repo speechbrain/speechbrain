@@ -148,7 +148,7 @@ class HuggingFaceGPT(nn.Module):
                     token_type_ids=token_type_ids,
                     max_new_tokens=self.max_new_tokens,
                     pad_token_id=50256,
-                    # eos_token_id=50258,
+                    # eos_token_id=50257,
                     attention_mask=attention_mask,
                 )
         return hyp

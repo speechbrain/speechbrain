@@ -232,7 +232,7 @@ def dataio_prep(hparams, tokenizer):
     """
 
     # convert special tokens to their ids
-    bos, eos, system, user = tokenizer.convert_tokens_to_ids(
+    bos, system, user = tokenizer.convert_tokens_to_ids(
         hparams["special_tokens"]
     )
     # history_window, i.e. how many user-system exchanges consider as context (+1 to consider at least the last user turn)
@@ -312,7 +312,7 @@ def dataio_prep(hparams, tokenizer):
         yield reply_ids
 
         # create eos version of the reply for lm_labels
-        reply_eos = torch.cat((reply_ids, torch.tensor([eos])))
+        reply_eos = torch.cat((reply_ids, torch.tensor([tokenizer.eos_token_id])))
         yield reply_eos
 
         # specify the speaker for each token in the reply
@@ -445,7 +445,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            _, _, system, _ = tokenizer.convert_tokens_to_ids(
+            _ , system, _ = tokenizer.convert_tokens_to_ids(
                 hparams["special_tokens"]
             )
             for k in [
@@ -463,7 +463,7 @@ if __name__ == "__main__":
                     "token_type_ids",
                     "history_token_type",
                 ]:
-                    pad_value = tokenizer.unk_token_id
+                    pad_value = tokenizer.eos_token_id
                 elif k == "lm_labels":
                     pad_value = hparams["ignore_index"]
                 for example in examples:
