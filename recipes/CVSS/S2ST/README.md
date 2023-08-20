@@ -22,12 +22,13 @@ python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CV4/fr --tgt_
 
 >  Dynamic batch settings are optimized for a 40GB VRAM GPU. Don't hesitate to adjust max_batch_len and max_batch_len_val to fit your GPU's capabilities.
 
+
 # Performance summary
 Results are reported in terms of sacrebleu.
 
 | hyperparams file | valid | test   | Model      | Training logs | GPUs       |
 |:----------------:|:-----:| :-----:|:-------:   | :-----------: |:---------: |
-| train_fr-en.yaml | 0.0   | 0.0    | Not Avail. | Not Avail.    |1xA100 40GB |
+| train_fr-en.yaml | 24.25   | 24.47    | [dropbox](https://www.dropbox.com/sh/mdopz1k4p1zj0vo/AABiRCzpN4zvGmxR-eCZWHa4a?dl=0) | [wandb](https://wandb.ai/jar0d/s2ut_cvss_sb/runs/uh4tvc8c?workspace=user-jar0d)    |1xA100 80GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
