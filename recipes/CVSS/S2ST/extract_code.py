@@ -11,6 +11,7 @@ import pathlib as pl
 
 import joblib
 import torch
+import torchaudio
 import numpy as np
 from tqdm import tqdm
 import speechbrain as sb
@@ -29,6 +30,7 @@ TEST_JSON = "test.json"
 
 
 def setup_logger():
+    """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -36,6 +38,7 @@ def setup_logger():
 
 
 def get_device(use_cuda):
+    """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
     print("USE_CUDA SET TO: {}".format(use_cuda))
@@ -45,6 +48,7 @@ def get_device(use_cuda):
 
 
 def np_array(tensor):
+    """Convert a Pytorch tensor to a Numpy array."""
     tensor = tensor.squeeze(0)
     tensor = tensor.detach().cpu()
     return tensor.numpy()
@@ -100,6 +104,7 @@ def extract_cvss(
     encoder,
     layer,
     save_folder,
+    sample_rate=16000,
     skip_extract=False,
 ):
     """
@@ -119,6 +124,8 @@ def extract_cvss(
         Layer from which features are extracted.
     save_folder: str
         Path to the folder where the speech units are stored.
+    sample_rate: int
+        CVSS dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
 
@@ -199,7 +206,11 @@ def extract_cvss(
             item = meta_json[key]
             wav = item["tgt_audio"]
             with torch.no_grad():
+                info = torchaudio.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
+                audio = torchaudio.transforms.Resample(
+                    info.sample_rate, sample_rate,
+                )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 feats = encoder.extract_features(audio)
                 feats = feats[layer]
