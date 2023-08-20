@@ -1,6 +1,11 @@
 """Recipe for evaluating a grapheme-to-phoneme system with librispeech lexicon.
+
 The script may be use in isolation or in combination with Orion to fit
 hyperparameters that do not require model retraining (e.g. Beam Search)
+
+Authors
+ * Mirco Ravanelli 2022
+ * Artem Ploujnikov 2022
 """
 
 
