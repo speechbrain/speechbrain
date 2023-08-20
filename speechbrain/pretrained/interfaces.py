@@ -3403,7 +3403,7 @@ class UnitHIFIGAN(Pretrained):
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = UnitHIFIGAN.from_hparams(source="chaanks/unit-hifigan-hubert-en-l6_k100", savedir=tmpdir_vocoder)
-    >>> codes = torch.rand(100)
+    >>> codes = torch.randint(0, 99, (100,))
     >>> waveform = hifi_gan.decode_unit(codes)
     """
 
