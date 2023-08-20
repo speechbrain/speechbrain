@@ -23,19 +23,21 @@ from torch.nn.parallel import DistributedDataParallel
 logger = logging.getLogger(__name__)
 
 
-# Define training procedure
 class S2UT(sb.core.Brain):
     def compute_forward(self, batch, stage):
-        """Computes the forward pass
+        """Computes the forward pass.
+
         Arguments
         ---------
-        batch: str
-            a single batch
-        stage: speechbrain.Stage
-            the training stage
+        batch : torch.Tensor or tensors
+            An element from the dataloader, including inputs for processing.
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+
         Returns
         -------
-        the model output
+        (torch.Tensor or Tensors, list of float or None, list of str or None)
+            The outputs after all processing is complete.
         """
         batch = batch.to(self.device)
         wavs, wav_lens = batch.src_sig
@@ -159,7 +161,7 @@ class S2UT(sb.core.Brain):
             )
 
     def fit_batch(self, batch):
-        """Fits a single batch
+        """Fits a single batch.
         Arguments
         ---------
         batch: tuple
@@ -246,18 +248,19 @@ class S2UT(sb.core.Brain):
             self.test_vocoder = UnitHIFIGAN.from_hparams(
                 source=self.hparams.vocoder_source,
                 savedir=self.hparams.vocoder_download_path,
-                run_opts={"device": self.device},
+                run_opts={"device": "cpu"},
             )
 
             logger.info("Loading pretrained ASR ...")
             self.test_asr = EncoderDecoderASR.from_hparams(
                 source=self.hparams.asr_source,
                 savedir=self.hparams.asr_download_path,
-                run_opts={"device": self.device},
+                run_opts={"device": "cpu"},
             )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
+
         Arguments
         ---------
         stage : sb.Stage
@@ -340,8 +343,7 @@ class S2UT(sb.core.Brain):
                 self.bleu_metric.write_stats(w)
 
     def _save_progress_sample(self, epoch):
-        """Run the complete evaluation pipeline by computing BLEU scores on transcripts extracted from synthesized speech
-        using the unit-to-speech (U2S) model.
+        """Save samples and BLEU score from last batch for current epoch.
         Arguments
         ---------
         epoch : int
@@ -410,7 +412,9 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("src_audio")
     @sb.utils.data_pipeline.provides("src_sig")
     def src_audio_pipeline(wav):
-        """Load the audio signal. This is done on the CPU in the `collate_fn`."""
+        """Load the source language audio signal.
+        This is done on the CPU in the `collate_fn`
+        """
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
@@ -421,7 +425,9 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("tgt_audio")
     @sb.utils.data_pipeline.provides("tgt_sig")
     def tgt_audio_pipeline(wav):
-        """Load the audio signal. This is done on the CPU in the `collate_fn`."""
+        """Load the target language audio signal.
+        This is done on the CPU in the `collate_fn`.
+        """
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
@@ -432,6 +438,7 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("id")
     @sb.utils.data_pipeline.provides("code_bos", "code_eos")
     def unit_pipeline(utt_id):
+        """Load target codes"""
         code = np.load(codes_folder / f"{utt_id}_tgt.npy")
         code = torch.LongTensor(code)
         code = torch.unique_consecutive(code)
@@ -559,6 +566,7 @@ if __name__ == "__main__":
             "encoder": hparams["encoder_source"],
             "layer": hparams["layer"],
             "save_folder": hparams["save_folder"],
+            "sample_rate": hparams["sample_rate"],
             "skip_extract": hparams["skip_extract"],
         },
     )
