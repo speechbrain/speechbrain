@@ -62,7 +62,7 @@ class HifiGanBrain(sb.Brain):
         )
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes and combines generator and discriminator losses"""
+        """Computes and combines generator and discriminator losses."""
         batch = batch.to(self.device)
 
         x, _ = batch.code
@@ -99,7 +99,7 @@ class HifiGanBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        """Train discriminator and generator adversarially"""
+        """Train discriminator and generator adversarially."""
 
         batch = batch.to(self.device)
         y, _ = batch.sig
@@ -146,7 +146,7 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
-        """Evaluate one batch"""
+        """Evaluate one batch."""
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -154,7 +154,7 @@ class HifiGanBrain(sb.Brain):
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics.
         """
         self.last_epoch = 0
         self.last_batch = None
@@ -195,7 +195,7 @@ class HifiGanBrain(sb.Brain):
                 )
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)"""
+        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)."""
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -292,7 +292,7 @@ class HifiGanBrain(sb.Brain):
             self.save_audio("synthesized", sig_out.squeeze(0), folder)
 
     def save_audio(self, name, data, epoch):
-        """Saves a single wav
+        """Saves a single wav file.
 
         Arguments
         ---------
@@ -311,7 +311,7 @@ class HifiGanBrain(sb.Brain):
 
 
 def sample_interval(seqs, segment_size):
-    "This function sample an interval of audio and code according to segment size"
+    "This function sample an interval of audio and code according to segment size."
     N = max([v.shape[-1] for v in seqs])
     seq_len = segment_size if segment_size > 0 else N
     hops = [N // v.shape[-1] for v in seqs]

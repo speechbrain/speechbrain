@@ -25,6 +25,7 @@ from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 
 
 def setup_logger():
+    """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ def setup_logger():
 
 
 def get_device(use_cuda):
+    """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
     print("USE_CUDA SET TO: {}".format(use_cuda))
@@ -41,12 +43,14 @@ def get_device(use_cuda):
 
 
 def np_array(tensor):
+    """Convert a Pytorch tensor to a Numpy array."""
     tensor = tensor.squeeze(0)
     tensor = tensor.detach().cpu()
     return tensor.numpy()
 
 
 def fetch_data(splits, sample_pct, seed=1234):
+    """Fetch data from specified splits for k-means training."""
     ds_splits = {}
     for split in splits:
         key = f"{split.parent}_{split.stem}"
@@ -64,6 +68,7 @@ def fetch_data(splits, sample_pct, seed=1234):
 def extract_features(
     model, layer, splits, sample_pct, flatten, device="cpu", sample_rate=16000
 ):
+    """Extract features from audio using a pre-trained model."""
     data, num_files = fetch_data(splits, sample_pct)
     features_list = []
     id_list = []
@@ -100,6 +105,7 @@ def fetch_kmeans_model(
     reassignment_ratio,
     random_state,
 ):
+    """Return a k-means clustering model with specified parameters."""
     return MiniBatchKMeans(
         n_clusters=n_clusters,
         init=init,
@@ -117,6 +123,7 @@ def fetch_kmeans_model(
 
 
 def train_kmeans(kmeans_model, features_batch):
+    """Train a k-means clustering model using the provided features."""
     start_time = time.time()
     kmeans_model.fit(features_batch)
     time_taken = round((time.time() - start_time) // 60, 2)

@@ -28,6 +28,7 @@ TEST_JSON = "test.json"
 
 
 def setup_logger():
+    """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ def setup_logger():
 
 
 def get_device(use_cuda):
+    """Determine and return the appropriate device for computation."""
     use_cuda = use_cuda and torch.cuda.is_available()
     print("\n" + "=" * 30)
     print("USE_CUDA SET TO: {}".format(use_cuda))
@@ -44,6 +46,7 @@ def get_device(use_cuda):
 
 
 def np_array(tensor):
+    """Convert a Pytorch tensor to a Numpy array."""
     tensor = tensor.squeeze(0)
     tensor = tensor.detach().cpu()
     return tensor.numpy()
