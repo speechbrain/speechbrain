@@ -32,10 +32,10 @@ class HifiGanBrain(sb.Brain):
 
         Arguments
         ---------
-        batch: str
-            a single batch
-        stage: speechbrain.Stage
-            the training stage
+        batch : torch.Tensor or tensors
+            An element from the dataloader, including inputs for processing.
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
         """
         batch = batch.to(self.device)
@@ -62,7 +62,20 @@ class HifiGanBrain(sb.Brain):
         )
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes and combines generator and discriminator losses."""
+        """Computes the loss given the predicted and targeted outputs.
+        Arguments
+        ---------
+        predictions : torch.Tensor
+            The model generated spectrograms and other metrics from `compute_forward`.
+        batch : PaddedBatch
+            This batch object contains all the relevant tensors for computation.
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.
+        """
         batch = batch.to(self.device)
 
         x, _ = batch.code
@@ -99,8 +112,16 @@ class HifiGanBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        """Train discriminator and generator adversarially."""
-
+        """Fits a single batch.
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+        Returns
+        -------
+        loss: torch.Tensor
+            detached loss
+        """
         batch = batch.to(self.device)
         y, _ = batch.sig
 
@@ -146,7 +167,20 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
-        """Evaluate one batch."""
+        """Evaluate one batch.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for evaluation. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        stage : Stage
+            The stage of the experiment: Stage.VALID, Stage.TEST
+
+        Returns
+        -------
+        detached loss
+        """
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -195,7 +229,18 @@ class HifiGanBrain(sb.Brain):
                 )
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)."""
+        """Gets called at the end of an epoch.
+
+        Arguments
+        ---------
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, sb.Stage.TEST
+        stage_loss : float
+            The average loss for all of the data processed in this stage.
+        epoch : int
+            The currently-starting epoch. This is passed
+            `None` during the test stage.
+        """
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -253,8 +298,16 @@ class HifiGanBrain(sb.Brain):
             self.run_inference_sample("Test")
 
     def run_inference_sample(self, name, epoch):
-        """Produces a sample in inference mode. This is called when producing
-        samples.
+        """Produces a sample in inference mode.
+        This is called when producing samples.
+
+        Arguments
+        ---------
+        name: str
+            the name of the saved audio folder
+        epoch: int or str
+            the epoch number (used in file path calculations)
+            or "test" for test stage
         """
         with torch.no_grad():
             if self.last_batch is None:
