@@ -63,7 +63,7 @@ class HifiGanBrain(sb.Brain):
 
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
         loss_g = self.hparams.generator_loss(
-            y_hat, y, scores_fake, feats_fake, feats_real
+            stage, y_hat, y, scores_fake, feats_fake, feats_real
         )
         loss_d = self.hparams.discriminator_loss(scores_fake, scores_real)
         loss = {**loss_g, **loss_d}
