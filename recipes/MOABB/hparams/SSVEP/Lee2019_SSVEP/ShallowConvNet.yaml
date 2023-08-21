@@ -17,7 +17,7 @@ events_to_load: null # all events will be loaded
 original_sample_rate: 1000 # Original sampling rate provided by dataset authors
 sample_rate: 125 # Target sampling rate (Hz)
 # band-pass filtering cut-off frequencies
-fmin: 4.8  # @orion_step1: --fmin~"uniform(1, 5, precision=2)"
+fmin: 4.8  # @orion_step1: --fmin~"uniform(0.1, 5, precision=2)"
 fmax: 49.9 # @orion_step1: --fmax~"uniform(20.0, 50.0, precision=3)"
 n_classes: 4
 # tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
