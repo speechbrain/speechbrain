@@ -12,14 +12,14 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/cv_transducer/<seed>
-test_wer_file: !ref <output_folder>/wer_test.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 
 # Data files
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+data_folder: data/fr/  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
 train_tsv_file: !ref <data_folder>/train_with_duration.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev_with_duration.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test_with_duration.tsv  # Standard CommonVoice .tsv files

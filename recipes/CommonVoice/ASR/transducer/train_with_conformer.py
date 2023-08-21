@@ -178,7 +178,7 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Decode token terms to words
             predicted_words = [
-                self.tokenizer.decode_ids(utt_seq).split(" ")
+                self.tokenizer.sp.decode_ids(utt_seq).split(" ")
                 for utt_seq in predicted_tokens
             ]
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -368,7 +368,7 @@ def dataio_prepare(hparams, tokenizer):
     )
     def text_pipeline(wrd):
         yield wrd
-        tokens_list = tokenizer.encode_as_ids(wrd)
+        tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
@@ -475,13 +475,13 @@ if __name__ == "__main__":
         tokenizer,
         train_bsampler,
         valid_bsampler,
-    ) = dataio_prepare(hparams)
+    ) = dataio_prepare(hparams,tokenizer)
 
     # We download the pretrained LM and the tokenizer from HuggingFace (or elsewhere
     # depending on the path given in the YAML file). The tokenizer is loaded at
     # the same time.
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    # run_on_main(hparams["pretrainer"].collect_files)
+    # hparams["pretrainer"].load_collected(device=run_opts["device"])
 
     # Trainer initialization
     asr_brain = ASR(
