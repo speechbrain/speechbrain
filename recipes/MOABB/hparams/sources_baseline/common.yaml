@@ -1,0 +1,26 @@
+# TRAINING HPARS
+n_train_examples: 100  # it will be replaced in the train script
+# checkpoints to average
+avg_models: 1
+number_of_epochs: 1000
+lr: 0.0001
+
+label_smoothing: 0.0
+loss: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
+    limit: !ref <number_of_epochs>
+batch_size: 64
+valid_ratio: 0.2
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
+    initial_value: !ref <lr>
+    final_value: !ref <lr>
+    epoch_count: !ref <number_of_epochs>
+
+# DATA NORMALIZATION
+dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
+normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
+    dims: !ref <dims_to_normalize>

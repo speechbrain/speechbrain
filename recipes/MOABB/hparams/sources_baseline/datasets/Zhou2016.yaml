@@ -1,0 +1,41 @@
+seed: 1234
+__set_torchseed: !apply:torch.manual_seed [!ref <seed>]
+
+# DIRECTORIES
+data_folder: !PLACEHOLDER  #'/path/to/dataset'. The dataset will be automatically downloaded in this folder
+cached_data_folder: !PLACEHOLDER #'path/to/pickled/dataset'
+output_folder: !PLACEHOLDER #'path/to/results'
+
+# DATASET HPARS
+# Defining the MOABB dataset.
+dataset: !new:moabb.datasets.Zhou2016
+save_prepared_dataset: True # set to True if you want to save the prepared dataset as a pkl file to load and use afterwards
+data_iterator_name: !PLACEHOLDER
+target_subject_idx: !PLACEHOLDER
+target_session_idx: !PLACEHOLDER
+events_to_load: null # all events will be loaded
+original_sample_rate: 250 # Original sampling rate provided by dataset authors
+sample_rate: 125 # Target sampling rate (Hz)
+# band-pass filtering cut-off frequencies
+fmin: 1
+fmax: 40
+n_classes: 3
+tmin: 0.
+tmax: 4.
+# number of steps used when selecting adjacent channels from a seed channel (default at Cz)
+n_steps_channel_selection: 2
+T: !apply:math.ceil
+    - !ref <sample_rate> * (<tmax> - <tmin>)
+C: 14
+test_with: 'best' # 'last' or 'best'
+test_key: "acc" # Possible opts: "loss", "f1", "auc", "acc"
+
+# METRICS
+f1: !name:sklearn.metrics.f1_score
+    average: 'macro'
+acc: !name:sklearn.metrics.balanced_accuracy_score
+cm: !name:sklearn.metrics.confusion_matrix
+metrics:
+    f1: !ref <f1>
+    acc: !ref <acc>
+    cm: !ref <cm>

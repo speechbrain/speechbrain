@@ -1,0 +1,18 @@
+# MODEL
+input_shape: [null, !ref <T>, !ref <C>, null]
+cnn_temporal_kernels: 40
+cnn_spatial_kernels: !ref <cnn_temporal_kernels>
+cnn_temporal_kernelsize: 13
+cnn_poolsize: 36
+cnn_poolstride: 8
+dropout: 0.5
+
+model: !new:models.ShallowConvNet.ShallowConvNet
+    input_shape: !ref <input_shape>
+    cnn_temporal_kernels: !ref <cnn_temporal_kernels>
+    cnn_spatial_kernels: !ref <cnn_spatial_kernels>
+    cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
+    cnn_poolsize: [!ref <cnn_poolsize>, 1]
+    cnn_poolstride: [!ref <cnn_poolstride>, 1]
+    dropout: !ref <dropout>
+    dense_n_neurons: !ref <n_classes>

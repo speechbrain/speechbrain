@@ -76,7 +76,8 @@ class MOABBBrain(sb.Brain):
             self.preds.extend(tmp_preds.detach().cpu().numpy())
             self.targets.extend(batch[1].detach().cpu().numpy())
         else:
-            self.hparams.lr_annealing.on_batch_end(self.optimizer)
+            if hasattr(self.hparams, "lr_annealing"):
+                self.hparams.lr_annealing.on_batch_end(self.optimizer)
         return loss
 
     def on_fit_start(self,):
@@ -117,13 +118,21 @@ class MOABBBrain(sb.Brain):
                 ](y_true=y_true, y_pred=y_pred)
             if stage == sb.Stage.VALID:
                 # Learning rate scheduler
-                old_lr, new_lr = self.hparams.lr_annealing(epoch)
-                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": epoch, "lr": old_lr},
-                    train_stats={"loss": self.train_loss},
-                    valid_stats=self.last_eval_stats,
-                )
+                if hasattr(self.hparams, "lr_annealing"):
+                    old_lr, new_lr = self.hparams.lr_annealing(epoch)
+                    sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+                    self.hparams.train_logger.log_stats(
+                        stats_meta={"epoch": epoch, "lr": old_lr},
+                        train_stats={"loss": self.train_loss},
+                        valid_stats=self.last_eval_stats,
+                    )
+                else:
+                    self.hparams.train_logger.log_stats(
+                        stats_meta={"epoch": epoch},
+                        train_stats={"loss": self.train_loss},
+                        valid_stats=self.last_eval_stats,
+                    )
+
                 if epoch == 1:
                     self.best_eval_stats = self.last_eval_stats
 

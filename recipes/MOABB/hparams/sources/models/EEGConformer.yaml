@@ -1,0 +1,28 @@
+# MODEL
+input_shape: [null, !ref <T>, !ref <C>, null]
+cnn_temporal_kernels_multiplier: 4 # @orion_step1: --cnn_temporal_kernels_multiplier~"uniform(4, 16,discrete=True)"
+cnn_spatial_kernels_multiplier: 4 # @orion_step1: --cnn_spatial_kernels_multiplier~"uniform(4, 16,discrete=True)"
+cnn_temporal_kernelsize: 13 # @orion_step1: --cnn_temporal_kernelsize~"uniform(5, 62,discrete=True)"
+cnn_poolsize: 37 # @orion_step1: --cnn_poolsize~"uniform(1, 32,discrete=True)"
+cnn_poolstride: 20 # @orion_step1: --cnn_poolstride~"uniform(1, 32,discrete=True)"
+attn_depth: 5 # @orion_step1: --attn_depth~"uniform(1, 4,discrete=True)"
+attn_heads: 1 # @orion_step1: --attn_heads~"uniform(1, 4,discrete=True)"
+dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
+cnn_temporal_kernels: !ref <attn_heads> * <cnn_temporal_kernels_multiplier>
+cnn_spatial_kernels: !ref <attn_heads> * <cnn_spatial_kernels_multiplier>
+cnn_pool_type: 'avg'
+cnn_activation_type: 'elu'
+model: !new:models.EEGConformer.EEGConformer
+    input_shape: !ref <input_shape>
+    cnn_temporal_kernels: !ref <cnn_temporal_kernels>
+    cnn_spatial_kernels: !ref <cnn_spatial_kernels>
+    cnn_temporal_kernelsize: [!ref <cnn_temporal_kernelsize>, 1]
+    cnn_poolsize: [!ref <cnn_poolsize>, 1]
+    cnn_poolstride: [!ref <cnn_poolstride>, 1]
+    cnn_pool_type: !ref <cnn_pool_type>
+    cnn_dropout: !ref <dropout>
+    cnn_activation_type: !ref <cnn_activation_type>
+    attn_depth: !ref <attn_depth>
+    attn_heads: !ref <attn_heads>
+    attn_dropout: !ref <dropout>
+    dense_n_neurons: !ref <n_classes>

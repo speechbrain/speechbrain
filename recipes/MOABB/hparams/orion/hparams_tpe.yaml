@@ -1,5 +1,5 @@
 experiment:
-    algorithm:
+    algorithms:
         tpe:
             seed: 1986
             n_initial_points: 20

@@ -1,5 +1,5 @@
-mne
-moabb
+mne==0.24.1
+moabb==0.4.6
 orion[profet]
 scikit-learn
 torchinfo
