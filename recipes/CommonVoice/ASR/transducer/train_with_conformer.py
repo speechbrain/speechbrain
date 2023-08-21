@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a Transducer ASR system with CommonVoice.
+"""Recipe for training a Transducer ASR system with Common Voice.
 The system employs an encoder, a decoder, and an joint network
 between them. Decoding is performed with beamsearch coupled with a neural
 language model.
@@ -13,8 +13,7 @@ language model is used on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
+are used as basic recognition tokens. Training is performed on the Common Voice.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
