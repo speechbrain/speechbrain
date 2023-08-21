@@ -34,7 +34,6 @@ import torchaudio
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 logger = logging.getLogger(__name__)
@@ -302,7 +301,7 @@ class ASR(sb.Brain):
         self.hparams.model.eval()
 
 
-def dataio_prepare(hparams,tokenizer):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
@@ -338,6 +337,9 @@ def dataio_prepare(hparams,tokenizer):
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     # test is separate
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+    )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data, test_data]
@@ -412,7 +414,7 @@ def dataio_prepare(hparams,tokenizer):
     return (
         train_data,
         valid_data,
-        test_datasets,
+        test_data,
         tokenizer,
         train_batch_sampler,
         valid_batch_sampler,
@@ -466,7 +468,14 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+    (
+        train_data,
+        valid_data,
+        test_data,
+        tokenizer,
+        train_bsampler,
+        valid_bsampler,
+    ) = dataio_prepare(hparams)
 
     # We download the pretrained LM and the tokenizer from HuggingFace (or elsewhere
     # depending on the path given in the YAML file). The tokenizer is loaded at
@@ -488,6 +497,15 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
+
+    if train_bsampler is not None:
+        train_dataloader_opts = {
+            "batch_sampler": train_bsampler,
+            "num_workers": hparams["num_workers"],
+        }
+
+    if valid_bsampler is not None:
+        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
     # Training
     asr_brain.fit(
