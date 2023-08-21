@@ -15,11 +15,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
 batch_size: 64
 valid_ratio: 0.2
 
-lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
-    initial_value: !ref <lr>
-    final_value: !ref <lr>
-    epoch_count: !ref <number_of_epochs>
-
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm

@@ -56,11 +56,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
 batch_size: 64
 valid_ratio: 0.2
 
-lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
-    initial_value: !ref <lr>
-    final_value: !ref <lr>
-    epoch_count: !ref <number_of_epochs>
-
 # DATA NORMALIZATION
 dims_to_normalize: 1 # 1 (time) or 2 (EEG channels)
 normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
@@ -77,8 +72,7 @@ cnn_septemporal_point_kernels: !ref <cnn_temporal_kernels> * <cnn_spatial_depth_
 cnn_septemporal_kernelsize: 16
 cnn_septemporal_pool: 8
 cnn_pool_type: 'avg'
-
-dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
+dense_max_norm: 0.25
 dropout: 0.5
 activation_type: 'elu'
 

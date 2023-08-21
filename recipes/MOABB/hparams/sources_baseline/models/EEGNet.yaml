@@ -10,8 +10,7 @@ cnn_septemporal_point_kernels: !ref <cnn_temporal_kernels> * <cnn_spatial_depth_
 cnn_septemporal_kernelsize: 16
 cnn_septemporal_pool: 8
 cnn_pool_type: 'avg'
-
-dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
+dense_max_norm: 0.25
 dropout: 0.5
 activation_type: 'elu'
 
