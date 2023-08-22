@@ -5,7 +5,6 @@
 # (contained in hparams/datasets/*.yaml), a second yaml file that contains common hyper-parameters (shared across
 # architectures and datasets, contained in hparams/common.yaml), and a third yaml file that contains hyper-parameters
 # of the model (contained in hparams/models/*yaml).
-# The variable sources_type define the type of sources to load ('' default, 'baseline' for baseline).
 # The three partial yaml files are contained in the 'sources' directory within hparams dir (hparams_dir).
 # The generated yaml files will be saved in hparams_dir.
 # When the flag save_by_paradigm is True, the script will try to separate yaml files by paradigm in different
@@ -17,10 +16,10 @@
 # - Mirco Ravanelli (2023)
 ###########################################################
 
-sources_type='' # '' or 'baseline'
 hparams_dir=hparams
 save_by_paradigm=True
 
+sources_type='' # tag for sources (default to '')
 endfname=$sources_type
 sources_dir=$hparams_dir'/sources'
 if [ "$sources_type" != '' ]; then

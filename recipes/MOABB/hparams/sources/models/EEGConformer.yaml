@@ -1,10 +1,13 @@
 # MODEL
 input_shape: [null, !ref <T>, !ref <C>, null]
 cnn_temporal_kernels_multiplier: 4 # @orion_step1: --cnn_temporal_kernels_multiplier~"uniform(4, 16,discrete=True)"
-cnn_spatial_kernels_multiplier: 4 # @orion_step1: --cnn_spatial_kernels_multiplier~"uniform(4, 16,discrete=True)"
+cnn_spatial_kernels_multiplier: !ref <cnn_temporal_kernels_multiplier>
 cnn_temporal_kernelsize: 13 # @orion_step1: --cnn_temporal_kernelsize~"uniform(5, 62,discrete=True)"
-cnn_poolsize: 37 # @orion_step1: --cnn_poolsize~"uniform(1, 32,discrete=True)"
-cnn_poolstride: 20 # @orion_step1: --cnn_poolstride~"uniform(1, 32,discrete=True)"
+cnn_poolsize_: 9 # @orion_step1: --cnn_poolsize_~"uniform(1, 10,discrete=True)"
+cnn_poolstride_: 2 # @orion_step1: --cnn_poolstride_~"uniform(1, 10,discrete=True)"
+# pool size / stride from 4/125 ms to 40/125 ms = circa 30 ms
+cnn_poolsize: !ref <cnn_poolsize_> * 4 # same resolution as for EEGNet research space
+cnn_poolstride: !ref <cnn_poolstride_> * 4 # same resolution as for EEGNet research space
 attn_depth: 5 # @orion_step1: --attn_depth~"uniform(1, 4,discrete=True)"
 attn_heads: 1 # @orion_step1: --attn_heads~"uniform(1, 4,discrete=True)"
 dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
@@ -12,6 +15,7 @@ cnn_temporal_kernels: !ref <attn_heads> * <cnn_temporal_kernels_multiplier>
 cnn_spatial_kernels: !ref <attn_heads> * <cnn_spatial_kernels_multiplier>
 cnn_pool_type: 'avg'
 cnn_activation_type: 'elu'
+
 model: !new:models.EEGConformer.EEGConformer
     input_shape: !ref <input_shape>
     cnn_temporal_kernels: !ref <cnn_temporal_kernels>
