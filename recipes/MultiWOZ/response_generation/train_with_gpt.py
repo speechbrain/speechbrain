@@ -34,7 +34,7 @@ class ResGenBrain(sb.Brain):
 
         # Forward Pass
         padding_mask = ~self.hparams.padding_mask(
-            input_ids, pad_idx=tokenizer.unk_token_id
+            input_ids, pad_idx= hparams["ignore_index"]
         )
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
@@ -63,7 +63,7 @@ class ResGenBrain(sb.Brain):
             # if current_epoch % self.hparams.valid_search_interval == 0:
             # history_bos = torch.LongTensor([hparams["bos_index"]] + (history_bos))
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx=tokenizer.unk_token_id
+                history_bos, pad_idx= hparams["ignore_index"]
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -72,7 +72,7 @@ class ResGenBrain(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx=tokenizer.unk_token_id
+                history_bos, pad_idx= hparams["ignore_index"]
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -90,12 +90,12 @@ class ResGenBrain(sb.Brain):
             ]
             predicted_words = tokenizer.batch_decode(
                 hyps[:, history_bos.shape[1] :],
-                skip_special_tokens=True,
+                skip_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
             target_words = tokenizer.batch_decode(
                 reply_truncated,
-                skip_special_tokens=True,
+                skip_special_tokens=False,
                 clean_up_tokenization_spaces=True,
             )
             self.bleu_4_metric.append(ids, predicted_words, target_words)
@@ -232,7 +232,7 @@ def dataio_prep(hparams, tokenizer):
     """
 
     # convert special tokens to their ids
-    bos, system, user = tokenizer.convert_tokens_to_ids(
+    bos, eos, system, user = tokenizer.convert_tokens_to_ids(
         hparams["special_tokens"]
     )
     # history_window, i.e. how many user-system exchanges consider as context (+1 to consider at least the last user turn)
@@ -313,7 +313,7 @@ def dataio_prep(hparams, tokenizer):
 
         # create eos version of the reply for lm_labels
         reply_eos = torch.cat(
-            (reply_ids, torch.tensor([tokenizer.eos_token_id]))
+            (reply_ids, torch.tensor([eos]))
         )
         yield reply_eos
 
@@ -447,7 +447,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            _, system, _ = tokenizer.convert_tokens_to_ids(
+            _,_, system, _ = tokenizer.convert_tokens_to_ids(
                 hparams["special_tokens"]
             )
             for k in [
@@ -458,16 +458,16 @@ if __name__ == "__main__":
                 "history_token_type",
             ]:
                 max_len = max([len(x[k]) for x in examples])
-                pad_value = 0.0
-                if k in [
-                    "input_ids",
-                    "history_bos",
-                    "token_type_ids",
-                    "history_token_type",
-                ]:
-                    pad_value = tokenizer.eos_token_id
-                elif k == "lm_labels":
-                    pad_value = hparams["ignore_index"]
+                pad_value = hparams["ignore_index"]
+                # if k in [
+                #     "input_ids",
+                #     "history_bos",
+                #     "token_type_ids",
+                #     "history_token_type",
+                # ]:
+                #     pad_value = hparams["ignore_index"]
+                # elif k == "lm_labels":
+                #     pad_value = hparams["ignore_index"]
                 for example in examples:
                     x = example[k]
                     if k in ["history_bos", "history_token_type"]:
@@ -507,13 +507,13 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    res_gen_brain.fit(
-        epoch_counter=res_gen_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["train_dataloader_options"],
-        valid_loader_kwargs=hparams["test_dataloader_options"],
-    )
+    # res_gen_brain.fit(
+    #     epoch_counter=res_gen_brain.hparams.epoch_counter,
+    #     train_set=datasets["train"],
+    #     valid_set=datasets["valid"],
+    #     train_loader_kwargs=hparams["train_dataloader_options"],
+    #     valid_loader_kwargs=hparams["test_dataloader_options"],
+    # )
 
     # Load the best checkpoint for evaluation
     test_stats = res_gen_brain.evaluate(

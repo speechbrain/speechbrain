@@ -137,7 +137,7 @@ class HuggingFaceGPT(nn.Module):
                     top_p=self.top_p,
                     num_beams=self.num_beams,
                     num_return_sequences=1,
-                    pad_token_id=50256,
+                    # pad_token_id=50256,
                     # eos_token_id=50258,
                     early_stopping=self.early_stopping,
                 )
@@ -147,7 +147,7 @@ class HuggingFaceGPT(nn.Module):
                     input_ids,
                     token_type_ids=token_type_ids,
                     max_new_tokens=self.max_new_tokens,
-                    pad_token_id=50256,
+                    # pad_token_id=50256,
                     # eos_token_id=50257,
                     attention_mask=attention_mask,
                 )
