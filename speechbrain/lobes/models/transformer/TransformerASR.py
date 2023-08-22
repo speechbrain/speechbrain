@@ -432,7 +432,11 @@ class TransformerASR(TransformerInterface):
         return TransformerASRStreamingContext(
             chunk_size=chunk_size,
             left_context_target_size=left_context_size,
-            encoder_context=self.encoder.make_streaming_context(**encoder_kwargs)
+            encoder_context=self.encoder.make_streaming_context(
+                # FIXME: bad naming, not all encoders might use mha etc
+                mha_left_context_size=left_context_size,
+                **encoder_kwargs
+            )
         )
 
     def _init_params(self):

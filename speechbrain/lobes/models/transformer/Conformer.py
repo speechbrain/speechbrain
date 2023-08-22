@@ -27,6 +27,7 @@ from speechbrain.nnet.activations import Swish
 
 @dataclass
 class ConformerEncoderLayerStreamingContext:
+    mha_left_context_size: int
     mha_left_context: Optional[torch.Tensor]
     dcconv_left_context: Optional[torch.Tensor]
 
@@ -415,7 +416,8 @@ class ConformerEncoderLayer(nn.Module):
             x = torch.cat((context.mha_left_context, x), dim=1)
 
         # print("cat(lc, x): ", x.shape)
-        context.mha_left_context = x[...,-32:,:]
+        if context.mha_left_context_size > 0:
+            context.mha_left_context = x[...,-context.mha_left_context_size:,:]
 
         # print("pos_embs:   ", pos_embs.shape)
         # print("new lc:     ", context.mha_left_context.shape)
@@ -450,8 +452,9 @@ class ConformerEncoderLayer(nn.Module):
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn
 
-    def make_streaming_context(self):
+    def make_streaming_context(self, mha_left_context_size: int):
         return ConformerEncoderLayerStreamingContext(
+            mha_left_context_size=mha_left_context_size,
             mha_left_context=None,
             dcconv_left_context=None
         )
@@ -608,10 +611,13 @@ class ConformerEncoder(nn.Module):
 
         return output, attention_lst
 
-    def make_streaming_context(self):
+    def make_streaming_context(self, mha_left_context_size: int):
         return ConformerEncoderStreamingContext(
             layers=[
-                layer.make_streaming_context() for layer in self.layers
+                layer.make_streaming_context(
+                    mha_left_context_size=mha_left_context_size
+                )
+                for layer in self.layers
             ]
         )
 
