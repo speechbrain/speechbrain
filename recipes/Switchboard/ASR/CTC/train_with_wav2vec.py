@@ -94,13 +94,20 @@ class ASR(sb.core.Brain):
 
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
             sequence = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
 
             predicted_words = self.tokenizer(sequence, task="decode_from_list")
+
+        elif stage == sb.Stage.TEST:
+            # Decode token terms to words
+            sequence = test_searcher(p_ctc, wav_lens)
+            predicted_words = [hyp[0].text.split(" ") for hyp in sequence]
+
+        if stage != sb.Stage.TRAIN:
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -425,6 +432,21 @@ if __name__ == "__main__":
 
     # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
+    vocab_list = [
+        tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())
+    ]
+    test_searcher = hparams["test_searcher"](
+        blank_index=hparams["blank_index"],
+        vocab_list=vocab_list,
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
+    )
 
     # Training
     asr_brain.fit(
