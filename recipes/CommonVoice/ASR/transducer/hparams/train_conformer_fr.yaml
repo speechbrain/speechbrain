@@ -12,17 +12,17 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/cv_transducer/<seed>
-output_wer_folder: !ref <output_folder>/
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 
 # Data files
 # Data files
-data_folder: data/fr/  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
-train_tsv_file: !ref <data_folder>/train_with_duration.tsv  # Standard CommonVoice .tsv files
-dev_tsv_file: !ref <data_folder>/dev_with_duration.tsv  # Standard CommonVoice .tsv files
-test_tsv_file: !ref <data_folder>/test_with_duration.tsv  # Standard CommonVoice .tsv files
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
+dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
+test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: True
 language: fr # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <save_folder>/train.csv
@@ -121,7 +121,7 @@ expand_beam: 2.3
 lm_weight: 0.50
 
 # If True uses torchaudio loss. Otherwise, the numba one
-use_torchaudio: False
+use_torchaudio: True
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>

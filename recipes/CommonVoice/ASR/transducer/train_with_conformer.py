@@ -516,13 +516,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=valid_dataloader_opts,
     )
 
-    import os
-
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
-
-    # Test
     asr_brain.evaluate(
         test_data,
         min_key="WER",
