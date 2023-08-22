@@ -34,7 +34,7 @@ class ResGenBrain(sb.Brain):
 
         # Forward Pass
         padding_mask = ~self.hparams.padding_mask(
-            input_ids, pad_idx= hparams["ignore_index"]
+            input_ids, pad_idx= tokenizer.unk_token_id
         )
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
@@ -63,7 +63,7 @@ class ResGenBrain(sb.Brain):
             # if current_epoch % self.hparams.valid_search_interval == 0:
             # history_bos = torch.LongTensor([hparams["bos_index"]] + (history_bos))
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx= hparams["ignore_index"]
+                history_bos, pad_idx= tokenizer.unk_token_id
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -72,7 +72,7 @@ class ResGenBrain(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx= hparams["ignore_index"]
+                history_bos, pad_idx= tokenizer.unk_token_id
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -458,16 +458,16 @@ if __name__ == "__main__":
                 "history_token_type",
             ]:
                 max_len = max([len(x[k]) for x in examples])
-                pad_value = hparams["ignore_index"]
-                # if k in [
-                #     "input_ids",
-                #     "history_bos",
-                #     "token_type_ids",
-                #     "history_token_type",
-                # ]:
-                #     pad_value = hparams["ignore_index"]
-                # elif k == "lm_labels":
-                #     pad_value = hparams["ignore_index"]
+                pad_value = 0
+                if k in [
+                    "input_ids",
+                    "history_bos",
+                    "token_type_ids",
+                    "history_token_type",
+                ]:
+                    pad_value = tokenizer.unk_token_id
+                elif k == "lm_labels":
+                    pad_value = hparams["ignore_index"]
                 for example in examples:
                     x = example[k]
                     if k in ["history_bos", "history_token_type"]:
