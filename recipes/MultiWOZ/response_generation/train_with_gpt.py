@@ -507,13 +507,13 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    # res_gen_brain.fit(
-    #     epoch_counter=res_gen_brain.hparams.epoch_counter,
-    #     train_set=datasets["train"],
-    #     valid_set=datasets["valid"],
-    #     train_loader_kwargs=hparams["train_dataloader_options"],
-    #     valid_loader_kwargs=hparams["test_dataloader_options"],
-    # )
+    res_gen_brain.fit(
+        epoch_counter=res_gen_brain.hparams.epoch_counter,
+        train_set=datasets["train"],
+        valid_set=datasets["valid"],
+        train_loader_kwargs=hparams["train_dataloader_options"],
+        valid_loader_kwargs=hparams["test_dataloader_options"],
+    )
 
     # Load the best checkpoint for evaluation
     test_stats = res_gen_brain.evaluate(
