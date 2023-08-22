@@ -24,14 +24,7 @@ from speechbrain.dataio.dataio import length_to_mask
 class TransformerASRStreamingContext:
     chunk_size: int
     left_context_target_size: int
-    encoder: Any
-
-    @classmethod
-    def initial(cls, chunk_size, left_context_size):
-        return TransformerASRStreamingContext(
-            chunk_size=chunk_size,
-            left_context_target_size=left_context_size,
-        )
+    encoder_context: Any
 
 
 class TransformerASR(TransformerInterface):
@@ -396,18 +389,42 @@ class TransformerASR(TransformerInterface):
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
 
+        # HACK: our problem here is that the positional_encoding is computed
+        # against the size of our source tensor, but we only know how many left
+        # context frames we're injecting to the encoder within the encoder
+        # context.
+        # so this workaround does just that.
+        #
+        # i'm not sure how this would be best refactored, but an option would be
+        # to let the encoder get the pos embedding itself and have a way to
+        # cache it.
+        #
+        # additionally, positional encoding functions take in a whole source
+        # tensor just to get its attributes (size, device, type) but this is
+        # sort of silly for the embeddings that don't need one.
+        # so we craft a dummy empty (uninitialized) tensor to help...
+        known_left_context = context.encoder_context.layers[0].mha_left_context
+        if known_left_context is None:
+            # print(f"no lc known: using {src.shape}")
+            pos_encoding_dummy = src
+        else:
+            target_shape = list(src.shape)
+            # print(f"computing posemb shape: from {target_shape} with lc {known_left_context.shape}")
+            target_shape[-2] += known_left_context.shape[-2]
+            pos_encoding_dummy = torch.empty(size=target_shape).to(src)
+
         src = self.custom_src_module(src)
         if self.attention_type == "RelPosMHAXL":
-            pos_embs_source = self.positional_encoding(src)
+            pos_embs_source = self.positional_encoding(pos_encoding_dummy)
 
         elif self.positional_encoding_type == "fixed_abs_sine":
-            src = src + self.positional_encoding(src)
+            src = src + self.positional_encoding(pos_encoding_dummy)
             pos_embs_source = None
 
         encoder_out, _ = self.encoder.forward_streaming(
             src=src,
             pos_embs=pos_embs_source,
-            context=context.encoder
+            context=context.encoder_context
         )
         return encoder_out
 
@@ -415,7 +432,7 @@ class TransformerASR(TransformerInterface):
         return TransformerASRStreamingContext(
             chunk_size=chunk_size,
             left_context_target_size=left_context_size,
-            encoder=self.encoder.make_streaming_context(**encoder_kwargs)
+            encoder_context=self.encoder.make_streaming_context(**encoder_kwargs)
         )
 
     def _init_params(self):

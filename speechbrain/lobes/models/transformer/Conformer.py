@@ -399,6 +399,56 @@ class ConformerEncoderLayer(nn.Module):
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn
 
+    def streaming_forward(
+        self,
+        x,
+        context: ConformerEncoderLayerStreamingContext,
+        pos_embs: torch.Tensor = None,
+    ):
+        orig_len = x.shape[-2]
+        # print("pre ffn x:  ", x.shape)
+        # ffn module
+        x = x + 0.5 * self.ffn_module1(x)
+
+        # print("x:          ", x.shape)
+        if context.mha_left_context is not None:
+            x = torch.cat((context.mha_left_context, x), dim=1)
+
+        # print("cat(lc, x): ", x.shape)
+        context.mha_left_context = x[...,-32:,:]
+
+        # print("pos_embs:   ", pos_embs.shape)
+        # print("new lc:     ", context.mha_left_context.shape)
+        # print()
+
+        # muti-head attention module
+        skip = x
+        x = self.norm1(x)
+
+        x, self_attn = self.mha_layer(
+            x,
+            x,
+            x,
+            attn_mask=None,
+            key_padding_mask=None,
+            pos_embs=pos_embs,
+        )
+        x = x + skip
+        x = x[...,-orig_len:,:]
+
+        if context.dcconv_left_context is not None:
+            x = torch.cat((context.dcconv_left_context, x), dim=1)
+
+        context.dcconv_left_context = x[...,-self.convolution_module.padding:,:]
+
+        # convolution module
+        x = x + self.convolution_module(x)
+
+        x = x[...,-orig_len:,:]
+
+        # ffn module
+        x = self.norm2(x + 0.5 * self.ffn_module2(x))
+        return x, self_attn
 
     def make_streaming_context(self):
         return ConformerEncoderLayerStreamingContext(
@@ -548,7 +598,7 @@ class ConformerEncoder(nn.Module):
         output = src
         attention_lst = []
         for i, enc_layer in enumerate(self.layers):
-            output, attention = enc_layer(
+            output, attention = enc_layer.streaming_forward(
                 output,
                 pos_embs=pos_embs,
                 context=context.layers[i]

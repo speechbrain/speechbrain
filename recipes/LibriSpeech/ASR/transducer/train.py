@@ -309,8 +309,8 @@ class ASR(sb.Brain):
             ckpts, recoverable_name="model"
         )
 
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
+        # self.hparams.model.load_state_dict(ckpt, strict=True)
+        # self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):
