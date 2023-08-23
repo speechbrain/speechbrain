@@ -74,7 +74,7 @@ class ASR(sb.Brain):
         left_context_chunks = -1
         if self.hparams.streaming:
             if stage == sb.Stage.TRAIN:
-                if torch.rand((1,)).item() < self.hparams.dynamic_chunk_thresh:
+                if torch.rand((1,)).item() < self.hparams.dynamic_chunk_prob:
                     transformer_chunk_size = torch.randint(
                         self.hparams.dynamic_chunk_min,
                         self.hparams.dynamic_chunk_max + 1,
@@ -84,7 +84,7 @@ class ASR(sb.Brain):
 
                 if (
                     torch.rand((1,)).item()
-                    < self.hparams.dynamic_left_context_thresh
+                    < self.hparams.dynamic_left_context_prob
                 ):
                     left_context_chunks = torch.randint(
                         self.hparams.dynamic_left_context_min,
