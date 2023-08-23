@@ -411,8 +411,21 @@ class TransformerASR(TransformerInterface):
     def encode_streaming(self, src, context: TransformerASRStreamingContext):
         """
         Streaming encoder forward pass
+
+        Arguments
+        ---------
+        src : torch.Tensor
+            The sequence (chunk) to the encoder.
+
+        context : TransformerASRStreamingContext
+            Mutable reference to the streaming context. This holds the state
+            needed to persist across chunk inferences and can be built using
+            `make_streaming_context`. This will get mutated by this function.
+
+        Returns
+        -------
+        Encoder output for this chunk.
         """
-        # TODO: docstring
 
         if src.dim() == 4:
             bz, t, ch1, ch2 = src.shape
