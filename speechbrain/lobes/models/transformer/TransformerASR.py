@@ -22,9 +22,16 @@ from speechbrain.dataio.dataio import length_to_mask
 
 @dataclass
 class TransformerASRStreamingContext:
+    """Streaming metadata and state for a `TransformerASR` instance."""
+
     chunk_size: int
-    left_context_target_size: int
+    """The size of a chunk expressed in input frames to the transformer."""
+
     encoder_context: Any
+    """Opaque encoder context information. It is constructed by the encoder's
+    `make_streaming_context` method and is passed to the encoder when using
+    `encode_streaming`.
+    """
 
 
 class TransformerASR(TransformerInterface):
@@ -449,14 +456,24 @@ class TransformerASR(TransformerInterface):
         return encoder_out
 
     def make_streaming_context(
-        self, chunk_size, left_context_size, encoder_kwargs={}
+        self, chunk_size: int, encoder_kwargs={}
     ):
+        """Creates a blank streaming context for this transformer and its
+        encoder.
+        
+        Arguments
+        ---------
+        chunk_size : int
+            How many frames comprise a chunk.
+        
+        encoder_kwargs : dict
+            Parameters to be forward to the encoder's `make_streaming_context`.
+            Metadata required for the encoder could differ depending on the
+            encoder.
+        """
         return TransformerASRStreamingContext(
             chunk_size=chunk_size,
-            left_context_target_size=left_context_size,
             encoder_context=self.encoder.make_streaming_context(
-                # FIXME: bad naming, not all encoders might use mha etc
-                mha_left_context_size=left_context_size,
                 **encoder_kwargs,
             ),
         )

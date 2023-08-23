@@ -27,14 +27,38 @@ from speechbrain.nnet.activations import Swish
 
 @dataclass
 class ConformerEncoderLayerStreamingContext:
+    """Streaming metadata and state for a `ConformerEncoderLayer`.
+
+    The multi-head attention and Dynamic Chunk Convolution require to save some
+    left context that gets inserted as left padding."""
+
     mha_left_context_size: int
-    mha_left_context: Optional[torch.Tensor]
-    dcconv_left_context: Optional[torch.Tensor]
+    """For this layer, specifies how many frames of inputs should be saved.
+    Usually, the same value is used across all layers, but this can be modified.
+    """
+
+    mha_left_context: Optional[torch.Tensor] = None
+    """Left context to insert at the left of the current chunk as inputs to the
+    multi-head attention. It can be `None` (if we're dealing with the first
+    chunk) or `<= mha_left_context_size` because for the first few chunks, not
+    enough left context may be available to pad.
+    """
+
+    dcconv_left_context: Optional[torch.Tensor] = None
+    """Left context to insert at the left of the convolution according to the
+    Dynamic Chunk Convolution method.
+    
+    Unlike `mha_left_context`, here the amount of frames to keep is fixed and
+    inferred from the kernel size of the convolution module.
+    """
 
 
 @dataclass
 class ConformerEncoderStreamingContext:
+    """Streaming metadata and state for a `ConformerEncoder`."""
+
     layers: List[ConformerEncoderLayerStreamingContext]
+    """Streaming metadata and state for each layer of the encoder."""
 
 
 class ConvolutionModule(nn.Module):
@@ -406,32 +430,25 @@ class ConformerEncoderLayer(nn.Module):
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
         return x, self_attn
 
-    def streaming_forward(
+    def forward_streaming(
         self,
         x,
         context: ConformerEncoderLayerStreamingContext,
         pos_embs: torch.Tensor = None,
     ):
         orig_len = x.shape[-2]
-        # print("pre ffn x:  ", x.shape)
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
 
-        # print("x:          ", x.shape)
         if context.mha_left_context is not None:
             x = torch.cat((context.mha_left_context, x), dim=1)
 
-        # print("cat(lc, x): ", x.shape)
         if context.mha_left_context_size > 0:
             context.mha_left_context = x[
                 ..., -context.mha_left_context_size :, :
             ]
 
-        # print("pos_embs:   ", pos_embs.shape)
-        # print("new lc:     ", context.mha_left_context.shape)
-        # print()
-
-        # muti-head attention module
+        # multi-head attention module
         skip = x
         x = self.norm1(x)
 
@@ -458,10 +475,16 @@ class ConformerEncoderLayer(nn.Module):
         return x, self_attn
 
     def make_streaming_context(self, mha_left_context_size: int):
+        """Creates a blank streaming context for this encoding layer.
+
+        Arguments
+        ---------
+        mha_left_context_size : int
+            How many left frames should be saved and used as left context to the
+            current chunk when streaming
+        """
         return ConformerEncoderLayerStreamingContext(
-            mha_left_context_size=mha_left_context_size,
-            mha_left_context=None,
-            dcconv_left_context=None,
+            mha_left_context_size=mha_left_context_size
         )
 
 
@@ -606,7 +629,7 @@ class ConformerEncoder(nn.Module):
         output = src
         attention_lst = []
         for i, enc_layer in enumerate(self.layers):
-            output, attention = enc_layer.streaming_forward(
+            output, attention = enc_layer.forward_streaming(
                 output, pos_embs=pos_embs, context=context.layers[i]
             )
             attention_lst.append(attention)
@@ -615,6 +638,15 @@ class ConformerEncoder(nn.Module):
         return output, attention_lst
 
     def make_streaming_context(self, mha_left_context_size: int):
+        """Creates a blank streaming context for the encoder.
+
+        Arguments
+        ---------
+        mha_left_context_size : int
+            How many left frames should be saved and used as left context to the
+            current chunk when streaming. This value is replicated across all
+            layers.
+        """
         return ConformerEncoderStreamingContext(
             layers=[
                 layer.make_streaming_context(
