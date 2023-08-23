@@ -130,10 +130,11 @@ class ConvolutionModule(nn.Module):
             bias=bias,
         )
 
-        # self.batch_norm = nn.BatchNorm1d(input_size)
+        # NOTE: there appears to be a mismatch compared to the Conformer paper:
+        # I believe the first LayerNorm below is supposed to be a BatchNorm.
 
         self.after_conv = nn.Sequential(
-            nn.LayerNorm(input_size),  # should be a BN to match Conformer paper
+            nn.LayerNorm(input_size),
             activation(),
             # pointwise
             nn.Linear(input_size, input_size, bias=bias),
@@ -151,8 +152,8 @@ class ConvolutionModule(nn.Module):
             # let's keep backwards compat by pointing at the weights from the
             # already declared Conv1d.
 
-            # we do not need to edit bottleneck as it is pointwise (i.e. time
-            # step by time step), thus, it doesn't need padding along the
+            # we do not need to edit the bottleneck as it is pointwise (i.e.
+            # time step by time step), thus, it doesn't need padding along the
             # time dimension
             out = F.conv1d(
                 out,
@@ -167,8 +168,6 @@ class ConvolutionModule(nn.Module):
         if self.causal:
             # chomp
             out = out[..., : -self.padding]
-
-        # out = self.batch_norm(out)
 
         out = out.transpose(1, 2)
         out = self.after_conv(out)
@@ -241,7 +240,8 @@ class ConvolutionModule(nn.Module):
             ]
 
             # we pack together chunks in a single tensor so that we can feed it
-            # to the convolution directly.
+            # to the convolution directly. this is much more performant than
+            # doing the same with lists.
 
             # -> [batch_size, num_chunks, chunk_size + lc + rpad, in_channels]
             out = torch.stack(out, dim=1)
@@ -440,9 +440,17 @@ class ConformerEncoderLayer(nn.Module):
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
 
+        # TODO: make the approach for MHA left context more efficient.
+        # currently, this saves the inputs to the MHA.
+        # the naive approach is suboptimal in a few ways, namely that the
+        # outputs for this left padding is being re-computed even though we
+        # discard them immediately after.
+
+        # left pad `x` with our MHA left context
         if context.mha_left_context is not None:
             x = torch.cat((context.mha_left_context, x), dim=1)
 
+        # compute new MHA left context for the next call to our function
         if context.mha_left_context_size > 0:
             context.mha_left_context = x[
                 ..., -context.mha_left_context_size :, :
@@ -456,11 +464,21 @@ class ConformerEncoderLayer(nn.Module):
             x, x, x, attn_mask=None, key_padding_mask=None, pos_embs=pos_embs,
         )
         x = x + skip
+
+        # truncate outputs corresponding to the MHA left context (we only care
+        # about our chunk's outputs); see above to-do
         x = x[..., -orig_len:, :]
+
+        # TODO: this is slightly suboptimal as this will add left padding inside
+        # the convolution code that we do not need. it would be better to
+        # manually add the right-padding ourselves and disable padding inside
+        # the convolution module for this usecase, but it would need some
+        # refactoring.
 
         if context.dcconv_left_context is not None:
             x = torch.cat((context.dcconv_left_context, x), dim=1)
 
+        # compute new DCConv left context for the next call to our function
         context.dcconv_left_context = x[
             ..., -self.convolution_module.padding :, :
         ]
@@ -468,6 +486,7 @@ class ConformerEncoderLayer(nn.Module):
         # convolution module
         x = x + self.convolution_module(x)
 
+        # truncate outputs corresponding to the DCConv left context
         x = x[..., -orig_len:, :]
 
         # ffn module
