@@ -74,19 +74,22 @@ class ASR(sb.Brain):
         left_context_chunks = -1
         if self.hparams.streaming:
             if stage == sb.Stage.TRAIN:
-                if torch.rand((1, )).item() < self.hparams.dynamic_chunk_thresh:
+                if torch.rand((1,)).item() < self.hparams.dynamic_chunk_thresh:
                     transformer_chunk_size = torch.randint(
                         self.hparams.dynamic_chunk_min,
                         self.hparams.dynamic_chunk_max + 1,
-                        (1, )
+                        (1,),
                     ).item()
                     # print("tfx chunk size", transformer_chunk_size)
 
-                if torch.rand((1, )).item() < self.hparams.dynamic_left_context_thresh:
+                if (
+                    torch.rand((1,)).item()
+                    < self.hparams.dynamic_left_context_thresh
+                ):
                     left_context_chunks = torch.randint(
                         self.hparams.dynamic_left_context_min,
                         self.hparams.dynamic_left_context_max + 1,
-                        (1, )
+                        (1,),
                     ).item()
             elif stage == sb.Stage.TEST:
                 transformer_chunk_size = self.hparams.test_chunk_size
@@ -104,7 +107,7 @@ class ASR(sb.Brain):
             wav_lens,
             pad_idx=self.hparams.pad_index,
             chunk_size=transformer_chunk_size,
-            left_context_chunks=left_context_chunks
+            left_context_chunks=left_context_chunks,
         )
         x = self.modules.proj_enc(x)
 

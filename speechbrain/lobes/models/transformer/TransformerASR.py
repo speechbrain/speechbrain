@@ -239,7 +239,15 @@ class TransformerASR(TransformerInterface):
 
         return encoder_out, decoder_out
 
-    def make_masks(self, src, tgt=None, wav_len=None, pad_idx=0, chunk_size: int = -1, left_context_chunks: int = -1):
+    def make_masks(
+        self,
+        src,
+        tgt=None,
+        wav_len=None,
+        pad_idx=0,
+        chunk_size: int = -1,
+        left_context_chunks: int = -1,
+    ):
         """This method generates the masks for training the transformer model.
 
         Arguments
@@ -262,19 +270,21 @@ class TransformerASR(TransformerInterface):
             src_mask = torch.zeros(
                 (src.shape[1], src.shape[1]),
                 device=src.device,
-                dtype=torch.bool
+                dtype=torch.bool,
             )
 
         if left_context_chunks >= 0:
             for i in range(src.shape[1]):
                 if chunk_size >= 0:
                     current_chunk = (i // chunk_size) * chunk_size
-                    frame_remaining_context = max(0, current_chunk - left_context_chunks * chunk_size)
+                    frame_remaining_context = max(
+                        0, current_chunk - left_context_chunks * chunk_size
+                    )
                 else:
                     frame_remaining_context = 0
 
                 # end range is exclusive, so there is no off-by-one here
-                src_mask[i,:frame_remaining_context] = True
+                src_mask[i, :frame_remaining_context] = True
 
         if chunk_size >= 0:
             for i in range(src.shape[1]):
@@ -341,7 +351,14 @@ class TransformerASR(TransformerInterface):
         )
         return prediction, multihead_attns[-1]
 
-    def encode(self, src, wav_len=None, pad_idx=0, chunk_size=-1, left_context_chunks: int = -1):
+    def encode(
+        self,
+        src,
+        wav_len=None,
+        pad_idx=0,
+        chunk_size=-1,
+        left_context_chunks: int = -1,
+    ):
         """
         Encoder forward pass
 
@@ -358,7 +375,12 @@ class TransformerASR(TransformerInterface):
             src = src.reshape(bz, t, ch1 * ch2)
 
         (src_key_padding_mask, _, src_mask, _,) = self.make_masks(
-            src, None, wav_len, pad_idx=pad_idx, chunk_size=chunk_size, left_context_chunks=left_context_chunks
+            src,
+            None,
+            wav_len,
+            pad_idx=pad_idx,
+            chunk_size=chunk_size,
+            left_context_chunks=left_context_chunks,
         )
 
         src = self.custom_src_module(src)
@@ -422,21 +444,21 @@ class TransformerASR(TransformerInterface):
             pos_embs_source = None
 
         encoder_out, _ = self.encoder.forward_streaming(
-            src=src,
-            pos_embs=pos_embs_source,
-            context=context.encoder_context
+            src=src, pos_embs=pos_embs_source, context=context.encoder_context
         )
         return encoder_out
 
-    def make_streaming_context(self, chunk_size, left_context_size, encoder_kwargs={}):
+    def make_streaming_context(
+        self, chunk_size, left_context_size, encoder_kwargs={}
+    ):
         return TransformerASRStreamingContext(
             chunk_size=chunk_size,
             left_context_target_size=left_context_size,
             encoder_context=self.encoder.make_streaming_context(
                 # FIXME: bad naming, not all encoders might use mha etc
                 mha_left_context_size=left_context_size,
-                **encoder_kwargs
-            )
+                **encoder_kwargs,
+            ),
         )
 
     def _init_params(self):
@@ -474,7 +496,15 @@ class EncoderWrapper(nn.Module):
         super().__init__(*args, **kwargs)
         self.transformer = transformer
 
-    def forward(self, x, wav_lens=None, pad_idx=0, chunk_size=-1, left_context_chunks=-1):
+    def forward(
+        self, x, wav_lens=None, pad_idx=0, chunk_size=-1, left_context_chunks=-1
+    ):
         """ Processes the input tensor x and returns an output tensor."""
-        x = self.transformer.encode(x, wav_lens, pad_idx, chunk_size=chunk_size, left_context_chunks=left_context_chunks)
+        x = self.transformer.encode(
+            x,
+            wav_lens,
+            pad_idx,
+            chunk_size=chunk_size,
+            left_context_chunks=left_context_chunks,
+        )
         return x

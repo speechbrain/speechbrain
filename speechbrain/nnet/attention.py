@@ -592,22 +592,26 @@ class RelPosMHAXL(nn.Module):
         ).transpose(1, 2)
 
         # TODO: cite https://asherliu.github.io/docs/sc21a.pdf
-        # for the scaling prior to the matrix multiplication 
+        # for the scaling prior to the matrix multiplication
         # should read more of the paper though
         # TODO: check if this causes any difference beyond precision
         # (it does not seem like it does)
 
         # (batch, head, qlen, klen)
-        matrix_ac = torch.matmul(q_with_bias_u * self.scale, key.permute(0, 2, 3, 1))
+        matrix_ac = torch.matmul(
+            q_with_bias_u * self.scale, key.permute(0, 2, 3, 1)
+        )
         # (batch, num_heads, klen, 2*klen-1)
-        matrix_bd = torch.matmul(q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1))
+        matrix_bd = torch.matmul(
+            q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1)
+        )
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
         # if klen != qlen:
         #   import ipdb
         #  ipdb.set_trace(
 
-        attn_score = (matrix_ac + matrix_bd) # already scaled above
+        attn_score = matrix_ac + matrix_bd  # already scaled above
 
         # compute attention probability
         if attn_mask is not None:
@@ -636,9 +640,7 @@ class RelPosMHAXL(nn.Module):
         # because -inf would output 0.0 regardless anyway
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(
-                    attn_mask, 0.0
-                )
+                attn_score = attn_score.masked_fill(attn_mask, 0.0)
             else:
                 assert False, "oopsie need to reimplement that"
 

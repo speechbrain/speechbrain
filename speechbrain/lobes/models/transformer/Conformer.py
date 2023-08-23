@@ -179,10 +179,7 @@ class ConvolutionModule(nn.Module):
             # compute the left context that can and should be added, for each
             # chunk. for the first few chunks, we will need to add extra padding
             applied_left_context = [
-                min(
-                    chunk_left_context,
-                    i * chunk_size,
-                )
+                min(chunk_left_context, i * chunk_size,)
                 for i in range(chunk_count)
             ]
 
@@ -190,23 +187,32 @@ class ConvolutionModule(nn.Module):
             # the left context effectively becomes "left padding", we do not
             # want to keep any convolution results centered on the left context
             out = [
-                x[:,i * chunk_size - applied_left_context[i]:(i + 1) * chunk_size,...]
+                x[
+                    :,
+                    i * chunk_size
+                    - applied_left_context[i] : (i + 1) * chunk_size,
+                    ...,
+                ]
                 for i in range(chunk_count)
             ]
 
             # TODO: experiment around reflect padding, which is difficult
             # because small chunks have too little time steps to reflect from
             out = [
-                F.pad(out[i], (
-                    # channel dims, we do not to pad these
-                    0,
-                    0,
-                    # add missing left 0-padding if we lacked left context
-                    chunk_left_context - applied_left_context[i],
-                    # add missing right 0-padding as we disable default padding
-                    # also add missing frames of the rightmost chunk
-                    self.padding + (final_right_padding if i == len(out) - 1 else 0)
-                ))
+                F.pad(
+                    out[i],
+                    (
+                        # channel dims, we do not to pad these
+                        0,
+                        0,
+                        # add missing left 0-padding if we lacked left context
+                        chunk_left_context - applied_left_context[i],
+                        # add missing right 0-padding as we disable default padding
+                        # also add missing frames of the rightmost chunk
+                        self.padding
+                        + (final_right_padding if i == len(out) - 1 else 0),
+                    ),
+                )
                 for i in range(len(out))
             ]
 
@@ -230,7 +236,7 @@ class ConvolutionModule(nn.Module):
 
             # -> [batch_size, time_steps, out_channels]
             if final_right_padding > 0:
-                out = out[:,:-final_right_padding,:]
+                out = out[:, :-final_right_padding, :]
         else:
             out = self._do_conv(x, inhibit_padding=False)
 
@@ -417,7 +423,9 @@ class ConformerEncoderLayer(nn.Module):
 
         # print("cat(lc, x): ", x.shape)
         if context.mha_left_context_size > 0:
-            context.mha_left_context = x[...,-context.mha_left_context_size:,:]
+            context.mha_left_context = x[
+                ..., -context.mha_left_context_size :, :
+            ]
 
         # print("pos_embs:   ", pos_embs.shape)
         # print("new lc:     ", context.mha_left_context.shape)
@@ -428,25 +436,22 @@ class ConformerEncoderLayer(nn.Module):
         x = self.norm1(x)
 
         x, self_attn = self.mha_layer(
-            x,
-            x,
-            x,
-            attn_mask=None,
-            key_padding_mask=None,
-            pos_embs=pos_embs,
+            x, x, x, attn_mask=None, key_padding_mask=None, pos_embs=pos_embs,
         )
         x = x + skip
-        x = x[...,-orig_len:,:]
+        x = x[..., -orig_len:, :]
 
         if context.dcconv_left_context is not None:
             x = torch.cat((context.dcconv_left_context, x), dim=1)
 
-        context.dcconv_left_context = x[...,-self.convolution_module.padding:,:]
+        context.dcconv_left_context = x[
+            ..., -self.convolution_module.padding :, :
+        ]
 
         # convolution module
         x = x + self.convolution_module(x)
 
-        x = x[...,-orig_len:,:]
+        x = x[..., -orig_len:, :]
 
         # ffn module
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
@@ -456,7 +461,7 @@ class ConformerEncoderLayer(nn.Module):
         return ConformerEncoderLayerStreamingContext(
             mha_left_context_size=mha_left_context_size,
             mha_left_context=None,
-            dcconv_left_context=None
+            dcconv_left_context=None,
         )
 
 
@@ -590,7 +595,7 @@ class ConformerEncoder(nn.Module):
         self,
         src,
         context: ConformerEncoderStreamingContext,
-        pos_embs: Optional[torch.Tensor] = None
+        pos_embs: Optional[torch.Tensor] = None,
     ):
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
@@ -602,9 +607,7 @@ class ConformerEncoder(nn.Module):
         attention_lst = []
         for i, enc_layer in enumerate(self.layers):
             output, attention = enc_layer.streaming_forward(
-                output,
-                pos_embs=pos_embs,
-                context=context.layers[i]
+                output, pos_embs=pos_embs, context=context.layers[i]
             )
             attention_lst.append(attention)
         output = self.norm(output)

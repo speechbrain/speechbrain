@@ -15,7 +15,7 @@ def chunkify_sequence(x, chunk_size):
     for i in range(max(1, math.ceil(x.shape[1] / chunk_size))):
         start = i * chunk_size
         end = start + chunk_size
-        chunks.append(x[:,start:end,...])
+        chunks.append(x[:, start:end, ...])
 
     return chunks
 
@@ -42,9 +42,7 @@ def chunked_wav_lens(chunks, wav_lens):
 
 
 def infer_dependency_matrix(
-    model: Callable,
-    seq_shape: tuple,
-    in_stride: int = 1
+    model: Callable, seq_shape: tuple, in_stride: int = 1
 ):
     """
     Randomizes parts of the input sequence several times in order to detect
@@ -100,23 +98,25 @@ def infer_dependency_matrix(
             )
     out_len, _out_feat_len = base_out.shape[1:]
 
-    deps = torch.zeros(((seq_len + (in_stride - 1)) // in_stride, out_len), dtype=torch.bool)
+    deps = torch.zeros(
+        ((seq_len + (in_stride - 1)) // in_stride, out_len), dtype=torch.bool
+    )
 
     for in_frame_idx in range(0, seq_len, in_stride):
         test_seq = base_seq.clone()
-        test_seq[:,in_frame_idx,:] = torch.rand(bs, feat_len)
+        test_seq[:, in_frame_idx, :] = torch.rand(bs, feat_len)
 
         with torch.no_grad():
             test_out = model(test_seq)
 
         for out_frame_idx in range(out_len):
             if not torch.allclose(
-                test_out[:,out_frame_idx,:],
-                base_out[:,out_frame_idx,:]
+                test_out[:, out_frame_idx, :], base_out[:, out_frame_idx, :]
             ):
                 deps[in_frame_idx // in_stride][out_frame_idx] = True
 
     return deps
+
 
 def plot_dependency_matrix(deps, in_stride: int = 1):
     """
@@ -142,14 +142,14 @@ def plot_dependency_matrix(deps, in_stride: int = 1):
     cmap = ListedColormap(["white", "red"])
 
     fig, ax = plt.subplots()
-    
+
     ax.pcolormesh(
         torch.permute(deps, (1, 0)),
         cmap=cmap,
         vmin=False,
         vmax=True,
         edgecolors="gray",
-        linewidth=0.5
+        linewidth=0.5,
     )
     ax.set_title("Dependency plot")
     ax.set_xlabel("in")
