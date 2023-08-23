@@ -93,7 +93,7 @@ class ASR(sb.Brain):
         p_ctc, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
-        tokens, tokens_lens = batch.tokens
+        # tokens, tokens_lens = batch.tokens
 
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             raise NotImplementedError(
@@ -110,7 +110,7 @@ class ASR(sb.Brain):
         else:
             raise NotImplementedError("Only ascending or descending sorting is implemented, but got {}".format(self.hparams.sorting))
 
-        is_training = True if stage == sb.Stage.TRAIN else False
+        is_training = (stage == sb.Stage.TRAIN)
         loss_ctc = self.hparams.ctc_cost(log_probs=p_ctc, 
                                          input_lens=wav_lens, 
                                          graph_compiler=self.graph_compiler,
@@ -121,7 +121,12 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_texts = self.graph_compiler.decode(p_ctc, wav_lens, ac_scale=self.hparams.ac_scale) # list of strings
+            predicted_texts = self.graph_compiler.decode(
+                p_ctc,
+                wav_lens,
+                ac_scale=self.hparams.ac_scale,
+                decoding_method="1best"
+            ) # list of strings
             predicted_words = [wrd.split(" ") for wrd in predicted_texts]
             target_words = [wrd.split(" ") for wrd in texts]
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -132,12 +137,17 @@ class ASR(sb.Brain):
                     "Language modelling is not implemented for models trained with k2"
                 )
             else:
-                predicted_texts = self.graph_compiler.decode(p_ctc, 
-                                                             wav_lens, 
-                                                             search_beam=self.hparams.test_search_beam, 
-                                                             output_beam=self.hparams.test_output_beam, 
-                                                             ac_scale=self.hparams.ac_scale,
-                                                             max_active_states=self.hparams.test_max_active_state) # list of strings
+                decoding_method=getattr(asr_brain.hparams, "decoding_method", "1best")
+                predicted_texts = self.graph_compiler.decode(
+                    p_ctc,
+                    wav_lens,
+                    search_beam=self.hparams.test_search_beam,
+                    output_beam=self.hparams.test_output_beam,
+                    ac_scale=self.hparams.ac_scale,
+                    max_active_states=self.hparams.test_max_active_state,
+                    is_test=True,
+                    decoding_method=decoding_method
+                ) # list of strings
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
             target_words = [wrd.split(" ") for wrd in texts]
             self.wer_metric.append(ids, predicted_words, target_words)
@@ -506,8 +516,23 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-
-    graph_compiler = CtcTrainingGraphCompiler(lexicon=lexicon, device=asr_brain.device)
+    if getattr(asr_brain.hparams, "use_HLG", False) in [True, "True"]:
+        if hasattr(asr_brain.hparams, "G_path"):
+            G_path = asr_brain.hparams.G_path
+        else:
+            G_path = os.path.join(hparams["lang_dir"], "G_3_gram.fst.txt")
+        if not os.path.isfile(G_path):
+            raise FileNotFoundError(
+                f"{G_path} not found. You need to run kaldilm to convert an"
+                " ARPA LM to FST format or use the --G_path to pass your own LM."
+            )
+    else:
+        G_path = None
+    graph_compiler = CtcTrainingGraphCompiler(
+        lexicon=lexicon,
+        device=asr_brain.device,
+        G_path=G_path,
+    )
 
     # Add attributes to asr_brain
     setattr(asr_brain, "graph_compiler", graph_compiler)

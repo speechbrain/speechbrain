@@ -162,25 +162,24 @@ class Lexicon(object):
             It contains the pattern for disambiguation symbols.
           load_mapping: If True, load the mapping including token2idx idx2token word2idx idx2word word2tids.
         """
-        lang_dir = Path(lang_dir)
-        self.lang_dir = lang_dir
+        self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
         self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
-
-        if (lang_dir / "Linv.pt").exists():
-            logging.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
-            L_inv = k2.Fsa.from_dict(torch.load(lang_dir / "Linv.pt"))
-        else:
-            logging.info("Converting L.pt to Linv.pt")
-            L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
-            L_inv = k2.arc_sort(L.invert())
-            torch.save(L_inv.as_dict(), lang_dir / "Linv.pt")
+        self.log_unknown_warning = True
 
         if (lang_dir/ "L.pt").exists():
             logging.info(f"Loading pre-compiled {lang_dir}/L.pt")
             L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
         else:
             raise RuntimeError(f"{lang_dir}/L.pt does not exist. Please make sure you have successfully created L.pt in {lang_dir}")
+
+        if (lang_dir / "Linv.pt").exists():
+            logging.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
+            L_inv = k2.Fsa.from_dict(torch.load(lang_dir / "Linv.pt"))
+        else:
+            logging.info("Converting L.pt to Linv.pt")
+            L_inv = k2.arc_sort(L.invert())
+            torch.save(L_inv.as_dict(), lang_dir / "Linv.pt")
 
         # We save L_inv instead of L because it will be used to intersect with
         # transcript FSAs, both of whose labels are word IDs.
@@ -255,7 +254,10 @@ class Lexicon(object):
             words = text.split()
             for i, word in enumerate(words):
                 if word not in self.word2tids:
-                    logging.warn(f"Cannot find word {word} in the lexicon. Replacing it with {oov_token}. please check {self.lang_dir}/lexicon.txt. Note that it is fine if you are testing.")
+                    if self.log_unknown_warning:
+                        logging.warn(f"Cannot find word {word} in the lexicon."
+                                     f" Replacing it with {oov_token}. please check {self.lang_dir}/lexicon.txt."
+                                     f" Note that it is fine if you are testing.")
                     word = oov_token
                 tids.extend(self.word2tids[word][0])
                 if add_sil_token_as_separator and i < len(words) - 1:

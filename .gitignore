@@ -154,8 +154,11 @@ dmypy.json
 # Results folders
 **/results/
 
+# LM folders
+recipes/*/*/*/lm/
+
 # Log folders
 **/log/
 
 # Mac OS
-.DS_Store
+.DS_Store*/*/*/*/lm/
