@@ -68,7 +68,7 @@ label_smoothing: 0
 # Training parameters
 number_of_epochs: 20
 batch_size: 8
-test_batch_size: 1
+test_batch_size: 4
 lr: 1.97125e-4
 
 #freeze GPT model

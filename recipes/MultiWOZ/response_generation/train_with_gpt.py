@@ -34,7 +34,7 @@ class ResGenBrain(sb.Brain):
 
         # Forward Pass
         padding_mask = ~self.hparams.padding_mask(
-            input_ids, pad_idx= tokenizer.unk_token_id
+            input_ids, pad_idx=tokenizer.unk_token_id
         )
         outputs = self.modules.gpt_model(
             input_ids, token_type_ids, padding_mask
@@ -63,7 +63,7 @@ class ResGenBrain(sb.Brain):
             # if current_epoch % self.hparams.valid_search_interval == 0:
             # history_bos = torch.LongTensor([hparams["bos_index"]] + (history_bos))
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx= tokenizer.unk_token_id
+                history_bos, pad_idx=tokenizer.unk_token_id
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -72,7 +72,7 @@ class ResGenBrain(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx= tokenizer.unk_token_id
+                history_bos, pad_idx=tokenizer.unk_token_id
             )
             hyps = self.modules.gpt_model.generate(
                 history_bos.detach(),
@@ -90,12 +90,12 @@ class ResGenBrain(sb.Brain):
             ]
             predicted_words = tokenizer.batch_decode(
                 hyps[:, history_bos.shape[1] :],
-                skip_special_tokens=False,
+                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
             target_words = tokenizer.batch_decode(
                 reply_truncated,
-                skip_special_tokens=False,
+                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
             self.bleu_4_metric.append(ids, predicted_words, target_words)
@@ -312,9 +312,7 @@ def dataio_prep(hparams, tokenizer):
         yield reply_ids
 
         # create eos version of the reply for lm_labels
-        reply_eos = torch.cat(
-            (reply_ids, torch.tensor([eos]))
-        )
+        reply_eos = torch.cat((reply_ids, torch.tensor([eos])))
         yield reply_eos
 
         # specify the speaker for each token in the reply
@@ -447,7 +445,7 @@ if __name__ == "__main__":
         """
 
         def __init__(self, examples, *args, **kwargs):
-            _,_, system, _ = tokenizer.convert_tokens_to_ids(
+            _, _, system, _ = tokenizer.convert_tokens_to_ids(
                 hparams["special_tokens"]
             )
             for k in [
@@ -471,7 +469,7 @@ if __name__ == "__main__":
                 for example in examples:
                     x = example[k]
                     if k in ["history_bos", "history_token_type"]:
-                        example[k] = torch.cat(
+                        x = torch.cat(
                             (example[k], torch.LongTensor([system])), -1
                         )
                         example[k] = torch.nn.functional.pad(
