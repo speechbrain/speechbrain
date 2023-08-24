@@ -1868,8 +1868,8 @@ class TorchAudioCTCPrefixBeamSearcher:
     using_cpu_decoder : bool, optional
         Whether to use the CPU searcher. If False, then the CUDA decoder is used. (default: True)
     blank_skip_threshold : float, optional
-        Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (default: log(1.0)).
-        Note: This is only used when using the CUDA decoder, and it might worsen the results. Use it at your own risk.
+        Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (default: 1.0).
+        Note: This is only used when using the CUDA decoder, and it might worsen the WER/CER results. Use it at your own risk.
 
     Example
     -------
@@ -1904,7 +1904,7 @@ class TorchAudioCTCPrefixBeamSearcher:
         sil_index: Union[str, int] = 0,
         unk_word: str = "<unk>",
         using_cpu_decoder: bool = True,
-        blank_skip_threshold: float = math.log(1.0),
+        blank_skip_threshold: float = 1.0,
     ):
         self.lexicon = lexicon
         self.tokens = tokens
@@ -1934,7 +1934,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                 )
 
             # if this is a path, then torchaudio expect to be an index
-            # while its a list then it expects to be a token
+            # while if its a list then it expects to be a token
             if isinstance(self.tokens, str):
                 blank_token = self.blank_index
                 sil_token = self.sil_index
