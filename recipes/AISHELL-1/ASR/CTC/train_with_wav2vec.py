@@ -372,7 +372,6 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # adding objects to trainer:
     asr_brain.tokenizer = tokenizer
     vocab_list = [
         tokenizer.convert_ids_to_tokens(i) for i in range(tokenizer.vocab_size)

@@ -118,6 +118,10 @@ class HuggingFaceWhisper(nn.Module):
 
         self.model = WhisperModel.from_pretrained(source, cache_dir=save_path)
 
+        if self.encoder_only:
+            # remove the decoder from cuda
+            self.model.decoder.to("cpu")
+
         if self.freeze:
             logger.warning(
                 "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
