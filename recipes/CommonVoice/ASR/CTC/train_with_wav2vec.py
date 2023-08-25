@@ -379,8 +379,9 @@ if __name__ == "__main__":
     # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
     vocab_list = [
-        tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())
+        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
     ]
+
     test_searcher = hparams["test_searcher"](
         blank_index=hparams["blank_index"],
         vocab_list=vocab_list,
