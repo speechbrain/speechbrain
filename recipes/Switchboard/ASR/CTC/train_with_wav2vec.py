@@ -430,7 +430,6 @@ if __name__ == "__main__":
         normalize_fn=normalize_fn,
     )
 
-    # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
     vocab_list = [
         tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
