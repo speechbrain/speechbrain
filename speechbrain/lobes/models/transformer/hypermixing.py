@@ -9,8 +9,7 @@ Authors
 """
 from typing import Optional
 
-import random, math
-import numpy as np
+import math
 
 import torch
 from torch import nn
@@ -43,6 +42,8 @@ class HyperMixing(nn.Module):
 
     Example
     -------
+    >>> import torch
+    >>> from sb.lobes.models.transformer import HyperMixing
     >>> inputs = torch.rand([8, 60, 512])
     >>> net = HyperMixing(512, 2048, num_heads=8)
     >>> outputs, attn = net(inputs, inputs, inputs)
@@ -172,6 +173,25 @@ class HyperMixing(nn.Module):
         return out, dummy_att_weights
 
 class HyperNetwork(nn.Module):
+    """This class implements The HyperNetwork. It is an approach of using a one network,
+    also known as a hypernetwork, to generate the weights for another network. 
+    Here, it is used to generate the labels of linear layers. 
+
+    Reference: https://arxiv.org/abs/1609.09106
+
+    Arguments
+    ----------
+    input_output_dim : int 
+        Dimension of the linear layers
+    hypernet_size:
+        Dimension of the HyperNetwork
+    tied : bool, optional 
+        Define whether weights of layer 1 and layer 2 are shared
+    num_heads: int, optional
+        Number of heads, akin to heads in MultiHeadAttention
+    keep_output_size: bool, optional
+        Set whether to keep the same output size independent of number of heads
+    """
     def __init__(
         self,
         input_output_dim: int, 
@@ -180,25 +200,6 @@ class HyperNetwork(nn.Module):
         num_heads=1, 
         keep_output_size=True,
     ) -> None:
-        """This class implements The HyperNetwork. It is an approach of using a one network,
-        also known as a hypernetwork, to generate the weights for another network. 
-        Here, it is used to generate the labels of linear layers. 
-
-        Reference: https://arxiv.org/abs/1609.09106
-
-        Arguments
-        ----------
-            input_output_dim : int 
-                Dimension of the linear layers
-            hypernet_size:
-                Dimension of the HyperNetwork
-            tied : bool, optional 
-                Define whether weights of layer 1 and layer 2 are shared
-            num_heads: int, optional
-                Number of heads, akin to heads in MultiHeadAttention
-            keep_output_size: bool, optional
-                Set whether to keep the same output size independent of number of heads
-        """
         super(HyperNetwork, self).__init__()
 
         # Define whether the two linear layers have tied weights
@@ -214,9 +215,9 @@ class HyperNetwork(nn.Module):
 
         Arguments
         ----------
-            input_tensor : [batchsize, max_positions, d]
-                The HyperNetwork is supposed to generate an MLP of the form W_2(GELU(W1 x)), where
-                W1 : N -> k and W2 : k -> N, so it has to return tensors W1 and W2
+        input_tensor : [batchsize, max_positions, d]
+            The HyperNetwork is supposed to generate an MLP of the form W_2(GELU(W1 x)), where
+            W1 : N -> k and W2 : k -> N, so it has to return tensors W1 and W2
         
         Outputs
         -------
@@ -234,6 +235,21 @@ class HyperNetwork(nn.Module):
         return W1, W2
 
 class ParallelMLPs(nn.Module):
+    """Class that implements the MultiHead HyperMixer or HyperConformer.
+
+    Arguments
+    ----------
+    input_size : int 
+        Dimension of the linear layers
+    hidden_size: int
+        Dimension of the hidden layer
+    output_size : int 
+        Dimension of the HyperNetwork
+    num_mlps : int
+        Number of heads, akin to heads in MultiHeadAttention
+    keep_output_size : bool, optional
+        Set whether to keep the same output size independent of number of heads
+    """
     def __init__(
         self, 
         input_size, 
@@ -242,21 +258,6 @@ class ParallelMLPs(nn.Module):
         num_mlps=1, 
         keep_output_size=True,
     ) -> None:
-        """Class that implements the MultiHead HyperMixer or HyperConformer.
-
-        Arguments
-        ----------
-            input_size : int 
-                Dimension of the linear layers
-            hidden_size: int
-                Dimension of the hidden layer
-            output_size : int 
-                Dimension of the HyperNetwork
-            num_mlps : int
-                Number of heads, akin to heads in MultiHeadAttention
-            keep_output_size : bool, optional
-                Set whether to keep the same output size independent of number of heads
-        """
         super(ParallelMLPs, self).__init__()
 
         if output_size is None:
@@ -298,12 +299,16 @@ class ParallelMLPs(nn.Module):
 
         Arguments
         ----------
-            x : tensor
-                Input tensor
-        """
-        
-        # x [bsize, seq_len, num_features]
+        x : tensor
+            Input tensor
 
+        Outputs
+        -------
+        x : torch.Tensor
+            return output tensor
+        """
+    
+        # x [bsize, seq_len, num_features]
         bsize = x.size(0)
         seq_len = x.size(1)
 
