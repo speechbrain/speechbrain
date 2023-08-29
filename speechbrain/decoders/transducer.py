@@ -135,7 +135,9 @@ class TransducerBeamSearcher(torch.nn.Module):
         hyps = self.searcher(tn_output)
         return hyps
 
-    def transducer_greedy_decode(self, tn_output, start_state=None, return_hidden=False):
+    def transducer_greedy_decode(
+        self, tn_output, start_state=None, return_hidden=False
+    ):
         """Transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
             1- for each time step in the Transcription Network (TN) output:
                 -> Update the ith utterance only if
@@ -225,7 +227,6 @@ class TransducerBeamSearcher(torch.nn.Module):
             ret += ((out_PN, hidden,),)
 
         return ret
-
 
     def transducer_beam_search_decode(self, tn_output):
         """Transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:

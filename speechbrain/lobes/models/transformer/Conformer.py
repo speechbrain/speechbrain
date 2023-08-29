@@ -47,7 +47,7 @@ class ConformerEncoderLayerStreamingContext:
     dcconv_left_context: Optional[torch.Tensor] = None
     """Left context to insert at the left of the convolution according to the
     Dynamic Chunk Convolution method.
-    
+
     Unlike `mha_left_context`, here the amount of frames to keep is fixed and
     inferred from the kernel size of the convolution module.
     """

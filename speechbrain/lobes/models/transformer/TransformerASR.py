@@ -468,17 +468,15 @@ class TransformerASR(TransformerInterface):
         )
         return encoder_out
 
-    def make_streaming_context(
-        self, chunk_size: int, encoder_kwargs={}
-    ):
+    def make_streaming_context(self, chunk_size: int, encoder_kwargs={}):
         """Creates a blank streaming context for this transformer and its
         encoder.
-        
+
         Arguments
         ---------
         chunk_size : int
             How many frames comprise a chunk.
-        
+
         encoder_kwargs : dict
             Parameters to be forward to the encoder's `make_streaming_context`.
             Metadata required for the encoder could differ depending on the
