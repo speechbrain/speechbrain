@@ -73,7 +73,10 @@ class ASR(sb.Brain):
         # Default to infinite context visibility
         transformer_chunk_size = -1
         left_context_chunks = -1
-        if self.hparams.streaming:
+
+        # Old models may not have the streaming hparam, we don't break them in
+        # any other way so just check for its presence
+        if hasattr(self.hparams, "streaming") and self.hparams.streaming:
             # TODO: while this is fairly small logic, it may make sense to
             # extract it to its own class orchestrating dynamic chunk training,
             # partly because explantions are beneficial
