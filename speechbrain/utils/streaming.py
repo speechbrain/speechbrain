@@ -96,9 +96,7 @@ def split_wav_lens(
     >>> wav_lens = torch.tensor([1.0, 0.65, 0.85])
     >>> chunked_wav_lens = split_wav_lens([c.size(1) for c in chunks], wav_lens)
     >>> chunked_wav_lens
-    [tensor([1., 1., 1.]),
-     tensor([1.0000, 0.6250, 1.0000]),
-     tensor([1.0000, 0.0000, 0.2500])]
+    [tensor([1., 1., 1.]), tensor([1.0000, 0.6250, 1.0000]), tensor([1.0000, 0.0000, 0.2500])]
     >>> # wav 1 covers 62.5% (5/8) of the second chunk's frames
     """
 
