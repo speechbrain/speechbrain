@@ -26,7 +26,8 @@ Dev. clean is evaluated with Greedy Decoding while the test sets are using Greed
 
 | Release | Hyperparams file | Dev-clean Greedy | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM | Test-other BS+RNNLM | Model link | GPUs |
 |:-------------:|:---------------------------:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
-| 2023-07-19 | conformer_transducer.yaml | 2.62 | 2.84 | 6.98 | 2.62 | 6.31 | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | 3x3090 24GB |
+| 2023-07-19 | conformer_transducer.yaml `streaming: False` | 2.62 | 2.84 | 6.98 | 2.62 | 6.31 | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | 3x3090 24GB |
+| 2023-08-29 | conformer_transducer.yaml `streaming: True`  | TODO | TODO | TODO | Untested | Untested | TODO | 1x A100 40GB(?) |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
