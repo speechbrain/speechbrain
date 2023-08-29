@@ -591,11 +591,12 @@ class RelPosMHAXL(nn.Module):
             query + self.pos_bias_v.view(1, 1, self.num_heads, self.head_dim)
         ).transpose(1, 2)
 
-        # TODO: cite https://asherliu.github.io/docs/sc21a.pdf
-        # for the scaling prior to the matrix multiplication
-        # should read more of the paper though
-        # TODO: check if this causes any difference beyond precision
-        # (it does not seem like it does)
+        # Moved the `* self.scale` mul from after the `attn_score` sum to prior
+        # to the matmul in order to lower overflow risks on fp16.
+        # This change is inspired by the following paper, but no other changes
+        # were ported from there so far.
+        # ref: E.T.: Re-Thinking Self-Attention for Transformer Models on GPUs
+        # https://asherliu.github.io/docs/sc21a.pdf
 
         # (batch, head, qlen, klen)
         matrix_ac = torch.matmul(
