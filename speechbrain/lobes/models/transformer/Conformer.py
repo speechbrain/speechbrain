@@ -403,8 +403,6 @@ class ConformerEncoderLayer(nn.Module):
             Whether to preform convolution chunking to hide future context,
             useful for chunked conformers in a dynamic chunk training setting
         """
-        # TODO: document left frames
-
         conv_mask: Optional[torch.Tensor] = None
         if src_key_padding_mask is not None:
             conv_mask = src_key_padding_mask.unsqueeze(-1)
