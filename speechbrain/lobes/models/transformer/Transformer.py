@@ -526,6 +526,7 @@ class TransformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
+        chunk_size: int = -1,
     ):
         """
         Arguments
@@ -537,6 +538,7 @@ class TransformerEncoder(nn.Module):
         src_key_padding_mask : tensor
             The mask for the src keys per batch (optional).
         """
+        assert chunk_size == -1, "Encoder does not support streaming"
         output = src
         if self.layerdrop_prob > 0.0:
             keep_probs = self.rng.random(len(self.layers))

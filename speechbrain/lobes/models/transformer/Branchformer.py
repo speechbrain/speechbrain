@@ -320,6 +320,7 @@ class BranchformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
+        chunk_size: int = -1,
     ):
         """
         Arguments
@@ -335,6 +336,8 @@ class BranchformerEncoder(nn.Module):
             If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
             where S is the sequence length, and E is the embedding dimension.
         """
+
+        assert chunk_size == -1, "Encoder does not support streaming"
 
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:

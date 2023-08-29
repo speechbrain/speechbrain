@@ -188,7 +188,6 @@ class TransformerASR(TransformerInterface):
         pad_idx : int, optional
             The index for <pad> token (default=0).
         """
-        # FIXME: should have chunk_size & left_chunk_context?
 
         # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
         if src.ndim == 4:
@@ -525,14 +524,13 @@ class EncoderWrapper(nn.Module):
         self.transformer = transformer
 
     def forward(
-        self, x, wav_lens=None, pad_idx=0, chunk_size=-1, left_context_chunks=-1
+        self, x, wav_lens=None, pad_idx=0, **kwargs
     ):
         """ Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(
             x,
             wav_lens,
             pad_idx,
-            chunk_size=chunk_size,
-            left_context_chunks=left_context_chunks,
+            **kwargs,
         )
         return x
