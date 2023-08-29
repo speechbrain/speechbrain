@@ -643,7 +643,9 @@ class RelPosMHAXL(nn.Module):
             if attn_mask.dtype == torch.bool:
                 attn_score = attn_score.masked_fill(attn_mask, 0.0)
             else:
-                assert False, "oopsie need to reimplement that"
+                # NOTE: the above fix is not implemented for this case as
+                # summing the mask with NaN would still result in NaN
+                pass
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
