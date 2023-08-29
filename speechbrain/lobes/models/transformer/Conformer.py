@@ -386,7 +386,7 @@ class ConformerEncoderLayer(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: torch.Tensor = None,
-        chunk_size: Optional[int] = None,
+        chunk_size: int = -1,
     ):
         """
         Arguments
@@ -399,7 +399,7 @@ class ConformerEncoderLayer(nn.Module):
             The mask for the src keys per batch.
         pos_embs: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the input sequence positional embeddings
-        chunk_size: int, optional
+        chunk_size: int
             Whether to preform convolution chunking to hide future context,
             useful for chunked conformers in a dynamic chunk training setting
         """
@@ -593,7 +593,7 @@ class ConformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
-        chunk_size: Optional[int] = None,
+        chunk_size: int = -1,
     ):
         """
         Arguments
@@ -608,9 +608,10 @@ class ConformerEncoder(nn.Module):
             Module or tensor containing the input sequence positional embeddings
             If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
             where S is the sequence length, and E is the embedding dimension.
-        chunk_size: int, optional
+        chunk_size: int
             Whether to preform convolution chunking to hide future context,
             useful for chunked conformers in a dynamic chunk training setting
+            `-1` ignores chunking
         """
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
