@@ -87,7 +87,7 @@ dynamic_chunk_prob: 0.6
 dynamic_chunk_min: 8
 dynamic_chunk_max: 32
 
-dynamic_left_context_prob: 0.75 # TODO: rename all to prob, makes more sense
+dynamic_left_context_prob: 0.75
 dynamic_left_context_min: 16
 dynamic_left_context_max: 64
 
