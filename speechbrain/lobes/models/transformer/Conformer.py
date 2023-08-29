@@ -403,7 +403,6 @@ class ConformerEncoderLayer(nn.Module):
             Whether to preform convolution chunking to hide future context,
             useful for chunked conformers in a dynamic chunk training setting
         """
-        # TODO: cite paper for chunk size
         # TODO: document left frames
 
         conv_mask: Optional[torch.Tensor] = None

@@ -292,6 +292,11 @@ class TransformerASR(TransformerInterface):
                 # end range is exclusive, so there is no off-by-one here
                 src_mask[i, :frame_remaining_context] = True
 
+        # The following is not really the sole source used to implement this,
+        # but it introduces the concept.
+        # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model
+        # for Speech Recognition
+        # https://arxiv.org/pdf/2012.05481.pdf
         if chunk_size >= 0:
             for i in range(src.shape[1]):
                 # if we have a chunk size of 8 then:
