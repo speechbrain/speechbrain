@@ -312,12 +312,14 @@ class ParallelMLPs(nn.Module):
         bsize = x.size(0)
         seq_len = x.size(1)
 
-        # TODO: comment
+        # Reshape the input tensor to match the number of parallel MLPs and their input size
         x = x.reshape((bsize, seq_len, self.num_mlps, self.input_size))
         
+        # Perform the first linear transformation and add bias
+        # Using einsum so we can do it for multiple MLPs in parallel
         x = torch.einsum("blmf,mhf->bmlh", x, self.fc1_weights) + self.fc1_biases.unsqueeze(0).unsqueeze(2)
         
-        # TODO: comment
+        # Apply activation function and perform the second linear transformation and add bias
         x = self.activation(x)
         x = torch.einsum("bmlh,mfh->bmlf", x, self.fc2_weights) + self.fc2_biases.unsqueeze(0).unsqueeze(2)
 
