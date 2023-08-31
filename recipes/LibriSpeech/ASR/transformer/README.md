@@ -32,6 +32,26 @@ installed in your environment (see extra-requirements.txt)**
 | 27-03-23 | train_hyperconformer_8M.yaml | 2.55  (**only 7.9M parameters**) | NA | [DropBox](https://www.dropbox.com/sh/8jc96avmivr8fke/AABrFEhtWy_3-Q7BHhkh0enwa?dl=0) | 1xP40 24GB |
 | 27-03-23 | train_hyperconformer_22M.yaml | 2.23 (**only 21.7M parameters**) | NA | [DropBox](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | 1xP40 24GB |
 
+# **About HyperConformer**
+HyperConformer is a new architecture, which replaces the self-attention mechanism of Conformer with the linear-time token mixing architecture HyperMixer.
+It achieves competitive or better results than Conformer while requiring less memory and compute.
+
+- Paper: https://arxiv.org/abs/2305.18281
+- HyperMixer code: https://github.com/idiap/hypermixing
+
+Please cite HyperConformer if you use it for your research or business.
+
+```bibtex
+@inproceedings{mai23_interspeech,
+  author={Florian Mai and Juan Zuluaga-Gomez and Titouan Parcollet and Petr Motlicek},
+  title={{HyperConformer}: Multi-head HyperMixer for Efficient Speech Recognition},
+  year=2023,
+  booktitle={Proc. Interspeech 2023},
+  pages={2213--2217},
+  doi={10.21437/Interspeech.2023-1611}
+}
+```
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
