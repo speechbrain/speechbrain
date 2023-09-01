@@ -327,10 +327,27 @@ class VITS(nn.Module):
         
         self.flow_decoder = ResidualCouplingBlock()
 
+    def mas(self, mu_p, log_s_p, z_p, mu_p, x_mask, y_mask):
+        with torch.no_grad():
+            s_p_sq_r = torch.exp(-2 * log_s_p)
+            neg_cent1 = torch.sum(-0.5 * math.log(2 * math.pi) - log_s_p, [1], keepdim=True) 
+            neg_cent2 = torch.matmul(-0.5 * (z_p ** 2).transpose(1, 2), s_p_sq_r)
+            neg_cent3 = torch.matmul(z_p.transpose(1, 2), (mu_p * s_p_sq_r)) 
+            neg_cent4 = torch.sum(-0.5 * (mu_p ** 2) * s_p_sq_r, [1], keepdim=True) 
+            neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
+            attn = None
+        return attn
+    
     def forward(self, inputs):
+        (x, x_lengths, y, y_lengths)= inputs
         
+        x_mask = None
+        y_mask = None
         x, mu_p, log_s_p, x_mask = self.text_encoder(x, x_lengths)
         z, mu_q, log_s_q, y_mask = self.posterior_encoder(y, y_lengths)
-        z_p = self.flow(z, y_mask, g=g)
-                                                  
+        z_p = self.flow(z, y_mask)
+        _ = self.mas(mu_p, log_s_p, z_p, mu_p, x_mask, y_mask)                   
+        return
+
+    def infer(self, inputs):
         return
