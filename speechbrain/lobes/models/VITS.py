@@ -1,4 +1,12 @@
+"""VITS implementaion in the SpeechBrain.
+Authors
+* Sathvik Udupa 2023
+"""
+
 import torch.nn as nn
+import math
+import torch
+from speechbrain.lobes.models.transformer import Transformer
 
 class WN():
     def __init__(
@@ -96,11 +104,18 @@ class PosteriorEncoder(nn.Module):
         post_encoder.weight.data.zero_()
         post_encoder.bias.data.zero_()
         
+        self.wavenet = WN(
+            in_features, 
+            hidden_features, 
+            kernel_size, 
+            dilation_rate, 
+            num_layers, 
+            dropout
+        )
+        self.out_features = out_features
         self.post_encoder = post_encoder
         self.pre_encoder = pre_encoder
-        self.wavenet = WN(in_features, hidden_features, kernel_size, dilation_rate, num_layers, dropout)
-        self.out_features = out_features
-        
+         
     def forward(self, x):
         x_mask = None
         x = self.pre_encoder(x) * x_mask
@@ -111,12 +126,41 @@ class PosteriorEncoder(nn.Module):
         return z, mu, log_s, x_mask
     
 class PriorEncoder(nn.Module):
-    def __init__(self):
+    def __init__(
+        self,
+        num_tokens,
+        in_features,
+        out_features,
+        hidden_features,
+        ffn_features,
+        num_heads,
+        num_layers,
+        attention_type,
+        dropout
+        
+    ):
         super(PriorEncoder, self).__init__()
-        pass
-
-    def forward(self):
-       return
+        self.encoder = Transformer.TransformerEncoder(
+            num_layers=num_layers,
+            nhead=num_heads,
+            d_ffn=ffn_features,
+            d_model=hidden_features,
+            dropout=dropout,
+            attention_type=attention_type,
+        )
+        self.token_embedding = nn.Embedding(num_tokens, hidden_features)
+        nn.init.normal_(self.token_embedding.weight, 0.0, hidden_features**-0.5)
+        self.post_encoder = nn.Conv1d(hidden_features, out_features*2, 1)
+        self.hidden_features = hidden_features
+        self.out_features = out_features
+        
+    def forward(self, x):
+        x = self.token_embedding(x) * math.sqrt(self.hidden_features)
+        x_mask = None
+        x = self.encoder(x, x_mask)
+        x_d = self.proj(x)
+        mu, log_s = torch.split(x_d, self.out_features, dim=1)
+        return x, mu, log_s, x_mask
 
 class StochasticDurationPredictor(nn.Module):
     def __init__(self):
@@ -126,13 +170,167 @@ class StochasticDurationPredictor(nn.Module):
     def forward(self):
        return
 
-   
+class DurationPredictor(nn.Module):
+    def __init__(
+        self,
+        in_features,
+        hidden_features,
+        kernel_size,
+        dropout,
+        
+    ):
+        super(DurationPredictor, self).__init__()
+        self.conv1 = nn.Conv1d(
+            in_features, 
+            hidden_features, 
+            kernel_size, 
+            padding=kernel_size // 2
+        )
+        self.conv2 = nn.Conv1d(
+            hidden_features, 
+            hidden_features, 
+            kernel_size, 
+            padding=kernel_size // 2
+        )
+        self.conv3 = nn.Conv1d(
+            hidden_features, 
+            1, 
+            1, 
+        )
+        self.norm1 = LayerNorm(hidden_features)
+        self.norm2 = LayerNorm(hidden_features)
+        self.dropout = nn.Dropout(dropout)
+        self.relu = nn.ReLU()
+
+    def forward(self, x, x_mask):
+        x = self.drop(self.norm1(self.relu(self.conv1(x))))
+        x = self.drop(self.norm2(self.relu(self.conv2(x))))
+        x = self.conv3(x)
+        return x
+    
+class ResidualCouplingLayer(nn.Module):
+    def __init__(
+        self,
+        in_features,
+        hidden_features,
+        kernel_size,
+        dilation_rate,
+        num_layers,
+        dropout,
+        mean_only,
+    ):
+        super().__init__()
+        self.features = in_features // 2
+        self.mean_only = mean_only
+        
+        self.pre_decoder = nn.Conv1d(in_features // 2, hidden_features, 1)
+        self.decoder = WN(
+            in_features=hidden_channels,
+            hidden_channels=hidden_channels,
+            kernel_size=kernel_size,
+            dilation_rate=dilation_rate,
+            num_layers=num_layers,
+            dropout=dropout,
+        )
+        self.post_decoder = nn.Conv1d(hidden_channels, (in_features // 2) * (2 - mean_only), 1)
+        self.post.weight.data.zero_()
+        self.post.bias.data.zero_()
+
+    def forward(self, x, x_mask):
+        x0, x1 = torch.split(x, [self.features] * 2, 1)
+        h = self.pre_decoder(x0) * x_mask
+        h = self.decoder(h, x_mask)
+        x0_d = self.post_decoder(h) * x_mask
+        if not self.mean_only:
+            mu, log_s = torch.split(x0_d, [self.features] * 2, 1)
+        else:
+            mu = x0_d
+            log_s = torch.zeros_like(mu)
+
+        x1 = mu + x1 * torch.exp(log_s) * x_mask
+        x = torch.cat([x0, x1], 1)
+        logdet = torch.sum(log_s, [1, 2])
+        return x, logdet
+    
+    def reverse(self, x, x_mask):
+        x0, x1 = torch.split(x, [self.features] * 2, 1)
+        h = self.pre_decoder(x0) * x_mask
+        h = self.decoder(h, x_mask)
+        x0_d = self.post_decoder(h) * x_mask
+        if not self.mean_only:
+            mu, log_s = torch.split(x0_d, [self.features] * 2, 1)
+        else:
+            mu = x0_d
+            log_s = torch.zeros_like(mu)
+            
+        x1 = (x1 - m) * torch.exp(-log_s) * x_mask
+        x = torch.cat([x0, x1], 1)
+        return x   
+
+        
+class ResidualCouplingBlock(nn.Module()):
+    def __init__(
+        self,
+        in_features,
+        hidden_features,
+        kernel_size,
+        dilation_rate,
+        num_layers,
+        num_flows,
+        mean_only,
+        dropout,
+    ):
+        super().__init__()
+        flows = nn.ModuleList()
+        for i in range(num_flows):
+            flows.append(ResidualCouplingLayer(
+                in_features=in_features, 
+                hidden_features=hidden_features, 
+                kernel_size=kernel_size, 
+                dilation_rate=dilation_rate, 
+                num_layers=num_layers,
+                dropout=dropout,
+                mean_only=mean_only,
+            ))
+        self.flows = flows
+        
+    def forward(self, x, x_mask):
+        for flow in self.flows:
+            x, _ = flow(x, x_mask, reverse=False)
+            x = torch.flip(x, [1])
+        return x
+
+    def reverse(self, x, x_mask):
+        for flow in reversed(self.flows):
+            x = torch.flip(x, [1])
+            x = flow(x, x_mask, reverse=True)
+        return x
+    
 class VITS(nn.Module):
-    def __init__(self):
+    def __init__(
+        self,
+        
+    ):
         super(VITS, self).__init__()
         self.prior_encoder = PriorEncoder()
         self.posterior_encoder = PosteriorEncoder()
         
+        if sdp:
+            self.duration_predictor = StochasticDurationPredictor()
+        else:
+            self.duration_predictor = DurationPredictor(
+                in_features=in_features,
+                hidden_features=hidden_features,
+                kernel_size=duration_predictor_kernel_size,
+                dropout=duration_predictor_dropout,
+            )
+        
+        self.flow_decoder = ResidualCouplingBlock()
 
     def forward(self, inputs):
-       return
+        
+        x, mu_p, log_s_p, x_mask = self.text_encoder(x, x_lengths)
+        z, mu_q, log_s_q, y_mask = self.posterior_encoder(y, y_lengths)
+        z_p = self.flow(z, y_mask, g=g)
+                                                  
+        return
