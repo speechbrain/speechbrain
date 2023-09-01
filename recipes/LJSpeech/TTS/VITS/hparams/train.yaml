@@ -1,0 +1,182 @@
+############################################################################
+# Model: FastSpeech2
+# Tokens: Raw characters (English text)
+# Training: LJSpeech
+# Authors: Sathvik Udupa, Yingzhi Wang, Pradnya Kandarkar
+# ############################################################################
+
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/VITS/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+epochs: 1000
+train_spn_predictor_epochs: 8
+progress_samples: True
+progress_sample_path: !ref <output_folder>/samples
+progress_samples_min_run: 10
+progress_samples_interval: 10
+progress_batch_sample_size: 4
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: /data/Database/LJSpeech-1.1
+
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+
+splits: ["train", "valid"]
+split_ratio: [90, 10]
+
+skip_prep: False
+lexicon: !ref <save_folder>/lexicon
+
+################################
+# Audio Parameters             #
+################################
+sample_rate: 22050
+hop_length: 256
+win_length: null
+n_mel_channels: 80
+n_fft: 1024
+mel_fmin: 0.0
+mel_fmax: 8000.0
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+mel_normalized: False
+min_max_energy_norm: True
+min_f0: 65  #(torchaudio pyin values)
+max_f0: 2093 #(torchaudio pyin values)
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate: 0.0001
+weight_decay: 0.000001
+max_grad_norm: 1.0
+batch_size: 32 #minimum 2
+betas: [0.9, 0.98]
+
+################################
+# Model Parameters and model   #
+################################
+# Input parameters
+
+#generator_params
+in_channels: 80
+out_channels: 1
+
+###########################################################################################################################################################
+# version | resblock_type | upsample_kernel_sizes | upsample_factors | resblock_kernel_sizes | upsample_initial_channel | resblock_dilation_sizes
+#    1    |      "1"      |      [16,16,4,4]      |    [8, 8, 2, 2]  |     [3, 7, 11]        |           512            | [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+#    2    |      "1"      |      [16,16,4,4]      |    [8, 8, 2, 2]  |     [3, 7, 11]        |           128            | [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+#    3    |      "2"      |       [16,16,8]       |      [8,8,4]     |       [3,5,7]         |           256            |     [[1,2], [2,6], [3,12]]
+###########################################################################################################################################################
+resblock_type: "1"
+resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+resblock_kernel_sizes: [3, 7, 11]
+upsample_kernel_sizes: [16, 16, 4, 4]
+upsample_initial_channel: 512
+upsample_factors: [8, 8, 2, 2]
+
+inference_padding: 5
+cond_channels: 0
+conv_post_bias: True
+
+#model
+generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
+  in_channels: !ref <in_channels>
+  out_channels: !ref <out_channels>
+  resblock_type: !ref <resblock_type>
+  resblock_dilation_sizes: !ref <resblock_dilation_sizes>
+  resblock_kernel_sizes: !ref <resblock_kernel_sizes>
+  upsample_kernel_sizes: !ref <upsample_kernel_sizes>
+  upsample_initial_channel: !ref <upsample_initial_channel>
+  upsample_factors: !ref <upsample_factors>
+  inference_padding: !ref <inference_padding>
+  cond_channels: !ref <cond_channels>
+  conv_post_bias: !ref <conv_post_bias>
+
+discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
+
+model: !new:speechbrain.lobes.models.VITS.VITS
+
+
+mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mel_channels>
+    f_min: !ref <mel_fmin>
+    f_max: !ref <mel_fmax>
+    power: !ref <power>
+    normalized: !ref <mel_normalized>
+    min_max_energy_norm: !ref <min_max_energy_norm>
+    norm: !ref <norm>
+    mel_scale: !ref <mel_scale>
+    compression: !ref <dynamic_range_compression>
+
+
+vocoder: "hifi-gan"
+pretrained_vocoder: True
+vocoder_source: speechbrain/tts-hifigan-ljspeech
+vocoder_download_path: tmpdir_vocoder
+
+modules:
+    model: !ref <model>
+    generator: !ref <generator>
+    discriminator: !ref <discriminator>
+
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    drop_last: False  #True #False
+    num_workers: 16
+    shuffle: True
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: 4
+    shuffle: False
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+
+#optimizer
+opt_class: !name:torch.optim.Adam
+    lr: !ref <learning_rate>
+    weight_decay: !ref <weight_decay>
+    betas: !ref <betas>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <learning_rate>
+    n_warmup_steps: 4000
+
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        lr_annealing: !ref <noam_annealing>
+        counter: !ref <epoch_counter>
+
+input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
+progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
+    output_path: !ref <progress_sample_path>
+    batch_sample_size: !ref <progress_batch_sample_size>
+    formats:
+        raw_batch: raw
