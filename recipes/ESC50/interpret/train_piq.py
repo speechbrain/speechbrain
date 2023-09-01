@@ -602,7 +602,7 @@ def dataio_prep(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
 
-        wave_file = data_audio_folder + f"/{:}".format(wav)
+        wave_file = data_audio_folder + "/{:}".format(wav)
 
         sig, read_sr = torchaudio.load(wave_file)
 
