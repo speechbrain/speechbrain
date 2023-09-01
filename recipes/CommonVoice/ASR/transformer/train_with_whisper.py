@@ -14,7 +14,7 @@ import torch
 import logging
 import torchaudio
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from transformers.models.whisper.tokenization_whisper import LANGUAGES
@@ -140,8 +140,9 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -307,25 +308,25 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for Whisper.
     asr_brain.tokenizer = tokenizer
-    if hparams["test_only"] is False:
-        # Training
-        asr_brain.fit(
-            asr_brain.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["train_loader_kwargs"],
-            valid_loader_kwargs=hparams["valid_loader_kwargs"],
-        )
+
+    # Training
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_loader_kwargs"],
+        valid_loader_kwargs=hparams["valid_loader_kwargs"],
+    )
 
     # Testing
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    asr_brain.hparams.test_wer_file = hparams["test_wer_file"]
     asr_brain.evaluate(
         test_data,
         min_key="WER",
         test_loader_kwargs=hparams["test_loader_kwargs"],
     )
 
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_valid.txt"
+    asr_brain.hparams.test_wer_file = hparams["valid_wer_file"]
     asr_brain.evaluate(
         valid_data,
         min_key="WER",

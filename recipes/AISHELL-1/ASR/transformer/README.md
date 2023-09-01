@@ -28,7 +28,7 @@ Results are reported in terms of Character Error Rate (CER).
 | train_ASR_transformer_with_wav2vect.yaml | No | 5.58 | 5.19 | 1xRTX 8000 Ti 48GB |
 
 You can checkout our results (models, training logs, etc,) here:
-https://drive.google.com/drive/folders/1xKo_6Pxk0saPXjGZg8um68b_l0Tgfdjy?usp=sharing
+https://www.dropbox.com/sh/tp6tjmysorgvsr4/AAD7KNqi1ot0gR4N406JbKM6a?dl=0
 
 # Training Time
 It takes about 1h 10 minutes on a NVIDIA V100 (32GB) for train_ASR_transformer.yaml,

@@ -1,0 +1,278 @@
+############################################################################
+# Model: FastSpeech2
+# Tokens: Raw characters (English text)
+# Training: LJSpeech
+# Authors: Sathvik Udupa, Yingzhi Wang, Pradnya Kandarkar
+# ############################################################################
+
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/fastspeech2/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+epochs: 1000
+train_spn_predictor_epochs: 8
+progress_samples: True
+progress_sample_path: !ref <output_folder>/samples
+progress_samples_min_run: 10
+progress_samples_interval: 10
+progress_batch_sample_size: 4
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: #!PLACEHOLDER # e.g., /data/Database/LJSpeech-1.1
+
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+
+splits: ["train", "valid"]
+split_ratio: [90, 10]
+
+skip_prep: False
+
+################################
+# Audio Parameters             #
+################################
+sample_rate: 22050
+hop_length: 256
+win_length: null
+n_mel_channels: 80
+n_fft: 1024
+mel_fmin: 0.0
+mel_fmax: 8000.0
+power: 1
+norm: "slaney"
+mel_scale: "slaney"
+dynamic_range_compression: True
+mel_normalized: False
+min_max_energy_norm: True
+min_f0: 65  #(torchaudio pyin values)
+max_f0: 2093 #(torchaudio pyin values)
+
+################################
+# Optimization Hyperparameters #
+################################
+learning_rate: 0.0001
+weight_decay: 0.000001
+max_grad_norm: 1.0
+batch_size: 32 #minimum 2
+num_workers_train: 16
+num_workers_valid: 4
+betas: [0.9, 0.98]
+
+################################
+# Model Parameters and model   #
+################################
+# Input parameters
+lexicon:
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - spn
+
+n_symbols: 42 #fixed depending on symbols in the lexicon +1 for a dummy symbol used for padding
+padding_idx: 0
+
+# Encoder parameters
+enc_num_layers: 4
+enc_num_head: 2
+enc_d_model: 384
+enc_ffn_dim: 1024
+enc_k_dim: 384
+enc_v_dim: 384
+enc_dropout: 0.2
+
+# Decoder parameters
+dec_num_layers: 4
+dec_num_head: 2
+dec_d_model: 384
+dec_ffn_dim: 1024
+dec_k_dim: 384
+dec_v_dim: 384
+dec_dropout: 0.2
+
+# Postnet parameters
+postnet_embedding_dim: 512
+postnet_kernel_size: 5
+postnet_n_convolutions: 5
+postnet_dropout: 0.5
+
+# common
+normalize_before: True
+ffn_type: 1dcnn #1dcnn or ffn
+ffn_cnn_kernel_size_list: [9, 1]
+
+# variance predictor
+dur_pred_kernel_size: 3
+pitch_pred_kernel_size: 3
+energy_pred_kernel_size: 3
+variance_predictor_dropout: 0.5
+
+# silent phoneme token predictor
+spn_predictor: !new:speechbrain.lobes.models.FastSpeech2.SPNPredictor
+    enc_num_layers: !ref <enc_num_layers>
+    enc_num_head: !ref <enc_num_head>
+    enc_d_model: !ref <enc_d_model>
+    enc_ffn_dim: !ref <enc_ffn_dim>
+    enc_k_dim: !ref <enc_k_dim>
+    enc_v_dim: !ref <enc_v_dim>
+    enc_dropout: !ref <enc_dropout>
+    normalize_before: !ref <normalize_before>
+    ffn_type: !ref <ffn_type>
+    ffn_cnn_kernel_size_list: !ref <ffn_cnn_kernel_size_list>
+    n_char: !ref <n_symbols>
+    padding_idx: !ref <padding_idx>
+
+#model
+model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2
+    enc_num_layers: !ref <enc_num_layers>
+    enc_num_head: !ref <enc_num_head>
+    enc_d_model: !ref <enc_d_model>
+    enc_ffn_dim: !ref <enc_ffn_dim>
+    enc_k_dim: !ref <enc_k_dim>
+    enc_v_dim: !ref <enc_v_dim>
+    enc_dropout: !ref <enc_dropout>
+    dec_num_layers: !ref <dec_num_layers>
+    dec_num_head: !ref <dec_num_head>
+    dec_d_model: !ref <dec_d_model>
+    dec_ffn_dim: !ref <dec_ffn_dim>
+    dec_k_dim: !ref <dec_k_dim>
+    dec_v_dim: !ref <dec_v_dim>
+    dec_dropout: !ref <dec_dropout>
+    normalize_before: !ref <normalize_before>
+    ffn_type: !ref <ffn_type>
+    ffn_cnn_kernel_size_list: !ref <ffn_cnn_kernel_size_list>
+    n_char: !ref <n_symbols>
+    n_mels: !ref <n_mel_channels>
+    postnet_embedding_dim: !ref <postnet_embedding_dim>
+    postnet_kernel_size: !ref <postnet_kernel_size>
+    postnet_n_convolutions: !ref <postnet_n_convolutions>
+    postnet_dropout: !ref <postnet_dropout>
+    padding_idx: !ref <padding_idx>
+    dur_pred_kernel_size: !ref <dur_pred_kernel_size>
+    pitch_pred_kernel_size: !ref <pitch_pred_kernel_size>
+    energy_pred_kernel_size: !ref <energy_pred_kernel_size>
+    variance_predictor_dropout: !ref <variance_predictor_dropout>
+
+mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mel_channels>
+    f_min: !ref <mel_fmin>
+    f_max: !ref <mel_fmax>
+    power: !ref <power>
+    normalized: !ref <mel_normalized>
+    min_max_energy_norm: !ref <min_max_energy_norm>
+    norm: !ref <norm>
+    mel_scale: !ref <mel_scale>
+    compression: !ref <dynamic_range_compression>
+
+criterion: !new:speechbrain.lobes.models.FastSpeech2.Loss
+    log_scale_durations: True
+    duration_loss_weight: 1.0
+    pitch_loss_weight: 1.0
+    energy_loss_weight: 1.0
+    ssim_loss_weight: 1.0
+    mel_loss_weight: 1.0
+    postnet_mel_loss_weight: 1.0
+    spn_loss_weight: 1.0
+    spn_loss_max_epochs: !ref <train_spn_predictor_epochs>
+
+vocoder: "hifi-gan"
+pretrained_vocoder: True
+vocoder_source: speechbrain/tts-hifigan-ljspeech
+vocoder_download_path: tmpdir_vocoder
+
+modules:
+    spn_predictor: !ref <spn_predictor>
+    model: !ref <model>
+
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    drop_last: False  #True #False
+    num_workers: !ref <num_workers_train>
+    shuffle: True
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers_valid>
+    shuffle: False
+    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+
+#optimizer
+opt_class: !name:torch.optim.Adam
+    lr: !ref <learning_rate>
+    weight_decay: !ref <weight_decay>
+    betas: !ref <betas>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <learning_rate>
+    n_warmup_steps: 4000
+
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        spn_predictor: !ref <spn_predictor>
+        model: !ref <model>
+        lr_annealing: !ref <noam_annealing>
+        counter: !ref <epoch_counter>
+
+input_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
+progress_sample_logger: !new:speechbrain.utils.train_logger.ProgressSampleLogger
+    output_path: !ref <progress_sample_path>
+    batch_sample_size: !ref <progress_batch_sample_size>
+    formats:
+        raw_batch: raw

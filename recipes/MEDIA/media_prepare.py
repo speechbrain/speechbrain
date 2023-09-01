@@ -3,7 +3,7 @@ Data preparation.
 Download:
 https://catalogue.elra.info/en-us/repository/browse/ELRA-S0272/
 https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/
-https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 See README.md for more info.
 
 Author
@@ -48,9 +48,9 @@ def prepare_media(
     save_folder: str
         Path where the csvs and preprocessed wavs will be stored.
     channels_path: str
-        Path of the channels.csv file downloaded via https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+        Path of the channels.csv file downloaded via https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
     concepts_path: str
-        Path of the concepts_full_relax.csv file downloaded via https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+        Path of the concepts_full_relax.csv file downloaded via https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
     skip_wav: bool, optional
         Skip the wav files storing if already done before.
     method: str, optional
@@ -1070,7 +1070,7 @@ def get_channels(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1117,7 +1117,7 @@ def get_concepts_full_relax(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://drive.google.com/drive/u/1/folders/1z2zFZp3c0NYLFaUhhghhBakGcFdXVRyf
+        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------

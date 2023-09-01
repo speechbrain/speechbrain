@@ -6,6 +6,7 @@ and the path to the parameter file.
 Authors
  * Aku Rouhe 2020
  * Andreas Nautsch 2023
+ * Adel Moumen 2023
 """
 import logging
 import pathlib
@@ -256,9 +257,10 @@ class Pretrainer:
             fetch_from = None
             if isinstance(source, FetchSource):
                 fetch_from, source = source
-            if fetch_from is FetchFrom.LOCAL or str(path) == str(
-                source
-            ) + "/" + str(filename):
+            if fetch_from is FetchFrom.LOCAL or (
+                pathlib.Path(path).resolve()
+                == pathlib.Path(source).resolve() / filename
+            ):
                 logger.info(f"Set local path in self.paths[{name}] = {path}")
                 self.paths[name] = str(path)
                 self.is_local.append(name)
@@ -304,6 +306,7 @@ class Pretrainer:
                 continue
             filename = name + PARAMFILE_EXT
             paramfiles[name] = self.collect_in / filename
+
             if name in self.is_local:
                 logger.info(
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"

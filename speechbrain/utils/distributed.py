@@ -7,6 +7,7 @@ Authors:
 import os
 import torch
 import logging
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -80,19 +81,34 @@ def run_on_main(
 
 
 def if_main_process():
-    """Checks if the current process is the main process and authorized to run
-    I/O commands. In DDP mode, the main process is the one with RANK == 0.
-    In standard mode, the process will not have `RANK` Unix var and will be
+    """Checks if the current process is the main local process and authorized to run
+    I/O commands. In DDP mode, the main local process is the one with LOCAL_RANK == 0.
+    In standard mode, the process will not have `LOCAL_RANK` Unix var and will be
     authorized to run the I/O commands.
     """
-    if "RANK" in os.environ:
-        if os.environ["RANK"] == "":
+    if "LOCAL_RANK" in os.environ:
+        if os.environ["LOCAL_RANK"] == "":
             return False
         else:
-            if int(os.environ["RANK"]) == 0:
+            if int(os.environ["LOCAL_RANK"]) == 0:
                 return True
             return False
     return True
+
+
+def main_process_only(function):
+    """Function decorator to ensure the function runs only on the main process.
+    This is useful for things like saving to the filesystem or logging
+    to a web address where you only want it to happen on a single process.
+    """
+
+    @wraps(function)
+    def main_proc_wrapped_func(*args, **kwargs):
+        """This decorated function runs only if this is the main process."""
+        if if_main_process():
+            return function(*args, **kwargs)
+
+    return main_proc_wrapped_func
 
 
 def ddp_barrier():

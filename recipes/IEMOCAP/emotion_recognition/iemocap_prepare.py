@@ -10,7 +10,6 @@ Authors:
 """
 
 import os
-import sys
 import re
 import json
 import random
@@ -77,10 +76,9 @@ def prepare_data(
     speaker_dict = transform_data(data_original)
 
     if sum([len(value) for value in speaker_dict.values()]) != NUMBER_UTT:
-        logger.error(
+        raise ValueError(
             "Error: Number of utterances is not 5531, please check your IEMOCAP folder"
         )
-        sys.exit()
 
     # List files and create manifest from list
     logger.info(

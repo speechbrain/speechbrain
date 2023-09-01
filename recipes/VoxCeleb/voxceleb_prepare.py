@@ -103,7 +103,7 @@ def prepare_voxceleb(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     save_opt = os.path.join(save_folder, OPT_FILE)
     save_csv_train = os.path.join(save_folder, TRAIN_CSV)
     save_csv_dev = os.path.join(save_folder, DEV_CSV)
@@ -212,7 +212,6 @@ def _check_voxceleb_folders(data_folders, splits):
     FileNotFoundError
     """
     for data_folder in data_folders:
-
         if "train" in splits:
             folder_vox1 = os.path.join(data_folder, "wav", "id10001")
             folder_vox2 = os.path.join(data_folder, "wav", "id00012")
@@ -256,7 +255,6 @@ def _get_utt_split_lists(
 
     print("Getting file list...")
     for data_folder in data_folders:
-
         test_lst = [
             line.rstrip("\n").split(" ")[1]
             for line in open(verification_pairs_file)
@@ -441,7 +439,6 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
     ]  # noqa E231
 
     for data_folder in data_folders:
-
         test_lst_file = verification_pairs_file
 
         enrol_ids, test_ids = [], []
