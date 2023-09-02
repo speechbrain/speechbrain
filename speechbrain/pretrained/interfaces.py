@@ -14,6 +14,7 @@ Authors:
 """
 import logging
 import hashlib
+import re
 import sys
 import warnings
 import speechbrain
