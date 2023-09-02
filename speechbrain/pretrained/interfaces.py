@@ -3216,19 +3216,17 @@ class FastSpeech2InternalAlignment(Pretrained):
         for label in texts:
             phonemes_with_punc = self._g2p_keep_punctuations(self.g2p, label)
             if max_seq_len < len(phonemes_with_punc):
-                max_seq_len = len(phonemes_with_punc)            
+                max_seq_len = len(phonemes_with_punc)
             token_seq = (
                 self.input_encoder.encode_sequence_torch(phonemes_with_punc)
                 .int()
                 .to(self.device)
             )
-            phoneme_labels.append(
-                token_seq
-            )
+            phoneme_labels.append(token_seq)
 
-        tokens_padded = torch.LongTensor(
-            len(texts), max_seq_len
-        ).to(self.device)
+        tokens_padded = torch.LongTensor(len(texts), max_seq_len).to(
+            self.device
+        )
         tokens_padded.zero_()
 
         for seq_idx, seq in enumerate(phoneme_labels):
