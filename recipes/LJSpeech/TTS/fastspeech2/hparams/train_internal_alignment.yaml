@@ -129,7 +129,7 @@ enc_d_model: !ref <hidden_channels>
 enc_ffn_dim: 1024
 enc_k_dim: !ref <hidden_channels>
 enc_v_dim: !ref <hidden_channels>
-enc_dropout: 0.1
+enc_dropout: 0.2
 
 # Aligner parameters
 in_query_channels: 80
@@ -144,13 +144,13 @@ dec_d_model: !ref <hidden_channels>
 dec_ffn_dim: 1024
 dec_k_dim: !ref <hidden_channels>
 dec_v_dim: !ref <hidden_channels>
-dec_dropout: 0.1
+dec_dropout: 0.2
 
 # Postnet parameters
 postnet_embedding_dim: 512
 postnet_kernel_size: 5
 postnet_n_convolutions: 5
-postnet_dropout: 0.1
+postnet_dropout: 0.2
 
 # common
 normalize_before: True
@@ -161,7 +161,7 @@ ffn_cnn_kernel_size_list: [9, 1]
 dur_pred_kernel_size: 3
 pitch_pred_kernel_size: 3
 energy_pred_kernel_size: 3
-variance_predictor_dropout: 0.1
+variance_predictor_dropout: 0.5
 
 #model
 model: !new:speechbrain.lobes.models.FastSpeech2.FastSpeech2WithAlignment
