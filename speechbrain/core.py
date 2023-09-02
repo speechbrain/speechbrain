@@ -51,7 +51,25 @@ INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 7
 
+@dataclass
+class AutocastConfig:
+    dtype: torch.dtype
+    enable_forward: bool
+    enable_objectives: bool
 
+    @classmethod
+    def from_name(name):
+        if name is None or name == "fp32":
+            return AutocastConfig(torch.float32, False, False)
+        elif name == "fp16":
+            return AutocastConfig(torch.float16, True, False)
+        elif name == "bf16":
+            return AutocastConfig(torch.bfloat16, True, True)
+        else:
+            raise ValueError(
+                f"Specified autocast mode ({name}) incorrect, expected one of fp32,fp16,bf16"
+            )
+            
 def create_experiment_directory(
     experiment_directory,
     hyperparams_to_save=None,
