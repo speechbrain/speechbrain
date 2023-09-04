@@ -64,10 +64,10 @@ class AutocastConfig:
         elif name == "fp16":
             return AutocastConfig(torch.float16, True, False)
         elif name == "bf16":
-            return AutocastConfig(torch.bfloat16, True, True)
+            return AutocastConfig(torch.bfloat16, True, False)
         else:
             raise ValueError(
-                f"Specified autocast mode ({name}) incorrect, expected one of fp32,fp16,bf16"
+                f"Specified autocast mode ({name}) incorrect, expected one of fp32, fp16, bf16."
             )
             
 def create_experiment_directory(
