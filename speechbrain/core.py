@@ -41,6 +41,7 @@ from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -58,7 +59,7 @@ class AutocastConfig:
     enable_objectives: bool
 
     @classmethod
-    def from_name(name):
+    def from_name(self, name):
         if name is None or name == "fp32":
             return AutocastConfig(torch.float32, False, False)
         elif name == "fp16":
@@ -1009,6 +1010,8 @@ class Brain:
 
             self.optimizer = self.opt_class(all_params)
 
+            self.optimizers_dict = {"opt_class": self.optimizer}
+
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
@@ -1067,60 +1070,104 @@ class Brain:
         -------
         detached loss
         """
-        valid_loss = False
+        amp = AutocastConfig.from_name(self.hparams.autocast)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
 
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with torch.autocast(device_type=torch.device(self.device).type):
-                outputs = self.compute_forward(batch, Stage.TRAIN)
+        with self.no_sync(not should_step):
+            with torch.autocast(dtype=amp.dtype, enabled=amp.enable_forward, device_type=torch.device(self.device).type):
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
-            # Losses are excluded from mixed precision to avoid instabilities
-            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+            with torch.autocast(dtype=amp.dtype, enabled=amp.enable_objectives, device_type=torch.device(self.device).type):
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                loss = loss / self.grad_accumulation_factor
 
-            if self.check_gradients(loss):
-                valid_loss = True
-                self.valid_step += 1
-
-            should_step = self.valid_step % self.grad_accumulation_factor == 0
-            if valid_loss:
-                with self.no_sync(not should_step):
-                    self.scaler.scale(
-                        loss / self.grad_accumulation_factor
-                    ).backward()
+            if self.try_safe_backward(loss):
                 if should_step:
-                    self.scaler.unscale_(self.optimizer)
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    self.zero_grad()
-                    self.optimizer_step += 1
-        else:
-            if self.bfloat16_mix_prec:
-                with torch.autocast(
-                    device_type=torch.device(self.device).type,
-                    dtype=torch.bfloat16,
-                ):
-                    outputs = self.compute_forward(batch, Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            else:
-                outputs = self.compute_forward(batch, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-
-            if self.check_gradients(loss):
-                valid_loss = True
-                self.valid_step += 1
-
-            should_step = self.valid_step % self.grad_accumulation_factor == 0
-            if valid_loss:
-                with self.no_sync(not should_step):
-                    (loss / self.grad_accumulation_factor).backward()
-                if should_step:
-                    self.optimizer.step()
-                    self.zero_grad()
-                    self.optimizer_step += 1
+                    self.check_gradients()
+                    self.opt_step()
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
 
+    def check_gradients(self):
+        """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        
+        for name, param in self.modules.named_parameters():
+            if param.requires_grad and param.grad is not None:
+                if not torch.isfinite(param.grad).all():
+                    logger.warning(f"{name}.grad is not finite. Setting it to zero.")
+                    param.grad = torch.zeros_like(param.grad)
+
+    def try_safe_backward(self, loss):
+        has_amp = hasattr(self, "scaler")
+
+        if has_amp:
+            scaled_loss = self.scaler.scale(loss)
+        else:
+            scaled_loss = loss
+
+        if not scaled_loss.isfinite():
+            self.nonfinite_count += 1
+            
+            # Print helpful debug info
+            logger.warning(f"Loss is {loss}.")
+            for name, param in self.modules.named_parameters():
+                if not torch.isfinite(param).all():
+                    logger.warning(f"Parameter {name} is not finite")
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warning(
+                    "Patience not yet exhausted, ignoring this batch."
+                )
+
+            return False
+
+        scaled_loss.backward()
+
+        return True
+
+    def freeze_opts(self, optimizers):
+        # no freezing by default 
+        return optimizers
+
+    def opt_step(self):
+        has_amp = hasattr(self, "scaler")
+        
+        # freeze_opt_fn -> return only optimizers that are not frozen. 
+        valid_optimizers = self.freeze_opts(self.optimizers_dict)
+
+        if has_amp:
+            for opt in valid_optimizers.values():
+                self.scaler.unscale_(opt)
+
+        if self.max_grad_norm > 0.0:
+            torch.nn.utils.clip_grad_norm_(
+                (p for p in self.modules.parameters()), self.max_grad_norm
+            )
+
+        # step optimizers
+        for opt in valid_optimizers.values():
+            if has_amp:
+                self.scaler.step(opt)
+            else:
+                opt.step()
+
+        if has_amp:
+            self.scaler.update()
+
+        for opt in valid_optimizers.values():
+            opt.zero_grad(set_to_none=True)
+
+        self.optimizer_step += 1
+        
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``, meant for calculating and logging metrics.
 
@@ -1138,50 +1185,6 @@ class Brain:
         """
         pass
 
-    def check_gradients(self, loss):
-        """Check if gradients are finite and not too large.
-        Automatically clips large gradients.
-
-        Arguments
-        ---------
-        loss : tensor
-            The loss tensor after ``backward()`` has been called but
-            before the optimizers ``step()``.
-
-        Returns
-        -------
-        bool
-            Whether or not the optimizer step should be carried out.
-        """
-        if not torch.isfinite(loss):
-            self.nonfinite_count += 1
-
-            # Print helpful debug info
-            logger.warning(f"Loss is {loss}.")
-            for p in self.modules.parameters():
-                if not torch.isfinite(p).all():
-                    logger.warning("Parameter is not finite: " + str(p))
-
-            # Check if patience is exhausted
-            if self.nonfinite_count > self.nonfinite_patience:
-                raise ValueError(
-                    "Loss is not finite and patience is exhausted. "
-                    "To debug, wrap `fit()` with "
-                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
-                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-                )
-            else:
-                logger.warning(
-                    "Patience not yet exhausted, ignoring this batch."
-                )
-                return False
-
-        if self.max_grad_norm > 0.0:
-            torch.nn.utils.clip_grad_norm_(
-                (p for p in self.modules.parameters()), self.max_grad_norm
-            )
-
-        return True
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
