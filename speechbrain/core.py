@@ -52,6 +52,7 @@ INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 7
 
+
 @dataclass
 class AutocastConfig:
     dtype: torch.dtype
@@ -70,7 +71,8 @@ class AutocastConfig:
             raise ValueError(
                 f"Specified autocast mode ({name}) incorrect, expected one of fp32, fp16, bf16."
             )
-            
+
+
 def create_experiment_directory(
     experiment_directory,
     hyperparams_to_save=None,
@@ -1074,10 +1076,18 @@ class Brain:
         should_step = (self.step % self.grad_accumulation_factor) == 0
 
         with self.no_sync(not should_step):
-            with torch.autocast(dtype=amp.dtype, enabled=amp.enable_forward, device_type=torch.device(self.device).type):
+            with torch.autocast(
+                dtype=amp.dtype,
+                enabled=amp.enable_forward,
+                device_type=torch.device(self.device).type,
+            ):
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
-            with torch.autocast(dtype=amp.dtype, enabled=amp.enable_objectives, device_type=torch.device(self.device).type):
+            with torch.autocast(
+                dtype=amp.dtype,
+                enabled=amp.enable_objectives,
+                device_type=torch.device(self.device).type,
+            ):
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
                 loss = loss / self.grad_accumulation_factor
 
@@ -1105,7 +1115,7 @@ class Brain:
 
         if not scaled_loss.isfinite():
             self.nonfinite_count += 1
-            
+
             # Print helpful debug info
             logger.warning(f"Loss is {loss}.")
             for name, param in self.modules.named_parameters():
@@ -1134,13 +1144,13 @@ class Brain:
     def freeze_opts(self, optimizers):
         """By default, this method returns the passed optimizers.
         Override this method if you want to freeze some optimizers
-        during training. To do so, return a of active optimizers. 
+        during training. To do so, return a of active optimizers.
         """
         return optimizers
 
     def opt_step(self):
         has_amp = hasattr(self, "scaler")
-        
+
         # Freeze optimizers step
         valid_optimizers = self.freeze_opts(self.optimizers_dict)
 
@@ -1151,7 +1161,7 @@ class Brain:
         # We need to check and replace gradients before clipping them.
         # Otherwise, we can have issues with GradScaler.
         self.check_gradients()
-        
+
         if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
@@ -1171,7 +1181,7 @@ class Brain:
             opt.zero_grad(set_to_none=True)
 
         self.optimizer_step += 1
-        
+
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``, meant for calculating and logging metrics.
 
@@ -1188,7 +1198,6 @@ class Brain:
             Whether optimizer.step() was called or not.
         """
         pass
-
 
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.

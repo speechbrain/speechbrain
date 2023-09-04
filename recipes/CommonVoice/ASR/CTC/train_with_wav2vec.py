@@ -86,7 +86,6 @@ class ASR(sb.core.Brain):
 
         return loss
 
-
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
@@ -180,8 +179,7 @@ class ASR(sb.core.Brain):
                 ]
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
-    
-    
+
 
 # Define custom data procedure
 def dataio_prepare(hparams, tokenizer):
