@@ -748,7 +748,6 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
-        self.valid_step = 0
         self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
@@ -1268,7 +1267,6 @@ class Brain:
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
-        self.valid_step = 0
 
     def _should_save_intra_epoch_ckpt(self, last_ckpt_time, steps_since_ckpt):
         """Determines if an intra-epoch checkpoint should be saved.
