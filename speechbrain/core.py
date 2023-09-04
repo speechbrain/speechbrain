@@ -1083,7 +1083,6 @@ class Brain:
 
             if self.try_safe_backward(loss):
                 if should_step:
-                    self.check_gradients()
                     self.opt_step()
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
@@ -1091,11 +1090,9 @@ class Brain:
 
     def check_gradients(self):
         """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
-        
-        for name, param in self.modules.named_parameters():
+        for param in self.modules.parameters():
             if param.requires_grad and param.grad is not None:
                 if not torch.isfinite(param.grad).all():
-                    logger.warning(f"{name}.grad is not finite. Setting it to zero.")
                     param.grad = torch.zeros_like(param.grad)
 
     def try_safe_backward(self, loss):
@@ -1135,19 +1132,26 @@ class Brain:
         return True
 
     def freeze_opts(self, optimizers):
-        # no freezing by default 
+        """By default, this method returns the passed optimizers.
+        Override this method if you want to freeze some optimizers
+        during training. To do so, return a of active optimizers. 
+        """
         return optimizers
 
     def opt_step(self):
         has_amp = hasattr(self, "scaler")
         
-        # freeze_opt_fn -> return only optimizers that are not frozen. 
+        # Freeze optimizers step
         valid_optimizers = self.freeze_opts(self.optimizers_dict)
 
         if has_amp:
             for opt in valid_optimizers.values():
                 self.scaler.unscale_(opt)
 
+        # We need to check and replace gradients before clipping them.
+        # Otherwise, we can have issues with GradScaler.
+        self.check_gradients()
+        
         if self.max_grad_norm > 0.0:
             torch.nn.utils.clip_grad_norm_(
                 (p for p in self.modules.parameters()), self.max_grad_norm
