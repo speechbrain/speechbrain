@@ -56,20 +56,18 @@ PYTHON_VERSION_MINOR = 7
 @dataclass
 class AutocastConfig:
     dtype: torch.dtype
-    enable_forward: bool
-    enable_objectives: bool
 
     @classmethod
     def from_name(self, name):
         if name is None or name == "fp32":
-            return AutocastConfig(torch.float32, False, False)
+            return AutocastConfig(torch.float32)
         elif name == "fp16":
-            return AutocastConfig(torch.float16, True, False)
+            return AutocastConfig(torch.float16)
         elif name == "bf16":
-            return AutocastConfig(torch.bfloat16, True, False)
+            return AutocastConfig(torch.bfloat16)
         else:
             raise ValueError(
-                f"Specified autocast mode ({name}) incorrect, expected one of fp32, fp16, bf16."
+                f"Specified autocast mode ({name}) incorrect, expected one of `fp32`, `fp16`, `bf16`."
             )
 
 
@@ -317,16 +315,11 @@ def parse_arguments(arg_list=None):
         help="Use dynamic shape tracing for compilation",
     )
     parser.add_argument(
-        "--auto_mix_prec",
-        default=None,
-        action="store_true",
-        help="This flag enables training with automatic mixed-precision.",
-    )
-    parser.add_argument(
-        "--bfloat16_mix_prec",
-        default=None,
-        action="store_true",
-        help="This flag enables training with bfloat16 mixed-precision.",
+        "--autocast",
+        type=str,
+        default="fp32",
+        help="This flag enables training with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
         "--max_grad_norm",
@@ -512,9 +505,8 @@ class Brain:
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
             The location for performing computations.
-        auto_mix_prec (bool)
-            If ``True``, automatic mixed-precision is used.
-            Activate it only with cuda.
+        autocast (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
         max_grad_norm (float)
             Default implementation of ``fit_batch()`` uses
             ``clip_grad_norm_`` with this value. Default: ``5``.
@@ -587,8 +579,7 @@ class Brain:
             "compile_mode": "reduce-overhead",
             "compile_using_fullgraph": False,
             "compile_using_dynamic_shape_tracing": False,
-            "auto_mix_prec": False,
-            "bfloat16_mix_prec": False,
+            "autocast": "fp32",
             "max_grad_norm": 5.0,
             "nonfinite_patience": 3,
             "noprogressbar": False,
@@ -712,10 +703,14 @@ class Brain:
         self.train_sampler = None
 
         # Automatic mixed precision init
-        if self.auto_mix_prec:
-            self.scaler = torch.cuda.amp.GradScaler()
-            if self.checkpointer is not None:
-                self.checkpointer.add_recoverable("scaler", self.scaler)
+        # By default, we use autocast if `self.autocast` is equal to `fp16` or "bf16".
+        gradscaler_enabled = self.autocast in ["fp16", "bf16"]
+        logger.info(
+            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.autocast}."
+        )
+        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        if self.checkpointer is not None:
+            self.checkpointer.add_recoverable("scaler", self.scaler)
 
         # List parameter count for the user
         total_params = sum(
@@ -1059,6 +1054,8 @@ class Brain:
 
         * ``compute_forward()``
         * ``compute_objectives()``
+        * ``try_safe_backward()``
+        * ``optimizer_step()``
 
         Also depends on having optimizers passed at initialization.
 
@@ -1072,28 +1069,23 @@ class Brain:
         -------
         detached loss
         """
-        amp = AutocastConfig.from_name(self.hparams.autocast)
+        amp = AutocastConfig.from_name(self.autocast)
         should_step = (self.step % self.grad_accumulation_factor) == 0
 
         with self.no_sync(not should_step):
             with torch.autocast(
-                dtype=amp.dtype,
-                enabled=amp.enable_forward,
-                device_type=torch.device(self.device).type,
+                dtype=amp.dtype, device_type=torch.device(self.device).type,
             ):
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
-            with torch.autocast(
-                dtype=amp.dtype,
-                enabled=amp.enable_objectives,
-                device_type=torch.device(self.device).type,
-            ):
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-                loss = loss / self.grad_accumulation_factor
+            # The objectives are removed from Autocast to avoid
+            # potential numerical instabilities with CTC loss, etc.
+            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            loss = loss / self.grad_accumulation_factor
 
             if self.try_safe_backward(loss):
                 if should_step:
-                    self.opt_step()
+                    self.optimizers_step()
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
@@ -1106,12 +1098,7 @@ class Brain:
                     param.grad = torch.zeros_like(param.grad)
 
     def try_safe_backward(self, loss):
-        has_amp = hasattr(self, "scaler")
-
-        if has_amp:
-            scaled_loss = self.scaler.scale(loss)
-        else:
-            scaled_loss = loss
+        scaled_loss = self.scaler.scale(loss)
 
         if not scaled_loss.isfinite():
             self.nonfinite_count += 1
@@ -1141,25 +1128,23 @@ class Brain:
 
         return True
 
-    def freeze_opts(self, optimizers):
+    def freeze_optimizers(self, optimizers):
         """By default, this method returns the passed optimizers.
         Override this method if you want to freeze some optimizers
         during training. To do so, return a of active optimizers.
         """
         return optimizers
 
-    def opt_step(self):
-        has_amp = hasattr(self, "scaler")
+    def optimizers_step(self):
 
         # Freeze optimizers step
-        valid_optimizers = self.freeze_opts(self.optimizers_dict)
+        valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
 
-        if has_amp:
-            for opt in valid_optimizers.values():
-                self.scaler.unscale_(opt)
+        for opt in valid_optimizers.values():
+            self.scaler.unscale_(opt)
 
         # We need to check and replace gradients before clipping them.
-        # Otherwise, we can have issues with GradScaler.
+        # Otherwise, we can have issues with `GradScaler`.
         self.check_gradients()
 
         if self.max_grad_norm > 0.0:
@@ -1169,13 +1154,9 @@ class Brain:
 
         # step optimizers
         for opt in valid_optimizers.values():
-            if has_amp:
-                self.scaler.step(opt)
-            else:
-                opt.step()
+            self.scaler.step(opt)
 
-        if has_amp:
-            self.scaler.update()
+        self.scaler.update()
 
         for opt in valid_optimizers.values():
             opt.zero_grad(set_to_none=True)
