@@ -60,7 +60,7 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
-from speechbrain.utils.distributed import main_process_only
+from speechbrain.utils.distributed import main_process_only, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -541,6 +541,13 @@ class Checkpointer:
         The value of end_of_epoch is saved in the meta. This can affect how
         epoch counters and dataset iterators load their state.
 
+        For multi-process saving there are cases where we may want to run
+        saving code on multiple processes (e.g. FSDP where we need to collect
+        parameters before saving). This works by creating a save folder
+        on the main process and communicating it to all processes, and then
+        letting each saver/loader method control whether it should save
+        on one or all processes.
+
         Arguments
         ---------
         meta : mapping, optional
@@ -559,16 +566,26 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            namedtuple [see above], the saved checkpoint.
+            namedtuple [see above], the saved checkpoint, unless this is run
+            on a non-main process, in which case it returns None.
         """
-        if name is None:
-            ckpt_dir = self._new_checkpoint_dirpath()
-        else:
-            ckpt_dir = self._custom_checkpoint_dirpath(name)
-        os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
-        saved_meta = self._save_checkpoint_metafile(
-            ckpt_dir / METAFNAME, meta, end_of_epoch
-        )
+        ckpt_dir = None
+        if if_main_process():
+            if name is None:
+                ckpt_dir = self._new_checkpoint_dirpath()
+            else:
+                ckpt_dir = self._custom_checkpoint_dirpath(name)
+            os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
+            saved_meta = self._save_checkpoint_metafile(
+                ckpt_dir / METAFNAME, meta, end_of_epoch
+            )
+
+        # Communicate ckpt_dir to all procs
+        communication_list = [ckpt_dir]
+        if torch.distributed.is_initialized():
+            torch.distributed.broadcast_object_list(communication_list, src=0)
+        ckpt_dir = communication_list[0]
+
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
@@ -590,9 +607,16 @@ class Checkpointer:
             MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
-        ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
-        logger.log(verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}")
-        return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        if if_main_process():
+            ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
+            logger.log(
+                verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}"
+            )
+            return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        # Explicity return None if this is not the main process
+        return None
 
     def save_and_keep_only(
         self,
