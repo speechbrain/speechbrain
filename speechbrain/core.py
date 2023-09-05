@@ -1054,7 +1054,7 @@ class Brain:
 
         * ``compute_forward()``
         * ``compute_objectives()``
-        * ``try_safe_backward()``
+        * ``check_loss_isfinite()``
         * ``optimizer_step()``
 
         Also depends on having optimizers passed at initialization.
@@ -1083,7 +1083,10 @@ class Brain:
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
             loss = loss / self.grad_accumulation_factor
 
-            if self.try_safe_backward(loss):
+            scaled_loss = self.scaler.scale(loss)
+
+            if self.check_loss_isfinite(scaled_loss):
+                scaled_loss.backward()
                 if should_step:
                     self.optimizers_step()
 
@@ -1097,10 +1100,8 @@ class Brain:
                 if not torch.isfinite(param.grad).all():
                     param.grad = torch.zeros_like(param.grad)
 
-    def try_safe_backward(self, loss):
-        scaled_loss = self.scaler.scale(loss)
-
-        if not scaled_loss.isfinite():
+    def check_loss_isfinite(self, loss):
+        if not loss.isfinite():
             self.nonfinite_count += 1
 
             # Print helpful debug info
@@ -1123,8 +1124,6 @@ class Brain:
                 )
 
             return False
-
-        scaled_loss.backward()
 
         return True
 
