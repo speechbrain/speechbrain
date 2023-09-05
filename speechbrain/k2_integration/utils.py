@@ -1,26 +1,18 @@
-# Copyright      2021  Xiaomi Corp.        (authors: Fangjun Kuang,
-#                                                    Mingshuang Luo,
-#                                                    Zengwei Yao)
-#
-# See ../../LICENSE for clarification regarding multiple authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+"""Utilities for k2 integration with SpeechBrain.
+
+This code was adjusted from icefall (https://github.com/k2-fsa/icefall).
+
+
+Authors:
+  * Zeyu Zhao 2023
+  * Georgios Karakasidis 2023
+"""
 
 import logging
 
 import torch
 import k2
-from typing import Dict, Iterable, List, Optional, TextIO, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 
 logger = logging.getLogger(__name__)
@@ -135,8 +127,6 @@ def rescore_with_whole_lattice(
       Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
       value is the decoding result (i.e., an FsaVec containing linear FSAs).
     """
-    # Nbest is not used in this function
-    # assert hasattr(lattice, "lm_scores")
     assert G_with_epsilon_loops.shape == (1, None, None)
 
     device = lattice.device

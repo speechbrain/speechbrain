@@ -304,6 +304,7 @@ class CtcTrainingGraphCompiler(object):
         input_lens = input_lens.to(device)
 
         input_lens = (input_lens * log_probs.shape[1]).round().int()
+        # NOTE: low ac_scales may results in very big lattices and OOM errors.
         log_probs *= ac_scale
 
         def lattice2text(best_path: k2.Fsa) -> List[str]:
