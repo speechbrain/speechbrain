@@ -23,6 +23,8 @@ from typing import List, Tuple
 import k2
 import torch
 
+logger = logging.getLogger(__name__)
+
 
 def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
     """Read a lexicon from `filename`.
@@ -48,13 +50,13 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
                 continue
 
             if len(a) < 2:
-                logging.info(f"Found bad line {line} in lexicon file {filename}")
-                logging.info("Every line is expected to contain at least 2 fields")
+                logger.info(f"Found bad line {line} in lexicon file {filename}")
+                logger.info("Every line is expected to contain at least 2 fields")
                 sys.exit(1)
             word = a[0]
             if word == "<eps>":
-                logging.info(f"Found bad line {line} in lexicon file {filename}")
-                logging.info("<eps> should not be a valid word")
+                logger.info(f"Found bad line {line} in lexicon file {filename}")
+                logger.info("<eps> should not be a valid word")
                 sys.exit(1)
 
             tokens = a[1:]
@@ -168,16 +170,16 @@ class Lexicon(object):
         self._L_disambig = None
 
         if (lang_dir/ "L.pt").exists():
-            logging.info(f"Loading pre-compiled {lang_dir}/L.pt")
+            logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
             L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
         else:
             raise RuntimeError(f"{lang_dir}/L.pt does not exist. Please make sure you have successfully created L.pt in {lang_dir}")
 
         if (lang_dir / "Linv.pt").exists():
-            logging.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
+            logger.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
             L_inv = k2.Fsa.from_dict(torch.load(lang_dir / "Linv.pt"))
         else:
-            logging.info("Converting L.pt to Linv.pt")
+            logger.info("Converting L.pt to Linv.pt")
             L_inv = k2.arc_sort(L.invert())
             torch.save(L_inv.as_dict(), lang_dir / "Linv.pt")
 
@@ -196,7 +198,7 @@ class Lexicon(object):
         Needed for HLG construction.
         """
         if not hasattr(self, "_L_disambig"):
-            logging.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
+            logger.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
             self._L_disambig = k2.Fsa.from_dict(torch.load(self.lang_dir / "L_disambig.pt"))
         return self._L_disambig
 
@@ -265,7 +267,7 @@ class Lexicon(object):
             for i, word in enumerate(words):
                 if word not in self.word2tids:
                     if self.log_unknown_warning:
-                        logging.warn(f"Cannot find word {word} in the lexicon."
+                        logger.warn(f"Cannot find word {word} in the lexicon."
                                      f" Replacing it with {oov_token}. please check {self.lang_dir}/lexicon.txt."
                                      f" Note that it is fine if you are testing.")
                     word = oov_token

@@ -145,8 +145,6 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    annealing_factor: 0.9
    patient: 0
 
-label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
-
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
@@ -155,7 +153,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
       scheduler_model: !ref <lr_annealing_model>
       scheduler_wav2vec: !ref <lr_annealing_wav2vec>
       counter: !ref <epoch_counter>
-      tokenizer: !ref <label_encoder>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <train_log>
@@ -172,9 +169,17 @@ sil_prob: 0.
 add_word_boundary: True
 # For k2 decoding
 test_search_beam: 32
-test_output_beam: 4
-test_max_active_state: 2000
-ac_scale: 1.0
+# Beam size (for decoding)
+test_output_beam: 8
+test_max_active_state: 3000
+# Acoustic scale (mutliplied by the log probs)
+ac_scale: 1.5
 use_HLG: False
-G_path: !ref lm/G_3_gram.fst.txt
+# 1best or whole-lattice-rescoring
 decoding_method: whole-lattice-rescoring
+# This is where the 3gram and (optionally) 4gram LM are stored
+# They can be in either ARPA or FST format. If the former, then 
+# the FST equivalent will be created in the same directory by
+# using kaldilm.
+lm_dir: lm
+lm_scale_list: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]

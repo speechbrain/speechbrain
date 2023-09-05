@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """Recipe for training a wav2vec-based ctc ASR system with librispeech.
 The system employs wav2vec as its encoder. Decoding is performed with
-ctc greedy decoder.
+k2 through the use of a decoding graph and, optionally, a rescorring LM.
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
@@ -22,6 +22,7 @@ Authors
 
 import os
 import sys
+from typing import List, Union
 import torch
 import logging
 import speechbrain as sb
@@ -98,7 +99,7 @@ class ASR(sb.Brain):
         if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
             raise NotImplementedError(
                 "Env. corruption is not implemented for models trained with k2"
-                    )
+            )
             
         # Sort batch to be descending by length of wav files, which is demanded by k2
         if self.hparams.sorting == "ascending":
@@ -138,7 +139,10 @@ class ASR(sb.Brain):
                 )
             else:
                 decoding_method=getattr(asr_brain.hparams, "decoding_method", "1best")
-                predicted_texts = self.graph_compiler.decode(
+                # If the decoding method is 1best then the metric stats will be
+                # saved in a single file, otherwise, a new directory will be created
+                # for each lm_scale used in whole lattice rescoring.
+                decode_output: Union[dict, List[str]] = self.graph_compiler.decode(
                     p_ctc,
                     wav_lens,
                     search_beam=self.hparams.test_search_beam,
@@ -146,12 +150,20 @@ class ASR(sb.Brain):
                     ac_scale=self.hparams.ac_scale,
                     max_active_states=self.hparams.test_max_active_state,
                     is_test=True,
-                    decoding_method=decoding_method
+                    decoding_method=decoding_method,
+                    lm_scale_list=self.hparams.lm_scale_list,
                 ) # list of strings
-                predicted_words = [wrd.split(" ") for wrd in predicted_texts]
-            target_words = [wrd.split(" ") for wrd in texts]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
+                target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
+                if decoding_method == "1best":
+                    predicted_words: List[List[str]] = [wrd.split(" ") for wrd in decode_output]
+                    self.wer_metric.append(ids, predicted_words, target_words)
+                    self.cer_metric.append(ids, predicted_words, target_words)
+                else:
+                    for i, lm_scale in enumerate(self.hparams.lm_scale_list):
+                        predicted_texts: List[str] = decode_output[f"lm_scale_{lm_scale:.1f}"]
+                        predicted_words: List[List[str]] = [wrd.split(" ") for wrd in predicted_texts]
+                        self.wer_metric[i].append(ids, predicted_words, target_words)
+                        self.cer_metric[i].append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -194,20 +206,50 @@ class ASR(sb.Brain):
         return loss.detach().cpu()
 
     def on_stage_start(self, stage, epoch):
-        """Gets called at the beginning of each epoch"""
+        """Gets called at the beginning of each epoch. In this case,
+        it initializes the wer and cer metric watchers. If the decoding
+        method is whole-lattice-rescoring then a list of wer/cer metrics
+        will be initialized (for each lm scale). Otherwise, a single class
+        will be initialized for wer and cer, respectively.
+        """
         if stage != sb.Stage.TRAIN:
-            self.cer_metric = self.hparams.cer_computer()
-            self.wer_metric = self.hparams.error_rate_computer()
+            if stage == sb.Stage.VALID or self.hparams.decoding_method == "1best":
+                self.cer_metric = self.hparams.cer_computer()
+                self.wer_metric = self.hparams.error_rate_computer()
+            else:  # stage is TEST and dec-method is whole-lattice or nbest rescoring
+                self.cer_metric = []
+                self.wer_metric = []
+                for _ in range(len(self.hparams.lm_scale_list)):
+                    self.cer_metric.append(self.hparams.cer_computer())
+                    self.wer_metric.append(self.hparams.error_rate_computer())            
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of an epoch."""
+        """Gets called at the end of an epoch. During testing, its primary goal
+        is to summarize the WER/CER stats and save them in a txt file.
+        If the decoding method is whole-lattice-rescoring then we will
+        print the WER/CER score of the best lm_scale. In addition, we will
+        save the WER/CER scores of all lm_scales in separate txt files.
+        If the decoding method is 1best then we will print the WER/CER score
+        and save the results in a txt file.
+        """
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
-        else:
+        elif stage == sb.Stage.VALID or self.hparams.decoding_method == "1best":
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+        else:
+            best_wer = 100
+            best_lm_scale = -1
+            best_cer = 100
+            for i, lm_scale in enumerate(self.hparams.lm_scale_list):
+                if self.wer_metric[i].summarize("error_rate") < best_wer:
+                    best_wer = self.wer_metric[i].summarize("error_rate")
+                    best_lm_scale = lm_scale
+                    best_cer = self.cer_metric[i].summarize("error_rate")
+            stage_stats[f"CER-lm_scale_{best_lm_scale:.1f}"] = best_cer
+            stage_stats[f"WER-lm_scale_{best_lm_scale:.1f}"] = best_wer
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -241,8 +283,20 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
-                    self.wer_metric.write_stats(w)
+                if self.hparams.decoding_method == "1best":
+                    with open(self.hparams.wer_file, "w") as w:
+                        self.wer_metric.write_stats(w)
+                else:
+                    metrics_dir = asr_brain.hparams.metrics_dir
+                    os.makedirs(metrics_dir, exist_ok=True)
+                    for i, lm_scale in enumerate(self.hparams.lm_scale_list):
+                        with open(
+                            os.path.join(
+                                metrics_dir, f"wer_lm_scale_{lm_scale:.1f}.txt"
+                            ),
+                            "w",
+                        ) as w:
+                            self.wer_metric[i].write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -328,42 +382,25 @@ def dataio_prepare(hparams):
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-    label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
+        "wrd", "char_list"
     )
     def text_pipeline(wrd):
         yield wrd
         char_list = list(wrd)
         yield char_list
-        tokens_list = label_encoder.encode_sequence(char_list)
-        yield tokens_list
-        tokens = torch.LongTensor(tokens_list)
-        yield tokens
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
-
-    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    special_labels = {
-        "blank_label": hparams["blank_index"],
-    }
-    label_encoder.load_or_create(
-        path=lab_enc_file,
-        from_didatasets=[train_data],
-        output_key="char_list",
-        special_labels=special_labels,
-        sequence_input=True,
-    )
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets, ["id", "sig", "wrd", "char_list", "tokens"],
     )
 
-    return train_data, valid_data, test_datasets, label_encoder
+    return train_data, valid_data, test_datasets
 
 def get_lexicon(lang_dir, 
                 csv_files, 
@@ -437,6 +474,78 @@ def get_lexicon(lang_dir,
             fc += word + " " + " ".join(lexicon[word]) + "\n"
         f.write(fc)
 
+def arpa_to_fst(
+        arpa_dir: Path,
+        output_dir: Path,
+        words_txt: Path,
+        disambig_symbol: str = "#0",
+        convert_4gram: bool = True
+    ):
+    """ Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
+    you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
+    website (https://www.openslr.org/11/). You can use this function to
+    convert them to FSTs. The resulting FSTs can then be used to create a
+    decoding graph (HLG) for k2 decoding.
+
+    If `convert_4gram` is True, then we will convert the 4-gram ARPA LM to
+    FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
+    It is worth noting that if the fsts already exist in the output_dir,
+    then we will not convert them again (so you may need to delete them
+    by hand if you, at any point, change your ARPA model).
+
+    Args:
+        arpa_dir: Path to the directory containing the ARPA LM (we expect
+            a file named 3-gram.pruned.1e-7.arpa to exist, and if
+            `convert_4gram` is True, then "4-gram.arpa" should also exist).
+        output_dir: Path to the directory where the FSTs will be saved.
+        words_txt: Path to the words.txt file created by prepare_lang.
+        disambig_symbol: The disambiguation symbol to use.
+        convert_4gram: If True, then we will convert the 4-gram ARPA LM to
+            FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
+    
+    Raises:
+        ImportError: If kaldilm is not installed.
+    """
+    assert arpa_dir.is_dir()
+    assert output_dir.is_dir()
+    try:
+        from kaldilm.arpa2fst import arpa2fst
+    except ImportError:
+        # This error will occur when there is fst LM in the provided lm_dir
+        # and we are trying to create it by converting an ARPA LM to FST.
+        # For this, we need to install kaldilm.
+        raise ImportError(
+            "Optional dependencies must be installed to use kaldilm.\n"
+            "Install using `pip install kaldilm`."
+        )
+    def _arpa_to_fst_single(arpa_path: Path, out_fst_path: Path, max_order: int):
+        """Convert a single ARPA LM to FST."""
+        if out_fst_path.exists():
+            return
+        if not arpa_path.exists():
+            raise FileNotFoundError(f"{arpa_path} not found while trying to create the {max_order} FST.")
+        try:
+            s = arpa2fst(
+                input_arpa=str(arpa_path),
+                disambig_symbol=disambig_symbol,
+                read_symbol_table=str(words_txt),
+                max_order=max_order,
+            )
+        except Exception as e:
+            logger.info(f"Failed to create {max_order}-gram FST from input={arpa_path}, disambig_symbol={disambig_symbol}, read_symbol_table={words_txt}")
+            raise e
+        logger.info(f"Writing {out_fst_path}")
+        with open(out_fst_path, "w") as f:
+            f.write(s)
+    arpa_path = arpa_dir / "3-gram.pruned.1e-7.arpa"
+    fst_path = output_dir / "G_3_gram.fst.txt"
+    _arpa_to_fst_single(arpa_path, fst_path, max_order=3)
+    if convert_4gram:
+        # arpa_path = arpa_dir / "4-gram.arpa"
+        arpa_path = arpa_dir / "4-gram.arpa"
+        fst_path = output_dir / "G_4_gram.fst.txt"
+        _arpa_to_fst_single(arpa_path, fst_path, max_order=4)
+
 if __name__ == "__main__":
 
     # CLI:
@@ -475,16 +584,14 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
-        hparams
-    )
+    train_data, valid_data, test_datasets = dataio_prepare(hparams)
 
     # Create the lexicon.txt for k2 training
     run_on_main(
             get_lexicon,
             kwargs={
                 "lang_dir": hparams["lang_dir"],
-                "csv_files": [hparams["output_folder"] + "/train.csv", hparams["output_folder"] + "/dev-clean.csv"],
+                "csv_files": [hparams["output_folder"] + "/train.csv"],
                 "extra_vocab_files": [hparams["vocab_file"]],
                 "add_word_boundary": hparams["add_word_boundary"],
             },
@@ -516,22 +623,37 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    need_G = False
     if getattr(asr_brain.hparams, "use_HLG", False) in [True, "True"]:
-        if hasattr(asr_brain.hparams, "G_path"):
-            G_path = asr_brain.hparams.G_path
-        else:
-            G_path = os.path.join(hparams["lang_dir"], "G_3_gram.fst.txt")
-        if not os.path.isfile(G_path):
-            raise FileNotFoundError(
-                f"{G_path} not found. You need to run kaldilm to convert an"
-                " ARPA LM to FST format or use the --G_path to pass your own LM."
-            )
+        G_path = Path(asr_brain.hparams.lm_dir) / "G_3_gram.fst.txt"
+        logger.info(f"Will load LM from {G_path}")
+        need_G = True
     else:
         G_path = None
+
+    need_4gram = (asr_brain.hparams.decoding_method == "whole-lattice-rescoring")
+    # NOTE: This means that even if the 3gram G is not needed, but we still plan to rescore,
+    #       then G_3_gram.fst.txt will still be created (i.e. if HLG is False but the decoding
+    #       method is whole-lattice-rescoring, then G_3_gram.fst.txt will still be created).
+    if need_G or need_4gram:
+        # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
+        logger.info("Converting arpa LM to FST")
+        run_on_main(
+            arpa_to_fst,
+            kwargs={
+                "arpa_dir": Path(asr_brain.hparams.lm_dir),
+                "output_dir": Path(asr_brain.hparams.lm_dir),
+                "words_txt": Path(asr_brain.hparams.lang_dir) / "words.txt",
+                "convert_4gram": need_4gram,
+            },
+        )
+    if need_G:
+        assert G_path.is_file(), f"{G_path} does not exist"
     graph_compiler = CtcTrainingGraphCompiler(
         lexicon=lexicon,
         device=asr_brain.device,
         G_path=G_path,
+        rescoring_lm_path=Path(asr_brain.hparams.lm_dir) / "G_4_gram.fst.txt" if need_4gram else None,
     )
 
     # Add attributes to asr_brain
@@ -541,11 +663,6 @@ if __name__ == "__main__":
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(asr_brain.device)
-
-    # We dynamicaly add the tokenizer to our brain class.
-    # NB: This tokenizer corresponds to the one used for the LM!!
-    # NB: For models trained with k2, the tokenizer is not used
-    asr_brain.tokenizer = label_encoder
 
     # Training
     asr_brain.fit(
@@ -561,6 +678,11 @@ if __name__ == "__main__":
         asr_brain.hparams.wer_file = os.path.join(
             hparams["output_folder"], "wer_{}.txt".format(k)
         )
+        if asr_brain.hparams.decoding_method != "1best":
+            # define the metrics directory for whole-lattice rescoring
+            asr_brain.hparams.metrics_dir = os.path.join(
+                hparams["output_folder"], f"test_metrics_{k}"
+            )
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )
