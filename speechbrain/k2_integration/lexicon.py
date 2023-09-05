@@ -193,11 +193,11 @@ class Lexicon(object):
             self.load_mapping()
     
     @property
-    def L_disambig(self):
+    def L_disambig(self) -> k2.Fsa:
         """Return the lexicon FSA (with disambiguation symbols).
         Needed for HLG construction.
         """
-        if not hasattr(self, "_L_disambig"):
+        if self._L_disambig is None:
             logger.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
             self._L_disambig = k2.Fsa.from_dict(torch.load(self.lang_dir / "L_disambig.pt"))
         return self._L_disambig
