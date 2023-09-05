@@ -166,6 +166,7 @@ class Lexicon(object):
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
         self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
         self.log_unknown_warning = True
+        self._L_disambig = None
 
         if (lang_dir/ "L.pt").exists():
             logging.info(f"Loading pre-compiled {lang_dir}/L.pt")
@@ -189,6 +190,16 @@ class Lexicon(object):
 
         if load_mapping:
             self.load_mapping()
+    
+    @property
+    def L_disambig(self):
+        """Return the lexicon FSA (with disambiguation symbols).
+        Needed for HLG construction.
+        """
+        if not hasattr(self, "_L_disambig"):
+            logging.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
+            self._L_disambig = k2.Fsa.from_dict(torch.load(self.lang_dir / "L_disambig.pt"))
+        return self._L_disambig
 
     def load_mapping(self):
 
