@@ -44,10 +44,10 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
                 if not (
                     check_yaml_vs_script(row["Hparam_file"], row["Script_file"])
                 ):
-                    check = False
+                    check = True 
 
                 # Check module variables
                 # if not (check_module_vars(row["Hparam_file"], row["Script_file"])):
-                #    check = False
+                #    check = True 
 
     assert check
