@@ -29,8 +29,8 @@ installed in your environment (see extra-requirements.txt)**
 | 24-03-22 | transformer.yaml | 3.32 | 2.27 | 5.53 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://www.dropbox.com/sh/653kq8h2k87md4p/AAByAaAryXtQKpRzYtzV9ih5a?dl=0) | 4xV100 32GB |
 | 24-03-22 | conformer_small.yaml | 4.05 | 2.49 | 6.1 (**only 13.3M parameters**) | [HuggingFace](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | [GoogleDrive](https://www.dropbox.com/sh/s0x6ni124858b8i/AAALaCH6sGTMRUVTjh8Tm8Jwa?dl=0) | 1xV100 32GB |
 | 06-12-23 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | 1xA100 40GB |
-| 27-03-23 | hyperconformer_8M.yaml | 4.69 | 2.9 | 7.0 (**only 7.9M parameters**) | NA |  [DropBox](https://www.dropbox.com/sh/8jc96avmivr8fke/AABrFEhtWy_3-Q7BHhkh0enwa?dl=0) | 1xP40 24GB
-| 27-03-23 | hyperconformer_22M.yaml | 3.19 | 2.3 | 5.7  (**only 21.7M parameters**)  | NA | [DropBox](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | 1xP40 24GB
+| 27-03-23 | hyperconformer_8M.yaml | 4.69 | 2.55 | 6.61 (**only 7.9M parameters**) | NA |  [DropBox](https://www.dropbox.com/sh/8jc96avmivr8fke/AABrFEhtWy_3-Q7BHhkh0enwa?dl=0) | 1xP40 24GB
+| 27-03-23 | hyperconformer_22M.yaml | 3.19 | 2.23 | 5.54  (**only 21.7M parameters**)  | NA | [DropBox](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_13M.yaml | NA | 2.54 | 6.58  | NA | soon | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_25M.yaml | NA | 2.36 | 5.89 | NA | soon | 1xP40 24GB
 
