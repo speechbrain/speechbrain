@@ -34,8 +34,8 @@ class CtcTrainingGraphCompiler(object):
         device: torch.device,
         oov: str = "<UNK>",
         need_repeat_flag: bool = False,
-        G_path: str = None,
-        rescoring_lm_path: Union[Path, str] = None,
+        G_path: Optional[str] = None,
+        rescoring_lm_path: Union[Path, str, None] = None,
     ):
         """
         Args:
@@ -51,7 +51,7 @@ class CtcTrainingGraphCompiler(object):
             indicating whether this token is a repeat token in ctc graph.
             This attribute is needed to implement delay-penalty for phone-based
             ctc loss. See https://github.com/k2-fsa/k2/pull/1086 for more
-            details. Note: The above change MUST be included in k2 to open this
+            details. Note: The above change MUST be included in k2 to enable this
             flag.
           G_path: str
             Path to the language model FST to be used in the decoding-graph creation.

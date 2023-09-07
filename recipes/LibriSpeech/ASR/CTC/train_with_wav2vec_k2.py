@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """Recipe for training a wav2vec-based ctc ASR system with librispeech.
 The system employs wav2vec as its encoder. Decoding is performed with
-k2 through the use of a decoding graph and, optionally, a rescorring LM.
+k2 through the use of a decoding graph and, optionally, a rescoring LM.
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
