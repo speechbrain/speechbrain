@@ -208,13 +208,6 @@ def parse_arguments(arg_list=None):
         type=str,
         help="A file storing the configuration options for logging",
     )
-    # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument(
-        "--local_rank",
-        "--local-rank",  # alias required for PyTorch 2.x
-        type=int,
-        help="Rank on local machine",
-    )
     parser.add_argument(
         "--device",
         type=str,
@@ -376,17 +369,8 @@ def parse_arguments(arg_list=None):
         if torch.cuda.device_count() == 0:
             raise ValueError("You must have at least 1 GPU.")
 
-    # For DDP, the device args must equal to local_rank used by
-    # torch.distributed.launch. If run_opts["local_rank"] exists,
-    # use os.environ["LOCAL_RANK"]
-    local_rank = None
-    if "local_rank" in run_opts:
-        local_rank = run_opts["local_rank"]
-    else:
-        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
-            local_rank = int(os.environ["LOCAL_RANK"])
-
-    # force device arg to be the same as local_rank from torch.distributed.lunch
+    # force device arg to be the same as local_rank from torchrun
+    local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
 
