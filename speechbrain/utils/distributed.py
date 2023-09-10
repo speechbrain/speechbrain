@@ -133,29 +133,31 @@ def ddp_init_group(run_opts):
     run_opts: list
         A list of arguments to parse, most often from `sys.argv[1:]`.
     """
+    rank = os.environ.get("RANK")
+    local_rank = os.environ.get("LOCAL_RANK")
     if run_opts["distributed_launch"]:
-        if "local_rank" not in run_opts:
+        if local_rank is None:
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch "
-                "--distributed_backend=nccl"
+                "torchrun [args] experiment.py hyperparams.yaml\n\t\t"
+                "--distributed_launch --distributed_backend=nccl"
             )
         else:
+            local_rank = int(local_rank)
             if not run_opts["distributed_backend"] == "gloo":
-                if run_opts["local_rank"] + 1 > torch.cuda.device_count():
+                if local_rank + 1 > torch.cuda.device_count():
                     raise ValueError(
                         "Killing process " + str() + "\n"
                         "Not enough GPUs available!"
                     )
-        if "RANK" in os.environ is None or os.environ["RANK"] == "":
+        if rank is None:
             raise ValueError(
                 "To use DDP backend, start your script with:\n\t"
                 "python -m torch.distributed.launch [args]\n\t"
                 "experiment.py hyperparams.yaml --distributed_launch "
                 "--distributed_backend=nccl"
             )
-        rank = int(os.environ["RANK"])
+        rank = int(rank)
 
         if run_opts["distributed_backend"] == "nccl":
             if not torch.distributed.is_nccl_available():
@@ -191,11 +193,10 @@ def ddp_init_group(run_opts):
             "distributed_launch flag is disabled, "
             "this experiment will be executed without DDP."
         )
-        if "local_rank" in run_opts and run_opts["local_rank"] > 0:
+        if local_rank is not None:
             raise ValueError(
                 "DDP is disabled, local_rank must not be set.\n"
                 "For DDP training, please use --distributed_launch. "
-                "For example:\n\tpython -m torch.distributed.launch "
-                "experiment.py hyperparams.yaml "
+                "For example:\n\ttorchrun experiment.py hyperparams.yaml "
                 "--distributed_launch --distributed_backend=nccl"
             )
