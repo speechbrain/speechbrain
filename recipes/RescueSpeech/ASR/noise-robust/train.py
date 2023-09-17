@@ -51,10 +51,14 @@ class ASR(sb.core.Brain):
 
         predictions, clean = self.compute_forward_enhance(batch, stage)
 
+        # Enhanced signal is to be fed into ASR
+        wavs = predictions[0]
+
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+                if self.hparams.do_augmentation:
+                    wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -214,10 +218,14 @@ class ASR(sb.core.Brain):
             self.compute_objectives_enhance(predictions, clean)
             * self.hparams.sepformer_weight
         )
-        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss = (
+            self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            * self.hparams.asr_weight
+        )
         loss = torch.add(enhance_loss, loss)
 
-        loss.backward()
+        if loss.requires_grad:
+            loss.backward()
 
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -230,7 +238,15 @@ class ASR(sb.core.Brain):
         predictions, clean, outputs = self.compute_forward(batch, stage=stage)
 
         with torch.no_grad():
-            loss = self.compute_objectives(outputs, batch, stage=stage)
+            enhance_loss = (
+                self.compute_objectives_enhance(predictions, clean)
+                * self.hparams.sepformer_weight
+            )
+            loss = (
+                self.compute_objectives(outputs, batch, stage=stage)
+                * self.hparams.asr_weight
+            )
+            loss = torch.add(enhance_loss, loss)
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric.append(
@@ -278,7 +294,6 @@ class ASR(sb.core.Brain):
                     self.modules[model].train()
                     for p in self.modules[model].parameters():
                         p.requires_grad = True  # Model's weight will be updated
-                    print(model)
                 else:
                     self.modules[model].eval()
                     for p in self.modules[model].parameters():
