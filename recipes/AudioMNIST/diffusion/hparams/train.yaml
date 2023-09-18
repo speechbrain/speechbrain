@@ -179,7 +179,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     cond_emb: !ref <cond_emb>
     use_cond_emb: !ref <use_cond_emb>
     dropout: !ref <dropout>
-    
+
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
     length_dim: 2
 
