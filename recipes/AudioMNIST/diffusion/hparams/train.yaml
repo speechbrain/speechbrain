@@ -93,7 +93,6 @@ pad_level_db: -50.
 
 # Model Parameters
 model_channels: 128
-model_norm_num_groups: 32
 model_num_res_blocks: 4
 diffusion_channels: 1
 
@@ -180,7 +179,7 @@ unet: !new:speechbrain.nnet.unet.UNetModel
     cond_emb: !ref <cond_emb>
     use_cond_emb: !ref <use_cond_emb>
     dropout: !ref <dropout>
-
+    
 noise: !new:speechbrain.nnet.diffusion.LengthMaskedGaussianNoise
     length_dim: 2
 
