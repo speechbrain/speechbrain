@@ -37,7 +37,7 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 
 | Model | SISNRi | SDRi | PESQ   | STOI  | *WER*   |
 |------ |--------|-------|-------|-------|----   |
-| Whisper (`large-v2`)| 7.334 | 7.871 | 2.085 | 0.857 | **24.20** |
+| Whisper (`large-v2`)| 7.482 | 8.011 | 2.083 | 0.854 | **45.29** |
 
 
 ## Fine-tuned models
