@@ -49,7 +49,7 @@ During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR
 |---|----------------|------------------------------------------------|------------------------------------------------|
 | 1. | Whisper ASR    | [HuggingFace](https://huggingface.co/speechbrain/whisper_rescuespeech)             | [Dropbox](https://www.dropbox.com/sh/dgmgi0b3bfxlfo4/AAAo3EYPXUEMZRTdRDzhw4lea?dl=)             |
 | 2. | Sepformer Enhancement   | [HuggingFace](https://huggingface.co/speechbrain/sepformer_rescuespeech)            | [Dropbox](https://www.dropbox.com/sh/edrna82oarivkzl/AACsiGQXnbAYa_bfTJzjY23qa?dl=0)            |
-| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/3h19lzmef7f67yb/AABjj4Ee8IDw6_BG9_hTr1gBa?dl=0)            |
+| 3. | Sepformer +  Whisper ASR  (fine-tuned)  |  [HuggingFace](https://huggingface.co/sangeet2020/noisy-whisper-resucespeech)            | [Dropbox](https://www.dropbox.com/sh/kqs2ld14fm20cxl/AACiobSLdNtXhm-4Y3IIbTeia?dl=0)            |
 
 
 # **About SpeechBrain**
