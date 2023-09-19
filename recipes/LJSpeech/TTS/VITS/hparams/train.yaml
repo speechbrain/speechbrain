@@ -67,42 +67,64 @@ betas: [0.9, 0.98]
 ################################
 # Model Parameters and model   #
 ################################
-# Input parameters
+# VITS model parameters
+num_tokens: 40
+prior_encoder_in_features: 256
+prior_encoder_out_features: 256
+prior_encoder_hidden_features: 256
+prior_encoder_ffn_features: 784
+prior_encoder_num_heads: 2
+prior_encoder_num_layers: 6
+prior_encoder_attn_type: RelPosMHAXL
+prior_encoder_dropout: 0.1
+posterior_encoder_in_features: 256 
+posterior_encoder_hidden_features: 256
+posterior_encoder_out_features: 256 
+WN_posterior_kernel_size: 3 
+WN_posterior_dilation_rate: 3
+WN_posterior_num_layers: 6
+posterior_encoder_dropout: 0.1
+duration_predictor_hidden_features: 256
+duration_predictor_kernel_size: 3
+duration_predictor_dropout: 0.1
+flow_hidden_features: 256
+WN_flow_kernel_size: 7
+WN_flow_dilation_rate: 3
+WN_flow_num_layers: 12
+flow_mean_only: True
+num_flows: 8
+flow_dropout: 0.1
 
-#generator_params
-in_channels: 80
-out_channels: 1
 
-###########################################################################################################################################################
-# version | resblock_type | upsample_kernel_sizes | upsample_factors | resblock_kernel_sizes | upsample_initial_channel | resblock_dilation_sizes
-#    1    |      "1"      |      [16,16,4,4]      |    [8, 8, 2, 2]  |     [3, 7, 11]        |           512            | [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
-#    2    |      "1"      |      [16,16,4,4]      |    [8, 8, 2, 2]  |     [3, 7, 11]        |           128            | [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
-#    3    |      "2"      |       [16,16,8]       |      [8,8,4]     |       [3,5,7]         |           256            |     [[1,2], [2,6], [3,12]]
-###########################################################################################################################################################
-resblock_type: "1"
-resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
-resblock_kernel_sizes: [3, 7, 11]
-upsample_kernel_sizes: [16, 16, 4, 4]
-upsample_initial_channel: 512
-upsample_factors: [8, 8, 2, 2]
-
-inference_padding: 5
-cond_channels: 0
-conv_post_bias: True
 
 #model
-generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
-  in_channels: !ref <in_channels>
-  out_channels: !ref <out_channels>
-  resblock_type: !ref <resblock_type>
-  resblock_dilation_sizes: !ref <resblock_dilation_sizes>
-  resblock_kernel_sizes: !ref <resblock_kernel_sizes>
-  upsample_kernel_sizes: !ref <upsample_kernel_sizes>
-  upsample_initial_channel: !ref <upsample_initial_channel>
-  upsample_factors: !ref <upsample_factors>
-  inference_padding: !ref <inference_padding>
-  cond_channels: !ref <cond_channels>
-  conv_post_bias: !ref <conv_post_bias>
+VITS: !new:speechbrain.lobes.models.VITS.VITS
+    num_tokens: !ref <num_tokens>
+    prior_encoder_in_features: !ref <prior_encoder_in_features>
+    prior_encoder_out_features: !ref <prior_encoder_out_features>
+    prior_encoder_hidden_features: !ref <prior_encoder_hidden_features>
+    prior_encoder_ffn_features: !ref <prior_encoder_ffn_features>
+    prior_encoder_num_heads: !ref <num_tokeprior_encoder_num_headsns>
+    prior_encoder_num_layers: !ref <prior_encoder_num_layers>
+    prior_encoder_attn_type: !ref <prior_encoder_attn_type>
+    prior_encoder_dropout: !ref <prior_encoder_dropout>
+    posterior_encoder_in_features: !ref <posterior_encoder_in_features>
+    posterior_encoder_hidden_features: !ref <posterior_encoder_hidden_features>
+    posterior_encoder_out_features: !ref <posterior_encoder_out_features>
+    WN_posterior_kernel_size: !ref <WN_posterior_kernel_size>
+    WN_posterior_dilation_rate: !ref <WN_posterior_dilation_rate>
+    WN_posterior_num_layers: !ref <WN_posterior_num_layers>
+    posterior_encoder_dropout: !ref <posterior_encoder_dropout>
+    duration_predictor_hidden_features: !ref <duration_predictor_hidden_features>
+    duration_predictor_kernel_size: !ref <duration_predictor_kernel_size>
+    duration_predictor_dropout: !ref <duration_predictor_dropout>
+    flow_hidden_features: !ref <flow_hidden_features>
+    WN_flow_kernel_size: !ref <WN_flow_kernel_size>
+    WN_flow_dilation_rate: !ref <WN_flow_dilation_rate>
+    WN_flow_num_layers: !ref <WN_flow_num_layers>
+    flow_mean_only: !ref <flow_mean_only>
+    num_flows: !ref <num_flows>
+    flow_dropout: !ref <flow_dropout>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
 

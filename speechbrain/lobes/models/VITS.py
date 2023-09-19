@@ -165,7 +165,7 @@ class PriorEncoder(nn.Module):
 class StochasticDurationPredictor(nn.Module):
     def __init__(self):
         super(StochasticDurationPredictor, self).__init__()
-        pass
+        raise NotImplementedError()
 
     def forward(self):
        return
@@ -309,23 +309,77 @@ class ResidualCouplingBlock(nn.Module):
 class VITS(nn.Module):
     def __init__(
         self,
-        
+        num_tokens,
+        prior_encoder_in_features,
+        prior_encoder_out_features,
+        prior_encoder_hidden_features,
+        prior_encoder_ffn_features,
+        prior_encoder_num_heads,
+        prior_encoder_num_layers,
+        prior_encoder_attn_type,
+        prior_encoder_dropout,
+        posterior_encoder_in_features, 
+        posterior_encoder_hidden_features, 
+        posterior_encoder_out_features, 
+        WN_posterior_kernel_size, 
+        WN_posterior_dilation_rate,
+        WN_posterior_num_layers,
+        posterior_encoder_dropout,
+        duration_predictor_hidden_features,
+        duration_predictor_kernel_size,
+        duration_predictor_dropout,
+        flow_hidden_features,
+        WN_flow_kernel_size,
+        WN_flow_dilation_rate,
+        WN_flow_num_layers,
+        flow_mean_only,
+        num_flows,
+        flow_dropout,
     ):
         super(VITS, self).__init__()
-        self.prior_encoder = PriorEncoder()
-        self.posterior_encoder = PosteriorEncoder()
+        self.prior_encoder = PriorEncoder(
+            num_tokens,
+            in_features=prior_encoder_in_features,
+            out_features=prior_encoder_out_features,
+            hidden_features=prior_encoder_hidden_features,
+            ffn_features=prior_encoder_ffn_features,
+            num_heads=prior_encoder_num_heads,
+            num_layers=prior_encoder_num_layers,
+            attention_type=prior_encoder_attn_type,
+            dropout=prior_encoder_dropout,
+        )
+        
+        self.posterior_encoder = PosteriorEncoder(
+            in_features=posterior_encoder_in_features, 
+            hidden_features=posterior_encoder_hidden_features, 
+            out_features=posterior_encoder_out_features, 
+            kernel_size=WN_posterior_kernel_size, 
+            dilation_rate=WN_posterior_dilation_rate,
+            num_layers=WN_posterior_num_layers,
+            dropout=posterior_encoder_dropout,
+        )
         
         if sdp:
+            
             self.duration_predictor = StochasticDurationPredictor()
         else:
             self.duration_predictor = DurationPredictor(
-                in_features=in_features,
-                hidden_features=hidden_features,
+                in_features=encoder_in_features,
+                hidden_features=duration_predictor_hidden_features,
                 kernel_size=duration_predictor_kernel_size,
                 dropout=duration_predictor_dropout,
             )
-        
-        self.flow_decoder = ResidualCouplingBlock()
+
+        self.flow_decoder = ResidualCouplingBlock(
+            in_features=in_features,
+            hidden_features=flow_hidden_features,
+            kernel_size=WN_flow_kernel_size,
+            dilation_rate=WN_flow_dilation_rate,
+            num_layers=WN_flow_num_layers,
+            num_flows=num_flows,
+            mean_only=flow_mean_only,
+            dropout=flow_dropout
+        )
 
     def mas(self, mu_p, log_s_p, z_p, mu_p, x_mask, y_mask):
         with torch.no_grad():
@@ -343,18 +397,18 @@ class VITS(nn.Module):
                     device=attn.device,
                     dtype=attn.dtype,
                 )
-            
         return attn, path
     
     def forward(self, inputs):
-        (x, x_lengths, y, y_lengths) = inputs
+        (tokens, token_lengths, target, target_lengths) = inputs
         
-        x_mask = None
-        y_mask = None
-        x, mu_p, log_s_p, x_mask = self.text_encoder(x, x_lengths)
-        z, mu_q, log_s_q, y_mask = self.posterior_encoder(y, y_lengths)
-        z_p = self.flow(z, y_mask)
-        _ = self.mas(mu_p, log_s_p, z_p, mu_p, x_mask, y_mask)                   
+        token_mask = None
+        target_mask = None
+        tokens, mu_p, log_s_p, token_mask = self.text_encoder(token_mask, token_lengths)
+        z, mu_q, log_s_q, target_mask = self.posterior_encoder(target, target_lengths)
+        z_p = self.flow(z, target_mask)
+        attn, path = self.mas(mu_p, log_s_p, z_p, mu_p, target_mask, target_mask)         
+        predicted_durations = self.duration_predictor(tokens)
         return
 
     def infer(self, inputs):
