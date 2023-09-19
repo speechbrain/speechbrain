@@ -537,9 +537,14 @@ class ASR(sb.core.Brain):
                         )
 
                     # Write enhanced wavs for sanity check
-                    self.save_audio(
-                        snt_id[0], batch.noisy_sig, clean, predictions[0], batch
-                    )
+                    if self.hparams.save_audio:
+                        self.save_audio(
+                            snt_id[0],
+                            batch.noisy_sig,
+                            clean,
+                            predictions[0],
+                            batch,
+                        )
 
                     psq_mode = (
                         "wb"

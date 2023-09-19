@@ -115,7 +115,6 @@ autoencoder_channels: 32
 autoencoder_norm_num_groups: 32
 autoencoder_num_res_blocks: 1
 autoencoder_encoder_out_channels: 32
-autoencoder_nom_num_groups: 32
 autoencoder_latent_channels: 2
 autoencoder_dropout: 0.1
 latent_mask_value: -3.
