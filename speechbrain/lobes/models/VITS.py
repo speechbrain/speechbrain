@@ -268,7 +268,7 @@ class ResidualCouplingLayer(nn.Module):
         return x   
 
         
-class ResidualCouplingBlock(nn.Module()):
+class ResidualCouplingBlock(nn.Module):
     def __init__(
         self,
         in_features,
@@ -335,11 +335,19 @@ class VITS(nn.Module):
             neg_cent3 = torch.matmul(z_p.transpose(1, 2), (mu_p * s_p_sq_r)) 
             neg_cent4 = torch.sum(-0.5 * (mu_p ** 2) * s_p_sq_r, [1], keepdim=True) 
             neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-            attn = None
-        return attn
+            attn_mask = (torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)).squeeze(1)
+            neg_cent = neg_cent * attn_mask
+            path = get_mas_path(
+                    attn=neg_cent, 
+                    mask=attn_mask,
+                    device=attn.device,
+                    dtype=attn.dtype,
+                )
+            
+        return attn, path
     
     def forward(self, inputs):
-        (x, x_lengths, y, y_lengths)= inputs
+        (x, x_lengths, y, y_lengths) = inputs
         
         x_mask = None
         y_mask = None
@@ -351,3 +359,31 @@ class VITS(nn.Module):
 
     def infer(self, inputs):
         return
+
+def get_mas_path(attn, mask, max_neg_val=-np.inf):
+    attn = attn.cpu().detach().numpy()
+    mask = mask.cpu().detach().numpy().astype(bool)
+    bs, tx, ty = attn.shape
+    direction = np.zeros((bs, tx, ty), dtype=np.int64)
+    v = np.zeros((b, tx), dtype=np.float32)
+    x_range = np.arange(tx, dtype=np.float32).reshape(1, -1)
+    for j in range(ty):
+        v0 = np.pad(v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val)[:, :-1]
+        v1 = v
+        max_mask = v1 >= v0
+        v_max = np.where(max_mask, v1, v0)
+        direction[:, :, j] = max_mask
+
+        index_mask = x_range <= j
+        v = np.where(index_mask, v_max + attn[:, :, j], max_neg_val)
+    direction = np.where(mask, direction, 1)
+
+    max_path = np.zeros(attn.shape, dtype=np.float32)
+    index = mask[:, :, 0].sum(1).astype(np.int64) - 1
+    index_range = np.arange(bs)
+    for j in range(ty-1, -1, -1):
+        max_path[index_range, index, j] = 1
+        index = index + direction[index_range, index, j] - 1
+    max_path = max_path * mask.astype(np.float32)
+    max_path = torch.from_numpy(max_path).to(device=device, dtype=dtype).squeeze()
+    return max_path
