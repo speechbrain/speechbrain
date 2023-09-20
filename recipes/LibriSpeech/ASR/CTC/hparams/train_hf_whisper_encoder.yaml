@@ -1,7 +1,8 @@
 # ################################
 # Model: Whisper (Encoder only) + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: TimeDomainSpecAugment
-# Authors: Titouan Parcollet 2022
+# Authors: Titouan Parcollet 2022, Adel Moumen 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -46,7 +47,7 @@ character_coverage: 1.0
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 batch_size: 6
-test_batch_size: 1
+test_batch_size: 8
 num_workers: 4
 
 # Dataloader options
@@ -70,7 +71,20 @@ whisper_output_dim: 512
 output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
+space_token: ' ' # make sure this is the same as the one used in the tokenizer
+beam_size: 143
+beam_prune_logp: -12.0
+token_prune_min_logp: -1.2
+prune_history: True
+topk: 1
+alpha: 0.8
+beta: 1.2
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+kenlm_model_path: null
 
 #
 # Functions and classes

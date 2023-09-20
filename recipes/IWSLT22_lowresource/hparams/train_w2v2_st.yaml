@@ -81,7 +81,6 @@ output_neurons: !ref <vocab_size> # /!\ needs to be changed accordingly to the v
 attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 
 # Outputs
-blank_index: 0
 label_smoothing: 0.1
 pad_index: 0
 bos_index: 1

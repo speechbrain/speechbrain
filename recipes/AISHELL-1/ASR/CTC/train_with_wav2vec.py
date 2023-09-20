@@ -67,13 +67,12 @@ class ASR(sb.Brain):
 
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
             sequences = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
             predicted_words_list = []
-            target_words_list = [list(wrd) for wrd in batch.wrd]
 
             for sequence in sequences:
                 # Decode token terms to words
@@ -92,6 +91,23 @@ class ASR(sb.Brain):
 
                 predicted_words_list.append(predicted_words)
 
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
+            # select one-best
+            text_hyps = [hyp[0].text for hyp in p_tokens]
+
+            predicted_words_list = []
+            preds = []
+            for seq in text_hyps:
+                seq = seq.replace("[CLS]", "")
+                seq = seq.replace("[SEP]", "")
+                seq = seq.replace("[PAD]", "")
+                for c in seq:
+                    preds.append(c)
+                predicted_words_list.append(preds)
+
+        if stage != sb.Stage.TRAIN:
+            target_words_list = [list(wrd) for wrd in batch.wrd]
             self.cer_metric.append(
                 ids=ids, predict=predicted_words_list, target=target_words_list,
             )
@@ -356,8 +372,22 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # adding objects to trainer:
     asr_brain.tokenizer = tokenizer
+    vocab_list = [
+        tokenizer.convert_ids_to_tokens(i) for i in range(tokenizer.vocab_size)
+    ]
+    test_searcher = hparams["test_searcher"](
+        blank_index=hparams["blank_index"],
+        vocab_list=vocab_list,
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
+    )
 
     # Changing the samplers if dynamic batching is activated
     train_dataloader_opts = hparams["train_dataloader_opts"]
