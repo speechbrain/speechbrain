@@ -99,6 +99,7 @@ def fetch(
         version of a model hosted at HuggingFace.
     huggingface_cache_dir: str
         Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+    
     Returns
     -------
     pathlib.Path
@@ -132,8 +133,7 @@ def fetch(
         _missing_ok_unlink(destination)
         destination.symlink_to(sourcepath)
         MSG = f"Destination {filename}: local file in {str(sourcepath)}."
-        if not silent_local_fetch:
-            logger.info(MSG)
+        logger.info(MSG)
         return destination
     if (
         str(source).startswith("http:") or str(source).startswith("https:")
