@@ -117,20 +117,23 @@ def fetch(
     if isinstance(source, FetchSource):
         fetch_from, source = source
     sourcefile = f"{source}/{filename}"
+    destination = savedir / save_filename
+    if destination.exists() and not overwrite:
+        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}."
+        logger.info(MSG)
+        return destination
+
     if pathlib.Path(source).is_dir() and fetch_from not in [
         FetchFrom.HUGGING_FACE,
         FetchFrom.URI,
     ]:
-        # Interpret source as local directory path & return it as destination
+        # Interpret source as local directory path & create a link and return it as destination
         sourcepath = pathlib.Path(sourcefile).absolute()
-        MSG = f"Destination {filename}: local file in {str(sourcepath)} ."
-        logger.info(MSG)
-        return sourcepath
-
-    destination = savedir / save_filename
-    if destination.exists() and not overwrite:
-        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)} ."
-        logger.info(MSG)
+        _missing_ok_unlink(destination)
+        destination.symlink_to(sourcepath)
+        MSG = f"Destination {filename}: local file in {str(sourcepath)}."
+        if not silent_local_fetch:
+            logger.info(MSG)
         return destination
     if (
         str(source).startswith("http:") or str(source).startswith("https:")
