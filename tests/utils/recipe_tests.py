@@ -502,7 +502,7 @@ def run_recipe_tests(
 
     # Run  script (check how to get std out, std err and save them in files)
     check = True
-    for i, recipe_id in enumerate(test_script.keys()):
+    for i, recipe_id in enumerate(sorted(test_script.keys())):
 
         # Check if the output folder is specified in test_field
         spec_outfold = False
