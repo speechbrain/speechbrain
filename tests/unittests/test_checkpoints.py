@@ -97,7 +97,7 @@ def test_checkpointer(tmpdir, device):
     assert other.param.data == torch.tensor([10.0], device=device)
 
     # Make sure checkpoints can't be name saved by the same name
-    #with pytest.raises(FileExistsError):
+    # with pytest.raises(FileExistsError):
     #    recoverer.save_checkpoint(name="ep1")
 
 
