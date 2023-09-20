@@ -45,9 +45,7 @@ avoid_if_longer_than: 10.0
 ## Model parameters- Enhance model
 dereverberate: False
 save_audio: True
-resample: False
 enhance_sample_rate: 16000
-lr_enhance: 0.00015
 limit_training_signal_len: False
 training_signal_len: 64000
 use_wavedrop: False
@@ -71,8 +69,6 @@ checkpoint_avg: 5
 # Must be 6 per GPU to fit 16GB of VRAM
 batch_size: 2
 test_batch_size: 2
-dataloader_num_workers: 4
-test_num_workers: 4
 
 
 # These values are only used for the searchers.
@@ -105,15 +101,6 @@ test_loader_kwargs:
 
 # Loss weights
 sepformer_weight: 0.1
-
-# loss thresholding -- this thresholds the training loss
-threshold_byloss: True
-threshold: -30
-clip_grad_norm: 5
-loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
-optimizer: !name:torch.optim.Adam
-    lr: !ref <lr_enhance>
-    weight_decay: 0
 
 # Functions and classes
 speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
