@@ -99,7 +99,7 @@ def fetch(
         version of a model hosted at HuggingFace.
     huggingface_cache_dir: str
         Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
-    
+
     Returns
     -------
     pathlib.Path
