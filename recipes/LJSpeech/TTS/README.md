@@ -61,9 +61,9 @@ python train_internal_alignment.py hparams/train_internal_alignment.yaml --data_
 ```
 The data preparation includes a grapheme-to-phoneme process which may take several hours. Training takes about 5 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](to be added).
+The training logs are available [here](https://www.dropbox.com/sh/ca2rjc5x1ypm7aj/AADTJXxTina5Lt8BcdWs7LP5a?dl=0).
 
-You can find the pre-trained model with an easy-inference function on [HuggingFace](to be added).
+You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-internal-alignment-ljspeech).
 
 # HiFiGAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFiGAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
