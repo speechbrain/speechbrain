@@ -18,9 +18,8 @@ To run this recipe, use the following command:
 > python extract_speaker_embeddings.py {input_training_list} {output_folder} {hyperparameter_file}
 
 Using your own hyperparameter file or one of the following:
-    hparams/train_x_vectors.yaml (for 2018 xvectors)
-    hparams/train_ecapa_tdnn.yaml (for the ecapa+tdnn system)
-    hparams/train_resnet.yaml (for the resnet tdnn system)
+    hparams/verification_ecapa.yaml (for the ecapa+tdnn system)
+    hparams/verification_resnet.yaml (for the resnet tdnn system)
 
 Author
     * Mirco Ravanelli 2020
@@ -62,6 +61,18 @@ def compute_embeddings_single(wavs, wav_lens, params):
 
 
 def compute_embeddings(params, wav_scp, outdir):
+    """Compute speaker embeddings.
+
+    Arguments
+    ---------
+    params: dict
+        The parameter files storing info about model, data, etc
+    wav_scp : str
+        The wav.scp file in Kaldi, in the form of "$utt $wav_path"
+    outdir: str
+        The output directory where we store the embeddings in per-
+        numpy manner.
+    """
     with torch.no_grad():
         with open(wav_scp, "r") as wavscp:
             for line in wavscp:
