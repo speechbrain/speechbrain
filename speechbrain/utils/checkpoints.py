@@ -575,7 +575,7 @@ class Checkpointer:
                 ckpt_dir = self._new_checkpoint_dirpath()
             else:
                 ckpt_dir = self._custom_checkpoint_dirpath(name)
-            os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
+            os.makedirs(ckpt_dir, exist_ok=True)
             saved_meta = self._save_checkpoint_metafile(
                 ckpt_dir / METAFNAME, meta, end_of_epoch
             )
