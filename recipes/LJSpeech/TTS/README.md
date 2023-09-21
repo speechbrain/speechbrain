@@ -49,7 +49,7 @@ The training logs are available [here](https://www.dropbox.com/sh/tqyp58ogejqfre
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-ljspeech).
 
 ### FastSpeech2 with internal alignment
-This recipe allows training FastSpeech2 without forced aligner referring to [One TTS Alignment To Rule Them All](https://arxiv.org/pdf/2108.10447.pdf). The alignment can be learnt by an internal alignment network that is added to FastSpeech2. This recipe aims to simplify training when using custom data.
+This recipe allows training FastSpeech2 without forced aligner referring to [One TTS Alignment To Rule Them All](https://arxiv.org/pdf/2108.10447.pdf). The alignment can be learnt by an internal alignment network that is added to FastSpeech2. This recipe aims to simplify training when using custom data and provide better alignments for punctuations.
 
 To run this recipe, please first install the extra-requirements:
 ```
@@ -59,7 +59,7 @@ Then go into the "fastspeech2" folder and run:
 ```
 python train_internal_alignment.py hparams/train_internal_alignment.yaml --data_folder=/your_folder/LJSpeech-1.1
 ```
-The data preparation includes a grapheme-to-phoneme process which may take several hours. Training takes about 5 minutes/epoch on 1 * V100 32G.
+The data preparation includes a grapheme-to-phoneme process for the entire corpus which may take several hours. Training takes about 5 minutes/epoch on 1 * V100 32G.
 
 The training logs are available [here](https://www.dropbox.com/sh/ca2rjc5x1ypm7aj/AADTJXxTina5Lt8BcdWs7LP5a?dl=0).
 
