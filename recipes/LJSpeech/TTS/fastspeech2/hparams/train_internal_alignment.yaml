@@ -61,6 +61,8 @@ weight_decay: 0.000001
 max_grad_norm: 1.0
 batch_size: 16 #minimum 2
 betas: [0.9, 0.998]
+num_workers_train: 16
+num_workers_valid: 4
 
 ################################
 # Model Parameters and model   #
@@ -237,13 +239,13 @@ modules:
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     drop_last: False  #True #False
-    num_workers: 16
+    num_workers: !ref <num_workers_train>
     shuffle: True
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollateWithAlignment
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
-    num_workers: 4
+    num_workers: !ref <num_workers_valid>
     shuffle: False
     collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollateWithAlignment
 

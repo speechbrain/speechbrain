@@ -316,7 +316,7 @@ class FastSpeech2Brain(sb.Brain):
 
 
 def dataio_prepare(hparams):
-
+    "Creates the datasets and their data processing pipelines."
     # Load lexicon
     lexicon = hparams["lexicon"]
     input_encoder = hparams.get("input_encoder")
