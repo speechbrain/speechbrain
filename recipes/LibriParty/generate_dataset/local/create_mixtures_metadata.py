@@ -11,7 +11,6 @@ Samuele Cornell, 2020
 import numpy as np
 from pathlib import Path
 import json
-import os
 from tqdm import tqdm
 import torchaudio
 
@@ -203,7 +202,5 @@ def create_metadata(
 
         dataset_metadata["session_{}".format(n_sess)] = activity
 
-    with open(
-        os.path.join(configs["out_folder"], output_filename + ".json"), "w"
-    ) as f:
+    with open(output_filename + ".json", "w") as f:
         json.dump(dataset_metadata, f, indent=4)

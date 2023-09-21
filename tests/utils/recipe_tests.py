@@ -138,7 +138,7 @@ def prepare_test(
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
-                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2}"
+                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2:02d}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
@@ -502,7 +502,7 @@ def run_recipe_tests(
 
     # Run  script (check how to get std out, std err and save them in files)
     check = True
-    for i, recipe_id in enumerate(test_script.keys()):
+    for i, recipe_id in enumerate(sorted(test_script.keys())):
 
         # Check if the output folder is specified in test_field
         spec_outfold = False
