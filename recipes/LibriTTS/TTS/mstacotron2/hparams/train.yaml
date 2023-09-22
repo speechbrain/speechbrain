@@ -67,8 +67,6 @@ train_split: ["train-clean-100"]
 valid_split: ["dev-clean"]
 test_split: ["test-clean"]
 
-skip_prep: False
-
 # Use the original preprocessing from nvidia
 # The cleaners to be used (applicable to nvidia only)
 text_cleaners: ['english_cleaners']
@@ -114,7 +112,6 @@ guided_attention_weight: 75.0
 guided_attention_weight_half_life: 10.
 guided_attention_hard_stop: 50
 gate_loss_weight: 1.0
-compute_spk_emb_loss: False
 spk_emb_loss_weight: 1.0
 
 train_dataloader_opts:
