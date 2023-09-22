@@ -364,5 +364,5 @@ if __name__ == "__main__":
         test_stats = diffusion_brain.evaluate(
             test_set=datasets["test"],
             min_key="error",
-            test_loader_kwargs=hparams["dataloader_options"],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
         )

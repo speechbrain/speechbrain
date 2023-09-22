@@ -460,14 +460,24 @@ def set_output_keys(datasets, output_keys):
         dataset.set_output_keys(output_keys)
 
 
-def apply_overfit_test(hparams, dataset):
+def apply_overfit_test(
+    overfit_test,
+    overfit_test_sample_count,
+    overfit_test_epoch_data_count,
+    dataset,
+):
     """Applies the overfit test to the specified dataset,
     as configured in the hyperparameters file
 
     Arguments
     ---------
-    hparams: dict
-        the hyperparameters dictionary
+
+    overfit_test: bool
+        when True the overfitting test is performed
+    overfit_test_sample_count: int
+        number of samples for the overfitting test
+    overfit_test_epoch_data_count: int
+        number of epochs for the overfitting test
 
     dataset: DynamicItemDataset
         the dataset
@@ -477,8 +487,8 @@ def apply_overfit_test(hparams, dataset):
     dataset: DynamicItemDataset
         the dataset, with the overfit test apply
     """
-    if hparams["overfit_test"]:
-        sample_count = hparams["overfit_test_sample_count"]
-        epoch_data_count = hparams["overfit_test_epoch_data_count"]
+    if overfit_test:
+        sample_count = overfit_test_sample_count
+        epoch_data_count = overfit_test_epoch_data_count
         dataset = dataset.overfit_test(sample_count, epoch_data_count)
     return dataset
