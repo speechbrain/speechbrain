@@ -28,7 +28,9 @@ Results are reported in terms of sacrebleu.
 
 | hyperparams file | valid | test   | Model      | Training logs | GPUs       |
 |:----------------:|:-----:| :-----:|:-------:   | :-----------: |:---------: |
-| train_fr-en.yaml | 24.25   | 24.47    | [dropbox](https://www.dropbox.com/sh/mdopz1k4p1zj0vo/AABiRCzpN4zvGmxR-eCZWHa4a?dl=0) | [wandb](https://wandb.ai/jar0d/s2ut_cvss_sb/runs/uh4tvc8c?workspace=user-jar0d)    |1xA100 80GB |
+| train_fr-en.yaml | 24.25   | 24.47    | [dropbox](https://www.dropbox.com/sh/woz4i1p8pkfkqhf/AACmOvr3sS7p95iXl3twCj_xa?dl=0) | [wandb](https://wandb.ai/jar0d/s2ut_cvss_sb/runs/uh4tvc8c?workspace=user-jar0d)    |1xA100 80GB |
+
+Training requires about 1 hour and 5 minutes for each epoch on an NVIDIA A100 GPU. A total of 30 epochs are needed.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

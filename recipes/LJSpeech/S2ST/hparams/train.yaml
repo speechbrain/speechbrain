@@ -43,7 +43,6 @@ layer: 6
 
 segment_size: 8960
 code_hop_size: 320
-reduced: True
 sample_rate: 16000
 
 
@@ -97,8 +96,6 @@ out_channels: 1
 var_pred_hidden_dim: 128
 var_pred_kernel_size: 3
 var_pred_dropout: 0.5
-dur_prediction_weight: 1.0
-
 
 ###########################################################################################################################################################
 # version | resblock_type | upsample_kernel_sizes | upsample_factors | resblock_kernel_sizes | upsample_initial_channel | resblock_dilation_sizes
