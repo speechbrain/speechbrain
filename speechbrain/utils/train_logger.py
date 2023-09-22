@@ -7,7 +7,7 @@ import logging
 import ruamel.yaml
 import torch
 import os
-from speechbrain.utils.distributed import main_process_only
+from speechbrain.utils.distributed import main_process_only, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,10 @@ class TensorboardLogger(TrainLogger):
         # Raises ImportError if TensorBoard is not installed
         from torch.utils.tensorboard import SummaryWriter
 
-        self.writer = SummaryWriter(self.save_dir)
+        # Initialize writer only on main
+        self.writer = None
+        if if_main_process():
+            self.writer = SummaryWriter(self.save_dir)
         self.global_step = {"train": {}, "valid": {}, "test": {}, "meta": 0}
 
     @main_process_only
@@ -163,12 +166,14 @@ class TensorboardLogger(TrainLogger):
                     self.writer.add_scalar(tag, value, new_global_step)
                     self.global_step[dataset][stat] = new_global_step
 
+    @main_process_only
     def log_audio(self, name, value, sample_rate):
         """Add audio signal in the logs."""
         self.writer.add_audio(
             name, value, self.global_step["meta"], sample_rate=sample_rate
         )
 
+    @main_process_only
     def log_figure(self, name, value):
         """Add a figure in the logs."""
         fig = plot_spectrogram(value)
@@ -186,9 +191,13 @@ class WandBLogger(TrainLogger):
             with open(yaml_file, "r") as yaml_stream:
                 # Read yaml with ruamel to ignore bangs
                 config_dict = ruamel.yaml.YAML().load(yaml_stream)
-            self.run = kwargs.pop("initializer", None)(
-                *args, **kwargs, config=config_dict
-            )
+
+            # Run initializer only on main
+            self.run = None
+            if if_main_process():
+                self.run = kwargs.pop("initializer", None)(
+                    *args, **kwargs, config=config_dict
+                )
         except Exception as e:
             raise e("There was an issue with the WandB Logger initialization")
 
@@ -372,6 +381,7 @@ class ProgressSampleLogger:
         for key, data in self.progress_samples.items():
             self.save_item(key, data, epoch)
 
+    @main_process_only
     def save_item(self, key, data, epoch):
         """Saves a single sample item
 
