@@ -47,7 +47,7 @@ progress_batch_sample_size: 3
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: !PLACEHOLDER # e.g, /localscratch/ljspeech
+data_folder: !PLACEHOLDER # e.g, /localscratch/LibriTTS/
 
 # Files to hold the manifest data
 train_json: !ref <save_folder>/train.json
@@ -62,7 +62,8 @@ test_speaker_embeddings_pickle: !ref <save_folder>/test_speaker_embeddings.pickl
 # Data splits
 splits: ["train", "valid", "test"]
 
-train_split: ["train-clean-100", "train-clean-360"]
+#train_split: ["train-clean-100", "train-clean-360"]
+train_split: ["train-clean-100"]
 valid_split: ["dev-clean"]
 test_split: ["test-clean"]
 
