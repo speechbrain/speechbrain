@@ -1866,6 +1866,13 @@ def maximum_path_numpy(value, mask):
         input alignment values [b, t_x, t_y]
     mask: torch.Tensor
         input alignment mask [b, t_x, t_y]
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import maximum_path_numpy
+    >>> alignment = torch.rand(2, 5, 100)
+    >>> mask = torch.ones(2, 5, 100)
+    >>> maximum_path_numpy(alignment, mask)
     """
     max_neg_val = -np.inf  # Patch for Sphinx complaint
     value = value * mask
@@ -2528,7 +2535,7 @@ class FastSpeech2WithAlignment(nn.Module):
 
 
 class LossWithAlignment(nn.Module):
-    """Loss Computation
+    """Loss computation including internal aligner
     Arguments
     ---------
     log_scale_durations: bool
@@ -2744,6 +2751,18 @@ class LossWithAlignment(nn.Module):
 
 class ForwardSumLoss(nn.Module):
     """CTC alignment loss
+    Arguments
+    ---------
+    blank_logprob: pad value
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import ForwardSumLoss
+    >>> loss_func = ForwardSumLoss()
+    >>> attn_logprob = torch.rand(2, 1, 100, 5)
+    >>> key_lens = torch.tensor([5, 5])
+    >>> query_lens = torch.tensor([100, 100])
+    >>> loss_func(attn_logprob, key_lens, query_lens)
     """
 
     def __init__(self, blank_logprob=-1):
@@ -2752,19 +2771,17 @@ class ForwardSumLoss(nn.Module):
         self.ctc_loss = torch.nn.CTCLoss(zero_infinity=True)
         self.blank_logprob = blank_logprob
 
-    def forward(self, attn_logprob, in_lens, out_lens):
+    def forward(self, attn_logprob, key_lens, query_lens):
         """
         Arguments
         ---------
         attn_logprob: torch.Tensor
-            log scale alignment potentials
-        in_lens: torch.Tensor
-            input (phoneme) lengths
-        out_lens: torch.Tensor
-            output (mel) lengths
+            log scale alignment potentials [B, 1, query_lens, key_lens]
+        key_lens: torch.Tensor
+            mel lengths
+        query_lens: torch.Tensor
+            phoneme lengths
         """
-        key_lens = in_lens
-        query_lens = out_lens
         attn_logprob_padded = torch.nn.functional.pad(
             input=attn_logprob, pad=(1, 0), value=self.blank_logprob
         )
@@ -2792,6 +2809,14 @@ class ForwardSumLoss(nn.Module):
 class BinaryAlignmentLoss(nn.Module):
     """Binary loss that forces soft alignments to match the hard alignments as
     explained in `https://arxiv.org/pdf/2108.10447.pdf`.
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import BinaryAlignmentLoss
+    >>> loss_func = BinaryAlignmentLoss()
+    >>> alignment_hard = torch.randint(0, 2, (2, 100, 5))
+    >>> alignment_soft = torch.rand(2, 100, 5)
+    >>> loss_func(alignment_hard, alignment_soft)
     """
 
     def __init__(self):
@@ -2800,9 +2825,9 @@ class BinaryAlignmentLoss(nn.Module):
     def forward(self, alignment_hard, alignment_soft):
         """
         alignment_hard: torch.Tensor
-            hard alignment map
+            hard alignment map [B, mel_lens, phoneme_lens]
         alignment_soft: torch.Tensor
-            soft alignment potentials
+            soft alignment potentials [B, mel_lens, phoneme_lens]
         """
         log_sum = torch.log(
             torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)
