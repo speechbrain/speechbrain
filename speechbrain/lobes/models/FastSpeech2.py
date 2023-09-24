@@ -1872,7 +1872,7 @@ def maximum_path_numpy(value, mask):
     >>> from speechbrain.lobes.models.FastSpeech2 import maximum_path_numpy
     >>> alignment = torch.rand(2, 5, 100)
     >>> mask = torch.ones(2, 5, 100)
-    >>> maximum_path_numpy(alignment, mask)
+    >>> hard_alignments = maximum_path_numpy(alignment, mask)
     """
     max_neg_val = -np.inf  # Patch for Sphinx complaint
     value = value * mask
@@ -2762,7 +2762,7 @@ class ForwardSumLoss(nn.Module):
     >>> attn_logprob = torch.rand(2, 1, 100, 5)
     >>> key_lens = torch.tensor([5, 5])
     >>> query_lens = torch.tensor([100, 100])
-    >>> loss_func(attn_logprob, key_lens, query_lens)
+    >>> loss = loss_func(attn_logprob, key_lens, query_lens)
     """
 
     def __init__(self, blank_logprob=-1):
@@ -2816,7 +2816,7 @@ class BinaryAlignmentLoss(nn.Module):
     >>> loss_func = BinaryAlignmentLoss()
     >>> alignment_hard = torch.randint(0, 2, (2, 100, 5))
     >>> alignment_soft = torch.rand(2, 100, 5)
-    >>> loss_func(alignment_hard, alignment_soft)
+    >>> loss = loss_func(alignment_hard, alignment_soft)
     """
 
     def __init__(self):
