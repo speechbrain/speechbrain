@@ -1642,6 +1642,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
     def _get_new_beam(
         self,
+        frame_index: int,
         new_prefix: str,
         new_token: str,
         new_token_index: int,
@@ -1653,6 +1654,8 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
         Arguments
         ---------
+        frame_index : int
+            The index of the current frame.
         new_prefix : str
             The new prefix.
         new_token : str
@@ -1678,6 +1681,12 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 return beam
 
         if not self.is_spm and new_token_index == self.space_index:
+            new_frame_list = (
+                previous_beam.text_frames
+                if previous_beam.partial_word == ""
+                else previous_beam.text_frames + [previous_beam.partial_frames]
+            )
+
             # if we extend the beam with a space, we need to reset the partial word
             # and move it to the next word
             new_beam = CTCBeam(
@@ -1687,7 +1696,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 partial_word="",
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=None,
+                text_frames=new_frame_list,
                 partial_frames=(-1, -1),
                 score=-math.inf,
                 score_ctc=-math.inf,
@@ -1696,6 +1705,12 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
         elif self.is_spm and new_token[:1] == self.spm_token:
             # remove the spm token at the beginning of the token
             clean_token = new_token[1:]
+
+            new_frame_list = (
+                previous_beam.text_frames
+                if previous_beam.partial_word == ""
+                else previous_beam.text_frames + [previous_beam.partial_frames]
+            )
 
             # If the beginning of the token is the spm_token
             # then it means that we are extending the beam with a new word.
@@ -1709,13 +1724,21 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 partial_word=clean_token,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=None,
-                partial_frames=(-1, -1),
+                text_frames=new_frame_list,
+                partial_frames=(frame_index, frame_index + 1),
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
             )
         elif new_token_index == previous_beam.last_token_index:
+            new_end_frame = frame_index + 1
+
+            new_part_frames = (
+                previous_beam.partial_frames
+                if new_token_index == self.blank_index
+                else (previous_beam.partial_frames[0], new_end_frame)
+            )
+
             # if repeated token, we only change the score
             new_beam = CTCBeam(
                 text=new_prefix,
@@ -1724,13 +1747,19 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 partial_word=previous_beam.partial_word,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=None,
-                partial_frames=(-1, -1),
+                text_frames=previous_beam.text_frames,
+                partial_frames=new_part_frames,
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
             )
         else:
+            new_part_frames = (
+                (frame_index, frame_index + 1)
+                if previous_beam.partial_frames[0] < 0
+                else (previous_beam.partial_frames[0], frame_index + 1)
+            )
+
             # last case, we are extending the partial_word with a new token
             new_beam = CTCBeam(
                 text=new_prefix,
@@ -1739,8 +1768,8 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 partial_word=previous_beam.partial_word + new_token,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=None,
-                partial_frames=(-1, -1),
+                text_frames=previous_beam.text_frames,
+                partial_frames=new_part_frames,
                 score=-math.inf,
                 score_ctc=-math.inf,
                 p_b=-math.inf,
@@ -1828,6 +1857,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                     new_text = beam.text + token
 
                     new_beam = self._get_new_beam(
+                        frame_index,
                         new_text,
                         token,
                         token_index,
