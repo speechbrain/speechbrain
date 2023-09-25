@@ -15,6 +15,7 @@ Authors:
 """
 import logging
 import hashlib
+import re
 import sys
 import warnings
 import speechbrain
@@ -2904,7 +2905,7 @@ class FastSpeech2(Pretrained):
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts)
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"])
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."])
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
     ...   "How much wood would a woodchuck chuck?",
@@ -2917,7 +2918,7 @@ class FastSpeech2(Pretrained):
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
     >>> # Running the TTS
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"])
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."])
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_outputs)
     """
@@ -3117,6 +3118,257 @@ class FastSpeech2(Pretrained):
                 pitch,
                 _,
                 energy,
+                _,
+                _,
+            ) = self.hparams.model(
+                tokens_padded,
+                pace=pace,
+                pitch_rate=pitch_rate,
+                energy_rate=energy_rate,
+            )
+
+            # Transposes to make in compliant with HiFI GAN expected format
+            post_mel_outputs = post_mel_outputs.transpose(-1, 1)
+
+        return post_mel_outputs, durations, pitch, energy
+
+    def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Batch inference for a tensor of phoneme sequences
+        Arguments
+        ---------
+        text : str
+            A text to be converted to spectrogram
+        pace : float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+        """
+        return self.encode_text(
+            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+        )
+
+
+class FastSpeech2InternalAlignment(Pretrained):
+    """
+    A ready-to-use wrapper for Fastspeech2 with internal alignment(text -> mel_spec).
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    Example
+    -------
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> fastspeech2 = FastSpeech2InternalAlignment.from_hparams(source="speechbrain/tts-fastspeech2-internal-alignment-ljspeech", savedir=tmpdir_tts)
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."])
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items)
+    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
+    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
+    >>> # Running the TTS
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."])
+    >>> # Running Vocoder (spectrogram-to-waveform)
+    >>> waveforms = hifi_gan.decode_batch(mel_outputs)
+    """
+
+    HPARAMS_NEEDED = ["model", "input_encoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        lexicon = self.hparams.lexicon
+        lexicon = ["@@"] + lexicon
+        self.input_encoder = self.hparams.input_encoder
+        self.input_encoder.update_from_iterable(lexicon, sequence_input=False)
+        self.input_encoder.add_unk()
+
+        self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
+
+    def encode_text(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Computes mel-spectrogram for a list of texts
+
+        Arguments
+        ---------
+        texts: List[str]
+            texts to be converted to spectrogram
+        pace: float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        # Preprocessing required at the inference time for the input text
+        # "label" below contains input text
+        # "phoneme_labels" contain the phoneme sequences corresponding to input text labels
+
+        phoneme_labels = list()
+        max_seq_len = -1
+
+        for label in texts:
+            phonemes_with_punc = self._g2p_keep_punctuations(self.g2p, label)
+            if max_seq_len < len(phonemes_with_punc):
+                max_seq_len = len(phonemes_with_punc)
+            token_seq = (
+                self.input_encoder.encode_sequence_torch(phonemes_with_punc)
+                .int()
+                .to(self.device)
+            )
+            phoneme_labels.append(token_seq)
+
+        tokens_padded = torch.LongTensor(len(texts), max_seq_len).to(
+            self.device
+        )
+        tokens_padded.zero_()
+
+        for seq_idx, seq in enumerate(phoneme_labels):
+            tokens_padded[seq_idx, : len(seq)] = seq
+
+        return self.encode_batch(
+            tokens_padded,
+            pace=pace,
+            pitch_rate=pitch_rate,
+            energy_rate=energy_rate,
+        )
+
+    def _g2p_keep_punctuations(self, g2p_model, text):
+        """do grapheme to phoneme and keep the punctuations between the words
+        """
+        # find the words where a "-" or "'" or "." or ":" appears in the middle
+        special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
+
+        # remove intra-word punctuations ("-':."), this does not change the output of speechbrain g2p
+        for special_word in special_words:
+            rmp = special_word.replace("-", "")
+            rmp = rmp.replace("'", "")
+            rmp = rmp.replace(":", "")
+            rmp = rmp.replace(".", "")
+            text = text.replace(special_word, rmp)
+
+        # keep inter-word punctuations
+        all_ = re.findall(r"[\w]+|[-!'(),.:;? ]", text)
+        try:
+            phonemes = g2p_model(text)
+        except RuntimeError:
+            logger.info(f"error with text: {text}")
+            quit()
+        word_phonemes = "-".join(phonemes).split(" ")
+
+        phonemes_with_punc = []
+        count = 0
+        try:
+            # if the g2p model splits the words correctly
+            for i in all_:
+                if i not in "-!'(),.:;? ":
+                    phonemes_with_punc.extend(word_phonemes[count].split("-"))
+                    count += 1
+                else:
+                    phonemes_with_punc.append(i)
+        except IndexError:
+            # sometimes the g2p model cannot split the words correctly
+            logger.warning(
+                f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}"
+            )
+
+            for i in all_:
+                if i not in "-!'(),.:;? ":
+                    p = g2p_model.g2p(i)
+                    p_without_space = [i for i in p if i != " "]
+                    phonemes_with_punc.extend(p_without_space)
+                else:
+                    phonemes_with_punc.append(i)
+
+        while "" in phonemes_with_punc:
+            phonemes_with_punc.remove("")
+        return phonemes_with_punc
+
+    def encode_phoneme(
+        self, phonemes, pace=1.0, pitch_rate=1.0, energy_rate=1.0
+    ):
+        """Computes mel-spectrogram for a list of phoneme sequences
+
+        Arguments
+        ---------
+        phonemes: List[List[str]]
+            phonemes to be converted to spectrogram
+        pace: float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        all_tokens = []
+        max_seq_len = -1
+        for phoneme in phonemes:
+            token_seq = (
+                self.input_encoder.encode_sequence_torch(phoneme)
+                .int()
+                .to(self.device)
+            )
+            if max_seq_len < token_seq.shape[-1]:
+                max_seq_len = token_seq.shape[-1]
+            all_tokens.append(token_seq)
+
+        tokens_padded = torch.LongTensor(len(phonemes), max_seq_len).to(
+            self.device
+        )
+        tokens_padded.zero_()
+
+        for seq_idx, seq in enumerate(all_tokens):
+            tokens_padded[seq_idx, : len(seq)] = seq
+
+        return self.encode_batch(
+            tokens_padded,
+            pace=pace,
+            pitch_rate=pitch_rate,
+            energy_rate=energy_rate,
+        )
+
+    def encode_batch(
+        self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
+    ):
+        """Batch inference for a tensor of phoneme sequences
+        Arguments
+        ---------
+        tokens_padded : torch.Tensor
+            A sequence of encoded phonemes to be converted to spectrogram
+        pace : float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+        """
+        with torch.no_grad():
+
+            (
+                _,
+                post_mel_outputs,
+                durations,
+                pitch,
+                _,
+                energy,
+                _,
+                _,
+                _,
+                _,
                 _,
                 _,
             ) = self.hparams.model(
