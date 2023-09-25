@@ -445,7 +445,7 @@ class Loss(nn.Module):
     Example:
     >>> import torch
     >>> _ = torch.manual_seed(42)
-    >>> from speechbrain.lobes.models.Tacotron2 import Loss
+    >>> from speechbrain.lobes.models.MSTacotron2 import Loss
     >>> loss = Loss(guided_attention_sigma=0.2)
     >>> mel_target = torch.randn(2, 80, 861)
     >>> gate_target = torch.randn(1722, 1)
