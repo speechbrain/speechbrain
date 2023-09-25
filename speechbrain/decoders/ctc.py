@@ -1509,9 +1509,6 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     take a lot of time. We do recommand to use Greedy Search during validation
     until the model is fully trained and ready to be evaluated on test sets.
 
-    Note: This implementation does not provide the time alignment of the
-    hypothesis. If you need it, please use the CTCBeamSearcher.
-
     Arguments
     ---------
     **kwargs
