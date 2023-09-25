@@ -578,6 +578,8 @@ class CTCBaseSearcher(torch.nn.Module):
         Note: This is only used when using the CUDA decoder, and it might worsen the WER/CER results. Use it at your own risk. (default: 1.0)
     topk : int, optional
         The number of top hypotheses to return. (default: 1)
+    spm_token: str, optional
+        The sentencepiece token. (default: "▁")
 
     Example
     -------
@@ -590,7 +592,7 @@ class CTCBaseSearcher(torch.nn.Module):
     >>> beam_prune_logp = -10.0
     >>> token_prune_min_logp = -5.0
     >>> prune_history = True
-    >>> blank_skip_threshold = None
+    >>> blank_skip_threshold = 1.0
     >>> topk = 1
     >>> searcher = CTCBaseSearcher(
     ...     blank_index=blank_index,
@@ -624,6 +626,7 @@ class CTCBaseSearcher(torch.nn.Module):
         prune_history: bool = True,
         blank_skip_threshold: Union[None, int] = 1.0,
         topk: int = 1,
+        spm_token: str = "▁",
     ):
         super().__init__()
 
@@ -642,9 +645,9 @@ class CTCBaseSearcher(torch.nn.Module):
         self.prune_history = prune_history
         self.blank_skip_threshold = math.log(blank_skip_threshold)
         self.topk = topk
+        self.spm_token = spm_token
 
         # check if the vocab is coming from SentencePiece
-        self.spm_token = "▁"
         self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
 
         # fetch the index of space_token
@@ -1333,6 +1336,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 self.blank_skip_threshold is not None
                 and logit_col[self.blank_index] >= self.blank_skip_threshold
             ):
+                print("skip")
                 continue
 
             # get the tokens with the highest probability
