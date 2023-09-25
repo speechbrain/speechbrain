@@ -453,8 +453,9 @@ class Loss(nn.Module):
     >>> mel_out_postnet = torch.randn(2, 80, 861)
     >>> gate_out = torch.randn(2, 861)
     >>> alignments = torch.randn(2, 861, 173)
+    >>> pred_mel_lens = torch.randn(2)
     >>> targets = mel_target, gate_target
-    >>> model_outputs = mel_out, mel_out_postnet, gate_out, alignments
+    >>> model_outputs = mel_out, mel_out_postnet, gate_out, alignments, pred_mel_lens
     >>> input_lengths = torch.tensor([173,  91])
     >>> target_lengths = torch.tensor([861, 438])
     >>> spk_embs = None
