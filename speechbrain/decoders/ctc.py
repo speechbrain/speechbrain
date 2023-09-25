@@ -1332,10 +1332,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
             log_probs, start=processed_frames
         ):
             # skip the frame if the blank probability is higher than the threshold
-            if (
-                self.blank_skip_threshold is not None
-                and logit_col[self.blank_index] >= self.blank_skip_threshold
-            ):
+            if logit_col[self.blank_index] >= self.blank_skip_threshold:
                 continue
 
             # get the tokens with the highest probability
@@ -1685,9 +1682,9 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
         if not self.is_spm and new_token_index == self.space_index:
             new_frame_list = (
-                beam.text_frames
-                if beam.partial_word == ""
-                else beam.text_frames + [beam.partial_frames]
+                previous_beam.text_frames
+                if previous_beam.partial_word == ""
+                else previous_beam.text_frames + [previous_beam.partial_frames]
             )
 
             # if we extend the beam with a space, we need to reset the partial word
@@ -1710,9 +1707,9 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             clean_token = new_token[1:]
 
             new_frame_list = (
-                beam.text_frames
-                if beam.partial_word == ""
-                else beam.text_frames + [beam.partial_frames]
+                previous_beam.text_frames
+                if previous_beam.partial_word == ""
+                else previous_beam.text_frames + [previous_beam.partial_frames]
             )
 
             # If the beginning of the token is the spm_token
@@ -1737,9 +1734,9 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             new_end_frame = frame_index + 1
 
             new_part_frames = (
-                beam.partial_frames
+                previous_beam.partial_frames
                 if new_token_index == self.blank_index
-                else (beam.partial_frames[0], new_end_frame)
+                else (previous_beam.partial_frames[0], new_end_frame)
             )
 
             # if repeated token, we only change the score
@@ -1750,7 +1747,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 partial_word=previous_beam.partial_word,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=beam.text_frames,
+                text_frames=previous_beam.text_frames,
                 partial_frames=new_part_frames,
                 score=-math.inf,
                 score_ctc=-math.inf,
@@ -1759,8 +1756,8 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
         else:
             new_part_frames = (
                 (frame_index, frame_index + 1)
-                if beam.partial_frames[0] < 0
-                else (beam.partial_frames[0], frame_index + 1)
+                if previous_beam.partial_frames[0] < 0
+                else (previous_beam.partial_frames[0], frame_index + 1)
             )
 
             # last case, we are extending the partial_word with a new token
@@ -1771,7 +1768,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 partial_word=previous_beam.partial_word + new_token,
                 last_token=new_token,
                 last_token_index=new_token_index,
-                text_frames=beam.text_frames,
+                text_frames=previous_beam.text_frames,
                 partial_frames=new_part_frames,
                 score=-math.inf,
                 score_ctc=-math.inf,
@@ -1823,10 +1820,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             log_probs, start=processed_frames
         ):
             # skip the frame if the blank probability is higher than the threshold
-            if (
-                self.blank_skip_threshold is not None
-                and logit_col[self.blank_index] >= self.blank_skip_threshold
-            ):
+            if logit_col[self.blank_index] >= self.blank_skip_threshold:
                 continue
 
             # get the tokens with the highest probability
