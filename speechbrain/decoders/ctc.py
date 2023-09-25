@@ -2191,7 +2191,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                         last_lm_state=None,
                         score=score,
                         lm_score=score,
-                        timesteps=timestep,
+                        text_frames=timestep,
                     )
                 )
         return hyps
