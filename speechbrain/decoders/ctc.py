@@ -1130,9 +1130,7 @@ class CTCBaseSearcher(torch.nn.Module):
                     if (lm_beam.text, True) in cached_lm_scores
                     else None
                 ),
-                text_frames=list(
-                    zip(lm_beam.text.split(), lm_beam.text_frames)
-                ),
+                text_frames=list(zip(lm_beam.text.split(), lm_beam.text_frames)),
                 score=lm_beam.score,
                 lm_score=lm_beam.lm_score,
             )
@@ -1325,9 +1323,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
         # select only the valid frames i.e. the frames that are not padded
         log_probs = log_probs[:wav_len]
 
-        for frame_index, logit_col in enumerate(
-            log_probs, start=processed_frames
-        ):
+        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
             # skip the frame if the blank probability is higher than the threshold
             if (
                 self.blank_skip_threshold is not None
@@ -1364,11 +1360,9 @@ class CTCBeamSearcher(CTCBaseSearcher):
                             new_end_frame = frame_index + 1
 
                         new_part_frames = (
-                            beam.partial_frames
-                            if token_index == self.blank_index
-                            else (beam.partial_frames[0], new_end_frame)
+                            beam.partial_frames if token_index == self.blank_index else (beam.partial_frames[0], new_end_frame)
                         )
-
+                    
                         # if blank or repeated token, we only change the score
                         new_beams.append(
                             CTCBeam(
@@ -1418,7 +1412,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
                             if beam.partial_word == ""
                             else beam.text_frames + [beam.partial_frames]
                         )
-
+                                                
                         # same as before but in the case of a non spm vocab
                         new_beams.append(
                             CTCBeam(
@@ -1686,7 +1680,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 if beam.partial_word == ""
                 else beam.text_frames + [beam.partial_frames]
             )
-
+            
             # if we extend the beam with a space, we need to reset the partial word
             # and move it to the next word
             new_beam = CTCBeam(
@@ -1734,11 +1728,9 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             new_end_frame = frame_index + 1
 
             new_part_frames = (
-                beam.partial_frames
-                if new_token_index == self.blank_index
-                else (beam.partial_frames[0], new_end_frame)
+                beam.partial_frames if new_token_index == self.blank_index else (beam.partial_frames[0], new_end_frame)
             )
-
+            
             # if repeated token, we only change the score
             new_beam = CTCBeam(
                 text=new_prefix,
@@ -1759,7 +1751,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 if beam.partial_frames[0] < 0
                 else (beam.partial_frames[0], frame_index + 1)
             )
-
+            
             # last case, we are extending the partial_word with a new token
             new_beam = CTCBeam(
                 text=new_prefix,
@@ -1816,9 +1808,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
         # select only the valid frames, i.e., the frames that are not padded
         log_probs = log_probs[:wav_len]
 
-        for frame_index, logit_col in enumerate(
-            log_probs, start=processed_frames
-        ):
+        for frame_index, logit_col in enumerate(log_probs, start=processed_frames):
             # skip the frame if the blank probability is higher than the threshold
             if (
                 self.blank_skip_threshold is not None
