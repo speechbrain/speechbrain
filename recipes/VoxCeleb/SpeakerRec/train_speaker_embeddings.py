@@ -63,7 +63,10 @@ class SpeakerBrain(sb.core.Brain):
             lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
-        if hasattr(self.hparams, "use_tacotron2_mel_spec") and self.hparams.use_tacotron2_mel_spec:
+        if (
+            hasattr(self.hparams, "use_tacotron2_mel_spec")
+            and self.hparams.use_tacotron2_mel_spec
+        ):
             feats = self.hparams.compute_features(audio=wavs)
             feats = torch.transpose(feats, 1, 2)
         else:
