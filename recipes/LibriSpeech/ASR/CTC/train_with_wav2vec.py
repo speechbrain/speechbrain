@@ -112,8 +112,6 @@ class ASR(sb.Brain):
             predicted_words = [
                 hyp[0].text.split(" ") for hyp in predicted_tokens
             ]
-            print(predicted_tokens)
-            exit()
 
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -395,7 +393,19 @@ if __name__ == "__main__":
 
     ind2lab = label_encoder.ind2lab
     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-    test_searcher = hparams["test_searcher"](**hparams["test_searcher_opts"],)
+    test_searcher = hparams["test_searcher"](
+        blank_index=hparams["blank_index"],
+        vocab_list=vocab_list,
+        space_token=hparams["space_token"],
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
+    )
 
     # Training
     asr_brain.fit(
