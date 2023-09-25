@@ -1336,6 +1336,9 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 self.blank_skip_threshold is not None
                 and logit_col[self.blank_index] >= self.blank_skip_threshold
             ):
+                print("treshold = ", self.blank_skip_threshold)
+                print("blank = ", logit_col[self.blank_index])
+                print("skip")
                 continue
 
             # get the tokens with the highest probability
