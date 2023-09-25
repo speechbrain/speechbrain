@@ -564,8 +564,11 @@ class CTCBaseSearcher(torch.nn.Module):
         Note: when using topk > 1, this should be set to False as
         it is pruning a lot of beams.
     blank_skip_threshold : float, optional
-        Skip frames if log_prob(blank) > log(blank_skip_threshold), to speed up decoding.
-        Note: This is only used when using the CUDA decoder, and it might worsen the WER/CER results. Use it at your own risk. (default: 1.0)
+        The threshold for skipping the frames when the log probability
+        of the blank token is higher than this value. The threshold
+        should be a log probability (e.g., math.log(1.0)).
+        If the value is None, the heuristic is not applied.
+        (default: None)
     topk : int, optional
         The number of top hypotheses to return. (default: 1)
 
@@ -612,7 +615,7 @@ class CTCBaseSearcher(torch.nn.Module):
         beam_prune_logp: int = -10.0,
         token_prune_min_logp: int = -5.0,
         prune_history: bool = True,
-        blank_skip_threshold: Union[None, int] = 1.0,
+        blank_skip_threshold: Union[None, int] = None,
         topk: int = 1,
     ):
         super().__init__()
@@ -630,7 +633,7 @@ class CTCBaseSearcher(torch.nn.Module):
         self.beam_prune_logp = beam_prune_logp
         self.token_prune_min_logp = token_prune_min_logp
         self.prune_history = prune_history
-        self.blank_skip_threshold = math.log(blank_skip_threshold)
+        self.blank_skip_threshold = blank_skip_threshold
         self.topk = topk
 
         # check if the vocab is coming from SentencePiece
@@ -1865,7 +1868,7 @@ class TorchAudioCTCPrefixBeamSearcher:
     using_cpu_decoder : bool, optional
         Whether to use the CPU searcher. If False, then the CUDA decoder is used. (default: True)
     blank_skip_threshold : float, optional
-        Skip frames if log_prob(blank) > log(blank_skip_threshold), to speed up decoding (default: 1.0).
+        Skip frames if log_prob(blank) > blank_skip_threshold, to speed up decoding (default: 1.0).
         Note: This is only used when using the CUDA decoder, and it might worsen the WER/CER results. Use it at your own risk.
 
     Example
