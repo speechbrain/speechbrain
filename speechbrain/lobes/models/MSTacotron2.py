@@ -40,6 +40,7 @@ Authors
 # *****************************************************************************
 
 from math import sqrt
+from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -52,7 +53,6 @@ from speechbrain.lobes.models.Tacotron2 import (
     Decoder,
     get_mask_from_lengths,
 )
-from speechbrain.lobes.models.Tacotron2 import Loss as BaseLoss
 
 
 class Tacotron2(nn.Module):
@@ -442,6 +442,24 @@ class Loss(nn.Module):
     guided_attention_hard_stop: int
         The number of epochs after which guided attention will be compeltely
         turned off
+    Example:
+    >>> import torch
+    >>> _ = torch.manual_seed(42)
+    >>> from speechbrain.lobes.models.Tacotron2 import Loss
+    >>> loss = Loss(guided_attention_sigma=0.2)
+    >>> mel_target = torch.randn(2, 80, 861)
+    >>> gate_target = torch.randn(1722, 1)
+    >>> mel_out = torch.randn(2, 80, 861)
+    >>> mel_out_postnet = torch.randn(2, 80, 861)
+    >>> gate_out = torch.randn(2, 861)
+    >>> alignments = torch.randn(2, 861, 173)
+    >>> targets = mel_target, gate_target
+    >>> model_outputs = mel_out, mel_out_postnet, gate_out, alignments
+    >>> input_lengths = torch.tensor([173,  91])
+    >>> target_lengths = torch.tensor([861, 438])
+    >>> spk_embs = None
+    >>> loss(model_outputs, targets, input_lengths, target_lengths, spk_embs, 1)
+    TacotronLoss(loss=tensor([4.9323], grad_fn=<AddBackward0>), mel_loss=tensor(4.6666, grad_fn=<MulBackward0>), spk_emb_loss=tensor([0.]), gate_loss=tensor(0.0103, grad_fn=<MulBackward0>), attn_loss=tensor(0.2554, grad_fn=<MulBackward0>), attn_weight=tensor(69.9775))
     """
 
     def __init__(
@@ -456,24 +474,27 @@ class Loss(nn.Module):
         guided_attention_hard_stop=None,
     ):
         super().__init__()
-
-        self.tacotron2_original_loss = BaseLoss(
-            guided_attention_sigma=guided_attention_sigma,
-            gate_loss_weight=gate_loss_weight,
-            guided_attention_weight=guided_attention_weight,
-            guided_attention_scheduler=guided_attention_scheduler,
-            guided_attention_hard_stop=guided_attention_hard_stop,
-        )
-
+        if guided_attention_weight == 0:
+            guided_attention_weight = None
+        self.guided_attention_weight = guided_attention_weight
+        self.gate_loss_weight = gate_loss_weight
         self.mel_loss_weight = mel_loss_weight
         self.spk_emb_loss_weight = spk_emb_loss_weight
         self.spk_emb_loss_type = spk_emb_loss_type
 
+        self.mse_loss = nn.MSELoss()
+        self.bce_loss = nn.BCEWithLogitsLoss()
+        self.guided_attention_loss = GuidedAttentionLoss(
+            sigma=guided_attention_sigma
+        )
         self.cos_sim = nn.CosineSimilarity()
         self.triplet_loss = torch.nn.TripletMarginWithDistanceLoss(
             distance_function=lambda x, y: 1.0 - F.cosine_similarity(x, y)
         )
         self.cos_emb_loss = nn.CosineEmbeddingLoss()
+
+        self.guided_attention_scheduler = guided_attention_scheduler
+        self.guided_attention_hard_stop = guided_attention_hard_stop
 
     def forward(
         self,
@@ -506,6 +527,10 @@ class Loss(nn.Module):
         result: LossStats
             the total loss - and individual losses (mel and gate)
         """
+        mel_target, gate_target = targets[0], targets[1]
+        mel_target.requires_grad = False
+        gate_target.requires_grad = False
+        gate_target = gate_target.view(-1, 1)
 
         (
             mel_out,
@@ -515,23 +540,17 @@ class Loss(nn.Module):
             pred_mel_lens,
         ) = model_output
 
-        base_loss_stats = self.tacotron2_original_loss(
-            (mel_out, mel_out_postnet, gate_out, alignments),
-            targets,
-            input_lengths,
-            target_lengths,
-            epoch,
+        gate_out = gate_out.view(-1, 1)
+        mel_loss = self.mse_loss(mel_out, mel_target) + self.mse_loss(
+            mel_out_postnet, mel_target
         )
 
-        (
-            total_loss,
-            mel_loss,
-            gate_loss,
-            attn_loss,
-            attn_weight,
-        ) = base_loss_stats
-
         mel_loss = self.mel_loss_weight * mel_loss
+
+        gate_loss = self.gate_loss_weight * self.bce_loss(gate_out, gate_target)
+        attn_loss, attn_weight = self.get_attention_loss(
+            alignments, input_lengths, target_lengths, epoch
+        )
 
         # Speaker embedding loss placeholder - for future work
         spk_emb_loss = torch.Tensor([0]).to(mel_loss.device)
@@ -570,6 +589,49 @@ class Loss(nn.Module):
             attn_loss,
             attn_weight,
         )
+
+    def get_attention_loss(
+        self, alignments, input_lengths, target_lengths, epoch
+    ):
+        """Computes the attention loss
+        Arguments
+        ---------
+        alignments: torch.Tensor
+            the aligment matrix from the model
+        input_lengths: torch.Tensor
+            a (batch, length) tensor of input lengths
+        target_lengths: torch.Tensor
+            a (batch, length) tensor of target (spectrogram) lengths
+        epoch: int
+            the current epoch number (used for the scheduling of the guided attention
+            loss) A StepScheduler is typically used
+        Returns
+        -------
+        attn_loss: torch.Tensor
+            the attention loss value
+        """
+        zero_tensor = torch.tensor(0.0, device=alignments.device)
+        if (
+            self.guided_attention_weight is None
+            or self.guided_attention_weight == 0
+        ):
+            attn_weight, attn_loss = zero_tensor, zero_tensor
+        else:
+            hard_stop_reached = (
+                self.guided_attention_hard_stop is not None
+                and epoch > self.guided_attention_hard_stop
+            )
+            if hard_stop_reached:
+                attn_weight, attn_loss = zero_tensor, zero_tensor
+            else:
+                attn_weight = self.guided_attention_weight
+                if self.guided_attention_scheduler is not None:
+                    _, attn_weight = self.guided_attention_scheduler(epoch)
+            attn_weight = torch.tensor(attn_weight, device=alignments.device)
+            attn_loss = attn_weight * self.guided_attention_loss(
+                alignments, input_lengths, target_lengths
+            )
+        return attn_loss, attn_weight
 
 
 class TextMelCollate:
