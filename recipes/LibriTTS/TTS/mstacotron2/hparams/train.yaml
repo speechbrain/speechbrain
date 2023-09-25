@@ -103,7 +103,7 @@ spk_emb_encoder: speechbrain/spkrec-ecapa-voxceleb
 ################################
 # Optimization Hyperparameters #
 ################################
-learning_rate: 0.0001
+learning_rate: 0.001
 weight_decay: 0.000006
 batch_size: 64 #minimum 2
 mask_padding: True
@@ -170,7 +170,7 @@ postnet_kernel_size: 5
 postnet_n_convolutions: 5
 
 # To compute the mel-spectrogram for an audio
-mel_spectogram: !name:speechbrain.lobes.models.MSTacotron2.mel_spectogram
+mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
   sample_rate: !ref <sample_rate>
   hop_length: !ref <hop_length>
   win_length: !ref <win_length>
@@ -252,11 +252,11 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 lr_annealing: !new:speechbrain.nnet.schedulers.IntervalScheduler
   intervals:
     - steps: 6000
-      lr: 0.00005
+      lr: 0.0005
     - steps: 8000
-      lr: 0.00003
+      lr: 0.0003
     - steps: 10000
-      lr: 0.00001
+      lr: 0.0001
 
 # Checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
