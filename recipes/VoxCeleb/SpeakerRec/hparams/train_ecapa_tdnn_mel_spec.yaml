@@ -27,6 +27,7 @@ rir_folder: !ref <data_folder> # Change it if needed
 verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 verification_file_path: !ref <data_folder>/veri_test2.txt
 
+split_ratio: [90, 10]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -62,6 +63,23 @@ dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: !ref <shuffle>
     num_workers: 2
+
+# Functions
+use_tacotron2_mel_spec: True
+
+compute_features: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mel_channels>
+    f_min: !ref <mel_fmin>
+    f_max: !ref <mel_fmax>
+    power: !ref <power>
+    normalized: !ref <mel_normalized>
+    norm: !ref <norm>
+    mel_scale: !ref <mel_scale>
+    compression: !ref <dynamic_range_compression>
 
 # Modules
 embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN

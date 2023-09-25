@@ -63,7 +63,11 @@ class SpeakerBrain(sb.core.Brain):
             lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
+        if hasattr(self.hparams, "use_tacotron2_mel_spec") and self.hparams.use_tacotron2_mel_spec:
+            feats = self.hparams.compute_features(audio=wavs)
+            feats = torch.transpose(feats, 1, 2)
+        else:
+            feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
