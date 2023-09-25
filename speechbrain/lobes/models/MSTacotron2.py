@@ -460,7 +460,7 @@ class Loss(nn.Module):
     >>> target_lengths = torch.tensor([861, 438])
     >>> spk_embs = None
     >>> loss(model_outputs, targets, input_lengths, target_lengths, spk_embs, 1)
-    TacotronLoss(loss=tensor([4.9323], grad_fn=<AddBackward0>), mel_loss=tensor(4.6666, grad_fn=<MulBackward0>), spk_emb_loss=tensor([0.]), gate_loss=tensor(0.0103, grad_fn=<MulBackward0>), attn_loss=tensor(0.2554, grad_fn=<MulBackward0>), attn_weight=tensor(69.9775))
+    TacotronLoss(loss=tensor([4.8566]), mel_loss=tensor(4.0097), spk_emb_loss=tensor([0.]), gate_loss=tensor(0.8460), attn_loss=tensor(0.0010), attn_weight=tensor(1.))
     """
 
     def __init__(
