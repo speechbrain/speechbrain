@@ -71,7 +71,15 @@ max_batch_len: 500
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
-dynamic_batch_sampler:
+dynamic_batch_sampler_train:
+    max_batch_len: !ref <max_batch_len>
+    max_batch_len_val: !ref <max_batch_len_val>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+    max_batch_ex: 256
+
+dynamic_batch_sampler_valid:
     max_batch_len: !ref <max_batch_len>
     max_batch_len_val: !ref <max_batch_len_val>
     num_buckets: !ref <num_bucket>
