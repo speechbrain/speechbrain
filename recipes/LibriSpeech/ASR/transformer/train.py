@@ -405,7 +405,6 @@ def dataio_prepare(hparams):
             length_func=lambda x: x["duration"],
             **dynamic_hparams_train,
         )
-
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
             length_func=lambda x: x["duration"],

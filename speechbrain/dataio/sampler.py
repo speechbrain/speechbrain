@@ -485,7 +485,13 @@ class DynamicBatchSampler(Sampler):
         self._max_batch_ex = max_batch_ex
         # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
         self._bucket_lens = [
-            max(1, int(max_batch_length / self._bucket_boundaries[i]))
+            min(
+                self._max_batch_ex,  # tops max_duration_per_batch
+                max(
+                    1,  # and at least 1
+                    int(self._max_batch_length / self._bucket_boundaries[i]),
+                ),
+            )
             for i in range(len(self._bucket_boundaries))
         ] + [1]
         self._epoch = epoch
@@ -578,6 +584,15 @@ class DynamicBatchSampler(Sampler):
             item_len = self._ex_lengths[str(idx)]
             # bucket to fill up most padding
             bucket_id = np.searchsorted(self._bucket_boundaries, item_len)
+
+            if (
+                len(bucket_batches[bucket_id])
+                >= self._bucket_lens[bucket_id] + item_len
+                or len(bucket_batches[bucket_id]) > self._max_batch_ex
+            ):
+                self._batches.append(bucket_batches[bucket_id])
+                bucket_batches[bucket_id] = []
+
             # fill audio's duration into that bucket
             bucket_batches[bucket_id].append(idx)
 
@@ -589,16 +604,6 @@ class DynamicBatchSampler(Sampler):
             )
             stats_tracker[bucket_id]["tot"] += item_len
             stats_tracker[bucket_id]["n_ex"] += 1
-            # track #samples - why not duration/#frames; rounded up?
-            # keep track of durations, if necessary
-
-            if (
-                len(bucket_batches[bucket_id]) >= self._bucket_lens[bucket_id]
-                or len(bucket_batches[bucket_id]) >= self._max_batch_ex
-            ):
-                self._batches.append(bucket_batches[bucket_id])
-                bucket_batches[bucket_id] = []
-                # keep track of durations
 
         # Dump remaining batches
         if not self._drop_last:
@@ -627,11 +632,10 @@ class DynamicBatchSampler(Sampler):
                 except ZeroDivisionError:
                     num_batches = 0
                     pad_factor = 0
-
                 logger.debug(
                     (
                         "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
-                        + "batch_size {}: Num Examples {:.1f}, Num Full Batches {:.3f}, Pad Factor {:.3f}."
+                        + "batch_size {}: Num Examples {:.0f}, Num Full Batches {:.0f}, Pad Factor {:.3f}."
                     ).format(
                         bucket_indx,
                         boundaries[bucket_indx],
