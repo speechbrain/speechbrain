@@ -292,10 +292,13 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
     # We create the DynamicBatch Sampler
-    dynamic_hparams = hparams["dynamic_batch_sampler_train"]
-
     train_sampler = DynamicBatchSampler(
-        train_data, **dynamic_hparams, length_func=lambda x: x["duration"],
+        train_data,
+        hparams["seconds_per_batch"],
+        num_buckets=hparams["train_num_buckets"],
+        length_func=lambda x: x["duration"],
+        batch_ordering="random",
+        shuffle=True,
     )
 
     # We define the custom collation function that is necessary for w2v2 to

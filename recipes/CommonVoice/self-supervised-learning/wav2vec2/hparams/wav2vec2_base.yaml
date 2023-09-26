@@ -77,12 +77,12 @@ test_dataloader_options:
 # This setup will work with 32GB GPUs.
 # Dynamic Batching parameters, if used are:
 dynamic_batching: False
-max_batch_length: 120 # Cumulative length of each batch, per gpu.
+dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
 max_batch_size: 64 # Max number of samples per batch, per gpu.
 dynamic_batch_sampler:
-    max_batch_length: !ref <max_batch_length>
+    max_batch_len: !ref <dyn_batch_len>
     max_batch_ex: !ref <max_batch_size>
-    shuffle: True
+    shuffle_ex: True
     batch_ordering: !ref <sorting>
     num_buckets: 30
 
