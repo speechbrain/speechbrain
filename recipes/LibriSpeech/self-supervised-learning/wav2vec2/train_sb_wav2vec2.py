@@ -295,9 +295,7 @@ def dataio_prepare(hparams):
     dynamic_hparams = hparams["dynamic_batch_sampler_train"]
 
     train_sampler = DynamicBatchSampler(
-        train_data,
-        **dynamic_hparams,
-        length_func=lambda x: x["duration"],
+        train_data, **dynamic_hparams, length_func=lambda x: x["duration"],
     )
 
     # We define the custom collation function that is necessary for w2v2 to
