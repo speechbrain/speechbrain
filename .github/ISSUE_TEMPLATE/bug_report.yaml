@@ -1,6 +1,5 @@
 name: 🪲 Bug Report
 description: Something went wrong? Let us know! 🐣
-title: ""
 labels: ["bug"]
 body:
   - type: markdown
