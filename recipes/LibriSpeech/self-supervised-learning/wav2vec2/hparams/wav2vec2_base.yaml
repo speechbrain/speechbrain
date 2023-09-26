@@ -31,10 +31,10 @@ optimizer_step_limit: 400000
 
 # Dynamic Batching parameters
 dynamic_batch_sampler_train:
-    max_batch_length: 200 # Fits in a 32GB GPUs (V100)
-    num_buckets: 70
-    shuffle: True # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
+   max_batch_length: 200 # Fits in a 32GB GPUs (V100)
+   num_buckets: 70
+   shuffle: True # if true re-creates batches at each epoch shuffling examples.
+   batch_ordering: random
 
 train_dataloader_options:
    num_workers: 4
