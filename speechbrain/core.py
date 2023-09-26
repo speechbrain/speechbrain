@@ -221,13 +221,6 @@ def parse_arguments(arg_list=None):
         help="This flag enables training with data_parallel.",
     )
     parser.add_argument(
-        "--distributed_launch",
-        default=False,
-        action="store_true",
-        help="This flag enables training with DDP. Assumes script run with "
-        "`torch.distributed.launch`",
-    )
-    parser.add_argument(
         "--distributed_backend",
         type=str,
         default="nccl",
@@ -540,7 +533,6 @@ class Brain:
             "debug_persistently": False,
             "device": "cpu",
             "data_parallel_backend": False,
-            "distributed_launch": False,
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
             "jit": False,
@@ -605,15 +597,18 @@ class Brain:
                 + str(PYTHON_VERSION_MINOR)
             )
 
+        # Assume `torchrun` was used if `RANK` and `LOCAL_RANK` are set
+        self.distributed_launch = os.environ.get("RANK") and os.environ.get(
+            "LOCAL_RANK"
+        )
+
         if self.data_parallel_backend and self.distributed_launch:
             raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
-                "--data_parallel_backend=True"
+                "--data_parallel_backend=True\n"
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
-                "--distributed_backend=nccl"
+                "torchrun [args] experiment.py hyperparams.yaml"
             )
 
         if self.distributed_launch and self.ckpt_interval_minutes > 0:
@@ -697,9 +692,7 @@ class Brain:
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.launch [args]\n\t"
-                        "experiment.py hyperparams.yaml "
-                        "--distributed_launch=True --distributed_backend=nccl"
+                        "torchrun [args] experiment.py hyperparams.yaml"
                     )
                 else:
                     logger.warning(

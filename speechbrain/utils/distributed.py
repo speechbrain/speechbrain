@@ -6,10 +6,7 @@ Authors:
 """
 import os
 import torch
-import logging
 from functools import wraps
-
-logger = logging.getLogger(__name__)
 
 
 def run_on_main(
@@ -135,68 +132,39 @@ def ddp_init_group(run_opts):
     """
     rank = os.environ.get("RANK")
     local_rank = os.environ.get("LOCAL_RANK")
-    if run_opts["distributed_launch"]:
-        if local_rank is None:
-            raise ValueError(
-                "To use DDP backend, start your script with:\n\t"
-                "torchrun [args] experiment.py hyperparams.yaml\n\t\t"
-                "--distributed_launch --distributed_backend=nccl"
-            )
-        else:
-            local_rank = int(local_rank)
-            if not run_opts["distributed_backend"] == "gloo":
-                if local_rank + 1 > torch.cuda.device_count():
-                    raise ValueError(
-                        "Killing process " + str() + "\n"
-                        "Not enough GPUs available!"
-                    )
-        if rank is None:
-            raise ValueError(
-                "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch "
-                "--distributed_backend=nccl"
-            )
-        rank = int(rank)
+    if local_rank is None or rank is None:
+        return
 
-        if run_opts["distributed_backend"] == "nccl":
-            if not torch.distributed.is_nccl_available():
-                raise ValueError("NCCL is not supported in your machine.")
-        elif run_opts["distributed_backend"] == "gloo":
-            if not torch.distributed.is_gloo_available():
-                raise ValueError("GLOO is not supported in your machine.")
-        elif run_opts["distributed_backend"] == "mpi":
-            if not torch.distributed.is_mpi_available():
-                raise ValueError("MPI is not supported in your machine.")
-        else:
-            logger.info(
-                run_opts["distributed_backend"]
-                + " communcation protocol doesn't exist."
-            )
+    local_rank = int(local_rank)
+    if not run_opts["distributed_backend"] == "gloo":
+        if local_rank + 1 > torch.cuda.device_count():
             raise ValueError(
-                run_opts["distributed_backend"]
-                + " communcation protocol doesn't exist."
+                "Killing process " + str() + "\n" "Not enough GPUs available!"
             )
-        # rank arg is used to set the right rank of the current process for ddp.
-        # if you have 2 servers with 2 gpu:
-        # server1:
-        #   GPU0: local_rank=device=0, rank=0
-        #   GPU1: local_rank=device=1, rank=1
-        # server2:
-        #   GPU0: local_rank=device=0, rank=2
-        #   GPU1: local_rank=device=1, rank=3
-        torch.distributed.init_process_group(
-            backend=run_opts["distributed_backend"], rank=rank
-        )
+    rank = int(rank)
+
+    if run_opts["distributed_backend"] == "nccl":
+        if not torch.distributed.is_nccl_available():
+            raise ValueError("NCCL is not supported in your machine.")
+    elif run_opts["distributed_backend"] == "gloo":
+        if not torch.distributed.is_gloo_available():
+            raise ValueError("GLOO is not supported in your machine.")
+    elif run_opts["distributed_backend"] == "mpi":
+        if not torch.distributed.is_mpi_available():
+            raise ValueError("MPI is not supported in your machine.")
     else:
-        logger.info(
-            "distributed_launch flag is disabled, "
-            "this experiment will be executed without DDP."
+        raise ValueError(
+            run_opts["distributed_backend"]
+            + " communcation protocol doesn't exist."
         )
-        if local_rank is not None:
-            raise ValueError(
-                "DDP is disabled, local_rank must not be set.\n"
-                "For DDP training, please use --distributed_launch. "
-                "For example:\n\ttorchrun experiment.py hyperparams.yaml "
-                "--distributed_launch --distributed_backend=nccl"
-            )
+    # rank arg is used to set the right rank of the current process for ddp.
+    # if you have 2 servers with 2 gpu:
+    # server1:
+    #   GPU0: local_rank=device=0, rank=0
+    #   GPU1: local_rank=device=1, rank=1
+    # server2:
+    #   GPU0: local_rank=device=0, rank=2
+    #   GPU1: local_rank=device=1, rank=3
+    torch.distributed.init_process_group(
+        backend=run_opts["distributed_backend"], rank=rank
+    )
