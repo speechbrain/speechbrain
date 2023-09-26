@@ -7,7 +7,8 @@ Authors:
   * Samuele Cornell 2020
   * Ralf Leibold 2020
   * Artem Ploujnikov 2021
-  * Andreas Nautsch 2021
+  * Andreas Nautsch 2021, 2023
+  * Adel Moumen 2023
 """
 import torch
 import logging
