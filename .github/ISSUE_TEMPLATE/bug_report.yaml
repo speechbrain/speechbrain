@@ -40,7 +40,7 @@ body:
         5. Share the notebook's link here.
 
         In the worst case, provide detailed steps to reproduce the behavior.
-          
+
       placeholder: "```python #your code ``` \n ```yaml #your yaml code ```"
     validations:
       required: False
@@ -60,7 +60,7 @@ body:
       description: Copy and paste any relevant log output here.
       render: shell
     validations:
-      required: false
+      required: False
 
   - type: textarea
     id: add-context
@@ -68,7 +68,7 @@ body:
       label: Additional Context
       description: Share any other context about the problem or your environment that may help in troubleshooting.
     validations:
-      required: false
+      required: False
 
   - type: markdown
     attributes:
