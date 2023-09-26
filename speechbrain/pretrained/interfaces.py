@@ -4515,10 +4515,9 @@ class MSTacotron2(Pretrained):
 
         spk_emb = spk_emb.squeeze(0)
 
+        # Converts input texts into the corresponding phoneme sequences
         if isinstance(texts, str):
             texts = [texts]
-
-        # Converts input texts into the corresponding phoneme sequences
         phoneme_seqs = self.g2p(texts)
         for i in range(len(phoneme_seqs)):
             phoneme_seqs[i] = " ".join(phoneme_seqs[i])
@@ -4531,11 +4530,11 @@ class MSTacotron2(Pretrained):
         return self.__encode_batch(phoneme_seqs, spk_embs)
 
     def __encode_batch(self, texts, spk_embs):
-        """Computes mel-spectrogram for a list of texts
-        Texts must be sorted in decreasing order on their lengths
+        """Computes mel-spectrograms for a list of texts
+        Texts are sorted in decreasing order on their lengths
         Arguments
         ---------
-        text: List[str]
+        texts: List[str]
             texts to be encoded into spectrogram
         Returns
         -------
@@ -4553,13 +4552,14 @@ class MSTacotron2(Pretrained):
 
             inputs = sorted(
                 inputs,
-                key=lambda x: x["text_sequences"].shape[-1],
+                key=lambda x: x["text_sequences"].size()[0],
                 reverse=True,
             )
 
+            lens = [entry["text_sequences"].size()[0] for entry in inputs]
+
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
-            lens = [self.__text_to_seq(item)[1] for item in texts]
             assert lens == sorted(
                 lens, reverse=True
             ), "ipnut lengths must be sorted in decreasing order"
