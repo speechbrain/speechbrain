@@ -66,10 +66,10 @@ sorting: ascending
 dynamic_batching: False
 
 # dynamic batching parameters, if used
+feats_hop_size: 0.01
 dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 20000 # in terms of frames
-   shuffle_ex: True
+   max_batch_length: 20000 # in terms of frames
+   shuffle: True
    batch_ordering: random
    num_buckets: 20
 
