@@ -598,8 +598,9 @@ class Brain:
             )
 
         # Assume `torchrun` was used if `RANK` and `LOCAL_RANK` are set
-        self.distributed_launch = os.environ.get("RANK") and os.environ.get(
-            "LOCAL_RANK"
+        self.distributed_launch = (
+            os.environ.get("RANK") is not None
+            and os.environ.get("LOCAL_RANK") is not None
         )
 
         if self.data_parallel_backend and self.distributed_launch:
