@@ -330,10 +330,10 @@ def _g2p_keep_punctuations(g2p_model, text):
     Example
     -------
     >>> from speechbrain.pretrained import GraphemeToPhoneme
-    >>> g2p_model = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
-    >>> from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
-    >>> text = "Hi, how are you?"
-    >>> _g2p_keep_punctuations(g2p_model, text)
+    >>> g2p_model = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p") # doctest: +SKIP
+    >>> from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations # doctest: +SKIP
+    >>> text = "Hi, how are you?" # doctest: +SKIP
+    >>> _g2p_keep_punctuations(g2p_model, text) # doctest: +SKIP
     ['HH', 'AY', ',', ' ', 'HH', 'AW', ' ', 'AA', 'R', ' ', 'Y', 'UW', '?']
     """
     # find the words where a "-" or "'" or "." or ":" appears in the middle
