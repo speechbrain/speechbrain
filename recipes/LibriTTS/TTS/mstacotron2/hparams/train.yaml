@@ -98,7 +98,7 @@ spk_emb_encoder: speechbrain/spkrec-ecapa-voxceleb
 # To use the custom mel-spectrogram based encoder - for compatibility with future speaker consistency loss work
 # 1. Change "custom_mel_spec_encoder" to True
 # 2. Change the path for "spk_emb_encoder".
-# The ECAPA-TDNN model used for the Zero-Shot Multi-Speaker Tacotron2 experiments is available here: https://www.dropbox.com/scl/fo/xdratzwhsz6doa6t3rfci/h?rlkey=hvlumbno3vmjitsivpgvd53j0&dl=0
+# The ECAPA-TDNN model used for the Zero-Shot Multi-Speaker Tacotron2 experiments is available here: speechbrain/spkrec-ecapa-voxceleb-mel-spec
 
 ################################
 # Optimization Hyperparameters #

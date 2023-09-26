@@ -4283,7 +4283,7 @@ class MelSpectrogramEncoder(Pretrained):
     ...     savedir=tmpdir,
     ... ) # doctest: +SKIP
 
-    >>> # Compute embedding from a waveform (sample_rate must match the sample rate of the ecoder)
+    >>> # Compute embedding from a waveform (sample_rate must match the sample rate of the encoder)
     >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav") # doctest: +SKIP
     >>> spk_emb = encoder.encode_waveform(signal) # doctest: +SKIP
 
@@ -4442,13 +4442,13 @@ class MSTacotron2(Pretrained):
     >>> # Sample rate of the reference audio must be greater or equal to the sample rate of the speaker embedding model
     >>> reference_audio_path = "tests/samples/single-mic/example1.wav"
     >>> input_text = "Mary had a little lamb."
-    >>> mel_output, mel_length, alignment = mstacotron2.generate_mel_spec(input_text, reference_audio_path) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_tts) # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_output, mel_length, alignment = mstacotron2.generate_mel_spec(input_text, reference_audio_path) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_output) # doctest: +SKIP
     """
@@ -4478,20 +4478,20 @@ class MSTacotron2(Pretrained):
                 run_opts={"device": self.device},
             )
 
-    def text_to_seq(self, txt):
+    def __text_to_seq(self, txt):
         """Encodes raw text into a tensor with a customer text-to-equence fuction
         """
         sequence = text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
-    def generate_mel_spec(self, text, audio_path):
+    def clone_voice(self, texts, audio_path):
         """
         Generates mel-spectrogram using input text and reference audio
 
         Arguments
         ---------
 
-        text : str
+        texts : str or list
             Input text
         audio_path : str
             Reference audio
@@ -4515,13 +4515,20 @@ class MSTacotron2(Pretrained):
 
         spk_emb = spk_emb.squeeze(0)
 
-        # Converts input text into the corresponding phoneme sequence
-        phonemes = self.g2p(text)
-        phoneme_input = " ".join(phonemes)
-        phoneme_input = "{" + phoneme_input + "}"
+        if isinstance(texts, str):
+            texts = [texts]
 
-        # Calls __encode_text to generate the mel-spectrogram
-        return self.__encode_text(phoneme_input, spk_emb)
+        # Converts input texts into the corresponding phoneme sequences
+        phoneme_seqs = self.g2p(texts)
+        for i in range(len(phoneme_seqs)):
+            phoneme_seqs[i] = " ".join(phoneme_seqs[i])
+            phoneme_seqs[i] = "{" + phoneme_seqs[i] + "}"
+
+        # Repeats the speaker embedding to match the number of input texts
+        spk_embs = spk_emb.repeat(len(texts), 1)
+
+        # Calls __encode_batch to generate the mel-spectrograms
+        return self.__encode_batch(phoneme_seqs, spk_embs)
 
     def __encode_batch(self, texts, spk_embs):
         """Computes mel-spectrogram for a list of texts
@@ -4538,14 +4545,21 @@ class MSTacotron2(Pretrained):
             inputs = [
                 {
                     "text_sequences": torch.tensor(
-                        self.text_to_seq(item)[0], device=self.device
+                        self.__text_to_seq(item)[0], device=self.device
                     )
                 }
                 for item in texts
             ]
+
+            inputs = sorted(
+                inputs,
+                key=lambda x: x["text_sequences"].shape[-1],
+                reverse=True,
+            )
+
             inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
 
-            lens = [self.text_to_seq(item)[1] for item in texts]
+            lens = [self.__text_to_seq(item)[1] for item in texts]
             assert lens == sorted(
                 lens, reverse=True
             ), "ipnut lengths must be sorted in decreasing order"
@@ -4555,13 +4569,3 @@ class MSTacotron2(Pretrained):
                 inputs.text_sequences.data, spk_embs, input_lengths
             )
         return mel_outputs_postnet, mel_lengths, alignments
-
-    def __encode_text(self, text, spk_embs):
-        """Runs inference for a single text str"""
-        return self.__encode_batch([text], spk_embs)
-
-    def __forward(self, texts, spk_embs):
-        "Encodes the input texts."
-
-        # import pdb; pdb.set_trace()
-        return self.__encode_batch(texts, spk_embs)
