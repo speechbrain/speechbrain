@@ -76,11 +76,11 @@ test_dataloader_opts:
 # For more info, see speechbrain.dataio.sampler.DynamicBatchSampler
 dynamic_batching: False
 
+feats_hop_size: 0.01
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 5000 # in terms of frames
+    max_batch_length: 5000 # in terms of frames
     num_buckets: 20
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
+    shuffle: False # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
 
 
