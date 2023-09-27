@@ -681,7 +681,7 @@ class Decoder(nn.Module):
     Arguments
     ---------
     n_mel_channels: int
-        the number of channels in the MEL sepetrogram
+        the number of channels in the MEL spectrogram
     n_frames_per_step:
         the number of frames in the spectrogram for each
         time step of the decoder
@@ -1582,7 +1582,7 @@ class Loss(nn.Module):
     and a guided attention loss (if enabled) that attempts to make the
     attention matrix diagonal
 
-    The output of the moduel is a LossStats tuple, which includes both the
+    The output of the module is a LossStats tuple, which includes both the
     total loss
 
     Arguments

@@ -783,7 +783,7 @@ def read_digit_lookup(file_name):
     Returns
     -------
     result: dict
-        a dictionary simialr the following
+        a dictionary similar the following
         {
             "2": {
                 "char": "two",

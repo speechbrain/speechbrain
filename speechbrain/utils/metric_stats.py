@@ -4,7 +4,7 @@ statistics produced over the course of an experiment and summarizing them.
 Authors:
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
- * Gaelle Laperriere 2021
+ * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
 """
 

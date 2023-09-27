@@ -38,7 +38,7 @@ class HifiGanBrain(sb.Brain):
         x, _ = batch.mel
         y, _ = batch.sig
 
-        # generate sythesized waveforms
+        # generate synthesized waveforms
         y_g_hat = self.modules.generator(x)[:, :, : y.size(2)]
 
         # get scores and features from discriminator for real and synthesized waveforms

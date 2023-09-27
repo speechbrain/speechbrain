@@ -89,7 +89,7 @@ class StatObject_SB:
         return ch
 
     def save_stat_object(self, filename):
-        """Saves stats in picke format.
+        """Saves stats in pickle format.
 
         Arguments
         ---------

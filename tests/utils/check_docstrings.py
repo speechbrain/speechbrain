@@ -1,4 +1,4 @@
-"""This library contains functions that checks the dosctrings
+"""This library contains functions that checks the docstrings
 
 Authors
  * Mirco Ravanelli 2022

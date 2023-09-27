@@ -423,7 +423,7 @@ class NormalizingAutoencoder(Autoencoder):
         return x
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------

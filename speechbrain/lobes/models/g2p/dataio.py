@@ -167,7 +167,7 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
 
-def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
+def _wordwise_detokenize(tokenizer, sequence, output_separator, token_separator):
     """Detokenizes a sequence wordwise
 
     Arguments
@@ -198,7 +198,7 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
     encoded_words = [
         tokenizer.sp.decode_ids(word_tokens) for word_tokens in words
     ]
-    return output_separtor.join(encoded_words)
+    return output_separator.join(encoded_words)
 
 
 def _split_list(items, separator):

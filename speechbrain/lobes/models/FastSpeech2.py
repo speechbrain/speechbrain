@@ -204,7 +204,7 @@ class DurationPredictor(nn.Module):
     out_channels: int
        output feature dimension for convolution layers
     kernel_size: int
-       duration predictor convolution kernal size
+       duration predictor convolution kernel size
     dropout: float
        dropout probability, 0 by default
     Example
@@ -469,7 +469,7 @@ class FastSpeech2(nn.Module):
     postnet_embedding_dim: int
        output feature dimension for convolution layers
     postnet_kernel_size: int
-       postnet convolution kernal size
+       postnet convolution kernel size
     postnet_n_convolutions: int
        number of convolution layers
     postnet_dropout: float
@@ -2111,7 +2111,7 @@ class FastSpeech2WithAlignment(nn.Module):
     postnet_embedding_dim: int
        output feature dimension for convolution layers
     postnet_kernel_size: int
-       postnet convolution kernal size
+       postnet convolution kernel size
     postnet_n_convolutions: int
        number of convolution layers
     postnet_dropout: float

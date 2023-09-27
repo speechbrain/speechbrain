@@ -3155,7 +3155,7 @@ class FastSpeech2InternalAlignment(Pretrained):
     ... ]
     >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items) # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
     >>> # Running the TTS

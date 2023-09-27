@@ -134,7 +134,7 @@ def add_chunk(
         end_speech_target = int(end_chunk / (sample_rate * time_resolution))
         target[:, beg_speech_target:end_speech_target] = 1
 
-    # Lenth computation
+    # Length computation
     lengths = torch.ones(
         wav_chunk.shape[0], wav_chunk.shape[-1], device=wav.device
     )

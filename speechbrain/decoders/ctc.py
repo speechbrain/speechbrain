@@ -375,7 +375,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 
 @dataclasses.dataclass
 class CTCBeam:
-    """This class handle the CTC beam informations during decoding.
+    """This class handle the CTC beam information during decoding.
 
     Arguments
     ---------

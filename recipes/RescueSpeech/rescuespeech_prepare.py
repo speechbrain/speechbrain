@@ -136,7 +136,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
     If the preparation has been done, we can skip it.
 
-    Returnsw
+    Returns
     -------
     bool
         if True, the preparation phase can be skipped.

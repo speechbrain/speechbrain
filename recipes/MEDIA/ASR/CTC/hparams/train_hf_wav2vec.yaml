@@ -1,7 +1,7 @@
 # ################################
 # Model: Wav2Vec + DNN + CTC + Softmax
 # Authors:
-# Gaelle Laperriere 2023
+# Gaëlle Laperrière 2023
 # ################################
 
 # ------ Paths and parameters

@@ -264,7 +264,7 @@ def wss(ref_wav, deg_wav, srate):
         clean_frame = clean_frame * window
         processed_frame = processed_frame * window
 
-        # (2) Compuet Power Spectrum of clean and processed
+        # (2) Compute Power Spectrum of clean and processed
         clean_spec = np.abs(np.fft.fft(clean_frame, n_fft)) ** 2
         processed_spec = np.abs(np.fft.fft(processed_frame, n_fft)) ** 2
         clean_energy = [None] * num_crit

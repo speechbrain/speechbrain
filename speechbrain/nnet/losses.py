@@ -623,7 +623,7 @@ def distance_diff_loss(
         weight or some other value at that position
 
     targets: torch.Tensor
-        a 1-D tensor in which each elemnent is thr ground truth
+        a 1-D tensor in which each element is thr ground truth
 
     length: torch.Tensor
         lengths (for masking in padded batches)
@@ -675,7 +675,7 @@ def _distance_diff_loss(predictions, targets, beta, max_weight):
         weight or some other value at that position
 
     targets: torch.Tensor
-        a 1-D tensor in which each elemnent is thr ground truth
+        a 1-D tensor in which each element is thr ground truth
 
     max_weight: torch.Tensor
         the maximum distance weight (for numerical stability in long sequences)

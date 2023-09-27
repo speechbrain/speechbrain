@@ -17,7 +17,7 @@ different encoders, decoders, training tasks (Media , PortMedia),
 and many other possible variations.
 
 Authors
- * Gaelle Laperriere 2023
+ * Gaëlle Laperrière 2023
 """
 
 import sys

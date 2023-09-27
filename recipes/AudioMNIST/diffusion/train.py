@@ -1244,7 +1244,7 @@ class DiffusionBrain(sb.Brain):
         Arguments
         ---------
         data: dict
-            the data to be loged, with the following keys
+            the data to be logged, with the following keys
             samples: generated samples
             wav: generated waveform
             samples_rec: reconstruction samples (to assess autoencoder quality)

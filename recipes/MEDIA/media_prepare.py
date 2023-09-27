@@ -8,7 +8,7 @@ See README.md for more info.
 
 Author
 ------
-Gaelle Laperriere 2023
+Gaëlle Laperrière 2023
 """
 
 import xml.dom.minidom as DOM
