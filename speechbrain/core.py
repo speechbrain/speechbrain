@@ -1136,20 +1136,27 @@ class Brain:
         pass
 
     def optimizers_step(self):
-        # Freeze optimizers step
+
+        # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
         valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
 
+        # 2. unscale the gradients of the valid optimizers
         for opt in valid_optimizers.values():
             self.scaler.unscale_(opt)
 
+        # 3. clip gradients and get the grad norm
         grad_norm = torch.nn.utils.clip_grad_norm_(
-            (p for p in self.modules.parameters()), self.max_grad_norm
+            self.modules.parameters(), self.max_grad_norm
         )
 
+        # 4. check if the grad norm is finite
+        # if not, skip the update and reset the gradients
+        # otherwise, step the optimizers
         if not torch.isfinite(grad_norm):
-            # logger.warning(
-            #    f"Grad norm is {grad_norm}. Skipping model update."
-            # )
+
+            logger.debug(
+                f"grad_norm: {grad_norm}, skipping update and resetting gradients"
+            )
 
             self.scaler.update()
 
@@ -1168,6 +1175,9 @@ class Brain:
 
             self.optimizer_step += 1
 
+            # 5. call the on_optimizers_step_end()
+            # method to do something at the end of the step
+            # e.g., update the learning rate (noam_annealing)
             self.on_optimizers_step_end()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
