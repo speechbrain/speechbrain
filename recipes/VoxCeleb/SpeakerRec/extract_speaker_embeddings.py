@@ -20,6 +20,7 @@ To run this recipe, use the following command:
 Using your own hyperparameter file or one of the following:
     hparams/verification_ecapa.yaml (for the ecapa+tdnn system)
     hparams/verification_resnet.yaml (for the resnet tdnn system)
+    hparams/verification_plda_xvector.yaml (for the xvector system)
 
 Author
     * Mirco Ravanelli 2020
@@ -106,6 +107,13 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[3:])
+    if "data_folder:" not in overrides:
+        # By default it is a PLACEHOLDER (we need to replace it with a dummy path)
+        overrides += "\ndata_folder: ."
+    if "output_folder:" not in overrides:
+        # Ensure to put the saved model in the output folder
+        overrides += f"\noutput_folder: {out_dir}"
+
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
     run_on_main(params["pretrainer"].collect_files)
