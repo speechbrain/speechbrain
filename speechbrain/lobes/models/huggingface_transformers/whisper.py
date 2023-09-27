@@ -152,7 +152,7 @@ class Whisper(HFTransformersInterface):
             This is necessary if we want to use the decoder.
 
             A batch of decoder inputs tokens.
-            The first tokens need to dictacte the behavior of the decoder.
+            The first tokens need to dictate the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
 
@@ -318,7 +318,7 @@ class Whisper(HFTransformersInterface):
             A batch of audio features (mel + whisper encoding).
         decoder_input_ids : torch.Tensor
             A batch of decoder inputs tokens.
-            The first tokens need to dictacte the behavior of the decoder.
+            The first tokens need to dictate the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
 

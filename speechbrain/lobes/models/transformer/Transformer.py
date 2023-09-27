@@ -454,7 +454,7 @@ class TransformerEncoder(nn.Module):
         The module to process the source input feature to expected
         feature dimension (Optional).
     activation: torch.nn.Module, optional
-        The activation function for Feed-Forward Netowrk layer,
+        The activation function for Feed-Forward Network layer,
         e.g., relu or gelu or swish.
     normalize_before: bool, optional
         Whether normalization should be applied before or after MHA or FFN in Transformer layers.

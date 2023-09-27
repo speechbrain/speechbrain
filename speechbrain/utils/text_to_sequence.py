@@ -154,7 +154,7 @@ _whitespace_re = re.compile(r"\s+")
 _abbreviations = [
     (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
     for x in [
-        ("mrs", "misess"),
+        ("mrs", "missus"),
         ("mr", "mister"),
         ("dr", "doctor"),
         ("st", "saint"),
@@ -370,7 +370,7 @@ def _g2p_keep_punctuations(g2p_model, text):
     except IndexError:
         # sometimes the g2p model cannot split the words correctly
         logger.warning(
-            f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}"
+            f"Do g2p word by word because of unexpected outputs from g2p for text: {text}"
         )
 
         for i in all_:

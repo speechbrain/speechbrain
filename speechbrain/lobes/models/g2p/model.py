@@ -1,7 +1,7 @@
 """The Attentional RNN model for Grapheme-to-Phoneme
 
 Authors
- * Mirco Ravinelli 2021
+ * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
 
@@ -119,7 +119,7 @@ class AttentionSeq2Seq(nn.Module):
         return p_seq, char_lens, encoder_out, w
 
     def _apply_word_emb(self, emb_char, word_emb):
-        """Concatenate character embeddings with word embeddeings,
+        """Concatenate character embeddings with word embeddings,
         possibly encoding the word embeddings if an encoder
         is provided
 
@@ -246,7 +246,7 @@ class TransformerG2P(TransformerInterface):
     dropout: int, optional
         The dropout value.
     activation: torch.nn.Module, optional
-        The activation function for Feed-Forward Netowrk layer,
+        The activation function for Feed-Forward Network layer,
         e.g., relu or gelu or swish.
     custom_src_module: torch.nn.Module, optional
         Module that processes the src features to expected feature dim.

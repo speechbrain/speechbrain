@@ -4,7 +4,7 @@ statistics produced over the course of an experiment and summarizing them.
 Authors:
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
- * Gaelle Laperriere 2021
+ * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
 """
 
@@ -216,9 +216,9 @@ class ErrorRateStats(MetricStats):
     extract_concepts_values : bool
         Process the predict and target to keep only concepts and values.
     tag_in : str
-        Start of the concept ('<' for exemple).
+        Start of the concept ('<' for example).
     tag_out : str
-        End of the concept ('>' for exemple).
+        End of the concept ('>' for example).
 
     Example
     -------
@@ -729,7 +729,7 @@ class ClassificationStats(MetricStats):
             for each class
         keys: all available class keys, which can be either target classes
             or (category, target) tuples
-        predictions: all available predictions all predicions the model
+        predictions: all available predictions all predictions the model
             has made
 
         Arguments

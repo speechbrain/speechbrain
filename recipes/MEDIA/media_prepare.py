@@ -8,7 +8,7 @@ See README.md for more info.
 
 Author
 ------
-Gaelle Laperriere 2023
+Gaëlle Laperrière 2023
 """
 
 import xml.dom.minidom as DOM
@@ -229,7 +229,7 @@ def parse(
     Returns
     -------
     list
-        all informations needed to append the data in SpeechBrain csv files.
+        all information needed to append the data in SpeechBrain csv files.
     """
 
     data = []

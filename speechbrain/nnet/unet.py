@@ -671,7 +671,7 @@ def build_emb_proj(emb_config, proj_dim=None, use_emb=None):
         the target projection dimension
 
     use_cond_emb: dict
-        an optional dictioanry of "switches" to turn
+        an optional dictionary of "switches" to turn
         embeddings on and off
 
     Returns

@@ -707,7 +707,7 @@ class DynamicBatchSampler(Sampler):
         return len(self._batches)
 
 
-# Heavily inspired by Catalyst, which is under Apache 2.0 licence.
+# Heavily inspired by Catalyst, which is under Apache 2.0 license.
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
     """This wrapper allows using any sampler (for example batch) with Distributed Data Parallel (DDP)

@@ -813,7 +813,7 @@ def swbd1_data_prep(
     split_ratio : list
         List containing the portions you want to allocate to each of your data splits e.g. [90, 10]
     add_fisher_corpus : bool
-        If True, a separate csv file called "train_lm.csv" will be createdm which contains
+        If True, a separate csv file called "train_lm.csv" will be created which contains
         the Switchboard training data and the Fisher corpus transcripts.
     max_utt
         Exclude utterances once they appear more than a specified number of times

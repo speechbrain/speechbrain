@@ -1,4 +1,4 @@
-"""Library for the Reseource-Efficient Sepformer.
+"""Library for the Resource-Efficient Sepformer.
 
 Authors
  * Cem Subakan 2022
@@ -454,7 +454,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
     ----------
     input_size: int,
         Dimension of the input feature.
-        Input shape shoud be (batch, length, input_size)
+        Input shape should be (batch, length, input_size)
     hidden_size: int,
         Dimension of the hidden state.
     output_size: int,
@@ -538,7 +538,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         )
 
     def forward(self, input):
-        """The forward function of the ResourceEfficientSeparatioPipeline
+        """The forward function of the ResourceEfficientSeparationPipeline
 
         This takes in a tensor of size [B, (S*K), D]
 

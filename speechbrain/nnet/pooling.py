@@ -379,7 +379,7 @@ class AdaptivePool(nn.Module):
             self.pool = nn.AdaptiveAvgPool2d(output_size)
 
     def forward(self, x):
-        """Performs adpative pooling to the input tensor.
+        """Performs adaptive pooling to the input tensor.
 
         Arguments
         ---------

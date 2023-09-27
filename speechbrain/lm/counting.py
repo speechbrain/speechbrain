@@ -10,7 +10,7 @@ import itertools
 # The following functions are essentially copying the NLTK ngram counting
 # pipeline with minor differences. Written from scratch, but with enough
 # inspiration that I feel I want to mention the inspiration source:
-# NLTK is licenced under the Apache 2.0 Licence, same as SpeechBrain
+# NLTK is licensed under the Apache 2.0 License, same as SpeechBrain
 # See https://github.com/nltk/nltk
 # The NLTK implementation is highly focused on getting lazy evaluation.
 def pad_ends(

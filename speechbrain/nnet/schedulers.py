@@ -547,7 +547,7 @@ class NoamScheduler:
 class NoamIntervalScheduler:
     """A combination of Noam Scheduler and Interval Scheduler.
     The scheduler behaves as a Noam Scheduler, and anneals the learning rate
-    at disigned steps with designed decays.
+    at designed steps with designed decays.
 
     Note: this scheduler anneals the lr at each update of the model's weight,
     and n_steps must be saved for restarting.
@@ -557,7 +557,7 @@ class NoamIntervalScheduler:
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm-up steps.
+        number of warm-up steps.
     anneal_steps: list
         Pre-designed steps where the learning rate is to be annealed.
     anneal_rates: list
@@ -756,7 +756,7 @@ class CyclicCosineScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
+        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
@@ -863,7 +863,7 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
+        """Saves the current metrics on the specified path."""
         data = {
             "losses": self.losses,
             "anchor": self.anchor,

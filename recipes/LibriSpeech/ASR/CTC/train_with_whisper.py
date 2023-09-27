@@ -338,7 +338,7 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(asr_brain.device)
 
-    # We dynamicaly add the tokenizer to our brain class.
+    # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
 

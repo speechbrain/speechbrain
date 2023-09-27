@@ -42,7 +42,7 @@ class BaseScorerInterface:
 
     def score(self, inp_tokens, memory, candidates, attn):
         """This method scores the new beams based on the
-        informations of the current timestep.
+        information of the current timestep.
 
         A score is a tensor of shape (batch_size x beam_size, vocab_size).
         It is the log probability of the next token given the current

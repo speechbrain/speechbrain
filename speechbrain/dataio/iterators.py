@@ -13,7 +13,7 @@ from speechbrain.dataio.batch import PaddedBatch
 
 @dataclass(order=True)
 class LengthItem:
-    """ Data class for lenghts"""
+    """ Data class for lengths"""
 
     length: int
     data: Any = field(compare=False)
