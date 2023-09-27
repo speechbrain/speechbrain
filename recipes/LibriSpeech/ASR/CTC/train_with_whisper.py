@@ -141,7 +141,7 @@ class ASR(sb.Brain):
                 stats_meta={
                     "epoch": epoch,
                     "lr_model": old_lr_model,
-                    "lr_whisperc": old_lr_whisper,
+                    "lr_whisper": old_lr_whisper,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
