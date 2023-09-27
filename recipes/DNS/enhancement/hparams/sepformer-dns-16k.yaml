@@ -23,7 +23,6 @@ valid_data: !ref <save_folder>/dns_16k_cv.csv
 baseline_data: !ref <save_folder>/dns_baseline_dev_48K.csv
 skip_prep: False
 shuffle_train_data: True
-task: enhancement
 
 # Basic parameters
 use_tensorboard: True
