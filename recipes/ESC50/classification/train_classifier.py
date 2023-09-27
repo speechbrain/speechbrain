@@ -80,19 +80,19 @@ class ESC50Brain(sb.core.Brain):
             y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
 
         if stage == sb.Stage.VALID:
-            confusion_matrix = confusion_matrix(
+            my_confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.valid_confusion_matrix += confusion_matrix
+            self.valid_confusion_matrix += my_confusion_matrix
         if stage == sb.Stage.TEST:
-            confusion_matrix = confusion_matrix(
+            my_confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.test_confusion_matrix += confusion_matrix
+            self.test_confusion_matrix += my_confusion_matrix
 
         # Compute Accuracy using MetricStats
         self.acc_metric.append(
