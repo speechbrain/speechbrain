@@ -119,7 +119,7 @@ class AttentionSeq2Seq(nn.Module):
         return p_seq, char_lens, encoder_out, w
 
     def _apply_word_emb(self, emb_char, word_emb):
-        """Concatenate character embeddings with word embeddeings,
+        """Concatenate character embeddings with word embeddings,
         possibly encoding the word embeddings if an encoder
         is provided
 

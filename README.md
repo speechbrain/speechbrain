@@ -99,7 +99,7 @@ Combining multiple microphones is a powerful approach to achieving robustness in
 - Recipe for emotion diarization using SSL models on the [ZaionEmotionDataset](https://zaion.ai/en/resources/zaion-lab-blog/zaion-emotion-dataset/).
 
 ### Interpretability
-- Recipes for various intepretability techniques on the ESC50 dataset.
+- Recipes for various interpretability techniques on the ESC50 dataset.
 
 ### Spoken Language Understanding
 - Recipes for training wav2vec 2.0 models on, [SLURP](https://zenodo.org/record/4274930#.YEFCYHVKg5k), [MEDIA](https://catalogue.elra.info/en-us/repository/browse/ELRA-E0024/) and [timers-and-such](https://zenodo.org/record/4623772#.YGeMMHVKg5k) datasets.

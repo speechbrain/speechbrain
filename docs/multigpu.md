@@ -133,7 +133,7 @@ cd recipes/<dataset>/<task>/
 python experiment.py params.yaml --data_parallel_backend
 ```
 
-If you want to use a specific set of GPU devices, condiser using `CUDA_VISIBLE_DEVICES` as follow:
+If you want to use a specific set of GPU devices, consider using `CUDA_VISIBLE_DEVICES` as follow:
 
 ```bash
 cd recipes/<dataset>/<task>/

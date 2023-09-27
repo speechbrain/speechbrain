@@ -86,7 +86,7 @@ class Diffuser(nn.Module):
         Returns
         -------
         pred: torch.Tensor
-            the model output 0 prdicted noise
+            the model output 0 predicted noise
         noise: torch.Tensor
             the noise being applied
         noisy_sample
@@ -463,7 +463,7 @@ class LatentDiffusion(nn.Module):
         latent_pad_dim=1,
     ):
         super().__init__()
-        self.autencoder = autoencoder
+        self.autoencoder = autoencoder
         self.diffusion = diffusion
         self.latent_downsample_factor = latent_downsample_factor
         if isinstance(latent_pad_dim, int):
@@ -487,7 +487,7 @@ class LatentDiffusion(nn.Module):
         Returns
         -------
         pred: torch.Tensor
-            the model output 0 prdicted noise
+            the model output 0 predicted noise
         noise: torch.Tensor
             the noise being applied
         noisy_sample
@@ -535,7 +535,7 @@ class LatentDiffusion(nn.Module):
         length = kwargs.get("length")
         out_mask_value = kwargs.get("out_mask_value")
         latent_mask_value = kwargs.get("latent_mask_value")
-        autoencoder_out = self.autencoder.train_sample(
+        autoencoder_out = self.autoencoder.train_sample(
             x,
             length=length,
             out_mask_value=out_mask_value,
@@ -569,7 +569,7 @@ class LatentDiffusion(nn.Module):
             a tensor of the same dimension as x
         """
 
-        latent = self.autencoder.encode(x)
+        latent = self.autoencoder.encode(x)
         return self.diffusion.distort(latent)
 
     def sample(self, shape):
@@ -587,7 +587,7 @@ class LatentDiffusion(nn.Module):
         # TODO: Auto-compute the latent shape
         latent = self.diffusion.sample(shape)
         latent = self._pad_latent(latent)
-        return self.autencoder.decode(latent)
+        return self.autoencoder.decode(latent)
 
 
 def sample_timesteps(x, num_timesteps):

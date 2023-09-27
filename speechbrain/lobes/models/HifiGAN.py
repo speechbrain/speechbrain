@@ -471,7 +471,7 @@ class HifiganGenerator(torch.nn.Module):
 
 class DiscriminatorP(torch.nn.Module):
     """HiFiGAN Periodic Discriminator
-    Takes every Pth value from the input waveform and applied a stack of convoluations.
+    Takes every Pth value from the input waveform and applied a stack of convolutions.
     Note:
         if period is 2
         waveform = [1, 2, 3, 4, 5, 6 ...] --> [1, 3, 5 ... ] --> convs -> score, feat
@@ -614,7 +614,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     """HiFiGAN Scale Discriminator.
     It is similar to `MelganDiscriminator` but with a specific architecture explained in the paper.
-    SpeechBrain CNN wrappers are not used here beacause spectral_norm is not often used
+    SpeechBrain CNN wrappers are not used here because spectral_norm is not often used
 
     Arguments
     ---------

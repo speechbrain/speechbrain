@@ -1139,7 +1139,7 @@ class DiffusionBrain(sb.Brain):
             self.vocoder = self.hparams.vocoder()
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
-        self.reference_samples_neeed = False
+        self.reference_samples_needed = False
         self.is_conditioned = hasattr(self.hparams, "use_cond_emb") and any(
             self.hparams.use_cond_emb.values()
         )

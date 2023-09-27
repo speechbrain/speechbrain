@@ -505,7 +505,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
         than this will be cut into pieces.
     """
     try:
-        # make sure all processing reached here before main preocess create csv_file
+        # make sure all processing reached here before main process create csv_file
         sb.utils.distributed.ddp_barrier()
         if sb.utils.distributed.if_main_process():
             with open(csv_file, "w") as w:

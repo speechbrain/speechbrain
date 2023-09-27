@@ -394,7 +394,7 @@ def diff(list1, list2):
 
 
 def ismember(list1, list2):
-    """Cheks if the elements if list1 are contained in list2."""
+    """Checks if the elements if list1 are contained in list2."""
     c = [item in list2 for item in list1]
     return c
 

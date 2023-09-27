@@ -1449,7 +1449,7 @@ class ContrastiveLoss(nn.Module):
     Arguments
     ---------
     logit_temp : torch.Float
-        A temperature to devide the logits.
+        A temperature to divide the logits.
 
     """
 

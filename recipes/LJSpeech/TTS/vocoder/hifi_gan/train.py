@@ -55,7 +55,7 @@ class HifiGanBrain(sb.Brain):
         y, _ = batch.sig
 
         # Hold on to the batch for the inference sample. This is needed because
-        # the infernece sample is run from on_stage_end only, where
+        # the inference sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = (x, y)
 

@@ -138,8 +138,8 @@ def test_profile_func(device):
     )
     # assert len(simple_delta) >= 4  # == 6  # before; config dependent: 7
     # assert len(nitty_gritty_delta) >= 4  # == 8  # before
-    # assert simple_delta.total_average().count == 582 #Switching off becuase sometimes it fails
-    # assert nitty_gritty_delta.total_average().count == 780 #Switching off becuase sometimes it fails
+    # assert simple_delta.total_average().count == 582 #Switching off because sometimes it fails
+    # assert nitty_gritty_delta.total_average().count == 780 #Switching off because sometimes it fails
     with raises(Exception) as err_tree:
         simple_delta._build_tree()  # as mentioned.
     assert err_tree.type == AttributeError

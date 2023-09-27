@@ -126,7 +126,7 @@ class HuggingFaceWhisper(nn.Module):
             logger.warning(
                 "speechbrain.lobes.models.huggingface_whisper - whisper encoder-decoder is frozen."
             )
-            self.model.train()  # we keep it to train to have dropout and LN computed adequaly
+            self.model.train()  # we keep it to train to have dropout and LN computed adequately
             for param in self.model.parameters():
                 param.requires_grad = False
         else:
@@ -149,7 +149,7 @@ class HuggingFaceWhisper(nn.Module):
             This is necessary if we want to use the decoder.
 
             A batch of decoder inputs tokens.
-            The first tokens need to dictacte the behavior of the decoder.
+            The first tokens need to dictate the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
 
@@ -311,7 +311,7 @@ class HuggingFaceWhisper(nn.Module):
             A batch of audio features (mel + whisper encoding).
         decoder_input_ids : torch.Tensor
             A batch of decoder inputs tokens.
-            The first tokens need to dictacte the behavior of the decoder.
+            The first tokens need to dictate the behavior of the decoder.
             It needs to start with the bos_token, the language token,
             the task token, and finally the timestamp token.
 

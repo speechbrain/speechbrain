@@ -229,7 +229,7 @@ def parse(
     Returns
     -------
     list
-        all informations needed to append the data in SpeechBrain csv files.
+        all information needed to append the data in SpeechBrain csv files.
     """
 
     data = []

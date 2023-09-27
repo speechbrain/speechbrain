@@ -134,7 +134,7 @@ class SLU(sb.core.Brain):
         )
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
-        # Add opitmizers to checkpoint recoverables.
+        # Add optimizers to checkpoint recoverables.
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "optimizer_wav2vec", self.optimizer_wav2vec

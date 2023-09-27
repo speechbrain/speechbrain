@@ -96,7 +96,7 @@ def tokenizer_encode_pipeline(
     provides_prefix: str
         the prefix used for outputs
     wordwise: str
-        whether tokenization is peformed on the whole sequence
+        whether tokenization is performed on the whole sequence
         or one word at a time. Tokenization can produce token
         sequences in which a token may span multiple words
     token_space_index: int
@@ -147,7 +147,7 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     sequence: iterable
         the original sequence
     input_separator: str
-        the separator used in the input seauence
+        the separator used in the input sequence
     token_separator: str
         the token separator used in the output sequence
 
@@ -177,7 +177,7 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
     sequence: iterable
         the original sequence
     output_separator: str
-        the separator used in the output seauence
+        the separator used in the output sequence
     token_separator: str
         the token separator used in the output sequence
 
@@ -227,7 +227,7 @@ def _split_list(items, separator):
 
 def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     """
-    Initializs the phoneme encoder with EOS/BOS sequences
+    Initializes the phoneme encoder with EOS/BOS sequences
 
     Arguments
     ---------
@@ -370,7 +370,7 @@ def phoneme_decoder_pipeline(hyps, phoneme_encoder):
 
 
 def char_range(start_char, end_char):
-    """Produces a list of consequtive characters
+    """Produces a list of consecutive characters
 
     Arguments
     ---------
@@ -420,7 +420,7 @@ def flip_map(map_dict):
     Returns
     -------
     reverse_map_dict: dict
-        a dictioanry with keys and values flipped
+        a dictionary with keys and values flipped
     """
     return {value: key for key, value in map_dict.items()}
 
@@ -523,7 +523,7 @@ def _map_tokens_item(tokens, char_map):
 
 
 def lazy_init(init):
-    """A wrapper to ensure that the specified object is initialzied
+    """A wrapper to ensure that the specified object is initialized
     only once (used mainly for tokenizers that train when the
     constructor is called
 
@@ -558,7 +558,7 @@ def get_sequence_key(key, mode):
     key: str
         the key (e.g. "graphemes", "phonemes")
     mode:
-        the mode/sufix (raw, eos/bos)
+        the mode/suffix (raw, eos/bos)
     """
     return key if mode == "raw" else f"{key}_{mode}"
 

@@ -1223,7 +1223,7 @@ class GlobalNorm(torch.nn.Module):
     inputs to the desired mean and standard deviation.
 
     This normalization is reversible - it is possible to use the .denormalize()
-    method to reover the original values.
+    method to recover the original values.
 
     Arguments
     ---------
@@ -1397,7 +1397,7 @@ class GlobalNorm(torch.nn.Module):
         return mask
 
     def denormalize(self, x):
-        """Reverses the normalization proces
+        """Reverses the normalization process
 
         Arguments
         ---------

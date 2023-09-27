@@ -69,7 +69,7 @@ def get_funcs_to_unary_input_classifier(
         return unary_input
 
     def call(model, **kwargs):
-        """Calls the specified funnction."""
+        """Calls the specified function."""
         getattr(model, call_func)(**kwargs)
 
     return prepare, call, pretrained
@@ -337,7 +337,7 @@ def profile_pretrained(
 
     # Store tables
     print("\n\tReal-time factor")
-    with open("bechmark_realtime_factors.md", "w") as f:
+    with open("benchmark_realtime_factors.md", "w") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=realtime_factor,
@@ -347,7 +347,7 @@ def profile_pretrained(
         )
 
     print("\n\tPeak memory")
-    with open("bechmark_memory_peaks.md", "w") as f:
+    with open("benchmark_memory_peaks.md", "w") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=memory_peaks,

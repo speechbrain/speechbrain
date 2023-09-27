@@ -1,5 +1,5 @@
 # Text-to-Speech (with LJSpeech)
-This folder contains the recipes for training TTS systems (including vocoders) wiith the popular LJSpeech dataset.
+This folder contains the recipes for training TTS systems (including vocoders) with the popular LJSpeech dataset.
 
 # Dataset
 The dataset can be downloaded from here:
@@ -104,7 +104,7 @@ Training takes about 6 minutes/epoch on 1 * V100 32G.
 
 The training logs are available [here](https://www.dropbox.com/sh/tbhpn1xirtaix68/AACvYaVDiUGAKURf2o-fvgMoa?dl=0)
 
-For inference, by setting `fast_sampling: True` , a fast sampling can be realized by passing user-defined variance schedules. According to the paper, high-quality audios can be generated with only 6 steps. This is highly recommanded.
+For inference, by setting `fast_sampling: True` , a fast sampling can be realized by passing user-defined variance schedules. According to the paper, high-quality audios can be generated with only 6 steps. This is highly recommended.
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-diffwave-ljspeech).
 

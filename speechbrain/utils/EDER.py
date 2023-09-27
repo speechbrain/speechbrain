@@ -19,7 +19,7 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
         stride (float): the frame length used for frame-wise prediction
 
     Returns:
-        float: the calculted EDER for the utterance
+        float: the calculated EDER for the utterance
 
     Example
     -------

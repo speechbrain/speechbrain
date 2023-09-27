@@ -90,7 +90,7 @@ def get_all_urls(file_lst, avoid_urls):
 
 
 def check_url(url):
-    """Cheks if an URL is broken
+    """Checks if an URL is broken
 
     Arguments
     ---------
