@@ -168,7 +168,9 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
 
-def _wordwise_detokenize(tokenizer, sequence, output_separator, token_separator):
+def _wordwise_detokenize(
+    tokenizer, sequence, output_separator, token_separator
+):
     """Detokenizes a sequence wordwise
 
     Arguments
