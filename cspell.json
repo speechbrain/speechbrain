@@ -36,7 +36,7 @@
         ".gitignore",
         "**/node_modules/**",
         "**.{gif,jpeg,jpg,mp3,mp4,png,svg,wav}",
-        "**.{cache,drawio,flac,flat,gz,idea,iml,jar,jks,keystore,lock,map,otf,pdf,pem,pkl,pro,puml,raw,RData,so,sph,ttf,vcr_recording,xcf,xml,xsd,zip}",
+        "**.{cache,drawio,flac,flat,gz,idea,iml,jar,jks,keystore,lock,map,otf,pdf,pem,pkl,pro,puml,raw,RData,so,sph,tar,ttf,vcr_recording,xcf,xml,xsd,zip}",
         "**.{doc,docx,ppt,pptx,xls,xlsx}",
         "**/FREESOUNDCREDITS.txt",
         "**/unittests/tokenizer_data/dev-clean.csv",
