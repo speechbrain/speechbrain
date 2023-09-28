@@ -92,7 +92,7 @@ class ASR(sb.core.Brain):
         # Managing automatic mixed precision
         # TOFIX: CTC fine-tuning currently is unstable
         # This is certainly due to CTC being done in fp16 instead of fp32
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with torch.cuda.amp.autocast():
                 with self.no_sync():
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
