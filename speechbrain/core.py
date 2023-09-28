@@ -299,7 +299,8 @@ def parse_arguments(arg_list=None):
         "--auto_mix_prec",
         default=None,
         action="store_true",
-        help="This flag enables training with automatic mixed-precision.",
+        help="This flag enables training with automatic mixed-precision. "
+        "This feature is available only when using GPU devices.",
     )
     parser.add_argument(
         "--bfloat16_mix_prec",
@@ -692,9 +693,16 @@ class Brain:
 
         # Automatic mixed precision init
         if self.auto_mix_prec:
-            self.scaler = torch.cuda.amp.GradScaler()
-            if self.checkpointer is not None:
-                self.checkpointer.add_recoverable("scaler", self.scaler)
+            if "cuda" not in self.device:
+                warning_message = (
+                    "The option 'auto_mix_prec' is active only when using GPUs. "
+                    "This option is disabled here."
+                )
+                logger.warning(warning_message)
+            else:
+                self.scaler = torch.cuda.amp.GradScaler()
+                if self.checkpointer is not None:
+                    self.checkpointer.add_recoverable("scaler", self.scaler)
 
         # List parameter count for the user
         total_params = sum(
@@ -1053,7 +1061,7 @@ class Brain:
         valid_loss = False
 
         # Managing automatic mixed precision
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with torch.autocast(device_type=torch.device(self.device).type):
                 outputs = self.compute_forward(batch, Stage.TRAIN)
 
