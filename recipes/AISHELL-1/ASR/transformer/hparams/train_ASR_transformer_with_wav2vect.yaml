@@ -45,10 +45,10 @@ shuffle: False # if true re-creates batches at each epoch shuffling examples.
 num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
 batch_ordering: ascending
 dynamic_batch_sampler:
-   max_batch_length: !ref <max_batch_length>
-   shuffle: !ref <shuffle>
-   num_buckets: !ref <num_buckets>
-   batch_ordering: !ref <batch_ordering>
+    max_batch_length: !ref <max_batch_length>
+    shuffle: !ref <shuffle>
+    num_buckets: !ref <num_buckets>
+    batch_ordering: !ref <batch_ordering>
 
 num_workers: 6
 
