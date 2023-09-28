@@ -77,14 +77,14 @@ max_batch_ex: 256
 dynamic_batch_sampler_train:
     max_batch_length: !ref <max_batch_length_train>
     num_buckets: !ref <num_bucket>
-    shuffle: !ref <shuffle> 
+    shuffle: !ref <shuffle>
     batch_ordering: !ref <batch_ordering>
     max_batch_ex: !ref <max_batch_ex>
 
 dynamic_batch_sampler_valid:
     max_batch_length: !ref <max_batch_length_val>
     num_buckets: !ref <num_bucket>
-    shuffle: !ref <shuffle> 
+    shuffle: !ref <shuffle>
     batch_ordering: !ref <batch_ordering>
     max_batch_ex: !ref <max_batch_ex>
 
