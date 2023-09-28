@@ -104,7 +104,7 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with autocast():
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN
