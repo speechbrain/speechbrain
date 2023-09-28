@@ -115,7 +115,3 @@ def test_ConcatDatasetBatchSampler(device):
         assert b["wav"].data.shape[1] <= max_batch_length
 
     assert len(dataloader) == num_buckets
-
-
-if __name__ == "__main__":
-    test_ConcatDatasetBatchSampler("cpu")
