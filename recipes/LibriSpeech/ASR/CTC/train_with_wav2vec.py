@@ -127,7 +127,7 @@ class ASR(sb.Brain):
         should_step = self.step % self.grad_accumulation_factor == 0
 
         # Managing automatic mixed precision
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             self.wav2vec_optimizer.zero_grad()
             self.model_optimizer.zero_grad()
             with torch.cuda.amp.autocast():

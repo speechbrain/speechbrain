@@ -122,7 +122,7 @@ class W2V2Brain(sb.core.Brain):
     def fit_batch(self, batch):
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with self.no_sync(not should_step):
                 with torch.cuda.amp.autocast():
                     outputs = self.compute_forward(batch, Stage.TRAIN)

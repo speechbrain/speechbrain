@@ -194,7 +194,7 @@ class ASR(sb.Brain):
 
         with self.no_sync(not should_step):
             # Managing automatic mixed precision
-            if self.auto_mix_prec:
+            if self.auto_mix_prec and "cuda" in self.device:
                 with torch.autocast(torch.device(self.device).type):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
