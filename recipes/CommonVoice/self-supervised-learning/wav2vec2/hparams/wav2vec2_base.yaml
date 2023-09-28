@@ -85,7 +85,7 @@ dynamic_batch_sampler:
     max_batch_length: !ref <max_batch_length>
     max_batch_ex: !ref <max_batch_ex>
     shuffle: !ref <shuffle>
-    batch_ordering: !ref <sorting>
+    batch_ordering: !ref <batch_ordering>
     num_buckets: !ref <num_buckets>
 
 #
