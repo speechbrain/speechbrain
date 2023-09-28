@@ -2904,7 +2904,7 @@ class FastSpeech2(Pretrained):
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."])
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_outputs) # doctest: +SKIP
     """
