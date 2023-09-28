@@ -126,7 +126,7 @@ class ASR(sb.core.Brain):
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
 
             if not self.hparams.wav2vec2.freeze:
                 self.wav2vec_optimizer.zero_grad()
