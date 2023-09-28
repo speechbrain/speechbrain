@@ -42,7 +42,6 @@ number_of_epochs: 100
 lr_adam: 2.0 # This will get reduced by the training scheduler
 weight_decay: 0.01
 d_model: 768  # Needed by the scheduler. 768 is for the BASE w2v2
-sorting: ascending
 auto_mix_prec: False
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
@@ -78,13 +77,16 @@ test_dataloader_options:
 # Dynamic Batching parameters, if used are:
 dynamic_batching: False
 max_batch_length: 120 # Cumulative length of each batch, per gpu.
-max_batch_size: 64 # Max number of samples per batch, per gpu.
+max_batch_ex: 64 # Max number of samples per batch, per gpu.
+shuffle: True
+batch_ordering: ascending
+num_buckets: 30
 dynamic_batch_sampler:
     max_batch_length: !ref <max_batch_length>
-    max_batch_ex: !ref <max_batch_size>
-    shuffle: True
+    max_batch_ex: !ref <max_batch_ex>
+    shuffle: !ref <shuffle>
     batch_ordering: !ref <sorting>
-    num_buckets: 30
+    num_buckets: !ref <num_buckets>
 
 #
 # Functions and classes
