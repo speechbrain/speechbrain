@@ -155,7 +155,7 @@ class Separation(sb.Brain):
         targets = [batch.s1_sig, batch.s2_sig]
         noise = batch.noise_sig[0]
 
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with autocast():
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
