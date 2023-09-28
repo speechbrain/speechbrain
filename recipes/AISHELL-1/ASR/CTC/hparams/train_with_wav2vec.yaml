@@ -42,12 +42,15 @@ batch_size: 10
 test_batch_size: 1
 
 dynamic_batching: False
-
+max_batch_length: 15 # in terms of "duration" in annotations by default, second here
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+batch_ordering: ascending
 dynamic_batch_sampler:
-   max_batch_length: 15 # in terms of "duration" in annotations by default, second here
-   shuffle: False # if true re-creates batches at each epoch shuffling examples.
-   num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
-   batch_ordering: ascending
+   max_batch_length: !ref <max_batch_length>
+   shuffle: !ref <shuffle>
+   num_buckets: !ref <num_buckets>
+   batch_ordering: !ref <batch_ordering>
 
 num_workers: 6
 
