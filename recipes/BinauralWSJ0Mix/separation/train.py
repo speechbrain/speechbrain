@@ -208,7 +208,7 @@ class Separation(sb.Brain):
         if "noise" in self.hparams.experiment_name:
             noise = batch.noise_sig[0]
 
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with autocast():
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
