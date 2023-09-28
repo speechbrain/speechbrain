@@ -84,7 +84,7 @@ class W2VBrain(sb.core.Brain):
         """Train the parameters given a single batch in input"""
 
         # Here we manage mixed precision
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
             with torch.cuda.amp.autocast():
                 predictions = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(
