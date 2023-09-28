@@ -178,7 +178,7 @@ class ASR(sb.Brain):
         detached loss
         """
         # Managing automatic mixed precision
-        if self.auto_mix_prec:
+        if self.auto_mix_prec and "cuda" in self.device:
 
             self.wav2vec_optimizer.zero_grad()
             self.adam_optimizer.zero_grad()
