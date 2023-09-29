@@ -787,7 +787,7 @@ if __name__ == "__main__":
 
         separator_loaded = separator.from_hparams(
             source=separator_model,
-            run_opts={"device": "cuda"},
+            run_opts={"device": run_opts["device"]},
             savedir=separator_model,
         )
 
