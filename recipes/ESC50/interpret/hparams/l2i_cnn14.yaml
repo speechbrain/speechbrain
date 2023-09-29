@@ -47,8 +47,6 @@ sample_rate: 44100
 interpret_period: 1
 relevance_th: 0.2
 
-device: "cuda"
-
 # Feature parameters
 n_mels: 80
 left_frames: 0

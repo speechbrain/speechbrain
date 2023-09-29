@@ -52,8 +52,6 @@ rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
 
-device: "cuda"
-
 # Feature parameters
 n_mels: 80
 
