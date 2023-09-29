@@ -21,6 +21,7 @@ import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
+from ljspeech_prepare import prepare_ljspeech
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 
 
@@ -145,9 +146,6 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    sys.path.append("../../")
-    from ljspeech_prepare import prepare_ljspeech
 
     sb.utils.distributed.run_on_main(
         prepare_ljspeech,
