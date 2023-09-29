@@ -1084,9 +1084,10 @@ class Brain:
             # The objectives are removed from Autocast to avoid
             # potential numerical instabilities with CTC loss, etc.
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss = loss / self.grad_accumulation_factor
 
-            scaled_loss = self.scaler.scale(loss)
+            scaled_loss = self.scaler.scale(
+                loss / self.grad_accumulation_factor
+            )
             scaled_loss.backward()
 
         if should_step:
@@ -1095,32 +1096,12 @@ class Brain:
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
 
-    def check_loss_isfinite(self, loss):
-        if not loss.isfinite():
-            self.nonfinite_count += 1
-
-            # Print helpful debug info
-            logger.warning(f"Loss is {loss}.")
-            for name, param in self.modules.named_parameters():
-                if not torch.isfinite(param).all():
-                    logger.warning(f"Parameter {name} is not finite")
-
-            # Check if patience is exhausted
-            if self.nonfinite_count > self.nonfinite_patience:
-                raise ValueError(
-                    "Loss is not finite and patience is exhausted. "
-                    "To debug, wrap `fit()` with "
-                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
-                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-                )
-            else:
-                logger.warning(
-                    "Patience not yet exhausted, ignoring this batch."
-                )
-
-            return False
-
-        return True
+    def check_gradients(self):
+        """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        for param in self.modules.parameters():
+            if param.requires_grad and param.grad is not None:
+                if not torch.isfinite(param.grad).all():
+                    param.grad = None
 
     def freeze_optimizers(self, optimizers):
         """By default, this method returns the passed optimizers.
@@ -1144,41 +1125,31 @@ class Brain:
         for opt in valid_optimizers.values():
             self.scaler.unscale_(opt)
 
-        # 3. clip gradients and get the grad norm
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.modules.parameters(), self.max_grad_norm
-        )
-
-        # 4. check if the grad norm is finite
-        # if not, skip the update and reset the gradients
-        # otherwise, step the optimizers
-        if not torch.isfinite(grad_norm):
-
-            logger.debug(
-                f"grad_norm: {grad_norm}, skipping update and resetting gradients"
+        # 3. clip gradients
+        for opt in valid_optimizers.values():
+            torch.nn.utils.clip_grad_norm_(
+                opt.param_groups[0]["params"], self.max_grad_norm
             )
 
-            self.scaler.update()
+        # no need to activate this flag if you are in fp16
+        # since GradScaler is automatically handling the nonfinite gradients
+        if self.skip_nan_grad:
+            self.check_gradients()
 
-            for opt in valid_optimizers.values():
-                opt.zero_grad(set_to_none=True)
-        else:
+        # 4. step the valid optimizers
+        for opt in valid_optimizers.values():
+            self.scaler.step(opt)
 
-            # step optimizers
-            for opt in valid_optimizers.values():
-                self.scaler.step(opt)
+        self.scaler.update()
 
-            self.scaler.update()
+        for opt in valid_optimizers.values():
+            opt.zero_grad(set_to_none=True)
 
-            for opt in valid_optimizers.values():
-                opt.zero_grad(set_to_none=True)
+        self.optimizer_step += 1
 
-            self.optimizer_step += 1
-
-            # 5. call the on_optimizers_step_end()
-            # method to do something at the end of the step
-            # e.g., update the learning rate (noam_annealing)
-            self.on_optimizers_step_end()
+        # 5. call the on_optimizers_step_end()
+        # e.g., update the learning rate
+        self.on_optimizers_step_end()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``, meant for calculating and logging metrics.
