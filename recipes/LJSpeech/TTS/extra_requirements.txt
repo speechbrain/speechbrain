@@ -4,3 +4,5 @@ tensorboard
 tgt
 torchvision
 unidecode
+# Needed only for quantization
+scikit-learn
