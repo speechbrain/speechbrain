@@ -438,7 +438,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     """
 
     def __init__(
-        self, model_name, temperature=1.0, device = "cuda", encode_fn=None,
+        self, model_name, temperature=1.0, device="cuda", encode_fn=None,
     ):
         self.model_name = model_name
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
@@ -1535,7 +1535,9 @@ class ScorerBuilder:
         neural_rescorers=list(),
         scorer_beam_scale=1.5,
     ):
-        assert len(weights) == len(full_scorers) + len(partial_scorers) + len(neural_rescorers), "Weights and scorers are not matched."
+        assert len(weights) == len(full_scorers) + len(partial_scorers) + len(
+            neural_rescorers
+        ), "Weights and scorers are not matched."
 
         self.scorer_beam_scale = scorer_beam_scale
         # add Scorers
@@ -1547,7 +1549,7 @@ class ScorerBuilder:
         ]
         # add Rescorers
         all_scorer_names += [
-            k.lower().split("rescorer")[0] + '_rescorer'
+            k.lower().split("rescorer")[0] + "_rescorer"
             for k in globals().keys()
             if k.endswith("Rescorer")
         ]
@@ -1560,24 +1562,23 @@ class ScorerBuilder:
             for impl in partial_scorers
         ]
         neural_rescorer_names = [
-            impl.__class__.__name__.lower().split("rescorer")[0] + '_rescorer'
+            impl.__class__.__name__.lower().split("rescorer")[0] + "_rescorer"
             for impl in neural_rescorers
         ]
 
         # Have a default 0.0 weight for scorer not specified
         init_weights = {
-            k: (0.0, 0.0)
-            if k.endswith("rescorer") 
-            else 0.0
+            k: (0.0, 0.0) if k.endswith("rescorer") else 0.0
             for k in all_scorer_names
-            
         }
         self.weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
-        self.neural_rescorers = dict(zip(neural_rescorer_names, neural_rescorers))
+        self.neural_rescorers = dict(
+            zip(neural_rescorer_names, neural_rescorers)
+        )
 
-        # Check if scorers are valid    
+        # Check if scorers are valid
         self._validate_scorer(all_scorer_names)
 
     def score(self, inp_tokens, memory, attn, log_probs, beam_size):
@@ -1681,7 +1682,7 @@ class ScorerBuilder:
                 for s, l, e in zip(scores, lm_score, enc_length)
             ]
         return scores
-    
+
     def _validate_scorer(self, scorer_names):
         """These error messages indicate scorers are not properly set.
 
