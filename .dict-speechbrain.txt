@@ -1215,7 +1215,6 @@ rttms
 RTXA
 rtype
 ruamel
-ruaml
 RUNNIN
 RWBEG
 RWDUR
