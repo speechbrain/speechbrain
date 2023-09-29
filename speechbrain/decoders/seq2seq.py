@@ -411,24 +411,24 @@ class S2SBeamSearcher(S2SBaseSearcher):
             # Check length normalization
             if (
                 length_normalization
-                and self.scorer.scorers_weights["length"] > 0.0
+                and self.scorer.weights["length_scorer"] > 0.0
             ):
                 raise ValueError(
                     "Length normalization is not compatible with length rewarding."
                 )
-            if self.scorer.scorers_weights["ctc"] > 0.0:
+            if self.scorer.weights["ctc_scorer"] > 0.0:
                 # Check indices for ctc
                 all_scorers = {
                     **self.scorer.full_scorers,
                     **self.scorer.partial_scorers,
                 }
-                blank_index = all_scorers["ctc"].blank_index
+                blank_index = all_scorers["ctc_scorer"].blank_index
                 if len({bos_index, eos_index, blank_index}) < 3:
                     raise ValueError(
                         "Set blank, eos and bos to different indexes for joint ATT/CTC or CTC decoding"
                     )
 
-                self.ctc_weight = self.scorer.scorers_weights["ctc"]
+                self.ctc_weight = self.scorer.weights["ctc_scorer"]
                 self.attn_weight = 1.0 - self.ctc_weight
 
     def _check_full_beams(self, hyps):
@@ -1406,7 +1406,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     >>> scorer = sb.decoders.scorer.ScorerBuilder(
     ...     full_scorers = [coverage_scorer],
     ...     partial_scorers = [],
-    ...     scorer_weights= dict(coverage=1.5)
+    ...     weights= dict(coverage=1.5)
     ... )
     >>> searcher = S2SRNNBeamSearcher(
     ...     embedding=emb,

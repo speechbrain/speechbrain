@@ -515,6 +515,11 @@ if __name__ == "__main__":
 
         if collate_fn is not None:
             valid_dataloader_opts["collate_fn"] = collate_fn
+    
+    def encode_fn(encoded_seq):
+        return [tokenizer.decode_ids(seq.tolist()) for seq in encoded_seq]
+
+    hparams['scorer'].neural_rescorers["transformerlm_rescorer"].encode_fn = encode_fn
 
     # Training
     asr_brain.fit(

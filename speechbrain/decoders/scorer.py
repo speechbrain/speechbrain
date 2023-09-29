@@ -438,10 +438,11 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     """
 
     def __init__(
-        self, model_name, temperature=1.0, encode_fn=None,
+        self, model_name, temperature=1.0, device = "cuda", encode_fn=None,
     ):
         self.model_name = model_name
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+        self.device = device
         self.encode_fn = encode_fn
         self.temperature = temperature
 
@@ -455,7 +456,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         self.lm = AutoModelForCausalLM.from_pretrained(
             self.model_name, is_decoder=True
         )
-        self.lm.eval().to("cuda")
+        self.lm.eval().to(self.device)
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
@@ -1444,7 +1445,7 @@ class ScorerBuilder:
 
     Arguments
     ---------
-    scorer_weights : dict
+    weights : dict
         Weights of full/partial scorers specified.
     full_scorers : list
         Scorers that score on full vocabulary set.
@@ -1528,61 +1529,55 @@ class ScorerBuilder:
 
     def __init__(
         self,
-        scorer_weights=dict(),
-        rescorers_weights=dict(),
+        weights=dict(),
         full_scorers=list(),
         partial_scorers=list(),
-        rescorers=list(),
+        neural_rescorers=list(),
         scorer_beam_scale=1.5,
     ):
-        assert len(scorer_weights) == len(full_scorers) + len(
-            partial_scorers
-        ), "Weights and scorers are not matched."
-
-        assert len(rescorers_weights) == len(
-            rescorers
-        ), "Weights and rescorers are not matched."
+        assert len(weights) == len(full_scorers) + len(partial_scorers) + len(neural_rescorers), "Weights and scorers are not matched."
 
         self.scorer_beam_scale = scorer_beam_scale
+        # add Scorers
+        suffix = "_scorer"
         all_scorer_names = [
-            k.lower().split("scorer")[0]
+            k.lower().split("scorer")[0] + suffix
             for k in globals().keys()
             if k.endswith("Scorer")
         ]
-
-        full_scorer_names = [
-            impl.__class__.__name__.lower().split("scorer")[0]
-            for impl in full_scorers
-        ]
-
-        partial_scorer_names = [
-            impl.__class__.__name__.lower().split("scorer")[0]
-            for impl in partial_scorers
-        ]
-
-        all_rescorer_names = [
-            k.lower().split("rescorer")[0]
+        # add Rescorers
+        all_scorer_names += [
+            k.lower().split("rescorer")[0] + '_rescorer'
             for k in globals().keys()
             if k.endswith("Rescorer")
         ]
-
-        rescorer_names = [
-            impl.__class__.__name__.lower().split("rescorer")[0]
-            for impl in rescorers
+        full_scorer_names = [
+            impl.__class__.__name__.lower().split("scorer")[0] + suffix
+            for impl in full_scorers
+        ]
+        partial_scorer_names = [
+            impl.__class__.__name__.lower().split("scorer")[0] + suffix
+            for impl in partial_scorers
+        ]
+        neural_rescorer_names = [
+            impl.__class__.__name__.lower().split("rescorer")[0] + '_rescorer'
+            for impl in neural_rescorers
         ]
 
         # Have a default 0.0 weight for scorer not specified
-        init_weights = {k: 0.0 for k in all_scorer_names}
-        self.scorers_weights = {**init_weights, **scorer_weights}
+        init_weights = {
+            k: (0.0, 0.0)
+            if k.endswith("rescorer") 
+            else 0.0
+            for k in all_scorer_names
+            
+        }
+        self.weights = {**init_weights, **weights}
         self.full_scorers = dict(zip(full_scorer_names, full_scorers))
         self.partial_scorers = dict(zip(partial_scorer_names, partial_scorers))
+        self.neural_rescorers = dict(zip(neural_rescorer_names, neural_rescorers))
 
-        # Have a default 0.0 weight for rescorer not specified, the first is alpha and the second beta.
-        init_weights = {k: (0.0, 0.0) for k in all_rescorer_names}
-        self.rescorers_weights = {**init_weights, **rescorers_weights}
-        self.rescorers = dict(zip(rescorer_names, rescorers))
-
-        # Check if scorers are valid
+        # Check if scorers are valid    
         self._validate_scorer(all_scorer_names)
 
     def score(self, inp_tokens, memory, attn, log_probs, beam_size):
@@ -1613,7 +1608,7 @@ class ScorerBuilder:
         # score full candidates
         for k, impl in self.full_scorers.items():
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
-            log_probs += score * self.scorers_weights[k]
+            log_probs += score * self.weights[k]
 
         # select candidates from the results of full scorers for partial scorers
         _, candidates = log_probs.topk(
@@ -1625,28 +1620,9 @@ class ScorerBuilder:
             score, new_memory[k] = impl.score(
                 inp_tokens, memory[k], candidates, attn
             )
-            log_probs += score * self.scorers_weights[k]
+            log_probs += score * self.weights[k]
 
         return log_probs, new_memory
-
-    def rescore_hyps(self, scores, hyps):
-        """Rescore the hypotheses with the full external scorers.
-
-        Arguments
-        ---------
-        scores : torch.Tensor
-            (batch_size x beam_size). The scores of the current hypotheses.
-        hyps : Hypothesis
-            The final hypotheses to rescore.
-        """
-        for k, impl in self.rescorers.items():
-            lm_score, enc_length = impl.rescore_hyps(hyps)
-            rescorer_apha, rescorer_beta = self.rescorers_weights[k]
-            scores = [
-                s + rescorer_apha * l + rescorer_beta * e
-                for s, l, e in zip(scores, lm_score, enc_length)
-            ]
-        return scores
 
     def permute_scorer_mem(self, memory, index, candidates):
         """Update memory variables of scorers to synchronize
@@ -1687,6 +1663,25 @@ class ScorerBuilder:
             memory[k] = impl.reset_mem(x, enc_lens)
         return memory
 
+    def rescore_hyps(self, scores, hyps):
+        """Rescore the hypotheses with the full external scorers.
+        Arguments
+        ---------
+        scores : torch.Tensor
+            (batch_size x beam_size). The scores of the current hypotheses.
+        hyps : Hypothesis
+            The final hypotheses to rescore.
+        """
+        for k, impl in self.neural_rescorers.items():
+            lm_score, enc_length = impl.rescore_hyps(hyps)
+            rescorer_apha, rescorer_beta = self.weights[k]
+
+            scores = [
+                s + rescorer_apha * l
+                for s, l, e in zip(scores, lm_score, enc_length)
+            ]
+        return scores
+    
     def _validate_scorer(self, scorer_names):
         """These error messages indicate scorers are not properly set.
 
@@ -1695,20 +1690,20 @@ class ScorerBuilder:
         scorer_names : list
             Prefix of scorers defined in speechbrain.decoders.scorer.
         """
-        if len(self.scorers_weights) > len(scorer_names):
+        if len(self.weights) > len(scorer_names):
             raise ValueError(
                 "The keys of weights should be named in {}".format(scorer_names)
             )
 
-        if not 0.0 <= self.scorers_weights["ctc"] <= 1.0:
+        if not 0.0 <= self.weights["ctc_scorer"] <= 1.0:
             raise ValueError("ctc_weight should not > 1.0 and < 0.0")
 
-        if self.scorers_weights["ctc"] == 1.0:
+        if self.weights["ctc_scorer"] == 1.0:
             if "ctc" not in self.full_scorers.keys():
                 raise ValueError(
                     "CTC scorer should be a full scorer when it's weight is 1.0"
                 )
-            if self.scorers_weights["coverage"] > 0.0:
+            if self.weights["coverage_scorer"] > 0.0:
                 raise ValueError(
                     "Pure CTC scorer doesn't have attention weights for coverage scorer"
                 )
