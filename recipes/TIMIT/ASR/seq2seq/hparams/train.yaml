@@ -10,7 +10,7 @@
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_seq2seq/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -76,12 +76,17 @@ test_dataloader_opts:
 # For more info, see speechbrain.dataio.sampler.DynamicBatchSampler
 dynamic_batching: False
 
+feats_hop_size: 0.01
+max_batch_length: 5000 # in terms of frames
+num_buckets: 20
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 5000 # in terms of frames
-    num_buckets: 20
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
+    max_batch_length: !ref <max_batch_length>
+    num_buckets: !ref <num_buckets>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
 
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment

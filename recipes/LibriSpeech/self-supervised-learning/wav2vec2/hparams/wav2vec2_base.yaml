@@ -30,8 +30,16 @@ number_of_epochs: 3000
 optimizer_step_limit: 400000
 
 # Dynamic Batching parameters
-train_num_buckets: 70
-seconds_per_batch: 200 # Fits in a 32GB GPUs (V100)
+max_batch_length: 200 # Fits in a 32GB GPUs (V100)
+num_buckets: 70
+shuffle: True # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+
+dynamic_batch_sampler_train:
+   max_batch_length: !ref <max_batch_length>
+   num_buckets: !ref <num_buckets>
+   shuffle: !ref <shuffle>
+   batch_ordering: !ref <batch_ordering>
 
 train_dataloader_options:
    num_workers: 4

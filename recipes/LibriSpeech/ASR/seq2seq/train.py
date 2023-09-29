@@ -34,7 +34,6 @@ Authors
  * Andreas Nautsch 2021
 """
 
-import os
 import sys
 import torch
 import logging
@@ -192,7 +191,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -287,26 +286,18 @@ def dataio_prepare(hparams):
         from speechbrain.dataio.batch import PaddedBatch  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hop_size = dynamic_hparams["feats_hop_size"]
-
-        num_buckets = dynamic_hparams["num_buckets"]
+        hop_size = hparams["feats_hop_size"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams,
         )
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams,
         )
 
     return (
@@ -398,11 +389,18 @@ if __name__ == "__main__":
         valid_loader_kwargs=valid_dataloader_opts,
     )
 
+    import os
+
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )

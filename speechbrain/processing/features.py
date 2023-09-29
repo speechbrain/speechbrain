@@ -42,6 +42,8 @@ from speechbrain.utils.checkpoints import (
     mark_as_transfer,
     register_checkpoint_hooks,
 )
+from speechbrain.dataio.dataio import length_to_mask
+
 
 logger = logging.getLogger(__name__)
 
@@ -1213,3 +1215,327 @@ class InputNormalization(torch.nn.Module):
         device = "cpu"
         stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)
+
+
+class GlobalNorm(torch.nn.Module):
+    """A global normalization module - computes a single mean and standard deviation
+    for the entire batch across unmasked positions and uses it to normalize the
+    inputs to the desired mean and standard deviation.
+
+    This normalization is reversible - it is possible to use the .denormalize()
+    method to reover the original values.
+
+    Arguments
+    ---------
+    norm_mean: float
+        the desired normalized mean
+    norm_std: float
+        the desired normalized standard deviation
+    update_steps: float
+        the number of steps over which statistics will be collected
+    length_dim: int
+        the dimension used to represent the length
+    mask_value: float
+        the value with which to fill masked positions
+        without a mask_value, the masked positions would be normalized,
+        which might not be desired
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.processing.features import GlobalNorm
+    >>> global_norm = GlobalNorm(
+    ...     norm_mean=0.5,
+    ...     norm_std=0.2,
+    ...     update_steps=3,
+    ...     length_dim=1
+    ... )
+    >>> x = torch.tensor([[1., 2., 3.]])
+    >>> x_norm = global_norm(x)
+    >>> x_norm
+    tensor([[0.3000, 0.5000, 0.7000]])
+    >>> x = torch.tensor([[5., 10., -4.]])
+    >>> x_norm = global_norm(x)
+    >>> x_norm
+    tensor([[0.6071, 0.8541, 0.1623]])
+    >>> x_denorm = global_norm.denormalize(x_norm)
+    >>> x_denorm
+    tensor([[ 5.0000, 10.0000, -4.0000]])
+    >>> x = torch.tensor([[100., -100., -50.]])
+    >>> global_norm.freeze()
+    >>> global_norm(x)
+    tensor([[ 5.3016, -4.5816, -2.1108]])
+    >>> global_norm.denormalize(x_norm)
+    tensor([[ 5.0000, 10.0000, -4.0000]])
+    >>> global_norm.unfreeze()
+    >>> global_norm(x)
+    tensor([[ 5.3016, -4.5816, -2.1108]])
+    >>> global_norm.denormalize(x_norm)
+    tensor([[ 5.0000, 10.0000, -4.0000]])
+    """
+
+    def __init__(
+        self,
+        norm_mean=0.0,
+        norm_std=1.0,
+        update_steps=None,
+        length_dim=2,
+        mask_value=0.0,
+    ):
+        super().__init__()
+
+        running_mean = torch.tensor(0.0)
+        running_std = torch.tensor(0.0)
+        weight = torch.tensor(0.0)
+        self.register_buffer("running_mean", running_mean)
+        self.register_buffer("running_std", running_std)
+        self.register_buffer("weight", weight)
+        self.norm_mean = norm_mean
+        self.norm_std = norm_std
+        self.mask_value = mask_value
+        self.step_count = 0
+        self.update_steps = update_steps
+        self.length_dim = length_dim
+        self.frozen = False
+
+    def forward(self, x, lengths=None, mask_value=None, skip_update=False):
+        """Normalizes the tensor provided
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor to normalize
+        lengths: torch.Tensor
+            a tensor of relative lengths (padding will not
+            count towards normalization)
+        mask_value: float
+            the value to use for masked positions
+        skip_update: false
+            whether to skip updates to the norm
+
+        Returns
+        -------
+        result: torch.Tensor
+            the normalized tensor
+        """
+        if lengths is None:
+            lengths = torch.ones(len(x))
+        if mask_value is None:
+            mask_value = self.mask_value
+
+        mask = self.get_mask(x, lengths)
+
+        if (
+            not skip_update
+            and not self.frozen
+            and (
+                self.update_steps is None or self.step_count < self.update_steps
+            )
+        ):
+            x_masked = x.masked_select(mask)
+            mean = x_masked.mean()
+            std = x_masked.std()
+            weight = lengths.sum()
+
+            # TODO: Numerical stability
+            new_weight = self.weight + weight
+            self.running_mean.data = (
+                self.weight * self.running_mean + weight * mean
+            ) / new_weight
+            self.running_std.data = (
+                self.weight * self.running_std + weight * std
+            ) / new_weight
+            self.weight.data = new_weight
+        x = self.normalize(x)
+        if not torch.is_tensor(mask_value):
+            mask_value = torch.tensor(mask_value, device=x.device)
+        mask_value_norm = self.normalize(mask_value)
+        x = x.masked_fill(~mask, mask_value_norm)
+        self.step_count += 1
+        return x
+
+    def normalize(self, x):
+        """Performs the normalization operation against the running
+        mean and standard deviation
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor to normalize
+
+        Returns
+        -------
+        result: torch.Tensor
+            the normalized tensor
+        """
+        x = (x - self.running_mean) / self.running_std
+        x = (x * self.norm_std) + self.norm_mean
+        return x
+
+    def get_mask(self, x, lengths):
+        """Returns the length mask for the specified tensor
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the tensor for which the mask will be obtained
+
+        lengths: torch.Tensor
+            the length tensor
+
+        Returns
+        -------
+        mask: torch.Tensor
+            the mask tensor
+        """
+        max_len = x.size(self.length_dim)
+        mask = length_to_mask(lengths * max_len, max_len)
+        for dim in range(1, x.dim()):
+            if dim != self.length_dim:
+                mask = mask.unsqueeze(dim)
+        mask = mask.expand_as(x).bool()
+        return mask
+
+    def denormalize(self, x):
+        """Reverses the normalization proces
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            a normalized tensor
+
+        Returns
+        -------
+        result: torch.Tensor
+            a denormalized version of x
+        """
+        x = (x - self.norm_mean) / self.norm_std
+        x = x * self.running_std + self.running_mean
+        return x
+
+    def freeze(self):
+        """Stops updates to the running mean/std"""
+        self.frozen = True
+
+    def unfreeze(self):
+        """Resumes updates to the running mean/std"""
+        self.frozen = False
+
+
+class MinLevelNorm(torch.nn.Module):
+    """A commonly used normalization for the decibel scale
+
+    The scheme is as follows
+
+    x_norm = (x - min_level_db)/-min_level_db * 2 - 1
+
+    The rationale behind the scheme is as follows:
+
+    The top of the scale is assumed to be 0db.
+    x_rel = (x - min) / (max - min) gives the relative position on the scale
+    between the minimum and the maximum where the minimum is 0. and the
+    maximum is 1.
+
+    The subsequent rescaling (x_rel * 2 - 1) puts it on a scale from -1. to 1.
+    with the middle of the range centered at zero.
+
+    Arguments
+    ---------
+    min_level_db: float
+        the minimum level
+
+    Example
+    -------
+    >>> norm = MinLevelNorm(min_level_db=-100.)
+    >>> x = torch.tensor([-50., -20., -80.])
+    >>> x_norm = norm(x)
+    >>> x_norm
+    tensor([ 0.0000,  0.6000, -0.6000])
+    """
+
+    def __init__(self, min_level_db):
+        super().__init__()
+        self.min_level_db = min_level_db
+
+    def forward(self, x):
+        """Normalizes audio features in decibels (usually spectrograms)
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            input features
+        Returns
+        -------
+        normalized_features: torch.Tensor
+            the normalized features
+        """
+
+        x = (x - self.min_level_db) / -self.min_level_db
+        x *= 2.0
+        x = x - 1.0
+        x = torch.clip(x, -1, 1)
+        return x
+
+    def denormalize(self, x):
+        """Reverses the min level normalization process
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the normalized tensor
+
+        Returns
+        -------
+        result: torch.Tensor
+            the denormalized tensor
+        """
+        x = torch.clip(x, -1, 1)
+        x = (x + 1.0) / 2.0
+        x *= -self.min_level_db
+        x += self.min_level_db
+        return x
+
+
+class DynamicRangeCompression(torch.nn.Module):
+    """Dynamic range compression for audio signals - clipped log scale
+    with an optional multiplier
+
+    Arguments
+    ---------
+    multiplier: float
+        the multiplier constant
+    clip_val: float
+        the minimum accepted value (values below this
+        minimum will be clipped)
+
+    Example
+    -------
+    >>> drc = DynamicRangeCompression()
+    >>> x = torch.tensor([10., 20., 0., 30.])
+    >>> drc(x)
+    tensor([  2.3026,   2.9957, -11.5129,   3.4012])
+    >>> drc = DynamicRangeCompression(2.)
+    >>> x = torch.tensor([10., 20., 0., 30.])
+    >>> drc(x)
+    tensor([  2.9957,   3.6889, -10.8198,   4.0943])
+    """
+
+    def __init__(self, multiplier=1, clip_val=1e-5):
+        super().__init__()
+        self.multiplier = multiplier
+        self.clip_val = clip_val
+
+    def forward(self, x):
+        """Performs the forward pass
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            the source signal
+
+        Returns
+        -------
+        result: torch.Tensor
+            the result
+        """
+        return torch.log(torch.clamp(x, min=self.clip_val) * self.multiplier)

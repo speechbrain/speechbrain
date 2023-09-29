@@ -15,6 +15,9 @@ experiment: train-real-and-synth
 output_folder: !ref results/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+all_real_wer_file: !ref <output_folder>/all_real_wer.txt
+test_real_wer_file: !ref <output_folder>/test_real_wer.txt
+test_synth_wer_file: !ref <output_folder>/test_synth_wer.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
@@ -63,9 +66,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
-    source: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_opts: {"device":"cuda:0"}
+asr_model_source: speechbrain/asr-crdnn-rnnlm-librispeech
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]

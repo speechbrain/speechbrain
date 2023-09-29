@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-import functools
-import os
-import sys
-from pathlib import Path
-
-import torch
-import logging
-import speechbrain as sb
-import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-
-from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main, if_main_process
-
 """Recipe for training a sequence-to-sequence ASR system with Switchboard.
 The system employs a wav2vec2 encoder and a CTC decoder.
 Decoding is performed with greedy decoding.
@@ -36,6 +21,21 @@ Authors
  * Titouan Parcollet 2021
  * Dominik Wagner 2022
 """
+
+import functools
+import os
+import sys
+from pathlib import Path
+
+import torch
+import logging
+import speechbrain as sb
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +94,20 @@ class ASR(sb.core.Brain):
 
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
             sequence = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
 
             predicted_words = self.tokenizer(sequence, task="decode_from_list")
+
+        elif stage == sb.Stage.TEST:
+            # Decode token terms to words
+            sequence = test_searcher(p_ctc, wav_lens)
+            predicted_words = [hyp[0].text.split(" ") for hyp in sequence]
+
+        if stage != sb.Stage.TRAIN:
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -213,7 +220,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -423,8 +430,22 @@ if __name__ == "__main__":
         normalize_fn=normalize_fn,
     )
 
-    # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
+    vocab_list = [
+        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
+    ]
+    test_searcher = hparams["test_searcher"](
+        blank_index=hparams["blank_index"],
+        vocab_list=vocab_list,
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
+    )
 
     # Training
     asr_brain.fit(
@@ -435,12 +456,16 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
 
-    # Test
+    # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], "wer_{}.txt".format(k)
         )
         asr_brain.evaluate(
             test_datasets[k],
             test_loader_kwargs=hparams["test_dataloader_options"],
+            min_key="WER",
         )

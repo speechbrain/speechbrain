@@ -13,7 +13,7 @@
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_960h_LM_SLiGRU/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -51,12 +51,16 @@ sorting: ascending
 dynamic_batching: False
 
 # dynamic batching parameters, if used
+feats_hop_size: 0.01
+max_batch_length: 20000 # in terms of frames
+shuffle: True
+batch_ordering: random
+num_buckets: 20
 dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 20000 # in terms of frames
-   shuffle_ex: True
-   batch_ordering: random
-   num_buckets: 20
+   max_batch_length: !ref <max_batch_length>
+   shuffle: !ref <shuffle>
+   batch_ordering: !ref <batch_ordering>
+   num_buckets: !ref <num_buckets>
 
 # Feature parameters
 sample_rate: 16000

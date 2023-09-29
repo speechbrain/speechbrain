@@ -14,6 +14,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/better_tokenizer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+test_wer_file: !ref <output_folder>/wer_test_real.txt
 
 # Data files
 # The SLURP dataset will be automatically downloaded in the specified data_folder
@@ -59,9 +60,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
-    source: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_opts: {"device":"cuda:0"}
+asr_model_source: speechbrain/asr-crdnn-rnnlm-librispeech
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]

@@ -153,7 +153,7 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nseq2seq loss stats:\n")
@@ -162,7 +162,7 @@ class ASR(sb.Brain):
                     self.per_metrics.write_stats(w)
                     print(
                         "CTC, seq2seq, and PER stats written to file",
-                        self.hparams.wer_file,
+                        self.hparams.test_wer_file,
                     )
 
 
@@ -272,15 +272,12 @@ def dataio_prep(hparams):
     # Support for dynamic batching
     if hparams["dynamic_batching"]:
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hop_size = dynamic_hparams["feats_hop_size"]
+        hop_size = hparams["feats_hop_size"]
 
         batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=dynamic_hparams["num_buckets"],
+            **dynamic_hparams,
             length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
         train_data = SaveableDataLoader(

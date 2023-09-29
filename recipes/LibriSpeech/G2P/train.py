@@ -109,7 +109,7 @@ class G2PBrain(sb.Brain):
         """
         # Run this *after* starting all processes since jit modules cannot be
         # pickled.
-        self._compile_jit()
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -530,10 +530,7 @@ class G2PBrain(sb.Brain):
                 if self.hparams.enable_metrics:
                     self._write_reports(epoch, final=False)
 
-            if self.epoch_counter.should_stop(
-                current=epoch, current_metric=per,
-            ):
-                self.epoch_counter.current = self.epoch_counter.limit
+            self.epoch_counter.update_metric(per)
 
         if stage == sb.Stage.TEST:
             test_stats = {"loss": stage_loss}
@@ -1178,7 +1175,10 @@ if __name__ == "__main__":
 
         # Validate hyperparameters
         if not validate_hparams(hparams):
-            sys.exit(1)
+            raise ValueError(
+                "Non-wordwise tokenization is not supported with "
+                "homograph disambiguation training"
+            )
 
         # Initialize ddp (useful only for multi-GPU DDP training)
         sb.utils.distributed.ddp_init_group(run_opts)

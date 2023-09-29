@@ -9,10 +9,14 @@ Authors:
  * Abdel Heba 2021
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023
 """
 import logging
 import hashlib
+import re
 import sys
+import warnings
 import speechbrain
 import torch
 import torchaudio
@@ -179,7 +183,13 @@ class Pretrained(torch.nn.Module):
          * data_parallel_backend
          * distributed_launch
          * distributed_backend
+         * jit
          * jit_module_keys
+         * compule
+         * compile_module_keys
+         * compile_mode
+         * compile_using_fullgraph
+         * compile_using_dynamic_shape_tracing
     freeze_params : bool
         To freeze (requires_grad=False) parameters or not. Normally in inference
         you want to freeze the params. Also calls .eval() on all modules.
@@ -200,7 +210,13 @@ class Pretrained(torch.nn.Module):
             "data_parallel_backend": False,
             "distributed_launch": False,
             "distributed_backend": "nccl",
+            "jit": False,
             "jit_module_keys": None,
+            "compile": False,
+            "compile_module_keys": None,
+            "compile_mode": "reduce-overhead",
+            "compile_using_fullgraph": False,
+            "compile_using_dynamic_shape_tracing": False,
         }
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -248,7 +264,7 @@ class Pretrained(torch.nn.Module):
         """
 
         # Make jit-able
-        self._compile_jit()
+        self._compile()
         self._wrap_distributed()
 
         # If we don't want to backprop, freeze the pretrained parameters
@@ -272,19 +288,74 @@ class Pretrained(torch.nn.Module):
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
+        if not compile_available and self.compile_module_keys is not None:
+            raise ValueError(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it."
+            )
+
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.mods)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
+                logger.warning(
+                    "--compile and --compile_module_keys are both specified. "
+                    "Only modules specified in --compile_module_keys will be compiled."
+                )
+
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.mods)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
+                logger.warning(
+                    "--jit and --jit_module_keys are both specified. "
+                    "Only modules specified in --jit_module_keys will be compiled."
+                )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
             if name not in self.mods:
                 raise ValueError(
-                    "module " + name + " cannot be jit compiled because "
-                    "it is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.mods[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_using_fullgraph,
+                    dynamic=self.compile_using_dynamic_shape_tracing,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
+
+            self.mods[name] = module.to(self.device)
+            jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
             module = torch.jit.script(self.mods[name])
             self.mods[name] = module.to(self.device)
+
+    def _compile_jit(self):
+        warnings.warn("'_compile_jit' is deprecated; use '_compile' instead")
+        self._compile()
 
     def _wrap_distributed(self):
         """Wrap modules with distributed wrapper when requested."""
@@ -861,7 +932,7 @@ class EncoderASR(Pretrained):
                     for token_seq in predictions
                 ]
             else:
-                sys.exit(
+                raise ValueError(
                     "The tokenizer must be sentencepiece or CTCTextEncoder"
                 )
 
@@ -1103,8 +1174,8 @@ class SpeakerRecognition(EncoderClassifier):
             The prediction is 1 if the two signals in input are from the same
             speaker and 0 otherwise.
         """
-        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=True)
-        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=True)
+        emb1 = self.encode_batch(wavs1, wav1_lens, normalize=False)
+        emb2 = self.encode_batch(wavs2, wav2_lens, normalize=False)
         score = self.similarity(emb1, emb2)
         return score, score > threshold
 
@@ -1161,7 +1232,6 @@ class VAD(Pretrained):
         super().__init__(*args, **kwargs)
         self.time_resolution = self.hparams.time_resolution
         self.sample_rate = self.hparams.sample_rate
-        self.device = self.hparams.device
 
     def get_speech_prob_file(
         self,
@@ -2821,7 +2891,7 @@ class FastSpeech2(Pretrained):
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
     >>> fastspeech2 = FastSpeech2.from_hparams(source="speechbrain/tts-fastspeech2-ljspeech", savedir=tmpdir_tts) # doctest: +SKIP
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"]) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
     >>> items = [
     ...   "A quick brown fox jumped over the lazy dog",
     ...   "How much wood would a woodchuck chuck?",
@@ -2834,7 +2904,7 @@ class FastSpeech2(Pretrained):
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb"]) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
     >>> waveforms = hifi_gan.decode_batch(mel_outputs) # doctest: +SKIP
     """
@@ -3066,6 +3136,257 @@ class FastSpeech2(Pretrained):
         )
 
 
+class FastSpeech2InternalAlignment(Pretrained):
+    """
+    A ready-to-use wrapper for Fastspeech2 with internal alignment(text -> mel_spec).
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    Example
+    -------
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> fastspeech2 = FastSpeech2InternalAlignment.from_hparams(source="speechbrain/tts-fastspeech2-internal-alignment-ljspeech", savedir=tmpdir_tts) # doctest: +SKIP
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
+    >>> items = [
+    ...   "A quick brown fox jumped over the lazy dog",
+    ...   "How much wood would a woodchuck chuck?",
+    ...   "Never odd or even"
+    ... ]
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items) # doctest: +SKIP
+    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
+    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
+    >>> # Running the TTS
+    >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(["Mary had a little lamb."]) # doctest: +SKIP
+    >>> # Running Vocoder (spectrogram-to-waveform)
+    >>> waveforms = hifi_gan.decode_batch(mel_outputs) # doctest: +SKIP
+    """
+
+    HPARAMS_NEEDED = ["model", "input_encoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        lexicon = self.hparams.lexicon
+        lexicon = ["@@"] + lexicon
+        self.input_encoder = self.hparams.input_encoder
+        self.input_encoder.update_from_iterable(lexicon, sequence_input=False)
+        self.input_encoder.add_unk()
+
+        self.g2p = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p")
+
+    def encode_text(self, texts, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Computes mel-spectrogram for a list of texts
+
+        Arguments
+        ---------
+        texts: List[str]
+            texts to be converted to spectrogram
+        pace: float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        # Preprocessing required at the inference time for the input text
+        # "label" below contains input text
+        # "phoneme_labels" contain the phoneme sequences corresponding to input text labels
+
+        phoneme_labels = list()
+        max_seq_len = -1
+
+        for label in texts:
+            phonemes_with_punc = self._g2p_keep_punctuations(self.g2p, label)
+            if max_seq_len < len(phonemes_with_punc):
+                max_seq_len = len(phonemes_with_punc)
+            token_seq = (
+                self.input_encoder.encode_sequence_torch(phonemes_with_punc)
+                .int()
+                .to(self.device)
+            )
+            phoneme_labels.append(token_seq)
+
+        tokens_padded = torch.LongTensor(len(texts), max_seq_len).to(
+            self.device
+        )
+        tokens_padded.zero_()
+
+        for seq_idx, seq in enumerate(phoneme_labels):
+            tokens_padded[seq_idx, : len(seq)] = seq
+
+        return self.encode_batch(
+            tokens_padded,
+            pace=pace,
+            pitch_rate=pitch_rate,
+            energy_rate=energy_rate,
+        )
+
+    def _g2p_keep_punctuations(self, g2p_model, text):
+        """do grapheme to phoneme and keep the punctuations between the words
+        """
+        # find the words where a "-" or "'" or "." or ":" appears in the middle
+        special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
+
+        # remove intra-word punctuations ("-':."), this does not change the output of speechbrain g2p
+        for special_word in special_words:
+            rmp = special_word.replace("-", "")
+            rmp = rmp.replace("'", "")
+            rmp = rmp.replace(":", "")
+            rmp = rmp.replace(".", "")
+            text = text.replace(special_word, rmp)
+
+        # keep inter-word punctuations
+        all_ = re.findall(r"[\w]+|[-!'(),.:;? ]", text)
+        try:
+            phonemes = g2p_model(text)
+        except RuntimeError:
+            logger.info(f"error with text: {text}")
+            quit()
+        word_phonemes = "-".join(phonemes).split(" ")
+
+        phonemes_with_punc = []
+        count = 0
+        try:
+            # if the g2p model splits the words correctly
+            for i in all_:
+                if i not in "-!'(),.:;? ":
+                    phonemes_with_punc.extend(word_phonemes[count].split("-"))
+                    count += 1
+                else:
+                    phonemes_with_punc.append(i)
+        except IndexError:
+            # sometimes the g2p model cannot split the words correctly
+            logger.warning(
+                f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}"
+            )
+
+            for i in all_:
+                if i not in "-!'(),.:;? ":
+                    p = g2p_model.g2p(i)
+                    p_without_space = [i for i in p if i != " "]
+                    phonemes_with_punc.extend(p_without_space)
+                else:
+                    phonemes_with_punc.append(i)
+
+        while "" in phonemes_with_punc:
+            phonemes_with_punc.remove("")
+        return phonemes_with_punc
+
+    def encode_phoneme(
+        self, phonemes, pace=1.0, pitch_rate=1.0, energy_rate=1.0
+    ):
+        """Computes mel-spectrogram for a list of phoneme sequences
+
+        Arguments
+        ---------
+        phonemes: List[List[str]]
+            phonemes to be converted to spectrogram
+        pace: float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        all_tokens = []
+        max_seq_len = -1
+        for phoneme in phonemes:
+            token_seq = (
+                self.input_encoder.encode_sequence_torch(phoneme)
+                .int()
+                .to(self.device)
+            )
+            if max_seq_len < token_seq.shape[-1]:
+                max_seq_len = token_seq.shape[-1]
+            all_tokens.append(token_seq)
+
+        tokens_padded = torch.LongTensor(len(phonemes), max_seq_len).to(
+            self.device
+        )
+        tokens_padded.zero_()
+
+        for seq_idx, seq in enumerate(all_tokens):
+            tokens_padded[seq_idx, : len(seq)] = seq
+
+        return self.encode_batch(
+            tokens_padded,
+            pace=pace,
+            pitch_rate=pitch_rate,
+            energy_rate=energy_rate,
+        )
+
+    def encode_batch(
+        self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
+    ):
+        """Batch inference for a tensor of phoneme sequences
+        Arguments
+        ---------
+        tokens_padded : torch.Tensor
+            A sequence of encoded phonemes to be converted to spectrogram
+        pace : float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+        """
+        with torch.no_grad():
+
+            (
+                _,
+                post_mel_outputs,
+                durations,
+                pitch,
+                _,
+                energy,
+                _,
+                _,
+                _,
+                _,
+                _,
+                _,
+            ) = self.hparams.model(
+                tokens_padded,
+                pace=pace,
+                pitch_rate=pitch_rate,
+                energy_rate=energy_rate,
+            )
+
+            # Transposes to make in compliant with HiFI GAN expected format
+            post_mel_outputs = post_mel_outputs.transpose(-1, 1)
+
+        return post_mel_outputs, durations, pitch, energy
+
+    def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
+        """Batch inference for a tensor of phoneme sequences
+        Arguments
+        ---------
+        text : str
+            A text to be converted to spectrogram
+        pace : float
+            pace for the speech synthesis
+        pitch_rate : float
+            scaling factor for phoneme pitches
+        energy_rate : float
+            scaling factor for phoneme energies
+        """
+        return self.encode_text(
+            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+        )
+
+
 class HIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
@@ -3175,6 +3496,141 @@ class HIFIGAN(Pretrained):
 
     def forward(self, spectrogram):
         "Decodes the input spectrograms"
+        return self.decode_batch(spectrogram)
+
+
+class DiffWaveVocoder(Pretrained):
+    """
+    A ready-to-use inference wrapper for DiffWave as vocoder.
+    The wrapper allows to perform generative tasks:
+        locally-conditional generation: mel_spec -> waveform
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    """
+
+    HPARAMS_NEEDED = ["diffusion"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if hasattr(self.hparams, "diffwave"):
+            self.infer = self.hparams.diffusion.inference
+        else:
+            raise NotImplementedError
+
+    def decode_batch(
+        self,
+        mel,
+        hop_len,
+        mel_lens=None,
+        fast_sampling=False,
+        fast_sampling_noise_schedule=None,
+    ):
+        """Generate waveforms from spectrograms
+        Arguments
+        ---------
+        mel: torch.tensor
+            spectrogram [batch, mels, time]
+        hop_len: int
+            Hop length during mel-spectrogram extraction
+            Should be the same value as in the .yaml file
+            Used to determine the output wave length
+            Also used to mask the noise for vocoding task
+        mel_lens: torch.tensor
+            Used to mask the noise caused by padding
+            A list of lengths of mel-spectrograms for the batch
+            Can be obtained from the output of Tacotron/FastSpeech
+        fast_sampling: bool
+            whether to do fast sampling
+        fast_sampling_noise_schedule: list
+            the noise schedules used for fast sampling
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+
+        """
+        with torch.no_grad():
+            waveform = self.infer(
+                unconditional=False,
+                scale=hop_len,
+                condition=mel.to(self.device),
+                fast_sampling=fast_sampling,
+                fast_sampling_noise_schedule=fast_sampling_noise_schedule,
+            )
+
+        # Mask the noise caused by padding during batch inference
+        if mel_lens is not None and hop_len is not None:
+            waveform = self.mask_noise(waveform, mel_lens, hop_len)
+        return waveform
+
+    def mask_noise(self, waveform, mel_lens, hop_len):
+        """Mask the noise caused by padding during batch inference
+        Arguments
+        ---------
+        wavform: torch.tensor
+            Batch of generated waveforms [batch, 1, time]
+        mel_lens: torch.tensor
+            A list of lengths of mel-spectrograms for the batch
+            Can be obtained from the output of Tacotron/FastSpeech
+        hop_len: int
+            hop length used for mel-spectrogram extraction
+            same value as in the .yaml file
+        Returns
+        -------
+        waveform: torch.tensor
+            Batch of waveforms without padded noise [batch, 1, time]
+        """
+        waveform = waveform.squeeze(1)
+        # the correct audio length should be hop_len * mel_len
+        mask = length_to_mask(
+            mel_lens * hop_len, waveform.shape[1], device=waveform.device
+        ).bool()
+        waveform.masked_fill_(~mask, 0.0)
+        return waveform.unsqueeze(1)
+
+    def decode_spectrogram(
+        self,
+        spectrogram,
+        hop_len,
+        fast_sampling=False,
+        fast_sampling_noise_schedule=None,
+    ):
+        """Computes waveforms from a single mel-spectrogram
+        Arguments
+        ---------
+        spectrogram: torch.tensor
+            mel-spectrogram [mels, time]
+        hop_len: int
+            hop length used for mel-spectrogram extraction
+            same value as in the .yaml file
+        fast_sampling: bool
+            whether to do fast sampling
+        fast_sampling_noise_schedule: list
+            the noise schedules used for fast sampling
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+
+        audio can be saved by:
+        >>> waveform = torch.rand(1, 666666)
+        >>> sample_rate = 22050
+        >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
+        """
+        with torch.no_grad():
+            waveform = self.infer(
+                unconditional=False,
+                scale=hop_len,
+                condition=spectrogram.unsqueeze(0).to(self.device),
+                fast_sampling=fast_sampling,
+                fast_sampling_noise_schedule=fast_sampling_noise_schedule,
+            )
+        return waveform.squeeze(0)
+
+    def forward(self, spectrogram):
+        """Decodes the input spectrograms"""
         return self.decode_batch(spectrogram)
 
 

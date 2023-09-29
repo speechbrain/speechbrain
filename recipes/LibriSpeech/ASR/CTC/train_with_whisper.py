@@ -20,7 +20,6 @@ Authors
  * Samuele Cornell 2020
 """
 
-import os
 import sys
 import torch
 import logging
@@ -57,10 +56,12 @@ class ASR(sb.Brain):
         p_tokens = None
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
 
         return p_ctc, wav_lens, p_tokens
 
@@ -75,13 +76,19 @@ class ASR(sb.Brain):
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
 
             # Decode token terms to words
             predicted_words = self.tokenizer(
                 predicted_tokens, task="decode_from_list"
             )
 
+        elif stage == sb.Stage.TEST:
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
+
+        if stage != sb.Stage.TRAIN:
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer(target_words, task="decode_from_list")
@@ -178,7 +185,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -346,6 +353,23 @@ if __name__ == "__main__":
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
 
+    vocab_list = [
+        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
+    ]
+    test_searcher = hparams["test_searcher"](
+        blank_index=hparams["blank_index"],
+        vocab_list=vocab_list,
+        space_token=hparams["space_token"],
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
+    )
+
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
@@ -355,11 +379,18 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
+    import os
+
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )
