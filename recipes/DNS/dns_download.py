@@ -200,11 +200,10 @@ def prepare_download():
     """
     Downloads and prepares various data files and resources. It
     downloads real-time DNS track data files (train set and dev
-    noisy set), RIR and BLIND test set data files.
+    noisy set).
     """
     # Real-time DNS track (train set + dev noisy set)
     for file_url in BLOB_NAMES:
-
         for split in SPLIT_LIST:
             if split in file_url:
                 split_name = split
@@ -236,6 +235,15 @@ def prepare_download():
             print(", \tDownload complete. Skipping")
         decompress_file(download_path, DECOMPRESSED_PATH, split_name)
 
+    # Download RIR (impulse response) & BLIND testset
+    rir_blind_test_download()
+
+
+def rir_blind_test_download():
+    """
+    Download the RIRs (room impulse responses), and the blind
+    test set.
+    """
     # RIR (impulse response) & BLIND testset
     for split_name, download_urls in OTHER_URLS.items():
         for file_url in download_urls:
@@ -405,6 +413,9 @@ def parallel_download():
         for future in futures:
             future.result()
 
+    # Download RIR (impulse response) & BLIND testset
+    rir_blind_test_download()
+
 
 def decompress_file(file, decompress_path, split_name):
     """
@@ -507,7 +518,7 @@ def validate_file(download_url, download_path):
         download_url,
         context=ssl.create_default_context(cafile=certifi.where()),
     ).length
-    # pdb.set_trace()
+
     download_size = os.path.getsize(download_path)
 
     print(
@@ -583,4 +594,7 @@ if __name__ == "__main__":
                 line = line.replace(original, replacement)
             print(line, end="")
 
-    shutil.move(file_path, "noisyspeech_synthesizer")
+    if not os.path.exists(
+        os.path.join("noisyspeech_synthesizer", "RIR_table_simple.csv")
+    ):
+        shutil.move(file_path, "noisyspeech_synthesizer")
