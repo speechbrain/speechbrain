@@ -208,13 +208,6 @@ def parse_arguments(arg_list=None):
         type=str,
         help="A file storing the configuration options for logging",
     )
-    # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument(
-        "--local_rank",
-        "--local-rank",  # alias required for PyTorch 2.x
-        type=int,
-        help="Rank on local machine",
-    )
     parser.add_argument(
         "--device",
         type=str,
@@ -226,13 +219,6 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="This flag enables training with data_parallel.",
-    )
-    parser.add_argument(
-        "--distributed_launch",
-        default=False,
-        action="store_true",
-        help="This flag enables training with DDP. Assumes script run with "
-        "`torch.distributed.launch`",
     )
     parser.add_argument(
         "--distributed_backend",
@@ -376,17 +362,8 @@ def parse_arguments(arg_list=None):
         if torch.cuda.device_count() == 0:
             raise ValueError("You must have at least 1 GPU.")
 
-    # For DDP, the device args must equal to local_rank used by
-    # torch.distributed.launch. If run_opts["local_rank"] exists,
-    # use os.environ["LOCAL_RANK"]
-    local_rank = None
-    if "local_rank" in run_opts:
-        local_rank = run_opts["local_rank"]
-    else:
-        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
-            local_rank = int(os.environ["LOCAL_RANK"])
-
-    # force device arg to be the same as local_rank from torch.distributed.lunch
+    # force device arg to be the same as local_rank from torchrun
+    local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
 
@@ -556,7 +533,6 @@ class Brain:
             "debug_persistently": False,
             "device": "cpu",
             "data_parallel_backend": False,
-            "distributed_launch": False,
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
             "jit": False,
@@ -621,15 +597,19 @@ class Brain:
                 + str(PYTHON_VERSION_MINOR)
             )
 
+        # Assume `torchrun` was used if `RANK` and `LOCAL_RANK` are set
+        self.distributed_launch = (
+            os.environ.get("RANK") is not None
+            and os.environ.get("LOCAL_RANK") is not None
+        )
+
         if self.data_parallel_backend and self.distributed_launch:
             raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
-                "--data_parallel_backend=True"
+                "--data_parallel_backend=True\n"
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
-                "--distributed_backend=nccl"
+                "torchrun [args] experiment.py hyperparams.yaml"
             )
 
         if self.distributed_launch and self.ckpt_interval_minutes > 0:
@@ -713,9 +693,7 @@ class Brain:
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.launch [args]\n\t"
-                        "experiment.py hyperparams.yaml "
-                        "--distributed_launch=True --distributed_backend=nccl"
+                        "torchrun [args] experiment.py hyperparams.yaml"
                     )
                 else:
                     logger.warning(
