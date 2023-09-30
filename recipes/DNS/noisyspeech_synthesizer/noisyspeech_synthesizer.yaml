@@ -37,12 +37,11 @@
 
 # Data storage params
 uncompressed_path: !PLACEHOLDER  # ../DNS-dataset/datasets_fullband
+split_name: !PLACEHOLDER # read_speech, german_speech, italian_speech, french_speech etc
 rirs: RIR_table_simple.csv
-split_name: read_speech
-synthesized_data_dir: synthesized_data_shards
 
 # Noisy data synthesis params
-sampling_rate: 16000 # sampling rate of input signal
+sampling_rate: 16000 # sampling rate of synthesized signal
 audioformat: "*.wav"
 audio_length: 4
 silence_length: 0.2
@@ -66,17 +65,18 @@ rir_table_csv: !ref <rirs>
 
 # Directory path where Webdatasets of DNS clean and noise shards are located.
 input_sampling_rate: 48000  # sampling rate of input signal
-shards_dir: !PLACEHOLDER  #  ../DNS-shards
-clean_meta: !ref <shards_dir>/clean_fullband/<split_name>/meta.json
-noise_meta: !ref <shards_dir>/noise_fullband/meta.json
-clean_fullband_shards: !ref <shards_dir>/clean_fullband/<split_name>/shard-{000000..000001}.tar
-noise_fullband_shards: !ref <shards_dir>/noise_fullband/shard-{000000..000005}.tar
+input_shards_dir: !PLACEHOLDER  #  ../DNS-shards
+clean_meta: !ref <input_shards_dir>/clean_fullband/<split_name>/meta.json
+noise_meta: !ref <input_shards_dir>/noise_fullband/meta.json
+clean_fullband_shards: !ref <input_shards_dir>/clean_fullband/<split_name>/shard-{000000..000001}.tar
+noise_fullband_shards: !ref <input_shards_dir>/noise_fullband/shard-{000000..000005}.tar
 
 # Configuration for synthesizing shards of clean-noisy pairs.
-sharding: True
+sharding: True # set to false, if you want to instead save synthesized data as wav files.
 samples_per_shard: 5000
 
 # Destination directory for storing shards of synthesized data.
+synthesized_data_dir: !PLACEHOLDER  #  synthesized_data_shards
 shard_destination: !ref <synthesized_data_dir>/<split_name>
 
 # Set to a directory on a large disk if using Webdataset shards hosted on the web.

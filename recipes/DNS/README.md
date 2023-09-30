@@ -34,8 +34,8 @@ datasets_fullband 892G
 ```
 
 ### **Required disk space**
-The `dns_download.py` download script downloads the Real-time DNS track data and de-compresses it. The compressed data takes around 550 GB of disk space and when de-compressed you would need 1 TB to store audio files.
-However this is not the end, the downloaded clean-audio files, RIRs, and noisy-audio files are further used to synthesize clean-noisy audio pairs for training. This means further space will be needed to store the synthesized clean-noisy-noise audio.
+The `dns_download.py` download script downloads the Real-time DNS track data and de-compresses it. The compressed data takes around 550 GB of disk space and when de-compressed you would need 1 TB to store audio files. We bundle this decompressed audio into larger archives called as shards.
+However this is not the end, the downloaded clean-audio files, RIRs, and noisy-audio files are further used to synthesize clean-noisy audio pairs for training. Once again, we bundle the synthesized data into shards for efficient and faster accessibility. This means further space will be needed to store the synthesized clean-noisy-noise shards.
 
 **NOTE**
 - This dataset download process can be extremely time-consuming. With a total of 126 splits (train, noise and dev data), the script downloads each split in a serial order. The script also allows concurrent data download (by enabling `--parallel_download` param) by using multiple threads (equal to number of your CPU cores). This is helpful especially when you have access to a large cluster. (Alternatively, you can download all 126 splits and decompress them at once by using array job submission.)
@@ -45,7 +45,7 @@ However this is not the end, the downloaded clean-audio files, RIRs, and noisy-a
 - STEP 2: Synthesize noisy data.
 - STEP 3: Begin training.
 
-## Step 1: **Downloading Real-time DNS track dataset**
+## Step 1: **Downloading Real-time DNS track dataset and create the Webdataset shards**
 The DNS dataset can be downloaded by running the script below
 ```
 python dns_download.py --compressed_path DNS-dataset --decompressed_path DNS-compressed
@@ -54,15 +54,29 @@ To use parallel downloading
 ```
 python dns_download.py --compressed_path DNS-dataset --decompressed_path DNS-compressed --parallel_download
 ```
-
 The compressed files are downloaded in `DNS-compressed` and further decompressed audio files can be found in `DNS-dataset`.
 
+Next, create webdataset shards
+```
+## webdataset shards for clean_fullband
+python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech>/ DNS-shards/
+
+## webdataset shards for noise_fullband
+python create_wds_shards.py DNS-dataset/datasets_fullband/noise_fullband/ DNS-shards/
+```
 ## Step 2: **Synthesize noisy data**
 To synthesize clean-noisy audio for speech enhancement training (we add noise, RIR to clean fullband speech to synthesize clean-noisy pairs)
+### option 1: create the Webdataset shards
 ```
 cd noisyspeech_synthesizer
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --uncompressed_path ../DNS-dataset/datasets_fullband/ --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech>
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --uncompressed_path ../DNS-dataset/datasets_fullband/ --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech> --input_shards_dir ../DNS-shards --synthesized_data_dir synthesized_data_shards
 ```
+### option 2: store them as wav files
+```
+cd noisyspeech_synthesizer
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --uncompressed_path ../DNS-dataset/datasets_fullband/ --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech> --input_shards_dir ../DNS-shards --synthesized_data_dir synthesized_data --sharding False
+```
+
 Select one of `read_speech`, `german_speech`, `french_speech`, `italian_speech`, `russian_speech` or `spanish_speech`. <br>
 *For more see `noisyspeech_synthesizer` on how to synthesize noisy files from clean audio and noise audio files.*
 
