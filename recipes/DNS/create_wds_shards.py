@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Converts the uncompressed DNS folder 
+# Converts the uncompressed DNS folder
 # {french,german,...}_speech/../<*.wav>
 # structure of DNS into a WebDataset format
 #
