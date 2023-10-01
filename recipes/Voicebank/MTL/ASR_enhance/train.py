@@ -412,6 +412,7 @@ class MTLbrain(sb.Brain):
             min_key=min_key,
             max_num_checkpoints=self.hparams.checkpoint_avg,
         )
+        print(f"Averaging {len(checkpoints)} Checkpoints...")
         for model in self.modules:
             if (
                 model not in self.hparams.frozen_models
