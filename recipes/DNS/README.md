@@ -64,28 +64,21 @@ python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_s
 ## webdataset shards for noise_fullband
 python create_wds_shards.py DNS-dataset/datasets_fullband/noise_fullband/ DNS-shards/
 ```
-## Step 2: **Synthesize noisy data**
+## Step 2: **Synthesize noisy data and create the Webdataset shards**
 To synthesize clean-noisy audio for speech enhancement training (we add noise, RIR to clean fullband speech to synthesize clean-noisy pairs)
-### option 1: create the Webdataset shards
 ```
 cd noisyspeech_synthesizer
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --uncompressed_path ../DNS-dataset/datasets_fullband/ --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech> --input_shards_dir ../DNS-shards --synthesized_data_dir synthesized_data_shards
-```
-### option 2: store them as wav files
-```
-cd noisyspeech_synthesizer
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --uncompressed_path ../DNS-dataset/datasets_fullband/ --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech> --input_shards_dir ../DNS-shards --synthesized_data_dir synthesized_data --sharding False
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech> --synthesized_data_dir synthesized_data_shards
 ```
 
 Select one of `read_speech`, `german_speech`, `french_speech`, `italian_speech`, `russian_speech` or `spanish_speech`. <br>
 *For more see `noisyspeech_synthesizer` on how to synthesize noisy files from clean audio and noise audio files.*
 
-
 ## Step 3: **Begin training**
 To start training
 ```
 cd enhancement
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data> --baseline_noisy_folder <path/to/baseline-noisy-testclips>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data_shards> --baseline_noisy_folder <path/to/baseline-noisy-testclips>
 ```
 *For more details and how to perform evaluation, see `enhancement` folder on details about the main training script*
 

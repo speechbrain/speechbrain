@@ -65,6 +65,10 @@ def write_shards(
         delim = "clean_fullband/"
     elif "noise" in dns_folder_path.as_posix():
         delim = "noise_fullband/"
+        lang = "noise"
+    elif "dev_testset" in dns_folder_path.as_posix():
+        delim = "dev_testset/"
+        lang = "baseline_noisytestset"
     else:
         sys.exit("Unsupported path name")
 
@@ -75,10 +79,8 @@ def write_shards(
 
         loc = f.as_posix()
         key = os.path.splitext(sub_path)[0]
-        if "noise" in dns_folder_path.as_posix():
+        if "clean_fullband" in dns_folder_path.as_posix():
             lang = key.split("_speech")[0]
-        else:
-            lang = "noise"
 
         dur = librosa.get_duration(path=loc)
 

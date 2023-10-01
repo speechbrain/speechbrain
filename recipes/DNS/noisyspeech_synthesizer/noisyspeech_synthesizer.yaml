@@ -21,22 +21,13 @@
 # - fileindex_start: Starting file ID that will be used in filenames
 # - fileindex_end: Last file ID that will be used in filenames
 # - is_test_set: Set it to True if it is the test set, else False for the
-#   training set
-# - noise_dir: Specify the directory path to all noise files
-# - Speech_dir: Specify the directory path to all clean speech files
-# - noisy_destination: Specify path to the destination directory to store noisy
-#   speech
-# - clean_destination: Specify path to the destination directory to store clean
-#   speech
-# - noise_destination: Specify path to the destination directory to store noise
-#   speech
 # - log_dir: Specify path to the directory to store all the log files
 # ################################
 # yamllint enable
 
 
 # Data storage params
-uncompressed_path: !PLACEHOLDER  # ../DNS-dataset/datasets_fullband
+input_shards_dir: !PLACEHOLDER  #  ../DNS-shards
 split_name: !PLACEHOLDER # read_speech, german_speech, italian_speech, french_speech etc
 rirs: RIR_table_simple.csv
 
@@ -59,20 +50,16 @@ fileindex_end: None
 is_test_set: False
 
 # Source dir
-noise_dir: !ref  <uncompressed_path>/noise_fullband/
-speech_dir: !ref <uncompressed_path>/clean_fullband/<split_name>
 rir_table_csv: !ref <rirs>
 
 # Directory path where Webdatasets of DNS clean and noise shards are located.
 input_sampling_rate: 48000  # sampling rate of input signal
-input_shards_dir: !PLACEHOLDER  #  ../DNS-shards
 clean_meta: !ref <input_shards_dir>/clean_fullband/<split_name>/meta.json
 noise_meta: !ref <input_shards_dir>/noise_fullband/meta.json
-clean_fullband_shards: !ref <input_shards_dir>/clean_fullband/<split_name>/shard-{000000..000001}.tar
-noise_fullband_shards: !ref <input_shards_dir>/noise_fullband/shard-{000000..000005}.tar
+clean_fullband_shards: !ref <input_shards_dir>/clean_fullband/<split_name>/shard-{000000..999999}.tar
+noise_fullband_shards: !ref <input_shards_dir>/noise_fullband/shard-{000000..999999}.tar
 
 # Configuration for synthesizing shards of clean-noisy pairs.
-sharding: True # set to false, if you want to instead save synthesized data as wav files.
 samples_per_shard: 5000
 
 # Destination directory for storing shards of synthesized data.
@@ -82,16 +69,11 @@ shard_destination: !ref <synthesized_data_dir>/<split_name>
 # Set to a directory on a large disk if using Webdataset shards hosted on the web.
 shard_cache_dir:
 
-# Destination directories for clean, noisy, and noise audio data.
-noisy_destination: !ref <synthesized_data_dir>/<split_name>/noisy
-clean_destination: !ref <synthesized_data_dir>/<split_name>/clean
-noise_destination: !ref <synthesized_data_dir>/<split_name>/noise
-
 # These can be skipped. (uncomment if you want to use them)
-# clean_singing: !PLACEHOLDER # clean_fullband/VocalSet_48kHz_mono/
-# clean_emotion: !PLACEHOLDER # clean_fullband/emotional_speech/
+# clean_singing: !PLACEHOLDER # ../DNS-shards/clean_fullband/VocalSet_48kHz_mono/
+# clean_emotion: !PLACEHOLDER # ../DNS-shards/clean_fullband/emotional_speech/
 ## Aishell data needs to be downloaded separately.
-# clean_mandarin: !PLACEHOLDER # mandrin_speech/data_aishell
+# clean_mandarin: !PLACEHOLDER # ../DNS-shards/clean_fullband/mandrin_speech/data_aishell
 
 log_dir: !ref <split_name>_logs
 noise_types_excluded: None

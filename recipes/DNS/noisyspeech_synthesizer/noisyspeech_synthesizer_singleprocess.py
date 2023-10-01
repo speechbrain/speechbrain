@@ -4,6 +4,9 @@ Ownership: Microsoft
 
 * Author
     chkarada
+
+* Further modified
+    Sangeet Sagar (2023)
 """
 
 # Note: This single process audio synthesizer will attempt to use each clean
@@ -12,9 +15,7 @@ Ownership: Microsoft
 import sys
 import os
 from pathlib import Path
-import glob
 import random
-from random import shuffle
 import time
 
 import numpy as np
@@ -25,7 +26,6 @@ import librosa
 
 import utils
 from audiolib import (
-    audiowrite,
     segmental_snr_mixer,
     activitydetector,
     is_clipped,
@@ -79,20 +79,8 @@ def build_audio(is_clean, params, index, audio_samples_length=-1):
         data_iterator = iter(params["clean_data"])
         idx = index
     else:
-        if "noisefilenames" in params.keys():
-            data_iterator = iter(params["noise_data"])
-            idx = index
-        # if noise files are organized into individual subdirectories, pick a directory randomly
-        else:
-            noisedirs = params["noisedirs"]
-            # pick a noise category randomly
-            idx_n_dir = np.random.randint(0, np.size(noisedirs))
-            source_files = glob.glob(
-                os.path.join(noisedirs[idx_n_dir], params["audioformat"])
-            )
-            shuffle(source_files)
-            # pick a noise source file index randomly
-            idx = np.random.randint(0, np.size(source_files))
+        data_iterator = iter(params["noise_data"])
+        idx = index
 
     # initialize silence
     silence = np.zeros(int(fs_output * silence_length))
@@ -140,11 +128,10 @@ def build_audio(is_clean, params, index, audio_samples_length=-1):
             output_audio = np.append(output_audio, silence[:silence_len])
             remaining_length -= silence_len
 
-    if tries_left == 0 and not is_clean and "noisedirs" in params.keys():
+    if tries_left == 0 and not is_clean and "noise_data" in params.keys():
         print(
             "There are not enough non-clipped files in the "
-            + noisedirs[idx_n_dir]
-            + " directory to complete the audio build"
+            + "given noise directory to complete the audio build"
         )
         return [], [], clipped_files, idx
 
@@ -319,47 +306,24 @@ def main_gen(params):
             )
             cleanfilename = "clean_fileid_" + str(file_num) + ".wav"
             noisefilename = "noise_fileid_" + str(file_num) + ".wav"
-            audio_signals = [noisy_snr, clean_snr, noise_snr]
 
             file_num += 1
 
-            if params["sharding"]:
-                # verify key is unique
-                assert cleanfilename not in all_keys
-                all_keys.add(cleanfilename)
-                ## write shards of data
-                sample = {
-                    "__key__": cleanfilename,
-                    "clean_file": cleanfilename,
-                    "noise_file": noisefilename,
-                    "noisy_file": noisyfilename,
-                    "language_id": params["split_name"],
-                    "clean_audio.pth": torch.tensor(clean_snr),
-                    "noise_audio.pth": torch.tensor(noise_snr),
-                    "noisy_audio.pth": torch.tensor(noisy_snr),
-                }
-                sink.write(sample)
-            else:
-                noisypath = os.path.join(
-                    params["noisyspeech_dir"], noisyfilename
-                )
-                cleanpath = os.path.join(
-                    params["clean_proc_dir"], cleanfilename
-                )
-                noisepath = os.path.join(
-                    params["noise_proc_dir"], noisefilename
-                )
-
-                file_paths = [noisypath, cleanpath, noisepath]
-
-                ## write audio files to disk
-                for i in range(len(audio_signals)):
-                    try:
-                        audiowrite(
-                            file_paths[i], audio_signals[i], params["fs"]
-                        )
-                    except Exception as e:
-                        print(str(e))
+            # verify key is unique
+            assert cleanfilename not in all_keys
+            all_keys.add(cleanfilename)
+            ## write shards of data
+            sample = {
+                "__key__": cleanfilename,
+                "clean_file": cleanfilename,
+                "noise_file": noisefilename,
+                "noisy_file": noisyfilename,
+                "language_id": params["split_name"],
+                "clean_audio.pth": torch.tensor(clean_snr),
+                "noise_audio.pth": torch.tensor(noise_snr),
+                "noisy_audio.pth": torch.tensor(noisy_snr),
+            }
+            sink.write(sample)
 
     return (
         clean_source_files,
@@ -383,16 +347,6 @@ def main_body():  # noqa
 
     # Data Directories and Settings
     params["split_name"] = hparams["split_name"]
-
-    if hparams["speech_dir"] != "None":
-        clean_dir = hparams["speech_dir"]
-    if not os.path.exists(clean_dir):
-        assert False, "Clean speech data is required"
-
-    if hparams["noise_dir"] != "None":
-        noise_dir = hparams["noise_dir"]
-    if not os.path.exists:
-        assert False, "Noise data is required"
 
     # Audio Settings
     params["fs"] = int(hparams["sampling_rate"])
@@ -465,18 +419,6 @@ def main_body():  # noqa
     # Synthesized Data Destination
     params["samples_per_shard"] = hparams["samples_per_shard"]
     params["shard_destination"] = hparams["shard_destination"]
-    params["sharding"] = hparams["sharding"]
-
-    # Output Directories
-    params["noisyspeech_dir"] = utils.get_dir(
-        hparams, "noisy_destination", "noisy"
-    )
-    params["clean_proc_dir"] = utils.get_dir(
-        hparams, "clean_destination", "clean"
-    )
-    params["noise_proc_dir"] = utils.get_dir(
-        hparams, "noise_destination", "noise"
-    )
 
     #### Shard data extraction ~~~
     # load the meta info json file
@@ -542,93 +484,23 @@ def main_body():  # noqa
     params["clean_data"] = clean_data
     params["noise_data"] = noise_data
 
-    ## Extraction of clean speech samples takes place here.
-    if hasattr(hparams, "speech_csv") and hparams["speech_csv"] != "None":
-        cleanfilenames = pd.read_csv(hparams["speech_csv"])
-        cleanfilenames = cleanfilenames["filename"]
-    else:
-        # cleanfilenames = glob.glob(os.path.join(clean_dir, params['audioformat']))
-        cleanfilenames = []
-        for path in Path(clean_dir).rglob("*.wav"):
-            cleanfilenames.append(str(path.resolve()))
-
-    shuffle(cleanfilenames)
-    #   add singing voice to clean speech
+    # add singing voice to clean speech
     if params["use_singing_data"] == 1:
-        all_singing = []
-        for path in Path(params["clean_singing"]).rglob("*.wav"):
-            all_singing.append(str(path.resolve()))
-
-        if params["singing_choice"] == 1:  # male speakers
-            mysinging = [
-                s for s in all_singing if ("male" in s and "female" not in s)
-            ]
-
-        elif params["singing_choice"] == 2:  # female speakers
-            mysinging = [s for s in all_singing if "female" in s]
-
-        elif params["singing_choice"] == 3:  # both male and female
-            mysinging = all_singing
-        else:  # default both male and female
-            mysinging = all_singing
-
-        shuffle(mysinging)
-        if mysinging is not None:
-            all_cleanfiles = cleanfilenames + mysinging
+        raise NotImplementedError("Add sining voice to clean speech")
     else:
         print("NOT using singing data for training!")
-        all_cleanfiles = cleanfilenames
 
-    #   add emotion data to clean speech
+    # add emotion data to clean speech
     if params["use_emotion_data"] == 1:
-        all_emotion = []
-        for path in Path(params["clean_emotion"]).rglob("*.wav"):
-            all_emotion.append(str(path.resolve()))
-
-        shuffle(all_emotion)
-        if all_emotion is not None:
-            all_cleanfiles = all_cleanfiles + all_emotion
+        raise NotImplementedError("Add emotional data to clean speech")
     else:
         print("NOT using emotion data for training!")
 
-    #   add mandarin data to clean speech
+    # add mandarin data to clean speech
     if params["use_mandarin_data"] == 1:
-        all_mandarin = []
-        for path in Path(params["clean_mandarin"]).rglob("*.wav"):
-            all_mandarin.append(str(path.resolve()))
-
-        shuffle(all_mandarin)
-        if all_mandarin is not None:
-            all_cleanfiles = all_cleanfiles + all_mandarin
+        raise NotImplementedError("Add Mandarin data to clean speech")
     else:
         print("NOT using non-english (Mandarin) data for training!")
-
-    params["cleanfilenames"] = all_cleanfiles
-    params["num_cleanfiles"] = len(params["cleanfilenames"])
-
-    ## Extraction of noise samples takes place here.
-    # If there are .wav files in noise_dir directory, use those
-    # If not, that implies that the noise files are organized into subdirectories by type,
-    # so get the names of the non-excluded subdirectories
-    if hasattr(hparams, "noise_csv") and hparams["noise_csv"] != "None":
-        noisefilenames = pd.read_csv(hparams["noise_csv"])
-        noisefilenames = noisefilenames["filename"]
-    else:
-        noisefilenames = glob.glob(
-            os.path.join(noise_dir, params["audioformat"])
-        )
-
-    if len(noisefilenames) != 0:
-        shuffle(noisefilenames)
-        params["noisefilenames"] = noisefilenames
-    else:
-        noisedirs = glob.glob(os.path.join(noise_dir, "*"))
-        if hparams["noise_types_excluded"] != "None":
-            dirstoexclude = hparams["noise_types_excluded"].split(",")
-            for dirs in dirstoexclude:
-                noisedirs.remove(dirs)
-        shuffle(noisedirs)
-        params["noisedirs"] = noisedirs
 
     # rir
     temp = pd.read_csv(
