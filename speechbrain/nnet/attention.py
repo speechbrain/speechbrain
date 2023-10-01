@@ -701,7 +701,7 @@ class MultiheadAttention(nn.Module):
         value,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
-        return_attn_weights: Optional[torch.Tensor] = True,
+        return_attn_weights: bool = True,
         pos_embs: Optional[torch.Tensor] = None,
     ):
         """
@@ -716,13 +716,6 @@ class MultiheadAttention(nn.Module):
         value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        key_padding_mask : torch.Tensor, optional
-            (B, S) where B is the batch size, S is the source sequence
-            length. If a ByteTensor is provided, the non-zero positions will
-            be ignored while the position with the zero positions will be
-            unchanged. If a BoolTensor is provided, the positions with the
-            value of True will be ignored while the position with the value
-            of False will be unchanged.
         attn_mask : torch.Tensor, optional
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
@@ -734,7 +727,16 @@ class MultiheadAttention(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
-        pos_embs: torch.Tensor, optional
+        key_padding_mask : torch.Tensor, optional
+            (B, S) where B is the batch size, S is the source sequence
+            length. If a ByteTensor is provided, the non-zero positions will
+            be ignored while the position with the zero positions will be
+            unchanged. If a BoolTensor is provided, the positions with the
+            value of True will be ignored while the position with the value
+            of False will be unchanged.
+        return_attn_weights : bool, optional
+            True to additionally return the attention weights, False otherwise.
+        pos_embs : torch.Tensor, optional
             Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
 
         Outputs
@@ -745,6 +747,7 @@ class MultiheadAttention(nn.Module):
         attn_output_weights : torch.Tensor
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
+            This is returned only if `return_attn_weights=True` (True by default).
         """
         # give tensors of shape (time, batch, fea)
         query = query.permute(1, 0, 2)
