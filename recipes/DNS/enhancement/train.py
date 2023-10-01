@@ -610,6 +610,7 @@ def dataio_prep(hparams):
         # "spanish_speech",
         # "russian_speech"
     ]
+    audio_length = hparams["audio_length"]
 
     train_shard_patterns = [
         os.path.join(hparams["train_data"], dir, "shard-{000000..000000}.tar")
@@ -689,7 +690,7 @@ def dataio_prep(hparams):
     train_samples = meta_loader(speech_dirs, hparams["train_data"])
     logger.info(f"Training data- Number of samples: {train_samples}")
     logger.info(
-        f"Training data - Total duration: {train_samples * hparams['audio_length']  / 3600:.2f} hours"
+        f"Training data - Total duration: {train_samples * audio_length/ 3600:.2f} hours"
     )
 
     valid_data = create_combined_dataset(
@@ -698,7 +699,7 @@ def dataio_prep(hparams):
     valid_samples = meta_loader(speech_dirs, hparams["valid_data"])
     logger.info(f"Valid data- Number of samples: {valid_samples}")
     logger.info(
-        f"Valid data - Total duration: {valid_samples * hparams['audio_length']  / 3600:.2f} hours"
+        f"Valid data - Total duration: {valid_samples * audio_length  / 3600:.2f} hours"
     )
 
     baseline_data = (

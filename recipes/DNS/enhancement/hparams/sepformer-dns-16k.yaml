@@ -35,7 +35,6 @@ test_only: False
 num_spks: 1
 noprogressbar: False
 save_audio: True    # Save estimated sources on disk
-downsample: False
 sample_rate: 16000
 audio_length: 4 # seconds
 n_audio_to_save: 20
