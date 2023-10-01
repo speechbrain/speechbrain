@@ -11,11 +11,12 @@ Authors
 import os
 import json
 import logging
-from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.data_utils import get_all_files, download_file
 from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
+SAMPLE_DATASET_URL = "https://www.dropbox.com/scl/fi/piez8hnmtrseqyoyvoxw8/TIMIT.zip?rlkey=psmfvvhuujclhfg9ob85xkmic&dl=1"
 
 
 def prepare_timit(
@@ -26,9 +27,10 @@ def prepare_timit(
     phn_set=39,
     uppercase=False,
     skip_prep=False,
+    small_dataset=False,
 ):
     """
-    repares the json files for the TIMIT dataset.
+    Prepares the json files for the TIMIT dataset.
 
     Arguments
     ---------
@@ -51,6 +53,11 @@ def prepare_timit(
     skip_prep: bool
         Default: False
         If True, the data preparation is skipped.
+    small_dataset: bool
+        Default: False
+        When set to True, data preparation uses a smaller sampled dataset from SAMPLE_DATASET_URL (official SpeechBrain Dropbox).
+        The dataset will be downloaded and unpacked in the specified data_folder.
+        Ideal for quick debugging, eliminating the need to download and prepare the full dataset.
 
     Example
     -------
@@ -62,6 +69,15 @@ def prepare_timit(
     # Skip if needed
     if skip_prep:
         return
+
+    if small_dataset:
+        download_file(
+            SAMPLE_DATASET_URL,
+            dest=os.path.join(data_folder, "TIMIT.zip"),
+            dest_unpack=data_folder,
+            unpack=True,
+        )
+        data_folder = os.path.join(data_folder, "TIMIT")
 
     # Getting speaker dictionary
     dev_spk, test_spk = _get_speaker()
@@ -81,7 +97,8 @@ def prepare_timit(
         return
 
     # Additional checks to make sure the data folder contains TIMIT
-    _check_timit_folders(uppercase, data_folder)
+    if not small_dataset:
+        _check_timit_folders(uppercase, data_folder)
 
     msg = "Creating json files for the TIMIT Dataset.."
     logger.info(msg)
@@ -105,6 +122,7 @@ def prepare_timit(
             match_or=match,
             exclude_or=avoid_sentences,
         )
+
         if split == "dev":
             print(wav_lst)
 

@@ -270,6 +270,7 @@ if __name__ == "__main__":
             "save_json_test": hparams["test_annotation"],
             "phn_set": hparams["phn_set"],
             "skip_prep": hparams["skip_prep"],
+            "small_dataset": run_opts["small_dataset"],
         },
     )
 

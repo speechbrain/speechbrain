@@ -3,7 +3,7 @@
 Transducer loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
+> python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml --data_folder /path/to/TIMIT
 
 
 Authors
@@ -341,6 +341,7 @@ if __name__ == "__main__":
             "save_json_test": hparams["test_annotation"],
             "skip_prep": hparams["skip_prep"],
             "uppercase": hparams["uppercase"],
+            "small_dataset": run_opts["small_dataset"],
         },
     )
 

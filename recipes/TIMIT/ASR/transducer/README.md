@@ -23,7 +23,7 @@ python train.py hparams/train.yaml
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
 | 2021-02-06 | train.yaml |  13.11 | 14.12 | https://www.dropbox.com/sh/ufktmvk38ulxca3/AAD9_o_ZtNJlHbpeYW1ldvSoa?dl=0 | 1xRTX6000 24GB |
-| 21-04-16 | train_wav2vec2.yaml |  7.97 | 8.91 | https://www.dropbox.com/sh/31o2j2ylpavunae/AADhJazz5mGaEbiCQ-cv7IgEa?dl=0 | 1xRTX6000 24Gb |
+| 21-04-16 | train_with_wav2vec2.yaml |  7.97 | 8.91 | https://www.dropbox.com/sh/31o2j2ylpavunae/AADhJazz5mGaEbiCQ-cv7IgEa?dl=0 | 1xRTX6000 24Gb |
 
 The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0).
 
