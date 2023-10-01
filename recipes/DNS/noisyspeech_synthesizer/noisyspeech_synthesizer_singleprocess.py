@@ -2,6 +2,10 @@
 Source: https://github.com/microsoft/DNS-Challenge
 Ownership: Microsoft
 
+This script will attempt to use each clean and noise
+webdataset shards to synthesize clean-noisy pairs of
+audio. The output is again stored in webdataset shards.
+
 * Author
     chkarada
 
@@ -10,7 +14,8 @@ Ownership: Microsoft
 """
 
 # Note: This single process audio synthesizer will attempt to use each clean
-# speech sourcefile once, as it does not randomly sample from these files
+# speech sourcefile once (from the webdataset shards), as it does not
+# randomly sample from these files
 
 import sys
 import os
@@ -35,6 +40,8 @@ import pandas as pd
 import json
 from functools import partial
 from typing import Dict
+from collections import defaultdict
+
 
 import speechbrain as sb
 import webdataset as wds
@@ -185,145 +192,210 @@ def main_gen(params):
 
     clean_index = 0
     noise_index = 0
-    file_num = params["fileindex_start"]
 
     # write shards
-    shards_path = Path(params["shard_destination"])
-    shards_path.mkdir(exist_ok=True, parents=True)
+    train_shards_path = Path(params["train_shard_destination"])
+    train_shards_path.mkdir(exist_ok=True, parents=True)
+    valid_shards_path = Path(params["valid_shard_destination"])
+    valid_shards_path.mkdir(exist_ok=True, parents=True)
 
     all_keys = set()
-    pattern = str(shards_path / "shard") + "-%06d.tar"
+    train_pattern = str(train_shards_path / "shard") + "-%06d.tar"
+    valid_pattern = str(valid_shards_path / "shard") + "-%06d.tar"
     samples_per_shard = params["samples_per_shard"]
 
-    with wds.ShardWriter(pattern, maxcount=samples_per_shard) as sink:
-        while file_num <= params["fileindex_end"]:
+    # track statistics on data
+    train_sample_keys = defaultdict(list)
+    valid_sample_keys = defaultdict(list)
+
+    # Define the percentage of data to be used for validation
+    validation_percentage = 0.05
+
+    # Calculate the number of samples for training and validation
+    total_samples = params["fileindex_end"] - params["fileindex_start"] + 1
+    num_validation_samples = int(total_samples * validation_percentage)
+
+    # Define separate ShardWriters for training and validation data
+    train_writer = wds.ShardWriter(train_pattern, maxcount=samples_per_shard)
+    valid_writer = wds.ShardWriter(valid_pattern, maxcount=samples_per_shard)
+
+    # Initialize counters and data lists for statistics
+    file_num = params["fileindex_start"]
+    train_data_tuples = []
+    valid_data_tuples = []
+
+    while file_num <= params["fileindex_end"]:
+        print(
+            "\rFiles synthesized {:4d}/{:4d}".format(
+                file_num, params["fileindex_end"]
+            ),
+            end="",
+        )
+        # CLEAN SPEECH GENERATION
+        clean, clean_sf, clean_cf, clean_laf, clean_index = gen_audio(
+            True, params, clean_index
+        )
+
+        # add reverb with selected RIR
+        rir_index = random.randint(0, len(params["myrir"]) - 1)
+
+        my_rir = os.path.normpath(os.path.join(params["myrir"][rir_index]))
+        (fs_rir, samples_rir) = wavfile.read(my_rir)
+
+        my_channel = int(params["mychannel"][rir_index])
+
+        if samples_rir.ndim == 1:
+            samples_rir_ch = np.array(samples_rir)
+
+        elif my_channel > 1:
+            samples_rir_ch = samples_rir[:, my_channel - 1]
+        else:
+            samples_rir_ch = samples_rir[:, my_channel - 1]
+            # print(samples_rir.shape)
+            # print(my_channel)
+
+        # REVERB MIXED TO THE CLEAN SPEECH
+        clean = add_pyreverb(clean, samples_rir_ch)
+
+        # generate noise
+        noise, noise_sf, noise_cf, noise_laf, noise_index = gen_audio(
+            False, params, noise_index, len(clean)
+        )
+
+        clean_clipped_files += clean_cf
+        clean_low_activity_files += clean_laf
+        noise_clipped_files += noise_cf
+        noise_low_activity_files += noise_laf
+
+        # mix clean speech and noise
+        # if specified, use specified SNR value
+        if not params["randomize_snr"]:
+            snr = params["snr"]
+        # use a randomly sampled SNR value between the specified bounds
+        else:
+            snr = np.random.randint(params["snr_lower"], params["snr_upper"])
+
+        # NOISE ADDED TO THE REVERBED SPEECH
+        clean_snr, noise_snr, noisy_snr, target_level = segmental_snr_mixer(
+            params=params, clean=clean, noise=noise, snr=snr
+        )
+        # Uncomment the below lines if you need segmental SNR and comment the above lines using snr_mixer
+        # clean_snr, noise_snr, noisy_snr, target_level = segmental_snr_mixer(params=params,
+        #                                                         clean=clean,
+        #                                                          noise=noise,
+        #                                                         snr=snr)
+        # unexpected clipping
+        if (
+            is_clipped(clean_snr)
+            or is_clipped(noise_snr)
+            or is_clipped(noisy_snr)
+        ):
             print(
-                "\rFiles synthesized {:4d}/{:4d}".format(
-                    file_num, params["fileindex_end"]
-                ),
-                end="",
-            )
-            # CLEAN SPEECH GENERATION
-            clean, clean_sf, clean_cf, clean_laf, clean_index = gen_audio(
-                True, params, clean_index
-            )
-
-            # add reverb with selected RIR
-            rir_index = random.randint(0, len(params["myrir"]) - 1)
-
-            my_rir = os.path.normpath(os.path.join(params["myrir"][rir_index]))
-            (fs_rir, samples_rir) = wavfile.read(my_rir)
-
-            my_channel = int(params["mychannel"][rir_index])
-
-            if samples_rir.ndim == 1:
-                samples_rir_ch = np.array(samples_rir)
-
-            elif my_channel > 1:
-                samples_rir_ch = samples_rir[:, my_channel - 1]
-            else:
-                samples_rir_ch = samples_rir[:, my_channel - 1]
-                # print(samples_rir.shape)
-                # print(my_channel)
-
-            # REVERB MIXED TO THE CLEAN SPEECH
-            clean = add_pyreverb(clean, samples_rir_ch)
-
-            # generate noise
-            noise, noise_sf, noise_cf, noise_laf, noise_index = gen_audio(
-                False, params, noise_index, len(clean)
-            )
-
-            clean_clipped_files += clean_cf
-            clean_low_activity_files += clean_laf
-            noise_clipped_files += noise_cf
-            noise_low_activity_files += noise_laf
-
-            # get rir files and config
-
-            # mix clean speech and noise
-            # if specified, use specified SNR value
-            if not params["randomize_snr"]:
-                snr = params["snr"]
-            # use a randomly sampled SNR value between the specified bounds
-            else:
-                snr = np.random.randint(
-                    params["snr_lower"], params["snr_upper"]
-                )
-
-            # NOISE ADDED TO THE REVERBED SPEECH
-            clean_snr, noise_snr, noisy_snr, target_level = segmental_snr_mixer(
-                params=params, clean=clean, noise=noise, snr=snr
-            )
-            # Uncomment the below lines if you need segmental SNR and comment the above lines using snr_mixer
-            # clean_snr, noise_snr, noisy_snr, target_level = segmental_snr_mixer(params=params,
-            #                                                         clean=clean,
-            #                                                          noise=noise,
-            #                                                         snr=snr)
-            # unexpected clipping
-            if (
-                is_clipped(clean_snr)
-                or is_clipped(noise_snr)
-                or is_clipped(noisy_snr)
-            ):
-                print(
-                    "\nWarning: File #"
-                    + str(file_num)
-                    + " has unexpected clipping, "
-                    + "returning without writing audio to disk"
-                )
-                continue
-
-            clean_source_files += clean_sf
-            noise_source_files += noise_sf
-
-            # write resultant audio streams to files
-            hyphen = "-"
-            clean_source_filenamesonly = [
-                i[:-4].split(os.path.sep)[-1] for i in clean_sf
-            ]
-            clean_files_joined = hyphen.join(clean_source_filenamesonly)[
-                :MAXFILELEN
-            ]
-            noise_source_filenamesonly = [
-                i[:-4].split(os.path.sep)[-1] for i in noise_sf
-            ]
-            noise_files_joined = hyphen.join(noise_source_filenamesonly)[
-                :MAXFILELEN
-            ]
-
-            noisyfilename = (
-                clean_files_joined
-                + "_"
-                + noise_files_joined
-                + "_snr"
-                + str(snr)
-                + "_tl"
-                + str(target_level)
-                + "_fileid_"
+                "\nWarning: File #"
                 + str(file_num)
-                + ".wav"
+                + " has unexpected clipping, "
+                + "returning without writing audio to disk"
             )
-            cleanfilename = "clean_fileid_" + str(file_num) + ".wav"
-            noisefilename = "noise_fileid_" + str(file_num) + ".wav"
+            continue
 
-            file_num += 1
+        clean_source_files += clean_sf
+        noise_source_files += noise_sf
 
-            # verify key is unique
-            assert cleanfilename not in all_keys
-            all_keys.add(cleanfilename)
-            ## write shards of data
+        # write resultant audio streams to files
+        hyphen = "-"
+        clean_source_filenamesonly = [
+            i[:-4].split(os.path.sep)[-1] for i in clean_sf
+        ]
+        clean_files_joined = hyphen.join(clean_source_filenamesonly)[
+            :MAXFILELEN
+        ]
+        noise_source_filenamesonly = [
+            i[:-4].split(os.path.sep)[-1] for i in noise_sf
+        ]
+        noise_files_joined = hyphen.join(noise_source_filenamesonly)[
+            :MAXFILELEN
+        ]
+
+        noisyfilename = (
+            clean_files_joined
+            + "_"
+            + noise_files_joined
+            + "_snr"
+            + str(snr)
+            + "_tl"
+            + str(target_level)
+            + "_fileid_"
+            + str(file_num)
+        )
+
+        # Period is not allowed in a WebDataset key name
+        cleanfilename = "clean_fileid_" + str(file_num)
+        cleanfilename = cleanfilename.replace(".", "_")
+        noisefilename = "noise_fileid_" + str(file_num)
+        noisefilename = noisefilename.replace(".", "_")
+
+        file_num += 1
+
+        # store statistics
+        key = noisyfilename
+        key = key.replace(".", "_")
+        lang = params["split_name"].split("_")[0]
+        t = (key, lang)
+
+        # verify key is unique
+        assert cleanfilename not in all_keys
+        all_keys.add(cleanfilename)
+
+        # Split the data between training and validation based on the file number
+        if file_num % total_samples <= num_validation_samples:
+            # Write to validation set
+            valid_sample_keys[lang].append(key)
+            valid_data_tuples.append(t)
             sample = {
-                "__key__": cleanfilename,
+                "__key__": key,
+                "noisy_file": key,
                 "clean_file": cleanfilename,
                 "noise_file": noisefilename,
-                "noisy_file": noisyfilename,
-                "language_id": params["split_name"],
                 "clean_audio.pth": torch.tensor(clean_snr),
                 "noise_audio.pth": torch.tensor(noise_snr),
                 "noisy_audio.pth": torch.tensor(noisy_snr),
             }
-            sink.write(sample)
+            valid_writer.write(sample)
+        else:
+            # Write to training set
+            train_sample_keys[lang].append(key)
+            train_data_tuples.append(t)
+            sample = {
+                "__key__": key,
+                "noisy_file": key,
+                "clean_file": cleanfilename,
+                "noise_file": noisefilename,
+                "clean_audio.pth": torch.tensor(clean_snr),
+                "noise_audio.pth": torch.tensor(noise_snr),
+                "noisy_audio.pth": torch.tensor(noisy_snr),
+            }
+            train_writer.write(sample)
+
+    train_writer.close()
+    valid_writer.close()
+
+    # Write meta.json files for both training and validation
+    train_meta_dict = {
+        "language_id": lang,
+        "sample_keys_per_language": train_sample_keys,
+        "num_data_samples": len(train_data_tuples),
+    }
+    valid_meta_dict = {
+        "language_id": lang,
+        "sample_keys_per_language": valid_sample_keys,
+        "num_data_samples": len(valid_data_tuples),
+    }
+
+    with (train_shards_path / "meta.json").open("w") as f:
+        json.dump(train_meta_dict, f, indent=4)
+
+    with (valid_shards_path / "meta.json").open("w") as f:
+        json.dump(valid_meta_dict, f, indent=4)
 
     return (
         clean_source_files,
@@ -418,7 +490,8 @@ def main_body():  # noqa
 
     # Synthesized Data Destination
     params["samples_per_shard"] = hparams["samples_per_shard"]
-    params["shard_destination"] = hparams["shard_destination"]
+    params["train_shard_destination"] = hparams["train_shard_destination"]
+    params["valid_shard_destination"] = hparams["valid_shard_destination"]
 
     #### Shard data extraction ~~~
     # load the meta info json file
@@ -428,29 +501,11 @@ def main_body():  # noqa
     with wds.gopen(hparams["noise_meta"], "rb") as f:
         noise_meta = json.load(f)
 
-    snt_len_sample = int(hparams["sampling_rate"] * hparams["audio_length"])
-
     def audio_pipeline(sample_dict: Dict, random_chunk=True):
         key = sample_dict["__key__"]
         audio_tensor = sample_dict["audio.pth"]
 
-        # determine what part of audio sample to use
-        audio_tensor = audio_tensor.squeeze()
-
-        if random_chunk:
-            if len(audio_tensor) - snt_len_sample - 1 <= 0:
-                start = 0
-            else:
-                start = random.randint(
-                    0, len(audio_tensor) - snt_len_sample - 1
-                )
-
-            stop = start + snt_len_sample
-        else:
-            start = 0
-            stop = len(audio_tensor)
-
-        sig = audio_tensor[start:stop]
+        sig = audio_tensor.squeeze()
 
         return {
             "sig": sig,
@@ -599,6 +654,7 @@ def main_body():  # noqa
         noise_clipped_files,
         noise_low_activity_files,
     ) = main_gen(params)
+
     # Create log directory if needed, and write log files of clipped and low activity files
     log_dir = utils.get_dir(hparams, "log_dir", "Logs")
 

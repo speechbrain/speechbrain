@@ -64,7 +64,8 @@ samples_per_shard: 5000
 
 # Destination directory for storing shards of synthesized data.
 synthesized_data_dir: !PLACEHOLDER  #  synthesized_data_shards
-shard_destination: !ref <synthesized_data_dir>/<split_name>
+train_shard_destination: !ref <synthesized_data_dir>/train_shard/<split_name>
+valid_shard_destination: !ref <synthesized_data_dir>/valid_shard/<split_name>
 
 # Set to a directory on a large disk if using Webdataset shards hosted on the web.
 shard_cache_dir:
