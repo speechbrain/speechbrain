@@ -59,16 +59,16 @@ The compressed files are downloaded in `DNS-compressed` and further decompressed
 Next, create webdataset shards
 ```
 ## webdataset shards for clean_fullband
-python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech>/ DNS-shards/
+python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_speech/german_speech/french_speech/...>/ DNS-shards/clean_fullband/<read_speech/german_speech/french_speech/...>
 
 ## webdataset shards for noise_fullband
-python create_wds_shards.py DNS-dataset/datasets_fullband/noise_fullband/ DNS-shards/
+python create_wds_shards.py DNS-dataset/datasets_fullband/noise_fullband/ DNS-shards/noise_fullband
 ```
 ## Step 2: **Synthesize noisy data and create the Webdataset shards**
 To synthesize clean-noisy audio for speech enhancement training (we add noise, RIR to clean fullband speech to synthesize clean-noisy pairs)
 ```
 cd noisyspeech_synthesizer
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name <read_speech/german_speech/french_speech/italian_speech/russian_speech/spanish_speech> --synthesized_data_dir synthesized_data_shards
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name <read_speech/german_speech/french_speech/...> --synthesized_data_dir synthesized_data_shards
 ```
 
 Select one of `read_speech`, `german_speech`, `french_speech`, `italian_speech`, `russian_speech` or `spanish_speech`. <br>
@@ -78,7 +78,7 @@ Select one of `read_speech`, `german_speech`, `french_speech`, `italian_speech`,
 To start training
 ```
 cd enhancement
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data_shards> --baseline_noisy_folder <path/to/baseline-noisy-testclips>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_folder <path/to/baseline_shards_data>
 ```
 *For more details and how to perform evaluation, see `enhancement` folder on details about the main training script*
 

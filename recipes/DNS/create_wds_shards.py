@@ -104,7 +104,7 @@ def write_shards(
     }
 
     with (shards_path / "meta.json").open("w") as f:
-        json.dump(meta_dict, f)
+        json.dump(meta_dict, f, indent=4)
 
     # shuffle the tuples so that each shard has a large variety in languages
     random.seed(seed)

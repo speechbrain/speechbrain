@@ -15,10 +15,10 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data params
-data_folder: ../noisyspeech_synthesizer/synthesized_data_shards/   # !PLACEHOLDER
+data_folder: !PLACEHOLDER   # ../noisyspeech_synthesizer/synthesized_data_shards/
 train_data: !ref <data_folder>/train_shards/
 valid_data: !ref <data_folder>/valid_shards/
-baseline_noisy_folder: ../DNS-shards/devsets_fullband/ # !PLACEHOLDER
+baseline_noisy_folder: !PLACEHOLDER     # ../DNS-shards/devsets_fullband/
 baseline_shards: !ref <baseline_noisy_folder>/shard-{000000..999999}.tar
 
 # Set to a directory on a large disk if using Webdataset shards hosted on the web.
