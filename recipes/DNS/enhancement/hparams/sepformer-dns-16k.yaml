@@ -15,14 +15,14 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data params
-# ../noisyspeech_synthesizer/synthesized_data/
-data_folder: !PLACEHOLDER
-baseline_noisy_folder: !PLACEHOLDER
-train_data: !ref <save_folder>/dns_16k_tr.csv
-valid_data: !ref <save_folder>/dns_16k_cv.csv
-baseline_data: !ref <save_folder>/dns_baseline_dev_48K.csv
-skip_prep: False
-shuffle_train_data: True
+data_folder: ../noisyspeech_synthesizer/synthesized_data_shards/   # !PLACEHOLDER
+train_data: !ref <data_folder>/train_shards/
+valid_data: !ref <data_folder>/valid_shards/
+baseline_noisy_folder: ../DNS-shards/devsets_fullband/ # !PLACEHOLDER
+baseline_shards: !ref <baseline_noisy_folder>/shard-{000000..999999}.tar
+
+# Set to a directory on a large disk if using Webdataset shards hosted on the web.
+shard_cache_dir:
 
 # Basic parameters
 use_tensorboard: True
@@ -37,6 +37,7 @@ noprogressbar: False
 save_audio: True    # Save estimated sources on disk
 downsample: False
 sample_rate: 16000
+audio_length: 4 # seconds
 n_audio_to_save: 20
 
 # Training parameters

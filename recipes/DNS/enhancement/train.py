@@ -4,7 +4,7 @@
 The system employs an encoder,a decoder, and a masking network.
 
 To run this recipe, do the following:
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_folder <path/to/baseline_shards_data>
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
@@ -22,12 +22,17 @@ Authors
 import os
 import sys
 import csv
+import json
 import logging
 import numpy as np
 from tqdm import tqdm
+from typing import Dict
+from functools import partial
 
 import torch
 import torchaudio
+import braceexpand
+import webdataset as wds
 import torch.nn.functional as F
 from torch.cuda.amp import autocast
 
@@ -38,6 +43,7 @@ import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
+from speechbrain.dataio.batch import PaddedBatch
 
 from pesq import pesq
 from pystoi import stoi
@@ -47,7 +53,6 @@ from pystoi import stoi
 class Enhancement(sb.Brain):
     def compute_forward(self, noisy, clean, stage, noise=None):
         """Forward computations from the noisy to the separated signals."""
-
         # Unpack lists and put tensors in the right device
         noisy, noisy_lens = noisy
         noisy, noisy_lens = noisy.to(self.device), noisy_lens.to(self.device)
@@ -268,7 +273,6 @@ class Enhancement(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Save valid logs in TensorBoard
             valid_stats = {
                 "Epochs": epoch,
@@ -598,100 +602,119 @@ class Enhancement(sb.Brain):
 
 def dataio_prep(hparams):
     """Creates data processing pipeline"""
-    # 1. Define datasets
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_data"],
-        replacements={"data_root": hparams["data_folder"]},
+    speech_dirs = [
+        "read_speech",
+        "german_speech",
+        "french_speech",
+        # "italian_speech",
+        # "spanish_speech",
+        # "russian_speech"
+    ]
+
+    train_shard_patterns = [
+        os.path.join(hparams["train_data"], dir, "shard-{000000..000000}.tar")
+        for dir in speech_dirs
+    ]
+    valid_shard_patterns = [
+        os.path.join(hparams["valid_data"], dir, "shard-{000000..000000}.tar")
+        for dir in speech_dirs
+    ]
+
+    def meta_loader(speech_dirs, split_path):
+        # sum up the number of data samples from all meta
+        total_samples = 0
+
+        for dir in speech_dirs:
+            meta_json_path = os.path.join(split_path, dir, "meta.json")
+
+            if os.path.exists(meta_json_path):
+                with wds.gopen(meta_json_path, "rb") as f:
+                    meta = json.load(f)
+
+                # Add the number of data samples from the current directory to the total
+                total_samples += meta["num_data_samples"]
+
+        return total_samples
+
+    def train_audio_pipeline(sample_dict: Dict, random_chunk=True):
+        key = sample_dict["__key__"]
+        clean_wav = sample_dict["clean_file"]
+        noise_wav = sample_dict["noise_file"]
+        noisy_wav = sample_dict["noisy_file"]
+        clean_sig = sample_dict["clean_audio.pth"].squeeze()
+        noise_sig = sample_dict["noise_audio.pth"].squeeze()
+        noisy_sig = sample_dict["noisy_audio.pth"].squeeze()
+
+        return {
+            "id": key,
+            "clean_wav": clean_wav,
+            "clean_sig": clean_sig,
+            "noise_wav": noise_wav,
+            "noise_sig": noise_sig,
+            "noisy_wav": noisy_wav,
+            "noisy_sig": noisy_sig,
+        }
+
+    def baseline_audio_pipeline(sample_dict: Dict, random_chunk=True):
+        key = sample_dict["__key__"]
+        sig = sample_dict["audio.pth"].squeeze()
+
+        return {
+            "sig": sig,
+            "id": key,
+        }
+
+    def create_combined_dataset(shard_patterns, cache_dir):
+        # mix multiple datasets, where each dataset consists of multiple shards
+        # e.g. combine read_speech, german_speech etc. each with multiple shards.
+        urls = [
+            url
+            for shard in train_shard_patterns
+            for url in braceexpand.braceexpand(shard)
+        ]
+
+        combined_dataset = (
+            wds.WebDataset(urls, shardshuffle=True, cache_dir=cache_dir,)
+            .repeat()
+            .shuffle(10)
+            .decode("pil")
+            .map(partial(train_audio_pipeline, random_chunk=True))
+        )
+
+        return combined_dataset
+
+    train_data = create_combined_dataset(
+        train_shard_patterns, hparams["shard_cache_dir"]
+    )
+    train_samples = meta_loader(speech_dirs, hparams["train_data"])
+    logger.info(f"Training data- Number of samples: {train_samples}")
+    logger.info(
+        f"Training data - Total duration: {train_samples * hparams['audio_length']  / 3600:.2f} hours"
     )
 
-    # Shuffle training data.
-    hparams["dataloader_opts"]["shuffle"] = hparams["shuffle_train_data"]
-
-    valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_data"],
-        replacements={"data_root": hparams["data_folder"]},
+    valid_data = create_combined_dataset(
+        valid_shard_patterns, hparams["shard_cache_dir"]
+    )
+    valid_samples = meta_loader(speech_dirs, hparams["valid_data"])
+    logger.info(f"Valid data- Number of samples: {valid_samples}")
+    logger.info(
+        f"Valid data - Total duration: {valid_samples * hparams['audio_length']  / 3600:.2f} hours"
     )
 
-    baseline_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["baseline_data"],
-        replacements={"data_root": hparams["data_folder"]},
+    baseline_data = (
+        wds.WebDataset(
+            hparams["baseline_shards"], cache_dir=hparams["shard_cache_dir"],
+        )
+        .repeat()
+        .shuffle(1000)
+        .decode("pil")
+        .map(partial(baseline_audio_pipeline, random_chunk=True))
     )
 
-    # 2. Provide audio pipelines
-    @sb.utils.data_pipeline.takes("clean_wav")
-    @sb.utils.data_pipeline.provides("clean_wav", "clean_sig")
-    def audio_pipeline_clean(clean_wav):
-        clean_sig = sb.dataio.dataio.read_audio(clean_wav)
-        if hparams["downsample"]:
-            info = torchaudio.info(clean_wav)
-            clean_sig = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
-            )(clean_sig)
-        return clean_wav, clean_sig
-
-    @sb.utils.data_pipeline.takes("noise_wav")
-    @sb.utils.data_pipeline.provides("noise_wav", "noise_sig")
-    def audio_pipeline_noise(noise_wav):
-        noise_sig = sb.dataio.dataio.read_audio(noise_wav)
-        if hparams["downsample"]:
-            info = torchaudio.info(noise_wav)
-            noise_sig = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
-            )(noise_sig)
-        return noise_wav, noise_sig
-
-    @sb.utils.data_pipeline.takes("noisy_wav")
-    @sb.utils.data_pipeline.provides("noisy_wav", "noisy_sig")
-    def audio_pipeline_noisy(noisy_wav):
-        noisy_sig = sb.dataio.dataio.read_audio(noisy_wav)
-        if hparams["downsample"]:
-            info = torchaudio.info(noisy_wav)
-            noisy_sig = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
-            )(noisy_sig)
-        return noisy_wav, noisy_sig
-
-    # Audio pipeline for baseline-data
-    @sb.utils.data_pipeline.takes("noisy_wav")
-    @sb.utils.data_pipeline.provides("noisy_wav", "noisy_sig")
-    def noisy_baseline_audio_pipeline(noisy_wav):
-        noisy_sig = sb.dataio.dataio.read_audio(noisy_wav)
-        info = torchaudio.info(noisy_wav)
-        noisy_sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"]
-        )(noisy_sig)
-        return noisy_wav, noisy_sig
-
-    datasets = [train_data, valid_data]
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_clean)
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noisy)
-    sb.dataio.dataset.add_dynamic_item(
-        [baseline_data], noisy_baseline_audio_pipeline
-    )
-
-    sb.dataio.dataset.set_output_keys(
-        datasets,
-        [
-            "id",
-            "clean_wav",
-            "clean_sig",
-            "noise_wav",
-            "noise_sig",
-            "noisy_wav",
-            "noisy_sig",
-        ],
-    )
-
-    sb.dataio.dataset.set_output_keys(
-        [baseline_data], ["id", "noisy_wav", "noisy_sig"]
-    )
-
-    return train_data, valid_data, baseline_data
+    return train_data, valid_data, train_samples, valid_samples, baseline_data
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -717,21 +740,25 @@ if __name__ == "__main__":
             hparams["tensorboard_logs"]
         )
 
-    # Data preparation
-    from prepare_dns import prepare_dns_csv
+    (
+        train_data,
+        valid_data,
+        num_train_samples,
+        num_valid_samples,
+        baseline_data,
+    ) = dataio_prep(hparams)
 
-    run_on_main(
-        prepare_dns_csv,
-        kwargs={
-            "datapath": hparams["data_folder"],
-            "baseline_noisy_datapath": hparams["baseline_noisy_folder"],
-            "savepath": hparams["save_folder"],
-            "skip_prep": hparams["skip_prep"],
-            "fs": hparams["sample_rate"],
-        },
+    # add collate_fn to dataloader options
+    hparams["dataloader_opts"]["collate_fn"] = PaddedBatch
+    hparams["dataloader_opts_valid"]["collate_fn"] = PaddedBatch
+    hparams["dataloader_opts_test"]["collate_fn"] = PaddedBatch
+
+    hparams["dataloader_opts"]["looped_nominal_epoch"] = (
+        num_train_samples // hparams["dataloader_opts"]["batch_size"]
     )
-
-    train_data, valid_data, baseline_data = dataio_prep(hparams)
+    hparams["dataloader_opts_valid"]["looped_nominal_epoch"] = (
+        num_valid_samples // hparams["dataloader_opts_valid"]["batch_size"]
+    )
 
     # Load pretrained model if pretrained_enhancement is present in the yaml
     if "pretrained_enhancement" in hparams:
