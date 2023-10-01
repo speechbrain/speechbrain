@@ -725,6 +725,9 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
+        max_num_checkpoints : int, None
+            The maximum number of checkpoints to return, or None to return all
+            found checkpoints.
 
         Returns
         -------
