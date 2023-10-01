@@ -178,6 +178,14 @@ def parse_arguments(arg_list=None):
         "The model is expected to be already trained.",
     )
     parser.add_argument(
+        "--small_dataset",
+        default=False,
+        action="store_true",
+        help="Enable the use of a smaller sample dataset with the original folder structure. "
+        "This option is useful for debugging as it eliminates the need for downloading and preparing the full dataset."
+        "Ensure this option is also specified in the preparation script.",
+    )
+    parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
