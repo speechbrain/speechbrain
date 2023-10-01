@@ -62,6 +62,7 @@ loss_reduction: 'batchmean'
 batch_size: 8
 grad_accumulation_factor: 4
 sorting: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 # Feature parameters
 sample_rate: 16000
