@@ -120,7 +120,9 @@ class MOABBBrain(sb.Brain):
                 # Learning rate scheduler
                 if hasattr(self.hparams, "lr_annealing"):
                     old_lr, new_lr = self.hparams.lr_annealing(epoch)
-                    sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+                    sb.nnet.schedulers.update_learning_rate(
+                        self.optimizer, new_lr
+                    )
                     self.hparams.train_logger.log_stats(
                         stats_meta={"epoch": epoch, "lr": old_lr},
                         train_stats={"loss": self.train_loss},

@@ -53,20 +53,23 @@ class EEGConformer(torch.nn.Module):
     #>>> output.shape
     #torch.Size([1,4])
     """
-    def __init__(self,
-                 input_shape=None,  # (1, T, C, 1)
-                 cnn_temporal_kernels=40,
-                 cnn_spatial_kernels=40,
-                 cnn_temporal_kernelsize=(13, 1),
-                 cnn_poolsize=(38, 1),
-                 cnn_poolstride=(17, 1),
-                 cnn_pool_type='avg',
-                 cnn_dropout=0.5,
-                 cnn_activation_type='elu',
-                 attn_depth=2,
-                 attn_heads=2,
-                 attn_dropout=0.5,
-                 dense_n_neurons=4):
+
+    def __init__(
+        self,
+        input_shape=None,  # (1, T, C, 1)
+        cnn_temporal_kernels=40,
+        cnn_spatial_kernels=40,
+        cnn_temporal_kernelsize=(13, 1),
+        cnn_poolsize=(38, 1),
+        cnn_poolstride=(17, 1),
+        cnn_pool_type="avg",
+        cnn_dropout=0.5,
+        cnn_activation_type="elu",
+        attn_depth=2,
+        attn_heads=2,
+        attn_dropout=0.5,
+        dense_n_neurons=4,
+    ):
         super().__init__()
         if input_shape is None:
             raise ValueError("Must specify input_shape")
@@ -75,25 +78,27 @@ class EEGConformer(torch.nn.Module):
         T = input_shape[-3]
 
         # EMBEDDING MODULE (CONVOLUTIONAL MODULE)
-        self.emb_module = PatchEmbedding(cnn_temporal_kernels=cnn_temporal_kernels,
-                                         cnn_spatial_kernels=cnn_spatial_kernels,
-                                         cnn_temporal_kernelsize=cnn_temporal_kernelsize,
-                                         cnn_spatial_kernelsize=(1, C),
-                                         cnn_poolsize=cnn_poolsize,
-                                         cnn_poolstride=cnn_poolstride,
-                                         cnn_pool_type=cnn_pool_type,
-                                         dropout=cnn_dropout,
-                                         activation_type=cnn_activation_type)
+        self.emb_module = PatchEmbedding(
+            cnn_temporal_kernels=cnn_temporal_kernels,
+            cnn_spatial_kernels=cnn_spatial_kernels,
+            cnn_temporal_kernelsize=cnn_temporal_kernelsize,
+            cnn_spatial_kernelsize=(1, C),
+            cnn_poolsize=cnn_poolsize,
+            cnn_poolstride=cnn_poolstride,
+            cnn_pool_type=cnn_pool_type,
+            dropout=cnn_dropout,
+            activation_type=cnn_activation_type,
+        )
         # TRANSFORMER MODULE
-        self.transformer_module = TransformerEncoder(attn_depth=attn_depth,
-                                                     emb_size=self.emb_module.emb_size,
-                                                     attn_heads=attn_heads,
-                                                     dropout=attn_dropout)
+        self.transformer_module = TransformerEncoder(
+            attn_depth=attn_depth,
+            emb_size=self.emb_module.emb_size,
+            attn_heads=attn_heads,
+            dropout=attn_dropout,
+        )
 
         # Shape of intermediate feature maps
-        out = self.emb_module(
-            torch.ones((1, T, C, 1))
-        )
+        out = self.emb_module(torch.ones((1, T, C, 1)))
         out = self.transformer_module(out)
         dense_input_size = self._num_flat_features(out)
         # DENSE MODULE
@@ -161,16 +166,19 @@ class PatchEmbedding(torch.nn.Module):
     activation_type: str
         Activation function of hidden layers in the convolutional module.
     """
-    def __init__(self,
-                 cnn_temporal_kernels,
-                 cnn_spatial_kernels,
-                 cnn_temporal_kernelsize,
-                 cnn_spatial_kernelsize,
-                 cnn_poolsize,
-                 cnn_poolstride,
-                 cnn_pool_type,
-                 dropout,
-                 activation_type):
+
+    def __init__(
+        self,
+        cnn_temporal_kernels,
+        cnn_spatial_kernels,
+        cnn_temporal_kernelsize,
+        cnn_spatial_kernelsize,
+        cnn_poolsize,
+        cnn_poolstride,
+        cnn_pool_type,
+        dropout,
+        activation_type,
+    ):
         super().__init__()
         if activation_type == "gelu":
             activation = torch.nn.GELU()
@@ -191,7 +199,7 @@ class PatchEmbedding(torch.nn.Module):
             sb.nnet.CNN.Conv2d(
                 in_channels=1,
                 out_channels=cnn_temporal_kernels,
-                kernel_size=cnn_temporal_kernelsize, #(1, kernel_temp_conv),
+                kernel_size=cnn_temporal_kernelsize,  # (1, kernel_temp_conv),
                 padding="valid",
                 bias=True,
                 swap=True,
@@ -199,34 +207,32 @@ class PatchEmbedding(torch.nn.Module):
             sb.nnet.CNN.Conv2d(
                 in_channels=cnn_temporal_kernels,
                 out_channels=cnn_spatial_kernels,
-                kernel_size=cnn_spatial_kernelsize,#(C, 1),
+                kernel_size=cnn_spatial_kernelsize,  # (C, 1),
                 padding="valid",
                 bias=True,
                 swap=True,
             ),
             sb.nnet.normalization.BatchNorm2d(
-                input_size=cnn_spatial_kernels,
-                momentum=0.01,
-                affine=True,
+                input_size=cnn_spatial_kernels, momentum=0.01, affine=True,
             ),
             activation,
             sb.nnet.pooling.Pooling2d(
                 pool_type=cnn_pool_type,
-                kernel_size=cnn_poolsize, #(1, kernel_avg_pool),
-                stride=cnn_poolstride, #(1, stride_avg_pool),
+                kernel_size=cnn_poolsize,  # (1, kernel_avg_pool),
+                stride=cnn_poolstride,  # (1, stride_avg_pool),
                 pool_axis=[1, 2],
             ),
             torch.nn.Dropout(dropout),
         )
 
         self.projection = sb.nnet.CNN.Conv2d(
-                in_channels=cnn_spatial_kernels,
-                out_channels=cnn_spatial_kernels,
-                kernel_size=(1, 1),
-                padding="valid",
-                bias=True,
-                swap=True,
-            )
+            in_channels=cnn_spatial_kernels,
+            out_channels=cnn_spatial_kernels,
+            kernel_size=(1, 1),
+            padding="valid",
+            bias=True,
+            swap=True,
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns the output of the convolutional feature extractor.
@@ -236,9 +242,13 @@ class PatchEmbedding(torch.nn.Module):
         x : torch.Tensor (batch, time, EEG channel, channel)
             Input to convolve. 4d tensors are expected.
         """
-        x = self.shallownet(x)  # (batch, time_, 1, channel) was (batch, channel, EEG channel, time_)
+        x = self.shallownet(
+            x
+        )  # (batch, time_, 1, channel) was (batch, channel, EEG channel, time_)
         x = self.projection(x)  # (batch, time_, 1, channel)
-        x = x.reshape(x.shape[0], x.shape[1]*x.shape[2], x.shape[-1])  # (batch, time_, emb_size=channel*1) #ok
+        x = x.reshape(
+            x.shape[0], x.shape[1] * x.shape[2], x.shape[-1]
+        )  # (batch, time_, emb_size=channel*1) #ok
         return x
 
 
@@ -254,47 +264,51 @@ class MultiHeadAttention(torch.nn.Module):
     dropout: float
         Dropout probability for the transformer module.
     """
+
     def __init__(self, emb_size, num_heads, dropout):
         super().__init__()
         self.emb_size = emb_size
         self.num_heads = num_heads
 
         self.keys = sb.nnet.linear.Linear(
-            input_size=emb_size,
-            n_neurons=emb_size,
-            bias=True,
+            input_size=emb_size, n_neurons=emb_size, bias=True,
         )
         self.queries = sb.nnet.linear.Linear(
-            input_size=emb_size,
-            n_neurons=emb_size,
-            bias=True,
+            input_size=emb_size, n_neurons=emb_size, bias=True,
         )
         self.values = sb.nnet.linear.Linear(
-            input_size=emb_size,
-            n_neurons=emb_size,
-            bias=True,
+            input_size=emb_size, n_neurons=emb_size, bias=True,
         )
         self.dropout = torch.nn.Dropout(dropout)
         self.projection = sb.nnet.linear.Linear(
-            input_size=emb_size,
-            n_neurons=emb_size,
-            bias=True,
+            input_size=emb_size, n_neurons=emb_size, bias=True,
         )
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: torch.Tensor = None
+    ) -> torch.Tensor:
         queries = self.queries(x)
-        queries = queries.reshape(queries.shape[:2]+(self.num_heads, int(queries.shape[-1]/self.num_heads)))
+        queries = queries.reshape(
+            queries.shape[:2]
+            + (self.num_heads, int(queries.shape[-1] / self.num_heads))
+        )
         queries = queries.transpose(-2, -3)
 
         keys = self.keys(x)
-        keys = keys.reshape(keys.shape[:2]+(self.num_heads, int(keys.shape[-1]/self.num_heads)))
+        keys = keys.reshape(
+            keys.shape[:2]
+            + (self.num_heads, int(keys.shape[-1] / self.num_heads))
+        )
         keys = keys.transpose(-2, -3)
 
         values = self.values(x)
-        values = values.reshape(values.shape[:2]+(self.num_heads, int(values.shape[-1]/self.num_heads)))
+        values = values.reshape(
+            values.shape[:2]
+            + (self.num_heads, int(values.shape[-1] / self.num_heads))
+        )
         values = values.transpose(-2, -3)
 
-        energy = torch.einsum('bhqd, bhkd -> bhqk', queries, keys)
+        energy = torch.einsum("bhqd, bhkd -> bhqk", queries, keys)
         if mask is not None:
             fill_value = torch.finfo(torch.float32).min
             energy.mask_fill(~mask, fill_value)
@@ -302,10 +316,12 @@ class MultiHeadAttention(torch.nn.Module):
         scaling = self.emb_size ** (1 / 2)
         att = torch.nn.functional.softmax(energy / scaling, dim=-1)
         att = self.dropout(att)
-        out = torch.einsum('bhal, bhlv -> bhav ', att, values)
+        out = torch.einsum("bhal, bhlv -> bhav ", att, values)
 
-        out = out.transpose(1, 2) # b h n d-> b n h d
-        out = out.reshape(out.shape[:2]+(out.shape[2]*out.shape[3],))# b n h d -> b n h*d
+        out = out.transpose(1, 2)  # b h n d-> b n h d
+        out = out.reshape(
+            out.shape[:2] + (out.shape[2] * out.shape[3],)
+        )  # b n h d -> b n h*d
         out = self.projection(out)
         return out
 
@@ -326,17 +342,13 @@ class FeedForwardBlock(torch.nn.Sequential):
     def __init__(self, emb_size, expansion, dropout):
         super().__init__(
             sb.nnet.linear.Linear(
-                input_size=emb_size,
-                n_neurons=expansion * emb_size,
-                bias=True
+                input_size=emb_size, n_neurons=expansion * emb_size, bias=True
             ),
             torch.nn.GELU(),
             torch.nn.Dropout(dropout),
             sb.nnet.linear.Linear(
-                input_size=expansion * emb_size,
-                n_neurons=emb_size,
-                bias=True
-            )
+                input_size=expansion * emb_size, n_neurons=emb_size, bias=True
+            ),
         )
 
 
@@ -353,24 +365,26 @@ class TransformerEncoderBlock(torch.nn.Sequential):
         Dropout probability for the transformer module.
     forward_expansion: int
     """
-    def __init__(self,
-                 emb_size,
-                 attn_heads,
-                 dropout,
-                 forward_expansion=4):
+
+    def __init__(self, emb_size, attn_heads, dropout, forward_expansion=4):
         super().__init__(
-            ResidualAdd(torch.nn.Sequential(
-                torch.nn.LayerNorm(emb_size),
-                MultiHeadAttention(emb_size, attn_heads, dropout),
-                torch.nn.Dropout(dropout)
-            )),
-            ResidualAdd(torch.nn.Sequential(
-                torch.nn.LayerNorm(emb_size),
-                FeedForwardBlock(
-                    emb_size, expansion=forward_expansion, dropout=dropout),
-                torch.nn.Dropout(dropout)
-            )
-            ))
+            ResidualAdd(
+                torch.nn.Sequential(
+                    torch.nn.LayerNorm(emb_size),
+                    MultiHeadAttention(emb_size, attn_heads, dropout),
+                    torch.nn.Dropout(dropout),
+                )
+            ),
+            ResidualAdd(
+                torch.nn.Sequential(
+                    torch.nn.LayerNorm(emb_size),
+                    FeedForwardBlock(
+                        emb_size, expansion=forward_expansion, dropout=dropout
+                    ),
+                    torch.nn.Dropout(dropout),
+                )
+            ),
+        )
 
 
 class TransformerEncoder(torch.nn.Sequential):
@@ -387,5 +401,11 @@ class TransformerEncoder(torch.nn.Sequential):
     dropout: float
         Dropout probability for the transformer module.
     """
+
     def __init__(self, attn_depth, emb_size, attn_heads, dropout):
-        super().__init__(*[TransformerEncoderBlock(emb_size, attn_heads, dropout) for _ in range(attn_depth)])
+        super().__init__(
+            *[
+                TransformerEncoderBlock(emb_size, attn_heads, dropout)
+                for _ in range(attn_depth)
+            ]
+        )

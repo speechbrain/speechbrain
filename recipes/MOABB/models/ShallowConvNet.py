@@ -11,12 +11,14 @@ import speechbrain as sb
 
 class Square(torch.nn.Module):
     """Layer for squaring activations."""
+
     def forward(self, x):
         return torch.square(x)
 
 
 class Log(torch.nn.Module):
     """Layer to compute log of activations."""
+
     def forward(self, x):
         return torch.log(torch.clamp(x, min=1e-6))
 
@@ -109,26 +111,23 @@ class ShallowConvNet(torch.nn.Module):
         # Square-pool-log-dropout
         # conv non-lin
         self.conv_module.add_module(
-            "square_1",
-            Square(),
+            "square_1", Square(),
         )
         self.conv_module.add_module(
             "pool_1",
-             sb.nnet.pooling.Pooling2d(
+            sb.nnet.pooling.Pooling2d(
                 pool_type=cnn_pool_type,
                 kernel_size=cnn_poolsize,
                 stride=cnn_poolstride,
                 pool_axis=[1, 2],
-            )
+            ),
         )
         # pool non-lin
         self.conv_module.add_module(
-            "log_1",
-            Log(),
+            "log_1", Log(),
         )
         self.conv_module.add_module(
-            "dropout_1",
-            torch.nn.Dropout(p=dropout),
+            "dropout_1", torch.nn.Dropout(p=dropout),
         )
         # Shape of intermediate feature maps
         out = self.conv_module(
