@@ -11,7 +11,14 @@ Authors:
 import logging
 
 import torch
-import k2
+try:
+    import k2
+except ImportError:
+    MSG = "Please install k2 to use k2 training \n"
+    MSG += "E.G. run: pip install k2\n"
+    MSG += "or if the extra_requirements.txt file exists in your recipe \n"
+    MSG += "install them with: pip install -r extra_requirements.txt"
+    raise ImportError(MSG)
 from typing import Dict, List, Optional, Union
 
 
