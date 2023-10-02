@@ -17,8 +17,8 @@ events_to_load: null # all events will be loaded
 original_sample_rate: 512 # Original sampling rate provided by dataset authors
 sample_rate: 128 # Target sampling rate (Hz)
 # band-pass filtering cut-off frequencies
-fmin: 0.14 # @orion_step1: --fmin~"uniform(0.1, 5, precision=2)"
-fmax: 21.9 # @orion_step1: --fmax~"uniform(20.0, 50.0, precision=3)"
+fmin: 0.17
+fmax: 41.4
 n_classes: 2
 # tmin, tmax respect to stimulus onset that define the interval attribute of the dataset class
 # trial begins (0 s), cue (2 s, 1.25 s long); each trial is 6 s long
@@ -27,7 +27,7 @@ n_classes: 2
 tmin: 0.
 tmax: 0.8
 # number of steps used when selecting adjacent channels from a seed channel (default at Cz)
-n_steps_channel_selection: 3 # @orion_step1: --n_steps_channel_selection~"uniform(1, 3,discrete=True)"
+n_steps_channel_selection: 3
 T: !apply:math.ceil
     - !ref <sample_rate> * (<tmax> - <tmin>)
 C: 32
@@ -51,9 +51,9 @@ metrics:
 # TRAINING HPARS
 n_train_examples: 100  # it will be replaced in the train script
 # checkpoints to average
-avg_models: 15 # @orion_step1: --avg_models~"uniform(1, 15,discrete=True)"
-number_of_epochs: 940 # @orion_step1: --number_of_epochs~"uniform(250, 1000, discrete=True)"
-lr: 0.0001 # @orion_step1: --lr~"choices([0.01, 0.005, 0.001, 0.0005, 0.0001])"
+avg_models: 2
+number_of_epochs: 508
+lr: 0.0001
 # Learning rate scheduling (cyclic learning rate is used here)
 max_lr: !ref <lr> # Upper bound of the cycle (max value of the lr)
 base_lr: 0.00000001 # Lower bound in the cycle (min value of the lr)
@@ -71,23 +71,23 @@ optimizer: !name:torch.optim.Adam
     lr: !ref <lr>
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter  # epoch counter
     limit: !ref <number_of_epochs>
-batch_size_exponent: 4 # @orion_step1: --batch_size_exponent~"uniform(4, 6,discrete=True)"
+batch_size_exponent: 4
 batch_size: !ref 2 ** <batch_size_exponent>
 valid_ratio: 0.2
 
 # DATA AUGMENTATION
 # cutcat (disabled when min_num_segments=max_num_segments=1)
-max_num_segments: 3 # @orion_step2: --max_num_segments~"uniform(2, 6, discrete=True)"
+max_num_segments: 2
 cutcat: !new:speechbrain.processing.speech_augmentation.CutCat
     min_num_segments: 2
     max_num_segments: !ref <max_num_segments>
 # random amplitude gain between 0.5-1.5 uV (disabled when amp_delta=0.)
-amp_delta: 0.3492 # @orion_step2: --amp_delta~"uniform(0.0, 0.5)"
+amp_delta: 0.0004189
 rand_amp: !new:speechbrain.processing.speech_augmentation.RandAmp
     amp_low: !ref 1 - <amp_delta>
     amp_high: !ref 1 + <amp_delta>
 # random shifts between -300 ms to 300 ms (disabled when shift_delta=0.)
-shift_delta_: 3 #@orion_step2: --shift_delta_~"uniform(0, 25, discrete=True)"
+shift_delta_: 25
 shift_delta: !ref 1e-2 * <shift_delta_> # 0.250 # 0.-0.25 with steps of 0.01
 min_shift: !apply:math.floor
     - !ref 0 - <sample_rate> * <shift_delta>
@@ -98,8 +98,8 @@ time_shift: !new:speechbrain.processing.speech_augmentation.RandomShift
     max_shift: !ref <max_shift>
     dim: 1
 # injection of gaussian white noise
-snr_white_low: 9.1 # @orion_step2: --snr_white_low~"uniform(0.0, 15, precision=2)"
-snr_white_delta: 11.3 # @orion_step2: --snr_white_delta~"uniform(5.0, 20.0, precision=3)"
+snr_white_low: 12.0
+snr_white_delta: 5.09
 snr_white_high: !ref <snr_white_low> + <snr_white_delta>
 add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
     snr_low: !ref <snr_white_low>
@@ -125,27 +125,27 @@ normalize: !name:speechbrain.processing.signal_processing.mean_std_norm
     dims: !ref <dims_to_normalize>
 # MODEL
 input_shape: [null, !ref <T>, !ref <C>, null]
-cnn_temporal_kernels: 61 # @orion_step1: --cnn_temporal_kernels~"uniform(4, 64,discrete=True)"
-cnn_temporal_kernelsize: 29 # @orion_step1: --cnn_temporal_kernelsize~"uniform(24, 62,discrete=True)"
+cnn_temporal_kernels: 61
+cnn_temporal_kernelsize: 29
 # depth multiplier for the spatial depthwise conv. layer
-cnn_spatial_depth_multiplier: 3  # @orion_step1: --cnn_spatial_depth_multiplier~"uniform(1, 4,discrete=True)"
+cnn_spatial_depth_multiplier: 1
 cnn_spatial_max_norm: 1.  # kernel max-norm constaint of the spatial depthwise conv. layer
 cnn_spatial_pool: 4
 cnn_septemporal_depth_multiplier: 1  # depth multiplier for the separable temporal conv. layer
-cnn_septemporal_point_kernels_ratio_: 7 # @orion_step1: --cnn_septemporal_point_kernels_ratio_~"uniform(0, 8, discrete=True)"
+cnn_septemporal_point_kernels_ratio_: 7
 cnn_septemporal_point_kernels_ratio: !ref <cnn_septemporal_point_kernels_ratio_> / 4
 ## number of temporal filters in the separable temporal conv. layer
 cnn_septemporal_point_kernels_: !ref <cnn_temporal_kernels> * <cnn_spatial_depth_multiplier> * <cnn_septemporal_depth_multiplier>
 cnn_septemporal_point_kernels: !apply:math.ceil
     - !ref <cnn_septemporal_point_kernels_ratio> * <cnn_septemporal_point_kernels_> + 1
-cnn_septemporal_kernelsize_: 15 # @orion_step1: --cnn_septemporal_kernelsize_~"uniform(3, 24,discrete=True)"
+cnn_septemporal_kernelsize_: 24
 max_cnn_spatial_pool: 4
 cnn_septemporal_kernelsize: !apply:round
     - !ref <cnn_septemporal_kernelsize_> * <max_cnn_spatial_pool> / <cnn_spatial_pool>
-cnn_septemporal_pool: 3 # @orion_step1: --cnn_septemporal_pool~"uniform(1, 8,discrete=True)"
+cnn_septemporal_pool: 4
 cnn_pool_type: 'avg'
 dense_max_norm: 0.25  # kernel max-norm constaint of the dense layer
-dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
+dropout: 0.3831
 activation_type: 'elu'
 
 model: !new:models.EEGNet.EEGNet
