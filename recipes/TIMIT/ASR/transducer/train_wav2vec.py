@@ -57,7 +57,7 @@ class ASR_Brain(sb.Brain):
         logits = self.modules.output(joint)
 
         if stage == sb.Stage.VALID:
-            hyps, scores, _, _ = self.hparams.Greedysearcher(x)
+            hyps, _, _, _ = self.hparams.Greedysearcher(x)
             return logits, hyps
 
         elif stage == sb.Stage.TEST:

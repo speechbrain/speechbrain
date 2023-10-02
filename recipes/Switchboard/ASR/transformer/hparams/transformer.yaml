@@ -130,6 +130,7 @@ eos_threshold: 1.5
 length_normalization: True
 using_max_attn_shift: False
 max_attn_shift: 30
+scorer_beam_scale: 0.3
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
   input_shape: (8, 10, 80)
@@ -191,36 +192,52 @@ Adam: !name:torch.optim.Adam
   betas: (0.9, 0.98)
   eps: 0.000000001
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-  modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-  bos_index: !ref <bos_index>
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+  language_model: !ref <lm_model>
+  temperature: !ref <temperature_lm>
+
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
   eos_index: !ref <eos_index>
   blank_index: !ref <blank_index>
+  ctc_fc: !ref <ctc_lin>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+  full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
+  weights:
+    transformerlm: !ref <lm_weight>
+    ctc: !ref <ctc_weight_decode>
+  scorer_beam_scale: !ref <scorer_beam_scale>
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+  modules: [!ref <Transformer>, !ref <seq_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
   min_decode_ratio: !ref <min_decode_ratio>
   max_decode_ratio: !ref <max_decode_ratio>
   beam_size: !ref <valid_beam_size>
-  ctc_weight: !ref <ctc_weight_decode>
-  using_eos_threshold: False
+  using_eos_threshold: !ref <using_eos_threshold>
   length_normalization: False
+  using_max_attn_shift: !ref <using_max_attn_shift>
+  max_attn_shift: !ref <max_attn_shift>
+  scorer: !ref <scorer>
+  temperature: !ref <temperature>
 
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-  modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+  modules: [!ref <Transformer>, !ref <seq_lin>]
   bos_index: !ref <bos_index>
   eos_index: !ref <eos_index>
-  blank_index: !ref <blank_index>
   min_decode_ratio: !ref <min_decode_ratio>
   max_decode_ratio: !ref <max_decode_ratio>
   beam_size: !ref <test_beam_size>
-  ctc_weight: !ref <ctc_weight_decode>
-  lm_weight: !ref <lm_weight>
-  lm_modules: !ref <lm_model>
-  temperature: !ref <temperature>
-  temperature_lm: !ref <temperature_lm>
   using_eos_threshold: !ref <using_eos_threshold>
-  eos_threshold: !ref <eos_threshold>
-  length_normalization: !ref <length_normalization>
   using_max_attn_shift: !ref <using_max_attn_shift>
   max_attn_shift: !ref <max_attn_shift>
+  eos_threshold: !ref <eos_threshold>
+  temperature: !ref <temperature>
+  length_normalization: !ref <length_normalization>
+  scorer: !ref <scorer>
+
 
 log_softmax: !new:torch.nn.LogSoftmax
   dim: -1

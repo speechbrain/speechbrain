@@ -141,10 +141,9 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused in here
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
         self.metric_values = data["metric_values"]
@@ -274,10 +273,9 @@ class LinearWarmupScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused in here
         data = torch.load(path)
         self.lr0 = data["initial_value"]
         self.num_warmup_steps = data["num_warmup_steps"]
@@ -447,10 +445,9 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -674,10 +671,9 @@ class CyclicCosineScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -786,10 +782,9 @@ class ReduceLROnPlateau:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Not used
         data = torch.load(path)
         self.losses = data["losses"]
         self.anchor = data["anchor"]
@@ -959,10 +954,9 @@ class CyclicLRScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.clr_iterations = data["clr_iterations"]
@@ -1064,10 +1058,9 @@ class IntervalScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -1222,10 +1215,9 @@ class WarmCoolDecayLRSchedule:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch
-        del device
         data = torch.load(path)
         self.base_lr = data["base_lr"]
         self.warmup = data["warmup"]

@@ -463,3 +463,24 @@ class SentencePiece:
                 ).split(" ")
                 for i, utt_seq in enumerate(batch)
             ]
+
+
+def get_spm_tokens(model_path):
+    """Fetch list of tokens, can be indexed by token id
+
+    The resulting list can be used to map id to token.
+
+    Arguments
+    ---------
+    model_path : str
+        Path to SentencePiece model
+
+    Returns
+    -------
+    list
+        Tokens in order by id (can be indexed by id)
+    """
+    model = spm.SentencePieceProcessor()
+    model.load(model_path)
+    mapping = [model.sp.id_to_piece(i) for i in range(model.sp.vocab_size())]
+    return mapping

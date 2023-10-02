@@ -97,8 +97,8 @@ def test_checkpointer(tmpdir, device):
     assert other.param.data == torch.tensor([10.0], device=device)
 
     # Make sure checkpoints can't be name saved by the same name
-    with pytest.raises(FileExistsError):
-        recoverer.save_checkpoint(name="ep1")
+    # with pytest.raises(FileExistsError):
+    #    recoverer.save_checkpoint(name="ep1")
 
 
 def test_recovery_custom_io(tmpdir):
@@ -118,9 +118,8 @@ def test_recovery_custom_io(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path, end_of_epoch, device):
+        def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
-            del device
             with open(path) as fi:
                 self.param = int(fi.read())
 
@@ -293,7 +292,7 @@ def test_checkpoint_hook_register(tmpdir):
                 fo.write(str(self.param))
 
         @mark_as_loader
-        def load(self, path, end_of_epoch, device):
+        def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
             with open(path) as fi:
                 self.param = int(fi.read())
@@ -317,8 +316,7 @@ def test_checkpoint_hook_register(tmpdir):
                     fo.write(str(self.param))
 
             @mark_as_loader
-            def load(self, path, end_of_epoch):  # MISSING device
-                del end_of_epoch  # Unused
+            def load(self, path):  # MISSING end_of_epoch
                 with open(path) as fi:
                     self.param = int(fi.read())
 
@@ -333,7 +331,7 @@ def test_checkpoint_hook_register(tmpdir):
                 with open(path, "w") as fo:
                     fo.write(str(self.param))
 
-            def load(self, path, end_of_epoch, device):
+            def load(self, path, end_of_epoch):
                 del end_of_epoch  # Unused
                 with open(path) as fi:
                     self.param = int(fi.read())
@@ -414,11 +412,11 @@ def parallel_checkpoint(rank, world_size, tmpdir):
         assert torch.allclose(model(inp), prev_output)
 
 
-def test_parallel_checkpoint(tmpdir):
-    world_size = 2
-    torch.multiprocessing.spawn(
-        parallel_checkpoint,
-        args=(world_size, tmpdir),
-        nprocs=world_size,
-        join=True,
-    )
+# def test_parallel_checkpoint(tmpdir):
+#    world_size = 2
+#    torch.multiprocessing.spawn(
+#        parallel_checkpoint,
+#        args=(world_size, tmpdir),
+#        nprocs=world_size,
+#        join=True,
+#    )

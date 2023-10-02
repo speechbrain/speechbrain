@@ -18,7 +18,6 @@ import datasets
 import logging
 import os
 import random
-import torch
 import speechbrain as sb
 import sys
 from enum import Enum
@@ -154,7 +153,6 @@ class G2PBrain(sb.Brain):
             step = self.train_step["name"]
             logger.info(f"Attempting to restore checkpoint for step {step}")
             result = self.checkpointer.recover_if_possible(
-                device=torch.device(self.device),
                 min_key=min_key,
                 max_key=max_key,
                 ckpt_predicate=(lambda ckpt: ckpt.meta.get("step") == step),
@@ -166,9 +164,7 @@ class G2PBrain(sb.Brain):
                     step,
                 )
                 result = self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device),
-                    min_key=min_key,
-                    max_key=max_key,
+                    min_key=min_key, max_key=max_key,
                 )
                 if result:
                     logger.info(
@@ -221,7 +217,8 @@ class G2PBrain(sb.Brain):
                 if stage == sb.Stage.VALID
                 else self.beam_searcher
             )
-            hyps, scores = beam_searcher(encoder_out, char_lens)
+
+            hyps, _, _, _ = beam_searcher(encoder_out, char_lens)
 
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 
@@ -1139,7 +1136,7 @@ def load_dependencies(hparams, run_opts):
     deps_pretrainer = hparams.get("deps_pretrainer")
     if deps_pretrainer:
         run_on_main(deps_pretrainer.collect_files)
-        deps_pretrainer.load_collected(device=run_opts["device"])
+        deps_pretrainer.load_collected()
 
 
 def check_tensorboard(hparams):

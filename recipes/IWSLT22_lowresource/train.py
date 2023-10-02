@@ -48,9 +48,10 @@ class ST(sb.core.Brain):
         hyps = None
         if stage == sb.Stage.VALID:
             # the output of the encoder (enc) is used for valid search
-            hyps, _ = self.hparams.valid_search(src.detach(), wav_lens)
+            hyps, _, _, _ = self.hparams.valid_search(src.detach(), wav_lens)
+
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(src.detach(), wav_lens)
+            hyps, _, _, _ = self.hparams.test_search(src.detach(), wav_lens)
 
         return p_seq, wav_lens, hyps
 

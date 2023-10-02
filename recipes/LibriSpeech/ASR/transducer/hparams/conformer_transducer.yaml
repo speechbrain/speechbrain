@@ -29,7 +29,6 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -158,6 +157,7 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
    speeds: [95, 100, 105]
 
 # Uncomment if interested in env corruption
+# data_folder_rirs: !ref <data_folder>
 # env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
 #   openrir_folder: !ref <data_folder_rirs>
 #   babble_prob: 0.0

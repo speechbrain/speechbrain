@@ -27,18 +27,15 @@ class seq2seqBrain(sb.Brain):
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 
+        seq = None
         if stage != sb.Stage.TRAIN:
-            seq, _ = self.hparams.searcher(x, wav_lens)
-            return outputs, seq
+            seq, _, _, _ = self.hparams.searcher(x, wav_lens)
 
-        return outputs
+        return outputs, seq
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the NLL loss."
-        if stage == sb.Stage.TRAIN:
-            outputs = predictions
-        else:
-            outputs, seq = predictions
+        outputs, seq = predictions
 
         ids = batch.id
         phns, phn_lens = batch.phn_encoded_eos
