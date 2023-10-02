@@ -22,6 +22,7 @@ import tgt
 from speechbrain.pretrained import GraphemeToPhoneme
 import re
 from unidecode import unidecode
+from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ def prepare_ljspeech(
     if model_name == "FastSpeech2":
         # This step requires phoneme alignements to be present in the data_folder
         # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
-        # Download and unzip LJSpeech phoneme alignments from here: https://www.dropbox.com/sh/647h69vuarms5zj/AABeCQxeyD4AiqIss5eJoX4Qa?dl=0
+        # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
         alignment_URL = (
             "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
         )
@@ -146,6 +147,8 @@ def prepare_ljspeech(
         if not os.path.exists(duration_folder):
             os.makedirs(duration_folder)
 
+    # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
+    if "FastSpeech2" in model_name:
         pitch_folder = os.path.join(data_folder, "pitch")
         if not os.path.exists(pitch_folder):
             os.makedirs(pitch_folder)
@@ -379,27 +382,26 @@ def prepare_json(
     """
 
     logger.info(f"preparing {json_file}.")
-    if model_name == "Tacotron2":
+    if model_name in ["Tacotron2", "FastSpeech2WithAlignment"]:
         logger.info(
             "Computing phonemes for LJSpeech labels using SpeechBrain G2P. This may take a while."
         )
         g2p = GraphemeToPhoneme.from_hparams(
             "speechbrain/soundchoice-g2p", run_opts={"device": device}
         )
-    if model_name == "FastSpeech2":
+    if "FastSpeech2" in model_name:
         logger.info(
             "Computing pitch as required for FastSpeech2. This may take a while."
         )
 
     json_dict = {}
     for index in tqdm(seg_lst):
-
         # Common data preparation
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
         label = list(csv_reader)[index][2]
         if use_custom_cleaner:
-            label = custom_clean(label)
+            label = custom_clean(label, model_name)
 
         json_dict[id] = {
             "uttid": id,
@@ -408,16 +410,8 @@ def prepare_json(
             "segment": True if "train" in json_file else False,
         }
 
-        # Tacotron2 specific data preparation
-        if model_name == "Tacotron2":
-            # Computes phoneme labels using SpeechBrain G2P for Tacotron2
-            label_phoneme_list = g2p(label)
-            label_phoneme = " ".join(label_phoneme_list)
-            json_dict[id].update({"label_phoneme": label_phoneme})
-
         # FastSpeech2 specific data preparation
         if model_name == "FastSpeech2":
-
             audio, fs = torchaudio.load(wav)
 
             # Parses phoneme alignments
@@ -487,6 +481,28 @@ def prepare_json(
                 {"last_phoneme_flags": trimmed_last_phoneme_flags}
             )
 
+        # FastSpeech2WithAlignment specific data preparation
+        if model_name == "FastSpeech2WithAlignment":
+            audio, fs = torchaudio.load(wav)
+            # Computes pitch
+            pitch_file = wav.replace(".wav", ".npy").replace(
+                wavs_folder, pitch_folder
+            )
+            if not os.path.isfile(pitch_file):
+                pitch = torchaudio.functional.compute_kaldi_pitch(
+                    waveform=audio,
+                    sample_rate=fs,
+                    frame_length=(pitch_n_fft / fs * 1000),
+                    frame_shift=(pitch_hop_length / fs * 1000),
+                    min_f0=pitch_min_f0,
+                    max_f0=pitch_max_f0,
+                )[0, :, 0]
+                np.save(pitch_file, pitch)
+            phonemes = _g2p_keep_punctuations(g2p, label)
+            # Updates data for the utterance
+            json_dict[id].update({"phonemes": phonemes})
+            json_dict[id].update({"pitch": pitch_file})
+
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
@@ -496,26 +512,26 @@ def prepare_json(
 
 def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
     """
-  Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
-  This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
+    Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
+    This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
 
-  Arguments
-  ---------
-  tier : tgt.core.IntervalTier
-      For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
-  sampling_rate : int
-      Sample rate if audio signal
-  hop_length : int
-      Hop length for duration computation
-  last_phoneme_flags : list
-      List of (phoneme, flag) tuples with flag=1 if the phoneme is the last phoneme else flag=0
+    Arguments
+    ---------
+    tier : tgt.core.IntervalTier
+        For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
+    sampling_rate : int
+        Sample rate if audio signal
+    hop_length : int
+        Hop length for duration computation
+    last_phoneme_flags : list
+        List of (phoneme, flag) tuples with flag=1 if the phoneme is the last phoneme else flag=0
 
 
-  Returns
-  -------
-  (phones, durations, start_time, end_time) : tuple
-      The phonemes, durations, start time, and end time for an utterance
-  """
+    Returns
+    -------
+    (phones, durations, start_time, end_time) : tuple
+        The phonemes, durations, start time, and end time for an utterance
+    """
 
     sil_phones = ["sil", "sp", "spn", ""]
 
@@ -570,23 +586,23 @@ def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
 
 def get_last_phoneme_info(words_seq, phones_seq):
     """This function takes word and phoneme tiers from a TextGrid file as input
-  and provides a list of tuples for the phoneme sequence indicating whether
-  each of the phonemes is the last phoneme of a word or not.
+    and provides a list of tuples for the phoneme sequence indicating whether
+    each of the phonemes is the last phoneme of a word or not.
 
-  Each tuple of the returned list has this format: (phoneme, flag)
+    Each tuple of the returned list has this format: (phoneme, flag)
 
 
-  Arguments
-  ---------
-  words_seq :
-      word tier from a TextGrid file
-  phones_seq :
-      phoneme tier from a TextGrid file
+    Arguments
+    ---------
+    words_seq :
+        word tier from a TextGrid file
+    phones_seq :
+        phoneme tier from a TextGrid file
 
-  Returns
-  -------
-  last_phoneme_flags : list
-      each tuple of the returned list has this format: (phoneme, flag)
+    Returns
+    -------
+    last_phoneme_flags : list
+        each tuple of the returned list has this format: (phoneme, flag)
     """
 
     # Gets all phoneme objects for the entire sequence
@@ -613,7 +629,7 @@ def get_last_phoneme_info(words_seq, phones_seq):
     return last_phoneme_flags
 
 
-def custom_clean(text):
+def custom_clean(text, model_name):
     """
     Uses custom criteria to clean text.
 
@@ -621,6 +637,8 @@ def custom_clean(text):
     ---------
     text : str
         Input text to be cleaned
+    model_name : str
+        whether to treat punctuations
 
     Returns
     -------
@@ -652,10 +670,12 @@ def custom_clean(text):
         ]
     ]
     text = unidecode(text.lower())
-    text = re.sub("[:;]", " - ", text)
-    text = re.sub(r'[)(\[\]"]', " ", text)
+    if model_name != "FastSpeech2WithAlignment":
+        text = re.sub("[:;]", " - ", text)
+        text = re.sub(r'[)(\[\]"]', " ", text)
+        text = text.strip().strip().strip("-")
+
     text = re.sub(" +", " ", text)
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
-    text = text.strip().strip().strip("-")
     return text
