@@ -692,19 +692,35 @@ class Brain:
         # to have your_sampler.set_epoch() called on each epoch.
         self.train_sampler = None
 
-        # Automatic mixed precision init
-        # By default, we use autocast if `self.auto_mix_prec` is equal to `fp16`.
-        gradscaler_enabled = self.auto_mix_prec == "fp16"
+        if self.device == "cpu" and self.auto_mix_prec == "fp16":
+            raise ValueError(
+                "The option `--auto_mix_prec` is enabled with the value "
+                "fp16. This option is not yet supported on CPU. "
+                "Please use `--auto_mix_prec=bf16` instead to get "
+                "mixed precision on CPU."
+            )
+
+        gradscaler_enabled = (
+            self.auto_mix_prec == "fp16" and "cuda" in self.device
+        )
         if self.skip_nonfinite_grads and gradscaler_enabled:
             logger.warning(
                 "The option `skip_nonfinite_grads` will be ignored "
                 "because GradScaler is enabled and will automatically "
                 "skip nonfinite gradients."
             )
+
         logger.info(
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.auto_mix_prec}."
         )
         self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+
+        self.use_amp = False
+        if self.device == "cpu" and self.auto_mix_prec == "bf16":
+            self.use_amp = True
+        elif "cuda" in self.device and self.auto_mix_prec in ["fp16", "bf16"]:
+            self.use_amp = True
+
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("scaler", self.scaler)
 
@@ -1062,9 +1078,13 @@ class Brain:
         should_step = (self.step % self.grad_accumulation_factor) == 0
 
         with self.no_sync(not should_step):
-            with torch.autocast(
-                dtype=amp.dtype, device_type=torch.device(self.device).type,
-            ):
+
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                ):
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+            else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
             # The objectives are removed from Autocast to avoid
@@ -1123,7 +1143,7 @@ class Brain:
 
         # no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
-        if not self.scaler.enabled and self.skip_nonfinite_grads:
+        if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
             self.check_gradients()
 
         # 4. step the valid optimizers
