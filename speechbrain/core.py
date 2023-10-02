@@ -1071,16 +1071,12 @@ class Brain:
         amp = AutocastConfig.from_name(self.autocast)
         should_step = (self.step % self.grad_accumulation_factor) == 0
 
-        # We wrap the forward pass in no_sync to avoid
-        # unnecessary synchronization of gradients.
-        # Empirically, we found that this improves performance by a lot (2x speedup).
-        with self.no_sync():
+        with self.no_sync(not should_step):
             with torch.autocast(
                 dtype=amp.dtype, device_type=torch.device(self.device).type,
             ):
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
-        with self.no_sync(not should_step):
             # The objectives are removed from Autocast to avoid
             # potential numerical instabilities with CTC loss, etc.
             loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
@@ -1133,8 +1129,8 @@ class Brain:
 
         # no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
-        if self.skip_nan_grad:
-            self.check_gradients()
+        # if self.skip_nan_grad:
+        #    self.check_gradients()
 
         # 4. step the valid optimizers
         for opt in valid_optimizers.values():

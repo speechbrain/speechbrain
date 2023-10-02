@@ -142,9 +142,8 @@ class ASR(sb.Brain):
                 if not self.hparams.freeze_wav2vec:
                     self.scaler.unscale_(self.wav2vec_optimizer)
                 self.scaler.unscale_(self.model_optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.wav2vec_optimizer)
-                    self.scaler.step(self.model_optimizer)
+                self.scaler.step(self.wav2vec_optimizer)
+                self.scaler.step(self.model_optimizer)
                 self.scaler.update()
                 self.optimizer_step += 1
         else:
@@ -408,6 +407,8 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    asr_brain.auto_mix_prec = hparams["auto_mix_prec"]
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():

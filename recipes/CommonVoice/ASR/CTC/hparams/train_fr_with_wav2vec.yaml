@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/wav2vec2_ctc_fr/<seed>
+output_folder: !ref results/wav2vec2_ctc_fr_ddp/<seed>
 test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -37,7 +37,6 @@ number_of_epochs: 30
 lr: 1.0
 lr_wav2vec: 0.0001
 sorting: ascending
-autocast: fp16
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
