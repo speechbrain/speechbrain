@@ -1123,7 +1123,7 @@ class Brain:
 
         # no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
-        if self.skip_nonfinite_grads:
+        if not self.scaler.enabled and self.skip_nonfinite_grads:
             self.check_gradients()
 
         # 4. step the valid optimizers
