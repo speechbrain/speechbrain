@@ -389,33 +389,3 @@ class TransformerEncoder(torch.nn.Sequential):
     """
     def __init__(self, attn_depth, emb_size, attn_heads, dropout):
         super().__init__(*[TransformerEncoderBlock(emb_size, attn_heads, dropout) for _ in range(attn_depth)])
-
-
-'''
- --cnn_temporal_kernels_multiplier 13 --cnn_spatial_kernels_multiplier 7 --cnn_temporal_kernelsize 56 
- --cnn_poolsize 20 --cnn_poolstride 20 --attn_depth 2 --attn_heads 3 --dropout 0.3034
-'''
-cnn_temporal_kernels_multiplier = 13
-cnn_spatial_kernels_multiplier = 7
-cnn_temporal_kernelsize = 56
-cnn_poolsize=20
-cnn_poolstride=20
-attn_depth=2
-attn_heads=3
-dropout=0.3034
-inp_tensor = torch.rand([1, 138, 22, 1])
-model = EEGConformer(input_shape=inp_tensor.shape,
-                     cnn_temporal_kernels=cnn_temporal_kernels_multiplier*attn_heads,
-                     cnn_spatial_kernels=cnn_spatial_kernels_multiplier*attn_heads,
-                     cnn_temporal_kernelsize=(cnn_temporal_kernelsize, 1),
-                     cnn_poolsize=(cnn_poolsize, 1),
-                     cnn_poolstride=(cnn_poolstride, 1),
-                     cnn_pool_type='avg',
-                     cnn_dropout=dropout,
-                     cnn_activation_type='elu',
-                     attn_depth=attn_depth,
-                     attn_heads=attn_heads,
-                     attn_dropout=dropout,
-                     dense_n_neurons=4
-                     )
-output = model(inp_tensor)

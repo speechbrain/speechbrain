@@ -8,7 +8,7 @@ cnn_poolstride_: 2 # @orion_step1: --cnn_poolstride_~"uniform(1, 10,discrete=Tru
 # pool size / stride from 4/125 ms to 40/125 ms = circa 30 ms
 cnn_poolsize: !ref <cnn_poolsize_> * 4 # same resolution as for EEGNet research space
 cnn_poolstride: !ref <cnn_poolstride_> * 4 # same resolution as for EEGNet research space
-attn_depth: 5 # @orion_step1: --attn_depth~"uniform(1, 4,discrete=True)"
+attn_depth: 4 # @orion_step1: --attn_depth~"uniform(1, 4,discrete=True)"
 attn_heads: 1 # @orion_step1: --attn_heads~"uniform(1, 4,discrete=True)"
 dropout: 0.1748  # @orion_step1: --dropout~"uniform(0.0, 0.5)"
 cnn_temporal_kernels: !ref <attn_heads> * <cnn_temporal_kernels_multiplier>
