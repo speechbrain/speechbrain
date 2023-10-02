@@ -1088,6 +1088,9 @@ class Brain:
             if param.requires_grad and param.grad is not None:
                 if not torch.isfinite(param.grad).all():
                     param.grad = None
+                    logger.warning(
+                        f"Gradients {param.name} contain NaN or Inf. Setting to None."
+                    )
 
     def freeze_optimizers(self, optimizers):
         """By default, this method returns the passed optimizers.
@@ -1103,7 +1106,8 @@ class Brain:
         pass
 
     def optimizers_step(self):
-
+        """Performs a step of gradient descent on the optimizers. This method
+        is called every ``grad_accumulation_factor`` steps."""
         # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
         valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
 
@@ -1601,16 +1605,16 @@ class Brain:
             for module in self.modules.values():
                 if not hasattr(module, "require_backward_grad_sync"):
                     # if not using DDP
-                    break
+                    continue
                 old_values_list.append(module.require_backward_grad_sync)
                 module.require_backward_grad_sync = False
             yield
-            for module, old_value in zip(
-                self.modules.values(), old_values_list
-            ):
+            i = 0
+            for module in self.modules.values():
                 if not hasattr(module, "require_backward_grad_sync"):
-                    break
-                module.require_backward_grad_sync = old_value
+                    continue
+                module.require_backward_grad_sync = old_values_list[i]
+                i += 1
         else:
             yield
 
