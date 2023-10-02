@@ -643,9 +643,9 @@ def dataio_prep(hparams):
         clean_wav = sample_dict["clean_file"]
         noise_wav = sample_dict["noise_file"]
         noisy_wav = sample_dict["noisy_file"]
-        clean_sig = sample_dict["clean_audio.pth"].squeeze().to(torch.float32)
-        noise_sig = sample_dict["noise_audio.pth"].squeeze().to(torch.float32)
-        noisy_sig = sample_dict["noisy_audio.pth"].squeeze().to(torch.float32)
+        clean_sig = sample_dict["clean_audio.pth"].squeeze()
+        noise_sig = sample_dict["noise_audio.pth"].squeeze()
+        noisy_sig = sample_dict["noisy_audio.pth"].squeeze()
 
         return {
             "id": key,
@@ -659,7 +659,7 @@ def dataio_prep(hparams):
 
     def baseline_audio_pipeline(sample_dict: Dict, random_chunk=True):
         key = sample_dict["__key__"]
-        noisy_sig = sample_dict["audio.pth"].squeeze().to(torch.float32)
+        noisy_sig = sample_dict["audio.pth"].squeeze()
 
         return {
             "id": key,
