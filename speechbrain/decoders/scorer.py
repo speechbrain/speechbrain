@@ -157,6 +157,397 @@ class BaseRescorerInterface(BaseScorerInterface):
         raise NotImplementedError
 
 
+class RNNLMRescorer(BaseRescorerInterface):
+    """A wrapper of RNNLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    language_model : torch.nn.Module
+        A RNN-based language model.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer associated with the language model.
+    bos_index : int
+        The index of the beginning-of-sequence (bos) token.
+    eos_index : int
+        The index of the end-of-sequence (eos) token.
+    pad_index : int
+        The index of the padding token.
+    """
+
+    def __init__(
+        self,
+        language_model,
+        tokenizer,
+        encode_fn=None,
+        temperature=1.0,
+        bos_index=0,
+        eos_index=0,
+        pad_index=0,
+    ):
+        self.lm = language_model
+        self.lm.eval()
+        self.tokenizer = tokenizer
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+        self.bos_index = bos_index
+        self.eos_index = eos_index
+        self.pad_index = pad_index
+
+        self.encode_fn = encode_fn
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Default to uppercasing the text because the (current) language models are trained on
+        LibriSpeech which is all uppercase.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+        """
+        return text.upper()
+
+    def preprocess_func(self, encoded_seq):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        encoded_seq : list of str
+            The hypotheses to be preprocessed.
+        """
+
+        if self.encode_fn is None:
+            raise ValueError("encode_fn must be provided.")
+
+        # from ids to text
+        decoded_seq = self.encode_fn(encoded_seq)
+
+        # normalize
+        decoded_seq = [[self.normalize_text(seq)] for seq in decoded_seq]
+
+        # encode text
+        enc_hyps = [
+            torch.tensor(
+                [self.bos_index]
+                + self.tokenizer.encode_as_ids(seq)[0]
+                + [self.eos_index]
+            )
+            for seq in decoded_seq
+        ]
+
+        enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
+
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps, enc_hyps_length
+
+    @torch.no_grad()
+    def rescore_hyps(self, hyps):
+        """This method implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        hyps : list of str
+            The hypotheses to be rescored.
+        """
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(
+            bool_mask, dtype=torch.bool, device=padded_hyps.device
+        )
+
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(padded_hyps.device)
+
+        # compute scores
+        logits = self.lm(padded_hyps)
+        log_probs = self.softmax(logits / self.temperature)
+
+        target_log_probs = (
+            log_probs[:, :-1]
+            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
+            .squeeze(2)
+        )
+        log_probs_scores = torch.sum(
+            target_log_probs * bool_mask_tensor[:, 1:], dim=-1
+        )
+
+        return log_probs_scores, enc_hyps_length
+
+
+class TransformerLMRescorer(BaseRescorerInterface):
+    """A wrapper of TransformerLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    language_model : torch.nn.Module
+        A Transformer-based language model.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    bos_index : int
+        The index of the beginning-of-sequence (bos) token.
+    eos_index : int
+        The index of the end-of-sequence (eos) token.
+    pad_index : int
+        The index of the padding token.
+    """
+
+    def __init__(
+        self,
+        language_model,
+        tokenizer,
+        encode_fn=None,
+        temperature=1.0,
+        bos_index=0,
+        eos_index=0,
+        pad_index=0,
+    ):
+        self.lm = language_model
+        self.lm.eval()
+        self.tokenizer = tokenizer
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+        self.bos_index = bos_index
+        self.eos_index = eos_index
+        self.pad_index = pad_index
+
+        self.encode_fn = encode_fn
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Default to uppercasing the text because the (current) language models are trained on
+        LibriSpeech which is all uppercase.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+        """
+        return text.upper()
+
+    def preprocess_func(self, encoded_seq):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        encoded_seq : list of str
+            The hypotheses to be preprocessed.
+        """
+
+        if self.encode_fn is None:
+            raise ValueError("encode_fn must be provided.")
+
+        # from ids to text
+        decoded_seq = self.encode_fn(encoded_seq)
+
+        # normalize
+        decoded_seq = [[self.normalize_text(seq)] for seq in decoded_seq]
+
+        # encode text
+        enc_hyps = [
+            torch.tensor(
+                [self.bos_index]
+                + self.tokenizer.encode_as_ids(seq)[0]
+                + [self.eos_index]
+            )
+            for seq in decoded_seq
+        ]
+
+        enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
+
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps, enc_hyps_length
+
+    @torch.no_grad()
+    def rescore_hyps(self, hyps):
+        """This method implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        hyps : list of str
+            The hypotheses to be rescored.
+        """
+
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(
+            bool_mask, dtype=torch.bool, device=padded_hyps.device
+        )
+
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(padded_hyps.device)
+
+        # compute scores
+        logits = self.lm(padded_hyps)
+        log_probs = self.softmax(logits / self.temperature)
+
+        target_log_probs = (
+            log_probs[:, :-1]
+            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
+            .squeeze(2)
+        )
+        log_probs_scores = torch.sum(
+            target_log_probs * bool_mask_tensor[:, 1:], dim=-1
+        )
+
+        return log_probs_scores, enc_hyps_length
+
+
+class HuggingFaceLMRescorer(BaseRescorerInterface):
+    """A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    model_name : str
+        The name of the model to be loaded.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    device : str
+        The device to be used for scoring. (default: "cuda")
+    encode_fn : function
+        A function that encodes a list of strings into a list of lists of integers.
+        (default: None)
+    """
+
+    def __init__(
+        self, model_name, temperature=1.0, device="cuda", encode_fn=None,
+    ):
+        self.model_name = model_name
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+        self.device = device
+        self.encode_fn = encode_fn
+        self.temperature = temperature
+
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError:
+            raise ImportError(
+                "Please install transformers with: pip install transformers"
+            )
+
+        self.lm = AutoModelForCausalLM.from_pretrained(
+            self.model_name, is_decoder=True
+        )
+        self.lm.eval().to(self.device)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+        self.pad_index = self.tokenizer.unk_token_id
+        self.bos_index = self.tokenizer.bos_token_id
+        self.eos_index = self.tokenizer.eos_token_id
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+        """
+        return text.lower()
+
+    def preprocess_func(self, encoded_seq):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        encoded_seq : list of str
+            The hypotheses to be preprocessed.
+        """
+
+        if self.encode_fn is None:
+            raise ValueError("encode_fn must be provided.")
+
+        # from ids to text
+        decoded_seq = self.encode_fn(encoded_seq)
+
+        # normalize
+        decoded_seq = [self.normalize_text(seq) for seq in decoded_seq]
+
+        # encode text
+        enc_hyps = [
+            torch.tensor(
+                [self.bos_index]
+                + self.tokenizer.encode(seq, add_special_tokens=False)
+                + [self.eos_index]
+            )
+            for seq in decoded_seq
+        ]
+
+        enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
+
+        # pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps, enc_hyps_length
+
+    @torch.no_grad()
+    def rescore_hyps(self, hyps):
+        """This method implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        hyps : list of str
+            The hypotheses to be rescored.
+        """
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(
+            bool_mask, dtype=torch.bool, device="cuda"
+        )
+
+        # compute scores
+        logits = self.lm(input_ids=padded_hyps).logits
+        log_probs = self.softmax(logits / self.temperature)
+
+        target_log_probs = (
+            log_probs[:, :-1]
+            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
+            .squeeze(2)
+        )
+        neural_lm_score = torch.sum(
+            target_log_probs * bool_mask_tensor[:, 1:], dim=-1
+        )
+
+        return neural_lm_score, enc_hyps_length
+
+
 class CTCScorer(BaseScorerInterface):
     """A wrapper of CTCPrefixScore based on the BaseScorerInterface.
 
