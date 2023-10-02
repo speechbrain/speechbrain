@@ -276,7 +276,7 @@ class ASR(sb.Brain):
             )
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
-                min_keys=["ACC"],
+                min_keys=["WER"],
                 num_to_keep=self.hparams.avg_checkpoints,
             )
 
