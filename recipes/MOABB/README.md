@@ -231,20 +231,32 @@ For further details on arguments and customization options, consult `./run_hpara
 
 ## 📈️ Results
 
-Here are some results obtained with a leave-one-session-out strategy. Performance metrics were computed on each held-out session (stored in the metrics.pkl file) and reported for each held-out session as an average value ± standard deviation across subjects.
+Here are some results obtained with a leave-one-session-out strategy. Performance metrics were computed on each held-out session (stored in the metrics.pkl file) and reported averaged across sessions and subjects as an average value ± standard deviation across 10 random seeds.
 
 To ensure transparency and reproducibility, we release the output folder containing model checkpoints and training logs [here](add_link).
 
-| Release | Task | Hyperparams file | Training strategy | Session | Key loaded model | Performance (test set) |  GPUs |
-|:-------------:|:-------------:|:---------------------------:|:---------------------------:|  -----:|-----:| -----:| :-----------:|
-| 23-07-31 | Motor imagery | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_E | 'acc'| 0.7465±0.0660 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | Motor imagery | EEGNet_BNCI2014001.yaml | leave-one-session-out | session_T | 'acc'| 0.7585±0.0710 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_1 | 'f1'| 0.6332±0.1146 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_2 | 'f1'| 0.6566±0.0944 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_3 | 'f1'| 0.6600±0.1242 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | P300 | EEGNet_EPFLP300.yaml | leave-one-session-out | session_4 | 'f1'| 0.6526±0.1218 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_1 | 'acc'| 0.9370±0.1170 | 1xNVIDIA A100 (40 GB) |
-| 23-07-31 | SSVEP | EEGNet_Lee2019_SSVEP.yaml | leave-one-session-out | session_2 | 'acc'| 0.9287±0.1157 | 1xNVIDIA A100 (40 GB) |
+| Release | Task | Hyperparams file | Training strategy | Key loaded model | Performance (test set) |  GPUs |
+|:-------------:|:-------------:|:---------------------------:|:---------------------------:|  -----:| -----:| :-----------:|
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2014001/EEGNet.yaml | leave-one-session-out |  'acc'| 0.731559±0.003888 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2014001/ShallowConvNet.yaml | leave-one-session-out |  'acc'| 0.695795±0.003748 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2014001/EEGConformer.yaml | leave-one-session-out |  'acc'| 0.675810±0.006926 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2014004/EEGNet.yaml | leave-one-session-out |  'acc'| 0.812062±0.001888 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2014004/ShallowConvNet.yaml | leave-one-session-out |  'acc'| 0.784813±0.003038 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2015001/EEGNet.yaml | leave-one-session-out |  'acc'| 0.810646±0.002113 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2015001/ShallowConvNet.yaml | leave-one-session-out |  'acc'| 0.828646±0.003781 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2015001/EEGConformer.yaml | leave-one-session-out |  'acc'| 0.751688±0.009589 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2015004/EEGNet.yaml | leave-one-session-out |  'acc'| 0.591925±0.011688 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2015004/ShallowConvNet.yaml | leave-one-session-out |  'acc'| 0.523690±0.012165 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/BNCI2015004/EEGConformer.yaml | leave-one-session-out |  'acc'| 0.597778±0.008762 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/Lee2019_MI/EEGNet.yaml | leave-one-session-out |  'acc'| 0.694278±0.003121 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/Lee2019_MI/ShallowConvNet.yaml | leave-one-session-out |  'acc'| 0.657500±0.004488 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/Lee2019_MI/EEGConformer.yaml | leave-one-session-out |  'acc'| 0.651333±0.008495 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/Zhou2016/EEGNet.yaml | leave-one-session-out |  'acc'| 0.843619±0.005637 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/Zhou2016/ShallowConvNet.yaml | leave-one-session-out |  'acc'| 0.826854±0.005277 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | Motor imagery | /MotorImagery/Zhou2016/EEGConformer.yaml | leave-one-session-out |  'acc'| 0.839601±0.005769 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | P300 | /P300/EPFLP300/EEGNet.yaml | leave-one-session-out |  'f1'| 0.634613±0.003840 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | P300 | /P300/BNCI2014009/EEGNet.yaml | leave-one-session-out |  'f1'| 0.754958±0.001643 | 1xNVIDIA V100 (16 GB) |
+| 23-10-02 | SSVEP | /SSVEP/Lee2019_SSVEP/EEGNet.yaml | leave-one-session-out |  'acc'| 0.916148±0.002436 | 1xNVIDIA V100 (16 GB) |
 
 Note that the experiments run with any GPU with memory >= 12 GB.
 
