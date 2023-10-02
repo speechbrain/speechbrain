@@ -22,7 +22,7 @@ The benchmark leverages datasets supported by [MOABB](https://neurotechx.github.
 |[bi2015a](https://neurotechx.github.io/moabb/generated/moabb.datasets.bi2015a.html#moabb.datasets.bi2015a) | P300 | 43 | 3 |
 |[Lee2019_SSVEP](https://neurotechx.github.io/moabb/generated/moabb.datasets.Lee2019_SSVEP.html#moabb.datasets.Lee2019_SSVEP) | SSVEP | 54 | 2 |
 
-The EEG datasets are automatically downloaded when running the provided recipes. Furthermore, the code is designed to allow easy integration of any other dataset from MOABB, as well as the ability to plug and test various deep neural networks. The benchmark includes recipes for using the datasets mentioned above with popular models such as EEGNET, ShallowConvNet, Bioformer, and PodNet.
+The EEG datasets are automatically downloaded when running the provided recipes. Furthermore, the code is designed to allow easy integration of any other dataset from MOABB, as well as the ability to plug and test various deep neural networks. The benchmark includes recipes for using the datasets mentioned above with popular models such as EEGNET and ShallowConvNet, in addition to EEGConformer, a more recent transformer model.
 
 ## 🛠️ Installation
 
