@@ -337,6 +337,14 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
 
+    # Download pretrained ASR model
+    from speechbrain.pretrained import EncoderDecoderASR
+
+    hparams["asr_model"] = EncoderDecoderASR.from_hparams(
+        source=hparams["asr_model_source"],
+        run_opts={"device": run_opts["device"]},
+    )
+
     # Brain class initialization
     slu_brain = SLU(
         modules=hparams["modules"],

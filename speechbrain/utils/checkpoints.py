@@ -575,7 +575,7 @@ class Checkpointer:
                 ckpt_dir = self._new_checkpoint_dirpath()
             else:
                 ckpt_dir = self._custom_checkpoint_dirpath(name)
-            os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
+            os.makedirs(ckpt_dir, exist_ok=True)
             saved_meta = self._save_checkpoint_metafile(
                 ckpt_dir / METAFNAME, meta, end_of_epoch
             )
@@ -725,6 +725,9 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
+        max_num_checkpoints : int, None
+            The maximum number of checkpoints to return, or None to return all
+            found checkpoints.
 
         Returns
         -------

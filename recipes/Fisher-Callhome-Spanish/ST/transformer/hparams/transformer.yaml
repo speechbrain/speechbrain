@@ -65,6 +65,7 @@ batch_size: 8 # this works for 2 GPUs with 11GB
 gradient_accumulation: 8
 loss_reduction: batchmean
 sorting: random
+avg_checkpoints: 5 # Number of checkpoints to average for evaluation
 
 # stages related parameters
 stage_one_epochs: 100 # not gonna changing optimizer in this recipe

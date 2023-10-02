@@ -64,6 +64,7 @@ grad_accumulation_factor: 2
 max_grad_norm: 5.0
 loss_reduction: batchmean
 sorting: random
+avg_checkpoints: 5
 
 #dynamic_batching: False
 #
