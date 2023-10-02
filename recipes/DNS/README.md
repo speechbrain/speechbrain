@@ -63,6 +63,9 @@ python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_s
 
 ## webdataset shards for noise_fullband
 python create_wds_shards.py DNS-dataset/datasets_fullband/noise_fullband/ DNS-shards/noise_fullband
+
+## webdataset shards for baseline dev-set
+python create_wds_shards.py DNS-dataset/datasets_fullband/dev_testset/noisy_testclips/ DNS-shards/devsets_fullband
 ```
 ## Step 2: **Synthesize noisy data and create the Webdataset shards**
 To synthesize clean-noisy audio for speech enhancement training (we add noise, RIR to clean fullband speech to synthesize clean-noisy pairs)

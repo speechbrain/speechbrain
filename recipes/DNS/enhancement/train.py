@@ -212,6 +212,7 @@ class Enhancement(sb.Brain):
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
+
         snt_id = batch.id
         noisy = batch.noisy_sig
         clean = batch.clean_sig
@@ -606,18 +607,18 @@ def dataio_prep(hparams):
         "read_speech",
         "german_speech",
         "french_speech",
-        # "italian_speech",
-        # "spanish_speech",
-        # "russian_speech"
+        "italian_speech",
+        "spanish_speech",
+        "russian_speech",
     ]
     audio_length = hparams["audio_length"]
 
     train_shard_patterns = [
-        os.path.join(hparams["train_data"], dir, "shard-{000000..000000}.tar")
+        os.path.join(hparams["train_data"], dir, "shard-{000000..999999}.tar")
         for dir in speech_dirs
     ]
     valid_shard_patterns = [
-        os.path.join(hparams["valid_data"], dir, "shard-{000000..000000}.tar")
+        os.path.join(hparams["valid_data"], dir, "shard-{000000..999999}.tar")
         for dir in speech_dirs
     ]
 
@@ -642,9 +643,9 @@ def dataio_prep(hparams):
         clean_wav = sample_dict["clean_file"]
         noise_wav = sample_dict["noise_file"]
         noisy_wav = sample_dict["noisy_file"]
-        clean_sig = sample_dict["clean_audio.pth"].squeeze()
-        noise_sig = sample_dict["noise_audio.pth"].squeeze()
-        noisy_sig = sample_dict["noisy_audio.pth"].squeeze()
+        clean_sig = sample_dict["clean_audio.pth"].squeeze().to(torch.float32)
+        noise_sig = sample_dict["noise_audio.pth"].squeeze().to(torch.float32)
+        noisy_sig = sample_dict["noisy_audio.pth"].squeeze().to(torch.float32)
 
         return {
             "id": key,
@@ -658,11 +659,12 @@ def dataio_prep(hparams):
 
     def baseline_audio_pipeline(sample_dict: Dict, random_chunk=True):
         key = sample_dict["__key__"]
-        sig = sample_dict["audio.pth"].squeeze()
+        noisy_sig = sample_dict["audio.pth"].squeeze().to(torch.float32)
 
         return {
-            "sig": sig,
             "id": key,
+            "noisy_wav": key,
+            "noisy_sig": noisy_sig,
         }
 
     def create_combined_dataset(shard_patterns, cache_dir):
@@ -760,6 +762,9 @@ if __name__ == "__main__":
     hparams["dataloader_opts_valid"]["looped_nominal_epoch"] = (
         num_valid_samples // hparams["dataloader_opts_valid"]["batch_size"]
     )
+    hparams["dataloader_opts_test"]["looped_nominal_epoch"] = (
+        num_valid_samples // hparams["dataloader_opts_test"]["batch_size"]
+    )
 
     # Load pretrained model if pretrained_enhancement is present in the yaml
     if "pretrained_enhancement" in hparams:
@@ -794,9 +799,10 @@ if __name__ == "__main__":
             valid_loader_kwargs=hparams["dataloader_opts_valid"],
         )
 
-    ## Evaluation of valid data
-    enhancement.evaluate(valid_data, max_key="pesq")
-    enhancement.save_results(valid_data)
+    ## Evaluation on valid data
+    # (since our test set is blind)
+    # enhancement.evaluate(valid_data, max_key="pesq", test_loader_kwargs=hparams["dataloader_opts_valid"])
+    # enhancement.save_results(valid_data)
 
     ## Save enhanced sources of baseline noisy testclips
     def save_baseline_audio(snt_id, predictions):
@@ -827,7 +833,7 @@ if __name__ == "__main__":
     with tqdm(test_loader, dynamic_ncols=True) as t:
         for i, batch in enumerate(t):
             # Apply Enhancement
-            snt_id = batch.noisy_wav[0].split("/")[-1]
+            snt_id = batch.id[0]
 
             with torch.no_grad():
                 # Since only noisy sources are provided for baseline

@@ -356,9 +356,9 @@ def main_gen(params):
                 "noisy_file": key,
                 "clean_file": cleanfilename,
                 "noise_file": noisefilename,
-                "clean_audio.pth": torch.tensor(clean_snr),
-                "noise_audio.pth": torch.tensor(noise_snr),
-                "noisy_audio.pth": torch.tensor(noisy_snr),
+                "clean_audio.pth": torch.tensor(clean_snr).to(torch.float32),
+                "noise_audio.pth": torch.tensor(noise_snr).to(torch.float32),
+                "noisy_audio.pth": torch.tensor(noisy_snr).to(torch.float32),
             }
             valid_writer.write(sample)
         else:
@@ -370,9 +370,9 @@ def main_gen(params):
                 "noisy_file": key,
                 "clean_file": cleanfilename,
                 "noise_file": noisefilename,
-                "clean_audio.pth": torch.tensor(clean_snr),
-                "noise_audio.pth": torch.tensor(noise_snr),
-                "noisy_audio.pth": torch.tensor(noisy_snr),
+                "clean_audio.pth": torch.tensor(clean_snr).to(torch.float32),
+                "noise_audio.pth": torch.tensor(noise_snr).to(torch.float32),
+                "noisy_audio.pth": torch.tensor(noisy_snr).to(torch.float32),
             }
             train_writer.write(sample)
 
