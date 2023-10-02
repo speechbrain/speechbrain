@@ -650,9 +650,8 @@ class EncoderDecoderASR(Pretrained):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
         self.transducer_beam_search = False
-        if hasattr(self.hparams,"transducer_beam_search")  :
-            self.transducer_beam_search = self.hparams.transducer_beam_search 
-
+        if hasattr(self.hparams, "transducer_beam_search"):
+            self.transducer_beam_search = self.hparams.transducer_beam_search
 
     def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
@@ -735,10 +734,11 @@ class EncoderDecoderASR(Pretrained):
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             if self.transducer_beam_search:
-                predicted_tokens, scores, _, _  = self.mods.decoder(encoder_out)
-            else: 
-                predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
-                
+                predicted_tokens, scores, _, _ = self.mods.decoder(encoder_out)
+            else:
+                predicted_tokens, scores = self.mods.decoder(
+                    encoder_out, wav_lens
+                )
 
             predicted_words = [
                 self.tokenizer.decode_ids(token_seq)
