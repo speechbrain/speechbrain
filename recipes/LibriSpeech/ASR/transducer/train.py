@@ -278,7 +278,6 @@ class ASR(sb.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
-                num_to_keep=10,
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -524,4 +523,5 @@ if __name__ == "__main__":
         asr_brain.evaluate(
             test_datasets[k],
             test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )

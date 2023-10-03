@@ -438,4 +438,5 @@ if __name__ == "__main__":
         asr_brain.evaluate(
             test_datasets[k],
             test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )
