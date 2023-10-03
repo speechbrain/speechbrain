@@ -138,8 +138,9 @@ def process_duration(code, code_feat):
 
     Example
     -------
-    >>> inp_tensor = torch.IntTensor([[40, 18, 18, 10]])
-    >>> out_tensor, mask, uniq_code = process_duration(inp_tensor)
+    >>> code = torch.IntTensor([[40, 18, 18, 10]])
+    >>> code_feat = torch.rand([1, 4])
+    >>> out_tensor, mask, uniq_code = process_duration(code, code_feat)
     >>> out_tensor.shape
     torch.Size([1, 2])
     >>> mask.shape
