@@ -20,6 +20,7 @@ Authors
 """
 
 import os
+import glob
 import sys
 import csv
 import json
@@ -613,14 +614,17 @@ def dataio_prep(hparams):
     ]
     audio_length = hparams["audio_length"]
 
-    train_shard_patterns = [
-        os.path.join(hparams["train_data"], dir, "shard-{000000..999999}.tar")
-        for dir in speech_dirs
-    ]
-    valid_shard_patterns = [
-        os.path.join(hparams["valid_data"], dir, "shard-{000000..999999}.tar")
-        for dir in speech_dirs
-    ]
+    train_shard_patterns = []
+    for dir in speech_dirs:
+        shard_pattern = os.path.join(hparams["train_data"], dir, "shard-*.tar")
+        shard_files = glob.glob(shard_pattern)
+        train_shard_patterns.extend(shard_files)
+
+    valid_shard_patterns = []
+    for dir in speech_dirs:
+        shard_pattern = os.path.join(hparams["valid_data"], dir, "shard-*.tar")
+        shard_files = glob.glob(shard_pattern)
+        valid_shard_patterns.extend(shard_files)
 
     def meta_loader(speech_dirs, split_path):
         # sum up the number of data samples from all meta
@@ -679,7 +683,7 @@ def dataio_prep(hparams):
         combined_dataset = (
             wds.WebDataset(urls, shardshuffle=True, cache_dir=cache_dir,)
             .repeat()
-            .shuffle(10)
+            .shuffle(1000)
             .decode("pil")
             .map(partial(train_audio_pipeline, random_chunk=True))
         )
@@ -801,8 +805,12 @@ if __name__ == "__main__":
 
     ## Evaluation on valid data
     # (since our test set is blind)
-    # enhancement.evaluate(valid_data, max_key="pesq", test_loader_kwargs=hparams["dataloader_opts_valid"])
-    # enhancement.save_results(valid_data)
+    enhancement.evaluate(
+        valid_data,
+        max_key="pesq",
+        test_loader_kwargs=hparams["dataloader_opts_valid"],
+    )
+    enhancement.save_results(valid_data)
 
     ## Save enhanced sources of baseline noisy testclips
     def save_baseline_audio(snt_id, predictions):
