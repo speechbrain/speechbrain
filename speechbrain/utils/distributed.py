@@ -4,7 +4,6 @@ Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
 """
-import datetime
 import os
 import torch
 from functools import wraps
@@ -139,19 +138,9 @@ def ddp_init_group(run_opts):
     local_rank = int(local_rank)
     if not run_opts["distributed_backend"] == "gloo":
         if local_rank + 1 > torch.cuda.device_count():
-    rank = os.environ.get("RANK")
-    local_rank = os.environ.get("LOCAL_RANK")
-    if local_rank is None or rank is None:
-        return
-
-    local_rank = int(local_rank)
-    if not run_opts["distributed_backend"] == "gloo":
-        if local_rank + 1 > torch.cuda.device_count():
             raise ValueError(
                 "Killing process " + str() + "\n" "Not enough GPUs available!"
-                "Killing process " + str() + "\n" "Not enough GPUs available!"
             )
-    rank = int(rank)
     rank = int(rank)
 
     if run_opts["distributed_backend"] == "nccl":
@@ -168,6 +157,7 @@ def ddp_init_group(run_opts):
             run_opts["distributed_backend"]
             + " communcation protocol doesn't exist."
         )
+
     # rank arg is used to set the right rank of the current process for ddp.
     # if you have 2 servers with 2 gpu:
     # server1:
