@@ -117,7 +117,36 @@ def mel_spectogram(
 
 
 def process_duration(code, code_feat):
-    """Process code in order to extract consecutive unique elements and their corresponding features"""
+    """
+    Process a given batch of code to extract consecutive unique elements and their associated features.
+
+    Parameters
+    ----------
+    code : torch.Tensor (batch, time)
+        Tensor of code indices.
+    code_feat : torch.Tensor (batch, time, channel)
+        Tensor of code features.
+
+    Returns
+    -------
+    uniq_code_feat_filtered : torch.Tensor (batch, time)
+        Features of consecutive unique codes.
+    mask : torch.Tensor (batch, time)
+        Padding mask for the unique codes.
+    uniq_code_count : torch.Tensor (n)
+        Count of unique codes.
+
+    Example
+    -------
+    >>> inp_tensor = torch.IntTensor([[40, 18, 18, 10]])
+    >>> out_tensor, mask, uniq_code = process_duration(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([1, 2])
+    >>> mask.shape
+    torch.Size([1, 2])
+    >>> uniq_code.shape
+    torch.Size([2])
+    """
     uniq_code_count = []
     uniq_code_feat = []
     for i in range(code.size(0)):
@@ -134,17 +163,17 @@ def process_duration(code, code_feat):
         )
     uniq_code_count = torch.cat(uniq_code_count)
 
-    # collate feat
+    # collate
     max_len = max(feat.size(0) for feat in uniq_code_feat)
-    out = uniq_code_feat[0].new_zeros(
+    uniq_code_feat_filtered = uniq_code_feat[0].new_zeros(
         (len(uniq_code_feat), max_len, uniq_code_feat[0].size(1))
     )
     mask = torch.arange(max_len).repeat(len(uniq_code_feat), 1)
     for i, v in enumerate(uniq_code_feat):
-        out[i, : v.size(0)] = v
+        uniq_code_feat_filtered[i, : v.size(0)] = v
         mask[i, :] = mask[i, :] < v.size(0)
 
-    return out, mask.bool(), uniq_code_count.float()
+    return uniq_code_feat_filtered, mask.bool(), uniq_code_count.float()
 
 
 ##################################
@@ -676,7 +705,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         """
         Arguments
         ---------
-        x : torch.Tensor (batch, channel, time)
+        x : torch.Tensor (batch, time)
             feature input tensor.
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
@@ -702,7 +731,7 @@ class UnitHifiganGenerator(HifiganGenerator):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, channel, time)
+        x : torch.Tensor (batch, time)
             feature input tensor.
         """
         x = self.unit_embedding(x).transpose(1, 2)
