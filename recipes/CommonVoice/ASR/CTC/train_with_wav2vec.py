@@ -179,6 +179,7 @@ class ASR(sb.core.Brain):
         }
 
     def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
         valid_optimizers = {}
         if not self.hparams.wav2vec2.freeze:
             if self.optimizer_step >= self.hparams.warmup_steps:

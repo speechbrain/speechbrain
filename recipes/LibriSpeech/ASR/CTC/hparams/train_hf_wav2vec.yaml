@@ -37,13 +37,13 @@ number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending
-auto_mix_prec: True
+precision: fp32
 sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
-batch_size: 12
+batch_size: 6
 test_batch_size: 8
 
 # Dataloader options
