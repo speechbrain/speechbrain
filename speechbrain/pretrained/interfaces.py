@@ -4330,6 +4330,20 @@ class ResponseGenerator(Pretrained):
             logger.info(predicted_words[0])
 
     def prepare_input(self):
+        """ Convert user input and previous histories to the format acceptable for  GPT model.
+            It appends all previous history and input and truncates it based on max_history value.
+            It then tokenized the input and generate additional input that determine the type of each token (Sytem or User).
+
+        Arguments
+        ---------
+
+        Returns
+        -------
+        history_bos:
+            Tokenized history+input values with appropriate speaker token appended before each turn.
+        history_token_type:
+            Type of each token basd on who is uttered that token (either User or Sytem)
+        """
         history_tokens_lists = [
             self.model.tokenizer.encode(turn) for turn in self.history
         ]
