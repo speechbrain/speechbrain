@@ -52,8 +52,7 @@ class seq2seqBrain(sb.Brain):
         preds = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(preds, batch, sb.Stage.TRAIN)
         loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
+        self.optimizer.step()
         self.optimizer.zero_grad()
         return loss.detach()
 
