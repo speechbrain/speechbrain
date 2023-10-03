@@ -163,7 +163,6 @@ class ASR(sb.Brain):
                 CE_loss = self.hparams.ce_cost(
                     p_ce, tokens_eos, length=token_eos_lens
                 )
-            logits_transducer = logits_transducer.float()
             loss_transducer = self.hparams.transducer_cost(
                 logits_transducer, tokens, wav_lens, token_lens
             )
