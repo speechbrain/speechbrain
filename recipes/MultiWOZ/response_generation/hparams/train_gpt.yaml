@@ -59,14 +59,12 @@ attr_to_special_tokens:
 
 # history_window, i.e. how many user-system exchanges consider as context.
 max_history: 5
-# Whether to append <end_of_entence> token.
-with_eos: True
 
 ignore_index: -100
 label_smoothing: 0
 
 # Training parameters
-number_of_epochs: 20
+number_of_epochs: 4
 batch_size: 8
 test_batch_size: 4
 lr: 1.97125e-4
@@ -113,10 +111,7 @@ modules:
 model: !new:torch.nn.ModuleList
     - [!ref <gpt_model>]
 
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
 
-compute_cost: !name:speechbrain.nnet.losses.nll_loss
 ce_loss: !new:torch.nn.CrossEntropyLoss
     ignore_index: !ref <ignore_index>
     label_smoothing: !ref <label_smoothing>
