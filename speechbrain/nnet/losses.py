@@ -410,6 +410,7 @@ def nll_loss(
     length=None,
     label_smoothing=0.0,
     allowed_len_diff=3,
+    weight=None,
     reduction="mean",
 ):
     """Computes negative log likelihood loss.
@@ -425,6 +426,9 @@ def nll_loss(
         Length of each utterance, if frame-level loss is desired.
     allowed_len_diff : int
         Length difference that will be tolerated before raising an exception.
+    weight: torch.Tensor
+        A manual rescaling weight given to each class.
+        If given, has to be a Tensor of size C.
     reduction : str
         Options are 'mean', 'batch', 'batchmean', 'sum'.
         See pytorch for 'mean', 'sum'. The 'batch' option returns
@@ -443,7 +447,9 @@ def nll_loss(
         log_probabilities = log_probabilities.transpose(1, -1)
 
     # Pass the loss function but apply reduction="none" first
-    loss = functools.partial(torch.nn.functional.nll_loss, reduction="none")
+    loss = functools.partial(
+        torch.nn.functional.nll_loss, weight=weight, reduction="none"
+    )
     return compute_masked_loss(
         loss,
         log_probabilities,
