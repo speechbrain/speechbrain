@@ -40,22 +40,17 @@ eos_token: "EOS"
 system_token: "SPK_1"
 user_token: "SPK_2"
 
-additional_special_tokens: [
-    !ref <system_token>,
-    !ref <user_token>
-]
-
-special_tokens: [
+special_tokens: !ref [
     !ref <bos_token>,
     !ref <eos_token>,
     !ref <system_token>,
     !ref <user_token>
 ]
 
-attr_to_special_tokens:
+attr_to_special_tokens: !ref
     "bos_token": !ref <bos_token>
     "eos_token": !ref <eos_token>
-    "additional_special_tokens": !ref <additional_special_tokens>
+    "additional_special_tokens": [!ref <system_token>, !ref <user_token>]
 
 # history_window, i.e. how many user-system exchanges consider as context.
 max_history: 5
