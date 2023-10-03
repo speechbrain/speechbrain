@@ -190,6 +190,7 @@ class ASR(sb.Brain):
         return loss
 
     def on_optimizers_step_end(self):
+        """At the end of the optimizer step, apply noam annealing."""
         self.hparams.noam_annealing(self.optimizer)
 
     def on_stage_start(self, stage, epoch):
