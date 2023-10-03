@@ -10,8 +10,8 @@ seed: 1995
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Dataset will be downloaded to the `data_original`
-data_folder: !PLACEHOLDER
-output_folder: !ref results/train_with_gpt2/<seed>
+data_folder: data
+output_folder: !ref results/response_generation
 replacements_path: recipes/MultiWOZ/response_generation/mapping.pair
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -40,17 +40,17 @@ eos_token: "EOS"
 system_token: "SPK_1"
 user_token: "SPK_2"
 
-special_tokens: !ref [
+special_tokens: [
     !ref <bos_token>,
     !ref <eos_token>,
     !ref <system_token>,
     !ref <user_token>
 ]
 
-attr_to_special_tokens: !ref
+attr_to_special_tokens:
     "bos_token": !ref <bos_token>
     "eos_token": !ref <eos_token>
-    "additional_special_tokens": [!ref <system_token>, !ref <user_token>]
+    "additional_special_tokens": [!ref <system_token> , !ref <user_token>]
 
 # history_window, i.e. how many user-system exchanges consider as context.
 max_history: 5
