@@ -55,10 +55,31 @@ PYTHON_VERSION_MINOR = 7
 
 @dataclass
 class AMPConfig:
+    """Configuration for automatic mixed precision (AMP).
+
+    Arguments
+    ---------
+    dtype : torch.dtype
+        The dtype to use for AMP.
+    """
+
     dtype: torch.dtype
 
     @classmethod
     def from_name(self, name):
+        """Create an AMPConfig from a string name.
+
+        Arguments
+        ---------
+        name : str
+            The name of the AMPConfig to create.  Must be one of `fp32`,
+            `fp16`, or `bf16`.
+
+        Returns
+        -------
+        AMPConfig
+            The AMPConfig corresponding to the name.
+        """
         if name is None or name == "fp32":
             return AMPConfig(torch.float32)
         elif name == "fp16":
@@ -301,7 +322,7 @@ def parse_arguments(arg_list=None):
         help="Use dynamic shape tracing for compilation",
     )
     parser.add_argument(
-        "--auto_mix_prec",
+        "--precision",
         type=str,
         default="fp32",
         help="This flag enables training with automatic mixed-precision."
@@ -488,7 +509,7 @@ class Brain:
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
             The location for performing computations.
-        auto_mix_prec (str)
+        precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
         max_grad_norm (float)
             Default implementation of ``fit_batch()`` uses
@@ -564,7 +585,7 @@ class Brain:
             "compile_mode": "reduce-overhead",
             "compile_using_fullgraph": False,
             "compile_using_dynamic_shape_tracing": False,
-            "auto_mix_prec": "fp32",
+            "precision": "fp32",
             "max_grad_norm": 5.0,
             "skip_nonfinite_grads": False,
             "nonfinite_patience": 3,
@@ -692,17 +713,15 @@ class Brain:
         # to have your_sampler.set_epoch() called on each epoch.
         self.train_sampler = None
 
-        if self.device == "cpu" and self.auto_mix_prec == "fp16":
+        if self.device == "cpu" and self.precision == "fp16":
             raise ValueError(
-                "The option `--auto_mix_prec` is enabled with the value "
+                "The option `--precision` is enabled with the value "
                 "fp16. This option is not yet supported on CPU. "
-                "Please use `--auto_mix_prec=bf16` instead to get "
+                "Please use `--precision=bf16` instead to get "
                 "mixed precision on CPU."
             )
 
-        gradscaler_enabled = (
-            self.auto_mix_prec == "fp16" and "cuda" in self.device
-        )
+        gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
         if self.skip_nonfinite_grads and gradscaler_enabled:
             logger.warning(
                 "The option `skip_nonfinite_grads` will be ignored "
@@ -711,14 +730,14 @@ class Brain:
             )
 
         logger.info(
-            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.auto_mix_prec}."
+            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
         self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
 
         self.use_amp = False
-        if self.device == "cpu" and self.auto_mix_prec == "bf16":
+        if self.device == "cpu" and self.precision == "bf16":
             self.use_amp = True
-        elif "cuda" in self.device and self.auto_mix_prec in ["fp16", "bf16"]:
+        elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
             self.use_amp = True
 
         if self.checkpointer is not None:
@@ -1074,11 +1093,10 @@ class Brain:
         -------
         detached loss
         """
-        amp = AMPConfig.from_name(self.auto_mix_prec)
+        amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
 
         with self.no_sync(not should_step):
-
             if self.use_amp:
                 with torch.autocast(
                     dtype=amp.dtype, device_type=torch.device(self.device).type,
