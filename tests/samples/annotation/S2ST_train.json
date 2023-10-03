@@ -1,34 +1,34 @@
 {
     "common_voice_fr_172994580": {
         "uttid": "common_voice_fr_17299458",
-        "src_audio": "{data_root}/common_voice_fr_17299458.wav",
-        "tgt_audio": "{data_root}/common_voice_en_17299458.wav",
+        "src_audio": "tests/samples/S2ST/common_voice_fr_17299458.wav",
+        "tgt_audio": "tests/samples/S2ST/common_voice_en_17299458.wav",
         "duration": 3.624,
         "tgt_text": "the floor is to mrs annie le houerou",
-        "code": "{data_root}/codes/common_voice_fr_17299458_tgt.npy"
+        "code": "tests/samples/S2ST/codes/common_voice_fr_17299458_tgt.npy"
     },
     "common_voice_fr_172994581": {
         "uttid": "common_voice_fr_17299458",
-        "src_audio": "{data_root}/common_voice_fr_17299458.wav",
-        "tgt_audio": "{data_root}/common_voice_en_17299458.wav",
+        "src_audio": "tests/samples/S2ST/common_voice_fr_17299458.wav",
+        "tgt_audio": "tests/samples/S2ST/common_voice_en_17299458.wav",
         "duration": 3.624,
         "tgt_text": "the floor is to mrs annie le houerou",
-        "code": "{data_root}/codes/common_voice_fr_17299458_tgt.npy"
+        "code": "tests/samples/S2ST/codes/common_voice_fr_17299458_tgt.npy"
     },
     "common_voice_fr_172994582": {
         "uttid": "common_voice_fr_17299458",
-        "src_audio": "{data_root}/common_voice_fr_17299458.wav",
-        "tgt_audio": "{data_root}/common_voice_en_17299458.wav",
+        "src_audio": "tests/samples/S2ST/common_voice_fr_17299458.wav",
+        "tgt_audio": "tests/samples/S2ST/common_voice_en_17299458.wav",
         "duration": 3.624,
         "tgt_text": "the floor is to mrs annie le houerou",
-        "code": "{data_root}/codes/common_voice_fr_17299458_tgt.npy"
+        "code": "tests/samples/S2ST/codes/common_voice_fr_17299458_tgt.npy"
     },
     "common_voice_fr_172994583": {
         "uttid": "common_voice_fr_17299458",
-        "src_audio": "{data_root}/common_voice_fr_17299458.wav",
-        "tgt_audio": "{data_root}/common_voice_en_17299458.wav",
+        "src_audio": "tests/samples/S2ST/common_voice_fr_17299458.wav",
+        "tgt_audio": "tests/samples/S2ST/common_voice_en_17299458.wav",
         "duration": 3.624,
         "tgt_text": "the floor is to mrs annie le houerou",
-        "code": "{data_root}/codes/common_voice_fr_17299458_tgt.npy"
+        "code": "tests/samples/S2ST/codes/common_voice_fr_17299458_tgt.npy"
     }
 }
