@@ -138,36 +138,37 @@ test_dataloader_opts:
 ###############################
 # Model Parameters and model  #
 ###############################
-n_symbols: 148 # Fixed, depending on symbols in textToSequence
-symbols_embedding_dim: 512
+n_symbols: 148 #fixed depending on symbols in textToSequence
+symbols_embedding_dim: 1024
 
 # Encoder parameters
 encoder_kernel_size: 5
-encoder_n_convolutions: 3
-encoder_embedding_dim: 512
+encoder_n_convolutions: 6
+encoder_embedding_dim: 1024
 
 # Decoder parameters
-n_frames_per_step: 1 # The number of frames in the target per encoder step
-decoder_rnn_dim: 1024
-prenet_dim: 256
-max_decoder_steps: 1000
+# The number of frames in the target per encoder step
+n_frames_per_step: 1
+decoder_rnn_dim: 2048
+prenet_dim: 512
+max_decoder_steps: 1500
 gate_threshold: 0.5
 p_attention_dropout: 0.1
 p_decoder_dropout: 0.1
 decoder_no_early_stopping: False
 
 # Attention parameters
-attention_rnn_dim: 1024
-attention_dim: 128
+attention_rnn_dim: 2048
+attention_dim: 256
 
 # Location Layer parameters
 attention_location_n_filters: 32
 attention_location_kernel_size: 31
 
 # Mel-post processing network parameters
-postnet_embedding_dim: 512
+postnet_embedding_dim: 1024
 postnet_kernel_size: 5
-postnet_n_convolutions: 5
+postnet_n_convolutions: 10
 
 # To compute the mel-spectrogram for an audio
 mel_spectogram: !name:speechbrain.lobes.models.Tacotron2.mel_spectogram
