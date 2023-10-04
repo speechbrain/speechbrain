@@ -4287,7 +4287,7 @@ class ResponseGenerator(Pretrained):
 
         super().__init__(*args, **kwargs)
         #  Load model
-        self.model = self.hparams.gpt_model
+        self.model = self.hparams.model
         # convert special tokens to their ids
         (
             self.bos,
@@ -4305,7 +4305,7 @@ class ResponseGenerator(Pretrained):
         """
         turn = "Hello, How could I help you!"
         self.history.append(turn)
-        logger.info(turn)
+        print(turn,end="\n")
         while True:
             turn = input()
             self.history.append(turn)
@@ -4327,7 +4327,7 @@ class ResponseGenerator(Pretrained):
                 clean_up_tokenization_spaces=True,
             )
             self.history.append(predicted_words[0])
-            logger.info(predicted_words[0])
+            print(predicted_words[0],end="\n")
 
     def prepare_input(self):
         """ Convert user input and previous histories to the format acceptable for  GPT model.
