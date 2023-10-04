@@ -340,10 +340,10 @@ class TransformerEncoderLayer(nn.Module):
         elif attention_type == "hypermixing":
             self.self_att = sb.lobes.models.transformer.HyperMixing(
                 input_output_dim=d_model,
-                hypernet_size =d_ffn,
+                hypernet_size=d_ffn,
                 tied=False,
-                num_heads=nhead, 
-                fix_tm_hidden_size=False
+                num_heads=nhead,
+                fix_tm_hidden_size=False,
             )
 
         if ffn_type == "regularFFN":

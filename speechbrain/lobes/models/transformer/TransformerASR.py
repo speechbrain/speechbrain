@@ -213,7 +213,10 @@ class TransformerASR(TransformerInterface):
             )
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
-        elif self.positional_encoding_type == "fixed_abs_sine" or self.attention_type == "hypermixing":
+        elif (
+            self.positional_encoding_type == "fixed_abs_sine"
+            or self.attention_type == "hypermixing"
+        ):
             tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
@@ -288,7 +291,10 @@ class TransformerASR(TransformerInterface):
             # pos_embs_target = self.positional_encoding(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
-        elif self.positional_encoding_type == "fixed_abs_sine" or self.attention_type == "hypermixing":
+        elif (
+            self.positional_encoding_type == "fixed_abs_sine"
+            or self.attention_type == "hypermixing"
+        ):
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
             pos_embs_target = None
             pos_embs_encoder = None

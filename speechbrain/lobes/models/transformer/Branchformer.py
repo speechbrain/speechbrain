@@ -19,6 +19,7 @@ from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
 
 from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
 
+
 class ConvolutionBranch(nn.Module):
     """This is an implementation of the convolution branch in Branchformer.
 
@@ -162,10 +163,10 @@ class BranchformerEncoderLayer(nn.Module):
         elif attention_type == "hypermixing":
             self.mha_layer = HyperMixing(
                 input_output_dim=d_model,
-                hypernet_size =d_model * 4,
+                hypernet_size=d_model * 4,
                 tied=False,
-                num_heads=nhead, 
-                fix_tm_hidden_size=False
+                num_heads=nhead,
+                fix_tm_hidden_size=False,
             )
 
         self.convolution_branch = ConvolutionBranch(

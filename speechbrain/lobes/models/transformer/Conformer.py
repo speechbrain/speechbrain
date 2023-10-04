@@ -15,11 +15,12 @@ import warnings
 from speechbrain.nnet.attention import (
     RelPosMHAXL,
     MultiheadAttention,
-    PositionalwiseFeedForward
+    PositionalwiseFeedForward,
 )
 from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.activations import Swish
+
 
 class ConvolutionModule(nn.Module):
     """This is an implementation of convolution module in Conformer.
@@ -189,10 +190,10 @@ class ConformerEncoderLayer(nn.Module):
         elif attention_type == "hypermixing":
             self.mha_layer = HyperMixing(
                 input_output_dim=d_model,
-                hypernet_size =d_ffn,
+                hypernet_size=d_ffn,
                 tied=False,
-                num_heads=nhead, 
-                fix_tm_hidden_size=False
+                num_heads=nhead,
+                fix_tm_hidden_size=False,
             )
 
         self.convolution_module = ConvolutionModule(
