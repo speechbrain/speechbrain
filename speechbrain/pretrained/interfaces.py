@@ -4277,7 +4277,7 @@ class ResponseGenerator(Pretrained):
     >>> res_gen_model = ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
     ... savedir="tmpdir",
     ... pymodule_file="custom.py")
-    >>> res_gen_model.generate_response()
+    >>> response = res_gen_model.generate_response("I want to book a table for dinner")
     """
 
     HPARAMS_NEEDED = ["tokenizer"]
@@ -4300,36 +4300,41 @@ class ResponseGenerator(Pretrained):
         self.history_window = 2 * self.hparams.max_history + 1
         self.history = []
 
-    def generate_response(self, **kwargs):
+    def generate_response(self, turn):
         """
         Complete a dialogue given the user's input.
+        Arguments
+        ---------
+        turn: str
+            User input which is the last turn of the dialogue.
 
+        Returns
+        -------
+        response
+            Generated response for the user input based on the dialogue history.
         """
-        turn = "Hello, How could I help you!"
+
         self.history.append(turn)
-        print(turn, end="\n")
-        while True:
-            turn = input()
-            self.history.append(turn)
-            history_bos, history_token_type = self.prepare_input()
-            history_bos = history_bos.unsqueeze(0)
-            history_token_type = history_token_type.unsqueeze(0)
-            padding_mask = ~self.hparams.padding_mask(
-                history_bos, pad_idx=self.model.tokenizer.unk_token_id
-            )
-            hyps = self.model.generate(
-                history_bos.detach(),
-                history_token_type.detach(),
-                padding_mask.detach(),
-                "beam",
-            )
-            predicted_words = self.model.tokenizer.batch_decode(
-                hyps[:, history_bos.shape[1] :],
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=True,
-            )
-            self.history.append(predicted_words[0])
-            print(predicted_words[0], end="\n")
+        history_bos, history_token_type = self.prepare_input()
+        history_bos = history_bos.unsqueeze(0)
+        history_token_type = history_token_type.unsqueeze(0)
+        padding_mask = ~self.hparams.padding_mask(
+            history_bos, pad_idx=self.model.tokenizer.unk_token_id
+        )
+        hyps = self.model.generate(
+            history_bos.detach(),
+            history_token_type.detach(),
+            padding_mask.detach(),
+            "beam",
+        )
+        predicted_words = self.model.tokenizer.batch_decode(
+            hyps[:, history_bos.shape[1] :],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        )
+        response = predicted_words[0]
+        self.history.append(response)
+        return response
 
     def prepare_input(self):
         """ Convert user input and previous histories to the format acceptable for  GPT model.
