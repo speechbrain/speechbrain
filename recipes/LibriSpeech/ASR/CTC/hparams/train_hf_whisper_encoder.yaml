@@ -37,7 +37,7 @@ warmup_steps: 1000 # We freeze whisper for 1000 steps to let the CTC adapt
 lr: 0.0008
 lr_whisper: 0.0001
 sorting: random
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 
 # BPE parameters
