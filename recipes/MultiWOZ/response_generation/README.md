@@ -19,7 +19,7 @@ python train_with_gpt.py hparams/train_gpt.yaml
 
 # Results
 
-| Model | Release | Hyperparams file | Test Loss | Test PPL | Test BLEU 4| HuggingFace link | Full model link | GPUs |
+| Model | Release | Hyperparams file | Test Cross-entropy Loss | Test PPL | Test BLEU 4| HuggingFace link | Full model link | GPUs |
 |:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
 | GPT2 | 2023-08-15 | train_gpt.yaml |  1.39 |  4.01 | 2.54e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
 
