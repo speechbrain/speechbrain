@@ -14,8 +14,6 @@ import math
 import torch
 from torch import nn
 
-import speechbrain as sb
-
 
 class HyperMixing(nn.Module):
     """ This class implements multi-head HyperMixing.
@@ -73,8 +71,12 @@ class HyperMixing(nn.Module):
         self.layer_norm = nn.LayerNorm(input_output_dim)
         self.num_heads = num_heads
 
+        from speechbrain.lobes.models.transformer.Transformer import (
+            PositionalEncoding,
+        )
+
         # add pos encoding
-        self.positional_encoding = sb.lobes.models.transformer.Transformer.PositionalEncoding(
+        self.positional_encoding = PositionalEncoding(
             input_output_dim, max_length
         )
 
@@ -146,8 +148,11 @@ class HyperMixing(nn.Module):
         bsize = out.size(0)
         seq_len = out.size(1)
 
-        float_mask = torch.logical_not(key_padding_mask).unsqueeze(-1).float()
-        out = out * float_mask
+        if key_padding_mask is not None:
+            float_mask = (
+                torch.logical_not(key_padding_mask).unsqueeze(-1).float()
+            )
+            out = out * float_mask
 
         # add position embedding before passing to hypernetwork
         hyp_input = out + self.positional_encoding(out)
@@ -155,9 +160,10 @@ class HyperMixing(nn.Module):
             hyp_input
         )  # [bsize, num_heads, seq_len, hypernet_size // num_heads]
 
-        # mask the weights
-        W1 = W1 * float_mask.unsqueeze(1)
-        W2 = W2 * float_mask.unsqueeze(1)
+        if key_padding_mask:
+            # mask the weights
+            W1 = W1 * float_mask.unsqueeze(1)
+            W2 = W2 * float_mask.unsqueeze(1)
 
         # reshape the num_heads into the batch dimension for parallelizing
         out = out.transpose(1, 2)  # [bsize, input_output_dim, seq_len]
