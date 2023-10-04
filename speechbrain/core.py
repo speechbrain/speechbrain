@@ -52,6 +52,38 @@ INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 7
 
+# Arguments passed via the run opts dictionary
+run_opt_defaults = {
+    "test_only": False,
+    "debug": False,
+    "debug_batches": 2,
+    "debug_epochs": 2,
+    "debug_persistently": False,
+    "device": "cpu",
+    "data_parallel_backend": False,
+    "distributed_backend": "nccl",
+    "find_unused_parameters": False,
+    "jit": False,
+    "jit_module_keys": None,
+    "compile": False,
+    "compile_module_keys": None,
+    "compile_mode": "reduce-overhead",
+    "compile_using_fullgraph": False,
+    "compile_using_dynamic_shape_tracing": False,
+    "precision": "fp32",
+    "max_grad_norm": 5.0,
+    "skip_nonfinite_grads": False,
+    "nonfinite_patience": 3,
+    "noprogressbar": False,
+    "ckpt_interval_minutes": 0,
+    "ckpt_interval_steps": 0,
+    "grad_accumulation_factor": 1,
+    "optimizer_step_limit": None,
+    "tqdm_colored_bar": False,
+    "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
+    "remove_vector_weight_decay": False,
+}
+
 
 @dataclass
 class AMPConfig:
@@ -565,42 +597,6 @@ class Brain:
         self.opt_class = opt_class
         self.checkpointer = checkpointer
         self.profiler = profiler
-
-        # Arguments passed via the run opts dictionary
-        run_opt_defaults = {
-            "test_only": False,
-            "debug": False,
-            "debug_batches": 2,
-            "debug_epochs": 2,
-            "debug_persistently": False,
-            "device": "cpu",
-            "data_parallel_backend": False,
-            "distributed_backend": "nccl",
-            "find_unused_parameters": False,
-            "jit": False,
-            "jit_module_keys": None,
-            "compile": False,
-            "compile_module_keys": None,
-            "compile_mode": "reduce-overhead",
-            "compile_using_fullgraph": False,
-            "compile_using_dynamic_shape_tracing": False,
-            "precision": "fp32",
-            "max_grad_norm": 5.0,
-            "skip_nonfinite_grads": False,
-            "nonfinite_patience": 3,
-            "noprogressbar": False,
-            "ckpt_interval_minutes": 0,
-            "ckpt_interval_steps": 0,
-            "grad_accumulation_factor": 1,
-            "optimizer_step_limit": None,
-            "tqdm_colored_bar": False,
-            "tqdm_barcolor": {
-                "train": "GREEN",
-                "valid": "MAGENTA",
-                "test": "CYAN",
-            },
-            "remove_vector_weight_decay": False,
-        }
 
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
