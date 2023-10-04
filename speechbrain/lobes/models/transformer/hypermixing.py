@@ -44,7 +44,7 @@ class HyperMixing(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from sb.lobes.models.transformer import HyperMixing
+    >>> from speechbrain.lobes.models.transformer import HyperMixing
     >>> inputs = torch.rand([8, 60, 512])
     >>> net = HyperMixing(512, 2048, num_heads=8)
     >>> outputs, attn = net(inputs, inputs, inputs)
