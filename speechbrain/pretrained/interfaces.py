@@ -4305,7 +4305,7 @@ class ResponseGenerator(Pretrained):
         """
         turn = "Hello, How could I help you!"
         self.history.append(turn)
-        print(turn,end="\n")
+        print(turn, end="\n")
         while True:
             turn = input()
             self.history.append(turn)
@@ -4327,7 +4327,7 @@ class ResponseGenerator(Pretrained):
                 clean_up_tokenization_spaces=True,
             )
             self.history.append(predicted_words[0])
-            print(predicted_words[0],end="\n")
+            print(predicted_words[0], end="\n")
 
     def prepare_input(self):
         """ Convert user input and previous histories to the format acceptable for  GPT model.
