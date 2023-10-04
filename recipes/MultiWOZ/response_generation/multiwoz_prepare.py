@@ -84,7 +84,7 @@ def prepare_mwoz_21(
 
     # Download dataset
     download_mwoz_21(data_folder)
-    data_folder = os.path.join(data_folder, 'MultiWOZ_21')
+    data_folder = os.path.join(data_folder, "MultiWOZ_21")
 
     # Additional checks to make sure the data folder contains MultiWOZ
     check_multiwoz_folders(data_folder)
