@@ -160,7 +160,7 @@ class HyperMixing(nn.Module):
             hyp_input
         )  # [bsize, num_heads, seq_len, hypernet_size // num_heads]
 
-        if key_padding_mask:
+        if key_padding_mask is not None:
             # mask the weights
             W1 = W1 * float_mask.unsqueeze(1)
             W2 = W2 * float_mask.unsqueeze(1)
