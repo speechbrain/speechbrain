@@ -1,2 +1,1 @@
 sacrebleu
-transformers
