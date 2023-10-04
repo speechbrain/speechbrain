@@ -32,7 +32,7 @@ def prepare_mwoz_21(
 ) -> None:
 
     """
-    This class prepares the json files for the MultiWOZ dataset.
+    This class prepares the JSON files for the MultiWOZ dataset.
     Download link: https://github.com/budzianowski/multiwoz/tree/master/data
 
     Arguments
@@ -40,9 +40,9 @@ def prepare_mwoz_21(
     data_folder : str
         Path to the folder where the original MultiWOZ dataset is stored.
     save_folder : str
-        The directory where to store the json files.
+        The directory where to store the JSON files.
     replacements_path: str
-        File containing (from, to) pairs, one per line for preprocesing the text.
+        File containing (from, to) pairs, one per line for preprocessing the text.
     skip_prep: bool
         If True, data preparation is skipped.
 
@@ -107,7 +107,7 @@ def check_multiwoz_folders(data_folder):
     Raises
     ------
     FileNotFoundError
-        If data folder doesn't contain MultiWOZ dataset.
+        If the data folder doesn't contain the MultiWOZ dataset.
     """
     files_str = "/data.json"
     # Checking clips
@@ -120,10 +120,10 @@ def check_multiwoz_folders(data_folder):
 
 
 def download_mwoz_21(destination):
-    """Download dataset repo, unpack it, and remove unnecessary elements.
+    """ Download the dataset repo, unpack it, and remove unnecessary elements.
     Arguments
     ---------
-    destination : str
+    destination: str
         Place to put dataset.
     """
     mwoz_21_archive = os.path.join(destination, "MultiWOZ_21.zip")
@@ -200,8 +200,8 @@ def build_dialogue_dataset(
     data_path: str
      Path to the folder where the original MultiWOZ dataset is stored.
     data_split: list of str
-        List of string containing MultiWOZ 2.1 keys of the dialogues
-        associated to a certain split (train, dev, test).
+        List of strings containing MultiWOZ 2.1 keys of the dialogues
+        associated with a certain split (train, dev, test).
     save_file: str
         Path of the file where the dataset will be saved.
     replacements_path: str
@@ -233,14 +233,14 @@ def encode_dialogue_dataset(
     Arguments
     ---------
     save_file: str
-        Path of the file where the dataset will be saved..
+        Path of the file where the dataset will be saved.
     data_path: str
         Path to the folder where the original MultiWOZ dataset is stored.
     data_split: list of str
-        List of string containing MultiWOZ 2.1 keys of the dialogues
-        associated to a certain split (train, dev, test).
+        List of strings containing MultiWOZ 2.1 keys of the dialogues
+        associated with a certain split (train, dev, test).
     replacements_path: str
-        Path to  file containing (from, to) pairs, one per line.
+        Path to file containing (from, to) pairs, one per line.
     """
 
     replacements = get_replacements(replacements_path)

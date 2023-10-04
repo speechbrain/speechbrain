@@ -85,7 +85,7 @@ class HuggingFaceGPT(nn.Module):
     def forward(
         self, input_ids: Tensor, token_type_ids: Tensor, attention_mask: Tensor,
     ):
-        """ Takes an input a history of conversation and return its corresponding reply.
+        """ Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
@@ -111,7 +111,7 @@ class HuggingFaceGPT(nn.Module):
         attention_mask: Tensor,
         decoder_type="greedy",
     ):
-        """ Takes an input a history of conversation and return its corresponding reply.
+        """ Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         --------

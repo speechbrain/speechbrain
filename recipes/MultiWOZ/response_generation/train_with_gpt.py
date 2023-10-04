@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Recipe for training a gpt_based response generation model  with MultiWOZ.
+"""
+Recipe for training a gpt_based response generation model with MultiWOZ.
 The system employs GPT2 (https://life-extension.github.io/2020/05/27/GPT%E6%8A%80%E6%9C%AF%E5%88%9D%E6%8E%A2/language-models.pdf).
-This recipe take the GPT2LMHeadModel to fine-tune for response generation task on the NLL.
+This recipe takes the GPT2LMHeadModel to fine-tune for the response generation task on the NLL.
 
 To run this recipe, do the following:
 > python train_with_gpt.py hparams/train_gpt.yaml
@@ -216,7 +217,7 @@ def add_special_tokens_(model, tokenizer, attr_to_special_token,) -> None:
 def dataio_prep(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined
-    functions. We expect `prepare_mini_librispeech` to have been called before
+    functions. We expect `prepare_multiwoz` to have been called before
     this, so that the `train.json`, `dev.json`,  and `test.json` manifest
     files are available.
     Arguments

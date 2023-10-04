@@ -4263,11 +4263,11 @@ class PIQAudioInterpreter(Pretrained):
 
 
 class ResponseGenerator(Pretrained):
-    """A ready-to-use Response Gnerator  model
+    """A ready-to-use Response Generator  model
 
-    The class can be used to generate and continue dialouge given the user input.
+    The class can be used to generate and continue dialogue given the user input.
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
-    It needs to be used with custom.py to laod the expanded GPT model with added tokens like bos,eos and speaker's tokens.
+    It needs to be used with custom.py to load the expanded GPT model with added tokens like bos,eos, and speaker's tokens.
 
     Example
     -------
@@ -4301,7 +4301,9 @@ class ResponseGenerator(Pretrained):
         self.history = []
 
     def generate_response(self, **kwargs):
-        """ Complete a dialogue given the user's input.
+        """
+        Complete a dialogue given the user's input.
+
         """
         turn = "Hello, How could I help you!"
         self.history.append(turn)
@@ -4332,7 +4334,7 @@ class ResponseGenerator(Pretrained):
     def prepare_input(self):
         """ Convert user input and previous histories to the format acceptable for  GPT model.
             It appends all previous history and input and truncates it based on max_history value.
-            It then tokenized the input and generate additional input that determine the type of each token (Sytem or User).
+            It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
 
         Arguments
         ---------
