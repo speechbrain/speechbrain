@@ -97,7 +97,6 @@ num_encoder_layers: 10
 num_decoder_layers: 4
 csgu_linear_units: 3072
 csgu_kernel_size: 31
-d_ffn: 576 # This is actually instantiated in the Branchformer class
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
