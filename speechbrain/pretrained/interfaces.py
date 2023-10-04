@@ -38,6 +38,7 @@ from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.processing.NMF import spectral_phase
+from itertools import chain
 
 logger = logging.getLogger(__name__)
 
@@ -4259,3 +4260,132 @@ class PIQAudioInterpreter(Pretrained):
     def forward(self, wavs, wav_lens=None):
         """Runs the classification"""
         return self.interpret_batch(wavs, wav_lens)
+
+
+class ResponseGenerator(Pretrained):
+    """A ready-to-use Response Generator  model
+
+    The class can be used to generate and continue dialogue given the user input.
+    The given YAML must contain the fields specified in the *_NEEDED[] lists.
+    It needs to be used with custom.py to load the expanded GPT model with added tokens like bos,eos, and speaker's tokens.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import ResponseGenerator
+
+    >>> tmpdir = getfixture("tmpdir")
+    >>> res_gen_model = ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
+    ... savedir="tmpdir",
+    ... pymodule_file="custom.py")
+    >>> response = res_gen_model.generate_response("I want to book a table for dinner")
+    """
+
+    HPARAMS_NEEDED = ["tokenizer"]
+    MODULES_NEEDED = ["gpt-model"]
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        #  Load model
+        self.model = self.hparams.model
+        # convert special tokens to their ids
+        (
+            self.bos,
+            self.eos,
+            self.system,
+            self.user,
+        ) = self.model.tokenizer.convert_tokens_to_ids(
+            self.hparams.special_tokens
+        )
+        self.history_window = 2 * self.hparams.max_history + 1
+        self.history = []
+
+    def generate_response(self, turn):
+        """
+        Complete a dialogue given the user's input.
+        Arguments
+        ---------
+        turn: str
+            User input which is the last turn of the dialogue.
+
+        Returns
+        -------
+        response
+            Generated response for the user input based on the dialogue history.
+        """
+
+        self.history.append(turn)
+        history_bos, history_token_type = self.prepare_input()
+        history_bos = history_bos.unsqueeze(0)
+        history_token_type = history_token_type.unsqueeze(0)
+        padding_mask = ~self.hparams.padding_mask(
+            history_bos, pad_idx=self.model.tokenizer.unk_token_id
+        )
+        hyps = self.model.generate(
+            history_bos.detach(),
+            history_token_type.detach(),
+            padding_mask.detach(),
+            "beam",
+        )
+        predicted_words = self.model.tokenizer.batch_decode(
+            hyps[:, history_bos.shape[1] :],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        )
+        response = predicted_words[0]
+        self.history.append(response)
+        return response
+
+    def prepare_input(self):
+        """ Convert user input and previous histories to the format acceptable for  GPT model.
+            It appends all previous history and input and truncates it based on max_history value.
+            It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
+
+        Arguments
+        ---------
+
+        Returns
+        -------
+        history_bos:
+            Tokenized history+input values with appropriate speaker token appended before each turn.
+        history_token_type:
+            Type of each token basd on who is uttered that token (either User or Sytem)
+        """
+        history_tokens_lists = [
+            self.model.tokenizer.encode(turn) for turn in self.history
+        ]
+        # add speaker tokens to the history turns (user is even, system is odd)
+        # BEFORE:  [Hi how are you?], [I'm fine, thanks]
+        # AFTER:   [SPK_1 Hi how are you?], [SPK_2 I'm fine, thanks]
+        history_input_lists = [
+            [self.user if i % 2 == 0 else self.system] + encoded_turn
+            for i, encoded_turn in enumerate(history_tokens_lists)
+        ]
+        history_ids = history_input_lists[-self.history_window :]
+        # concatenate every token into a single list
+        # list(chain(*[[1, 2], [3, 4], [5]]))
+        # >>> [1, 2, 3, 4, 5]
+        history_ids = torch.LongTensor(list(chain(*history_ids)))
+        # create bos version for the input
+        history_bos = torch.cat(
+            (torch.tensor([self.bos]), history_ids, torch.tensor([self.system]))
+        )
+        # create a mapping that associates each token in the input to a speaker
+        # INPUT: [SPK_1 Hi    how   are   you? ], [SPK_2 I'm   fine, thanks]
+        # TYPE:  [SPK_1 SPK_1 SPK_1 SPK_1 SPK_1], [SPK_2 SPK_2 SPK_2 SPK_2 ]
+        history_token_type_lists = [
+            [self.user if i % 2 == 0 else self.system] * len(encoded_turn)
+            for i, encoded_turn in enumerate(history_input_lists)
+        ]
+        history_token_type = torch.LongTensor(
+            list(
+                chain(
+                    *(
+                        [[self.system]]
+                        + history_token_type_lists[-self.history_window :]
+                        + [[self.system]]
+                    )
+                )
+            )
+        )
+        return history_bos, history_token_type
