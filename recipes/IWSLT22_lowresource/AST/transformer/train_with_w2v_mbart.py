@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Recipe for fine-tuning a wav2vec model for the ST task (no transcriptions).
+"""Recipe for fine-tuning a wav2vec model and mBART/NLLB model for the ST task (no transcriptions).
 
 Author
- * Marcely Zanon Boito, 2022
+ * Ha Nguyen, 2023
 """
 
 import sys
 import torch
 import logging
+
 import speechbrain as sb
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
+from torch.nn.parallel import DistributedDataParallel
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -24,34 +27,36 @@ class ST(sb.core.Brain):
         wavs, wav_lens = batch.sig  # audio
         tokens_bos, _ = batch.tokens_bos  # translation
 
-        # wav2vec module
-        feats = self.modules.wav2vec2(wavs, wav_lens)
+        src = self.modules.wav2vec2(wavs, wav_lens)
 
         # dimensionality reduction
-        src = self.modules.enc(feats)
+        src = self.modules.enc(src)
 
-        # transformer decoder
-        if self.distributed_launch:
-            dec_out = self.modules.Transformer.module.forward_mt_decoder_only(
-                src, tokens_bos, pad_idx=self.hparams.pad_index
-            )
-        else:
-            dec_out = self.modules.Transformer.forward_mt_decoder_only(
-                src, tokens_bos, pad_idx=self.hparams.pad_index
-            )
+        dec_out = self.modules.mBART(
+            src, tokens_bos, pad_idx=self.hparams.pad_index
+        )
 
         # logits and softmax
-        pred = self.modules.seq_lin(dec_out)
-        p_seq = self.hparams.log_softmax(pred)
+        p_seq = self.hparams.log_softmax(dec_out)
+        if hparams["mbart_frozen"] and not p_seq.requires_grad:
+            p_seq.requires_grad = True
 
         # compute outputs
         hyps = None
-        if stage == sb.Stage.VALID:
+        if stage == sb.Stage.VALID and self.optimizer_step >= 1000:
             # the output of the encoder (enc) is used for valid search
-            hyps, _, _, _ = self.hparams.valid_search(src.detach(), wav_lens)
+            current_epoch = self.hparams.epoch_counter.current
+            if current_epoch % self.hparams.valid_search_interval == 0:
+                if isinstance(self.modules.mBART, DistributedDataParallel):
+                    self.modules.mBART = self.modules.mBART.module
+                hyps, _, _, _ = self.hparams.valid_search(
+                    src.detach(), wav_lens
+                )
 
         elif stage == sb.Stage.TEST:
-            hyps, _, _, _ = self.hparams.test_search(src.detach(), wav_lens)
+            if isinstance(self.modules.mBART, DistributedDataParallel):
+                self.modules.mBART = self.modules.mBART.module
+            hyps, _, _, _ = self.hparams.valid_search(src.detach(), wav_lens)
 
         return p_seq, wav_lens, hyps
 
@@ -62,26 +67,38 @@ class ST(sb.core.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         # st loss
+        tokens_eos = self.modules.mBART.custom_padding(
+            tokens_eos,
+            0,
+            self.modules.mBART.model.model.decoder.config.pad_token_id,
+        )
         loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         fr_detokenizer = MosesDetokenizer(lang=self.hparams.lang)
 
         if stage != sb.Stage.TRAIN:
-            predictions = [
-                fr_detokenizer.detokenize(
-                    tokenizer.sp.decode_ids(utt_seq).split(" ")
-                )
-                for utt_seq in hyps
-            ]
+            current_epoch = self.hparams.epoch_counter.current
+            valid_search_interval = self.hparams.valid_search_interval
+            if (
+                current_epoch % valid_search_interval == 0
+                and self.optimizer_step >= 1000
+                or (stage == sb.Stage.TEST)
+            ):
+                detokenized_translation = [
+                    fr_detokenizer.detokenize(translation.split(" "))
+                    for translation in batch.trans
+                ]
+                # it needs to be a list of list due to the extend on the bleu implementation
+                targets = [detokenized_translation]
 
-            detokenized_translation = [
-                fr_detokenizer.detokenize(translation.split(" "))
-                for translation in batch.trans
-            ]
-            # it needs to be a list of list due to the extend on the bleu implementation
-            targets = [detokenized_translation]
+                predictions = [
+                    fr_detokenizer.detokenize(hyp.split(" "))
+                    for hyp in self.modules.mBART.tokenizer.batch_decode(
+                        hyps, skip_special_tokens=True
+                    )
+                ]
 
-            self.bleu_metric.append(ids, predictions, targets)
+                self.bleu_metric.append(ids, predictions, targets)
 
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
@@ -89,28 +106,61 @@ class ST(sb.core.Brain):
         return loss
 
     def init_optimizers(self):
-        self.adam_optimizer = self.hparams.adam_opt_class(
-            self.hparams.model.parameters()
-        )
-
-        self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
-
         # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )
-            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+        # Initializes the mbart optimizer if the model is not mbart_frozen
+        if not self.hparams.mbart_frozen:
+            self.mbart_optimizer = self.hparams.mbart_opt_class(
+                self.modules.mBART.parameters()
+            )
+        self.adam_optimizer = self.hparams.adam_opt_class(
+            self.hparams.model.parameters()
+        )
 
-    def freeze_optimizers(self, optimizers):
-        """Freezes the wav2vec2 optimizer according to the warmup steps"""
-        valid_optimizers = {}
-        if not self.hparams.wav2vec2_frozen:
-            valid_optimizers["wav2vec_optimizer"] = optimizers[
-                "wav2vec_optimizer"
-            ]
-        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
-        return valid_optimizers
+    def fit_batch(self, batch):
+        """Train the parameters given a single batch in input"""
+        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
+        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
+        # normalize the loss by gradient_accumulation step
+        (loss / self.hparams.gradient_accumulation).backward()
+
+        if self.step % self.hparams.gradient_accumulation == 0:
+            # gradient clipping & early stop if loss is not fini
+            if self.check_gradients(loss):
+                if not self.hparams.wav2vec2_frozen:
+                    self.wav2vec_optimizer.step()
+                if not self.hparams.mbart_frozen:  # if mbart is not frozen
+                    self.mbart_optimizer.step()
+                self.adam_optimizer.step()
+
+            if not self.hparams.wav2vec2_frozen:
+                self.wav2vec_optimizer.zero_grad()
+            if not self.hparams.mbart_frozen:
+                self.mbart_optimizer.zero_grad()
+            self.adam_optimizer.zero_grad()
+
+            self.optimizer_step += 1
+
+            if not self.hparams.wav2vec2_frozen:
+                self.hparams.lr_annealing_wav2vec(
+                    self.wav2vec_optimizer, self.optimizer_step
+                )
+            if not self.hparams.mbart_frozen:
+                self.hparams.lr_annealing_mbart(
+                    self.mbart_optimizer, self.optimizer_step
+                )
+
+        return loss.detach().cpu()
+
+    def evaluate_batch(self, batch, stage):
+        """Computations needed for validation/test batches"""
+        predictions = self.compute_forward(batch, stage=stage)
+        with torch.no_grad():
+            loss = self.compute_objectives(predictions, batch, stage=stage)
+        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called when a stage (either training, validation, test) starts."""
@@ -129,51 +179,65 @@ class ST(sb.core.Brain):
         else:  # valid or test
             stage_stats = {"loss": stage_loss}
             stage_stats["ACC"] = self.acc_metric.summarize()
-            stage_stats["BLEU"] = self.bleu_metric.summarize(field="BLEU")
-            stage_stats["BLEU_extensive"] = self.bleu_metric.summarize()
             current_epoch = self.hparams.epoch_counter.current
+            valid_search_interval = self.hparams.valid_search_interval
+            if (
+                current_epoch % valid_search_interval == 0
+                and self.optimizer_step >= 1000
+                or stage == sb.Stage.TEST
+            ):
+                stage_stats["BLEU"] = self.bleu_metric.summarize(field="BLEU")
+                stage_stats["BLEU_extensive"] = self.bleu_metric.summarize()
+                self.anneal_bleu = stage_stats["BLEU"]
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
             current_epoch = self.hparams.epoch_counter.current
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
-                stage_stats["BLEU"]
+                self.anneal_bleu  # stage_stats["BLEU"]
             )
             sb.nnet.schedulers.update_learning_rate(
                 self.adam_optimizer, new_lr_adam
             )
 
+            stats_meta = {
+                "epoch": current_epoch,
+                "steps": self.optimizer_step,
+                "lr_adam": old_lr_adam,
+            }
+
             if not self.hparams.wav2vec2_frozen:
-                (
-                    old_lr_wav2vec,
-                    new_lr_wav2vec,
-                ) = self.hparams.lr_annealing_wav2vec(stage_stats["BLEU"])
-                sb.nnet.schedulers.update_learning_rate(
-                    self.wav2vec_optimizer, new_lr_wav2vec
+                self.hparams.lr_annealing_wav2vec(
+                    self.wav2vec_optimizer, self.optimizer_step
                 )
-                self.hparams.train_logger.log_stats(
-                    stats_meta={
-                        "epoch": current_epoch,
-                        "lr_adam": old_lr_adam,
-                        "lr_wav2vec": old_lr_wav2vec,
-                    },
-                    train_stats={"loss": self.train_stats},
-                    valid_stats=stage_stats,
+                stats_meta["lr_wav2vec"] = self.wav2vec_optimizer.param_groups[
+                    0
+                ]["lr"]
+            if not self.hparams.mbart_frozen:
+                self.hparams.lr_annealing_mbart(
+                    self.mbart_optimizer, self.optimizer_step
                 )
-            else:
-                self.hparams.train_logger.log_stats(
-                    stats_meta={"epoch": current_epoch, "lr_adam": old_lr_adam},
-                    train_stats={"loss": self.train_stats},
-                    valid_stats=stage_stats,
-                )
+                stats_meta["lr_mbart"] = self.mbart_optimizer.param_groups[0][
+                    "lr"
+                ]
+            self.hparams.train_logger.log_stats(
+                stats_meta=stats_meta,
+                train_stats={"loss": self.train_stats},
+                valid_stats=stage_stats,
+            )
 
             # create checkpoing
-            meta = {"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
-            name = "checkpoint_epoch" + str(current_epoch)
+            valid_search_interval = self.hparams.valid_search_interval
+            if (
+                current_epoch % valid_search_interval == 0
+                and self.optimizer_step >= 1000
+            ):
+                meta = {"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
+                name = "checkpoint_epoch" + str(current_epoch)
 
-            self.checkpointer.save_and_keep_only(
-                meta=meta, name=name, num_to_keep=10, max_keys=["BLEU"]
-            )
+                self.checkpointer.save_and_keep_only(
+                    meta=meta, name=name, num_to_keep=10, max_keys=["BLEU"]
+                )
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -181,9 +245,12 @@ class ST(sb.core.Brain):
                 test_stats=stage_stats,
             )
 
+            with open(self.hparams.bleu_file, "w") as w:
+                self.bleu_metric.write_stats(w)
+
 
 # Define custom data procedure
-def dataio_prepare(hparams):
+def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
 
@@ -211,36 +278,25 @@ def dataio_prepare(hparams):
     # decoder during training, the tokens with EOS for computing the cost function.
     @sb.utils.data_pipeline.takes("trans")
     @sb.utils.data_pipeline.provides(
-        "trans", "tokens_list", "tokens_bos", "tokens_eos"
+        "trans", "tokens_list", "tokens_bos", "tokens_eos",
     )
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
         yield translation
-        tokens_list = tokenizer.sp.encode_as_ids(translation)
+        labels = tokenizer(
+            text_target=translation.replace("\n", ""), return_tensors="pt"
+        )
+        tokens_list = labels["input_ids"].tolist()[-1]
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
+        tokens_bos = torch.LongTensor(tokens_list[0:-1])
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        tokens_eos = torch.LongTensor(tokens_list[1:])
         yield tokens_eos
 
-    data_folder = hparams["data_folder"]
-
-    # 1. train tokenizer on the data
-    tokenizer = SentencePiece(
-        model_dir=hparams["save_folder"],
-        vocab_size=hparams["vocab_size"],
-        annotation_train=hparams["annotation_train"],
-        annotation_read="trans",
-        annotation_format="json",
-        model_type="unigram",
-        bos_id=hparams["bos_index"],
-        eos_id=hparams["eos_index"],
-    )
-
-    # 2. load data and tokenize with trained tokenizer
     datasets = {}
+    data_folder = hparams["data_folder"]
     for dataset in ["train", "valid"]:
-        json_path = f"{data_folder}/{dataset}.json"
+        json_path = hparams[f"annotation_{dataset}"]
 
         is_use_sp = dataset == "train" and "speed_perturb" in hparams
         audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
@@ -260,7 +316,7 @@ def dataio_prepare(hparams):
             ],
         )
 
-    for dataset in ["valid", "test"]:
+    for dataset in ["test"]:
         json_path = hparams[f"annotation_{dataset}"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
@@ -281,16 +337,17 @@ def dataio_prepare(hparams):
     # faster  because we minimize zero-padding. In most of the cases, this
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
+        # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": hparams["sorting_min_duration"]},
-                key_max_value={"duration": hparams["sorting_max_duration"]},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 3},
                 sort_key="duration",
                 reverse=True,
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": hparams["sorting_min_duration"]},
-                key_max_value={"duration": hparams["sorting_max_duration"]},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 3},
                 sort_key="duration",
                 reverse=True,
             )
@@ -308,14 +365,14 @@ def dataio_prepare(hparams):
         # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": hparams["sorting_min_duration"]},
-                key_max_value={"duration": hparams["sorting_max_duration"]},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 3},
                 sort_key="duration",
                 reverse=True,
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": hparams["sorting_min_duration"]},
-                key_max_value={"duration": hparams["sorting_max_duration"]},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 3},
                 sort_key="duration",
                 reverse=True,
             )
@@ -333,14 +390,12 @@ def dataio_prepare(hparams):
         # use smaller dataset to debug the model
         if hparams["debug"]:
             datasets["train"] = datasets["train"].filtered_sorted(
-                key_min_value={"duration": hparams["sorting_debug_duration"]},
-                key_max_value={"duration": hparams["sorting_max_duration"]},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 3},
                 sort_key="duration",
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": hparams["sorting_min_duration"]},
-                key_max_value={"duration": hparams["sorting_max_duration"]},
-                sort_key="duration",
+                key_min_value={"duration": 1}, key_max_value={"duration": 3},
             )
 
         hparams["dataloader_options"]["shuffle"] = True
@@ -349,7 +404,7 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    return datasets, tokenizer
+    return datasets
 
 
 if __name__ == "__main__":
@@ -358,9 +413,6 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
-
-    # creates a logger
-    logger = logging.getLogger(__name__)
 
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -380,6 +432,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    st_brain.anneal_bleu = 0
+
     # Data preparation
     import prepare_iwslt22
 
@@ -392,13 +446,8 @@ if __name__ == "__main__":
             },
         )
 
-    # Load datasets for training, valid, and test, trains and applies tokenizer
-    datasets, tokenizer = dataio_prepare(hparams)
-
-    # Before training, we drop some of the wav2vec 2.0 Transformer Encoder layers
-    st_brain.modules.wav2vec2.model.encoder.layers = st_brain.modules.wav2vec2.model.encoder.layers[
-        : hparams["keep_n_layers"]
-    ]
+    # We can now directly create the datasets for training, valid, and test
+    datasets = dataio_prepare(hparams, st_brain.modules.mBART.tokenizer)
 
     # Training
     st_brain.fit(
@@ -411,6 +460,9 @@ if __name__ == "__main__":
 
     # Test
     for dataset in ["valid", "test"]:
+        st_brain.hparams.wer_file = (
+            hparams["output_folder"] + "/wer_test" + ".txt"
+        )
         st_brain.evaluate(
             datasets[dataset],
             test_loader_kwargs=hparams["test_dataloader_options"],

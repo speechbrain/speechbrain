@@ -204,7 +204,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
     beam_size: !ref <valid_beam_size>
     ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
-    length_normalization: False
+    length_normalization: True
     scorer: !ref <scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearch

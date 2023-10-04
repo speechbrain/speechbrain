@@ -23,18 +23,8 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     make_padding_masks,
 )
-
-# We check if transformers is installed.
-try:
-    import transformers
-    from transformers.models.wav2vec2.modeling_wav2vec2 import (
-        _compute_mask_indices,
-    )
-
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
+import transformers
+from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +96,7 @@ class Wav2Vec2(HFTransformersInterface):
         self.freeze_feature_extractor = freeze_feature_extractor
         if not self.freeze and self.freeze_feature_extractor:
             logger.warning(
-                "speechbrain.lobes.models.huggingface_transformers.wav2vec - wav2vec 2.0 feature extractor is frozen."
+                "speechbrain.lobes.models.huggingface_transformers.wav2vec2 - wav2vec 2.0 feature extractor is frozen."
             )
             self.model.feature_extractor.eval()
             for param in self.model.feature_extractor.parameters():

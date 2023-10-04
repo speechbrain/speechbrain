@@ -200,7 +200,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
-    length_normalization: False
+    length_normalization: True
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
