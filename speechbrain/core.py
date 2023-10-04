@@ -324,7 +324,6 @@ def parse_arguments(arg_list=None):
     parser.add_argument(
         "--precision",
         type=str,
-        default="fp32",
         help="This flag enables training with automatic mixed-precision."
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
