@@ -33,6 +33,7 @@ def prepare_mwoz_21(
 
     """
     This class prepares the JSON files for the MultiWOZ dataset.
+    Data will be automatically downloaded in the data_folder.
     Download link: https://github.com/budzianowski/multiwoz/tree/master/data
 
     Arguments
@@ -51,7 +52,7 @@ def prepare_mwoz_21(
     -------
     >>> data_folder = 'data/MultiWOZ_2.1'
     >>> save_folder = 'MultiWOZ_prepared'
-    >>> replacements_path = 'recipes/MultiWOZ/response_generation/mapping.pair'
+    >>> replacements_path = 'mapping.pair'
     >>> prepare_mwoz_21(data_folder, save_folder, replacements_path)
     """
 
@@ -81,7 +82,11 @@ def prepare_mwoz_21(
 
         return
 
-    # Additional checks to make sure the data folder containsMultiWOZ
+    # Download dataset
+    download_mwoz_21(data_folder)
+    data_folder = os.path.join(data_folder, 'MultiWOZ_21')
+
+    # Additional checks to make sure the data folder contains MultiWOZ
     check_multiwoz_folders(data_folder)
 
     data_path = os.path.join(data_folder, "data.json")

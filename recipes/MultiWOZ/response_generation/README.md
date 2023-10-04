@@ -1,6 +1,7 @@
 # MultiWOZ Response Generation with GPT2 Model.
 This folder contains the scripts to finetune a gpt based system using MultiWOZ for response generation task.
 You can download MultiWOZ at https://github.com/budzianowski/multiwoz.
+The data will be automatically download in the specified data_folder.
 
 
 ## Installing Extra Dependencies
@@ -13,8 +14,9 @@ pip install -r extra_requirements.txt
 
 # How to run
 ```
-python train_with_gpt.py hparams/train_gpt.yaml
+python train_with_gpt.py hparams/train_gpt.yaml --data_folder=/your/data/folder
 ```
+The data will be automatically download in the specified data_folder.
 
 
 # Results
