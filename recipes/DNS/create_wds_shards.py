@@ -7,7 +7,6 @@
 # Author(s): Tanel Alumäe, Nik Vaessen, Sangeet Sagar (2023)
 ################################################################################
 
-import sys
 import os
 import json
 from tqdm import tqdm
@@ -70,7 +69,8 @@ def write_shards(
         delim = "dev_testset/"
         lang = "baseline_noisytestset"
     else:
-        sys.exit("Unsupported path name")
+        delim = os.path.basename(dns_folder_path.as_posix())
+        lang = delim
 
     for f in tqdm(audio_files):
         # path should be
@@ -78,7 +78,7 @@ def write_shards(
         sub_path = f.as_posix().split(delim)[1]
 
         loc = f.as_posix()
-        key = os.path.splitext(sub_path)[0]
+        key = os.path.splitext(os.path.basename(sub_path))[0]
         if "clean_fullband" in dns_folder_path.as_posix():
             lang = key.split("_speech")[0]
 

@@ -4,7 +4,7 @@
 The system employs an encoder,a decoder, and a masking network.
 
 To run this recipe, do the following:
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_folder <path/to/baseline_shards_data>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_shards_folder <path/to/baseline_shards_data>
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
@@ -616,29 +616,33 @@ def dataio_prep(hparams):
 
     train_shard_patterns = []
     for dir in speech_dirs:
+        if not os.path.exists(os.path.join(hparams["train_data"], dir)):
+            dir = ""
         shard_pattern = os.path.join(hparams["train_data"], dir, "shard-*.tar")
         shard_files = glob.glob(shard_pattern)
         train_shard_patterns.extend(shard_files)
 
     valid_shard_patterns = []
     for dir in speech_dirs:
+        if not os.path.exists(os.path.join(hparams["valid_data"], dir)):
+            dir = ""
         shard_pattern = os.path.join(hparams["valid_data"], dir, "shard-*.tar")
         shard_files = glob.glob(shard_pattern)
         valid_shard_patterns.extend(shard_files)
 
-    def meta_loader(speech_dirs, split_path):
-        # sum up the number of data samples from all meta
+    def meta_loader(split_path):
+        # Initialize the total number of samples
         total_samples = 0
 
-        for dir in speech_dirs:
-            meta_json_path = os.path.join(split_path, dir, "meta.json")
-
-            if os.path.exists(meta_json_path):
-                with wds.gopen(meta_json_path, "rb") as f:
-                    meta = json.load(f)
-
-                # Add the number of data samples from the current directory to the total
-                total_samples += meta["num_data_samples"]
+        # Walk through the all subdirs
+        # eg. german_speech, read_speech, ...
+        for root, _, files in os.walk(split_path):
+            for file in files:
+                if file == "meta.json":
+                    meta_json_path = os.path.join(root, file)
+                    with open(meta_json_path, "rb") as f:
+                        meta = json.load(f)
+                    total_samples += meta.get("num_data_samples", 0)
 
         return total_samples
 
@@ -676,7 +680,7 @@ def dataio_prep(hparams):
         # e.g. combine read_speech, german_speech etc. each with multiple shards.
         urls = [
             url
-            for shard in train_shard_patterns
+            for shard in shard_patterns
             for url in braceexpand.braceexpand(shard)
         ]
 
@@ -693,7 +697,7 @@ def dataio_prep(hparams):
     train_data = create_combined_dataset(
         train_shard_patterns, hparams["shard_cache_dir"]
     )
-    train_samples = meta_loader(speech_dirs, hparams["train_data"])
+    train_samples = meta_loader(hparams["train_data"])
     logger.info(f"Training data- Number of samples: {train_samples}")
     logger.info(
         f"Training data - Total duration: {train_samples * audio_length/ 3600:.2f} hours"
@@ -702,7 +706,7 @@ def dataio_prep(hparams):
     valid_data = create_combined_dataset(
         valid_shard_patterns, hparams["shard_cache_dir"]
     )
-    valid_samples = meta_loader(speech_dirs, hparams["valid_data"])
+    valid_samples = meta_loader(hparams["valid_data"])
     logger.info(f"Valid data- Number of samples: {valid_samples}")
     logger.info(
         f"Valid data - Total duration: {valid_samples * audio_length  / 3600:.2f} hours"
@@ -827,7 +831,8 @@ if __name__ == "__main__":
         # Estimated source
         signal = predictions[0, :]
         signal = signal / signal.abs().max()
-        save_file = os.path.join(save_path_enhanced, snt_id)
+        save_file = os.path.join(save_path_enhanced, snt_id) + ".wav"
+
         torchaudio.save(
             save_file, signal.unsqueeze(0).cpu(), hparams["sample_rate"]
         )
@@ -836,7 +841,7 @@ if __name__ == "__main__":
         baseline_data, **hparams["dataloader_opts_test"]
     )
 
-    # Loop over all noisy baseline testclips
+    # Loop over all noisy baseline shards and save the enahanced clips
     print("Saving enhanced sources (baseline set)")
     with tqdm(test_loader, dynamic_ncols=True) as t:
         for i, batch in enumerate(t):

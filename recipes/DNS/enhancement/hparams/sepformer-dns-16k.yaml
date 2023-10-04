@@ -18,8 +18,8 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER   # ../noisyspeech_synthesizer/synthesized_data_shards/
 train_data: !ref <data_folder>/train_shards/
 valid_data: !ref <data_folder>/valid_shards/
-baseline_noisy_folder: !PLACEHOLDER     # ../DNS-shards/devsets_fullband/
-baseline_shards: !ref <baseline_noisy_folder>/shard-{000000..999999}.tar
+baseline_noisy_shards_folder: !PLACEHOLDER     # ../DNS-shards/devsets_fullband/
+baseline_shards: !ref <baseline_noisy_shards_folder>/shard-{000000..999999}.tar
 
 # Set to a directory on a large disk if using Webdataset shards hosted on the web.
 shard_cache_dir:

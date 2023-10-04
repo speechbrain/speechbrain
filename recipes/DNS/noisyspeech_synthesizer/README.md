@@ -10,12 +10,23 @@ Synthesize clean-noisy data and create WebDataset shards.
 ### **Usage**
 To create noisy dataset, run
 ```
+## synthesize read speech
 python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name read_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize German speech
 python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name german_speech --synthesized_data_dir synthesized_data_shards
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name french_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize Italian speech
 python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name italian_speech --synthesized_data_dir synthesized_data_shards
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name russian_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize French speech
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name french_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize Spanish speech
 python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name spanish_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize Russian speech
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name russian_speech --synthesized_data_dir synthesized_data_shards
 ```
 
 It's recommended to execute these commands in parallel for quicker synthesis.

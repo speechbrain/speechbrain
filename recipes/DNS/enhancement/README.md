@@ -1,16 +1,11 @@
 # **Speech enhancement with Microsoft DNS dataset**
 This folder contains the recipe for speech enhancement on Deep Noise Suppression (DNS) Challenge 4 (ICASSP 2022) dataset using SepFormer.
 
-Install additional dependencies
-```
-pip install mir_eval pesq pystoi tensorboard librosa
-pip install pyroomacoustics==0.3.1
-pip install onnxruntime
+For data download and prepration, please refer to the `README.md` in `recipes/DNS/`
 
+## **Start training**
 ```
-To start training
-```
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_data> --baseline_noisy_folder <path/to/baseline-noisy-testclips>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_shards_folder <path/to/baseline_dev_shards_data>
 ```
 ## **DNSMOS Evaluation on baseline-testclips**
 *Reference: [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*

@@ -40,6 +40,13 @@ However this is not the end, the downloaded clean-audio files, RIRs, and noisy-a
 **NOTE**
 - This dataset download process can be extremely time-consuming. With a total of 126 splits (train, noise and dev data), the script downloads each split in a serial order. The script also allows concurrent data download (by enabling `--parallel_download` param) by using multiple threads (equal to number of your CPU cores). This is helpful especially when you have access to a large cluster. (Alternatively, you can download all 126 splits and decompress them at once by using array job submission.)
 
+## **Installing Extra Dependencies**
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ## **Getting started**
 - STEP 1: Download DNS dataset.
 - STEP 2: Synthesize noisy data.
@@ -58,8 +65,8 @@ The compressed files are downloaded in `DNS-compressed` and further decompressed
 
 Next, create webdataset shards
 ```
-## webdataset shards for clean_fullband
-python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_speech/german_speech/french_speech/...>/ DNS-shards/clean_fullband/<read_speech/german_speech/french_speech/...>
+## webdataset shards for clean_fullband (choose one one language i.e. read, german etc. at a time)
+python create_wds_shards.py DNS-dataset/datasets_fullband/clean_fullband/<read_speech/german_speech/french_speech/...>/ DNS-shards/clean_fullband/
 
 ## webdataset shards for noise_fullband
 python create_wds_shards.py DNS-dataset/datasets_fullband/noise_fullband/ DNS-shards/noise_fullband
@@ -71,17 +78,25 @@ python create_wds_shards.py DNS-dataset/datasets_fullband/dev_testset/noisy_test
 To synthesize clean-noisy audio for speech enhancement training (we add noise, RIR to clean fullband speech to synthesize clean-noisy pairs)
 ```
 cd noisyspeech_synthesizer
-python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name <read_speech/german_speech/french_speech/...> --synthesized_data_dir synthesized_data_shards
-```
 
-Select one of `read_speech`, `german_speech`, `french_speech`, `italian_speech`, `russian_speech` or `spanish_speech`. <br>
-*For more see `noisyspeech_synthesizer` on how to synthesize noisy files from clean audio and noise audio files.*
+## synthesize read speech
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name read_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize German speech
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name german_speech --synthesized_data_dir synthesized_data_shards
+
+## synthesize Italian speech
+python noisyspeech_synthesizer_singleprocess.py noisyspeech_synthesizer.yaml --input_shards_dir ../DNS-shards --split_name italian_speech --synthesized_data_dir synthesized_data_shards
+
+## similarly do for spanish, russian and french.
+```
+*For more, please see `noisyspeech_synthesizer` on how to synthesize noisy files from clean audio and noise audio files.*
 
 ## Step 3: **Begin training**
 To start training
 ```
 cd enhancement
-python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_folder <path/to/baseline_shards_data>
+python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_shards_folder <path/to/baseline_shards_data>
 ```
 *For more details and how to perform evaluation, see `enhancement` folder on details about the main training script*
 
