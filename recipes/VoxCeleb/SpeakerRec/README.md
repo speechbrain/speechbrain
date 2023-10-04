@@ -97,11 +97,15 @@ Below results are all obtained with the official verification split of voxceleb1
 
 ## PreTrained Model + Easy-Inference
 You can perform the easy-inference of various models provided on [HuggingFace](https://huggingface.co) via the links below. They are specified in the hyperparameter yaml files as well.
+
+**NOTE: If you would like to store the embeddings for future use, please check `extract_speaker_embeddings.py` for the gist.**
+
 | System          | Hugging Face model link |
 |-----------------|-------------------------|
 | Xvector         | https://huggingface.co/speechbrain/spkrec-xvect-voxceleb |
 | ECAPA-TDNN      | https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb |
 | ResNet TDNN     | https://huggingface.co/speechbrain/spkrec-resnet-voxceleb |
+
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

@@ -26,7 +26,6 @@ import torch
 import logging
 import pathlib
 from torch import nn
-from typing import Union
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
@@ -91,7 +90,7 @@ class HFTransformersInterface(nn.Module):
         save_path="",
         for_pretraining=False,
         freeze=False,
-        cache_dir: Union[str, pathlib.Path, None] = "pretrained_models",
+        cache_dir="pretrained_models",
         **kwarg,
     ):
         super().__init__()

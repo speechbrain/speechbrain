@@ -26,15 +26,28 @@ python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampl
 ```
 
 # KenLM n-gram CTC rescoring
-To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. Results are reported without rescoring.
+To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. The n-gram can either be a binary or an arpa file, but note that the binary format is faster to load. The following command shows how to use the official LibriSpeech 4-gram LM with SpeechBrain:
+```bash
+wget https://openslr.elda.org/resources/11/4-gram.arpa.gz
+gzip -d 4-gram.arpa.gz
+python train_with_wav2vec.py hparams/file.yaml --kenlm_model_path='4-gram.arpa'
+```
 
 # Results
 
-| Release | Hyperparams file | Finetuning Split | Test Clean WER | HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|
-| 09-09-21 | train_hf_wav2vec.yaml | 960h | 1.90 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX8000 48GB |
-| 22-09-22 | train_sb_wav2vec.yaml | 960h | 4.2 | Not Avail. | Not Avail. | 2xTesla V100 32GB |
-| 06-12-23 | train_hf_whisper.yaml (small) | 960h | 4.89 | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
+| Release | Hyperparams file | Decoding method | Finetuning Split | Test-clean WER | GPI- Test-clean Inference Time | Test-other WER | GPU- Test-other Inference Time |  HuggingFace link | Full model link | Inference GPUs | Training GPUs |
+|:-------------:|:---------------------------:|  :----------:|  :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:| :--------:|
+| 05-08-23 | train_hf_wav2vec.yaml | GreedySearch | 960h  | 2.12 | 1min30s | 4.31| 1min24s | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | GreedySearch  + test batch size = 1| 960h  | 1.95 | 2min09s | 3.97| 2min21s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch  + test batch size = 1| 960h  | 1.92 | 2min22s | 3.97 | 2min16s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch  + test batch size = 1| 960h | 1.92 | 2min45s | 3.97 | 2min21s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch + 4-gram  + test batch size = 1| 960h  | 1.75  | 2min37s | 3.67 | 2min20s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch + 4-gram  + test batch size = 1| 960h  | 1.80 | 2min38s | 3.78 | 2min25s |Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 22-09-22 | train_sb_wav2vec.yaml | GreedySearch | 960h | 4.2 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail.| 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCBeamSearch  + test batch size = 1 | 960h | 4.72 | 3.08 | 12.66 |3.30 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch  + test batch size = 1 | 960h | 4.73 | 3.19 | 12.65 |3.39 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.37 | 3.16 | 11.76 | 3.43 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.44 | 3.30 | 11.89 | 3.47 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"

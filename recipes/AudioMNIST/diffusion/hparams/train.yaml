@@ -93,7 +93,6 @@ pad_level_db: -50.
 
 # Model Parameters
 model_channels: 128
-model_norm_num_groups: 32
 model_num_res_blocks: 4
 diffusion_channels: 1
 

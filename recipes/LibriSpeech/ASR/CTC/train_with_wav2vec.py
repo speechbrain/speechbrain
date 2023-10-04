@@ -1,7 +1,10 @@
 #!/usr/bin/env/python3
 """Recipe for training a wav2vec-based ctc ASR system with librispeech.
 The system employs wav2vec as its encoder. Decoding is performed with
-ctc greedy decoder.
+ctc greedy decoder during validation and a beam search with an optional
+language model during test. The test searcher can be chosen from the following
+options: CTCBeamSearcher, CTCPrefixBeamSearcher, TorchAudioCTCPrefixBeamSearcher.
+
 To run this recipe, do the following:
 > python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
@@ -16,8 +19,8 @@ Authors
  * Abdel Heba 2020
  * Peter Plantinga 2020
  * Samuele Cornell 2020
+ * Adel Moumen 2023
 """
-
 import os
 import sys
 import torch
@@ -74,13 +77,14 @@ class ASR(sb.Brain):
             )
 
         p_ctc = self.hparams.log_softmax(logits)
-        if stage == sb.Stage.VALID or (
-            stage == sb.Stage.TEST and not self.hparams.use_language_modelling
-        ):
 
+        if stage == sb.Stage.VALID:
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -104,23 +108,16 @@ class ASR(sb.Brain):
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                 for utt_seq in predicted_tokens
             ]
+        elif stage == sb.Stage.TEST:
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
+
+        if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
-        if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            if self.hparams.use_language_modelling:
-                predicted_words = []
-                for logs in p_ctc:
-                    text = decoder.decode(logs.detach().cpu().numpy())
-                    predicted_words.append(text.split(" "))
-            else:
-                predicted_words = [
-                    "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                    for utt_seq in predicted_tokens
-                ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
+
         return loss
 
     def fit_batch(self, batch):
@@ -377,30 +374,6 @@ if __name__ == "__main__":
         hparams
     )
 
-    # Loading the labels for the LM decoding and the CTC decoder
-    if hasattr(hparams, "use_language_modelling"):
-        if hparams["use_language_modelling"]:
-            try:
-                from pyctcdecode import build_ctcdecoder
-            except ImportError:
-                err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
-                err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
-                raise ImportError(err_msg)
-
-            ind2lab = label_encoder.ind2lab
-            labels = [ind2lab[x] for x in range(len(ind2lab))]
-            labels = [""] + labels[
-                1:
-            ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
-            decoder = build_ctcdecoder(
-                labels,
-                kenlm_model_path=hparams["ngram_lm_path"],  # .arpa or .bin
-                alpha=0.5,  # Default by KenLM
-                beta=1.0,  # Default by KenLM
-            )
-    else:
-        hparams["use_language_modelling"] = False
-
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -417,6 +390,22 @@ if __name__ == "__main__":
     # We dynamicaly add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
+
+    ind2lab = label_encoder.ind2lab
+    vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
+    test_searcher = hparams["test_searcher"](
+        blank_index=hparams["blank_index"],
+        vocab_list=vocab_list,
+        space_token=hparams["space_token"],
+        alpha=hparams["alpha"],
+        beta=hparams["beta"],
+        beam_size=hparams["beam_size"],
+        beam_prune_logp=hparams["beam_prune_logp"],
+        token_prune_min_logp=hparams["token_prune_min_logp"],
+        prune_history=hparams["prune_history"],
+        topk=hparams["topk"],
+        kenlm_model_path=hparams.get("kenlm_model_path"),
+    )
 
     # Training
     asr_brain.fit(

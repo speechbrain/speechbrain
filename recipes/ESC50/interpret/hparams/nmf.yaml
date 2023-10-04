@@ -46,8 +46,6 @@ batch_size: 2
 lr: 0.0002
 sample_rate: 44100
 
-device: "cpu"
-
 shuffle: True
 dataloader_options:
     batch_size: !ref <batch_size>

@@ -482,5 +482,5 @@ def get_spm_tokens(model_path):
     """
     model = spm.SentencePieceProcessor()
     model.load(model_path)
-    mapping = [model.id_to_piece(i) for i in range(model.vocab_size())]
+    mapping = [model.sp.id_to_piece(i) for i in range(model.sp.vocab_size())]
     return mapping

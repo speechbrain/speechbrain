@@ -16,6 +16,10 @@ try:
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/nnet/loss/transducer_loss.py")
 try:
+    import kenlm  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/decoders/language_model.py")
+try:
     import fairseq  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/lobes/models/fairseq_wav2vec.py")

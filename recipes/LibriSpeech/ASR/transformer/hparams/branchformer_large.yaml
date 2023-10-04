@@ -54,6 +54,7 @@ max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 # stages related parameters
 # stage_one_epochs: 90
@@ -69,17 +70,25 @@ win_length: 32
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 500
-max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_length_train: 500
+max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
-
-dynamic_batch_sampler:
-    max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
+shuffle: True # if true re-creates batches at each epoch shuffling examples.
+max_batch_ex: 128
+batch_ordering: random
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
     num_buckets: !ref <num_bucket>
-    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
-    max_batch_ex: 128
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+    max_batch_length: !ref <max_batch_length_val>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
 
 # Dataloader options
 train_dataloader_opts:
