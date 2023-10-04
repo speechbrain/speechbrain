@@ -1137,15 +1137,9 @@ class Brain:
         """
         return optimizers
 
-    def on_optimizers_step_end(self):
-        """Gets called at the end of ``optimizers_step()``.
-        Override this method to do something at the end of ``optimizers_step()``.
-        """
-        pass
-
     def optimizers_step(self):
-        """Performs a step of gradient descent on the optimizers. This method
-        is called every ``grad_accumulation_factor`` steps."""
+        """Performs a step of gradient descent on the optimizers. This method is called every
+        ``grad_accumulation_factor`` steps."""
         # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
         valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
 
@@ -1154,6 +1148,9 @@ class Brain:
             self.scaler.unscale_(opt)
 
         # 3. clip gradients
+        # We are clipping this way because clipping on model.parameter()
+        # can leads to NaN/Inf gradients norm as doing the concatenation
+        # of all parameters in a single vector can lead to overflow/underflow.
         for opt in valid_optimizers.values():
             torch.nn.utils.clip_grad_norm_(
                 opt.param_groups[0]["params"], self.max_grad_norm
@@ -1165,6 +1162,7 @@ class Brain:
             self.check_gradients()
 
         # 4. step the valid optimizers
+        # If the scaler is disable, it simply calls optimizer.step()
         for opt in valid_optimizers.values():
             self.scaler.step(opt)
 
@@ -1175,12 +1173,8 @@ class Brain:
 
         self.optimizer_step += 1
 
-        # 5. call the on_optimizers_step_end()
-        # e.g., update the learning rate
-        self.on_optimizers_step_end()
-
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """Called after ``fit_batch()``, meant for calculating and logging metrics.
+        """Called after ``fit_batch()``.
 
         Arguments
         ---------
