@@ -29,6 +29,7 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.lobes.models.wav2vec import w2v_mask_collate_fn
 from speechbrain.lobes.models.wav2vec import sample_negatives
+from speechbrain.core import AMPConfig
 
 logger = logging.getLogger(__name__)
 
@@ -120,51 +121,33 @@ class W2V2Brain(sb.core.Brain):
         return objectives
 
     def fit_batch(self, batch):
-        should_step = self.step % self.grad_accumulation_factor == 0
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
+
         # Managing automatic mixed precision
-        if self.use_amp:
-            with self.no_sync(not should_step):
-                with torch.cuda.amp.autocast():
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                ):
                     outputs = self.compute_forward(batch, Stage.TRAIN)
                     objectives = self.compute_objectives(
                         outputs, batch, Stage.TRAIN
                     )
-
-                self.scaler.scale(
-                    objectives["backprop_loss"] / self.grad_accumulation_factor
-                ).backward()
-
-                objectives["total_loss"] = objectives["backprop_loss"].detach()
-                if should_step:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.max_grad_norm
-                    )
-                    self.scaler.step(self.optimizer)
-                    self.optimizer.zero_grad()
-                    self.optimizer_step += 1
-                    self.scaler.update()
-        else:
-            with self.no_sync(not should_step):
+            else:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 objectives = self.compute_objectives(
                     outputs, batch, Stage.TRAIN
                 )
 
-                (
-                    objectives["backprop_loss"] / self.grad_accumulation_factor
-                ).backward()
-                objectives["total_loss"] = objectives["backprop_loss"].detach()
+            self.scaler.scale(
+                objectives["backprop_loss"] / self.grad_accumulation_factor
+            ).backward()
 
-                if should_step:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.max_grad_norm
-                    )
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
-                    self.optimizer_step += 1
+            objectives["total_loss"] = objectives["backprop_loss"].detach()
 
         if should_step:
+            self.optimizers_step()
             self.on_fit_batch_end(objectives)
 
         return objectives["backprop_loss"].detach()
