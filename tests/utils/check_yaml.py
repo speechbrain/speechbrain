@@ -182,27 +182,34 @@ def check_yaml_vs_script(hparam_file, script_file):
 
     # Check which variables are declared but not used
     default_run_opt_keys = [
+        "test_only",
         "debug",
         "debug_batches",
         "debug_epochs",
+        "debug_persistently",
         "device",
-        "cpu",
         "data_parallel_backend",
-        "distributed_launch",
         "distributed_backend",
         "find_unused_parameters",
+        "jit",
         "jit_module_keys",
-        "compile_module_keys",
-        "--compile_mode",
-        "--compile_using_fullgraph",
-        "--compile_using_dynamic_shape_tracing",
-        "auto_mix_prec",
+        "compile",
+        "compile_mode",
+        "compile_using_fullgraph",
+        "compile_using_dynamic_shape_tracing",
+        "precision",
         "max_grad_norm",
+        "skip_nonfinite_grads",
         "nonfinite_patience",
         "noprogressbar",
         "ckpt_interval_minutes",
+        "ckpt_interval_steps",
         "grad_accumulation_factor",
         "optimizer_step_limit",
+        "tqdm_colored_bar",
+        "tqdm_barcolor",
+        "remove_vector_weight_decay",
+        "auto_mix_prec",  # TODO: remove it before the merge of this PR
     ]
     unused_vars = list(
         set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)
