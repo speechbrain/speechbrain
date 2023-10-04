@@ -1143,7 +1143,7 @@ class Brain:
             self.scaler.unscale_(opt)
 
         # 3. clip gradients
-        # We are clipping this way because clipping on model.parameter()
+        # We are clipping this way because clipping on self.modules.parameters()
         # can leads to NaN/Inf gradients norm as doing the concatenation
         # of all parameters in a single vector can lead to overflow/underflow.
         for opt in valid_optimizers.values():

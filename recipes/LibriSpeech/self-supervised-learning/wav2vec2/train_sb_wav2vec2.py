@@ -122,7 +122,7 @@ class W2V2Brain(sb.core.Brain):
     def fit_batch(self, batch):
         should_step = self.step % self.grad_accumulation_factor == 0
         # Managing automatic mixed precision
-        if self.auto_mix_prec:
+        if self.use_amp:
             with self.no_sync(not should_step):
                 with torch.cuda.amp.autocast():
                     outputs = self.compute_forward(batch, Stage.TRAIN)
@@ -137,8 +137,10 @@ class W2V2Brain(sb.core.Brain):
                 objectives["total_loss"] = objectives["backprop_loss"].detach()
                 if should_step:
                     self.scaler.unscale_(self.optimizer)
-                    if self.check_gradients(objectives["backprop_loss"]):
-                        self.scaler.step(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.modules.parameters(), self.max_grad_norm
+                    )
+                    self.scaler.step(self.optimizer)
                     self.optimizer.zero_grad()
                     self.optimizer_step += 1
                     self.scaler.update()
@@ -155,8 +157,10 @@ class W2V2Brain(sb.core.Brain):
                 objectives["total_loss"] = objectives["backprop_loss"].detach()
 
                 if should_step:
-                    if self.check_gradients(objectives["backprop_loss"]):
-                        self.optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(
+                        self.modules.parameters(), self.max_grad_norm
+                    )
+                    self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.optimizer_step += 1
 
