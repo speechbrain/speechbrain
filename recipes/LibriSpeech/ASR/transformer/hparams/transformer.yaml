@@ -55,6 +55,7 @@ max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
+precision: fp32 # bf16, fp16 or fp32
 
 # index
 pad_index: 0
