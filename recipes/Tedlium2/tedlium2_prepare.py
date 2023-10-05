@@ -8,6 +8,7 @@ import csv
 import logging
 import torchaudio
 import multiprocessing
+from tqdm import tqdm
 from speechbrain.dataio.dataio import merge_csvs
 
 logger = logging.getLogger(__name__)
@@ -31,14 +32,14 @@ def clip_and_make_csv(
         Path to the stm file containing Ted-talk annotation.
     utt_save_folder: str
         The folder stores the clipped individual utterences.
-    utt_save_folder: str
+    csv_save_folder: str
         The folder stores the generated csv files.
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
     """
     # the annotation for JillSobuleMANHATTANINJANUARY_2006.sph is not useful
     if "JillSobuleMANHATTANINJANUARY_2006" in sph_file:
-        print("JillSobuleMANHATTANINJANUARY_2006.sph is skipped")
+        logger.info("JillSobuleMANHATTANINJANUARY_2006.sph is skipped")
         return
 
     # load the annotation of the entire speech recording
@@ -85,11 +86,13 @@ def clip_and_make_csv(
             continue
 
         # clip and save the current utterance
-        start = float(line[3]) * sample_rate
-        end = float(line[4]) * sample_rate
-        curr_utt = original_speech[:, int(start) : int(end)]
         clipped_save_path = f"{utt_save_folder}/{talk_id}-{str(i)}.wav"
-        torchaudio.save(clipped_save_path, curr_utt, sample_rate)
+        # we avoid duplicated clip and save
+        if not os.path.exists(clipped_save_path):
+            start = float(line[3]) * sample_rate
+            end = float(line[4]) * sample_rate
+            curr_utt = original_speech[:, int(start) : int(end)]
+            torchaudio.save(clipped_save_path, curr_utt, sample_rate)
         # append to the csv entry list
         csv_line = [
             f"{talk_id}-{str(i)}",
@@ -152,7 +155,7 @@ def prepare_tedlium2(
         csv_save_folder_split = f"{csv_save_folder}/{split}"
         os.makedirs(utt_save_folder_split, exist_ok=True)
         os.makedirs(csv_save_folder_split, exist_ok=True)
-        new_filename = os.path.join(csv_save_folder_split, split) + ".csv"
+        new_filename = os.path.join(csv_save_folder_split) + ".csv"
         if os.path.exists(new_filename):
             continue
         logger.info("Preparing %s..." % new_filename)
@@ -174,7 +177,7 @@ def prepare_tedlium2(
             )
             processes.append(p)
 
-        for p in processes:
+        for p in tqdm(processes):
             p.start()
         for p in processes:
             p.join()

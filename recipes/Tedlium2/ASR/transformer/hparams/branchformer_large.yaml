@@ -15,18 +15,21 @@ output_folder: !ref results/branchformer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-skip_prep: True
+skip_prep: False
 
 # Data files
-# NOTE: This script will NOT do data preparation, since the data preparation
-# is through the BPE script and it will generate 46G utterence-level recordings.
+data_folder: !PLACEHOLDER # e.g, /path/to/TEDLIUM_release2
 # please run Tedlium2/Tokenizer/train.py first, then
 # pass the output folder of the BPE Tokenizer script to this script
 bpe_output_folder: !PLACEHOLDER  # e.g., /path/to/bpe_output_folder
-train_csv: !ref <bpe_output_folder>/train/train.csv
-valid_csv: !ref <bpe_output_folder>/dev/dev.csv
+# Tedlium2/Tokenizer/train.py script will generate 46G utterence-level recordings.
+# you may would like to point the clipped_utt_folder here
+# to the clipped_utt_folder of Tedlium2/Tokenizer/train.py to avoid generating 46G data again.
+clipped_utt_folder: !PLACEHOLDER # e.g., /path/to/clipped_utt_folder
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
 test_csv:
-    - !ref <bpe_output_folder>/test/test.csv
+    - !ref <output_folder>/test.csv
 pretrained_tokenizer_file: !ref <bpe_output_folder>/tokenizer.ckpt
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.

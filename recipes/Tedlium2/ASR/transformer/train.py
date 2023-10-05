@@ -433,6 +433,19 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Dataset prep (parsing Tedlium2)
+    from tedlium2_prepare import prepare_tedlium2
+    # multi-gpu (ddp) save data preparation
+    run_on_main(
+        prepare_tedlium2,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "utt_save_folder": hparams["clipped_utt_folder"],
+            "csv_save_folder": hparams["output_folder"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
+
     # here we create the datasets objects as well as tokenization and encoding
     (
         train_data,
