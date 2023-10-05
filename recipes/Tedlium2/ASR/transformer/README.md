@@ -3,9 +3,7 @@ This folder contains the scripts to train a Transformer-based speech recognizer
 
 You can download Tedlium2 at https://lium.univ-lemans.fr/ted-lium2/
 
-Please first check ../../Tokenizer. It will prepare the Tedlium2 dataset by splitting the whole Ted recording into utterances-level recorderings, and create 
-the csv files for train/dev/test. Then, please point to the csv files in hparams/branchformer.yaml. The data preparition will only run once in ../../Tokenizer,
-since it will write additional data (utterances-level recorderings) to the disk. 
+Please first check ../../Tokenizer. It will prepare the Tedlium2 dataset by splitting the whole Ted recording into utterances-level recorderings, and create the csv files for train/dev/test. Then, please point to the csv files in hparams/branchformer.yaml. The data preparition will only run once in ../../Tokenizer, since it will write additional data (utterances-level recorderings) to the disk.
 
 # How to run
 ```shell
