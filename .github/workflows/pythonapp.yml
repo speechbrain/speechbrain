@@ -23,7 +23,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
             - name: Install ffmpeg
               run: |
-                conda update -n base -c defaults conda
+                conda update conda
                 conda create -y -n myenv python=3.9 
                 conda init bash
                 bash
