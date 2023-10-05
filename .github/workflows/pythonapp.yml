@@ -23,11 +23,11 @@ jobs:
                   python-version: ${{ matrix.python-version }}
             - name: Install ffmpeg
               run: |
+                conda update -n base -c defaults conda
                 conda create -y -n myenv python=3.9 
                 conda init bash
                 bash
                 conda activate myenv
-                conda update -n base -c defaults conda
                 conda install -y -c conda-forge ffmpeg
                 conda update -y -c conda-forge ffmpeg
             - name: Install libsndfile
