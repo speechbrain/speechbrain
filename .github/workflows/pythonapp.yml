@@ -23,9 +23,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
             - name: Install ffmpeg
               run: |
-                  sudo apt-get update
-                  sudo apt-get install -y ffmpeg
-                  ffmpeg -version
+                  conda install -y pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
