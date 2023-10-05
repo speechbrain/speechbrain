@@ -6,14 +6,20 @@ Shucong Zhang 2023
 import os
 import csv
 import logging
-import torch
 import torchaudio
 import multiprocessing
 from speechbrain.dataio.dataio import merge_csvs
 
 logger = logging.getLogger(__name__)
 
-def clip_and_make_csv(sph_file, stm_file, utt_save_folder, csv_save_folder):
+
+def clip_and_make_csv(
+    sph_file,
+    stm_file,
+    utt_save_folder,
+    csv_save_folder,
+    avoid_if_shorter_than=1,
+):
     """
     This function splits the .sph Ted-talk recording into utterences based on the .stm annotation
 
@@ -23,10 +29,12 @@ def clip_and_make_csv(sph_file, stm_file, utt_save_folder, csv_save_folder):
         Path to the sph file containing Ted-talk recording.
     stm_file : str
         Path to the stm file containing Ted-talk annotation.
-    save_folder: str
+    utt_save_folder: str
         The folder stores the clipped individual utterences.
-    enty: list
-        The list stores the csv entry
+    utt_save_folder: str
+        The folder stores the generated csv files.
+    avoid_if_shorter_than: int
+        Any utterance shorter than this will be discarded.
     """
     # the annotation for JillSobuleMANHATTANINJANUARY_2006.sph is not useful
     if "JillSobuleMANHATTANINJANUARY_2006" in sph_file:
@@ -34,14 +42,15 @@ def clip_and_make_csv(sph_file, stm_file, utt_save_folder, csv_save_folder):
         return
 
     # load the annotation of the entire speech recording
-    annotation_file = open(stm_file, 'r')
+    annotation_file = open(stm_file, "r")
     annotations = annotation_file.readlines()
 
     # load the original speech recording
     original_speech, sample_rate = torchaudio.load(sph_file)
 
     entry = []
-    # process the annotation utterence by utterence
+
+    # process the annotation utterence by utterance
     for i, line in enumerate(annotations):
         line = line.strip("\n")
         line = line.split(" ")
@@ -52,11 +61,11 @@ def clip_and_make_csv(sph_file, stm_file, utt_save_folder, csv_save_folder):
         # start and end point of the utterences in the recording
         start = float(line[3])
         end = float(line[4])
-        duration = - start + end
+        duration = -start + end
         # we skip short utterences in case of CNN padding issues
-        if duration < 1.0:
+        if duration < avoid_if_shorter_than:
             continue
-        
+
         # transcriptions
         wrd_list = line[6:]
         if wrd_list[-1] == "":
@@ -74,11 +83,11 @@ def clip_and_make_csv(sph_file, stm_file, utt_save_folder, csv_save_folder):
         # skip invalid transcriptions
         if len(wrd_list) <= 1 or transcript == "ignore_time_segment_in_scoring":
             continue
-        
-        # clip and save the current utterence
+
+        # clip and save the current utterance
         start = float(line[3]) * sample_rate
         end = float(line[4]) * sample_rate
-        curr_utt = original_speech[:, int(start): int(end)]
+        curr_utt = original_speech[:, int(start) : int(end)]
         clipped_save_path = f"{utt_save_folder}/{talk_id}-{str(i)}.wav"
         torchaudio.save(clipped_save_path, curr_utt, sample_rate)
         # append to the csv entry list
@@ -90,21 +99,23 @@ def clip_and_make_csv(sph_file, stm_file, utt_save_folder, csv_save_folder):
             transcript,
         ]
         entry.append(csv_line)
-    
+
     # create the csv file for the utterences in the talk recording.
-    # the csv files for all the talks will be merged 
+    # the csv files for all the talks will be merged
     csv_flie = f"{csv_save_folder}/{talk_id}.csv"
     csv_output = [["ID", "duration", "wav", "spk_id", "wrd"]]
     csv_output = csv_output + entry
     with open(csv_flie, mode="w") as csv_f:
-            csv_writer = csv.writer(
-                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
-            for line in csv_output:
-                csv_writer.writerow(line)
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        for line in csv_output:
+            csv_writer.writerow(line)
 
 
-def prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder, skip_prep=False):
+def prepare_tedlium2(
+    data_folder, utt_save_folder, csv_save_folder, skip_prep=False
+):
     """
     This function prepares the Tedlium2 dataset.
     Download link: https://lium.univ-lemans.fr/ted-lium2/
@@ -114,9 +125,9 @@ def prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder, skip_prep=Fa
     data_folder : str
         Path to the folder where the original Tedlium2 dataset is stored.
     utt_save_folder : list
-        Path where to save the clipped utterence-leve recordings 
+        Path where to save the clipped utterence-leve recordings.
     csv_save_folder: str
-        Path where to save the clipped utterence-leve recordings 
+        Path where to save the generated .csv files.
     skip_prep: bool
         If True, data preparation is skipped.
 
@@ -130,7 +141,7 @@ def prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder, skip_prep=Fa
     """
     if skip_prep:
         return
-    
+
     splits = [
         "train",
         "dev",
@@ -153,13 +164,13 @@ def prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder, skip_prep=Fa
             talk_sph_path = f"{data_folder}/{split}/sph/{talk_sph}"
             talk_stm_path = f"{data_folder}/{split}/stm/{talk_name}.stm"
             p = multiprocessing.Process(
-                                    target=clip_and_make_csv, 
-                                    args=(
-                                        talk_sph_path,
-                                        talk_stm_path,
-                                        utt_save_folder_split,
-                                        csv_save_folder_split,
-                                    )
+                target=clip_and_make_csv,
+                args=(
+                    talk_sph_path,
+                    talk_stm_path,
+                    utt_save_folder_split,
+                    csv_save_folder_split,
+                ),
             )
             processes.append(p)
 
@@ -176,7 +187,9 @@ def prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder, skip_prep=Fa
                 csv_list.append(f_name)
 
         merge_csvs(
-            data_folder=csv_save_folder_split, csv_lst=csv_list, merged_csv=new_filename,
+            data_folder=csv_save_folder_split,
+            csv_lst=csv_list,
+            merged_csv=new_filename,
         )
         for talk_csv in csv_list:
             os.remove(f"{csv_save_folder_split}/{talk_csv}")
