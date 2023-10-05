@@ -4435,6 +4435,7 @@ class EncoderDecoderS2UT(Pretrained):
         """Runs full translation"""
         return self.encode_batch(wavs, wav_lens)
 
+
 class ResponseGenerator(Pretrained):
     """A ready-to-use Response Generator  model
 
