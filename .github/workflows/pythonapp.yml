@@ -23,6 +23,7 @@ jobs:
                   python-version: ${{ matrix.python-version }}
             - name: Install ffmpeg
               run: |
+                  sudo apt install sox libsox-fmt-all
                   sudo apt-get update
                   sudo apt-get install -y ffmpeg
             - name: Display Python version
