@@ -36,7 +36,6 @@ def clip_and_make_csv(
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
     """
-    
     # the annotation for JillSobuleMANHATTANINJANUARY_2006.sph is not useful
     if "JillSobuleMANHATTANINJANUARY_2006" in sph_file:
         print("JillSobuleMANHATTANINJANUARY_2006.sph is skipped")
