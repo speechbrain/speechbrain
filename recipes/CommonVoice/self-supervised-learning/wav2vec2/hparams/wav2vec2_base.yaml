@@ -42,7 +42,7 @@ number_of_epochs: 100
 lr_adam: 2.0 # This will get reduced by the training scheduler
 weight_decay: 0.01
 d_model: 768  # Needed by the scheduler. 768 is for the BASE w2v2
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 

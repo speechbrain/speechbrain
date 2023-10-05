@@ -40,6 +40,7 @@ ctc_weight: 0.3
 gradient_accumulation: 4
 loss_reduction: 'batchmean'
 sorting: random
+precision: fp32 # bf16, fp16 or fp32
 
 # stages related parameters
 stage_one_epochs: 40
