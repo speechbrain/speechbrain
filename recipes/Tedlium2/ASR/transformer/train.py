@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 """Recipe for training a Transformer ASR system with Tedlium2.
 The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
-language model.
+between them. Decoding is performed with (CTC/Att joint) beamsearch.
 
 To run this recipe, do the following:
 > python train.py hparams/branchformer.yaml
 
-With the default hyperparameters, the system employs a convolutional frontend and a transformer.
-The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
-language model is used  on the top of decoder probabilities.
+With the default hyperparameters, the system employs a convolutional frontend and a Branchformer.
+The decoder is based on a Transformer decoder.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the Tedlium2
 training dataset.
 
-The best model is the average of the checkpoints from last 5 epochs.
+The best model is the average of the checkpoints from last 10 epochs.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -285,9 +283,9 @@ class ASR(sb.core.Brain):
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
-    
+
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"] 
+        csv_path=hparams["train_csv"]
     )
 
     if hparams["sorting"] == "ascending":
