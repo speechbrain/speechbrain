@@ -1168,6 +1168,19 @@ class Brain:
 
         self.optimizer_step += 1
 
+    def on_fit_batch_start(self, batch, should_step):
+        """Called at the beginning of ``fit_batch()``.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
+        pass
+
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``.
 
