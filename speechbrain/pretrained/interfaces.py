@@ -1310,7 +1310,9 @@ class VAD(Pretrained):
 
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
-                str(audio_file), frame_offset=begin_sample, num_frames=long_chunk_len
+                str(audio_file),
+                frame_offset=begin_sample,
+                num_frames=long_chunk_len,
             )
             large_chunk = large_chunk.to(self.device)
 
