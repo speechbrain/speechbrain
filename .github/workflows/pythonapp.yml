@@ -24,7 +24,7 @@ jobs:
             - name: Install ffmpeg
               run: |
                   sudo apt-get update
-                  sudo apt install sox libsox-fmt-all
+                  sudo apt install sox libsox-dev
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
