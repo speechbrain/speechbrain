@@ -4,7 +4,7 @@ For more details about hifi-gan: https://arxiv.org/pdf/2010.05646.pdf
 For more details about speech synthesis using self-supervised representations: https://arxiv.org/pdf/2104.00355.pdf
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/LJspeech
+> python train.py hparams/train.yaml --kmeans_folder=/path/to/Kmeans/ckpt --data_folder=/path/to/LJspeech
 
 Authors
  * Jarod Duret 2023

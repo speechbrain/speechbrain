@@ -108,6 +108,38 @@ For inference, by setting `fast_sampling: True` , a fast sampling can be realize
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-diffwave-ljspeech).
 
+# HiFiGAN Unit (Vocoder)
+The subfolder "vocoder/hifi_gan_unit/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2104.00355).
+The vocoder is a neural network that converts a discrete self-supervised representations into a waveform (it can be used on top of CVSS/S2ST for speech-to-speech translation).
+
+To run this recipe, please first install the extra-dependencies :
+```
+pip install -r extra_requirements.txt
+```
+Then go into the "vocoder/hifi_gan_unit/" folder and run:
+```
+python train.py hparams/train.yaml --kmeans_folder=/path/to/Kmeans/ckpt --data_folder=/path/to/LJspeech
+```
+
+Training takes about 4 minutes/epoch on an nvidia A100 40G..
+
+You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-k100-ljspeech).
+
+
+# K-means (Quantization)
+The subfolder "quantization" contains K-means clustering model. The model serves to quantize self-supervised representations into discrete representation. Thus representations can be used as target for speech-to-speech translation or as input for HiFiGAN Unit. By default, we use the 6th layer of HuBERT and set `k=100`.
+
+To run this recipe, please first install the extra-dependencies :
+```
+pip install -r extra_requirements.txt
+```
+Then go into the "quantization" folder and run:
+```
+python train.py hparams/kmeans.yaml --data_folder=/path/to/LJspeech
+```
+
+You can find the pre-trained model [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-k100-ljspeech).
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/

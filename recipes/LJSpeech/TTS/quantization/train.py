@@ -1,5 +1,8 @@
 """
-Script to train K-means clustering model
+Script to train K-means clustering model on self-supervised representations.
+
+To run this recipe, do the following:
+> python train.py hparams/kmeans.yaml --data_folder=/path/to/LJspeech
 
 Authors
  * Jarod Duret 2023
