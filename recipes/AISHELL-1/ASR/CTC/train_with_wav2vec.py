@@ -114,30 +114,6 @@ class ASR(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-
-        if self.check_gradients(loss):
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.step()
-            self.model_optimizer.step()
-
-        if not self.hparams.wav2vec2.freeze:
-            self.wav2vec_optimizer.zero_grad()
-        self.model_optimizer.zero_grad()
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         self.batch_idx = 0
@@ -208,10 +184,23 @@ class ASR(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
-    def zero_grad(self, set_to_none=False):
         if not self.hparams.wav2vec2.freeze:
-            self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.model_optimizer.zero_grad(set_to_none)
+            self.optimizers_dict = {
+                "wav2vec_optimizer": self.wav2vec_optimizer,
+                "model_optimizer": self.model_optimizer,
+            }
+        else:
+            self.optimizers_dict = {"model_optimizer": self.model_optimizer}
+
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
+        if not self.hparams.wav2vec2.freeze:
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
 
 
 def dataio_prepare(hparams):
