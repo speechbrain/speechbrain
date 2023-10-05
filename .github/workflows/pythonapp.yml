@@ -23,17 +23,8 @@ jobs:
                   python-version: ${{ matrix.python-version }}
             - name: Install ffmpeg
               run: |
-                conda update conda
-                conda create -y -n myenv python=3.9 
-                conda init bash
-                bash
-                conda activate myenv
-                conda install -y -c conda-forge ffmpeg
-                conda update -y -c conda-forge ffmpeg
-            - name: Install libsndfile
-              run: |
                   sudo apt-get update
-                  sudo apt-get install -y libsndfile1
+                  sudo apt-get install -y ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
