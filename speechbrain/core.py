@@ -1185,6 +1185,7 @@ class Brain:
         """
         pass
 
+    @torch.no_grad()
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
 
