@@ -1840,7 +1840,7 @@ class VAD(Pretrained):
         """Returns the sample rate and the length of the input audio file"""
 
         # Getting the total size of the input file
-        metadata = torchaudio.info(audio_file)
+        metadata = torchaudio.info(str(audio_file))
         sample_rate = metadata.sample_rate
         audio_len = metadata.num_frames
         return sample_rate, audio_len
