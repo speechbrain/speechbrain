@@ -1965,7 +1965,7 @@ class VAD(Pretrained):
 
             # Read the candidate speech segment
             segment, fs = torchaudio.load(
-                audio_file, frame_offset=beg_sample, num_frames=len_seg
+                str(audio_file), frame_offset=beg_sample, num_frames=len_seg
             )
             speech_prob = self.get_speech_prob_chunk(segment)
             if speech_prob.mean() > speech_th:
