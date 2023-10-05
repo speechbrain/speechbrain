@@ -37,7 +37,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 number_of_epochs: 50
 batch_size: 32 # This works with a 32GB GPU ! (bs * nb_gpu * accum) > 128 !
 ctc_weight: 0.3
-gradient_accumulation: 4
+grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
 precision: fp32 # bf16, fp16 or fp32
