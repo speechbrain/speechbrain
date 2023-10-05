@@ -22,7 +22,7 @@ def clip_and_make_csv(
     avoid_if_shorter_than=1,
 ):
     """
-    This function splits the .sph Ted-talk recording into utterences based on the .stm annotation
+    This function splits the .sph Ted-talk recording into utterences based on the .stm annotation.
 
     Arguments
     ---------
@@ -105,10 +105,10 @@ def clip_and_make_csv(
 
     # create the csv file for the utterences in the talk recording.
     # the csv files for all the talks will be merged
-    csv_flie = f"{csv_save_folder}/{talk_id}.csv"
+    csv_file = f"{csv_save_folder}/{talk_id}.csv"
     csv_output = [["ID", "duration", "wav", "spk_id", "wrd"]]
     csv_output = csv_output + entry
-    with open(csv_flie, mode="w") as csv_f:
+    with open(csv_file, mode="w") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
