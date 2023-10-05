@@ -23,7 +23,7 @@ python dnsmos_local.py -t <path-to/datasets_fullband/dev_testset/noisy_testclips
 
       | Sampling rate | Valid Si-SNR | Valid PESQ | HuggingFace link	| Full Model link |
       |---------------|--------------|------------|-------------------|------------|
-      | 16k           | -10.6        | 2.06       | [HuggingFace](https://huggingface.co/speechbrain/sepformer-dns4-16k-enhancement)                  |            |
+      | 16k           | -10.6        | 2.06       | [HuggingFace](https://huggingface.co/speechbrain/sepformer-dns4-16k-enhancement) |  https://www.dropbox.com/sh/d3rp5d3gjysvy7c/AACmwcEkm_IFvaW1lt2GdtQka?dl=0          |
 
 2. Evaluation on DNS4 2022 baseline dev set using DNSMOS.
 
