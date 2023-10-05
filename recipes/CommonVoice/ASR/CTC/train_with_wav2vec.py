@@ -94,13 +94,6 @@ class ASR(sb.core.Brain):
 
         return loss
 
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
@@ -173,10 +166,13 @@ class ASR(sb.core.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
-        self.optimizers_dict = {
-            "wav2vec_optimizer": self.wav2vec_optimizer,
-            "model_optimizer": self.model_optimizer,
-        }
+        if not self.hparams.wav2vec2.freeze:
+            self.optimizers_dict = {
+                "wav2vec_optimizer": self.wav2vec_optimizer,
+                "model_optimizer": self.model_optimizer,
+            }
+        else:
+            self.optimizers_dict = {"model_optimizer": self.model_optimizer}
 
     def freeze_optimizers(self, optimizers):
         """Freezes the wav2vec2 optimizer according to the warmup steps"""
