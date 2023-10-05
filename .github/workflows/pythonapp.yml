@@ -25,6 +25,7 @@ jobs:
               run: |
                   sudo apt-get update
                   sudo apt-get install -y ffmpeg
+                  sudo apt-get install libvorbis-dev
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
