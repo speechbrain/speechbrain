@@ -27,8 +27,8 @@ jobs:
                   sudo apt-get install -y libsndfile1
             - name: Install ffmpeg
               run: |
-                  sudo apt-get update
-                  sudo apt-get install -y ffmpeg
+                  conda install -y -c conda-forge ffmpeg
+                  conda update -y -c conda-forge ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
