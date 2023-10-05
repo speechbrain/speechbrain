@@ -228,11 +228,12 @@ class ASR(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            # We save multiple checkpoints as we will average them!
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
+                num_to_keep=self.hparams.avg_checkpoints,
             )
+
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -241,6 +242,15 @@ class ASR(sb.Brain):
             if if_main_process():
                 with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
+
+            # save the averaged checkpoint at the end of the evaluation stage
+            # delete the rest of the intermediate checkpoints
+            # WER is set to -0.1 so checkpointer only keeps the averaged checkpoint
+            self.checkpointer.save_and_keep_only(
+                meta={"WER": -0.1, "epoch": epoch},
+                min_keys=["WER"],
+                num_to_keep=1,
+            )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""

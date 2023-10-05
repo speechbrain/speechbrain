@@ -33,6 +33,7 @@ ctc_weight: 0.3
 gradient_accumulation: 4
 loss_reduction: 'batchmean'
 sorting: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 dynamic_batching: False
 max_batch_length: 15 # in terms of "duration" in annotations by default, second here
