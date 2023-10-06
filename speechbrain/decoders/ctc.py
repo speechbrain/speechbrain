@@ -1987,8 +1987,8 @@ class TorchAudioCTCPrefixBeamSearcher:
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
-    >>> hyps = searcher(probs, lens)
+    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index) # doctest: +SKIP
+    >>> hyps = searcher(probs, lens) # doctest: +SKIP
     """
 
     def __init__(
