@@ -3240,8 +3240,7 @@ class FastSpeech2InternalAlignment(Pretrained):
         )
 
     def _g2p_keep_punctuations(self, g2p_model, text):
-        """do grapheme to phoneme and keep the punctuations between the words
-        """
+        """do grapheme to phoneme and keep the punctuations between the words"""
         # find the words where a "-" or "'" or "." or ":" appears in the middle
         special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
 
@@ -3354,7 +3353,6 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme energies
         """
         with torch.no_grad():
-
             (
                 _,
                 post_mel_outputs,
@@ -3655,7 +3653,7 @@ class UnitHIFIGAN(Pretrained):
     Example
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="chaanks/unit-hifigan-hubert-en-l6_k100", savedir=tmpdir_vocoder)
+    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech", savedir=tmpdir_vocoder)
     >>> codes = torch.randint(0, 99, (100,))
     >>> waveform = hifi_gan.decode_unit(codes)
     """
@@ -4336,8 +4334,8 @@ class EncoderDecoderS2UT(Pretrained):
     -------
     >>> from speechbrain.pretrained import EncoderDecoderS2UT
     >>> tmpdir = getfixture("tmpdir")
-    >>> s2ut_model = EncoderDecoderS2UT.from_hparams(source="chaanks/transformer-s2ut-fr-en-hubert-k100", savedir=tmpdir,) # doctest: +SKIP
-    >>> s2ut_model.translate_file("chaanks/transformer-s2ut-fr-en-hubert-k100/example-fr.wav") # doctest: +SKIP
+    >>> s2ut_model = EncoderDecoderS2UT.from_hparams(source="speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss", savedir=tmpdir) # doctest: +SKIP
+    >>> s2ut_model.translate_file("speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss/example-fr.wav") # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["sample_rate"]
@@ -4458,7 +4456,6 @@ class ResponseGenerator(Pretrained):
     MODULES_NEEDED = ["gpt-model"]
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
         #  Load model
         self.model = self.hparams.model
@@ -4511,7 +4508,7 @@ class ResponseGenerator(Pretrained):
         return response
 
     def prepare_input(self):
-        """ Convert user input and previous histories to the format acceptable for  GPT model.
+        """Convert user input and previous histories to the format acceptable for  GPT model.
             It appends all previous history and input and truncates it based on max_history value.
             It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
 
