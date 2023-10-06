@@ -138,7 +138,7 @@ Then go into the "quantization" folder and run:
 python train.py hparams/kmeans.yaml --data_folder=/path/to/LJspeech
 ```
 
-You can find the pre-trained model [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-k100-ljspeech).
+You can find the pre-trained model [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech).
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

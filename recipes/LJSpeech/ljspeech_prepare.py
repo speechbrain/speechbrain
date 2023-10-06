@@ -147,8 +147,7 @@ def prepare_ljspeech(
         if not os.path.exists(duration_folder):
             os.makedirs(duration_folder)
 
-    # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
-    if "FastSpeech2" in model_name:
+        # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
         pitch_folder = os.path.join(data_folder, "pitch")
         if not os.path.exists(pitch_folder):
             os.makedirs(pitch_folder)
@@ -389,7 +388,7 @@ def prepare_json(
         g2p = GraphemeToPhoneme.from_hparams(
             "speechbrain/soundchoice-g2p", run_opts={"device": device}
         )
-    if "FastSpeech2" in model_name:
+    if model_name is not None and "FastSpeech2" in model_name:
         logger.info(
             "Computing pitch as required for FastSpeech2. This may take a while."
         )
