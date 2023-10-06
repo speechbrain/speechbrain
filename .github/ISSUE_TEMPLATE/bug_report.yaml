@@ -1,18 +1,21 @@
 name: 🪲 Bug Report
 description: Something went wrong? Let us know! 🐣
-title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Before submitting a bug, please make sure the issue hasn't been already addressed by searching through the existing and past issues.
+        **Before submitting a bug report, please read the following instructions:**
+
+        - Make sure the issue hasn't already been addressed by searching through existing and past issues.
+        - Use a clear and concise title for your bug report.
+        - Fill out all relevant sections below to help us understand and reproduce the issue.
 
   - type: textarea
     id: describe-the-bug
     attributes:
       label: Describe the bug
-      description: Short and clear description of what the bug is.
+      description: Provide a clear and concise description of the bug.
     validations:
       required: True
 
@@ -20,7 +23,7 @@ body:
     id: expected-behaviour
     attributes:
       label: Expected behaviour
-      description: A description of what you expected to happen.
+      description: Describe what you expected to happen.
     validations:
       required: True
 
@@ -29,7 +32,15 @@ body:
     attributes:
       label: To Reproduce
       description: |
-        If relevant, add a minimal example so that we can reproduce the error by running the code. It is very important for the snippet to be as minimal as possible. We will copy-paste your code, and we expect to get the same result as you did: avoid any external data, and include the relevant imports.
+        If relevant, add a minimal example or detailed steps to reproduce the error. You can share code directly using Google Colab:
+        1. Visit [Google Colab](https://colab.research.google.com/).
+        2. Create a new notebook.
+        3. Paste your code into the notebook.
+        4. Share the notebook by clicking on "Share" in the top-right corner.
+        5. Share the notebook's link here.
+
+        In the worst case, provide detailed steps to reproduce the behavior.
+
       placeholder: "```python #your code ``` \n ```yaml #your yaml code ```"
     validations:
       required: False
@@ -37,27 +48,29 @@ body:
   - type: textarea
     id: versions
     attributes:
-      label: Versions
-      description: "Please tell us more about your current SpeechBrain version and/or git hash (if installed via cloning+editable install). You can also add other setup information that might be relevant."
+      label: Environment Details
+      description: Provide information about your SpeechBrain version, setup, and any other relevant environment details.
     validations:
       required: False
 
   - type: textarea
     id: logs
     attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output.
+      label: Relevant Log Output
+      description: Copy and paste any relevant log output here.
       render: shell
+    validations:
+      required: False
 
   - type: textarea
     id: add-context
     attributes:
-      label: Additional context
-      description: "Add any other context about the problem here."
+      label: Additional Context
+      description: Share any other context about the problem or your environment that may help in troubleshooting.
     validations:
       required: False
 
   - type: markdown
     attributes:
       value: |
-        Thanks for contributing to SpeechBrain!
+        **Thank you for contributing to SpeechBrain!** Your bug report helps us improve the project's reliability.
