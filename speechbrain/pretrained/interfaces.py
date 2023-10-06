@@ -4358,11 +4358,8 @@ class EncoderDecoderS2UT(Pretrained):
         int[]
             The audiofile translation produced by this speech-to-unit translationmodel.
         """
-        info = torchaudio.info(path)
-        audio = speechbrain.dataio.dataio.read_audio(path)
-        audio = torchaudio.transforms.Resample(
-            info.sample_rate, self.sample_rate,
-        )(audio)
+
+        audio = self.load_audio(path)
         audio = audio.to(self.device)
         # Fake a batch:
         batch = audio.unsqueeze(0)
