@@ -46,12 +46,18 @@ class BLEUStats(MetricStats):
     0.0
     """
 
-    def __init__(
-        self, lang="en", merge_words=True,
-    ):
+    def __init__(self, lang="en", merge_words=True, max_ngram_order=4):
+        # Check extra-dependency for computing the bleu score
+        try:
+            from sacrebleu.metrics import BLEU
+        except ImportError:
+            print(
+                "Please install sacrebleu (https://pypi.org/project/sacrebleu/) in order to use the BLEU metric"
+            )
 
         self.clear()
         self.merge_words = merge_words
+        self.bleu = BLEU(max_ngram_order=max_ngram_order)
 
         self.predicts = []
         self.targets = None
@@ -97,15 +103,7 @@ class BLEUStats(MetricStats):
         * See MetricStats.summarize()
         """
 
-        # Check extra-dependency for computing the bleu score
-        try:
-            import sacrebleu
-        except ImportError:
-            print(
-                "Please install sacrebleu (https://pypi.org/project/sacrebleu/) in order to use the BLEU metric"
-            )
-
-        scores = sacrebleu.corpus_bleu(self.predicts, self.targets)
+        scores = self.bleu.corpus_score(self.predicts, self.targets)
         details = {}
         details["BLEU"] = scores.score
         details["BP"] = scores.bp

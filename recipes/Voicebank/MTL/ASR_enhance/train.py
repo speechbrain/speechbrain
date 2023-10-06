@@ -20,6 +20,7 @@ import os
 import sys
 import torch
 import torchaudio
+import logging
 import speechbrain as sb
 from pesq import pesq
 from pystoi import stoi
@@ -27,6 +28,8 @@ from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main, if_main_process
+
+logger = logging.getLogger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):
@@ -412,6 +415,7 @@ class MTLbrain(sb.Brain):
             min_key=min_key,
             max_num_checkpoints=self.hparams.checkpoint_avg,
         )
+        logger.info(f"Averaging {len(checkpoints)} Checkpoints...")
         for model in self.modules:
             if (
                 model not in self.hparams.frozen_models

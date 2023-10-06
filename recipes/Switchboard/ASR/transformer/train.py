@@ -271,7 +271,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
