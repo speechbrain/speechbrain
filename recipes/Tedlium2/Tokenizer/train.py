@@ -50,6 +50,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "utt_save_folder": hparams["clipped_utt_folder"],
             "csv_save_folder": hparams["output_folder"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
@@ -63,4 +64,4 @@ if __name__ == "__main__":
     bpe_model = f"{output_path}/{token_output}_{token_type}.model"
 
     tokenizer_ckpt = f"{output_path}/tokenizer.ckpt"
-    shutil.copyfile(bpe_model,tokenizer_ckpt)
+    shutil.copyfile(bpe_model, tokenizer_ckpt)

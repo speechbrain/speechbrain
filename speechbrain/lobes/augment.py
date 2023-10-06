@@ -88,6 +88,10 @@ class SpecAugment(torch.nn.Module):
             time_warp or freq_mask or time_mask
         ), "at least one of time_warp, time_mask, or freq_mask should be applied"
 
+        assert (
+            time_mask_ratio >= 0
+        ), "time_mask_ratio must be postive"
+
         self.apply_time_warp = time_warp
         self.time_warp_window = time_warp_window
         self.time_warp_mode = time_warp_mode

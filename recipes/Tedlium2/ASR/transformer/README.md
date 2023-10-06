@@ -1,17 +1,14 @@
 # Tedlium2 ASR with Transformers
-This folder contains the scripts to train a Transformer-based speech recognizer
+This folder contains the scripts to train a Transformer-based speech recognizer.
 
 You can download Tedlium2 at https://lium.univ-lemans.fr/ted-lium2/
 
-Please first check ../../Tokenizer. It will prepare the Tedlium2 dataset by splitting the whole Ted recording into utterances-level recorderings, and create 
-the csv files for train/dev/test. Then, please point to the csv files in hparams/branchformer.yaml. The data preparition will only run once in ../../Tokenizer,
-since it will write additional data (utterances-level recorderings) to the disk. 
+Please first check ../../Tokenizer. ../../Tokenizer/train.py. It will split the whole Ted recording into utterances-level recorderings, which will generate about 46G data. For data preparetion of ASR, to avoid genereting utterances-level recorderings again and to save space, you may would like to point "clipped_utt_folder" in "hparams/branchformer_large.yaml to the "clipped_utt_folder" of the BPE training.
 
 # How to run
 ```shell
 python ../../Tokenizer/train.py ../../Tokenizer/hparams/tedlium2_500_bpe.yaml
 python train.py hparams/branchformer.yaml
-
 ```
 
 # Results

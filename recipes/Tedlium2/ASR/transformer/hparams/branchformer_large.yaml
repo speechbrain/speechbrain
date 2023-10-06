@@ -9,25 +9,28 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
-seed: 3407 
+seed: 3407
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/branchformer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-
+skip_prep: False
 
 # Data files
-# NOTE: This script will NOT do data preparation, since the data preparation 
-# is through the BPE script and it will generate 46G utterence-level recordings.
+data_folder: !PLACEHOLDER # e.g, /path/to/TEDLIUM_release2
 # please run Tedlium2/Tokenizer/train.py first, then
 # pass the output folder of the BPE Tokenizer script to this script
 bpe_output_folder: !PLACEHOLDER  # e.g., /path/to/bpe_output_folder
-train_csv: !ref <bpe_output_folder>/train/train.csv
-valid_csv: !ref <bpe_output_folder>/dev/dev.csv
-test_csv: 
-    - !ref <bpe_output_folder>/test/test.csv
-pretrained_tokenizer_path: !ref <bpe_output_folder>
+# Tedlium2/Tokenizer/train.py script will generate 46G utterence-level recordings.
+# you may would like to point the clipped_utt_folder here
+# to the clipped_utt_folder of Tedlium2/Tokenizer/train.py to avoid generating 46G data again.
+clipped_utt_folder: !PLACEHOLDER # e.g., /path/to/clipped_utt_folder
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv:
+    - !ref <output_folder>/test.csv
+pretrained_tokenizer_file: !ref <bpe_output_folder>/tokenizer.ckpt
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
@@ -44,7 +47,7 @@ num_workers: 4
 
 # stages related parameters
 # stage_one_epochs: 90
-lr_adam:  0.0005
+lr_adam: 0.0005
 weight_decay: 0.05
 
 # Feature parameters
@@ -256,4 +259,4 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
         tokenizer: !ref <tokenizer>
     paths:
-        tokenizer: !ref <pretrained_tokenizer_path>/tokenizer.ckpt
+        tokenizer: !ref <pretrained_tokenizer_file>
