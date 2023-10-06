@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-import sys
-import torch
-import logging
-import speechbrain as sb
-import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main, if_main_process
-
 """Recipe for training a sequence-to-sequence ASR system with CommonVoice.
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch.
@@ -23,9 +12,20 @@ different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
 training languages (all CommonVoice languages), and many
 other possible variations.
+
 Authors
  * Titouan Parcollet 2020
 """
+
+import sys
+import torch
+import logging
+import speechbrain as sb
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -57,30 +57,22 @@ class ASR(sb.core.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
+        p_ctc, p_tokens = None, None
         if stage == sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
                 # Output layer for ctc log-probabilities
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
-                return p_ctc, p_seq, wav_lens
-            else:
-                return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
-            return p_seq, wav_lens, p_tokens
+            p_tokens, _, _, _ = self.hparams.beam_searcher(x, wav_lens)
+
+        return p_ctc, p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        current_epoch = self.hparams.epoch_counter.current
-        if stage == sb.Stage.TRAIN:
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                p_ctc, p_seq, wav_lens = predictions
-            else:
-                p_seq, wav_lens = predictions
-        else:
-            p_seq, wav_lens, predicted_tokens = predictions
+        p_ctc, p_seq, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -91,6 +83,7 @@ class ASR(sb.core.Brain):
         )
 
         # Add ctc loss if necessary
+        current_epoch = self.hparams.epoch_counter.current
         if (
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
@@ -169,7 +162,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -336,7 +329,6 @@ if __name__ == "__main__":
     )
 
     # Test
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
     asr_brain.evaluate(
         test_data,
         min_key="WER",

@@ -1,5 +1,6 @@
 # ################################
 # Model: downsampling + wavlm + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
 # Authors: Sung-Lin Yeh 2021
 # Salah Zaiem 2023
@@ -10,7 +11,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_wav2vec2_char/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -45,8 +46,6 @@ sample_rate: 16000
 downsampling_factor: 2
 downsampling_kernel_size: 81
 upsampling: False
-use_language_modelling: False
-ngram_lm_path: /path/to/lm # Download from https://www.openslr.org/11/
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -75,7 +74,20 @@ ctc_neurons: 29
 output_neurons: 29  # Characters size, index(blank/eos/bos) = 0
 
 # Decoding parameters
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
+space_token: ' ' # make sure this is the same as the one used in the tokenizer
+beam_size: 200
+beam_prune_logp: -10.0
+token_prune_min_logp: -5.0
+prune_history: True
+topk: 1
+alpha: 0.5
+beta: 1.5
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+kenlm_model_path: null
 
 #
 # Functions and classes

@@ -8,7 +8,7 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/wav2vec2_ctcatt_fr/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -73,7 +73,7 @@ dec_attn_dim: !ref <dec_neurons>
 freeze_wav2vec: False
 
 # Outputs
-output_neurons: 500  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 500   # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
@@ -86,7 +86,6 @@ beam_size: 80
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 140
-# ctc_weight_decode: 0.0
 temperature: 1.50
 
 #
@@ -194,10 +193,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>

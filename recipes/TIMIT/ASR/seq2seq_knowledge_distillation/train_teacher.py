@@ -50,21 +50,17 @@ class ASR(sb.Brain):
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
+        hyps = None
         if stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
-
+            hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
+            hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 
-        return p_ctc, p_seq, wav_lens
+        return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
-        if stage == sb.Stage.TRAIN:
-            p_ctc, p_seq, wav_lens = predictions
-        else:
-            p_ctc, p_seq, wav_lens, hyps = predictions
+
+        p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
@@ -140,7 +136,7 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nseq2seq loss stats:\n")
@@ -149,7 +145,7 @@ class ASR(sb.Brain):
                     self.per_metrics.write_stats(w)
                     print(
                         "CTC, seq2seq, and PER stats written to file",
-                        self.hparams.wer_file,
+                        self.hparams.test_wer_file,
                     )
 
 

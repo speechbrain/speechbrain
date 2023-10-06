@@ -10,6 +10,7 @@ To run this recipe, run the following command:
 Authors
     * Hwidong Na 2020
     * Mirco Ravanelli 2020
+    * Xuechen Liu 2023
 """
 import os
 import sys
@@ -89,7 +90,6 @@ def get_verification_scores(veri_test):
         train_cohort = torch.stack(list(train_dict.values()))
 
     for i, line in enumerate(veri_test):
-
         # Reading verification file (enrol_file test_file label)
         lab_pair = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(params["pretrainer"].collect_files)
-    params["pretrainer"].load_collected(run_opts["device"])
+    params["pretrainer"].load_collected()
     params["embedding_model"].eval()
     params["embedding_model"].to(run_opts["device"])
 

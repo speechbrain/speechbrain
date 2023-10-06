@@ -55,10 +55,11 @@ class SLU(sb.Brain):
         ):
             return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(
-                wav2vec2_out, wav_lens
+            hyps, _, _, _ = self.hparams.beam_searcher(
+                wav2vec2_out.detach(), wav_lens
             )
-            return p_seq, wav_lens, p_tokens
+
+            return p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
@@ -204,7 +205,7 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
@@ -345,7 +346,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Move the wav2vec2
     hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
@@ -382,5 +383,4 @@ if __name__ == "__main__":
     for i in range(len(df)):
         id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
 
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])

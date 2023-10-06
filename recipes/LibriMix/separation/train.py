@@ -648,9 +648,7 @@ if __name__ == "__main__":
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_separator" in hparams:
         run_on_main(hparams["pretrained_separator"].collect_files)
-        hparams["pretrained_separator"].load_collected(
-            device=run_opts["device"]
-        )
+        hparams["pretrained_separator"].load_collected()
 
     # Brain class initialization
     separator = Separation(

@@ -26,7 +26,6 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.dataio.batch import PaddedBatch
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -62,22 +61,17 @@ class ASR(sb.Brain):
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
+        hyps = None
         if stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
-
+            hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
+            hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 
-        return p_ctc, p_seq, wav_lens
+        return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the NLL loss."
-        if stage == sb.Stage.TRAIN:
-            p_ctc, p_seq, wav_lens = predictions
-        else:
-            p_ctc, p_seq, wav_lens, hyps = predictions
+        p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
@@ -159,7 +153,7 @@ class ASR(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     w.write("CTC loss stats:\n")
                     self.ctc_metrics.write_stats(w)
                     w.write("\nseq2seq loss stats:\n")
@@ -168,7 +162,7 @@ class ASR(sb.Brain):
                     self.per_metrics.write_stats(w)
                     print(
                         "CTC, seq2seq, and PER stats written to file",
-                        self.hparams.wer_file,
+                        self.hparams.test_wer_file,
                     )
 
 
@@ -278,15 +272,12 @@ def dataio_prep(hparams):
     # Support for dynamic batching
     if hparams["dynamic_batching"]:
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hop_size = dynamic_hparams["feats_hop_size"]
+        hop_size = hparams["feats_hop_size"]
 
         batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=dynamic_hparams["num_buckets"],
+            **dynamic_hparams,
             length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
         train_data = SaveableDataLoader(

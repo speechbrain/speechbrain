@@ -3,37 +3,28 @@
 The system employs an encoder, a decoder, and an attention mechanism
 between them. Decoding is performed with beamsearch coupled with a neural
 language model.
-
 To run this recipe, do the following:
 > python train.py hparams/train_BPE1000.yaml
-
 With the default hyperparameters, the system employs a CRDNN encoder.
 The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
 language model is used  on the top of decoder probabilities.
-
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 LibriSpeech dataset (960 h).
-
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
 training split (e.g, train-clean 100 rather than the full one), and many
 other possible variations.
-
 This recipe assumes that the tokenizer and the LM are already trained.
 To avoid token mismatches, the tokenizer used for the acoustic model is
 the same use for the LM.  The recipe downloads the pre-trained tokenizer
 and LM.
-
 If you would like to train a full system from scratch do the following:
 1- Train a tokenizer (see ../../Tokenizer)
 2- Train a language model (see ../../LM)
 3- Train the acoustic model (with this code).
-
-
-
 Authors
  * Ju-Chieh Chou 2020
  * Mirco Ravanelli 2020
@@ -43,7 +34,6 @@ Authors
  * Andreas Nautsch 2021
 """
 
-import os
 import sys
 import torch
 import logging
@@ -87,33 +77,27 @@ class ASR(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
+        p_ctc, p_tokens = None, None
         if stage == sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
                 # Output layer for ctc log-probabilities
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
-                return p_ctc, p_seq, wav_lens
-            else:
-                return p_seq, wav_lens
         else:
             if stage == sb.Stage.VALID:
-                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
+                # Get token strings from index prediction
+                p_tokens, _, _, _ = self.hparams.valid_search(x, wav_lens)
             else:
-                p_tokens, scores = self.hparams.test_search(x, wav_lens)
-            return p_seq, wav_lens, p_tokens
+                p_tokens, _, _, _ = self.hparams.test_search(x, wav_lens)
+
+        return p_ctc, p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
         current_epoch = self.hparams.epoch_counter.current
-        if stage == sb.Stage.TRAIN:
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                p_ctc, p_seq, wav_lens = predictions
-            else:
-                p_seq, wav_lens = predictions
-        else:
-            p_seq, wav_lens, predicted_tokens = predictions
+        p_ctc, p_seq, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -207,7 +191,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -302,26 +286,18 @@ def dataio_prepare(hparams):
         from speechbrain.dataio.batch import PaddedBatch  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hop_size = dynamic_hparams["feats_hop_size"]
-
-        num_buckets = dynamic_hparams["num_buckets"]
+        hop_size = hparams["feats_hop_size"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams,
         )
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"] * (1 / hop_size),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams,
         )
 
     return (
@@ -382,7 +358,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(
@@ -413,11 +389,18 @@ if __name__ == "__main__":
         valid_loader_kwargs=valid_dataloader_opts,
     )
 
+    import os
+
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )

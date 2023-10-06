@@ -1,8 +1,6 @@
 #!/usr/bin/env/python3
 """
-
 AISHELL-1 seq2seq model recipe. (Adapted from the LibriSpeech recipe.)
-
 """
 
 import sys
@@ -47,30 +45,23 @@ class ASR(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
+        p_ctc, p_tokens = None, None
         if stage == sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
                 # Output layer for ctc log-probabilities
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
-                return p_ctc, p_seq, wav_lens
-            else:
-                return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_search(x, wav_lens)
-            return p_seq, wav_lens, p_tokens
+            p_tokens, _, _, _ = self.hparams.beam_search(x, wav_lens)
+
+        return p_ctc, p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
         current_epoch = self.hparams.epoch_counter.current
-        if stage == sb.Stage.TRAIN:
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                p_ctc, p_seq, wav_lens = predictions
-            else:
-                p_seq, wav_lens = predictions
-        else:
-            p_seq, wav_lens, predicted_tokens = predictions
+        p_ctc, p_seq, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -255,24 +246,13 @@ def dataio_prepare(hparams):
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        num_buckets = dynamic_hparams["num_buckets"]
 
         train_batch_sampler = DynamicBatchSampler(
-            train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            train_data, **dynamic_hparams, length_func=lambda x: x["duration"],
         )
 
         valid_batch_sampler = DynamicBatchSampler(
-            valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            valid_data, **dynamic_hparams, length_func=lambda x: x["duration"],
         )
 
     return (
@@ -328,7 +308,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(
@@ -365,5 +345,7 @@ if __name__ == "__main__":
 
     # Testing
     asr_brain.evaluate(
-        test_data, test_loader_kwargs=hparams["test_dataloader_opts"]
+        test_data,
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+        min_key="CER",
     )
