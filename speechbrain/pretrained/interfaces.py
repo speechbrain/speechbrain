@@ -1310,7 +1310,9 @@ class VAD(Pretrained):
 
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
-                audio_file, frame_offset=begin_sample, num_frames=long_chunk_len
+                str(audio_file),
+                frame_offset=begin_sample,
+                num_frames=long_chunk_len,
             )
             large_chunk = large_chunk.to(self.device)
 
@@ -1840,7 +1842,7 @@ class VAD(Pretrained):
         """Returns the sample rate and the length of the input audio file"""
 
         # Getting the total size of the input file
-        metadata = torchaudio.info(audio_file)
+        metadata = torchaudio.info(str(audio_file))
         sample_rate = metadata.sample_rate
         audio_len = metadata.num_frames
         return sample_rate, audio_len
@@ -1963,7 +1965,7 @@ class VAD(Pretrained):
 
             # Read the candidate speech segment
             segment, fs = torchaudio.load(
-                audio_file, frame_offset=beg_sample, num_frames=len_seg
+                str(audio_file), frame_offset=beg_sample, num_frames=len_seg
             )
             speech_prob = self.get_speech_prob_chunk(segment)
             if speech_prob.mean() > speech_th:
