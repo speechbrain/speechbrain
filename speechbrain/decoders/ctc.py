@@ -2036,7 +2036,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                 from torchaudio.models.decoder import ctc_decoder
             except ImportError:
                 raise ImportError(
-                    "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder"
+                    "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder."
                 )
 
             # if this is a path, then torchaudio expect to be an index
@@ -2071,7 +2071,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                 from torchaudio.models.decoder import cuda_ctc_decoder
             except ImportError:
                 raise ImportError(
-                    "cuda_ctc_decoder not found. Please install the nightly version of torchaudio to use this decoder"
+                    "cuda_ctc_decoder not found. Please install the latest version of torchaudio to use this decoder."
                 )
             assert (
                 self.blank_index == 0
