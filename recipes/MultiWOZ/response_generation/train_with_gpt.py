@@ -107,18 +107,6 @@ class ResGenBrain(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Trains the parameters given a single batch in input"""
-
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
