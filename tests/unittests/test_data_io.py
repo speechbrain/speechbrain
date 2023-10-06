@@ -7,7 +7,7 @@ def test_read_audio_info(tmpdir, device):
 
     test_waveform = torch.rand(32000, device=device)
 
-    for ext in ["wav", "mp3"]:
+    for ext in ["wav", "ogg", "mp3"]:
         audio_path = os.path.join(tmpdir, f"test.{ext}")
         write_audio(audio_path, test_waveform.cpu(), 16000)
         info = read_audio_info(audio_path)
