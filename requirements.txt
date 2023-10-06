@@ -1,5 +1,5 @@
 -r lint-requirements.txt
-huggingface_hub>=0.7.0
+huggingface_hub>=0.8.0
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
 numpy>=1.17.0
