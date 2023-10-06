@@ -21,10 +21,16 @@ jobs:
               uses: actions/setup-python@v1
               with:
                   python-version: ${{ matrix.python-version }}
-            - name: Install ffmpeg
+            - name: Install sox
               run: |
                   sudo apt-get update
                   sudo apt install sox libsox-dev
+            # Installing only SoX for now due to FFmpeg issues on the CI server with Torchaudio 2.1.
+            # FFmpeg works fine on all other machines. We'll switch back when the CI server is fixed.
+            #- name: Install ffmpeg
+            #  run: |
+            #      sudo apt-get update
+            #      sudo apt-get install -y ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
