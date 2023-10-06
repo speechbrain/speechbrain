@@ -45,7 +45,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
     if len(waveforms.shape) == 1:
         waveforms = waveforms.unsqueeze(0)
 
-    assert amp_type in ["avg", "peak"]
+    assert amp_type in ["avg", "rms", "peak"]
     assert scale in ["linear", "dB"]
 
     if amp_type == "avg":
@@ -53,7 +53,21 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
             out = torch.mean(torch.abs(waveforms), dim=1, keepdim=True)
         else:
             wav_sum = torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True)
+            # Manage multi-channel waveforms
+            if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
+                lengths = lengths.unsqueeze(2)
             out = wav_sum / lengths
+    elif amp_type == "rms":
+        if lengths is None:
+            out = torch.sqrt(torch.mean(waveforms ** 2, dim=1, keepdim=True))
+        else:
+            wav_sum = torch.sum(
+                input=torch.pow(waveforms, 2), dim=1, keepdim=True
+            )
+            if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
+                lengths = lengths.unsqueeze(2)
+            out = torch.sqrt(wav_sum / lengths)
+
     elif amp_type == "peak":
         out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
     else:
@@ -102,6 +116,31 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
     if batch_added:
         waveforms = waveforms.squeeze(0)
     return waveforms / den
+
+
+def mean_std_norm(waveforms, dims=1, eps=1e-06):
+    """This function normalizes the mean and std of the input
+        waveform (along the specified axis).
+
+    Arguments
+    ---------
+    waveforms : tensor
+        The waveforms to normalize.
+        Shape should be `[batch, time]` or `[batch, time, channels]`.
+    dim: int or tuple
+        The dimension(s) on which mean and std are computed
+    eps : float
+        A small number to add to the denominator to prevent NaN.
+
+    Returns
+    -------
+    waveforms : tensor
+        Normalized level waveform.
+    """
+    mean = waveforms.mean(dims, keepdim=True)
+    std = waveforms.std(dims, keepdim=True)
+    waveforms = (waveforms - mean) / (std + eps)
+    return waveforms
 
 
 def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
@@ -219,7 +258,7 @@ def convolve1d(
     # Padding can be a tuple (left_pad, right_pad) or an int
     if isinstance(padding, tuple):
         waveform = torch.nn.functional.pad(
-            input=waveform, pad=padding, mode=pad_type,
+            input=waveform, pad=padding, mode=pad_type
         )
 
     # This approach uses FFT, which is more efficient if the kernel is large

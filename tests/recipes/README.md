@@ -6,7 +6,7 @@ Key point: **specify `test_debug_flags` and make sure testing your recipe works 
 
 For GPU testing, install all extra requirements:
 ```
-find recipes | grep extra | xargs cat | sort -u | grep -v \# | xargs -I {} pip install {}
+find recipes | grep extra_requirements.txt | xargs cat | sort -u | grep -v \# | xargs -I {} pip install {}
 ```
 
 ---
