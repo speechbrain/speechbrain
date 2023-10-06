@@ -1,0 +1,8 @@
+librosa
+mir_eval
+onnxruntime
+pesq
+pyroomacoustics==0.3.1
+pystoi
+tensorboard
+webdataset
