@@ -5,9 +5,19 @@ The tokenizer is trained on the top of the Tedlium2 training transcriptions.
 You can download Tedlium2 at https://lium.univ-lemans.fr/ted-lium2/
 
 
-# How to run
-python train.py hyperparams/tedlium2_500_bpe.yaml
+# How to Run
 
+To run the training script, follow these steps:
+
+1. Run the following command, replacing `--data_folder` with the path to your downloaded and unpacked Tedlium2 dataset:
+
+```python
+python train.py hparams/tedlium2_500_bpe.yaml --data_folder=/path/to/TEDLIUM
+```
+
+2. The script will automatically process the dataset and store a modified version of it in the directory specified by `--clipped_utt_folder`. This modified dataset contains recordings split into individual utterances, making it suitable for Automatic Speech Recognition (ASR) training. You can now use this processed dataset for ASR training as described in the `../ASR/README.md` file.
+
+Make sure to adjust the paths and filenames as needed to match your specific setup and dataset location.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

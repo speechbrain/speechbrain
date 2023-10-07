@@ -5,14 +5,14 @@
 #           Shucong Zhang 2023
 # ############################################################################
 
-output_folder: !PLACEHOLDER # folder where to store the BPE ckpt and csv files
+output_folder: results/tokenizer # folder where to store the BPE ckpt and csv files
 clipped_utt_folder: !PLACEHOLDER # folder where to store the clipped utterence-level recordings
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /path/to/TEDLIUM_release2
 skip_prep: False
-train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev.csv
+train_csv: !ref <output_folder>/train/train.csv
+valid_csv: !ref <output_folder>/dev/dev.csv
 
 # Training parameters
 token_type: bpe  # ["unigram", "bpe", "char"]

@@ -3,11 +3,18 @@ This folder contains the scripts to train a Transformer-based speech recognizer.
 
 You can download Tedlium2 at https://lium.univ-lemans.fr/ted-lium2/
 
-Please first check ../../Tokenizer. ../../Tokenizer/train.py. It will split the whole Ted recording into utterances-level recorderings, which will generate about 46G data. For data preparetion of ASR, to avoid genereting utterances-level recorderings again and to save space, you may would like to point "clipped_utt_folder" in "hparams/branchformer_large.yaml to the "clipped_utt_folder" of the BPE training.
+Please first train the tokenizer:
+
+```shell
+cd ../../Tokenizer
+python train.py hyperparams/tedlium2_500_bpe.yaml
+```
+
+**Note:** The training script will divide the entire TED recording into individual utterance-level recordings, resulting in approximately 46 gigabytes of data. To save time and storage space during ASR data preparation, you can specify the `clipped_utt_folder` in the `hparams/branchformer_large.yaml` hyperparameter file to point to the same location as the `clipped_utt_folder` used during BPE training.
+
 
 # How to run
 ```shell
-python ../../Tokenizer/train.py ../../Tokenizer/hparams/tedlium2_500_bpe.yaml
 python train.py hparams/branchformer.yaml
 ```
 
@@ -37,4 +44,3 @@ Please, cite SpeechBrain if you use it for your research or business.
   primaryClass={eess.AS},
   note={arXiv:2106.04624}
 }
-```

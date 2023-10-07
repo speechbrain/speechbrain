@@ -155,7 +155,7 @@ def prepare_tedlium2(
         csv_save_folder_split = f"{csv_save_folder}/{split}"
         os.makedirs(utt_save_folder_split, exist_ok=True)
         os.makedirs(csv_save_folder_split, exist_ok=True)
-        new_filename = os.path.join(csv_save_folder_split) + ".csv"
+        new_filename = os.path.join(csv_save_folder_split, split) + ".csv"
         if os.path.exists(new_filename):
             continue
         logger.info("Preparing %s..." % new_filename)
@@ -192,7 +192,7 @@ def prepare_tedlium2(
         merge_csvs(
             data_folder=csv_save_folder_split,
             csv_lst=csv_list,
-            merged_csv=new_filename,
+            merged_csv=split + ".csv",
         )
         for talk_csv in csv_list:
             os.remove(f"{csv_save_folder_split}/{talk_csv}")
