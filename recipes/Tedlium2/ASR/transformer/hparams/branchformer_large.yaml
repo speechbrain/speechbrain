@@ -232,7 +232,6 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     replace_with_zero: False
     freq_mask_width: 30
     time_mask_width: 25
-    time_mask_ratio: 0.05
 
 speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>
