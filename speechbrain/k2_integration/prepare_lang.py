@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
+""" This module contains functions to prepare the lexicon and the language model
+for k2 training. It is based on the script `prepare_lang.sh` from k2/icefall (work
+of Fangjun Kuang). The original script is under Apache 2.0 license. This script is
+and it is modified to work with SpeechBrain.
 
-# Copyright (c)  2021  Xiaomi Corporation (authors: Fangjun Kuang)
-# Modified for integration with SpeechBrain 2023 the University of Edinburgh (Zeyu Zhao, Georgios Karakasidis)
+Modified by:
+ * Zeyu Zhao 2023
+ * Georgios Karakasidis 2023
+"""
 
 
 import math
@@ -9,7 +15,7 @@ import os
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 try:
     import k2
@@ -26,36 +32,43 @@ from speechbrain.k2_integration.lexicon import read_lexicon, write_lexicon
 Lexicon = List[Tuple[str, List[str]]]
 
 
-def write_mapping(filename: str, sym2id: Dict[str, int]) -> None:
+def write_mapping(filename: Union[str, Path], sym2id: Dict[str, int]) -> None:
     """Write a symbol to ID mapping to a file.
 
-    Note:
-      No need to implement `read_mapping` as it can be done
-      through :func:`k2.SymbolTable.from_file`.
+    NOTE: No need to implement `read_mapping` as it can be done through 
+      :func:`k2.SymbolTable.from_file`.
 
-    Args:
-      filename:
+    Arguments
+    ---------
+    filename: str
         Filename to save the mapping.
-      sym2id:
+    sym2id: Dict[str, int]
         A dict mapping symbols to IDs.
-    Returns:
-      Return None.
     """
     with open(filename, "w", encoding="utf-8") as f:
         for sym, i in sym2id.items():
             f.write(f"{sym} {i}\n")
 
 
-def get_tokens(lexicon: Lexicon, sil_token="SIL", manually_add_sil_to_tokens=False) -> List[str]:
+def get_tokens(
+        lexicon: Lexicon,
+        sil_token="SIL",
+        manually_add_sil_to_tokens=False
+    ) -> List[str]:
     """Get tokens from a lexicon.
 
-    Args:
-      lexicon:
+    Arguments
+    ---------
+    lexicon: Lexicon
         It is the return value of :func:`read_lexicon`.
-      sil_token:
-        The optional silence token between words. It should not appear in the lexicon, otherwise it will cause an error.
-    Returns:
-      Return a list of unique tokens.
+    sil_token: str
+        The optional silence token between words. It should not appear in the lexicon, 
+        otherwise it will cause an error.
+    
+    Returns
+    -------
+    sorted_ans:
+        A list of unique tokens.
     """
     ans = set()
     if manually_add_sil_to_tokens:
@@ -70,11 +83,15 @@ def get_tokens(lexicon: Lexicon, sil_token="SIL", manually_add_sil_to_tokens=Fal
 def get_words(lexicon: Lexicon) -> List[str]:
     """Get words from a lexicon.
 
-    Args:
-      lexicon:
+    Arguments
+    ---------
+    lexicon: Lexicon
         It is the return value of :func:`read_lexicon`.
-    Returns:
-      Return a list of unique words.
+    
+    Returns
+    -------
+    sorted_ans:
+        Return a list of unique words.
     """
     ans = set()
     for word, _ in lexicon:
@@ -90,15 +107,18 @@ def add_disambig_symbols(lexicon: Lexicon) -> Tuple[Lexicon, int]:
 
     See also add_lex_disambig.pl from kaldi.
 
-    Args:
-      lexicon:
+    Arguments
+    ---------
+    lexicon: Lexicon
         It is returned by :func:`read_lexicon`.
-    Returns:
-      Return a tuple with two elements:
-
-        - The output lexicon with disambiguation symbols
-        - The ID of the max disambiguation symbol that appears
-          in the lexicon
+    
+    Returns
+    -------
+    ans:
+        The output lexicon with disambiguation symbols
+    max_disambig:
+        The ID of the max disambiguation symbol that appears
+        in the lexicon
     """
 
     # (1) Work out the count of each token-sequence in the
@@ -153,11 +173,14 @@ def add_disambig_symbols(lexicon: Lexicon) -> Tuple[Lexicon, int]:
 def generate_id_map(symbols: List[str]) -> Dict[str, int]:
     """Generate ID maps, i.e., map a symbol to a unique ID.
 
-    Args:
-      symbols:
+    Arguments
+    ---------
+    symbols: List[str]
         A list of unique symbols.
-    Returns:
-      A dict containing the mapping between symbols and IDs.
+
+    Returns
+    -------
+    A dict containing the mapping between symbols and IDs.
     """
     return {sym: i for i, sym in enumerate(symbols)}
 
@@ -177,17 +200,19 @@ def add_self_loops(
     The input label of a self-loop is `disambig_token`, while the output
     label is `disambig_word`.
 
-    Args:
-      arcs:
+    Arguments
+    ---------
+    arcs: List[List[Any]]
         A list-of-list. The sublist contains
         `[src_state, dest_state, label, aux_label, score]`
-      disambig_token:
+    disambig_token: int
         It is the token ID of the symbol `#0`.
-      disambig_word:
+    disambig_word: int
         It is the word ID of the symbol `#0`.
 
-    Return:
-      Return new `arcs` containing self-loops.
+    Returns
+    -------
+    Return new `arcs` containing self-loops.
     """
     states_needs_self_loops = set()
     for arc in arcs:
@@ -213,24 +238,28 @@ def lexicon_to_fst(
     """Convert a lexicon to an FST (in k2 format) with optional silence at
     the beginning and end of each word.
 
-    Args:
-      lexicon:
+    Arguments
+    ---------
+    lexicon: Lexicon
         The input lexicon. See also :func:`read_lexicon`
-      token2id:
+    token2id: Dict[str, int]
         A dict mapping tokens to IDs.
-      word2id:
+    word2id: Dict[str, int]
         A dict mapping words to IDs.
-      sil_token:
+    sil_token: str
         The silence token.
-      sil_prob:
+    sil_prob: float
         The probability for adding a silence at the beginning and end
         of the word.
-      need_self_loops:
+    need_self_loops: bool
         If True, add self-loop to states with non-epsilon output symbols
         on at least one arc out of the state. The input label for this
         self loop is `token2id["#0"]` and the output label is `word2id["#0"]`.
-    Returns:
-      Return an instance of `k2.Fsa` representing the given lexicon.
+    
+    Returns
+    -------
+    fsa:
+        An instance of `k2.Fsa` representing the given lexicon.
     """
     assert sil_prob > 0.0 and sil_prob < 1.0
     # CAUTION: we use score, i.e, negative cost.
@@ -249,11 +278,11 @@ def lexicon_to_fst(
 
     eps = 0
 
-    sil_token = token2id[sil_token]
+    sil_token_id = token2id[sil_token]
 
     arcs.append([start_state, loop_state, eps, eps, no_sil_score])
     arcs.append([start_state, sil_state, eps, eps, sil_score])
-    arcs.append([sil_state, loop_state, sil_token, eps, 0])
+    arcs.append([sil_state, loop_state, sil_token_id, eps, 0])
 
     for word, tokens in lexicon:
         assert len(tokens) > 0, f"{word} has no pronunciations"
@@ -307,19 +336,23 @@ def lexicon_to_fst_no_sil(
 ) -> k2.Fsa:
     """Convert a lexicon to an FST (in k2 format).
 
-    Args:
-      lexicon:
+    Arguments
+    ---------
+    lexicon: Lexicon
         The input lexicon. See also :func:`read_lexicon`
-      token2id:
+    token2id: Dict[str, int]
         A dict mapping tokens to IDs.
-      word2id:
+    word2id: Dict[str, int]
         A dict mapping words to IDs.
-      need_self_loops:
+    need_self_loops: bool
         If True, add self-loop to states with non-epsilon output symbols
         on at least one arc out of the state. The input label for this
         self loop is `token2id["#0"]` and the output label is `word2id["#0"]`.
-    Returns:
-      Return an instance of `k2.Fsa` representing the given lexicon.
+    
+    Returns
+    -------
+    fsa:
+        An instance of `k2.Fsa` representing the given lexicon.
     """
     loop_state = 0  # words enter and leave from here
     next_state = 1  # the next un-allocated state, will be incremented as we go
@@ -391,24 +424,30 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     5. Generate L_disambig.pt, in k2 format.
 
 
-    Args:
-
-    lang_dir: The directory to store the output files and read the input file lexicon.txt.
-    sil_token: The silence token. Default is "SIL".
-    sil_prob: The probability for adding a silence at the beginning and end of the word. Default is 0.5.
+    Arguments
+    ---------
+    lang_dir: str
+        The directory to store the output files and read the input file lexicon.txt.
+    sil_token: str
+        The silence token. Default is "SIL".
+    sil_prob: float
+        The probability for adding a silence at the beginning and end of the word. 
+        Default is 0.5.
     """
 
     out_dir = Path(lang_dir)
     lexicon_filename = out_dir / "lexicon.txt"
 
-    # backup the original L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and lexicon_disambig.txt
-    for f in ["L.pt", "L_disambig.pt", "tokens.txt", "words.txt", "Linv.pt", "lexicon_disambig.txt"]:
+    # backup the original L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and
+    # lexicon_disambig.txt
+    for f in ["L.pt", "L_disambig.pt", "tokens.txt", "words.txt", "Linv.pt", 
+              "lexicon_disambig.txt"]:
         if (out_dir / f).exists():
             os.makedirs(out_dir / "backup", exist_ok=True)
             logging.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
             os.rename(out_dir / f, out_dir / "backup" / f)
 
-    lexicon = read_lexicon(lexicon_filename)
+    lexicon = read_lexicon(str(lexicon_filename))
     if sil_prob != 0:
         # add silence to the tokens
         tokens = get_tokens(lexicon, sil_token=sil_token,

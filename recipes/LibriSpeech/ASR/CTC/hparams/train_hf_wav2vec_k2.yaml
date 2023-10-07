@@ -34,11 +34,33 @@ test_csv:
    - !ref <output_folder>/dev-clean.csv
    - !ref <output_folder>/dev-other.csv
 
+# For k2 CTC training
+lang_dir: !ref <output_folder>/lang
+vocab_file: !ref <data_folder>/librispeech-vocab.txt
+sil_prob: 0.
+add_word_boundary: True
+# For k2 decoding
+test_search_beam: 32
+# Beam size (for decoding)
+test_output_beam: 8
+test_max_active_state: 3000
+# Acoustic scale (mutliplied by the log probs)
+ac_scale: 1.5
+use_HLG: False
+# 1best or whole-lattice-rescoring
+decoding_method: whole-lattice-rescoring
+# This is where the 3gram and (optionally) 4gram LM are stored
+# They can be in either ARPA or FST format. If the former, then 
+# the FST equivalent will be created in the same directory by
+# using kaldilm.
+lm_dir: lm
+lm_scale_list: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
+
 # Training parameters
 number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
-sorting: ascending
+sorting: ascending  # only ascending and descending are supported currently
 auto_mix_prec: False
 sample_rate: 16000
 
@@ -66,11 +88,6 @@ freeze_wav2vec: True
 
 # Outputs
 output_neurons: 30  # BPE size, index(blank/eos/bos) = 0
-
-# Decoding parameters
-blank_index: 0
-use_language_modelling: False
-# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes
@@ -161,25 +178,3 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
-
-# For k2 CTC training
-lang_dir: !ref <output_folder>/lang
-vocab_file: !ref <data_folder>/librispeech-vocab.txt
-sil_prob: 0.
-add_word_boundary: True
-# For k2 decoding
-test_search_beam: 32
-# Beam size (for decoding)
-test_output_beam: 8
-test_max_active_state: 3000
-# Acoustic scale (mutliplied by the log probs)
-ac_scale: 1.5
-use_HLG: False
-# 1best or whole-lattice-rescoring
-decoding_method: whole-lattice-rescoring
-# This is where the 3gram and (optionally) 4gram LM are stored
-# They can be in either ARPA or FST format. If the former, then 
-# the FST equivalent will be created in the same directory by
-# using kaldilm.
-lm_dir: lm
-lm_scale_list: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]

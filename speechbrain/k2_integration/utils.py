@@ -29,18 +29,22 @@ def get_texts(
     best_paths: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
     """Extract the texts (as word IDs) from the best-path FSAs.
-    Args:
-      best_paths:
+    
+    Arguments
+    ---------
+    best_paths: k2.Fsa
         A k2.Fsa with best_paths.arcs.num_axes() == 3, i.e.
         containing multiple FSAs, which is expected to be the result
         of k2.shortest_path (otherwise the returned values won't
         be meaningful).
-      return_ragged:
+    return_ragged: bool
         True to return a ragged tensor with two axes [utt][word_id].
         False to return a list-of-list word IDs.
-    Returns:
-      Returns a list of lists of int, containing the label sequences we
-      decoded.
+
+    Returns
+    -------
+    Returns a list of lists of int, containing the label sequences we
+    decoded.
     """
     if isinstance(best_paths.aux_labels, k2.RaggedTensor):
         # remove 0's and -1's.
@@ -72,16 +76,19 @@ def one_best_decoding(
 ) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
     """Get the best path from a lattice.
 
-    Args:
-      lattice:
+    Arguments
+    ---------
+    lattice: k2.Fsa
         The decoding lattice returned by :func:`get_lattice`.
-      use_double_scores:
+    use_double_scores: bool
         True to use double precision floating point in the computation.
         False to use single precision.
-      lm_scale_list:
+    lm_scale_list: Optional[List[float]]
         A list of floats representing LM score scales.
-    Return:
-      An FsaVec containing linear paths.
+    
+    Returns
+    -------
+    An FsaVec containing linear paths.
     """
     if lm_scale_list is not None:
         ans = dict()
@@ -112,27 +119,29 @@ def rescore_with_whole_lattice(
     this function as a second pass decoding. In the first pass decoding, we
     use a small G, while we use a larger G in the second pass decoding.
 
-    Args:
-      lattice:
+    Arguments
+    ---------
+    lattice: k2.Fsa
         An FsaVec with axes [utt][state][arc]. Its `aux_labels` are word IDs.
         It must have an attribute `lm_scores`.
-      G_with_epsilon_loops:
+    G_with_epsilon_loops: k2.Fsa
         An FsaVec containing only a single FSA. It contains epsilon self-loops.
         It is an acceptor and its labels are word IDs.
-      lm_scale_list:
-        Optional. If none, return the intersection of `lattice` and
-        `G_with_epsilon_loops`.
+    lm_scale_list: Optional[List[float]]
+        If none, return the intersection of `lattice` and `G_with_epsilon_loops`.
         If not None, it contains a list of values to scale LM scores.
         For each scale, there is a corresponding decoding result contained in
         the resulting dict.
-      use_double_scores:
+    use_double_scores: bool
         True to use double precision in the computation.
         False to use single precision.
-    Returns:
-      If `lm_scale_list` is None, return a new lattice which is the intersection
-      result of `lattice` and `G_with_epsilon_loops`.
-      Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
-      value is the decoding result (i.e., an FsaVec containing linear FSAs).
+
+    Returns
+    -------
+    If `lm_scale_list` is None, return a new lattice which is the intersection
+    result of `lattice` and `G_with_epsilon_loops`.
+    Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
+    value is the decoding result (i.e., an FsaVec containing linear FSAs).
     """
     assert G_with_epsilon_loops.shape == (1, None, None)
 

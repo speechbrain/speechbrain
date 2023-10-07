@@ -32,7 +32,7 @@ from pathlib import Path
 
 from speechbrain.k2_integration.prepare_lang import prepare_lang
 from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
-from speechbrain.k2_integration.lexicon import Lexicon
+from speechbrain.k2_integration.lexicon import Lexicon, get_lexicon
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +49,6 @@ class ASR(sb.Brain):
             wavs = self.modules.downsampler(wavs)
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-
             if hasattr(self.hparams, "augmentation"):
                 wavs = self.hparams.augmentation(wavs, wav_lens)
 
@@ -71,7 +66,6 @@ class ASR(sb.Brain):
         x = self.modules.enc(feats)
 
         # Compute outputs
-        p_tokens = None
         logits = self.modules.ctc_lin(x)
 
         # Upsample the inputs if they have been highly downsampled
@@ -81,25 +75,14 @@ class ASR(sb.Brain):
             )
 
         p_ctc = self.hparams.log_softmax(logits)
-        if stage == sb.Stage.VALID or (
-            stage == sb.Stage.TEST and not self.hparams.use_language_modelling
-        ):
-
-            p_tokens = None
-        return p_ctc, wav_lens, p_tokens
+        return p_ctc, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        p_ctc, wav_lens, predicted_tokens = predictions
+        p_ctc, wav_lens = predictions
 
         ids = batch.id
-        # tokens, tokens_lens = batch.tokens
-
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            raise NotImplementedError(
-                "Env. corruption is not implemented for models trained with k2"
-            )
             
         # Sort batch to be descending by length of wav files, which is demanded by k2
         if self.hparams.sorting == "ascending":
@@ -109,16 +92,16 @@ class ASR(sb.Brain):
         elif self.hparams.sorting == "descending":
             texts = batch.wrd
         else:
-            raise NotImplementedError("Only ascending or descending sorting is implemented, but got {}".format(self.hparams.sorting))
+            raise NotImplementedError("Only ascending or descending sorting is "
+                                      "implemented, but got {}".\
+                                        format(self.hparams.sorting))
 
         is_training = (stage == sb.Stage.TRAIN)
-        loss_ctc = self.hparams.ctc_cost(log_probs=p_ctc, 
+        loss = self.hparams.ctc_cost(log_probs=p_ctc, 
                                          input_lens=wav_lens, 
                                          graph_compiler=self.graph_compiler,
                                          texts=texts,
                                          is_training=is_training)
-
-        loss = loss_ctc
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
@@ -133,37 +116,32 @@ class ASR(sb.Brain):
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
         if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            if self.hparams.use_language_modelling:
-                raise NotImplementedError(
-                    "Language modelling is not implemented for models trained with k2"
-                )
+            decoding_method=getattr(asr_brain.hparams, "decoding_method", "1best")
+            # If the decoding method is 1best then the metric stats will be
+            # saved in a single file, otherwise, a new directory will be created
+            # for each lm_scale used in whole lattice rescoring.
+            decode_output: Union[dict, List[str]] = self.graph_compiler.decode(
+                p_ctc,
+                wav_lens,
+                search_beam=self.hparams.test_search_beam,
+                output_beam=self.hparams.test_output_beam,
+                ac_scale=self.hparams.ac_scale,
+                max_active_states=self.hparams.test_max_active_state,
+                is_test=True,
+                decoding_method=decoding_method,
+                lm_scale_list=self.hparams.lm_scale_list,
+            ) # list of strings
+            target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
+            if decoding_method == "1best":
+                predicted_words: List[List[str]] = [wrd.split(" ") for wrd in decode_output]
+                self.wer_metric.append(ids, predicted_words, target_words)
+                self.cer_metric.append(ids, predicted_words, target_words)
             else:
-                decoding_method=getattr(asr_brain.hparams, "decoding_method", "1best")
-                # If the decoding method is 1best then the metric stats will be
-                # saved in a single file, otherwise, a new directory will be created
-                # for each lm_scale used in whole lattice rescoring.
-                decode_output: Union[dict, List[str]] = self.graph_compiler.decode(
-                    p_ctc,
-                    wav_lens,
-                    search_beam=self.hparams.test_search_beam,
-                    output_beam=self.hparams.test_output_beam,
-                    ac_scale=self.hparams.ac_scale,
-                    max_active_states=self.hparams.test_max_active_state,
-                    is_test=True,
-                    decoding_method=decoding_method,
-                    lm_scale_list=self.hparams.lm_scale_list,
-                ) # list of strings
-                target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
-                if decoding_method == "1best":
-                    predicted_words: List[List[str]] = [wrd.split(" ") for wrd in decode_output]
-                    self.wer_metric.append(ids, predicted_words, target_words)
-                    self.cer_metric.append(ids, predicted_words, target_words)
-                else:
-                    for i, lm_scale in enumerate(self.hparams.lm_scale_list):
-                        predicted_texts: List[str] = decode_output[f"lm_scale_{lm_scale:.1f}"]
-                        predicted_words: List[List[str]] = [wrd.split(" ") for wrd in predicted_texts]
-                        self.wer_metric[i].append(ids, predicted_words, target_words)
-                        self.cer_metric[i].append(ids, predicted_words, target_words)
+                for i, lm_scale in enumerate(self.hparams.lm_scale_list):
+                    predicted_texts: List[str] = decode_output[f"lm_scale_{lm_scale:.1f}"]
+                    predicted_words: List[List[str]] = [wrd.split(" ") for wrd in predicted_texts]
+                    self.wer_metric[i].append(ids, predicted_words, target_words)
+                    self.cer_metric[i].append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -402,84 +380,14 @@ def dataio_prepare(hparams):
 
     return train_data, valid_data, test_datasets
 
-def get_lexicon(lang_dir, 
-                csv_files, 
-                extra_vocab_files, 
-                add_word_boundary=True):
-    '''
-    Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
-    This usually includes the csv files of the training set and the dev set in the output_folder.
-    During training, we need to make sure that the lexicon.txt contains all (or the majority of) 
-    the words in the training set and the dev set.
-
-    Args:
-    lang_dir: the directory to store the lexicon.txt
-    csv_files: a list of csv file paths 
-    extra_vocab_files: a list of extra vocab files, librispeech-vocab.txt is an example
-    add_word_boundary: whether to add word boundary symbols <eow> at the end of each line to the lexicon for every word
-
-    Note that in each csv_file, the first line is the header, and the remaining lines are in the following format:
-
-    ID, duration, wav, spk_id, wrd (transcription)
-
-    We only need the transcription in this function.
-
-    Returns:
-    None
-
-    Writes out $lang_dir/lexicon.txt
-
-    Note that the lexicon.txt is a text file with the following format:
-    word1 phone1 phone2 phone3 ...
-    word2 phone1 phone2 phone3 ...
-
-    In this code, we simply use the characters in the word as the phones.
-    You can use other phone sets, e.g., phonemes, BPEs, to train a better model.
-    '''
-    # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
-    lexicon = dict()
-    for file in csv_files:
-        with open(file) as f:
-            # Omit the first line
-            f.readline()
-            # Read the remaining lines
-            for line in f:
-                # Split the line 
-                _, _, _, _, trans = line.strip().split(",")
-                # Split the transcription into words
-                words = trans.split()
-                for word in words:
-                    if word not in lexicon:
-                        if add_word_boundary:
-                            lexicon[word] = list(word) + ["<eow>"]
-                        else:
-                            lexicon[word] = list(word)
-
-    for file in extra_vocab_files:
-        with open(file) as f:
-            for line in f:
-                # Split the line 
-                word = line.strip().split()[0]
-                # Split the transcription into words
-                if word not in lexicon:
-                    if add_word_boundary:
-                        lexicon[word] = list(word) + ["<eow>"]
-                    else:
-                        lexicon[word] = list(word)
-    # Write the lexicon to lang_dir/lexicon.txt
-    os.makedirs(lang_dir, exist_ok=True)
-    with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
-        fc = "<UNK> <unk>\n"
-        for word in lexicon:
-            fc += word + " " + " ".join(lexicon[word]) + "\n"
-        f.write(fc)
-
 def arpa_to_fst(
         arpa_dir: Path,
         output_dir: Path,
         words_txt: Path,
         disambig_symbol: str = "#0",
-        convert_4gram: bool = True
+        convert_4gram: bool = True,
+        trigram_name: str = "3-gram.pruned.1e-7.arpa",
+        fourgram_name: str = "4-gram.arpa",
     ):
     """ Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
     you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
@@ -493,17 +401,28 @@ def arpa_to_fst(
     then we will not convert them again (so you may need to delete them
     by hand if you, at any point, change your ARPA model).
 
-    Args:
-        arpa_dir: Path to the directory containing the ARPA LM (we expect
-            a file named 3-gram.pruned.1e-7.arpa to exist, and if
-            `convert_4gram` is True, then "4-gram.arpa" should also exist).
-        output_dir: Path to the directory where the FSTs will be saved.
-        words_txt: Path to the words.txt file created by prepare_lang.
-        disambig_symbol: The disambiguation symbol to use.
-        convert_4gram: If True, then we will convert the 4-gram ARPA LM to
+    Arguments
+    ---------
+        arpa_dir: str
+            Path to the directory containing the ARPA LM (we expect a file named
+            3-gram.pruned.1e-7.arpa to exist, and if `convert_4gram` is True,
+            then "4-gram.arpa" should also exist).
+        output_dir: str
+            Path to the directory where the FSTs will be saved.
+        words_txt: str
+            Path to the words.txt file created by prepare_lang.
+        disambig_symbol: str
+            The disambiguation symbol to use.
+        convert_4gram: bool
+            If True, then we will convert the 4-gram ARPA LM to
             FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
+        trigram_name: str
+            The name of the 3-gram ARPA LM file.
+        fourgram_name: str
+            The name of the 4-gram ARPA LM file.
     
-    Raises:
+    Raises
+    ---------
         ImportError: If kaldilm is not installed.
     """
     assert arpa_dir.is_dir()
@@ -519,11 +438,22 @@ def arpa_to_fst(
             "Install using `pip install kaldilm`."
         )
     def _arpa_to_fst_single(arpa_path: Path, out_fst_path: Path, max_order: int):
-        """Convert a single ARPA LM to FST."""
+        """Convert a single ARPA LM to FST.
+        
+        Arguments
+        ---------
+            arpa_path: str
+                Path to the ARPA LM file.
+            out_fst_path: str
+                Path to the output FST file.
+            max_order: int
+                The maximum order of the ARPA LM.
+        """
         if out_fst_path.exists():
             return
         if not arpa_path.exists():
-            raise FileNotFoundError(f"{arpa_path} not found while trying to create the {max_order} FST.")
+            raise FileNotFoundError(f"{arpa_path} not found while trying to create"
+                                    f" the {max_order} FST.")
         try:
             s = arpa2fst(
                 input_arpa=str(arpa_path),
@@ -532,17 +462,18 @@ def arpa_to_fst(
                 max_order=max_order,
             )
         except Exception as e:
-            logger.info(f"Failed to create {max_order}-gram FST from input={arpa_path}, disambig_symbol={disambig_symbol}, read_symbol_table={words_txt}")
+            logger.info(f"Failed to create {max_order}-gram FST from input={arpa_path}"
+                        f", disambig_symbol={disambig_symbol},"
+                        f" read_symbol_table={words_txt}")
             raise e
         logger.info(f"Writing {out_fst_path}")
         with open(out_fst_path, "w") as f:
             f.write(s)
-    arpa_path = arpa_dir / "3-gram.pruned.1e-7.arpa"
+    arpa_path = arpa_dir / trigram_name
     fst_path = output_dir / "G_3_gram.fst.txt"
     _arpa_to_fst_single(arpa_path, fst_path, max_order=3)
     if convert_4gram:
-        # arpa_path = arpa_dir / "4-gram.arpa"
-        arpa_path = arpa_dir / "4-gram.arpa"
+        arpa_path = arpa_dir / fourgram_name
         fst_path = output_dir / "G_4_gram.fst.txt"
         _arpa_to_fst_single(arpa_path, fst_path, max_order=4)
 
@@ -557,6 +488,12 @@ if __name__ == "__main__":
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+    
+    # env_corrupt is not supported with k2 yet
+    if hparams.get("env_corrupt", None):
+        raise NotImplementedError(
+            "env_corrupt is not supported with k2 yet"
+        )
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -609,12 +546,6 @@ if __name__ == "__main__":
 
     lexicon = Lexicon(hparams["lang_dir"])
 
-    # Loading the labels for the LM decoding and the CTC decoder
-    if hasattr(hparams, "use_language_modelling"):
-        raise NotImplementedError("use_language_modelling is not implemented yet")
-    else:
-        hparams["use_language_modelling"] = False
-
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -647,7 +578,6 @@ if __name__ == "__main__":
                 "convert_4gram": need_4gram,
             },
         )
-    if need_G:
         assert G_path.is_file(), f"{G_path} does not exist"
     graph_compiler = CtcTrainingGraphCompiler(
         lexicon=lexicon,

@@ -1,4 +1,10 @@
-# Copyright      2023 the University of Edinburgh (Zeyu Zhao)
+""" This file contains the loss functions for k2 training. Currently, we only
+support CTC loss.
+
+Authors:
+ * Zeyu Zhao 2023
+ * Georgios Karakasidis 2023
+"""
 try:
     import k2
 except ImportError:
@@ -10,15 +16,44 @@ except ImportError:
 import torch
 
 
-def ctc_k2(log_probs,
-           input_lens,
-           graph_compiler,
-           texts,
-           reduction="mean",
-           beam_size=10,
-           use_double_scores=True,
-           is_training=True,
-           ):
+def ctc_k2(
+        log_probs,
+        input_lens,
+        graph_compiler,
+        texts,
+        reduction="mean",
+        beam_size=10,
+        use_double_scores=True,
+        is_training=True,
+    ):
+    """CTC loss implemented with k2. Make sure that k2 has been installed properly.
+    Note that the blank index must be 0 in this implementation.
+
+    Arguments
+    ---------
+    predictions : torch.Tensor
+        Predicted tensor, of shape [batch, time, chars].
+    input_lens : torch.Tensor
+        Length of each utterance.
+    graph_compiler : k2.Fsa
+        Decoding graph.
+    texts : List[str]
+        List of texts.
+    reduction : str
+        What reduction to apply to the output. 'mean', 'sum', 'none'.
+        See k2.ctc_loss for 'mean', 'sum', 'none'.
+    beam_size : int
+        Beam size.
+    use_double_scores : bool
+        If true, use double precision for scores.
+    is_training : bool
+        If true, the returned loss requires gradient.
+
+    Returns
+    -------
+    loss: torch.Tensor
+        CTC loss.
+    """
     input_lens = (input_lens * log_probs.shape[1]).round().int()
 
     batch_size = log_probs.shape[0]
@@ -31,7 +66,11 @@ def ctc_k2(log_probs,
 
     decoding_graph = graph_compiler.compile(texts)
     tids = graph_compiler.lexicon.texts2tids(texts)
-    target_lens = torch.tensor([len(t) for t in tids], device=log_probs.device, dtype=torch.long)
+    target_lens = torch.tensor(
+        [len(t) for t in tids],
+        device=log_probs.device,
+        dtype=torch.long
+    )
 
     dense_fsa_vec = k2.DenseFsaVec(
         log_probs,
@@ -52,8 +91,8 @@ def ctc_k2(log_probs,
 
 
 def k2_ctc(log_probs, targets, input_lens, target_lens, reduction="mean"):
-    """CTC loss implemented with k2. Please make sure that k2 has been installed properly.
-    Note that the blank index must be 0 in this implementation.
+    """CTC loss implemented with k2. Please make sure that k2 has been installed
+    properly. Note that the blank index must be 0 in this implementation.
 
     Arguments
     ---------
@@ -68,6 +107,11 @@ def k2_ctc(log_probs, targets, input_lens, target_lens, reduction="mean"):
     reduction : str
         What reduction to apply to the output. 'mean', 'sum', 'none'.
         See k2.ctc_loss for 'mean', 'sum', 'none'.
+    
+    Returns
+    -------
+    loss: torch.Tensor
+        CTC loss.
     """
     input_lens = (input_lens * log_probs.shape[1]).round().int()
     target_lens = (target_lens * targets.shape[1]).round().int()

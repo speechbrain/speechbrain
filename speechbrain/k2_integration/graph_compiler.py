@@ -28,13 +28,42 @@ import torch
 import logging
 
 from speechbrain.k2_integration.lexicon import Lexicon
-from speechbrain.k2_integration.utils import get_texts, one_best_decoding, rescore_with_whole_lattice
+from speechbrain.k2_integration.utils import (
+    get_texts,
+    one_best_decoding,
+    rescore_with_whole_lattice
+)
 
 
 logger = logging.getLogger(__name__)
 
 
 class CtcTrainingGraphCompiler(object):
+    """ This class is used to compile decoding graphs for CTC training.
+
+    Arguments
+    ---------
+    lexicon: Lexicon
+        It is built from `data/lang/lexicon.txt`.
+    device: torch.device
+        The device to use for operations compiling transcripts to FSAs.
+    oov: str
+        Out of vocabulary word. When a word in the transcript
+        does not exist in the lexicon, it is replaced with `oov`.
+    need_repeat_flag: bool
+        If True, will add an attribute named `_is_repeat_token_` to ctc_topo
+        indicating whether this token is a repeat token in ctc graph.
+        This attribute is needed to implement delay-penalty for phone-based
+        ctc loss. See https://github.com/k2-fsa/k2/pull/1086 for more
+        details. Note: The above change MUST be included in k2 to enable this
+        flag so make sure you have an up-to-date version.
+    G_path: str
+        Path to the language model FST to be used in the decoding-graph creation.
+        If None, then we assume that the language model is not used.
+    rescoring_lm_path: Path | str
+        Path to the language model FST to be used in the rescoring of the decoding
+        graph. If None, then we assume that the language model is not used.
+    """
     def __init__(
         self,
         lexicon: Lexicon,
@@ -44,29 +73,6 @@ class CtcTrainingGraphCompiler(object):
         G_path: Optional[str] = None,
         rescoring_lm_path: Union[Path, str, None] = None,
     ):
-        """
-        Args:
-          lexicon:
-            It is built from `data/lang/lexicon.txt`.
-          device:
-            The device to use for operations compiling transcripts to FSAs.
-          oov:
-            Out of vocabulary word. When a word in the transcript
-            does not exist in the lexicon, it is replaced with `oov`.
-          need_repeat_flag:
-            If True, will add an attribute named `_is_repeat_token_` to ctc_topo
-            indicating whether this token is a repeat token in ctc graph.
-            This attribute is needed to implement delay-penalty for phone-based
-            ctc loss. See https://github.com/k2-fsa/k2/pull/1086 for more
-            details. Note: The above change MUST be included in k2 to enable this
-            flag.
-          G_path: str
-            Path to the language model FST to be used in the decoding-graph creation.
-            If None, then we assume that the language model is not used.
-          rescoring_lm_path: Path | str
-            Path to the language model FST to be used in the rescoring of the decoding
-            graph. If None, then we assume that the language model is not used.
-        """
         L_inv = lexicon.L_inv.to(device)
         L = lexicon.L.to(device)
         self.lexicon = lexicon
@@ -90,31 +96,38 @@ class CtcTrainingGraphCompiler(object):
             )
 
         self.device = device
-        self.G_path: str = G_path
-        self.rescoring_lm_path: Path = rescoring_lm_path
+        self.G_path: str = G_path # type: ignore
+        self.rescoring_lm_path: Path = rescoring_lm_path # type: ignore
         self.decoding_graph: k2.Fsa = None  # HL or HLG
         self.rescoring_graph: k2.Fsa = None  # G (usually 4-gram LM)
 
-    def get_G(self, path: str = None, save: bool = True) -> k2.Fsa:
+    def get_G(self, path: Optional[str] = None, save: bool = True) -> k2.Fsa:
         """Load a LM to be used in the decoding graph creation (or LM rescoring).
         Note that it doesn't load G into memory.
 
-        Args:
-            path: str, The path to an FST LM (ending with .fst.txt) or a k2-converted
-                LM (in pytorch .pt format).
-            save: bool, Whether or not to save the LM in .pt format (in the same dir).
+        Arguments
+        ---------
+        path: str
+            The path to an FST LM (ending with .fst.txt) or a k2-converted
+            LM (in pytorch .pt format). If None, self.G_path is used.
+        save: bool
+            Whether or not to save the LM in .pt format (in the same dir).
         
-        Returns:
+        Returns
+        -------
+        G:
             An FSA representing the LM. The device is the same as graph_compiler.device.
         """
         path = str(path or self.G_path)
         if os.path.exists(path.replace(".fst.txt", ".pt")):
-            logger.info(f"NOTE: Loading G from its .pt format")
+            logger.warning("Loading G from its .pt format. Consider deleting the "
+                           "previous .pt file if this is not what you want.")
             path = path.replace(".fst.txt", ".pt")
         # If G_path is an fst.txt file then convert to .pt file
         if path.endswith(".fst.txt"):
             if not os.path.isfile(path):
-                raise FileNotFoundError(f"File {path} not found. You need to run the kaldilm to get it.")
+                raise FileNotFoundError(f"File {path} not found. "
+                                        "You need to run the kaldilm to get it.")
             with open(path) as f:
                 G = k2.Fsa.from_openfst(f.read(), acceptor=False).to(self.device)
         elif path.endswith(".pt"):
@@ -128,16 +141,20 @@ class CtcTrainingGraphCompiler(object):
             torch.save(G.as_dict(), path[:-8] + ".pt")
         return G
 
-    def get_rescoring_LM(self, path: str = None) -> k2.Fsa:
+    def get_rescoring_LM(self, path: Optional[str] = None) -> k2.Fsa:
         """Load a LM with the purpose of using it for LM rescoring.
         For instance, in the librispeech recipe this is a 4-gram LM (while  a
         3gram LM is used for HLG construction).
 
-        Args:
-            path: str, The path to an FST LM (ending with .fst.txt) or a k2-converted
-                LM (in pytorch .pt format).
+        Arguments
+        ---------
+        path: str
+            The path to an FST LM (ending with .fst.txt) or a k2-converted
+            LM (in pytorch .pt format). If None, self.rescoring_lm_path is used.
 
-        Returns:
+        Returns
+        -------
+        G:
             An FSA representing the LM. The device is the same as graph_compiler.device.
         """
         path = str(path or self.rescoring_lm_path)
@@ -146,7 +163,7 @@ class CtcTrainingGraphCompiler(object):
         del G.aux_labels
         G.labels[G.labels >= self.lexicon.word_table["#0"]] = 0
         G.__dict__["_properties"] = None
-        G = k2.Fsa.from_fsas([G]).to('cpu')  # only used for decoding which is done in cpu
+        G = k2.Fsa.from_fsas([G]).to('cpu')  # only used for decoding
         G = k2.arc_sort(G)
         G = k2.add_epsilon_self_loops(G)
         G = k2.arc_sort(G)
@@ -161,17 +178,20 @@ class CtcTrainingGraphCompiler(object):
         """Build decoding graphs by composing ctc_topo with
         given transcripts.
 
-        Args:
-          texts:
+        Arguments
+        ---------
+        texts: List[str]
             A list of strings. Each string contains a sentence for an utterance.
             A sentence consists of spaces separated words. An example `texts`
             looks like:
 
                 ['hello icefall', 'CTC training with k2']
 
-        Returns:
-          An FsaVec, the composition result of `self.ctc_topo` and the
-          transcript FSA.
+        Returns
+        -------
+        decoding_graph:
+            An FsaVec, the composition result of `self.ctc_topo` and the
+            transcript FSA.
         """
         transcript_fsa = self.convert_transcript_to_fsa(texts)
 
@@ -193,14 +213,18 @@ class CtcTrainingGraphCompiler(object):
     def texts_to_ids(self, texts: List[str]) -> List[List[int]]:
         """Convert a list of texts to a list-of-list of word IDs.
 
-        Args:
-          texts:
+        Arguments
+        ---------
+        texts: List[str]
             It is a list of strings. Each string consists of space(s)
             separated words. An example containing two strings is given below:
 
                 ['HELLO ICEFALL', 'HELLO k2']
-        Returns:
-          Return a list-of-list of word IDs.
+
+        Returns
+        -------
+        word_ids_list:
+            Return a list-of-list of word IDs.
         """
         word_ids_list = []
         for text in texts:
@@ -216,16 +240,18 @@ class CtcTrainingGraphCompiler(object):
     def convert_transcript_to_fsa(self, texts: List[str]) -> k2.Fsa:
         """Convert a list of transcript texts to an FsaVec.
 
-        Args:
-          texts:
+        Arguments
+        ---------
+        texts: List[str]
             A list of strings. Each string contains a sentence for an utterance.
             A sentence consists of spaces separated words. An example `texts`
             looks like:
 
                 ['hello icefall', 'CTC training with k2']
 
-        Returns:
-          Return an FsaVec, whose `shape[0]` equals to `len(texts)`.
+        Returns
+        -------
+        An FsaVec, whose `shape[0]` equals to `len(texts)`.
         """
         word_ids_list = []
         for text in texts:
@@ -265,30 +291,42 @@ class CtcTrainingGraphCompiler(object):
         """
         Decode the given log_probs with self.decoding_graph without language model.
 
-        Args:
-          log_probs:
+        Arguments
+        ---------
+        log_probs: torch.Tensor
             It is an input tensor of shape (batch, seq_len, num_tokens).
-          input_lens:
+        input_lens: torch.Tensor
             It is an int tensor of shape (batch,). It contains lengths of
             each sequence in `log_probs`.
-          search_beam: int, decoding beam size
-          output_beam: int, lattice beam size
-          ac_scale: float, acoustic scale applied to `log_probs`
-          min_active_states: int, minimum #states that are not pruned during decoding
-          max_active_states: int, maximum #active states that are kept during decoding
-          is_test: bool, if testing is performed then we won't log warning about <UNK>s.
-          decoding_method: str, one of 1best, whole-lattice-rescoring, or nbest.
-          lm_scale_list: List[float], a list of language model scale factors. Defaults to [0.6].
-          rescoring_lm_path: Path, path to the LM to be used for rescoring. If not provided
+        search_beam: int
+            decoding beam size
+        output_beam: int
+            lattice beam size
+        ac_scale: float
+            acoustic scale applied to `log_probs`
+        min_active_states: int
+            minimum #states that are not pruned during decoding
+        max_active_states: int
+            maximum #active states that are kept during decoding
+        is_test: bool
+            if testing is performed then we won't log warning about <UNK>s.
+        decoding_method: str
+            one of 1best, whole-lattice-rescoring, or nbest.
+        lm_scale_list: List[float]
+            a list of language model scale factors. Defaults to [0.6].
+        rescoring_lm_path: Path
+            path to the LM to be used for rescoring. If not provided
             and the decoding method is whole-lattice-rescoring, then you need to provide
             the `rescoring_lm_path` in the constructor of this class.          
 
-        Returns:
-          If decoding_method==1best: a list of strings, each of which is the decoding 
-            result of the corresponding utterance.
-          If decoding_method==whole-lattice-rescoring: a dict of lists of strings, each of
-            which is the decoding result of the corresponding utterance. The keys of the dict
-            are the language model scale factors used for rescoring.
+        Returns
+        -------
+        If decoding_method==1best: a list of strings, each of which is the decoding 
+        result of the corresponding utterance.
+
+        If decoding_method==whole-lattice-rescoring: a dict of lists of strings, each of
+        which is the decoding result of the corresponding utterance. The keys are the 
+        language model scale factors used for rescoring.
         """
         lm_scale_list = lm_scale_list or [0.6]
         device = log_probs.device
@@ -300,14 +338,11 @@ class CtcTrainingGraphCompiler(object):
             else:
                 logger.info("Compiling HLG instead of HL")
                 self.compile_HLG()
-                # if not hasattr(self.decoding_graph, "lm_scores"):
-                #     self.decoding_graph.lm_scores = self.decoding_graph.scores.clone()
             if self.decoding_graph.device != device:
                 self.decoding_graph = self.decoding_graph.to(device)
             if decoding_method == "whole-lattice-rescoring":
-                # fst_4gram_path = str(Path(self.G_path).parent / "G_4_gram.fst.txt")
-                # fst_4gram_path = "lm/G_4_gram_withfullwords.fst.txt"
-                self.rescoring_graph = self.get_rescoring_LM(rescoring_lm_path).to(self.device)
+                self.rescoring_graph = self.get_rescoring_LM(str(rescoring_lm_path))\
+                    .to(self.device)
         input_lens = input_lens.to(device)
 
         input_lens = (input_lens * log_probs.shape[1]).round().int()
@@ -353,7 +388,7 @@ class CtcTrainingGraphCompiler(object):
                     key = f"lm_scale_{lm_scale:.1f}"
                     out[key] = lattice2text(best_path[key])
             else:
-                raise ValueError(f"Decoding method '{decoding_method}' is not supported.")
+                raise ValueError(f"Decoding method '{decoding_method}' not supported.")
             del lattice
             del best_path
             torch.cuda.empty_cache()
@@ -361,11 +396,11 @@ class CtcTrainingGraphCompiler(object):
             return out
 
     def compile_HL(self):
-        '''
+        """
         Compile the decoding graph by composing ctc_topo with L.
         This is for decoding without language model.
         Usually, you don't need to call this function explicitly.
-        '''
+        """
         logger.info("Arc sorting L")
         L = k2.arc_sort(self.L).to("cpu")
         H = self.ctc_topo.to("cpu")
@@ -380,11 +415,11 @@ class CtcTrainingGraphCompiler(object):
         logger.info("Done compiling HL")
 
     def compile_HLG(self):
-        '''
+        """
         Compile the decoding graph by composing ctc_topo with LG.
         This is for decoding with language model (by default we assume a 3gram lm).
         Usually, you don't need to call this function explicitly.
-        '''
+        """
         H = self.ctc_topo.to("cpu")
         G = self.get_G()
         G = G.to("cpu")
@@ -409,7 +444,8 @@ class CtcTrainingGraphCompiler(object):
 
         logger.debug("Removing disambiguation symbols on LG")
         # NOTE: We need to clone here since LG.labels is just a reference to a tensor
-        #       and we will end up having issues with misversioned updates on fsa's properties.
+        #       and we will end up having issues with misversioned updates on fsa's 
+        #       properties.
         labels = LG.labels.clone()
         labels[labels >= first_token_disambig_id] = 0
         LG.labels = labels
