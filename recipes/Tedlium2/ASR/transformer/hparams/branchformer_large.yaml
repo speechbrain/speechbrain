@@ -18,11 +18,11 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 # IMPORTANT: before running this script, you need to train the tokenizer (refer to ../../Tokenizer/README.md for details).
-# When training the tokenizer, we will create the csv files by default in 
+# When training the tokenizer, we will create the csv files by default in
 # ../../Tokenizer/results/tokenizer/train/train.csv
 # ../../Tokenizer/results/tokenizer/dev/dev.csv
 # ../../Tokenizer/results/tokenizer/test/test.csv
-# 
+#
 # The tokenizer is stored in ../../Tokenizer/results/tokenizer/tokenizer.ckpt
 #
 # The script also creates in the specified clipped_utt_folder the version of the dataset that will be used here for training the ASR model.
