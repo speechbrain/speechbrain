@@ -1987,8 +1987,8 @@ class TorchAudioCTCPrefixBeamSearcher:
     >>> lens = torch.tensor([1.0])
     >>> blank_index = 2
     >>> vocab_list = ['a', 'b', '-']
-    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index)
-    >>> hyps = searcher(probs, lens)
+    >>> searcher = TorchAudioCTCPrefixBeamSearcher(tokens=vocab_list, blank_index=blank_index, sil_index=blank_index) # doctest: +SKIP
+    >>> hyps = searcher(probs, lens) # doctest: +SKIP
     """
 
     def __init__(
@@ -2036,7 +2036,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                 from torchaudio.models.decoder import ctc_decoder
             except ImportError:
                 raise ImportError(
-                    "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder"
+                    "ctc_decoder not found. Please install torchaudio and flashlight to use this decoder."
                 )
 
             # if this is a path, then torchaudio expect to be an index
@@ -2071,7 +2071,7 @@ class TorchAudioCTCPrefixBeamSearcher:
                 from torchaudio.models.decoder import cuda_ctc_decoder
             except ImportError:
                 raise ImportError(
-                    "cuda_ctc_decoder not found. Please install the nightly version of torchaudio to use this decoder"
+                    "cuda_ctc_decoder not found. Please install the latest version of torchaudio to use this decoder."
                 )
             assert (
                 self.blank_index == 0
