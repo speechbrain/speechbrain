@@ -7,7 +7,6 @@
 
 output_folder: !PLACEHOLDER # folder where to store the BPE ckpt and csv files
 clipped_utt_folder: !PLACEHOLDER # folder where to store the clipped utterence-level recordings
-train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /path/to/TEDLIUM_release2
