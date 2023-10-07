@@ -15,22 +15,27 @@ output_folder: !ref results/branchformer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-skip_prep: False
 
 # Data files
-data_folder: !PLACEHOLDER # e.g, /path/to/TEDLIUM_release2
-# please run Tedlium2/Tokenizer/train.py first, then
-# pass the output folder of the BPE Tokenizer script to this script
-bpe_output_folder: !PLACEHOLDER  # e.g., /path/to/bpe_output_folder
-# Tedlium2/Tokenizer/train.py script will generate 46G utterence-level recordings.
-# you may would like to point the clipped_utt_folder here
-# to the clipped_utt_folder of Tedlium2/Tokenizer/train.py to avoid generating 46G data again.
-clipped_utt_folder: !PLACEHOLDER # e.g., /path/to/clipped_utt_folder
-train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev.csv
+# IMPORTANT: before running this script, you need to train the tokenizer (refer to ../../Tokenizer/README.md for details).
+# When training the tokenizer, we will create the csv files by default in 
+# ../../Tokenizer/results/tokenizer/train/train.csv
+# ../../Tokenizer/results/tokenizer/dev/dev.csv
+# ../../Tokenizer/results/tokenizer/test/test.csv
+# 
+# The tokenizer is stored in ../../Tokenizer/results/tokenizer/tokenizer.ckpt
+#
+# The script also creates in the specified clipped_utt_folder the version of the dataset that will be used here for training the ASR model.
+
+
+# Please ensure that the tokenizer has been trained before (refer to ../../Tokenizer/README.md for details).
+pretrained_tokenizer_file: ../../Tokenizer/results/tokenizer/tokenizer.ckpt
+
+train_csv: !ref ../../Tokenizer/results/tokenizer/train/train.csv
+valid_csv: !ref ../../Tokenizer/results/tokenizer/dev/dev.csv
 test_csv:
-    - !ref <output_folder>/test.csv
-pretrained_tokenizer_file: !ref <bpe_output_folder>/tokenizer.ckpt
+    - !ref ../../Tokenizer/results/tokenizer/test/test.csv
+
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.

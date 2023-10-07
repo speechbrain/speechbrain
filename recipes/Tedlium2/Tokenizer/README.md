@@ -12,8 +12,11 @@ To run the training script, follow these steps:
 1. Run the following command, replacing `--data_folder` with the path to your downloaded and unpacked Tedlium2 dataset:
 
 ```python
-python train.py hparams/tedlium2_500_bpe.yaml --data_folder=/path/to/TEDLIUM
+python train.py hparams/tedlium2_500_bpe.yaml --data_folder=/path/to/TEDLIUM --clipped_utt_folder=/path/where/to/store/clipped/TEDLIUM
 ```
+
+**IMPORTANT**: Please utilize **absolute paths** for both the `data_folder` and the `clipped_utt_folder` because the generated CSV files will be employed in training the ASR model.
+
 
 2. The script will automatically process the dataset and store a modified version of it in the directory specified by `--clipped_utt_folder`. This modified dataset contains recordings split into individual utterances, making it suitable for Automatic Speech Recognition (ASR) training. You can now use this processed dataset for ASR training as described in the `../ASR/README.md` file.
 
