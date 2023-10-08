@@ -305,7 +305,15 @@ class Lexicon(object):
         return self._L_disambig
 
     def load_mapping(self):
-        """Load mappings including token2idx idx2token word2idx idx2word word2tids."""
+        """Load mappings including token2idx idx2token word2idx idx2word word2tids,
+        each of which is a dict.
+
+        self.token2idx: Dict[str, int]
+        self.idx2token: Dict[int, str]
+        self.word2idx: Dict[str, int]
+        self.idx2word: Dict[int, str]
+        self.word2tids: Dict[str, List[int]]
+        """
 
         self.token2idx = {}
         self.idx2token = {}

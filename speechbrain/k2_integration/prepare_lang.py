@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """ This module contains functions to prepare the lexicon and the language model
 for k2 training. It is based on the script `prepare_lang.sh` from k2/icefall (work
-of Fangjun Kuang). The original script is under Apache 2.0 license. This script is
-and it is modified to work with SpeechBrain.
+of Fangjun Kuang). The original script is under Apache 2.0 license. 
+This script is modified to work with SpeechBrain.
 
 Modified by:
  * Zeyu Zhao 2023

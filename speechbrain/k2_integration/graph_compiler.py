@@ -350,7 +350,17 @@ class CtcTrainingGraphCompiler(object):
         log_probs *= ac_scale
 
         def lattice2text(best_path: k2.Fsa) -> List[str]:
-            """Convert the best path to a list of strings."""
+            """Convert the best path to a list of strings.
+
+            Arguments
+            ---------
+            best_path: k2.Fsa
+
+            Returns
+            -------
+            A list of strings, each of which is the decoding result of the
+            corresponding utterance.
+            """
             hyps: List[List[int]] = get_texts(best_path, return_ragged=False)
             texts = []
             for wids in hyps:
