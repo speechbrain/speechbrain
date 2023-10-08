@@ -2,18 +2,17 @@
 This folder contains the recipe for training a speech-to-unit translation (S2UT) model using a pre-trained Wav2Vec 2.0 encoder and a transformer decoder on the CVSS dataset.
 The implementation is based on [Textless Speech-to-Speech Translation](https://arxiv.org/abs/2112.08352) and [Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentatio](https://arxiv.org/abs/2204.02967) papers.
 
-
 ## Dataset
 CVSS is a massively multilingual-to-English speech-to-speech translation corpus. It covers pairs from 21 languages into English. CVSS is derived from the Common Voice speech corpus and the CoVoST 2 speech-to-text translation corpus.
-The CVSS dataset includes two versions of spoken translation: CVSS-C and CVSS-T. While both versions can be utilized to train the S2UT model, we recommend using CVSS-C because of its superior speech quality.  
+The CVSS dataset includes two versions of spoken translation: CVSS-C and CVSS-T. While both versions can be utilized to train the S2UT model, we recommend using CVSS-C because of its superior speech quality.
 
 The first step is to select a source language and download [Common Voice (version 4)](https://commonvoice.mozilla.org/en/datasets) for the chosen language code. In this recipe, we've chosen French as the source language.
-The next step is to pair translation audio clips with the source speech by downloading the corresponding subset of the CVSS dataset. In our case, we have to download the French CVSS-C subset, which corresponds to the English translation of the French portion of the Common Voice dataset.  
+The next step is to pair translation audio clips with the source speech by downloading the corresponding subset of the CVSS dataset. In our case, we have to download the French CVSS-C subset, which corresponds to the English translation of the French portion of the Common Voice dataset.
 
 At this point, you should have two distinct folders: the first one containing the Common Voice data and the second one containing the CVSS data.
 
-> Note: In the recipe, we frequently employ the terms `src_data` and `tgt_data`.  
-> `src_data` refers to the source language data (Common Voice).  
+> Note: In the recipe, we frequently employ the terms `src_data` and `tgt_data`.
+> `src_data` refers to the source language data (Common Voice).
 > `tgt_data` refers to the target language data (CVSS).
 
 ## Installing Extra Dependencies
