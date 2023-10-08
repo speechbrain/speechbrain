@@ -23,8 +23,8 @@ progress_batch_sample_size: 4
 #################################
 # Data files and pre-processing #
 #################################
-src_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr
-tgt_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr-en
+src_data_folder: !PLACEHOLDER # e.g, /corpus/CommonVoice/fr (French Data)
+tgt_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr (English Data)
 sample_rate: 16000
 
 train_json: !ref <save_folder>/train.json

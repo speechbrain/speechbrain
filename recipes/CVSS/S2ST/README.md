@@ -26,7 +26,7 @@ Before training the speech-to-unit translation (S2UT) model, we have to quantize
 
 To train the S2UT model on French-English, simply run the following command:
 ```
-python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice --tgt_data_folder=/corpus/CVSS --bfloat16_mix_prec
+python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr --bfloat16_mix_prec
 ```
 
 >  Dynamic batch settings are optimized for a 40GB VRAM GPU. Don't hesitate to adjust max_batch_len and max_batch_len_val to fit your GPU's capabilities.
