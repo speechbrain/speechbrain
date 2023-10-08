@@ -5,12 +5,16 @@ The implementation is based on [Textless Speech-to-Speech Translation](https://a
 
 ## Dataset
 CVSS is a massively multilingual-to-English speech-to-speech translation corpus. It covers pairs from 21 languages into English. CVSS is derived from the Common Voice speech corpus and the CoVoST 2 speech-to-text translation corpus.
-The CVSS dataset includes two versions of spoken translation: CVSS-C and CVSS-T. While both versions can be utilized to train the S2UT model, we recommend using CVSS-C because of its superior speech quality.
-The final step is to pair the translation audio clips and translation texts with the source speech by downloading Common Voice (version 4) for the selected language code.
+The CVSS dataset includes two versions of spoken translation: CVSS-C and CVSS-T. While both versions can be utilized to train the S2UT model, we recommend using CVSS-C because of its superior speech quality.  
 
-CVSS dataset can be downloaded from [here](https://github.com/google-research-datasets/cvss).
-Common Voice can be downloaded from [here](https://commonvoice.mozilla.org/en/datasets).
+The first step is to select a source language and download [Common Voice (version 4)](https://commonvoice.mozilla.org/en/datasets) for the chosen language code. In this recipe, we've chosen French as the source language.
+The next step is to pair translation audio clips with the source speech by downloading the corresponding subset of the CVSS dataset. In our case, we have to download the French CVSS-C subset, which corresponds to the English translation of the French portion of the Common Voice dataset.  
 
+At this point, you should have two distinct folders: the first one containing the Common Voice data and the second one containing the CVSS data.
+
+> Note: In the recipe, we frequently employ the terms `src_data` and `tgt_data`.  
+> `src_data` refers to the source language data (Common Voice).  
+> `tgt_data` refers to the target language data (CVSS).
 
 ## Installing Extra Dependencies
 Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
@@ -23,7 +27,7 @@ Before training the speech-to-unit translation (S2UT) model, we have to quantize
 
 To train the S2UT model on French-English, simply run the following command:
 ```
-python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CV4/fr --tgt_data_folder=/corpus/CV4/fr-en --bfloat16_mix_prec
+python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice --tgt_data_folder=/corpus/CVSS --bfloat16_mix_prec
 ```
 
 >  Dynamic batch settings are optimized for a 40GB VRAM GPU. Don't hesitate to adjust max_batch_len and max_batch_len_val to fit your GPU's capabilities.
