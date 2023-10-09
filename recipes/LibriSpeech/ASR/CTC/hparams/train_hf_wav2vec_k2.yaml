@@ -18,10 +18,10 @@ wav2vec2_hub: facebook/wav2vec2-large-960h-lv60-self
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+data_folder: "/data/pchampio/Librispeech/LibriSpeech" # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean", "dev-other"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
@@ -174,12 +174,12 @@ test_output_beam: 8
 test_max_active_state: 3000
 # Acoustic scale (mutliplied by the log probs)
 ac_scale: 1.5
-use_HLG: False
+use_HLG: True
 # 1best or whole-lattice-rescoring
 decoding_method: whole-lattice-rescoring
 # This is where the 3gram and (optionally) 4gram LM are stored
 # They can be in either ARPA or FST format. If the former, then 
 # the FST equivalent will be created in the same directory by
 # using kaldilm.
-lm_dir: lm
+lm_dir: !ref <data_folder>/LM
 lm_scale_list: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
