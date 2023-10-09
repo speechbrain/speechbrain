@@ -39,6 +39,7 @@ try:
         AutoFeatureExtractor,
         AutoModelForPreTraining,
         AutoModel,
+        AutoModelWithLMHead,
     )
 
 except ImportError:
@@ -71,6 +72,8 @@ class HFTransformersInterface(nn.Module):
         save directory of the downloaded model.
     for_pretraining: bool (default: False)
         If True, build the model for pretraining
+    with_lm_head: bool (default: False)
+        If True, build the model with lm_head
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
@@ -89,13 +92,12 @@ class HFTransformersInterface(nn.Module):
         source,
         save_path="",
         for_pretraining=False,
+        with_lm_head=False,
         freeze=False,
         cache_dir="pretrained_models",
         **kwarg,
     ):
         super().__init__()
-
-        self.load_feature_extractor(source, cache_dir=save_path, **kwarg)
 
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
@@ -105,8 +107,11 @@ class HFTransformersInterface(nn.Module):
         self.config = self.override_config(self.config)
 
         self.for_pretraining = for_pretraining
+        self.with_lm_head = with_lm_head
         if for_pretraining:
             model = AutoModelForPreTraining.from_config(self.config)
+        elif with_lm_head:
+            model = AutoModelWithLMHead.from_config(self.config)
         else:
             model = AutoModel.from_config(self.config)
 

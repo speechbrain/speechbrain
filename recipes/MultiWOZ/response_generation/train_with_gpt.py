@@ -19,7 +19,6 @@ import torch
 from itertools import chain
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from transformers import GPT2Tokenizer
 import math
 from speechbrain.dataio.batch import PaddedBatch
 
@@ -426,9 +425,7 @@ if __name__ == "__main__":
     )
 
     # Load tokenizer and add special tokens
-    tokenizer = GPT2Tokenizer.from_pretrained(
-        hparams["gpt_hub"], pad_token=None
-    )
+    tokenizer = hparams["gpt_model"].tokenizer
 
     #  Load pretrained GPT
     hparams["gpt_model"] = hparams["gpt_model"].to(device=run_opts["device"])

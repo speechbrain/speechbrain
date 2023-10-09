@@ -100,6 +100,7 @@ class Wav2Vec2(HFTransformersInterface):
         self.model.config.apply_spec_augment = apply_spec_augment
 
         # We check if inputs need to be normalized w.r.t pretrained wav2vec2
+        self.load_feature_extractor(source, cache_dir=save_path)
         self.normalize_wav = self.feature_extractor.do_normalize
 
         self.freeze_feature_extractor = freeze_feature_extractor
