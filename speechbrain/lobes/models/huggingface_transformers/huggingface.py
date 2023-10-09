@@ -40,6 +40,7 @@ try:
         AutoModelForPreTraining,
         AutoModel,
         AutoModelWithLMHead,
+        AutoModelForSeq2SeqLM,
     )
 
 except ImportError:
@@ -93,6 +94,7 @@ class HFTransformersInterface(nn.Module):
         save_path="",
         for_pretraining=False,
         with_lm_head=False,
+        seq2seqlm=False,
         freeze=False,
         cache_dir="pretrained_models",
         **kwarg,
@@ -108,10 +110,13 @@ class HFTransformersInterface(nn.Module):
 
         self.for_pretraining = for_pretraining
         self.with_lm_head = with_lm_head
+        self.seq2seqlm = seq2seqlm
         if for_pretraining:
             model = AutoModelForPreTraining.from_config(self.config)
         elif with_lm_head:
             model = AutoModelWithLMHead.from_config(self.config)
+        elif seq2seqlm:
+            model = AutoModelForSeq2SeqLM.from_config(self.config)
         else:
             model = AutoModel.from_config(self.config)
 
