@@ -72,6 +72,7 @@ class GPT(HFTransformersInterface):
         self.top_p = top_p
         self.num_beams = num_beams
         self.early_stopping = early_stopping
+        self.eos_token_id = eos_token_id
 
         self.load_tokenizer(source=source, pad_token=None, use_fast=False)
 
