@@ -69,6 +69,7 @@ betas: [0.9, 0.98]
 ################################
 # VITS model parameters
 num_tokens: 40
+padding_idx: 0
 prior_encoder_in_features: 256
 prior_encoder_out_features: 256
 prior_encoder_hidden_features: 256
@@ -113,6 +114,7 @@ conv_post_bias: True
 #model
 vits_mel_predict: !new:speechbrain.lobes.models.VITS.VITS
     num_tokens: !ref <num_tokens>
+    padding_idx: !ref <padding_idx>
     prior_encoder_in_features: !ref <prior_encoder_in_features>
     prior_encoder_out_features: !ref <prior_encoder_out_features>
     prior_encoder_hidden_features: !ref <prior_encoder_hidden_features>
