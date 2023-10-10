@@ -101,7 +101,11 @@ class CtcTrainingGraphCompiler(object):
         self.decoding_graph: k2.Fsa = None  # HL or HLG
         self.rescoring_graph: k2.Fsa = None  # G (usually 4-gram LM)
 
-    def get_G(self, path: Optional[str] = None, save: bool = True) -> k2.Fsa:
+    def get_G(
+            self,
+            path: Optional[Union[str, Path]] = None,
+            save: bool = True
+        ) -> k2.Fsa:
         """Load a LM to be used in the decoding graph creation (or LM rescoring).
         Note that it doesn't load G into memory.
 
@@ -141,7 +145,7 @@ class CtcTrainingGraphCompiler(object):
             torch.save(G.as_dict(), path[:-8] + ".pt")
         return G
 
-    def get_rescoring_LM(self, path: Optional[str] = None) -> k2.Fsa:
+    def get_rescoring_LM(self, path: Optional[Union[str, Path]] = None) -> k2.Fsa:
         """Load a LM with the purpose of using it for LM rescoring.
         For instance, in the librispeech recipe this is a 4-gram LM (while  a
         3gram LM is used for HLG construction).
@@ -157,7 +161,7 @@ class CtcTrainingGraphCompiler(object):
         G:
             An FSA representing the LM. The device is the same as graph_compiler.device.
         """
-        path = str(path or self.rescoring_lm_path)
+        path = path or self.rescoring_lm_path
         logger.info(f"Loading rescoring LM: {path}")
         G = self.get_G(path, save=False).to("cpu")
         del G.aux_labels
@@ -341,7 +345,7 @@ class CtcTrainingGraphCompiler(object):
             if self.decoding_graph.device != device:
                 self.decoding_graph = self.decoding_graph.to(device)
             if decoding_method == "whole-lattice-rescoring":
-                self.rescoring_graph = self.get_rescoring_LM(str(rescoring_lm_path))\
+                self.rescoring_graph = self.get_rescoring_LM(rescoring_lm_path)\
                     .to(self.device)
         input_lens = input_lens.to(device)
 
