@@ -94,6 +94,7 @@ WN_flow_num_layers: 12
 flow_mean_only: True
 num_flows: 8
 flow_dropout: 0.1
+sdp: False
 
 #generater params
 in_channels: 80
@@ -110,7 +111,7 @@ cond_channels: 0
 conv_post_bias: True
 
 #model
-VITS: !new:speechbrain.lobes.models.VITS.VITS
+model: !new:speechbrain.lobes.models.VITS.VITS
     num_tokens: !ref <num_tokens>
     prior_encoder_in_features: !ref <prior_encoder_in_features>
     prior_encoder_out_features: !ref <prior_encoder_out_features>
@@ -137,6 +138,7 @@ VITS: !new:speechbrain.lobes.models.VITS.VITS
     flow_mean_only: !ref <flow_mean_only>
     num_flows: !ref <num_flows>
     flow_dropout: !ref <flow_dropout>
+    sdp: !ref <sdp>
 
 generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
   in_channels: !ref <in_channels>
@@ -152,8 +154,6 @@ generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
   conv_post_bias: !ref <conv_post_bias>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
-
-model: !new:speechbrain.lobes.models.VITS.VITS
 
 
 mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
@@ -187,13 +187,13 @@ train_dataloader_opts:
     drop_last: False  #True #False
     num_workers: 16
     shuffle: True
-    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+    collate_fn: !new:speechbrain.lobes.models.VITS.TextMelCollate
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 4
     shuffle: False
-    collate_fn: !new:speechbrain.lobes.models.FastSpeech2.TextMelCollate
+    collate_fn: !new:speechbrain.lobes.models.VITS.TextMelCollate
 
 #optimizer
 opt_class: !name:torch.optim.Adam

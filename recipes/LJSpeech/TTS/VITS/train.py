@@ -21,6 +21,8 @@ from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
 
+sys.path.append("/home/wtc7/Sathvik/speechbrain_imp//speechbrain/lobes/models/VITS.py")
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
 
@@ -49,13 +51,12 @@ class VITSBrain(sb.Brain):
         """
         inputs, _ = self.batch_to_device(batch)
 
-        tokens, wavs = inputs
 
 
         # Forward pass for the VITS module
         (
             pred
-        ) = self.hparams.model(tokens, wavs)
+        ) = self.hparams.model(inputs)
 
         return (
             pred
@@ -195,7 +196,7 @@ class VITSBrain(sb.Brain):
             text_padded,
             input_lengths,
             mel_padded,
-            output_lengths,
+            mel_lengths,
             wavs_padded,
             wav_lengths,
             labels,
@@ -205,11 +206,16 @@ class VITSBrain(sb.Brain):
         text_padded = text_padded.to(self.device, non_blocking=True).long()
         input_lengths = input_lengths.to(self.device, non_blocking=True).long()
         spectogram = mel_padded.to(self.device, non_blocking=True).float()
-        mel_lengths = output_lengths.to(self.device, non_blocking=True).long()
+        mel_lengths = mel_lengths.to(self.device, non_blocking=True).long()
         wavs_padded = wavs_padded.to(self.device, non_blocking=True).float()
         wav_lengths = wav_lengths.to(self.device, non_blocking=True).long()
         
-        x = (text_padded, input_lengths, wavs_padded, wav_lengths)
+        x = (
+            text_padded, 
+            input_lengths, 
+            wavs_padded, 
+            wav_lengths
+        )
         y = (
             spectogram,
             mel_lengths,
@@ -254,6 +260,8 @@ def dataio_prepare(hparams):
             text_seq,
             audio,
             mel,
+            label,
+            wav
         )
 
     # define splits and load it as sb dataset
@@ -293,10 +301,6 @@ def main():
             "split_ratio": hparams["split_ratio"],
             "model_name": hparams["model"].__class__.__name__,
             "seed": hparams["seed"],
-            "pitch_n_fft": hparams["n_fft"],
-            "pitch_hop_length": hparams["hop_length"],
-            "pitch_min_f0": hparams["min_f0"],
-            "pitch_max_f0": hparams["max_f0"],
             "skip_prep": hparams["skip_prep"],
             "use_custom_cleaner": True,
         },

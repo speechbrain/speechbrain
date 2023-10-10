@@ -6,6 +6,7 @@ Authors
 import torch.nn as nn
 import math
 import torch
+import numpy as np
 from speechbrain.lobes.models.transformer import Transformer
 
 class WN():
@@ -20,7 +21,7 @@ class WN():
     ):
         super().__init__()
         assert kernel_size % 2 == 1, f'{kernel_size}'
-        assert hidden_channels % 2 == 0, f'{hidden_channels}'
+        assert hidden_features % 2 == 0, f'{hidden_features}'
 
         layers = torch.nn.ModuleList()
         res_skip_layers = torch.nn.ModuleList()
@@ -29,22 +30,23 @@ class WN():
             dilation = dilation_rate ** idx
             padding = int((kernel_size * dilation - dilation) / 2)
             layer = torch.nn.Conv1d(
-                hidden_channels, 
-                2*hidden_channels, 
+                hidden_features, 
+                2*hidden_features, 
                 kernel_size=kernel_size,
                 dilation=dilation, 
                 padding=padding
             )
+            # layer = torch.nn.utils.parametrizations.weight_norm(layer, name='weight') #for touch2.0
             layer = torch.nn.utils.weight_norm(layer, name='weight')
-            layers.append(in_layer)
+            layers.append(layer)
             
             res_skip_features = 2 * hidden_features
             if idx == num_layers - 1:
                 res_skip_features = hidden_features
             
-            res_skip_layer = torch.nn.Conv1d(hidden_channels, res_skip_features, 1)
-            res_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
-            res_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
+            res_skip_layer = torch.nn.Conv1d(hidden_features, res_skip_features, 1)
+            # res_skip_layer = torch.nn.utils.parametrizations.weight_norm(res_skip_layer, name='weight')
+            es_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
             res_skip_layers.append(res_skip_layer)
         
         self.layers = layers
@@ -97,10 +99,10 @@ class PosteriorEncoder(nn.Module):
                 ):
         super(PosteriorEncoder, self).__init__()
         
-        pre_encoder = nn.Conv1d(in_features, hidden_features)
+        pre_encoder = nn.Conv1d(in_features, hidden_features, kernel_size=1)
+        # pre_encoder = torch.nn.utils.parametrizations.weight_norm(pre_encoder)
         pre_encoder = torch.nn.utils.weight_norm(pre_encoder)
-        
-        post_encoder = nn.Conv1d(hidden_features, in_features)
+        post_encoder = nn.Conv1d(hidden_features, in_features, kernel_size=1)
         post_encoder.weight.data.zero_()
         post_encoder.bias.data.zero_()
         
@@ -154,7 +156,7 @@ class PriorEncoder(nn.Module):
         self.hidden_features = hidden_features
         self.out_features = out_features
         
-    def forward(self, x):
+    def forward(self, x, x_lengths):
         x = self.token_embedding(x) * math.sqrt(self.hidden_features)
         x_mask = None
         x = self.encoder(x, x_mask)
@@ -197,8 +199,8 @@ class DurationPredictor(nn.Module):
             1, 
             1, 
         )
-        self.norm1 = LayerNorm(hidden_features)
-        self.norm2 = LayerNorm(hidden_features)
+        self.norm1 = nn.LayerNorm(hidden_features)
+        self.norm2 = nn.LayerNorm(hidden_features)
         self.dropout = nn.Dropout(dropout)
         self.relu = nn.ReLU()
 
@@ -225,16 +227,16 @@ class ResidualCouplingLayer(nn.Module):
         
         self.pre_decoder = nn.Conv1d(in_features // 2, hidden_features, 1)
         self.decoder = WN(
-            in_features=hidden_channels,
-            hidden_channels=hidden_channels,
+            in_features=hidden_features,
+            hidden_features=hidden_features,
             kernel_size=kernel_size,
             dilation_rate=dilation_rate,
             num_layers=num_layers,
             dropout=dropout,
         )
-        self.post_decoder = nn.Conv1d(hidden_channels, (in_features // 2) * (2 - mean_only), 1)
-        self.post.weight.data.zero_()
-        self.post.bias.data.zero_()
+        self.post_decoder = nn.Conv1d(hidden_features, (in_features // 2) * (2 - mean_only), 1)
+        self.post_decoder.weight.data.zero_()
+        self.post_decoder.bias.data.zero_()
 
     def forward(self, x, x_mask):
         x0, x1 = torch.split(x, [self.features] * 2, 1)
@@ -335,8 +337,9 @@ class VITS(nn.Module):
         flow_mean_only,
         num_flows,
         flow_dropout,
+        sdp,
     ):
-        super(VITS, self).__init__()
+        super().__init__()
         self.prior_encoder = PriorEncoder(
             num_tokens,
             in_features=prior_encoder_in_features,
@@ -364,14 +367,14 @@ class VITS(nn.Module):
             self.duration_predictor = StochasticDurationPredictor()
         else:
             self.duration_predictor = DurationPredictor(
-                in_features=encoder_in_features,
+                in_features=prior_encoder_out_features,
                 hidden_features=duration_predictor_hidden_features,
                 kernel_size=duration_predictor_kernel_size,
                 dropout=duration_predictor_dropout,
             )
 
         self.flow_decoder = ResidualCouplingBlock(
-            in_features=in_features,
+            in_features=posterior_encoder_out_features,
             hidden_features=flow_hidden_features,
             kernel_size=WN_flow_kernel_size,
             dilation_rate=WN_flow_dilation_rate,
@@ -381,7 +384,7 @@ class VITS(nn.Module):
             dropout=flow_dropout
         )
 
-    def mas(self, mu_p, log_s_p, z_p, mu_p, x_mask, y_mask):
+    def mas(self, mu_p, log_s_p, z_p, x_mask, y_mask):
         with torch.no_grad():
             s_p_sq_r = torch.exp(-2 * log_s_p)
             neg_cent1 = torch.sum(-0.5 * math.log(2 * math.pi) - log_s_p, [1], keepdim=True) 
@@ -404,10 +407,10 @@ class VITS(nn.Module):
         
         token_mask = None
         target_mask = None
-        tokens, mu_p, log_s_p, token_mask = self.text_encoder(token_mask, token_lengths)
+        tokens, mu_p, log_s_p, token_mask = self.prior_encoder(token_mask, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(target, target_lengths)
         z_p = self.flow(z, target_mask)
-        attn, path = self.mas(mu_p, log_s_p, z_p, mu_p, target_mask, target_mask)         
+        attn, path = self.mas(mu_p, log_s_p, z_p, target_mask, target_mask)         
         predicted_durations = self.duration_predictor(tokens)
         return
 
@@ -441,3 +444,85 @@ def get_mas_path(attn, mask, max_neg_val=-np.inf):
     max_path = max_path * mask.astype(np.float32)
     max_path = torch.from_numpy(max_path).to(device=device, dtype=dtype).squeeze()
     return max_path
+
+class TextMelCollate:
+    """ Zero-pads model inputs and targets based on number of frames per step
+    result: tuple
+        a tuple of tensors to be used as inputs/targets
+        (
+            text_padded,
+            dur_padded,
+            input_lengths,
+            mel_padded,
+            output_lengths,
+            len_x,
+            labels,
+            wavs
+        )
+    """
+
+    # TODO: Make this more intuitive, use the pipeline
+    def __call__(self, batch):
+        """Collate's training batch from normalized text and mel-spectrogram
+        Arguments
+        ---------
+        batch: list
+            [text_normalized, mel_normalized]
+        """
+        # TODO: Remove for loops
+        raw_batch = list(batch)
+        for i in range(
+            len(batch)
+        ):  # the pipline return a dictionary wiht one elemnent
+            batch[i] = batch[i]["mel_text_pair"]
+
+        # Right zero-pad all one-hot text sequences to max input length
+        input_lengths, ids_sorted_decreasing = torch.sort(
+            torch.LongTensor([len(x[0]) for x in batch]), dim=0, descending=True
+        )
+        max_input_len = input_lengths[0]
+        max_audio_len = max([len(x[1]) for x in batch])
+        max_mel_len = max([x[2].shape[-1] for x in batch])
+        
+        text_padded = torch.LongTensor(len(batch), max_input_len)
+        wavs_padded = torch.LongTensor(len(batch), max_audio_len)
+        mel_padded = torch.LongTensor(len(batch), 80, max_mel_len)
+        
+        text_padded.zero_()
+        wavs_padded.zero_()
+        mel_padded.zero_()
+        
+        input_lengths = []
+        mel_lengths = []
+        wav_lengths = []
+        raw_text = []
+        wav_fnames = []
+        
+        for i in range(len(ids_sorted_decreasing)):
+            text = batch[ids_sorted_decreasing[i]][0]
+            text_padded[i, : text.size(0)] = text
+            audio = batch[ids_sorted_decreasing[i]][1]
+            wavs_padded[i, : audio.size(0)] = audio
+            melspec = batch[ids_sorted_decreasing[i]][2]
+            mel_padded[i, : , : melspec.size(1)] = melspec
+            
+            raw_text.append(batch[ids_sorted_decreasing[i]][3])
+            wav_fnames.append(batch[ids_sorted_decreasing[i]][4])
+            input_lengths.append(text.size(0))
+            mel_lengths.append(melspec.size(1))
+            wav_lengths.append(audio.size(0))
+        
+        input_lengths = torch.from_numpy(np.array(input_lengths))
+        mel_lengths = torch.from_numpy(np.array(mel_lengths))
+        wav_lengths = torch.from_numpy(np.array(wav_lengths))
+        
+        return (
+            text_padded,
+            input_lengths,
+            mel_padded,
+            mel_lengths,
+            wavs_padded,
+            wav_lengths,
+            raw_text,
+            wav_fnames
+        )
