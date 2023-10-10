@@ -76,7 +76,7 @@ prior_encoder_hidden_features: 256
 prior_encoder_ffn_features: 784
 prior_encoder_num_heads: 2
 prior_encoder_num_layers: 6
-prior_encoder_attn_type: RelPosMHAXL
+prior_encoder_attn_type: regularMHA
 prior_encoder_dropout: 0.1
 posterior_encoder_in_features: 256 
 posterior_encoder_hidden_features: 256

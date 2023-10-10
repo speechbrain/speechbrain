@@ -7,7 +7,11 @@ import torch.nn as nn
 import math
 import torch
 import numpy as np
-from speechbrain.lobes.models.transformer import Transformer
+from speechbrain.lobes.models.transformer.Transformer import (
+    TransformerEncoder,
+    get_key_padding_mask
+)
+from speechbrain.lobes.models.FastSpeech2 import PositionalEmbedding
 
 class WN():
     def __init__(
@@ -131,6 +135,7 @@ class PriorEncoder(nn.Module):
     def __init__(
         self,
         num_tokens,
+        padding_idx,
         in_features,
         out_features,
         hidden_features,
@@ -142,7 +147,7 @@ class PriorEncoder(nn.Module):
         
     ):
         super(PriorEncoder, self).__init__()
-        self.encoder = Transformer.TransformerEncoder(
+        self.encoder = TransformerEncoder(
             num_layers=num_layers,
             nhead=num_heads,
             d_ffn=ffn_features,
@@ -155,14 +160,26 @@ class PriorEncoder(nn.Module):
         self.post_encoder = nn.Conv1d(hidden_features, out_features*2, 1)
         self.hidden_features = hidden_features
         self.out_features = out_features
+        self.padding_idx = padding_idx
+        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(hidden_features)
         
     def forward(self, x, x_lengths):
+        
+        
+        
         x = self.token_embedding(x) * math.sqrt(self.hidden_features)
-        x_mask = None
-        x = self.encoder(x, x_mask)
+        
+        srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
+        pos_embed = self.sinusoidal_positional_embed_encoder(
+            x.shape[1], srcmask, x.dtype
+        )
+        x = torch.add(x, pos) * srcmask_inverted
+        x = self.encoder(x)
         x_d = self.proj(x)
         mu, log_s = torch.split(x_d, self.out_features, dim=1)
-        return x, mu, log_s, x_mask
+        # return x, mu, log_s, x_mask
+        return x, mu, log_s, x
 
 class StochasticDurationPredictor(nn.Module):
     def __init__(self):
@@ -312,6 +329,7 @@ class VITS(nn.Module):
     def __init__(
         self,
         num_tokens,
+        padding_idx,
         prior_encoder_in_features,
         prior_encoder_out_features,
         prior_encoder_hidden_features,
@@ -339,9 +357,10 @@ class VITS(nn.Module):
         flow_dropout,
         sdp,
     ):
-        super().__init__()
+        super().__init__() 
         self.prior_encoder = PriorEncoder(
             num_tokens,
+            padding_idx=padding_idx,
             in_features=prior_encoder_in_features,
             out_features=prior_encoder_out_features,
             hidden_features=prior_encoder_hidden_features,
@@ -363,8 +382,8 @@ class VITS(nn.Module):
         )
         
         if sdp:
-            
             self.duration_predictor = StochasticDurationPredictor()
+            
         else:
             self.duration_predictor = DurationPredictor(
                 in_features=prior_encoder_out_features,
@@ -383,7 +402,9 @@ class VITS(nn.Module):
             mean_only=flow_mean_only,
             dropout=flow_dropout
         )
-
+        
+        
+        
     def mas(self, mu_p, log_s_p, z_p, x_mask, y_mask):
         with torch.no_grad():
             s_p_sq_r = torch.exp(-2 * log_s_p)
@@ -404,6 +425,7 @@ class VITS(nn.Module):
     
     def forward(self, inputs):
         (tokens, token_lengths, mels, mel_lengths) = inputs
+        
         
         token_mask = None
         target_mask = None
