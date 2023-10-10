@@ -403,11 +403,11 @@ class VITS(nn.Module):
         return attn, path
     
     def forward(self, inputs):
-        (tokens, token_lengths, target, target_lengths) = inputs
+        (tokens, token_lengths, mels, mel_lengths) = inputs
         
         token_mask = None
         target_mask = None
-        tokens, mu_p, log_s_p, token_mask = self.prior_encoder(token_mask, token_lengths)
+        tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(target, target_lengths)
         z_p = self.flow(z, target_mask)
         attn, path = self.mas(mu_p, log_s_p, z_p, target_mask, target_mask)         

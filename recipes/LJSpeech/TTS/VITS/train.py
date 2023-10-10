@@ -49,14 +49,12 @@ class VITSBrain(sb.Brain):
         -------
         the model output
         """
-        inputs, _ = self.batch_to_device(batch)
+        inputs1, input2, _ = self.batch_to_device(batch)
 
 
 
         # Forward pass for the VITS module
-        (
-            pred
-        ) = self.hparams.model(inputs)
+        pred = self.hparams.vits_mel_predict(inputs1)
 
         return (
             pred
@@ -92,7 +90,7 @@ class VITSBrain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        x, y, metadata = self.batch_to_device(batch, return_metadata=True)
+        x1, x2, y, metadata = self.batch_to_device(batch, return_metadata=True)
         self.last_batch = [x[0], y[-2], y[-3], predictions[0], *metadata]
         # self._remember_sample([x[0], *y, *metadata], predictions)
         loss = self.hparams.criterion(
@@ -205,19 +203,23 @@ class VITSBrain(sb.Brain):
 
         text_padded = text_padded.to(self.device, non_blocking=True).long()
         input_lengths = input_lengths.to(self.device, non_blocking=True).long()
-        spectogram = mel_padded.to(self.device, non_blocking=True).float()
+        mel = mel_padded.to(self.device, non_blocking=True).float()
         mel_lengths = mel_lengths.to(self.device, non_blocking=True).long()
         wavs_padded = wavs_padded.to(self.device, non_blocking=True).float()
         wav_lengths = wav_lengths.to(self.device, non_blocking=True).long()
         
-        x = (
+        x1 = (
             text_padded, 
             input_lengths, 
-            wavs_padded, 
+            mel,
+            mel_lengths, 
+        )
+        x2 = (
+            wavs_padded,
             wav_lengths
         )
         y = (
-            spectogram,
+            mel,
             mel_lengths,
             input_lengths,
             wavs_padded,
@@ -225,8 +227,8 @@ class VITSBrain(sb.Brain):
         )
         metadata = (labels, wavs)
         if return_metadata:
-            return x, y, metadata
-        return x, y
+            return x1, x2, y, metadata
+        return x1, x2, y
 
 
 def dataio_prepare(hparams):
@@ -299,7 +301,7 @@ def main():
             "save_folder": hparams["save_folder"],
             "splits": hparams["splits"],
             "split_ratio": hparams["split_ratio"],
-            "model_name": hparams["model"].__class__.__name__,
+            "model_name": hparams["vits_mel_predict"].__class__.__name__,
             "seed": hparams["seed"],
             "skip_prep": hparams["skip_prep"],
             "use_custom_cleaner": True,

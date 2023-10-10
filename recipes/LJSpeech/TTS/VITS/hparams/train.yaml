@@ -111,7 +111,7 @@ cond_channels: 0
 conv_post_bias: True
 
 #model
-model: !new:speechbrain.lobes.models.VITS.VITS
+vits_mel_predict: !new:speechbrain.lobes.models.VITS.VITS
     num_tokens: !ref <num_tokens>
     prior_encoder_in_features: !ref <prior_encoder_in_features>
     prior_encoder_out_features: !ref <prior_encoder_out_features>
@@ -155,7 +155,6 @@ generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
 
-
 mel_spectogram: !name:speechbrain.lobes.models.FastSpeech2.mel_spectogram
     sample_rate: !ref <sample_rate>
     hop_length: !ref <hop_length>
@@ -178,7 +177,7 @@ vocoder_source: speechbrain/tts-hifigan-ljspeech
 vocoder_download_path: tmpdir_vocoder
 
 modules:
-    model: !ref <model>
+    vits_mel_predict: !ref <vits_mel_predict>
     generator: !ref <generator>
     discriminator: !ref <discriminator>
 
@@ -216,7 +215,9 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        model: !ref <model>
+        vits_mel_predict: !ref <vits_mel_predict>
+        generator: !ref <generator>
+        discriminator: !ref <discriminator>
         lr_annealing: !ref <noam_annealing>
         counter: !ref <epoch_counter>
 

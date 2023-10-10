@@ -506,7 +506,7 @@ def prepare_json(
             phonemes = _g2p_keep_punctuations(g2p, label)
             # Updates data for the utterance
             json_dict[id].update({"phonemes": phonemes})
-            json_dict[id].update({"pitch": pitch_file}
+            json_dict[id].update({"pitch": pitch_file})
                                  
     if model_name == "VITS":
         if json_file.endswith("train.json"):
