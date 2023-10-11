@@ -19,7 +19,7 @@ import torch
 import torch.nn.functional as F
 from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.dataio.dataloader import make_dataloader
-from speechbrain.processing.augment.preparation import prepare_dataset_from_URL 
+from speechbrain.augment.preparation import prepare_dataset_from_URL 
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
