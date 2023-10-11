@@ -11,19 +11,16 @@ Authors
 import logging
 from torch import Tensor
 import torch
-import torch.nn as nn
 
-try:
-    from transformers import GPT2LMHeadModel
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use GPT2\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
+from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+    HFTransformersInterface,
+)
+
 
 logger = logging.getLogger(__name__)
 
 
-class HuggingFaceGPT(nn.Module):
+class GPT(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace pretrained GPT model.
      Source paper whisper:
         https://life-extension.github.io/2020/05/27/GPT%E6%8A%80%E6%9C%AF%E5%88%9D%E6%8E%A2/language-models.pdf
@@ -46,7 +43,7 @@ class HuggingFaceGPT(nn.Module):
     -------
     >>> model_hub = "gpt2"
     >>> save_path = "savedir"
-    >>> model = HuggingFaceGPT(model_hub, save_path)
+    >>> model = GPT(model_hub, save_path)
     >>> tokens = torch.tensor([[1, 1]])
     >>> tokens_type = torch.tensor([[1, 1]])
     >>> attention_mask = torch.tensor([[1, 1]])
@@ -55,27 +52,30 @@ class HuggingFaceGPT(nn.Module):
 
     def __init__(
         self,
-        source: str,
-        save_path: str,
-        freeze: bool = False,
-        max_new_tokens: int = 200,
-        min_length: int = 1,
-        top_k: int = 45,
-        top_p: float = 0.9,
-        num_beams: int = 8,
-        early_stopping: bool = True,
+        source,
+        save_path,
+        freeze=False,
+        max_new_tokens=200,
+        min_length=1,
+        top_k=45,
+        top_p=0.9,
+        num_beams=8,
+        eos_token_id=50258,
+        early_stopping=True,
     ) -> None:
-        super().__init__()
-        self.freeze = freeze
+        super().__init__(
+            source=source, save_path=save_path, freeze=freeze, with_lm_head=True
+        )
         self.max_new_tokens = max_new_tokens
         self.min_length = min_length
         self.top_k = top_k
         self.top_p = top_p
         self.num_beams = num_beams
         self.early_stopping = early_stopping
-        self.model = GPT2LMHeadModel.from_pretrained(
-            source, cache_dir=save_path
-        )
+        self.eos_token_id = eos_token_id
+
+        self.load_tokenizer(source=source, pad_token=None, use_fast=False)
+
         if self.freeze:
             logger.warning("huggingface_GPT - GPT  is frozen.")
             self.model.train()  # we keep it to train to have dropout and LN computed adequaly
@@ -137,8 +137,7 @@ class HuggingFaceGPT(nn.Module):
                     top_p=self.top_p,
                     num_beams=self.num_beams,
                     num_return_sequences=1,
-                    # pad_token_id=50258,
-                    eos_token_id=50258,
+                    eos_token_id=self.eos_token_id,
                     early_stopping=self.early_stopping,
                 )
             else:
@@ -147,8 +146,7 @@ class HuggingFaceGPT(nn.Module):
                     input_ids,
                     token_type_ids=token_type_ids,
                     max_new_tokens=self.max_new_tokens,
-                    # pad_token_id=50258,
-                    eos_token_id=50258,
+                    eos_token_id=self.eos_token_id,
                     attention_mask=attention_mask,
                 )
         return hyp
