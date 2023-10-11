@@ -13,17 +13,13 @@ Authors
  * Mirco Ravanelli 2023
 """
 
-# Sequence of Noises and RIRS from the openrir dataser (original: http://www.openslr.org/resources/28/)
-NOISE_DATASET_URL = "https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1"
-RIR_DATASET_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
-
-
 # Importing libraries
 import math
 import torch
 import torch.nn.functional as F
 from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.dataio.dataloader import make_dataloader
+from speechbrain.processing.augment.preparation import prepare_dataset_from_URL 
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
     dB_to_amplitude,
@@ -57,9 +53,6 @@ class AddNoise(torch.nn.Module):
         If True, copy noise signals that are shorter than
         their corresponding clean signals so as to cover the whole clean
         signal. Otherwise, leave the noise un-padded.
-    mix_prob : float
-        The probability that a batch of signals will be mixed
-        with a noise signal. By default, every batch is mixed with noise.
     start_index : int
         The index in the noise waveforms to start from. By default, chooses
         a random index in [0, len(noise) - len(waveforms)].
@@ -103,7 +96,6 @@ class AddNoise(torch.nn.Module):
         snr_low=0,
         snr_high=0,
         pad_noise=False,
-        mix_prob=1.0,
         start_index=None,
         normalize=False,
         noise_funct=torch.randn_like,
@@ -146,10 +138,6 @@ class AddNoise(torch.nn.Module):
         # Copy clean waveform to initialize noisy waveform
         noisy_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
-
-        # Don't add noise (return early) 1-`mix_prob` portion of the batches
-        if torch.rand(1) > self.mix_prob:
-            return noisy_waveform
 
         # Compute the average amplitude of the clean waveforms
         clean_amplitude = compute_amplitude(waveforms, lengths, amp_type="rms")
