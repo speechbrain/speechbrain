@@ -11,11 +11,6 @@ sample_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
     replacements:
         data_folder: !ref <data_folder>/single-mic
 
-add_babble: !new:speechbrain.processing.speech_augmentation.AddBabble
-    speaker_count: 4  # Must set batch size to 5 or more
-    snr_low: 0
-    snr_high: 0
-
 add_reverb: !new:speechbrain.processing.speech_augmentation.AddReverb
     csv_file: !ref <data_folder>/annotation/RIRs.csv
     sorting: descending

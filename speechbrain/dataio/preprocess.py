@@ -1,6 +1,6 @@
 """Preprocessors for audio"""
 import torch
-from speechbrain.augment.speech_augmentation import Resample
+from speechbrain.augment.speech_augment import Resample
 
 
 class AudioNormalizer:

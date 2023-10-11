@@ -311,9 +311,6 @@ class AddReverb(torch.nn.Module):
     sorting : str
         The order to iterate the csv file, from one of
         the following options: random, original, ascending, and descending.
-    reverb_prob : float
-        The chance that the audio signal will be reverbed.
-        By default, every batch is reverbed.
     rir_scale_factor: float
         It compresses or dilates the given impulse response.
         If 0 < scale_factor < 1, the impulse response is compressed
@@ -345,7 +342,6 @@ class AddReverb(torch.nn.Module):
         self,
         csv_file,
         sorting="random",
-        reverb_prob=1.0,
         rir_scale_factor=1.0,
         replacements={},
         reverb_sample_rate=16000,
@@ -354,7 +350,6 @@ class AddReverb(torch.nn.Module):
         super().__init__()
         self.csv_file = csv_file
         self.sorting = sorting
-        self.reverb_prob = reverb_prob
         self.replacements = replacements
         self.rir_scale_factor = rir_scale_factor
 
@@ -385,10 +380,6 @@ class AddReverb(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
-
-        # Don't add reverb (return early) 1-`reverb_prob` portion of the time
-        if torch.rand(1) > self.reverb_prob:
-            return waveforms.clone()
 
         # Add channels dimension if necessary
         channel_added = False

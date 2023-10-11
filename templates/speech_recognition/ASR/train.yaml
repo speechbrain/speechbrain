@@ -84,6 +84,11 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
+# Data augmentation
+snr_low: 0
+snr_high: 15
+
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
@@ -136,22 +141,34 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 # Download and prepare the dataset of noisy sequences for augmentation
-prepare_noise_data: !name:speechbrain.processing.augment.preparation.prepare_dataset_from_URL
+prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     URL: !ref <NOISE_DATASET_URL>
     dest_folder: !ref <data_folder_noise>
     ext: wav
     csv_file: !ref <noise_annotation>
 
 # Download and prepare the dataset of room impulse responses for augmentation
-prepare_rir_data: !name:speechbrain.processing.augment.preparation.prepare_dataset_from_URL
+prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     URL: !ref <RIR_DATASET_URL>
     dest_folder: !ref <data_folder_rir>
     ext: wav
     csv_file: !ref <rir_annotation>
     
-# Add Noise
-
-# Add Reverb
+# Add noise to input signal
+add_noise: !name:speechbrain.augment.speech_augment.AddNoise
+    csv_file: !ref <noise_annotation>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
+    noise_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    
+# Add reverberation to input signal
+add_reverb: !name:speechbrain.augment.speech_augment.AddReverb
+    csv_file: !ref <rir_annotation>
+    reverb_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    
+        
 
 # Time Drop
 
