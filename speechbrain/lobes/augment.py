@@ -13,6 +13,7 @@ import os
 import torch
 import torchaudio
 import speechbrain as sb
+from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.speech_augmentation import (
     SpeedPerturb,
@@ -26,7 +27,7 @@ from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
 
-OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
+OPENRIR_URL = "https://www.dropbox.com/scl/fi/a5zg4588mefxzq2cleuux/RIRS_NOISES.zip?rlkey=01ymylca0an1nc7tlpdt2bjif&dl=1"
 
 
 class SpecAugment(torch.nn.Module):
@@ -476,15 +477,16 @@ def _prepare_openrir(folder, reverb_csv, noise_csv, max_noise_len):
 
     # Prepare reverb csv if necessary
     if not os.path.isfile(reverb_csv):
-        rir_filelist = os.path.join(
-            folder, "RIRS_NOISES", "real_rirs_isotropic_noises", "rir_list"
+        rir_filelist = get_all_files(
+            os.path.join(folder, "RIRS_NOISES", "RIRS"), match_and=[".wav"]
         )
         _prepare_csv(folder, rir_filelist, reverb_csv)
 
     # Prepare noise csv if necessary
     if not os.path.isfile(noise_csv):
-        noise_filelist = os.path.join(
-            folder, "RIRS_NOISES", "pointsource_noises", "noise_list"
+        noise_filelist = get_all_files(
+            os.path.join(folder, "RIRS_NOISES", "pointsource_noises"),
+            match_and=[".wav"],
         )
         _prepare_csv(folder, noise_filelist, noise_csv, max_noise_len)
 
@@ -510,10 +512,9 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
         if sb.utils.distributed.if_main_process():
             with open(csv_file, "w") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
-                for line in open(filelist):
+                for filename in filelist:
 
                     # Read file for duration/channel info
-                    filename = os.path.join(folder, line.split()[-1])
                     signal, rate = torchaudio.load(filename)
 
                     # Ensure only one channel
