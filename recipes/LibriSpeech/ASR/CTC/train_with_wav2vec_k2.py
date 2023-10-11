@@ -119,9 +119,7 @@ class ASR(sb.Brain):
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
         if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            decoding_method = getattr(
-                asr_brain.hparams, "decoding_method", "1best"
-            )
+            decoding_method = self.hparams.decoding_method
             # If the decoding method is 1best then the metric stats will be
             # saved in a single file, otherwise, a new directory will be created
             # for each lm_scale used in whole lattice rescoring.
@@ -147,7 +145,7 @@ class ASR(sb.Brain):
                 for i, lm_scale in enumerate(self.hparams.lm_scale_list):
                     predicted_texts: List[str] = decode_output[
                         f"lm_scale_{lm_scale:.1f}"
-                    ]
+                    ] # type: ignore
                     predicted_words: List[List[str]] = [
                         wrd.split(" ") for wrd in predicted_texts
                     ]
@@ -589,8 +587,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    need_G = getattr(asr_brain.hparams, "use_HLG", False) in [True, "True"]
-    need_4gram = asr_brain.hparams.decoding_method == "whole-lattice-rescoring"
+    need_G = hparams.get("use_HLG", False) in [True, "True"]
+    need_4gram = hparams.get("decoding_method", None) == "whole-lattice-rescoring"
     rescoring_lm_path = None
     G_path = None
     # NOTE: This means that even if the 3gram G is not needed, but we still plan to
@@ -601,23 +599,25 @@ if __name__ == "__main__":
         # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
         logger.info("Converting arpa LM to FST")
         G_path = (
-            Path(asr_brain.hparams.lm_dir)
-            / asr_brain.hparams.trigram_fst_output_name
+            Path(hparams["lm_dir"])
+            / hparams["trigram_fst_output_name"]
         )
         rescoring_lm_path = (
-            Path(asr_brain.hparams.lm_dir)
-            / asr_brain.hparams.fourgram_fst_output_name
+            Path(hparams["lm_dir"])
+            / hparams["fourgram_fst_output_name"]
         )
         logger.info(f"Will load LM from {G_path}")
         run_on_main(
             arpa_to_fst,
             kwargs={
-                "arpa_dir": Path(asr_brain.hparams.lm_dir),
-                "output_dir": Path(asr_brain.hparams.lm_dir),
-                "words_txt": Path(asr_brain.hparams.lang_dir) / "words.txt",
+                "arpa_dir": Path(hparams["lm_dir"]),
+                "output_dir": Path(hparams["lm_dir"]),
+                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
                 "convert_4gram": need_4gram,
-                "trigram_arpa_name": "3-gram.pruned.1e-7.arpa",
-                "fourgram_arpa_name": "4-gram.arpa",
+                "trigram_arpa_name": Path(hparams["lm_dir"]) / \
+                    hparams["trigram_arpa_name"],
+                "fourgram_arpa_name": Path(hparams["lm_dir"]) / \
+                    hparams["fourgram_arpa_name"],
                 "trigram_fst_output_name": G_path,
                 "fourgram_fst_output_name": rescoring_lm_path,
             },
