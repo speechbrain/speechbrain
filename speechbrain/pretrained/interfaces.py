@@ -3666,8 +3666,10 @@ class UnitHIFIGAN(Pretrained):
         super().__init__(*args, **kwargs)
         self.infer = self.hparams.generator.inference
         self.first_call = True
+        # Temporary fix for mapping indices from the range [0, k] to [1, k+1]
+        self.tokenize = True
 
-    def decode_batch(self, units, spk=None):
+    def decode_batch(self, units):
         """Computes waveforms from a batch of discrete units
         Arguments
         ---------
@@ -3682,6 +3684,8 @@ class UnitHIFIGAN(Pretrained):
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
+        if self.tokenize:
+            units += 1
         with torch.no_grad():
             waveform = self.infer(units.to(self.device))
         return waveform
@@ -3701,6 +3705,8 @@ class UnitHIFIGAN(Pretrained):
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
+        if self.tokenize:
+            units += 1
         with torch.no_grad():
             waveform = self.infer(units.unsqueeze(0).to(self.device))
         return waveform.squeeze(0)

@@ -403,6 +403,9 @@ def dataio_prepare(hparams):
         code = np.load(code_folder / f"{utt_id}.npy")
         code = torch.IntTensor(code)
 
+        # Maps indices from the range [0, k] to [1, k+1]
+        code = code + 1
+
         # Trim end of audio
         code_length = min(audio.shape[0] // code_hop_size, code.shape[0])
         code = code[:code_length]

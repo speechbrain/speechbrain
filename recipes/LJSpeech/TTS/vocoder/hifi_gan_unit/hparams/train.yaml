@@ -31,7 +31,7 @@ splits: ["train", "valid"]
 split_ratio: [90, 10]
 skip_prep: False
 
-kmeans_folder: !PLACEHOLDER # e.g, ./Quantization/results/kmeans/4321/save
+kmeans_folder: !PLACEHOLDER # e.g, ../../quantization/results/kmeans/4321/save
 codes_folder: !ref <save_folder>/codes
 kmeans_size: 100
 encoder_hub: facebook/hubert-base-ls960
@@ -86,7 +86,7 @@ test_dataloader_opts:
 duration_predictor: True
 
 # embedding params
-num_embeddings: !ref <kmeans_size>
+num_embeddings: 101 # K-means size + 1 for padding
 embedding_dim: 128
 
 # generator params
