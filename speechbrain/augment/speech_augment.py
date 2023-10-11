@@ -112,7 +112,6 @@ class AddNoise(torch.nn.Module):
         self.snr_low = snr_low
         self.snr_high = snr_high
         self.pad_noise = pad_noise
-        self.mix_prob = mix_prob
         self.start_index = start_index
         self.normalize = normalize
         self.replacements = replacements
@@ -445,9 +444,6 @@ class SpeedPerturb(torch.nn.Module):
     speeds : list
         The speeds that the signal should be changed to, as a percentage of the
         original signal (i.e. `speeds` is divided by 100 to get a ratio).
-    perturb_prob : float
-        The chance that the batch will be speed-
-        perturbed. By default, every batch is perturbed.
 
     Example
     -------
@@ -462,12 +458,10 @@ class SpeedPerturb(torch.nn.Module):
     torch.Size([1, 46956])
     """
 
-    def __init__(self, orig_freq, speeds=[90, 100, 110], perturb_prob=1.0):
+    def __init__(self, orig_freq, speeds=[90, 100, 110]):
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
-        self.perturb_prob = perturb_prob
-
         # Initialize index of perturbation
         self.samp_index = 0
 
@@ -493,10 +487,6 @@ class SpeedPerturb(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
-
-        # Don't perturb (return early) 1-`perturb_prob` portion of the batches
-        if torch.rand(1) > self.perturb_prob:
-            return waveform.clone()
 
         # Perform a random perturbation
         self.samp_index = torch.randint(len(self.speeds), (1,))[0]
@@ -826,9 +816,6 @@ class AddBabble(torch.nn.Module):
         The low end of the mixing ratios, in decibels.
     snr_high : int
         The high end of the mixing ratios, in decibels.
-    mix_prob : float
-        The probability that the batch of signals will be
-        mixed with babble noise. By default, every signal is mixed.
 
     Example
     -------
@@ -843,12 +830,11 @@ class AddBabble(torch.nn.Module):
     >>> noisy = babbler(speech, lengths)
     """
 
-    def __init__(self, speaker_count=3, snr_low=0, snr_high=0, mix_prob=1):
+    def __init__(self, speaker_count=3, snr_low=0, snr_high=0):
         super().__init__()
         self.speaker_count = speaker_count
         self.snr_low = snr_low
         self.snr_high = snr_high
-        self.mix_prob = mix_prob
 
     def forward(self, waveforms, lengths):
         """
@@ -868,10 +854,6 @@ class AddBabble(torch.nn.Module):
         babbled_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
         batch_size = len(waveforms)
-
-        # Don't mix (return early) 1-`mix_prob` portion of the batches
-        if torch.rand(1) > self.mix_prob:
-            return babbled_waveform
 
         # Pick an SNR and use it to compute the mixture amplitude factors
         clean_amplitude = compute_amplitude(waveforms, lengths)
@@ -919,9 +901,6 @@ class DropFreq(torch.nn.Module):
     drop_width : float
         The width of the frequency band to drop, as
         a fraction of the sampling_rate / 2.
-    drop_prob : float
-        The probability that the batch of signals will  have a frequency
-        dropped. By default, every batch has frequencies dropped.
 
     Example
     -------
@@ -938,7 +917,6 @@ class DropFreq(torch.nn.Module):
         drop_count_low=1,
         drop_count_high=2,
         drop_width=0.05,
-        drop_prob=1,
     ):
         super().__init__()
         self.drop_freq_low = drop_freq_low
@@ -946,7 +924,6 @@ class DropFreq(torch.nn.Module):
         self.drop_count_low = drop_count_low
         self.drop_count_high = drop_count_high
         self.drop_width = drop_width
-        self.drop_prob = drop_prob
 
     def forward(self, waveforms):
         """
@@ -962,8 +939,6 @@ class DropFreq(torch.nn.Module):
 
         # Don't drop (return early) 1-`drop_prob` portion of the batches
         dropped_waveform = waveforms.clone()
-        if torch.rand(1) > self.drop_prob:
-            return dropped_waveform
 
         # Add channels dimension
         if len(waveforms.shape) == 2:
@@ -1040,10 +1015,6 @@ class DropChunk(torch.nn.Module):
         The first index for which dropping will be allowed.
     drop_end : int
         The last index for which dropping will be allowed.
-    drop_prob : float
-        The probability that the batch of signals will
-        have a portion dropped. By default, every batch
-        has portions dropped.
     noise_factor : float
         The factor relative to average amplitude of an utterance
         to use for scaling the white noise inserted. 1 keeps
@@ -1079,7 +1050,6 @@ class DropChunk(torch.nn.Module):
         self.drop_count_high = drop_count_high
         self.drop_start = drop_start
         self.drop_end = drop_end
-        self.drop_prob = drop_prob
         self.noise_factor = noise_factor
 
         # Validate low < high
@@ -1116,10 +1086,6 @@ class DropChunk(torch.nn.Module):
         lengths = (lengths * waveforms.size(1)).long()
         batch_size = waveforms.size(0)
         dropped_waveform = waveforms.clone()
-
-        # Don't drop (return early) 1-`drop_prob` portion of the batches
-        if torch.rand(1) > self.drop_prob:
-            return dropped_waveform
 
         # Store original amplitude for computing white noise amplitude
         clean_amplitude = compute_amplitude(waveforms, lengths.unsqueeze(1))
@@ -1371,9 +1337,6 @@ class DoClip(torch.nn.Module):
         The low end of amplitudes for which to clip the signal.
     clip_high : float
         The high end of amplitudes for which to clip the signal.
-    clip_prob : float
-        The probability that the batch of signals will have a portion clipped.
-        By default, every batch has portions clipped.
 
     Example
     -------
@@ -1389,7 +1352,6 @@ class DoClip(torch.nn.Module):
         super().__init__()
         self.clip_low = clip_low
         self.clip_high = clip_high
-        self.clip_prob = clip_prob
 
     def forward(self, waveforms):
         """
@@ -1402,10 +1364,6 @@ class DoClip(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
-
-        # Don't clip (return early) 1-`clip_prob` portion of the batches
-        if torch.rand(1) > self.clip_prob:
-            return waveforms.clone()
 
         # Randomly select clip value
         clipping_range = self.clip_high - self.clip_low

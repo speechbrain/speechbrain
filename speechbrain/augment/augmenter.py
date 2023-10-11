@@ -54,6 +54,8 @@ class Augmenter(torch.nn.Module):
     repeat_augment: int
         Applies the augmentation algorithm N times. This can be used to
         perform more data augmentation.
+    augmentations: list
+        List of augmentater objects to combine to perform data augmentation.
 
 
     Example
@@ -61,7 +63,7 @@ class Augmenter(torch.nn.Module):
     >>> from speechbrain.processing.speech_augmentation import DropFreq, DropChunk
     >>> freq_dropper = DropFreq()
     >>> chunk_dropper = DropChunk(drop_start=100, drop_end=16000)
-    >>> augment = Augmenter(parallel_augment=False, concat_original=False, freq_dropper=freq_dropper,  chunk_dropper= chunk_dropper)
+    >>> augment = Augmenter(parallel_augment=False, concat_original=False, augmentations=[freq_dropper, chunk_dropper])
     >>> signal = torch.rand([4, 16000])
     >>> output_signal, lenghts = augment(signal, lengths=torch.tensor([0.2,0.5,0.7,1.0]))
     """
@@ -75,7 +77,7 @@ class Augmenter(torch.nn.Module):
         max_augmentations=None,
         shuffle_augmentations=False,
         repeat_augment=1,
-        **augmentations,
+        augmentations=list(),
     ):
         super().__init__()
         self.parallel_augment = parallel_augment
@@ -95,7 +97,10 @@ class Augmenter(torch.nn.Module):
 
         if self.repeat_augment < 0:
             raise ValueError("repeat_augment must be greater than 0.")
-
+        
+        # Turn augmentations into a dictionary
+        self.augmentations = {augmentation.__class__.__name__: augmentation for augmentation in augmentations}
+        
         # Check if augmentation modules need the length argument
         self.require_lengths = {}
         for aug_key, aug_fun in self.augmentations.items():

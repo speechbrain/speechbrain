@@ -84,11 +84,30 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
-# Data augmentation
-snr_low: 0
-snr_high: 15
+# Data Augmentation Functions
+snr_low: 0               # Minimum Signal-to-Noise Ratio (SNR) for noise augmentation
+snr_high: 15              # Maximum SNR for noise augmentation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
+drop_freq_low: 1e-14      # Minimum frequency band dropout probability
+drop_freq_high: 1         # Maximum frequency band dropout probability
+drop_freq_count_low: 0    # Minimum number of frequency bands to drop
+drop_freq_count_high: 3   # Maximum number of frequency bands to drop
+drop_chunk_count_low: 0   # Minimum number of audio chunks to drop
+drop_chunk_count_high: 5  # Maximum number of audio chunks to drop
+drop_chunk_length_low: 1000    # Minimum length of audio chunks to drop
+drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
 
+# Data Augmenter
+parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
+concat_original: True     # Concatenate original signals to the training batch if True
+repeat_augment: 1        # Number of times to apply the augmentation
+shuffle_augmentations: True  # Randomly shuffle the order of augmentations if True
+                             # Otherwise, apply augmentations in the specified order
+min_augmentations: 2     # Minimum number of augmentations to apply
+max_augmentations: 5     # Maximum number of augmentations to apply
+
+    
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
@@ -140,6 +159,9 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
+
+# ----- AUGMENTATION ----- #
+
 # Download and prepare the dataset of noisy sequences for augmentation
 prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     URL: !ref <NOISE_DATASET_URL>
@@ -154,25 +176,60 @@ prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     ext: wav
     csv_file: !ref <rir_annotation>
     
+# Add reverberation to input signal
+add_reverb: !new:speechbrain.augment.speech_augment.AddReverb
+    csv_file: !ref <rir_annotation>
+    reverb_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+      
 # Add noise to input signal
-add_noise: !name:speechbrain.augment.speech_augment.AddNoise
+add_noise: !new:speechbrain.augment.speech_augment.AddNoise
     csv_file: !ref <noise_annotation>
     snr_low: !ref <snr_low>
     snr_high: !ref <snr_high>
     noise_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
     
-# Add reverberation to input signal
-add_reverb: !name:speechbrain.augment.speech_augment.AddReverb
-    csv_file: !ref <rir_annotation>
-    reverb_sample_rate: !ref <sample_rate>
-    clean_sample_rate: !ref <sample_rate>
-    
-        
+# Speed perturbation        
+speed_perturb: !new:speechbrain.augment.speech_augment.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
 
-# Time Drop
-
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.speech_augment.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_count_low: !ref <drop_freq_count_low>
+    drop_count_high: !ref <drop_freq_count_high>
+   
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.speech_augment.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high> 
+          
+# Agumenter: Combines previously defined augmentations to perform data augmentation
+augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: !ref <parallel_augment>
+    concat_original: !ref <concat_original>
+    repeat_augment: !ref <repeat_augment>
+    shuffle_augmentations: !ref <shuffle_augmentations>
+    min_augmentations: !ref <min_augmentations>
+    max_augmentations: !ref <max_augmentations>
+    augmentations: [
+      !ref <add_reverb>,
+      !ref <add_noise>,
+      !ref <speed_perturb>,
+      !ref <drop_freq>,
+      !ref <drop_chunk>]
+      
+      
+          
 # Freq Drop
+
+# speed_changes
+
 
 # Speed Change
     

@@ -441,8 +441,6 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
     
-    sssssss
-
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
