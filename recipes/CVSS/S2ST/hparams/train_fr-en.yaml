@@ -37,12 +37,12 @@ skip_prep: False
 # SSL model used to encode target features
 encoder_source: facebook/hubert-base-ls960
 layer: 6
-kmeans_source: chaanks/unit-hifigan-hubert-en-l6_k100
+kmeans_source: speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech
 codes_folder: !ref <save_folder>/codes
 skip_extract: False
 
 # Vocoder model used for evaluation
-vocoder_source: chaanks/unit-hifigan-hubert-en-l6_k100
+vocoder_source: speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech
 vocoder_download_path: !ref <save_folder>/pretrained_models/vocoder
 
 # ASR model used for evaluation
