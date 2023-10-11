@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ This module contains functions to prepare the lexicon and the language model
 for k2 training. It is based on the script `prepare_lang.sh` from k2/icefall (work
-of Fangjun Kuang). The original script is under Apache 2.0 license. 
+of Fangjun Kuang). The original script is under Apache 2.0 license.
 This script is modified to work with SpeechBrain.
 
 Modified by:
@@ -35,7 +35,7 @@ Lexicon = List[Tuple[str, List[str]]]
 def write_mapping(filename: Union[str, Path], sym2id: Dict[str, int]) -> None:
     """Write a symbol to ID mapping to a file.
 
-    NOTE: No need to implement `read_mapping` as it can be done through 
+    NOTE: No need to implement `read_mapping` as it can be done through
       :func:`k2.SymbolTable.from_file`.
 
     Arguments
@@ -51,10 +51,8 @@ def write_mapping(filename: Union[str, Path], sym2id: Dict[str, int]) -> None:
 
 
 def get_tokens(
-        lexicon: Lexicon,
-        sil_token="SIL",
-        manually_add_sil_to_tokens=False
-    ) -> List[str]:
+    lexicon: Lexicon, sil_token="SIL", manually_add_sil_to_tokens=False
+) -> List[str]:
     """Get tokens from a lexicon.
 
     Arguments
@@ -62,19 +60,21 @@ def get_tokens(
     lexicon: Lexicon
         It is the return value of :func:`read_lexicon`.
     sil_token: str
-        The optional silence token between words. It should not appear in the lexicon, 
+        The optional silence token between words. It should not appear in the lexicon,
         otherwise it will cause an error.
-    
+
     Returns
     -------
-    sorted_ans:
+    sorted_ans: List[str]
         A list of unique tokens.
     """
     ans = set()
     if manually_add_sil_to_tokens:
         ans.add(sil_token)
     for _, tokens in lexicon:
-        assert sil_token not in tokens, f"{sil_token} should not appear in the lexicon but it is found in {_}"
+        assert (
+            sil_token not in tokens
+        ), f"{sil_token} should not appear in the lexicon but it is found in {_}"
         ans.update(tokens)
     sorted_ans = sorted(list(ans))
     return sorted_ans
@@ -87,7 +87,7 @@ def get_words(lexicon: Lexicon) -> List[str]:
     ---------
     lexicon: Lexicon
         It is the return value of :func:`read_lexicon`.
-    
+
     Returns
     -------
     sorted_ans:
@@ -111,7 +111,7 @@ def add_disambig_symbols(lexicon: Lexicon) -> Tuple[Lexicon, int]:
     ---------
     lexicon: Lexicon
         It is returned by :func:`read_lexicon`.
-    
+
     Returns
     -------
     ans:
@@ -255,7 +255,7 @@ def lexicon_to_fst(
         If True, add self-loop to states with non-epsilon output symbols
         on at least one arc out of the state. The input label for this
         self loop is `token2id["#0"]` and the output label is `word2id["#0"]`.
-    
+
     Returns
     -------
     fsa:
@@ -348,7 +348,7 @@ def lexicon_to_fst_no_sil(
         If True, add self-loop to states with non-epsilon output symbols
         on at least one arc out of the state. The input label for this
         self loop is `token2id["#0"]` and the output label is `word2id["#0"]`.
-    
+
     Returns
     -------
     fsa:
@@ -431,7 +431,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     sil_token: str
         The silence token. Default is "SIL".
     sil_prob: float
-        The probability for adding a silence at the beginning and end of the word. 
+        The probability for adding a silence at the beginning and end of the word.
         Default is 0.5.
     """
 
@@ -440,8 +440,14 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
 
     # backup the original L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and
     # lexicon_disambig.txt
-    for f in ["L.pt", "L_disambig.pt", "tokens.txt", "words.txt", "Linv.pt", 
-              "lexicon_disambig.txt"]:
+    for f in [
+        "L.pt",
+        "L_disambig.pt",
+        "tokens.txt",
+        "words.txt",
+        "Linv.pt",
+        "lexicon_disambig.txt",
+    ]:
         if (out_dir / f).exists():
             os.makedirs(out_dir / "backup", exist_ok=True)
             logging.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
@@ -450,8 +456,9 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     lexicon = read_lexicon(str(lexicon_filename))
     if sil_prob != 0:
         # add silence to the tokens
-        tokens = get_tokens(lexicon, sil_token=sil_token,
-                            manually_add_sil_to_tokens=True)
+        tokens = get_tokens(
+            lexicon, sil_token=sil_token, manually_add_sil_to_tokens=True
+        )
     else:
         tokens = get_tokens(lexicon, manually_add_sil_to_tokens=False)
     words = get_words(lexicon)

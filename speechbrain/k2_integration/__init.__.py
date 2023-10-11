@@ -1,2 +1,2 @@
 # import everything from the module
-from . import *
+from . import *  # noqa

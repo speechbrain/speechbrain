@@ -31,7 +31,7 @@ from speechbrain.k2_integration.lexicon import Lexicon
 from speechbrain.k2_integration.utils import (
     get_texts,
     one_best_decoding,
-    rescore_with_whole_lattice
+    rescore_with_whole_lattice,
 )
 
 
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class CtcTrainingGraphCompiler(object):
-    """ This class is used to compile decoding graphs for CTC training.
+    """This class is used to compile decoding graphs for CTC training.
 
     Arguments
     ---------
@@ -64,13 +64,14 @@ class CtcTrainingGraphCompiler(object):
         Path to the language model FST to be used in the rescoring of the decoding
         graph. If None, then we assume that the language model is not used.
     """
+
     def __init__(
         self,
         lexicon: Lexicon,
         device: torch.device,
         oov: str = "<UNK>",
         need_repeat_flag: bool = False,
-        G_path: Optional[str] = None,
+        G_path: Union[Path, str, None] = None,
         rescoring_lm_path: Union[Path, str, None] = None,
     ):
         L_inv = lexicon.L_inv.to(device)
@@ -96,16 +97,14 @@ class CtcTrainingGraphCompiler(object):
             )
 
         self.device = device
-        self.G_path: str = G_path # type: ignore
-        self.rescoring_lm_path: Path = rescoring_lm_path # type: ignore
+        self.G_path: str = G_path  # type: ignore
+        self.rescoring_lm_path: Path = rescoring_lm_path  # type: ignore
         self.decoding_graph: k2.Fsa = None  # HL or HLG
         self.rescoring_graph: k2.Fsa = None  # G (usually 4-gram LM)
 
     def get_G(
-            self,
-            path: Optional[Union[str, Path]] = None,
-            save: bool = True
-        ) -> k2.Fsa:
+        self, path: Optional[Union[str, Path]] = None, save: bool = True
+    ) -> k2.Fsa:
         """Load a LM to be used in the decoding graph creation (or LM rescoring).
         Note that it doesn't load G into memory.
 
@@ -116,7 +115,7 @@ class CtcTrainingGraphCompiler(object):
             LM (in pytorch .pt format). If None, self.G_path is used.
         save: bool
             Whether or not to save the LM in .pt format (in the same dir).
-        
+
         Returns
         -------
         G:
@@ -124,16 +123,22 @@ class CtcTrainingGraphCompiler(object):
         """
         path = str(path or self.G_path)
         if os.path.exists(path.replace(".fst.txt", ".pt")):
-            logger.warning("Loading G from its .pt format. Consider deleting the "
-                           "previous .pt file if this is not what you want.")
+            logger.warning(
+                "Loading G from its .pt format. Consider deleting the "
+                "previous .pt file if this is not what you want."
+            )
             path = path.replace(".fst.txt", ".pt")
         # If G_path is an fst.txt file then convert to .pt file
         if path.endswith(".fst.txt"):
             if not os.path.isfile(path):
-                raise FileNotFoundError(f"File {path} not found. "
-                                        "You need to run the kaldilm to get it.")
+                raise FileNotFoundError(
+                    f"File {path} not found. "
+                    "You need to run the kaldilm to get it."
+                )
             with open(path) as f:
-                G = k2.Fsa.from_openfst(f.read(), acceptor=False).to(self.device)
+                G = k2.Fsa.from_openfst(f.read(), acceptor=False).to(
+                    self.device
+                )
         elif path.endswith(".pt"):
             if not os.path.isfile(path):
                 raise FileNotFoundError(f"File {path} not found.")
@@ -145,7 +150,9 @@ class CtcTrainingGraphCompiler(object):
             torch.save(G.as_dict(), path[:-8] + ".pt")
         return G
 
-    def get_rescoring_LM(self, path: Optional[Union[str, Path]] = None) -> k2.Fsa:
+    def get_rescoring_LM(
+        self, path: Optional[Union[str, Path]] = None
+    ) -> k2.Fsa:
         """Load a LM with the purpose of using it for LM rescoring.
         For instance, in the librispeech recipe this is a 4-gram LM (while  a
         3gram LM is used for HLG construction).
@@ -167,7 +174,7 @@ class CtcTrainingGraphCompiler(object):
         del G.aux_labels
         G.labels[G.labels >= self.lexicon.word_table["#0"]] = 0
         G.__dict__["_properties"] = None
-        G = k2.Fsa.from_fsas([G]).to('cpu')  # only used for decoding
+        G = k2.Fsa.from_fsas([G]).to("cpu")  # only used for decoding
         G = k2.arc_sort(G)
         G = k2.add_epsilon_self_loops(G)
         G = k2.arc_sort(G)
@@ -202,7 +209,8 @@ class CtcTrainingGraphCompiler(object):
         # NOTE: k2.compose runs on CUDA only when treat_epsilons_specially
         # is False, so we add epsilon self-loops here
         fsa_with_self_loops = k2.remove_epsilon_and_add_self_loops(
-            transcript_fsa)
+            transcript_fsa
+        )
 
         fsa_with_self_loops = k2.arc_sort(fsa_with_self_loops)
 
@@ -279,19 +287,20 @@ class CtcTrainingGraphCompiler(object):
         ans_fsa = fsa.invert_()
         return k2.arc_sort(ans_fsa)
 
-    def decode(self,
-               log_probs: torch.Tensor,
-               input_lens: torch.Tensor,
-               search_beam=5,
-               output_beam=5,
-               ac_scale=1.0,
-               min_active_states=300,
-               max_active_states=1000,
-               is_test: bool = True,
-               decoding_method: str = "1best",
-               lm_scale_list: Optional[List[float]] = None,
-               rescoring_lm_path: Optional[Path] = None
-        ) -> Union[List[str], Dict[str, List[str]]]:
+    def decode(
+        self,
+        log_probs: torch.Tensor,
+        input_lens: torch.Tensor,
+        search_beam=5,
+        output_beam=5,
+        ac_scale=1.0,
+        min_active_states=300,
+        max_active_states=1000,
+        is_test: bool = True,
+        decoding_method: str = "1best",
+        lm_scale_list: Optional[List[float]] = None,
+        rescoring_lm_path: Optional[Path] = None,
+    ) -> Union[List[str], Dict[str, List[str]]]:
         """
         Decode the given log_probs with self.decoding_graph without language model.
 
@@ -321,15 +330,15 @@ class CtcTrainingGraphCompiler(object):
         rescoring_lm_path: Path
             path to the LM to be used for rescoring. If not provided
             and the decoding method is whole-lattice-rescoring, then you need to provide
-            the `rescoring_lm_path` in the constructor of this class.          
+            the `rescoring_lm_path` in the constructor of this class.
 
         Returns
         -------
-        If decoding_method==1best: a list of strings, each of which is the decoding 
+        If decoding_method==1best: a list of strings, each of which is the decoding
         result of the corresponding utterance.
 
         If decoding_method==whole-lattice-rescoring: a dict of lists of strings, each of
-        which is the decoding result of the corresponding utterance. The keys are the 
+        which is the decoding result of the corresponding utterance. The keys are the
         language model scale factors used for rescoring.
         """
         lm_scale_list = lm_scale_list or [0.6]
@@ -345,8 +354,9 @@ class CtcTrainingGraphCompiler(object):
             if self.decoding_graph.device != device:
                 self.decoding_graph = self.decoding_graph.to(device)
             if decoding_method == "whole-lattice-rescoring":
-                self.rescoring_graph = self.get_rescoring_LM(rescoring_lm_path)\
-                    .to(self.device)
+                self.rescoring_graph = self.get_rescoring_LM(
+                    rescoring_lm_path
+                ).to(self.device)
         input_lens = input_lens.to(device)
 
         input_lens = (input_lens * log_probs.shape[1]).round().int()
@@ -368,8 +378,7 @@ class CtcTrainingGraphCompiler(object):
             hyps: List[List[int]] = get_texts(best_path, return_ragged=False)
             texts = []
             for wids in hyps:
-                texts.append(" ".join([self.word_table[wid]
-                            for wid in wids]))
+                texts.append(" ".join([self.word_table[wid] for wid in wids]))
             return texts
 
         with torch.no_grad():
@@ -402,7 +411,9 @@ class CtcTrainingGraphCompiler(object):
                     key = f"lm_scale_{lm_scale:.1f}"
                     out[key] = lattice2text(best_path[key])
             else:
-                raise ValueError(f"Decoding method '{decoding_method}' not supported.")
+                raise ValueError(
+                    f"Decoding method '{decoding_method}' not supported."
+                )
             del lattice
             del best_path
             torch.cuda.empty_cache()
@@ -441,7 +452,7 @@ class CtcTrainingGraphCompiler(object):
 
         first_token_disambig_id = self.lexicon.token_table["#0"]
         first_word_disambig_id = self.lexicon.word_table["#0"]
-        
+
         L = k2.arc_sort(L)
         G = k2.arc_sort(G)
         logger.debug("Intersecting L and G")
@@ -458,7 +469,7 @@ class CtcTrainingGraphCompiler(object):
 
         logger.debug("Removing disambiguation symbols on LG")
         # NOTE: We need to clone here since LG.labels is just a reference to a tensor
-        #       and we will end up having issues with misversioned updates on fsa's 
+        #       and we will end up having issues with misversioned updates on fsa's
         #       properties.
         labels = LG.labels.clone()
         labels[labels >= first_token_disambig_id] = 0

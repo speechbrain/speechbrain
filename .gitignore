@@ -159,3 +159,6 @@ recipes/*/*/*/lm/
 
 # Log folders
 **/log/
+
+# Mac OS
+.DS_Store

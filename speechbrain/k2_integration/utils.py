@@ -11,6 +11,7 @@ Authors:
 import logging
 
 import torch
+
 try:
     import k2
 except ImportError:
@@ -29,7 +30,7 @@ def get_texts(
     best_paths: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
     """Extract the texts (as word IDs) from the best-path FSAs.
-    
+
     Arguments
     ---------
     best_paths: k2.Fsa
@@ -69,6 +70,7 @@ def get_texts(
     else:
         return aux_labels.tolist()
 
+
 def one_best_decoding(
     lattice: k2.Fsa,
     use_double_scores: bool = True,
@@ -85,7 +87,7 @@ def one_best_decoding(
         False to use single precision.
     lm_scale_list: Optional[List[float]]
         A list of floats representing LM score scales.
-    
+
     Returns
     -------
     An FsaVec containing linear paths.
@@ -97,12 +99,15 @@ def one_best_decoding(
             am_scores = saved_am_scores / lm_scale
             lattice.scores = am_scores + lattice.lm_scores
 
-            best_path = k2.shortest_path(lattice, use_double_scores=use_double_scores)
+            best_path = k2.shortest_path(
+                lattice, use_double_scores=use_double_scores
+            )
             key = f"lm_scale_{lm_scale}"
             ans[key] = best_path
         return ans
 
     return k2.shortest_path(lattice, use_double_scores=use_double_scores)
+
 
 def rescore_with_whole_lattice(
     lattice: k2.Fsa,
@@ -174,7 +179,7 @@ def rescore_with_whole_lattice(
                 rescoring_lattice = k2.intersect(
                     G_with_epsilon_loops,
                     inv_lattice,
-                    treat_epsilons_specially=True
+                    treat_epsilons_specially=True,
                 )
             else:
                 rescoring_lattice = k2.intersect_device(
@@ -188,9 +193,13 @@ def rescore_with_whole_lattice(
         except RuntimeError as e:
             logger.info(f"Caught exception:\n{e}\n")
             if loop_count >= max_loop_count:
-                logger.info("Return None as the resulting lattice is too large.")
+                logger.info(
+                    "Return None as the resulting lattice is too large."
+                )
                 return None
-            logger.info(f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}")
+            logger.info(
+                f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}"
+            )
             logger.info(
                 "This OOM is not an error. You can ignore it. "
                 "If your model does not converge well, or --max-duration "
@@ -202,7 +211,9 @@ def rescore_with_whole_lattice(
                 prune_th_list[loop_count],
                 True,
             )
-            logger.info(f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}")
+            logger.info(
+                f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"
+            )
         loop_count += 1
 
     # lat has token IDs as labels

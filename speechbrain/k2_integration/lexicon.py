@@ -34,12 +34,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def get_lexicon(
-        lang_dir, 
-        csv_files, 
-        extra_vocab_files, 
-        add_word_boundary=True
-    ):
+def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
     """Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the
     output_folder. During training, we need to make sure that the lexicon.txt contains
@@ -68,7 +63,7 @@ def get_lexicon(
     lang_dir: str
         The directory to store the lexicon.txt
     csv_files: List[str]
-        A list of csv file paths 
+        A list of csv file paths
     extra_vocab_files: List[str]
         A list of extra vocab files. For example, for librispeech this could be the
         librispeech-vocab.txt file.
@@ -84,7 +79,7 @@ def get_lexicon(
             f.readline()
             # Read the remaining lines
             for line in f:
-                # Split the line 
+                # Split the line
                 trans = line.strip().split(",")[-1]
                 # Split the transcription into words
                 words = trans.split()
@@ -98,7 +93,7 @@ def get_lexicon(
     for file in extra_vocab_files:
         with open(file) as f:
             for line in f:
-                # Split the line 
+                # Split the line
                 word = line.strip().split()[0]
                 # Split the transcription into words
                 if word not in lexicon:
@@ -143,7 +138,9 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
 
             if len(a) < 2:
                 logger.info(f"Found bad line {line} in lexicon file {filename}")
-                logger.info("Every line is expected to contain at least 2 fields")
+                logger.info(
+                    "Every line is expected to contain at least 2 fields"
+                )
                 sys.exit(1)
             word = a[0]
             if word == "<eps>":
@@ -158,9 +155,8 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
 
 
 def write_lexicon(
-        filename: Union[str, Path],
-        lexicon: List[Tuple[str, List[str]]]
-    ) -> None:
+    filename: Union[str, Path], lexicon: List[Tuple[str, List[str]]]
+) -> None:
     """Write a lexicon to a file.
 
     Arguments
@@ -193,7 +189,7 @@ def convert_lexicon_to_ragged(
         The word symbol table.
     token_table: k2.SymbolTable
         The token symbol table.
-    
+
     Returns
     -------
     A k2 ragged tensor with two axes [word][token].
@@ -211,7 +207,9 @@ def convert_lexicon_to_ragged(
     lexicon_tmp = read_lexicon(filename)
     lexicon = dict(lexicon_tmp)
     if len(lexicon_tmp) != len(lexicon):
-        raise RuntimeError("It's assumed that each word has a unique pronunciation")
+        raise RuntimeError(
+            "It's assumed that each word has a unique pronunciation"
+        )
 
     for i in range(disambig_id):
         w = word_table[i]
@@ -259,7 +257,7 @@ class Lexicon(object):
     def __init__(
         self,
         lang_dir: Path,
-        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"), # type: ignore
+        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
         load_mapping: bool = True,
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
@@ -268,12 +266,14 @@ class Lexicon(object):
         self.log_unknown_warning = True
         self._L_disambig = None
 
-        if (lang_dir/ "L.pt").exists():
+        if (lang_dir / "L.pt").exists():
             logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
             L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
         else:
-            raise RuntimeError(f"{lang_dir}/L.pt does not exist. Please make sure "
-                               f"you have successfully created L.pt in {lang_dir}")
+            raise RuntimeError(
+                f"{lang_dir}/L.pt does not exist. Please make sure "
+                f"you have successfully created L.pt in {lang_dir}"
+            )
 
         if (lang_dir / "Linv.pt").exists():
             logger.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
@@ -291,7 +291,7 @@ class Lexicon(object):
 
         if load_mapping:
             self.load_mapping()
-    
+
     @property
     def L_disambig(self) -> k2.Fsa:
         """Return the lexicon FSA (with disambiguation symbols).
@@ -356,14 +356,14 @@ class Lexicon(object):
             ans.remove(0)
         ans.sort()
         return ans
-    
+
     def texts2tids(
-            self,
-            texts: List[str],
-            sil_token="SIL",
-            add_sil_token_as_separator=False,
-            oov_token="<UNK>"
-        ) -> List[List[int]]:
+        self,
+        texts: List[str],
+        sil_token="SIL",
+        add_sil_token_as_separator=False,
+        oov_token="<UNK>",
+    ) -> List[List[int]]:
         """Convert a list of texts to a list of lists of token IDs.
 
         Arguments
@@ -381,7 +381,7 @@ class Lexicon(object):
         -------
         A list of lists of token IDs.
 
-        Note that we only apply the first spelling of a word in the lexicon if there 
+        Note that we only apply the first spelling of a word in the lexicon if there
         are multiple spellings.
         """
         if not hasattr(self, "word2tids"):
@@ -393,17 +393,18 @@ class Lexicon(object):
             for i, word in enumerate(words):
                 if word not in self.word2tids:
                     if self.log_unknown_warning:
-                        logger.warn(f"Cannot find word {word} in the lexicon."
-                                     f" Replacing it with {oov_token}. "
-                                     f"please check {self.lang_dir}/lexicon.txt."
-                                     f" Note that it is fine if you are testing.")
+                        logger.warn(
+                            f"Cannot find word {word} in the lexicon."
+                            f" Replacing it with {oov_token}. "
+                            f"please check {self.lang_dir}/lexicon.txt."
+                            f" Note that it is fine if you are testing."
+                        )
                     word = oov_token
                 tids.extend(self.word2tids[word][0])
                 if add_sil_token_as_separator and i < len(words) - 1:
                     tids.append(self.token2idx[sil_token])
             results.append(tids)
         return results
-
 
 
 class UniqLexicon(Lexicon):
@@ -426,11 +427,12 @@ class UniqLexicon(Lexicon):
     disambig_pattern: str
         It contains the pattern for disambiguation symbols.
     """
+
     def __init__(
         self,
         lang_dir: Path,
         uniq_filename: str = "uniq_lexicon.txt",
-        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"), # type: ignore
+        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
     ):
         lang_dir = Path(lang_dir)
         super().__init__(lang_dir=lang_dir, disambig_pattern=disambig_pattern)
@@ -440,12 +442,11 @@ class UniqLexicon(Lexicon):
             word_table=self.word_table,
             token_table=self.token_table,
         )
-        # TODO: should we move it to a certain device ?
 
     def texts_to_token_ids(
         self, texts: List[str], oov: str = "<UNK>"
     ) -> k2.RaggedTensor:
-        """ Convert a list of transcripts to a ragged tensor containing token IDs.
+        """Convert a list of transcripts to a ragged tensor containing token IDs.
 
         Arguments
         ---------
@@ -457,7 +458,7 @@ class UniqLexicon(Lexicon):
         oov: str
             The OOV word. If a word in `texts` is not in the lexicon, it is
             replaced with `oov`.
-        
+
         Returns
         -------
         A ragged int tensor with 2 axes [utterance][token_id]
