@@ -512,7 +512,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
         if sb.utils.distributed.if_main_process():
             with open(csv_file, "w") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
-                for filename in filelist:
+                for j, filename in enumerate(filelist):
 
                     # Read file for duration/channel info
                     signal, rate = torchaudio.load(filename)
@@ -541,7 +541,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                                 new_filename, signal[:, start:stop], rate
                             )
                             csv_row = (
-                                f"{ID}_{i}",
+                                f"{ID}_{j}{i}",
                                 str((stop - start) / rate),
                                 "$rir_root/" + new_filename[len(folder) :],
                                 ext,
@@ -552,7 +552,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                         w.write(
                             ",".join(
                                 (
-                                    ID,
+                                    ID + str(j),
                                     str(duration),
                                     "$rir_root/" + filename[len(folder) :],
                                     ext,

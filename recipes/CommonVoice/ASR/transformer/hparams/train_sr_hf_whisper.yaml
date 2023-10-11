@@ -87,7 +87,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
     freeze_encoder: !ref <freeze_encoder>
