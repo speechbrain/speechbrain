@@ -50,7 +50,7 @@ use_HLG: False
 # 1best or whole-lattice-rescoring
 decoding_method: whole-lattice-rescoring
 # This is where the 3gram and (optionally) 4gram LM are stored
-# They can be in either ARPA or FST format. If the former, then 
+# They can be in either ARPA or FST format. If the former, then
 # the FST equivalent will be created in the same directory by
 # using kaldilm.
 lm_dir: lm
