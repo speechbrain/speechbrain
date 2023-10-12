@@ -79,9 +79,7 @@ class ASR(sb.Brain):
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
 
-        feats, self.feat_lens, self.N_augments = self.prepare_features(
-            stage, batch.sig
-        )
+        feats, self.feat_lens = self.prepare_features(stage, batch.sig)
         tokens_bos, _ = self.prepare_tokens(stage, batch.tokens_bos)
 
         # Running the encoder (prevent propagation to feature extraction)
@@ -129,7 +127,7 @@ class ASR(sb.Brain):
         current_epoch = self.hparams.epoch_counter.current
         return current_epoch <= self.hparams.number_of_ctc_epochs
 
-    def prepare_features(self, stage, wavs, N_augments=1):
+    def prepare_features(self, stage, wavs):
         """Prepare features for computation on-the-fly
 
         Arguments
@@ -143,16 +141,17 @@ class ASR(sb.Brain):
 
         # Add augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            wavs, wav_lens, N_augments = self.hparams.augment(wavs, wav_lens)
+            wavs, wav_lens = self.hparams.augment(wavs, wav_lens)
 
         # Feature computation and normalization
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
 
-        return feats, wav_lens, N_augments
+        return feats, wav_lens
 
     def prepare_tokens(self, stage, tokens):
-        """Augment the tokens batch if needed.
+        """
+        Augments the tokens batch if needed.
 
         Arguments
         ---------
@@ -160,11 +159,16 @@ class ASR(sb.Brain):
             Currently executing stage.
         tokens : tuple
             The tokens (tensor) and their lengths (tensor).
+
+        Returns
+        -------
+        tuple
+            Augmented tokens and their lengths.
         """
         tokens, token_lens = tokens
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            tokens = torch.cat(self.N_augments * [tokens], dim=0)
-            token_lens = torch.cat(self.N_augments * [token_lens], dim=0)
+            tokens = self.hparams.augment.replicate_labels(tokens)
+            token_lens = self.hparams.augment.replicate_labels(token_lens)
         return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):

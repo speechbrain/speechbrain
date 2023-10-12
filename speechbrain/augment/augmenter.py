@@ -91,12 +91,22 @@ class Augmenter(torch.nn.Module):
         # Check min and max augmentations
         self.check_min_max_augmentations()
 
+        # This variable represents the total number of augmentations to perform for each signal,
+        # including the original signal in the count.
+        self.num_augmentations = None
+
         # Check repeat augment arguments
         if not isinstance(self.repeat_augment, int):
             raise ValueError("repeat_augment must be an integer.")
 
         if self.repeat_augment < 0:
             raise ValueError("repeat_augment must be greater than 0.")
+
+        if len(augmentations) == 0:
+            raise ValueError(
+                "The augmentation list is empty. "
+                "Please provide a list with at least one augmentation object."
+            )
 
         # Turn augmentations into a dictionary
         self.augmentations = {
@@ -184,9 +194,6 @@ class Augmenter(torch.nn.Module):
             input to augment.
         lengths : torch.Tensor
             The length of each sequence in the batch.
-        total_augmentation : int
-            The total number of augmentations perform for each signal
-            (with the orignal signal included in the count).
         """
         # Select the number of augmentations to apply
         N_augment = torch.randint(
@@ -204,20 +211,14 @@ class Augmenter(torch.nn.Module):
             or N_augment == 0
             or len(self.augmentations) == 0
         ):
-            return x, lengths, 1
+            self.num_augmentations = 1
+            return x, lengths
 
         # Shuffle augmentation
         if self.shuffle_augmentations:
             random.shuffle(augmentations_lst)
         # Select the augmentations to apply
         selected_augmentations = augmentations_lst[0:N_augment]
-
-        # # Select the augmentations to apply
-        # selected_augmentations = list(self.augmentations.keys())[0:N_augment]
-        #
-        # # Shuffle augmentation
-        # if self.shuffle_augmentations:
-        #     random.shuffle(selected_augmentations)
 
         # Lists to collect the outputs
         output_lst = []
@@ -242,9 +243,26 @@ class Augmenter(torch.nn.Module):
 
         # Compute the total number of augmentations performed for each signal
         # (original included if available)
-        total_augmentations = int(output.shape[0] / x.shape[0])
+        self.num_augmentations = int(output.shape[0] / x.shape[0])
 
-        return output, output_lengths, total_augmentations
+        return output, output_lengths
+
+    def replicate_labels(self, labels):
+        """
+        Replicates the labels along the batch axis a number of times that
+        corresponds to the number of augmentations.
+
+        Arguments
+        ---------
+        labels : torch.Tensor
+            Input label tensor to be replicated.
+
+        Returns
+        -------
+        torch.Tensor
+            Replicated labels tensor with shape (self.num_augmentations * batch_size, ...).
+        """
+        return torch.cat([labels] * self.num_augmentations, dim=0)
 
     def check_min_max_augmentations(self):
         """Checks the min_augmentations and max_augmentations arguments.

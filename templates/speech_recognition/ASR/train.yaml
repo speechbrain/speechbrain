@@ -101,9 +101,9 @@ drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
 # Data Augmenter
 parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
 concat_original: True     # Concatenate original signals to the training batch if True
-repeat_augment: 1        # Number of times to apply the augmentation
+repeat_augment: 1         # Number of times to apply the augmentation
 shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
-                             # Otherwise, apply augmentations in the specified order
+                              # Otherwise, apply augmentations in the specified order
 min_augmentations: 1     # Minimum number of augmentations to apply
 max_augmentations: 4     # Maximum number of augmentations to apply
 

@@ -32,7 +32,7 @@ class DoClip(torch.nn.Module):
     '0.01'
     """
 
-    def __init__(self, clip_low=0.5, clip_high=1, clip_prob=1):
+    def __init__(self, clip_low=0.5, clip_high=1):
         super().__init__()
         self.clip_low = clip_low
         self.clip_high = clip_high
@@ -268,6 +268,8 @@ class CutCat(torch.nn.Module):
     ---------
     num_segments : int
         The number of segments to combine.
+    max_num_segments : int
+        The maximum number of segments to combine. Default is 10.
 
     Example
     -------
@@ -400,127 +402,3 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     # Return to the time-domain
     pink_noise = torch.fft.ifft(pink_noise_fft, dim=1).real
     return pink_noise
-
-
-def muscolar_noise(
-    waveforms: torch.Tensor,
-    pink_alpha_low: float = 1.110,
-    pink_alpha_high: float = 1.432,
-    bb_offset_low: float = 3.072,
-    bb_offset_high: float = 5.686,
-    sample_rate: int = 250,
-) -> torch.Tensor:
-    """Creates a sequence of bio-inspired noise that resembles muscular artifacts
-    in EEG. The muscular noise is modeled as a combination of pink noise and a
-    broad-band colored component after 20Hz (modeled by a parabolic spectral
-    curve with negative concavity).
-
-    Arguments
-    ---------
-    waveforms : torch.Tensor
-        The original waveform. It is just used to infer the shape.
-    pink_alpha_low : float
-        The minimum value for the alpha spectral smoothing factor.
-    pink_alpha_high : float
-        The maximum value for the alpha spectral smoothing factor.
-    bb_offset_low:
-    sample_rate : float
-        The sample rate of the original signal.
-
-    Example
-    -------
-    >>> waveforms = torch.randn(4,257,10)
-    >>> noise = muscolar_noise(waveforms)
-    >>> noise.shape
-    torch.Size([4, 257, 10])
-    """
-    # Sample parameters
-    def sample_params(low, high):
-        """It randomly samples the parameter that creates the spectral mask."""
-        vrange = high - low
-        var = (
-            torch.rand(waveforms.shape[0], device=waveforms.device) * vrange
-            + low
-        )
-
-        return var.unsqueeze(1)
-
-    alpha = sample_params(pink_alpha_low, pink_alpha_high)
-    bb_offset = sample_params(bb_offset_low, bb_offset_high)
-
-    def emg_spectral_mask(f, device="cpu"):
-        """It creates the spectral mask for the muscular noise.
-        The mask decays as 1/f^alpha in the first part of the spectrum
-        (pink noise-like). Then a colored noise is added with a parabolic
-        trajectory with negative concavity.
-        """
-        stage_1_model_params = {
-            "a": alpha,
-            "b": torch.ones(size=alpha.shape, device=device) * 46.42,
-            "d": torch.ones(size=alpha.shape, device=device) * 8.01,
-        }
-
-        stage_2_model_params = {
-            "b": torch.ones(size=alpha.shape, device=device) * 1.13,
-            "d": torch.ones(size=alpha.shape, device=device) * 2.02,
-            "e": bb_offset,
-        }
-
-        def stage1_model(f, a, b, d):
-            """Compute stage 1 decay"""
-            return b / ((f) ** a) + d
-
-        def stage2_model(f, b, d, e):
-            """Compute stage 2 decay"""
-            return -1 * (f) ** b + d * f + e
-
-        k = 20
-        return torch.clip(torch.sign(-f + k) + 1, -1, 1) * stage1_model(
-            f, **stage_1_model_params
-        ) + torch.clip(torch.sign(f - k) + 1, -1, 1) * stage2_model(
-            f, **stage_2_model_params
-        )
-
-    # Sampling white noise (flat spectrum)
-    white_noise = torch.randn_like(waveforms)
-
-    # Computing the fft of the input white noise
-    white_noise_fft = torch.fft.fft(white_noise, dim=1)
-
-    # preparing the spectral mask (1/f^alpha)
-    f = torch.linspace(
-        0,
-        sample_rate / 2,
-        int(white_noise.shape[1] / 2),
-        device=waveforms.device,
-    )
-
-    spectral_mask = emg_spectral_mask(f.unsqueeze(0), device=waveforms.device)
-    spectral_mask[:, 0] = spectral_mask[:, 1]
-
-    # Mask for the upper part of the spectrum (f > sample_rate/2)
-    spectral_mask = spectral_mask
-    spectral_mask_up = torch.flip(spectral_mask, dims=(1,))
-
-    # Managing odd/even sequences
-    if white_noise.shape[1] % 2:
-        mid_element = spectral_mask[
-            :, int(white_noise.shape[1] / 2) - 1
-        ].unsqueeze(1)
-        spectral_mask = torch.cat(
-            [spectral_mask, mid_element, spectral_mask_up], dim=1
-        )
-    else:
-        spectral_mask = torch.cat([spectral_mask, spectral_mask_up], dim=1)
-
-    # Managing multi-channel inputs
-    if len(white_noise.shape) == 3:
-        spectral_mask = spectral_mask.unsqueeze(2)
-
-    # Spectral masking
-    emg_noise_fft = white_noise_fft * spectral_mask
-
-    # Return to the time-domain
-    emg_noise = torch.fft.ifft(emg_noise_fft, dim=1).real
-
-    return emg_noise

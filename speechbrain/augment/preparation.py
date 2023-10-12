@@ -32,7 +32,7 @@ def prepare_dataset_from_URL(URL, dest_folder, ext, csv_file, max_length=None):
     csv_file : str
         The path to store the prepared noise CSV file.
     max_length : float
-        The maximum recirdubg length in seconds.
+        The maximum length in seconds.
         Recordings longer than this will be automatically cut into pieces.
     """
 
@@ -60,7 +60,7 @@ def prepare_csv(filelist, csv_file, max_length=None):
     csv_file : str
         The path to store the prepared noise CSV file.
     max_length : float
-        The maximum recirdubg length in seconds.
+        The maximum length in seconds.
         Recordings longer than this will be automatically cut into pieces.
     """
     try:
