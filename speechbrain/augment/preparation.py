@@ -10,7 +10,6 @@ Authors:
 import os
 import logging
 import torchaudio
-import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.data_utils import get_all_files
 
@@ -73,7 +72,6 @@ def prepare_csv(filelist, csv_file, max_length=None):
         # Delete the file if something fails
         if os.path.exists(csv_file):
             os.remove(csv_file)
-
 
 
 def write_csv(filelist, csv_file, max_length=None):

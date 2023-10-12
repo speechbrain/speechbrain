@@ -4,7 +4,7 @@ from speechbrain.dataio.dataio import write_audio
 
 
 def test_add_noise(tmpdir, device):
-    from speechbrain.processing.speech_augmentation import AddNoise
+    from speechbrain.augment.speech_augment import AddNoise
 
     # Test concatenation of batches
     wav_a = torch.sin(torch.arange(8000.0, device=device)).unsqueeze(0)
@@ -37,8 +37,6 @@ def test_add_noise(tmpdir, device):
         w.write(f"1, 1.0, {noisefile}, wav,\n")
 
     # Edge cases
-    no_noise = AddNoise(mix_prob=0.0).to(device)
-    assert no_noise(test_waveform, wav_lens).allclose(test_waveform)
     no_noise = AddNoise(snr_low=1000, snr_high=1000)
     assert no_noise(test_waveform, wav_lens).allclose(test_waveform)
     all_noise = AddNoise(csv_file=csv, snr_low=-1000, snr_high=-1000)
@@ -51,7 +49,7 @@ def test_add_noise(tmpdir, device):
 
 
 def test_add_reverb(tmpdir, device):
-    from speechbrain.processing.speech_augmentation import AddReverb
+    from speechbrain.augment.speech_augment import AddReverb
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     impulse_response = torch.zeros(1, 8000, device=device)
@@ -83,10 +81,6 @@ def test_add_reverb(tmpdir, device):
         w.write(f"2, 0.5, {ir2}, wav,\n")
         w.write(f"3, 0.5, {ir3}, wav,\n")
 
-    # Edge case
-    no_reverb = AddReverb(csv, reverb_prob=0.0).to(device)
-    assert no_reverb(test_waveform, wav_lens).allclose(test_waveform)
-
     # Normal cases
     add_reverb = AddReverb(csv, sorting="original")
     reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
@@ -98,13 +92,11 @@ def test_add_reverb(tmpdir, device):
 
 
 def test_speed_perturb(device):
-    from speechbrain.processing.speech_augmentation import SpeedPerturb
+    from speechbrain.augment.speech_augment import SpeedPerturb
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_perturb = SpeedPerturb(16000, perturb_prob=0.0).to(device)
-    assert no_perturb(test_waveform).allclose(test_waveform)
     no_perturb = SpeedPerturb(16000, speeds=[100]).to(device)
     assert no_perturb(test_waveform).allclose(test_waveform)
 
@@ -114,7 +106,7 @@ def test_speed_perturb(device):
 
 
 def test_babble(device):
-    from speechbrain.processing.speech_augmentation import AddBabble
+    from speechbrain.augment.speech_augment import AddBabble
 
     test_waveform = torch.stack(
         (
@@ -125,8 +117,6 @@ def test_babble(device):
     lengths = torch.ones(2, device=device)
 
     # Edge cases
-    no_babble = AddBabble(mix_prob=0.0).to(device)
-    assert no_babble(test_waveform, lengths).allclose(test_waveform)
     no_babble = AddBabble(speaker_count=1, snr_low=1000, snr_high=1000)
     assert no_babble(test_waveform, lengths).allclose(test_waveform)
 
@@ -137,13 +127,11 @@ def test_babble(device):
 
 
 def test_drop_freq(device):
-    from speechbrain.processing.speech_augmentation import DropFreq
+    from speechbrain.augment.speech_augment import DropFreq
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_drop = DropFreq(drop_prob=0.0).to(device)
-    assert no_drop(test_waveform).allclose(test_waveform)
     no_drop = DropFreq(drop_count_low=0, drop_count_high=0)
     assert no_drop(test_waveform).allclose(test_waveform)
 
@@ -159,14 +147,12 @@ def test_drop_freq(device):
 
 
 def test_drop_chunk(device):
-    from speechbrain.processing.speech_augmentation import DropChunk
+    from speechbrain.augment.speech_augment import DropChunk
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     lengths = torch.ones(1, device=device)
 
     # Edge cases
-    no_drop = DropChunk(drop_prob=0.0).to(device)
-    assert no_drop(test_waveform, lengths).allclose(test_waveform)
     no_drop = DropChunk(drop_length_low=0, drop_length_high=0).to(device)
     assert no_drop(test_waveform, lengths).allclose(test_waveform)
     no_drop = DropChunk(drop_count_low=0, drop_count_high=0).to(device)
@@ -197,7 +183,7 @@ def test_drop_chunk(device):
 
 
 def test_fast_drop_chunk():
-    from speechbrain.processing.speech_augmentation import FastDropChunk
+    from speechbrain.augment.speech_augment import FastDropChunk
 
     test_waveform = torch.ones([8, 200, 12])
 
@@ -211,13 +197,11 @@ def test_fast_drop_chunk():
 
 
 def test_clip(device):
-    from speechbrain.processing.speech_augmentation import DoClip
+    from speechbrain.augment.signal_augment import DoClip
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_clip = DoClip(clip_prob=0.0).to(device)
-    assert no_clip(test_waveform).allclose(test_waveform)
     no_clip = DoClip(clip_low=1, clip_high=1).to(device)
     assert no_clip(test_waveform).allclose(test_waveform)
 
@@ -228,7 +212,7 @@ def test_clip(device):
 
 
 def test_rand_amp():
-    from speechbrain.processing.speech_augmentation import RandAmp
+    from speechbrain.augment.signal_augment import RandAmp
 
     rand_amp = RandAmp(amp_low=0, amp_high=0)
     signal = torch.rand(4, 500)
@@ -253,7 +237,7 @@ def test_rand_amp():
 
 
 def test_channel_drop():
-    from speechbrain.processing.speech_augmentation import ChannelDrop
+    from speechbrain.augment.signal_augment import ChannelDrop
 
     signal = torch.rand(4, 256, 8)
     ch_drop = ChannelDrop(drop_rate=0.5)
@@ -272,7 +256,7 @@ def test_channel_drop():
 
 
 def test_channel_swap():
-    from speechbrain.processing.speech_augmentation import ChannelSwap
+    from speechbrain.augment.signal_augment import ChannelSwap
 
     signal = torch.rand(4, 256, 8)
     ch_swap = ChannelSwap(min_swap=1, max_swap=5)
@@ -286,7 +270,7 @@ def test_channel_swap():
 
 
 def test_rand_shift():
-    from speechbrain.processing.speech_augmentation import RandomShift
+    from speechbrain.augment.signal_augment import RandomShift
 
     signal = torch.rand(4, 256, 8)
     rand_shift = RandomShift(min_shift=10, max_shift=50, dim=1)
@@ -318,7 +302,7 @@ def test_rand_shift():
 
 
 def test_pink_noise():
-    from speechbrain.processing.speech_augmentation import pink_noise_like
+    from speechbrain.augment.signal_augment import pink_noise_like
 
     signal = torch.rand(4, 256)
     noise = pink_noise_like(signal)
@@ -346,7 +330,7 @@ def test_pink_noise():
 
 
 def muscular_noise():
-    from speechbrain.processing.speech_augmentation import muscolar_noise
+    from speechbrain.augment.signal_augment import muscolar_noise
 
     signal = torch.rand(4, 256, 8)
     noise = muscolar_noise(signal)
@@ -358,8 +342,8 @@ def muscular_noise():
 
 
 def test_augment_pipeline():
-    from speechbrain.processing.speech_augmentation import DropFreq, DropChunk
-    from speechbrain.processing.augmentation import Augmenter
+    from speechbrain.augment.speech_augment import DropFreq, DropChunk
+    from speechbrain.augment.augmenter import Augmenter
 
     freq_dropper = DropFreq()
     chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
@@ -368,14 +352,13 @@ def test_augment_pipeline():
         concat_original=False,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
     signal = torch.rand([4, 16000])
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 1
     assert len(output_signal) == 4
     assert len(lenghts) == 4
 
@@ -384,13 +367,12 @@ def test_augment_pipeline():
         concat_original=True,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 2
     assert len(output_signal) == 8
     assert len(lenghts) == 8
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -400,13 +382,12 @@ def test_augment_pipeline():
         concat_original=False,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 2
     assert len(output_signal) == 8
     assert len(lenghts) == 8
 
@@ -415,13 +396,12 @@ def test_augment_pipeline():
         concat_original=True,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 3
     assert len(output_signal) == 12
     assert len(lenghts) == 12
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -433,14 +413,13 @@ def test_augment_pipeline():
         max_augmentations=2,
         repeat_augment=2,
         shuffle_augmentations=True,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 5
     assert len(output_signal) == 20
     assert len(lenghts) == 20
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -452,14 +431,13 @@ def test_augment_pipeline():
         max_augmentations=0,
         repeat_augment=2,
         shuffle_augmentations=True,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 1
     assert torch.equal(output_signal, signal)
 
     augment = Augmenter(
@@ -469,12 +447,11 @@ def test_augment_pipeline():
         max_augmentations=2,
         repeat_augment=0,
         shuffle_augmentations=True,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lenghts = augment(
+    output_signal, lenghts, N_augments = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
+    assert N_augments == 1
     assert torch.equal(output_signal, signal)

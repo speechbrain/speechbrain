@@ -107,7 +107,7 @@ shuffle_augmentations: False  # Randomly shuffle the order of augmentations if T
 min_augmentations: 1     # Minimum number of augmentations to apply
 max_augmentations: 4     # Maximum number of augmentations to apply
 
-    
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
@@ -175,13 +175,13 @@ prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     dest_folder: !ref <data_folder_rir>
     ext: wav
     csv_file: !ref <rir_annotation>
-    
+
 # Add reverberation to input signal
 add_reverb: !new:speechbrain.augment.speech_augment.AddReverb
     csv_file: !ref <rir_annotation>
     reverb_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
-      
+
 # Add noise to input signal
 add_noise: !new:speechbrain.augment.speech_augment.AddNoise
     csv_file: !ref <noise_annotation>
@@ -189,8 +189,8 @@ add_noise: !new:speechbrain.augment.speech_augment.AddNoise
     snr_high: !ref <snr_high>
     noise_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
-    
-# Speed perturbation        
+
+# Speed perturbation
 speed_perturb: !new:speechbrain.augment.speech_augment.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: !ref <speed_changes>
@@ -201,14 +201,14 @@ drop_freq: !new:speechbrain.augment.speech_augment.DropFreq
     drop_freq_high: !ref <drop_freq_high>
     drop_count_low: !ref <drop_freq_count_low>
     drop_count_high: !ref <drop_freq_count_high>
-   
+
 # Time drop: randomly drops a number of temporal chunks.
 drop_chunk: !new:speechbrain.augment.speech_augment.DropChunk
     drop_length_low: !ref <drop_chunk_length_low>
     drop_length_high: !ref <drop_chunk_length_high>
     drop_count_low: !ref <drop_chunk_count_low>
-    drop_count_high: !ref <drop_chunk_count_high> 
-          
+    drop_count_high: !ref <drop_chunk_count_high>
+
 # Agumenter: Combines previously defined augmentations to perform data augmentation
 augment: !new:speechbrain.augment.augmenter.Augmenter
     parallel_augment: !ref <parallel_augment>
@@ -218,34 +218,10 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
     min_augmentations: !ref <min_augmentations>
     max_augmentations: !ref <max_augmentations>
     augmentations: [
-      !ref <add_reverb>,
-      !ref <add_noise>,
-      !ref <drop_freq>,
-      !ref <drop_chunk>]
-      
-      
-          
-# Freq Drop
-
-# speed_changes
-
-
-# Speed Change
-    
-# Added noise and reverb come from OpenRIR dataset, automatically
-# downloaded and prepared with this Environmental Corruption class.
-#env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#    openrir_folder: !ref <data_folder_rir>
-#    babble_prob: 0.0
-#    reverb_prob: 0.0
-#    noise_prob: 1.0
-#    noise_snr_low: 0
-#    noise_snr_high: 15
-
-# Adds speech change + time and frequency dropouts (time-domain implementation).
-#augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-#    sample_rate: !ref <sample_rate>
-#    speeds: [95, 100, 105]
+        !ref <add_reverb>,
+        !ref <add_noise>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN
