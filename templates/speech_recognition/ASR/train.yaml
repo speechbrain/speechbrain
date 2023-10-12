@@ -87,8 +87,7 @@ n_mels: 40
 # Data Augmentation Functions
 snr_low: 0               # Minimum Signal-to-Noise Ratio (SNR) for noise augmentation
 snr_high: 15              # Maximum SNR for noise augmentation
-speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
-
+speed_changes: [85, 90, 95, 105, 110, 115]  # List of speed changes for time-stretching
 drop_freq_low: 0          # Minimum frequency band dropout probability
 drop_freq_high: 1         # Maximum frequency band dropout probability
 drop_freq_count_low: 0    # Minimum number of frequency bands to drop
@@ -101,11 +100,11 @@ drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
 # Data Augmenter
 parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
 concat_original: True     # Concatenate original signals to the training batch if True
-repeat_augment: 1         # Number of times to apply the augmentation
+repeat_augment: 2         # Number of times to apply the augmentation
 shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
                               # Otherwise, apply augmentations in the specified order
 min_augmentations: 1     # Minimum number of augmentations to apply
-max_augmentations: 4     # Maximum number of augmentations to apply
+max_augmentations: 5     # Maximum number of augmentations to apply
 
 
 # Model parameters
@@ -221,7 +220,8 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <add_reverb>,
         !ref <add_noise>,
         !ref <drop_freq>,
-        !ref <drop_chunk>]
+        !ref <speed_perturb>,
+        !ref <drop_chunk> ]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN

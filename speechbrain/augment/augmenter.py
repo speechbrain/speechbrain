@@ -5,6 +5,7 @@ Authors
 """
 
 import torch
+import torch.nn.functional as F
 import random
 from speechbrain.utils.callchains import lengths_arg_exists
 
@@ -224,10 +225,16 @@ class Augmenter(torch.nn.Module):
         output_lst = []
         output_len_lst = []
 
+        # Each augmentation results in a new batch, which may have different time dimensions,
+        # as in the case of 'speedagument' or different augment repetitions.
+        # 'batch_len_lst' tracks the time dimension of each augmented batch
+        batch_len_lst = []
+
         # Concatenate the original signal if required
         if self.concat_original:
             output_lst.append(x)
             output_len_lst.append(lengths)
+            batch_len_lst.append(x.shape[1])
 
         # Perform augmentations
         for i in range(self.repeat_augment):
@@ -236,8 +243,29 @@ class Augmenter(torch.nn.Module):
             )
             output_lst.append(output)
             output_len_lst.append(output_lengths)
+            batch_len_lst.append(output.shape[1])
 
-        # Concatenate the final outputs
+        # Concatenate the final outputs while handling scenarios where
+        # different temporal dimensions may arise due to augmentations
+        # like speed change.
+
+        # Find the maximum temporal dimension (batch length) among the sequences
+        max_len = max(output.shape[1] for output in output_lst)
+
+        # Pad sequences to match the maximum temporal dimension.
+        # Note that some augmented batches, like those with speed changes, may have different temporal dimensions.
+        output_lst = [
+            F.pad(output, (0, max_len - output.shape[1]))
+            for output in output_lst
+        ]
+
+        # Rescale the sequence lengths to adjust for augmented batches with different temporal dimensions.
+        output_len_lst = [
+            length * (output.shape[1] / max_len)
+            for length, output in zip(output_len_lst, output_lst)
+        ]
+
+        # Concatenate the padded sequences and rescaled lengths
         output = torch.cat(output_lst, dim=0)
         output_lengths = torch.cat(output_len_lst, dim=0)
 

@@ -479,8 +479,6 @@ class SpeedPerturb(torch.nn.Module):
         ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
-            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
@@ -488,9 +486,8 @@ class SpeedPerturb(torch.nn.Module):
         """
 
         # Perform a random perturbation
-        self.samp_index = torch.randint(len(self.speeds), (1,))[0]
+        self.samp_index = torch.randint(0, len(self.speeds), (1,))
         perturbed_waveform = self.resamplers[self.samp_index](waveform)
-
         return perturbed_waveform
 
 
