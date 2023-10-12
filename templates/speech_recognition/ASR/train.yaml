@@ -90,9 +90,10 @@ snr_high: 15              # Maximum SNR for noise augmentation
 speed_changes: [85, 90, 95, 105, 110, 115]  # List of speed changes for time-stretching
 drop_freq_low: 0          # Minimum frequency band dropout probability
 drop_freq_high: 1         # Maximum frequency band dropout probability
-drop_freq_count_low: 0    # Minimum number of frequency bands to drop
+drop_freq_count_low: 1    # Minimum number of frequency bands to drop
 drop_freq_count_high: 3   # Maximum number of frequency bands to drop
-drop_chunk_count_low: 0   # Minimum number of audio chunks to drop
+drop_freq_width: 0.05     # Width of frequency bands to drop  
+drop_chunk_count_low: 1   # Minimum number of audio chunks to drop
 drop_chunk_count_high: 5  # Maximum number of audio chunks to drop
 drop_chunk_length_low: 1000    # Minimum length of audio chunks to drop
 drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
@@ -100,7 +101,7 @@ drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
 # Data Augmenter
 parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
 concat_original: True     # Concatenate original signals to the training batch if True
-repeat_augment: 2         # Number of times to apply the augmentation
+repeat_augment: 1         # Number of times to apply the augmentation
 shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
                               # Otherwise, apply augmentations in the specified order
 min_augmentations: 1     # Minimum number of augmentations to apply
@@ -176,13 +177,13 @@ prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     csv_file: !ref <rir_annotation>
 
 # Add reverberation to input signal
-add_reverb: !new:speechbrain.augment.speech_augment.AddReverb
+add_reverb: !new:speechbrain.augment.time_domain.AddReverb
     csv_file: !ref <rir_annotation>
     reverb_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
 
 # Add noise to input signal
-add_noise: !new:speechbrain.augment.speech_augment.AddNoise
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <noise_annotation>
     snr_low: !ref <snr_low>
     snr_high: !ref <snr_high>
@@ -190,19 +191,20 @@ add_noise: !new:speechbrain.augment.speech_augment.AddNoise
     clean_sample_rate: !ref <sample_rate>
 
 # Speed perturbation
-speed_perturb: !new:speechbrain.augment.speech_augment.SpeedPerturb
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: !ref <speed_changes>
 
 # Frequency drop: randomly drops a number of frequency bands to zero.
-drop_freq: !new:speechbrain.augment.speech_augment.DropFreq
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
     drop_freq_low: !ref <drop_freq_low>
     drop_freq_high: !ref <drop_freq_high>
     drop_count_low: !ref <drop_freq_count_low>
     drop_count_high: !ref <drop_freq_count_high>
+    drop_width: !ref <drop_freq_width>
 
 # Time drop: randomly drops a number of temporal chunks.
-drop_chunk: !new:speechbrain.augment.speech_augment.DropChunk
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
     drop_length_low: !ref <drop_chunk_length_low>
     drop_length_high: !ref <drop_chunk_length_high>
     drop_count_low: !ref <drop_chunk_count_low>
