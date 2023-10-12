@@ -221,7 +221,7 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <add_noise>,
         !ref <drop_freq>,
         !ref <speed_perturb>,
-        !ref <drop_chunk> ]
+        !ref <drop_chunk>]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN

@@ -4,7 +4,7 @@ from speechbrain.dataio.dataio import write_audio
 
 
 def test_add_noise(tmpdir, device):
-    from speechbrain.augment.speech_augment import AddNoise
+    from speechbrain.augment.time_domain import AddNoise
 
     # Test concatenation of batches
     wav_a = torch.sin(torch.arange(8000.0, device=device)).unsqueeze(0)
@@ -49,7 +49,7 @@ def test_add_noise(tmpdir, device):
 
 
 def test_add_reverb(tmpdir, device):
-    from speechbrain.augment.speech_augment import AddReverb
+    from speechbrain.augment.time_domain import AddReverb
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     impulse_response = torch.zeros(1, 8000, device=device)
@@ -92,7 +92,7 @@ def test_add_reverb(tmpdir, device):
 
 
 def test_speed_perturb(device):
-    from speechbrain.augment.speech_augment import SpeedPerturb
+    from speechbrain.augment.time_domain import SpeedPerturb
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
@@ -106,7 +106,7 @@ def test_speed_perturb(device):
 
 
 def test_babble(device):
-    from speechbrain.augment.speech_augment import AddBabble
+    from speechbrain.augment.time_domain import AddBabble
 
     test_waveform = torch.stack(
         (
@@ -127,7 +127,7 @@ def test_babble(device):
 
 
 def test_drop_freq(device):
-    from speechbrain.augment.speech_augment import DropFreq
+    from speechbrain.augment.time_domain import DropFreq
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
@@ -147,7 +147,7 @@ def test_drop_freq(device):
 
 
 def test_drop_chunk(device):
-    from speechbrain.augment.speech_augment import DropChunk
+    from speechbrain.augment.time_domain import DropChunk
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     lengths = torch.ones(1, device=device)
@@ -183,7 +183,7 @@ def test_drop_chunk(device):
 
 
 def test_fast_drop_chunk():
-    from speechbrain.augment.speech_augment import FastDropChunk
+    from speechbrain.augment.time_domain import FastDropChunk
 
     test_waveform = torch.ones([8, 200, 12])
 
@@ -197,7 +197,7 @@ def test_fast_drop_chunk():
 
 
 def test_clip(device):
-    from speechbrain.augment.signal_augment import DoClip
+    from speechbrain.augment.time_domain import DoClip
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
@@ -212,7 +212,7 @@ def test_clip(device):
 
 
 def test_rand_amp():
-    from speechbrain.augment.signal_augment import RandAmp
+    from speechbrain.augment.time_domain import RandAmp
 
     rand_amp = RandAmp(amp_low=0, amp_high=0)
     signal = torch.rand(4, 500)
@@ -237,7 +237,7 @@ def test_rand_amp():
 
 
 def test_channel_drop():
-    from speechbrain.augment.signal_augment import ChannelDrop
+    from speechbrain.augment.time_domain import ChannelDrop
 
     signal = torch.rand(4, 256, 8)
     ch_drop = ChannelDrop(drop_rate=0.5)
@@ -256,7 +256,7 @@ def test_channel_drop():
 
 
 def test_channel_swap():
-    from speechbrain.augment.signal_augment import ChannelSwap
+    from speechbrain.augment.time_domain import ChannelSwap
 
     signal = torch.rand(4, 256, 8)
     ch_swap = ChannelSwap(min_swap=1, max_swap=5)
@@ -270,7 +270,7 @@ def test_channel_swap():
 
 
 def test_rand_shift():
-    from speechbrain.augment.signal_augment import RandomShift
+    from speechbrain.augment.time_domain import RandomShift
 
     signal = torch.rand(4, 256, 8)
     rand_shift = RandomShift(min_shift=10, max_shift=50, dim=1)
@@ -302,7 +302,7 @@ def test_rand_shift():
 
 
 def test_pink_noise():
-    from speechbrain.augment.signal_augment import pink_noise_like
+    from speechbrain.augment.time_domain import pink_noise_like
 
     signal = torch.rand(4, 256)
     noise = pink_noise_like(signal)
@@ -330,7 +330,7 @@ def test_pink_noise():
 
 
 def muscular_noise():
-    from speechbrain.augment.signal_augment import muscolar_noise
+    from speechbrain.augment.time_domain import muscolar_noise
 
     signal = torch.rand(4, 256, 8)
     noise = muscolar_noise(signal)
@@ -342,7 +342,7 @@ def muscular_noise():
 
 
 def test_augment_pipeline():
-    from speechbrain.augment.speech_augment import DropFreq, DropChunk
+    from speechbrain.augment.time_domain import DropFreq, DropChunk
     from speechbrain.augment.augmenter import Augmenter
 
     freq_dropper = DropFreq()
