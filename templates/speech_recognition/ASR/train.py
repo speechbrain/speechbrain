@@ -78,7 +78,10 @@ class ASR(sb.Brain):
         """
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
-        feats, self.feat_lens = self.prepare_features(stage, batch.sig)
+
+        feats, self.feat_lens, self.N_augments = self.prepare_features(
+            stage, batch.sig
+        )
         tokens_bos, _ = self.prepare_tokens(stage, batch.tokens_bos)
 
         # Running the encoder (prevent propagation to feature extraction)
@@ -126,7 +129,7 @@ class ASR(sb.Brain):
         current_epoch = self.hparams.epoch_counter.current
         return current_epoch <= self.hparams.number_of_ctc_epochs
 
-    def prepare_features(self, stage, wavs):
+    def prepare_features(self, stage, wavs, N_augments=1):
         """Prepare features for computation on-the-fly
 
         Arguments
@@ -138,27 +141,18 @@ class ASR(sb.Brain):
         """
         wavs, wav_lens = wavs
 
-        # Add augmentation if specified. In this version of augmentation, we
-        # concatenate the original and the augment batches in a single bigger
-        # batch. This is more memory-demanding, but helps to improve the
-        # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
+            wavs, wav_lens, N_augments = self.hparams.augment(wavs, wav_lens)
 
         # Feature computation and normalization
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
 
-        return feats, wav_lens
+        return feats, wav_lens, N_augments
 
     def prepare_tokens(self, stage, tokens):
-        """Double the tokens batch if features are doubled.
+        """Augment the tokens batch if needed.
 
         Arguments
         ---------
@@ -168,9 +162,9 @@ class ASR(sb.Brain):
             The tokens (tensor) and their lengths (tensor).
         """
         tokens, token_lens = tokens
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens = torch.cat([tokens, tokens], dim=0)
-            token_lens = torch.cat([token_lens, token_lens], dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
+            tokens = torch.cat(self.N_augments * [tokens], dim=0)
+            token_lens = torch.cat(self.N_augments * [token_lens], dim=0)
         return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -192,6 +186,7 @@ class ASR(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
+
         # Compute sequence loss against targets with EOS
         tokens_eos, tokens_eos_lens = self.prepare_tokens(
             stage, batch.tokens_eos
@@ -428,8 +423,7 @@ if __name__ == "__main__":
         )
         sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
         sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
-        
-    
+
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)
 
@@ -440,7 +434,7 @@ if __name__ == "__main__":
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
-    
+
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],

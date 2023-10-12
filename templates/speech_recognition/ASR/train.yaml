@@ -89,7 +89,7 @@ snr_low: 0               # Minimum Signal-to-Noise Ratio (SNR) for noise augment
 snr_high: 15              # Maximum SNR for noise augmentation
 speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
-drop_freq_low: 1e-14      # Minimum frequency band dropout probability
+drop_freq_low: 0          # Minimum frequency band dropout probability
 drop_freq_high: 1         # Maximum frequency band dropout probability
 drop_freq_count_low: 0    # Minimum number of frequency bands to drop
 drop_freq_count_high: 3   # Maximum number of frequency bands to drop
@@ -102,10 +102,10 @@ drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
 parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
 concat_original: True     # Concatenate original signals to the training batch if True
 repeat_augment: 1        # Number of times to apply the augmentation
-shuffle_augmentations: True  # Randomly shuffle the order of augmentations if True
+shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
                              # Otherwise, apply augmentations in the specified order
-min_augmentations: 2     # Minimum number of augmentations to apply
-max_augmentations: 5     # Maximum number of augmentations to apply
+min_augmentations: 1     # Minimum number of augmentations to apply
+max_augmentations: 4     # Maximum number of augmentations to apply
 
     
 # Model parameters
@@ -220,7 +220,6 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
     augmentations: [
       !ref <add_reverb>,
       !ref <add_noise>,
-      !ref <speed_perturb>,
       !ref <drop_freq>,
       !ref <drop_chunk>]
       
@@ -320,7 +319,6 @@ modules:
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
-    #env_corrupt: !ref <env_corrupt>
     lm_model: !ref <lm_model>
 
 # Gathering all the submodels in a single model object.
