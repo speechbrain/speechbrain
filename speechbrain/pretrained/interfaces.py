@@ -3680,10 +3680,19 @@ class UnitHIFIGAN(Pretrained):
         waveforms: torch.tensor
             Batch of mel-waveforms [batch, 1, time]
         """
-        # Prepare for inference by removing the weight norm
+        # Remove weight norm for inference if it's the first call
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
+
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(1) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
+            )
+            quit()
+
+        # Increment units if tokenization is enabled
         if self.tokenize:
             units += 1
         with torch.no_grad():
@@ -3701,10 +3710,19 @@ class UnitHIFIGAN(Pretrained):
         waveform: torch.tensor
             waveform [1, time]
         """
-        # Prepare for inference by removing the weight norm
+        # Remove weight norm for inference if it's the first call
         if self.first_call:
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
+
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(0) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
+            )
+            quit()
+
+        # Increment units if tokenization is enabled
         if self.tokenize:
             units += 1
         with torch.no_grad():
