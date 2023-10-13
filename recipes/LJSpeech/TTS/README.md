@@ -44,7 +44,7 @@ python train.py --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
 Training takes about 3 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](https://www.dropbox.com/sh/5xqq5tafeofv2y0/AABrHWGpjFr_RxDPVaVQUrSWa?dl=0).
+The training logs are available [here]((https://www.dropbox.com/sh/tqyp58ogejqfres/AAAtmq7cRoOR3XTsq0iSgyKBa?dl=0)).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-ljspeech).
 
