@@ -10,6 +10,7 @@ Authors:
 """
 
 import torch
+import random
 
 
 class SpectrogramDrop(torch.nn.Module):
@@ -36,9 +37,14 @@ class SpectrogramDrop(torch.nn.Module):
     drop_count_high : int
         The high end of number of times that the signal
         can be dropped.
-    replace_with_zero: bool.
-        If true the masked values are replaced with zeros.
-        Otherwise, with the mean value of the spectrogram.
+    replace: str
+        - 'zeros': Masked values are replaced with zeros.
+        - 'mean': Masked values are replaced with the mean value of the spectrogram.
+        - 'rand': Masked values are replaced with random numbers ranging between
+                  the maximum and minimum values of the spectrogram.
+        - 'cutcat': Masked values are replaced with chunks from other signals in the batch.
+        - 'swap': Masked values are replaced with other chunks from the same sentence.
+        - 'random_selection': A random selection among the approaches above.
     dim : int
         Corresponding dimension to mask. If dim=1, we apply time masking.
         If dim=2, we apply frequency masking.
@@ -67,7 +73,7 @@ class SpectrogramDrop(torch.nn.Module):
         drop_length_high=15,
         drop_count_low=1,
         drop_count_high=3,
-        replace_with_zero=True,
+        replace="zeros",
         dim=1,
     ):
         super().__init__()
@@ -75,7 +81,7 @@ class SpectrogramDrop(torch.nn.Module):
         self.drop_length_high = drop_length_high
         self.drop_count_low = drop_count_low
         self.drop_count_high = drop_count_high
-        self.replace_with_zero = replace_with_zero
+        self.replace = replace
         self.dim = dim
 
         # Validate low < high
@@ -83,6 +89,19 @@ class SpectrogramDrop(torch.nn.Module):
             raise ValueError("Low limit must not be more than high limit")
         if drop_count_low > drop_count_high:
             raise ValueError("Low limit must not be more than high limit")
+
+        self.replace_opts = [
+            "zeros",
+            "mean",
+            "rand",
+            "cutcat",
+            "swap",
+            "random_selection",
+        ]
+        if self.replace not in self.replace_opts:
+            raise ValueError(
+                f"Invalid 'replace' option. Select one of {', '.join(self.replace_opts)}"
+            )
 
     def forward(self, spectrogram):
         """
@@ -147,10 +166,39 @@ class SpectrogramDrop(torch.nn.Module):
         mask = mask.unsqueeze(2) if self.dim == 1 else mask.unsqueeze(1)
 
         # Determine the value to replace the masked chunks (zero or mean of the spectrogram)
-        val = 0.0 if self.replace_with_zero else spectrogram.mean().detach()
+        if self.replace == "random_selection":
+            self.replace = random.choice(self.replace_opts)
+            print(self.replace)
 
-        # Apply the mask to the spectrogram
-        spectrogram = spectrogram.masked_fill_(mask, val)
+        if self.replace == "zeros":
+            spectrogram = spectrogram.masked_fill_(mask, 0.0)
+        elif self.replace == "mean":
+            mean = spectrogram.mean().detach()
+            spectrogram = spectrogram.masked_fill_(mask, mean)
+        elif self.replace == "rand":
+            max_spectrogram = spectrogram.max().detach()
+            min_spectrogram = spectrogram.min().detach()
+            rand_spectrogram = torch.rand_like(spectrogram)
+            rand_spectrogram = (
+                rand_spectrogram * (max_spectrogram - min_spectrogram)
+                + min_spectrogram
+            )
+            mask = mask.float()
+            spectrogram = (1 - mask) * spectrogram + mask * rand_spectrogram
+        elif self.replace == "cutcat":
+            rolled_spectrogram = torch.roll(spectrogram, shifts=1, dims=0)
+            mask = mask.float()
+            spectrogram = (1 - mask) * spectrogram + mask * rolled_spectrogram
+        elif self.replace == "swap":
+            shift = torch.randint(
+                low=0,
+                high=spectrogram.shape[1],
+                size=(1,),
+                device=spectrogram.device,
+            )
+            rolled_spectrogram = torch.roll(spectrogram, shifts=shift, dims=1)
+            mask = mask.float()
+            spectrogram = (1 - mask) * spectrogram + mask * rolled_spectrogram
 
         return spectrogram.view(*spectrogram.shape)
 
@@ -247,7 +295,7 @@ class Warping(torch.nn.Module):
         )
 
         # Update the right part of the spectrogram.
-        # When the left part is expanded, the right part is compressed by the 
+        # When the left part is expanded, the right part is compressed by the
         # same factor, and vice versa.
         right = torch.nn.functional.interpolate(
             spectrogram[:, :, c:],

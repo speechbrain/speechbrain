@@ -1592,7 +1592,7 @@ class CutCat(torch.nn.Module):
 
     Arguments
     ---------
-    num_segments : int
+    min_num_segments : int
         The number of segments to combine.
     max_num_segments : int
         The maximum number of segments to combine. Default is 10.
