@@ -15,7 +15,7 @@ import torch
 class SpectrogramDrop(torch.nn.Module):
     """This class drops slices of the input spectrogram.
 
-    Using `DropChunk` as an augmentation strategy helps a models learn to rely
+    Using `SpectrogramDrop` as an augmentation strategy helps a models learn to rely
     on all parts of the signal, since it can't expect a given part to be
     present.
 
@@ -155,16 +155,114 @@ class SpectrogramDrop(torch.nn.Module):
         return spectrogram.view(*spectrogram.shape)
 
 
-# Implement time-warping
-# drop = SpectrogramDrop(dim=2)
-# spectrogram = torch.rand(4, 150, 40)
-# print(spectrogram.shape)
-# out = drop(spectrogram)
-# print(out.shape)
+class Warping(torch.nn.Module):
+    """
+    Apply time or frequency warping to a spectrogram.
 
-# from pylab import imshow, grid, figure
+    If `dim=1`, time warping is applied; if `dim=2`, frequency warping is applied.
+    This implementation selects a center and a window length to perform warping.
+    It ensures that the temporal dimension remains unchanged by upsampling or
+    downsampling the affected regions accordingly.
 
-# A = spectrogram[0].transpose(0, 1)
-# figure(1)
-# imshow(A, interpolation="nearest")
-# grid(True)
+    Reference:
+        https://arxiv.org/abs/1904.08779
+
+    Arguments
+    ---------
+    warp_window : int, optional
+        The width of the warping window. Default is 5.
+    warp_mode : str, optional
+        The interpolation mode for time warping. Default is "bicubic."
+    dim : int, optional
+        Dimension along which to apply warping (1 for time, 2 for frequency).
+        Default is 1.
+
+    Example
+    -------
+    >>> # Time-warping
+    >>> warp = Warping()
+    >>> spectrogram = torch.rand(4, 150, 40)
+    >>> print(spectrogram.shape)
+    torch.Size([4, 150, 40])
+    >>> out = warp(spectrogram)
+    >>> print(out.shape)
+    torch.Size([4, 150, 40])
+    >>> # Frequency-warping
+    >>> warp = Warping(dim=2)
+    >>> spectrogram = torch.rand(4, 150, 40)
+    >>> print(spectrogram shape)
+    torch.Size([4, 150, 40])
+    >>> out = warp(spectrogram)
+    >>> print(out.shape)
+    torch.Size([4, 150, 40])
+    """
+
+    def __init__(self, warp_window=5, warp_mode="bicubic", dim=1):
+        super().__init__()
+        self.warp_window = warp_window
+        self.warp_mode = warp_mode
+        self.dim = dim
+
+    def forward(self, spectrogram):
+        """
+        Apply warping to the input spectrogram.
+
+        Arguments
+        ---------
+        spectrogram : torch.Tensor
+            Input spectrogram with shape `[batch, time, fea]`.
+
+        Returns
+        -------
+        torch.Tensor
+            Augmented spectrogram with shape `[batch, time, fea]`.
+        """
+
+        # Set warping dimension
+        if self.dim == 2:
+            spectrogram = spectrogram.transpose(1, 2)
+
+        original_size = spectrogram.shape
+        window = self.warp_window
+
+        # 2d interpolation requires 4D or higher dimension tensors
+        # x: (Batch, Time, Freq) -> (Batch, 1, Time, Freq)
+        if spectrogram.dim() == 3:
+            spectrogram = spectrogram.unsqueeze(1)
+
+        len_original = spectrogram.shape[2]
+        if len_original - window <= window:
+            return spectrogram.view(*original_size)
+
+        # Compute center and corresponding window
+        c = torch.randint(window, len_original - window, (1,))[0]
+        w = torch.randint(c - window, c + window, (1,))[0] + 1
+
+        # Update the left part of the spectrogram
+        left = torch.nn.functional.interpolate(
+            spectrogram[:, :, :c],
+            (w, spectrogram.shape[3]),
+            mode=self.warp_mode,
+            align_corners=True,
+        )
+
+        # Update the right part of the spectrogram.
+        # When the left part is expanded, the right part is compressed by the 
+        # same factor, and vice versa.
+        right = torch.nn.functional.interpolate(
+            spectrogram[:, :, c:],
+            (len_original - w, spectrogram.shape[3]),
+            mode=self.warp_mode,
+            align_corners=True,
+        )
+
+        # Injecting the warped left and right parts.
+        spectrogram[:, :, :w] = left
+        spectrogram[:, :, w:] = right
+        spectrogram = spectrogram.view(*original_size)
+
+        # Transpose if freq warping is applied.
+        if self.dim == 2:
+            spectrogram = spectrogram.transpose(1, 2)
+
+        return spectrogram
