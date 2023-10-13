@@ -362,14 +362,12 @@ class AddReverb(torch.nn.Module):
         if reverb_sample_rate != clean_sample_rate:
             self.resampler = Resample(reverb_sample_rate, clean_sample_rate)
 
-    def forward(self, waveforms, lengths):
+    def forward(self, waveforms):
         """
         Arguments
         ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
-            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
@@ -381,9 +379,6 @@ class AddReverb(torch.nn.Module):
         if len(waveforms.shape) == 2:
             waveforms = waveforms.unsqueeze(-1)
             channel_added = True
-
-        # Convert length from ratio to number of indices
-        # lengths = (lengths * waveforms.shape[1])[:, None, None]
 
         # Load and prepare RIR
         rir_waveform = self._load_rir(waveforms)
@@ -1449,8 +1444,7 @@ class ChannelDrop(torch.nn.Module):
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
 
-        # Pick a frequency to drop
-        waveforms = waveforms.detach().clone()
+        # Pick a channel to drop
         x = torch.rand(waveforms.shape[-1], device=waveforms.device)
         channel_mask = x.ge(self.drop_rate)
         waveforms = waveforms * channel_mask.unsqueeze(0).unsqueeze(1)
@@ -1500,7 +1494,6 @@ class ChannelSwap(torch.nn.Module):
         """
 
         # Pick a frequency to drop
-        waveforms = waveforms.detach().clone()
         rand_perm1 = torch.randperm(waveforms.shape[-1])
         rand_perm2 = torch.randperm(waveforms.shape[-1])
         N_swaps = torch.randint(
@@ -1520,9 +1513,14 @@ class ChannelSwap(torch.nn.Module):
 
 
 class RandomShift(torch.nn.Module):
-    """This function shifts the input tensor by a random amount. Depending
-    on the axis it can perform time pr channel shift.
-
+    """Shifts the input tensor by a random amount, allowing for either a time
+    or frequency (or channel) shift depending on the specified axis.
+    It is crucial to calibrate the minimum and maximum shifts according to the
+    requirements of your specific task.
+    We recommend using small shifts to preserve information integrity.
+    Using large shifts may result in the loss of significant data and could
+    potentially lead to misalignments with corresponding labels.
+.
     Arguments
     ---------
     min_shift : int
@@ -1534,9 +1532,19 @@ class RandomShift(torch.nn.Module):
 
     Example
     -------
-    >>> signal = torch.rand(4, 256, 8)
-    >>> rand_shift =  RandomShift()
-    >>> output_signal = rand_shift(signal)
+    >>> # time shift
+    >>> signal = torch.zeros(4, 100, 80)
+    >>> signal[0,50,:] = 1
+    >>> rand_shift =  RandomShift(dim=1, min_shift=-10, max_shift=10)
+    >>> lenghts = torch.tensor([0.2, 0.8, 0.9,1.0])
+    >>> output_signal, lenghts = rand_shift(signal,lenghts)
+
+    >>> # frequency shift
+    >>> signal = torch.zeros(4, 100, 80)
+    >>> signal[0,:,40] = 1
+    >>> rand_shift =  RandomShift(dim=2, min_shift=-10, max_shift=10)
+    >>> lenghts = torch.tensor([0.2, 0.8, 0.9,1.0])
+    >>> output_signal, lenghts = rand_shift(signal,lenghts)
     """
 
     def __init__(self, min_shift=0, max_shift=0, dim=1):
@@ -1549,12 +1557,14 @@ class RandomShift(torch.nn.Module):
         if self.max_shift < self.min_shift:
             raise ValueError("max_shift must be  >= min_shift")
 
-    def forward(self, waveforms):
+    def forward(self, waveforms, lengths):
         """
         Arguments
         ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
@@ -1562,12 +1572,18 @@ class RandomShift(torch.nn.Module):
         """
 
         # Pick a frequency to drop
-        waveforms = waveforms.detach().clone()
         N_shifts = torch.randint(
             low=self.min_shift, high=self.max_shift + 1, size=(1,)
         )
+        print(N_shifts)
         waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
-        return waveforms
+
+        # Update lenghts in the case of temporal shift.
+        if self.dim == 1:
+            lengths = lengths + N_shifts / waveforms.shape[self.dim]
+            lengths = torch.clamp(lengths, min=0.0, max=1.0)
+
+        return waveforms, lengths
 
 
 class CutCat(torch.nn.Module):
@@ -1607,8 +1623,6 @@ class CutCat(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
-
-        waveforms = waveforms.detach().clone()
         if (
             waveforms.shape[0] > 1
         ):  # only if there are at least 2 examples in batch
