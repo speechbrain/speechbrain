@@ -94,7 +94,7 @@ drop_freq_count_low: 1    # Minimum number of frequency bands to drop
 drop_freq_count_high: 3   # Maximum number of frequency bands to drop
 drop_freq_width: 0.05     # Width of frequency bands to drop  
 drop_chunk_count_low: 1   # Minimum number of audio chunks to drop
-drop_chunk_count_high: 5  # Maximum number of audio chunks to drop
+drop_chunk_count_high: 3  # Maximum number of audio chunks to drop
 drop_chunk_length_low: 1000    # Minimum length of audio chunks to drop
 drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
 
@@ -199,9 +199,9 @@ speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
     drop_freq_low: !ref <drop_freq_low>
     drop_freq_high: !ref <drop_freq_high>
-    drop_count_low: !ref <drop_freq_count_low>
-    drop_count_high: !ref <drop_freq_count_high>
-    drop_width: !ref <drop_freq_width>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
 
 # Time drop: randomly drops a number of temporal chunks.
 drop_chunk: !new:speechbrain.augment.time_domain.DropChunk

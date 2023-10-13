@@ -887,11 +887,11 @@ class DropFreq(torch.nn.Module):
     drop_freq_high : float
         The high end of frequencies that can be
         dropped, as a fraction of the sampling rate / 2.
-    drop_count_low : int
+    drop_freq_count_low : int
         The low end of number of frequencies that could be dropped.
-    drop_count_high : int
+    drop_freq_count_high : int
         The high end of number of frequencies that could be dropped.
-    drop_width : float
+    drop_freq_width : float
         The width of the frequency band to drop, as
         a fraction of the sampling_rate / 2.
 
@@ -907,16 +907,16 @@ class DropFreq(torch.nn.Module):
         self,
         drop_freq_low=1e-14,
         drop_freq_high=1,
-        drop_count_low=1,
-        drop_count_high=2,
-        drop_width=0.05,
+        drop_freq_count_low=1,
+        drop_freq_count_high=3,
+        drop_freq_width=0.05,
     ):
         super().__init__()
         self.drop_freq_low = drop_freq_low
         self.drop_freq_high = drop_freq_high
-        self.drop_count_low = drop_count_low
-        self.drop_count_high = drop_count_high
-        self.drop_width = drop_width
+        self.drop_count_low = drop_freq_count_low
+        self.drop_count_high = drop_freq_count_high
+        self.drop_freq_width = drop_freq_width
 
     def forward(self, waveforms):
         """
@@ -939,7 +939,9 @@ class DropFreq(torch.nn.Module):
 
         # Pick number of frequencies to drop
         drop_count = torch.randint(
-            low=self.drop_count_low, high=self.drop_count_high + 1, size=(1,)
+            low=self.drop_freq_count_low,
+            high=self.drop_freq_count_high + 1,
+            size=(1,),
         )
 
         # Pick a frequency to drop
@@ -959,7 +961,7 @@ class DropFreq(torch.nn.Module):
         # Subtract each frequency
         for frequency in drop_frequency:
             notch_kernel = notch_filter(
-                frequency, filter_length, self.drop_width
+                frequency, filter_length, self.drop_freq_width
             ).to(waveforms.device)
             drop_filter = convolve1d(drop_filter, notch_kernel, pad)
 
@@ -1030,10 +1032,9 @@ class DropChunk(torch.nn.Module):
         drop_length_low=100,
         drop_length_high=1000,
         drop_count_low=1,
-        drop_count_high=10,
+        drop_count_high=3,
         drop_start=0,
         drop_end=None,
-        drop_prob=1,
         noise_factor=0.0,
     ):
         super().__init__()
