@@ -909,8 +909,8 @@ class DropFreq(torch.nn.Module):
         super().__init__()
         self.drop_freq_low = drop_freq_low
         self.drop_freq_high = drop_freq_high
-        self.drop_count_low = drop_freq_count_low
-        self.drop_count_high = drop_freq_count_high
+        self.drop_freq_count_low = drop_freq_count_low
+        self.drop_freq_count_high = drop_freq_count_high
         self.drop_freq_width = drop_freq_width
 
     def forward(self, waveforms):

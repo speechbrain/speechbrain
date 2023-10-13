@@ -167,8 +167,7 @@ class SpectrogramDrop(torch.nn.Module):
 
         # Determine the value to replace the masked chunks (zero or mean of the spectrogram)
         if self.replace == "random_selection":
-            self.replace = random.choice(self.replace_opts)
-            print(self.replace)
+            self.replace = random.choice(self.replace_opts[:-1])
 
         if self.replace == "zeros":
             spectrogram = spectrogram.masked_fill_(mask, 0.0)
@@ -191,12 +190,14 @@ class SpectrogramDrop(torch.nn.Module):
             spectrogram = (1 - mask) * spectrogram + mask * rolled_spectrogram
         elif self.replace == "swap":
             shift = torch.randint(
-                low=0,
+                low=1,
                 high=spectrogram.shape[1],
                 size=(1,),
                 device=spectrogram.device,
             )
-            rolled_spectrogram = torch.roll(spectrogram, shifts=shift, dims=1)
+            rolled_spectrogram = torch.roll(
+                spectrogram, shifts=shift.item(), dims=1
+            )
             mask = mask.float()
             spectrogram = (1 - mask) * spectrogram + mask * rolled_spectrogram
 

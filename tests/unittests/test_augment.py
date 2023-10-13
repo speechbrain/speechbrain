@@ -83,11 +83,11 @@ def test_add_reverb(tmpdir, device):
 
     # Normal cases
     add_reverb = AddReverb(csv, sorting="original")
-    reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
+    reverbed = add_reverb(test_waveform)[:, 0:1000]
     assert reverbed.allclose(test_waveform[:, 0:1000], atol=1e-1)
-    reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
+    reverbed = add_reverb(test_waveform)[:, 0:1000]
     assert reverbed.allclose(test_waveform[:, 0:1000], atol=1e-1)
-    reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
+    reverbed = add_reverb(test_waveform)[:, 0:1000]
     assert reverbed.allclose(ir3_result[:, 0:1000], atol=2e-1)
 
 
@@ -132,7 +132,7 @@ def test_drop_freq(device):
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_drop = DropFreq(drop_count_low=0, drop_count_high=0)
+    no_drop = DropFreq(drop_freq_count_low=0, drop_freq_count_high=0)
     assert no_drop(test_waveform).allclose(test_waveform)
 
     # Check case where frequency range *does not* include signal frequency
@@ -273,31 +273,32 @@ def test_rand_shift():
     from speechbrain.augment.time_domain import RandomShift
 
     signal = torch.rand(4, 256, 8)
+    lengths = torch.tensor([0.1, 0.2, 0.9, 1.0])
     rand_shift = RandomShift(min_shift=10, max_shift=50, dim=1)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert signal.shape == output.shape
     assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256, 8)
     rand_shift = RandomShift(min_shift=1, max_shift=2, dim=2)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert signal.shape == output.shape
     assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256)
     rand_shift = RandomShift(min_shift=10, max_shift=50, dim=1)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert signal.shape == output.shape
     assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256, 8)
     rand_shift = RandomShift(min_shift=0, max_shift=0, dim=1)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert torch.equal(signal, output)
 
     signal = torch.Tensor([1, 0, 0])
     rand_shift = RandomShift(min_shift=1, max_shift=1, dim=0)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert torch.equal(output, torch.Tensor([0, 1, 0]))
 
 
@@ -329,16 +330,160 @@ def test_pink_noise():
     assert torch.all(mean_first_fft_points < mean_last_fft_points)
 
 
-def muscular_noise():
-    from speechbrain.augment.time_domain import muscolar_noise
+def test_SpectrogramDrop():
+    from speechbrain.augment.freq_domain import SpectrogramDrop
 
-    signal = torch.rand(4, 256, 8)
-    noise = muscolar_noise(signal)
-    assert signal.shape == noise.shape
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    assert mean > output.mean()
+    assert spectrogram.shape == output.shape
 
-    signal = torch.rand(4, 256)
-    noise = muscolar_noise(signal)
-    assert signal.shape == noise.shape
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="zeros",
+        dim=2,
+    )
+    output = drop(spectrogram)
+    assert mean > output.mean()
+    assert spectrogram.shape == output.shape
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="mean",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="mean",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="cutcat",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="cutcat",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="swap",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="swap",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+    assert torch.allclose(spectrogram.mean(), output.mean())
+
+    # Important: understand why sometimes with random selection, spectrogram and output are the same....
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="random_selection",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="random_selection",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
 
 
 def test_augment_pipeline():
