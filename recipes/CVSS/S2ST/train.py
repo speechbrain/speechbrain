@@ -3,7 +3,7 @@
  - Direct speech-to-speech translation with discrete units: (https://arxiv.org/abs/2006.04558)
  - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
  To run this recipe, do the following:
- # python train.py hparams/train.yaml
+ # python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
  Authors
  * Jarod Duret 2023
 """
@@ -82,15 +82,16 @@ class S2UT(sb.core.Brain):
             # generate speech and transcriptions
             wavs = []
             for hyp in hyps:
-                code = torch.LongTensor(hyp)
-                wav = self.test_vocoder.decode_unit(code)
-                wavs.append(wav.squeeze(0))
+                if len(hyp) > 3:
+                    code = torch.LongTensor(hyp)
+                    wav = self.test_vocoder.decode_unit(code)
+                    wavs.append(wav.squeeze(0))
+            if wavs:
+                wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
+                transcripts, _ = self.test_asr.transcribe_batch(wavs, wav_lens)
+                transcripts = [transcript.lower() for transcript in transcripts]
 
-            wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
-            transcripts, _ = self.test_asr.transcribe_batch(wavs, wav_lens)
-            transcripts = [transcript.lower() for transcript in transcripts]
-
-            self.bleu_metric.append(ids, transcripts, [tgt_text])
+                self.bleu_metric.append(ids, transcripts, [tgt_text])
 
         return (
             p_seq,
