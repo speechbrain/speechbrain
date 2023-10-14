@@ -62,7 +62,7 @@ speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
 number_of_epochs: 50
 valid_search_eopch: 10
 batch_size: 8 # this works for 2 GPUs with 11GB
-gradient_accumulation: 8
+grad_accumulation_factor: 8
 loss_reduction: batchmean
 sorting: random
 avg_checkpoints: 5 # Number of checkpoints to average for evaluation
