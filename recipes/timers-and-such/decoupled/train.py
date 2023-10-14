@@ -92,9 +92,7 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
@@ -120,7 +118,6 @@ class SLU(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
 
         if stage != sb.Stage.TRAIN:
 

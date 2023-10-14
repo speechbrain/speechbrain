@@ -41,10 +41,7 @@ class SLU(sb.Brain):
 
         # Compute outputs
         p_tokens = None
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             return p_seq, transcript_tokens_lens
         else:
             p_tokens, _, _, _ = self.hparams.beam_searcher(
@@ -72,9 +69,7 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 slu_tokenizer.decode_ids(utt_seq).split(" ")
@@ -125,7 +120,6 @@ class SLU(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
 
         if stage != sb.Stage.TRAIN:
 

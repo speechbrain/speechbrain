@@ -49,10 +49,7 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             return p_seq, wav_lens
         else:
             hyps, _, _, _ = self.hparams.beam_searcher(
@@ -64,10 +61,7 @@ class SLU(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             p_seq, wav_lens = predictions
         else:
             p_seq, wav_lens, predicted_tokens = predictions
@@ -81,9 +75,7 @@ class SLU(sb.Brain):
 
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
@@ -140,7 +132,6 @@ class SLU(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
 
         if stage != sb.Stage.TRAIN:
 
