@@ -376,7 +376,7 @@ if __name__ == "__main__":
     # creates a logger
     logger = logging.getLogger(__name__)
 
-    # If distributed_launch=True then
+    
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
