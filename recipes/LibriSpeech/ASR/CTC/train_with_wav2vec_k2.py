@@ -145,7 +145,7 @@ class ASR(sb.Brain):
                 for i, lm_scale in enumerate(self.hparams.lm_scale_list):
                     predicted_texts: List[str] = decode_output[
                         f"lm_scale_{lm_scale:.1f}"
-                    ] # type: ignore
+                    ]  # type: ignore
                     predicted_words: List[List[str]] = [
                         wrd.split(" ") for wrd in predicted_texts
                     ]
@@ -269,8 +269,7 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]},
-                min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -328,8 +327,7 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -354,8 +352,7 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -393,8 +390,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "char_list"],
+        datasets, ["id", "sig", "wrd", "char_list"],
     )
 
     return train_data, valid_data, test_datasets
@@ -588,7 +584,9 @@ if __name__ == "__main__":
     )
 
     need_G = hparams.get("use_HLG", False) in [True, "True"]
-    need_4gram = hparams.get("decoding_method", None) == "whole-lattice-rescoring"
+    need_4gram = (
+        hparams.get("decoding_method", None) == "whole-lattice-rescoring"
+    )
     rescoring_lm_path = None
     G_path = None
     # NOTE: This means that even if the 3gram G is not needed, but we still plan to
@@ -598,13 +596,9 @@ if __name__ == "__main__":
     if need_G or need_4gram:
         # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
         logger.info("Converting arpa LM to FST")
-        G_path = (
-            Path(hparams["lm_dir"])
-            / hparams["trigram_fst_output_name"]
-        )
+        G_path = Path(hparams["lm_dir"]) / hparams["trigram_fst_output_name"]
         rescoring_lm_path = (
-            Path(hparams["lm_dir"])
-            / hparams["fourgram_fst_output_name"]
+            Path(hparams["lm_dir"]) / hparams["fourgram_fst_output_name"]
         )
         logger.info(f"Will load LM from {G_path}")
         run_on_main(
@@ -614,10 +608,10 @@ if __name__ == "__main__":
                 "output_dir": Path(hparams["lm_dir"]),
                 "words_txt": Path(hparams["lang_dir"]) / "words.txt",
                 "convert_4gram": need_4gram,
-                "trigram_arpa_name": Path(hparams["lm_dir"]) / \
-                    hparams["trigram_arpa_name"],
-                "fourgram_arpa_name": Path(hparams["lm_dir"]) / \
-                    hparams["fourgram_arpa_name"],
+                "trigram_arpa_name": Path(hparams["lm_dir"])
+                / hparams["trigram_arpa_name"],
+                "fourgram_arpa_name": Path(hparams["lm_dir"])
+                / hparams["fourgram_arpa_name"],
                 "trigram_fst_output_name": G_path,
                 "fourgram_fst_output_name": rescoring_lm_path,
             },

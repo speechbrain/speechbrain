@@ -225,11 +225,7 @@ def convert_lexicon_to_ragged(
     cached_tot_size = row_splits[-1]
     row_splits = torch.tensor(row_splits, dtype=torch.int32)
 
-    shape = k2.ragged.create_ragged_shape2(
-        row_splits,
-        None,
-        cached_tot_size,
-    )
+    shape = k2.ragged.create_ragged_shape2(row_splits, None, cached_tot_size,)
     values = torch.tensor(token_ids_list, dtype=torch.int32)
 
     return k2.RaggedTensor(shape, values)
@@ -497,8 +493,6 @@ class UniqLexicon(Lexicon):
         word_ids = torch.tensor(word_ids, dtype=torch.int32)
 
         ragged, _ = self.ragged_lexicon.index(
-            indexes=word_ids,
-            axis=0,
-            need_value_indexes=False,
+            indexes=word_ids, axis=0, need_value_indexes=False,
         )
         return ragged
