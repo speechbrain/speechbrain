@@ -59,7 +59,7 @@ do_augmentation: False
 number_of_epochs: 10
 lr_whisper: 0.00003
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 asr_sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 checkpoint_avg: 5

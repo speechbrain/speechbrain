@@ -60,7 +60,7 @@ skip_prep: False
 ckpt_interval_minutes: 60
 
 # Experiment params
-auto_mix_prec: False # Set this to True for mixed precision
+precision: fp32 # bf16, fp16 or fp32 # Set this to True for mixed precision
 
 # for the currently supported datasets (Libri2Mix, WHAMR!), this should be set 2
 num_spks: 2

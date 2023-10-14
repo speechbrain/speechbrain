@@ -37,7 +37,7 @@ skip_prep: False
 
 
 # Experiment params
-auto_mix_prec: False # Set it to True for mixed precision
+precision: fp32 # bf16, fp16 or fp32 # Set it to True for mixed precision
 num_spks: 2 # set to 3 for wsj0-3mix
 save_audio: True # Save estimated sources on disk
 n_audio_to_save: 10
