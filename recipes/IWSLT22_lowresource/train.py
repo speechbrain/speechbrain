@@ -376,7 +376,6 @@ if __name__ == "__main__":
     # creates a logger
     logger = logging.getLogger(__name__)
 
-    
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
