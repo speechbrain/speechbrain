@@ -186,9 +186,6 @@ class ResGenBrain(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
-    def zero_grad(self, set_to_none=False):
-        self.optimizer.zero_grad(set_to_none)
-
 
 def add_special_tokens_(model, tokenizer, attr_to_special_token,) -> None:
     orig_num_tokens = len(tokenizer.encoder)

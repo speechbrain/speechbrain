@@ -174,11 +174,6 @@ class ASR(sb.core.Brain):
         valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
         return valid_optimizers
 
-    def zero_grad(self, set_to_none=False):
-        if not self.hparams.wav2vec2.freeze:
-            self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.model_optimizer.zero_grad(set_to_none)
-
 
 # Define custom data procedure
 def dataio_prepare(hparams, tokenizer):

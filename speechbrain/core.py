@@ -1031,8 +1031,8 @@ class Brain:
         Setting gradients to None should save the memory, e.g.
         during ``evaluate()`` and thus larger batch might be used.
         """
-        if hasattr(self, "optimizer"):
-            self.optimizer.zero_grad(set_to_none)
+        for opt in self.freeze_optimizers(self.optimizers_dict).values():
+            opt.zero_grad(set_to_none=set_to_none)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
