@@ -70,11 +70,6 @@ if __name__ == "__main__":
         receptive_field
     )  # used to store features that go into the CNN input
 
-    for _ in range(
-        receptive_field - 1
-    ):  # so I directly store something in my buffer...
-        features_buffer.append(torch.zeros(1, 1, 40))
-
     # Plotting vars
     raw_waveform = []
     streamed_wav = []
@@ -183,8 +178,8 @@ if __name__ == "__main__":
             )
 
             outputs_rnn, h = vad_interface.mods["model"][1](outputs_cnn_data)
-
             outputs_rnn_data = outputs_rnn
+
             outputs_data = vad_interface.mods["model"][2](
                 outputs_rnn_data
             ).squeeze()
@@ -199,3 +194,8 @@ if __name__ == "__main__":
             plt.plot(torch.sigmoid(outputs_data), color="orange")
 
             plt.savefig("offline_processing.png")
+
+            plt.clf()
+            plt.plot(torch.sigmoid(outputs_data), color="orange")
+            plt.plot(probs, color="blue")
+            plt.savefig("probs-overlap.png")
