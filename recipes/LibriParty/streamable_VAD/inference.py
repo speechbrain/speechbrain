@@ -19,21 +19,12 @@ from time import time
 import torch
 import sys
 
-# Inference Parameters
-frames_per_chunk = 80  # Number of frames per audio chunk
-buffer_chunk_size = 200  # Size of the audio buffer chunk
-receptive_field = 5  # Receptive field size
-avg_alpha = (
-    0.97  # Smoothing factor for model probabilities with a moving average
-)
-reset_time = 20  # Reset time in seconds for the RNN model
-
 
 # Inference Parameters
 frames_per_chunk = 80
 buffer_chunk_size = 200
 receptive_field = 5
-avg_alpha = 0.97  # We smooth the model probabilities with a moving average
+avg_alpha = 0.99  # We smooth the model probabilities with a moving average
 reset_time = 20  # We need to reset the model periodically.
 # The RNN-based model was trained on sentences of approximately 20 seconds in length.
 # Without periodic resets, it tends to perform poorly when processing sequences
