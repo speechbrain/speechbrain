@@ -142,9 +142,6 @@ class ASR(sb.Brain):
         # Add augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
             wavs, wav_lens = self.hparams.augment(wavs, wav_lens)
-        import torchaudio
-        torchaudio.save('prova2.wav', wavs, 16000)
-        sdds
 
         # Feature computation and normalization
         feats = self.hparams.compute_features(wavs)

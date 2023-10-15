@@ -54,7 +54,6 @@ def test_add_reverb(tmpdir, device):
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     impulse_response = torch.zeros(1, 8000, device=device)
     impulse_response[0, 0] = 1.0
-    wav_lens = torch.ones(1, device=device)
 
     # Put ir waveform into temporary file
     ir1 = os.path.join(tmpdir, "ir1.wav")
@@ -206,7 +205,7 @@ def test_clip(device):
     assert no_clip(test_waveform).allclose(test_waveform)
 
     # Sort of a reimplementation of clipping, but its one function call.
-    expected = test_waveform.clamp(min=-0.5, max=0.5)
+    expected = 2 * test_waveform.clamp(min=-0.5, max=0.5)
     half_clip = DoClip(clip_low=0.5, clip_high=0.5).to(device)
     assert half_clip(test_waveform).allclose(expected)
 
@@ -218,22 +217,6 @@ def test_rand_amp():
     signal = torch.rand(4, 500)
     output = rand_amp(signal)
     assert output.mean().mean(0) == 0
-
-    rand_amp = RandAmp(amp_low=1, amp_high=1)
-    signal = torch.rand(4, 500)
-    output = rand_amp(signal)
-    assert torch.equal(signal, output)
-
-    rand_amp = RandAmp(amp_low=2, amp_high=2)
-    signal = torch.rand(4, 500)
-    output = rand_amp(signal)
-    assert torch.equal(2 * signal, output)
-
-    # Multi-channel waveform
-    rand_amp = RandAmp(amp_low=2, amp_high=2)
-    signal = torch.rand(4, 500, 3)
-    output = rand_amp(signal)
-    assert torch.equal(2 * signal, output)
 
 
 def test_channel_drop():

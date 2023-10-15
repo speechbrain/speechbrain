@@ -1319,6 +1319,8 @@ class FastDropChunk(torch.nn.Module):
 
 class DoClip(torch.nn.Module):
     """This function mimics audio clipping by clamping the input tensor.
+    First, it normalizes the waveforms from -1 to -1. Then, clipping is applied.
+    Finally, the original amplitude is restored.
 
     Arguments
     ---------
@@ -1337,7 +1339,7 @@ class DoClip(torch.nn.Module):
     '0.01'
     """
 
-    def __init__(self, clip_low=0.5, clip_high=1):
+    def __init__(self, clip_low=0.5, clip_high=0.5):
         super().__init__()
         self.clip_low = clip_low
         self.clip_high = clip_high
@@ -1354,6 +1356,10 @@ class DoClip(torch.nn.Module):
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
 
+        # Normalize the signal
+        abs_max, _ = torch.max(torch.abs(waveforms), dim=1, keepdim=True)
+        waveforms = waveforms / abs_max
+
         # Randomly select clip value
         clipping_range = self.clip_high - self.clip_low
         clip_value = torch.rand(1)[0] * clipping_range + self.clip_low
@@ -1361,11 +1367,16 @@ class DoClip(torch.nn.Module):
         # Apply clipping
         clipped_waveform = waveforms.clamp(-clip_value, clip_value)
 
+        # Restore orignal amplitude
+        clipped_waveform = clipped_waveform * abs_max / clip_value
+
         return clipped_waveform
 
 
 class RandAmp(torch.nn.Module):
-    """This function multiples the signal by a random amplitude
+    """This function multiples the signal by a random amplitude. Firist, the
+    signal is normalized to have amplitude between -1 and 1. Then it is
+    multiplied with a random number.
 
     Arguments
     ---------
@@ -1398,6 +1409,10 @@ class RandAmp(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
+
+        # Normalize the signal
+        abs_max, _ = torch.max(torch.abs(waveforms), dim=1, keepdim=True)
+        waveforms = waveforms / abs_max
 
         # Pick a frequency to drop
         rand_range = self.amp_high - self.amp_low
@@ -1575,7 +1590,6 @@ class RandomShift(torch.nn.Module):
         N_shifts = torch.randint(
             low=self.min_shift, high=self.max_shift + 1, size=(1,)
         )
-        print(N_shifts)
         waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
 
         # Update lenghts in the case of temporal shift.

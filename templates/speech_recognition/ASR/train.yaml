@@ -92,20 +92,25 @@ drop_freq_low: 0          # Minimum frequency band dropout probability
 drop_freq_high: 1         # Maximum frequency band dropout probability
 drop_freq_count_low: 1    # Minimum number of frequency bands to drop
 drop_freq_count_high: 3   # Maximum number of frequency bands to drop
-drop_freq_width: 0.05     # Width of frequency bands to drop  
+drop_freq_width: 0.05     # Width of frequency bands to drop
 drop_chunk_count_low: 1   # Minimum number of audio chunks to drop
 drop_chunk_count_high: 3  # Maximum number of audio chunks to drop
-drop_chunk_length_low: 1000    # Minimum length of audio chunks to drop
+drop_chunk_length_low: 1000   # Minimum length of audio chunks to drop
 drop_chunk_length_high: 2000  # Maximum length of audio chunks to drop
+clip_low: 0.1                 # Minimun amplitude to clip
+clip_high: 0.5                # Maximum amplitude to clip
+amp_low: 0.05                 # Minimum waveform amplitude
+amp_high: 1.0                 # Maximum waveform amplitude
+
 
 # Data Augmenter
 parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
 concat_original: True     # Concatenate original signals to the training batch if True
-repeat_augment: 1         # Number of times to apply the augmentation
-shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
+repeat_augment: 1       # Number of times to apply the augmentation
+shuffle_augmentations: True  # Randomly shuffle the order of augmentations if True
                               # Otherwise, apply augmentations in the specified order
 min_augmentations: 1     # Minimum number of augmentations to apply
-max_augmentations: 5     # Maximum number of augmentations to apply
+max_augmentations: 7     # Maximum number of augmentations to apply
 
 
 # Model parameters
@@ -210,6 +215,16 @@ drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
     drop_count_low: !ref <drop_chunk_count_low>
     drop_count_high: !ref <drop_chunk_count_high>
 
+# Clipping
+clipping: !new:speechbrain.augment.time_domain.DoClip
+    clip_low: !ref <clip_low>
+    clip_high: !ref <clip_high>
+
+# Random Amplitude
+rand_amp: !new:speechbrain.augment.time_domain.RandAmp
+    amp_low: !ref <amp_low>
+    amp_high: !ref <amp_high>
+
 # Agumenter: Combines previously defined augmentations to perform data augmentation
 augment: !new:speechbrain.augment.augmenter.Augmenter
     parallel_augment: !ref <parallel_augment>
@@ -221,9 +236,11 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
     augmentations: [
         !ref <add_reverb>,
         !ref <add_noise>,
-        !ref <drop_freq>,
         !ref <speed_perturb>,
-        !ref <drop_chunk>]
+        !ref <clipping>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>,
+        !ref <rand_amp>]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN
