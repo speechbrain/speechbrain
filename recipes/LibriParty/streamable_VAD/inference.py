@@ -10,6 +10,7 @@ from speechbrain.pretrained import VAD
 from torchaudio.io import StreamReader
 import matplotlib.pyplot as plt
 from drawnow import drawnow
+from time import time
 import torch
 import sys
 
@@ -94,10 +95,18 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(2, 1)
 
     retry = True
+    start_time = time()
+    prob_avg = None  # moving average
+    avg_alpha = 0.97
     while retry:
         try:
             last_h = None  # RNN hidden representation
             for s in stream.stream():
+                if (time() - start_time) > 20:  # every 20s, reset h
+                    print("Hidden state reset.")
+                    start_time = time()
+                    last_h = None
+
                 retry = False
                 # every chunk is 5 ms
                 wav_buffer.append(s[0].permute(1, 0))
@@ -152,7 +161,16 @@ if __name__ == "__main__":
 
                     streamed_mlp.append(outputs)
 
-                    probs.append(torch.sigmoid(outputs).squeeze())
+                    out_prob = torch.sigmoid(outputs).squeeze()
+
+                    if prob_avg is None:
+                        prob_avg = out_prob.item()
+                    else:
+                        prob_avg = out_prob.item() * avg_alpha + prob_avg * (
+                            1 - avg_alpha
+                        )
+
+                    probs.append(prob_avg)
 
                     drawnow(plot_waveform)
 
