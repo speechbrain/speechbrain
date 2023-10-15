@@ -49,7 +49,7 @@ In order to run the script, you should insert the ID of your microphone, you can
 
 To retrieve the ID of your microphone, run:
 ```ffmpeg -hide_banner -list_devices true -f avfoundation -i dummy```
-and copy the ID of the microphone.
+and copy the ID of the microphone. If you don't have `ffmpeg` install, you can install it via conda, using: `conda install ffmpeg`, or by following the instructions on [this website](https://ffmpeg.org/). 
 
 After retrieving your device ID, modify the script as follows you can run the inference script with
 ```
