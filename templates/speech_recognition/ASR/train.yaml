@@ -103,15 +103,22 @@ amp_low: 0.05                 # Minimum waveform amplitude
 amp_high: 1.0                 # Maximum waveform amplitude
 
 
-# Data Augmenter
-parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
-concat_original: True     # Concatenate original signals to the training batch if True
-repeat_augment: 1       # Number of times to apply the augmentation
-shuffle_augmentations: True  # Randomly shuffle the order of augmentations if True
+# Time Augmenter
+time_parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
+time_concat_original: True     # Concatenate original signals to the training batch if True
+time_repeat_augment: 1       # Number of times to apply the augmentation
+time_shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
                               # Otherwise, apply augmentations in the specified order
-min_augmentations: 1     # Minimum number of augmentations to apply
-max_augmentations: 7     # Maximum number of augmentations to apply
+time_min_augmentations: 7     # Minimum number of augmentations to apply
+time_max_augmentations: 7     # Maximum number of augmentations to apply
 
+fea_parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
+fea_concat_original: True     # Concatenate original signals to the training batch if True
+fea_repeat_augment: 1        # Number of times to apply the augmentation
+fea_shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
+                              # Otherwise, apply augmentations in the specified order
+fea_min_augmentations: 6     # Minimum number of augmentations to apply
+fea_max_augmentations: 6     # Maximum number of augmentations to apply
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -165,8 +172,6 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
 
-# ----- AUGMENTATION ----- #
-
 # Download and prepare the dataset of noisy sequences for augmentation
 prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     URL: !ref <NOISE_DATASET_URL>
@@ -180,6 +185,9 @@ prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     dest_folder: !ref <data_folder_rir>
     ext: wav
     csv_file: !ref <rir_annotation>
+
+
+# ----- WAVEFORM AUGMENTATION ----- #
 
 # Add reverberation to input signal
 add_reverb: !new:speechbrain.augment.time_domain.AddReverb
@@ -225,14 +233,15 @@ rand_amp: !new:speechbrain.augment.time_domain.RandAmp
     amp_low: !ref <amp_low>
     amp_high: !ref <amp_high>
 
+
 # Agumenter: Combines previously defined augmentations to perform data augmentation
-augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: !ref <parallel_augment>
-    concat_original: !ref <concat_original>
-    repeat_augment: !ref <repeat_augment>
-    shuffle_augmentations: !ref <shuffle_augmentations>
-    min_augmentations: !ref <min_augmentations>
-    max_augmentations: !ref <max_augmentations>
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: !ref <time_parallel_augment>
+    concat_original: !ref <time_concat_original>
+    repeat_augment: !ref <time_repeat_augment>
+    shuffle_augmentations: !ref <time_shuffle_augmentations>
+    min_augmentations: !ref <time_min_augmentations>
+    max_augmentations: !ref <time_max_augmentations>
     augmentations: [
         !ref <add_reverb>,
         !ref <add_noise>,
@@ -241,6 +250,90 @@ augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_freq>,
         !ref <drop_chunk>,
         !ref <rand_amp>]
+
+# ----- FEATURE AUGMENTATION ----- #
+min_time_shift: 0
+max_time_shift: 15
+
+min_freq_shift: 0
+max_freq_shift: 5
+
+time_drop_length_low: 5
+time_drop_length_high: 15
+time_drop_count_low: 1
+time_drop_count_high: 3
+time_drop_replace: "zeros"
+
+freq_drop_length_low: 1
+freq_drop_length_high: 5
+freq_drop_count_low: 1
+freq_drop_count_high: 3
+freq_drop_replace: "zeros"
+
+time_warp_window: 20
+time_warp_mode: "bicubic"
+
+freq_warp_window: 4
+freq_warp_mode: "bicubic"
+
+# Time shift
+time_shift: !new:speechbrain.augment.freq_domain.RandomShift
+    min_shift: !ref <min_time_shift>
+    max_shift: !ref <max_time_shift>
+    dim: 1
+
+# Frequency shift
+freq_shift: !new:speechbrain.augment.freq_domain.RandomShift
+    min_shift: !ref <min_freq_shift>
+    max_shift: !ref <max_freq_shift>
+    dim: 2
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: !ref <time_drop_length_low>
+    drop_length_high: !ref <time_drop_length_high>
+    drop_count_low: !ref <time_drop_count_low>
+    drop_count_high: !ref <time_drop_count_high>
+    replace: !ref <time_drop_replace>
+    dim: 1
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: !ref <freq_drop_length_low>
+    drop_length_high: !ref <freq_drop_length_high>
+    drop_count_low: !ref <freq_drop_count_low>
+    drop_count_high: !ref <freq_drop_count_high>
+    replace: !ref <freq_drop_replace>
+    dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+    warp_window: !ref <time_warp_window>
+    warp_mode: !ref <time_warp_mode>
+    dim: 1
+
+freq_warp: !new:speechbrain.augment.freq_domain.Warping
+    warp_window: !ref <freq_warp_window>
+    warp_mode: !ref <freq_warp_mode>
+    dim: 2
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: !ref <fea_parallel_augment>
+    concat_original: !ref <fea_concat_original>
+    repeat_augment: !ref <fea_repeat_augment>
+    shuffle_augmentations: !ref <fea_shuffle_augmentations>
+    min_augmentations: !ref <fea_min_augmentations>
+    max_augmentations: !ref <fea_max_augmentations>
+    augment_start_index: !ref <batch_size> # This leaves unchanges original inputs
+    concat_end_index: !ref <batch_size> # This leaves unchanges original inputs
+    augmentations: [
+        !ref <time_shift>,
+        !ref <freq_shift>,
+        !ref <time_drop>,
+        !ref <freq_drop>,
+        !ref <time_warp>,
+        !ref <freq_warp>]
+
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN

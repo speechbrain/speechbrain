@@ -253,7 +253,7 @@ def test_channel_swap():
 
 
 def test_rand_shift():
-    from speechbrain.augment.time_domain import RandomShift
+    from speechbrain.augment.freq_domain import RandomShift
 
     signal = torch.rand(4, 256, 8)
     lengths = torch.tensor([0.1, 0.2, 0.9, 1.0])
@@ -486,7 +486,6 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 1
     assert len(output_signal) == 4
     assert len(lenghts) == 4
 
@@ -500,7 +499,6 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 2
     assert len(output_signal) == 8
     assert len(lenghts) == 8
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -515,7 +513,6 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 2
     assert len(output_signal) == 8
     assert len(lenghts) == 8
 
@@ -529,7 +526,6 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 3
     assert len(output_signal) == 12
     assert len(lenghts) == 12
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -547,7 +543,6 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 5
     assert len(output_signal) == 20
     assert len(lenghts) == 20
     assert torch.equal(output_signal[0:4], signal[0:4])
@@ -565,7 +560,6 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 1
     assert torch.equal(output_signal, signal)
 
     augment = Augmenter(
@@ -581,5 +575,4 @@ def test_augment_pipeline():
     output_signal, lenghts = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-    assert augment.num_augmentations == 1
     assert torch.equal(output_signal, signal)

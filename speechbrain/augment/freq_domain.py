@@ -315,3 +315,75 @@ class Warping(torch.nn.Module):
             spectrogram = spectrogram.transpose(1, 2)
 
         return spectrogram
+
+
+class RandomShift(torch.nn.Module):
+    """Shifts the input tensor by a random amount, allowing for either a time
+    or frequency (or channel) shift depending on the specified axis.
+    It is crucial to calibrate the minimum and maximum shifts according to the
+    requirements of your specific task.
+    We recommend using small shifts to preserve information integrity.
+    Using large shifts may result in the loss of significant data and could
+    potentially lead to misalignments with corresponding labels.
+.
+    Arguments
+    ---------
+    min_shift : int
+        The mininum channel shift.
+    max_shift : int
+        The maximum channel shift.
+    dim: int
+        The dimension to shift.
+
+    Example
+    -------
+    >>> # time shift
+    >>> signal = torch.zeros(4, 100, 80)
+    >>> signal[0,50,:] = 1
+    >>> rand_shift =  RandomShift(dim=1, min_shift=-10, max_shift=10)
+    >>> lenghts = torch.tensor([0.2, 0.8, 0.9,1.0])
+    >>> output_signal, lenghts = rand_shift(signal,lenghts)
+
+    >>> # frequency shift
+    >>> signal = torch.zeros(4, 100, 80)
+    >>> signal[0,:,40] = 1
+    >>> rand_shift =  RandomShift(dim=2, min_shift=-10, max_shift=10)
+    >>> lenghts = torch.tensor([0.2, 0.8, 0.9,1.0])
+    >>> output_signal, lenghts = rand_shift(signal,lenghts)
+    """
+
+    def __init__(self, min_shift=0, max_shift=0, dim=1):
+        super().__init__()
+        self.min_shift = min_shift
+        self.max_shift = max_shift
+        self.dim = dim
+
+        # Check arguments
+        if self.max_shift < self.min_shift:
+            raise ValueError("max_shift must be  >= min_shift")
+
+    def forward(self, waveforms, lengths):
+        """
+        Arguments
+        ---------
+        waveforms : tensor
+            Shape should be `[batch, time]` or `[batch, time, channels]`.
+        lengths : tensor
+            Shape should be a single dimension, `[batch]`.
+
+        Returns
+        -------
+        Tensor of shape `[batch, time]` or `[batch, time, channels]`
+        """
+        # Pick a frequency to drop
+        N_shifts = torch.randint(
+            low=self.min_shift, high=self.max_shift + 1, size=(1,)
+        )
+        waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
+
+        # Update lenghts in the case of temporal shift.
+        if self.dim == 1:
+            lengths = lengths + N_shifts / waveforms.shape[self.dim]
+            lengths = torch.clamp(lengths, min=0.0, max=1.0)
+
+        return waveforms, lengths

@@ -139,15 +139,21 @@ class ASR(sb.Brain):
         """
         wavs, wav_lens = wavs
 
-        # Add augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            wavs, wav_lens = self.hparams.augment(wavs, wav_lens)
+        # Add time augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Feature computation and normalization
-        feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
+        fea_lens = wav_lens  # Relative lenghs are preserved
 
-        return feats, wav_lens
+        # Add frequency augmentation if specified.
+        feats = self.hparams.compute_features(wavs)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
+
+        feats = self.modules.normalize(feats, fea_lens)
+
+        return feats, fea_lens
 
     def prepare_tokens(self, stage, tokens):
         """
@@ -166,9 +172,18 @@ class ASR(sb.Brain):
             Augmented tokens and their lengths.
         """
         tokens, token_lens = tokens
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            tokens = self.hparams.augment.replicate_labels(tokens)
-            token_lens = self.hparams.augment.replicate_labels(token_lens)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                tokens = self.hparams.wav_augment.replicate_labels(tokens)
+                token_lens = self.hparams.wav_augment.replicate_labels(
+                    token_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                token_lens = self.hparams.fea_augment.replicate_labels(
+                    token_lens
+                )
+
         return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):
