@@ -36,10 +36,8 @@ skip_prep: False # Skip data preparation
 # Training parameters
 N_epochs: 150
 lr: 0.01
-lr_final: 0.001
 batch_size: 64
 example_length: 5 # in seconds
-max_norm_grad: 2.5
 sample_rate: 16000
 time_resolution: 0.01 # in seconds
 train_dataloader_opts:
@@ -120,20 +118,20 @@ cnn: !new:speechbrain.nnet.containers.Sequential
 
 rnn: !new:speechbrain.nnet.RNN.GRU
     input_shape: [null, null, 320]
-    hidden_size: 32
-    num_layers: 2
+    hidden_size: !ref <rnn_neurons>
+    num_layers: !ref <rnn_layers>
     bidirectional: False
 
 dnn: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, 32]
     dnn1: !name:speechbrain.lobes.models.CRDNN.DNN_Block
-        neurons: 16
+        neurons: !ref <dnn_neurons>
         bias: False
     dnn2: !name:speechbrain.lobes.models.CRDNN.DNN_Block
-        neurons: 16
+        neurons: !ref <dnn_neurons>
         bias: False
     lin: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1
+        n_neurons: !ref <output_neurons>
         bias: False
 
 model: !new:torch.nn.ModuleList
