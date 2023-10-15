@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 """
-Performs realtime Voice Activity Detection (VAD) on a microphone input stream.
-At the end of the stream, is computes the offline values and plots the results for comparison.
+This library enables real-time Voice Activity Detection on microphone input streams.
+It also computes offline values and provides visualization for result comparison at the end of the stream.
+
+For instructions on how to run the online inference script, please refer to the README.md.
+
+**Note:** Currently, the PyTorch streamreader and our inference script are compatible with Apple devices only.
 
 Authors:
-    Francesco Paissan, 2022, 2023
+    Francesco Paissan (2022, 2023)
 """
+
 from speechbrain.pretrained import VAD
 from torchaudio.io import StreamReader
 import matplotlib.pyplot as plt
@@ -14,18 +19,47 @@ from time import time
 import torch
 import sys
 
+# Inference Parameters
+frames_per_chunk = 80  # Number of frames per audio chunk
+buffer_chunk_size = 200  # Size of the audio buffer chunk
+receptive_field = 5  # Receptive field size
+avg_alpha = (
+    0.97  # Smoothing factor for model probabilities with a moving average
+)
+reset_time = 20  # Reset time in seconds for the RNN model
 
-eps = 1e-8
+
+# Inference Parameters
+frames_per_chunk = 80
+buffer_chunk_size = 200
+receptive_field = 5
+avg_alpha = 0.97  # We smooth the model probabilities with a moving average
+reset_time = 20  # We need to reset the model periodically.
+# The RNN-based model was trained on sentences of approximately 20 seconds in length.
+# Without periodic resets, it tends to perform poorly when processing sequences
+# significantly longer than this training limit
 
 
 class RingBuffer:
-    """Handles a ring buffer for realtime inference. """
+    """Handles a ring buffer for real-time inference.
+
+    Arguments
+    ---------
+        size (int): The size of the ring buffer.
+    """
 
     def __init__(self, size):
         self.queue = []
         self.size = size
 
     def append(self, x):
+        """Appends an element to the ring buffer, removing the oldest element
+        if the size is exceeded.
+
+        Arguments:
+        ---------
+            x: Element to append to the ring buffer.
+        """
         if len(self.queue) < self.size:
             self.queue.append(x)
         else:
@@ -33,16 +67,23 @@ class RingBuffer:
             self.queue.append(x)
 
     def __call__(self):
+        """Concatenates the elements in the ring buffer along the specified axis.
+
+        Returns:
+            torch.Tensor: Concatenated elements in the ring buffer.
+        """
         return torch.cat(self.queue, axis=1)
 
 
 if __name__ == "__main__":
+
     # Load the VAD model
     vad_interface = VAD.from_hparams(
         source="speechbrain/stream-vad-crdnn-libriparty",
         savedir="pretrained_models/stream-vad-crdnn-libriparty",
     )
 
+    # Setting the VAD in eval mode for inference use.
     vad_interface.eval()
 
     # get microphone ID
@@ -59,19 +100,17 @@ if __name__ == "__main__":
     )
 
     stream.add_basic_audio_stream(
-        frames_per_chunk=80,
-        buffer_chunk_size=200,
+        frames_per_chunk=frames_per_chunk,
+        buffer_chunk_size=buffer_chunk_size,
         sample_rate=vad_interface.sample_rate,
     )
 
-    wav_buffer = RingBuffer(5)
+    wav_buffer = RingBuffer(receptive_field)
 
-    receptive_field = 5
-    features_buffer = RingBuffer(
-        receptive_field
-    )  # used to store features that go into the CNN input
+    # Store features for the CNN input. The buffer length must match the CNN's receptive field.
+    features_buffer = RingBuffer(receptive_field)
 
-    # Plotting vars
+    # Plotting variables
     raw_waveform = []
     streamed_wav = []
     streamed_features = []
@@ -83,6 +122,9 @@ if __name__ == "__main__":
     i = 1
 
     def plot_waveform():
+        """
+        Plot the raw waveform and speech probability in a real-time manner.
+        """
         plt.subplot(211)
         plt.ylabel("Raw waveform")
         plt.plot(raw_waveform, color="green")
@@ -96,45 +138,43 @@ if __name__ == "__main__":
 
     retry = True
     start_time = time()
-    prob_avg = None  # moving average
-    avg_alpha = 0.97
+    prob_avg = None  # Initializing moving average variable.
     while retry:
         try:
             last_h = None  # RNN hidden representation
             for s in stream.stream():
-                if (time() - start_time) > 20:  # every 20s, reset h
+                if (time() - start_time) > reset_time:  # every 20s, reset h
                     print("Hidden state reset.")
                     start_time = time()
                     last_h = None
 
                 retry = False
-                # every chunk is 5 ms
+                # Every chunk is 5 ms
                 wav_buffer.append(s[0].permute(1, 0))
 
                 raw_waveform += list(s[0].squeeze().numpy())
-                # print(np.mean(raw_waveform), np.std(raw_waveform))
 
                 if len(wav_buffer.queue) < 5:
                     continue
 
                 if i % 2:
-                    # appends buffered 200ms windows with a 10ms overlap
+                    # Appends buffered 200ms windows with a 10ms overlap
                     streamed_wav.append(torch.cat(wav_buffer.queue, axis=1))
 
                     features = vad_interface.mods.compute_features(wav_buffer())
 
                     features = features[0, 1, :].reshape(
                         1, 1, -1
-                    )  # take central frame -- due to padding
+                    )  # Take central frame -- due to padding
 
                     features = vad_interface.mods.mean_var_norm(
                         features, torch.ones([1])
                     )
 
-                    # appends features computed on 200ms windows with 10ms overlap -- central frame
+                    # Appends features computed on 200ms windows with 10ms overlap -- central frame
                     streamed_features.append(features)
 
-                    # features computed on 200ms windows with 10ms overlap -- central frame
+                    # Features computed on 200ms windows with 10ms overlap -- central frame
                     features_buffer.append(features)
 
                     if len(features_buffer.queue) < receptive_field:
