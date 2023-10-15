@@ -198,7 +198,7 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -291,7 +291,6 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -322,6 +321,14 @@ if __name__ == "__main__":
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected(device=run_opts["device"])
 
+    # Download pretrained ASR model
+    from speechbrain.pretrained import EncoderDecoderASR
+
+    hparams["asr_model"] = EncoderDecoderASR.from_hparams(
+        source=hparams["asr_model_source"],
+        run_opts={"device": run_opts["device"]},
+    )
+
     # Brain class initialization
     slu_brain = SLU(
         modules=hparams["modules"],
@@ -344,5 +351,4 @@ if __name__ == "__main__":
     )
 
     # Test
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])
