@@ -153,6 +153,11 @@ class AddNoise(torch.nn.Module):
         # Loop through clean samples and create mixture
         if self.csv_file is None:
             noise_waveform = self.noise_funct(waveforms)
+            if noise_waveform.shape[0] == 1:
+                noise_waveform = torch.cat(
+                    [noise_waveform] * waveforms.shape[0], dim=0
+                )
+
             noise_length = lengths
         else:
             tensor_length = waveforms.shape[1]
@@ -791,81 +796,6 @@ class Resample(torch.nn.Module):
 
         self.first_indices = min_input_index
         self.weights = weights
-
-
-class AddBabble(torch.nn.Module):
-    """Simulate babble noise by mixing the signals in a batch.
-
-    Arguments
-    ---------
-    speaker_count : int
-        The number of signals to mix with the original signal.
-    snr_low : int
-        The low end of the mixing ratios, in decibels.
-    snr_high : int
-        The high end of the mixing ratios, in decibels.
-
-    Example
-    -------
-    >>> import pytest
-    >>> babbler = AddBabble()
-    >>> dataset = ExtendedCSVDataset(
-    ...     csvpath='tests/samples/annotation/speech.csv',
-    ...     replacements={"data_folder": "tests/samples/single-mic"}
-    ... )
-    >>> loader = make_dataloader(dataset, batch_size=5)
-    >>> speech, lengths = next(iter(loader)).at_position(0)
-    >>> noisy = babbler(speech, lengths)
-    """
-
-    def __init__(self, speaker_count=3, snr_low=0, snr_high=0):
-        super().__init__()
-        self.speaker_count = speaker_count
-        self.snr_low = snr_low
-        self.snr_high = snr_high
-
-    def forward(self, waveforms, lengths):
-        """
-        Arguments
-        ---------
-        waveforms : tensor
-            A batch of audio signals to process, with shape `[batch, time]` or
-            `[batch, time, channels]`.
-        lengths : tensor
-            The length of each audio in the batch, with shape `[batch]`.
-
-        Returns
-        -------
-        Tensor with processed waveforms.
-        """
-
-        babbled_waveform = waveforms.clone()
-        lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
-        batch_size = len(waveforms)
-
-        # Pick an SNR and use it to compute the mixture amplitude factors
-        clean_amplitude = compute_amplitude(waveforms, lengths)
-        SNR = torch.rand(batch_size, 1, device=waveforms.device)
-        SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
-        noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
-        new_noise_amplitude = noise_amplitude_factor * clean_amplitude
-
-        # Scale clean signal appropriately
-        babbled_waveform *= 1 - noise_amplitude_factor
-
-        # For each speaker in the mixture, roll and add
-        babble_waveform = waveforms.roll((1,), dims=0)
-        babble_len = lengths.roll((1,), dims=0)
-        for i in range(1, self.speaker_count):
-            babble_waveform += waveforms.roll((1 + i,), dims=0)
-            babble_len = torch.max(babble_len, babble_len.roll((1,), dims=0))
-
-        # Rescale and add to mixture
-        babble_amplitude = compute_amplitude(babble_waveform, babble_len)
-        babble_waveform *= new_noise_amplitude / (babble_amplitude + 1e-14)
-        babbled_waveform += babble_waveform
-
-        return babbled_waveform
 
 
 class DropFreq(torch.nn.Module):

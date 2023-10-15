@@ -399,14 +399,13 @@ class Augmenter(torch.nn.Module):
         ]
 
         if self.parallel_augment:
-            augmented_labels = (
-                augmented_labels + [selected_labels] * self.N_augment
+            selected_labels = torch.cat(
+                [selected_labels] * self.N_augment, dim=0
             )
 
-        if self.repeat_augment:
-            augmented_labels = (
-                augmented_labels + [selected_labels] * self.repeat_augment
-            )
+        augmented_labels = (
+            augmented_labels + [selected_labels] * self.repeat_augment
+        )
 
         augmented_labels = torch.cat(augmented_labels, dim=0)
         return augmented_labels

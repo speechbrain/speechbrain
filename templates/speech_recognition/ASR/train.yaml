@@ -101,6 +101,8 @@ clip_low: 0.1                 # Minimun amplitude to clip
 clip_high: 0.5                # Maximum amplitude to clip
 amp_low: 0.05                 # Minimum waveform amplitude
 amp_high: 1.0                 # Maximum waveform amplitude
+babble_snr_low: 5             # Lowest possible SNR for babble (batch sum noise)
+babble_snr_high: 15           # Highest possible SNR for babble (batch sum noise)
 
 
 # Time Augmenter
@@ -109,7 +111,7 @@ time_concat_original: True     # Concatenate original signals to the training ba
 time_repeat_augment: 1       # Number of times to apply the augmentation
 time_shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
                               # Otherwise, apply augmentations in the specified order
-time_min_augmentations: 7     # Minimum number of augmentations to apply
+time_min_augmentations: 1     # Minimum number of augmentations to apply
 time_max_augmentations: 7     # Maximum number of augmentations to apply
 
 fea_parallel_augment: False   # If False, apply augmentations sequentially (one after the other)
@@ -117,7 +119,7 @@ fea_concat_original: True     # Concatenate original signals to the training bat
 fea_repeat_augment: 1        # Number of times to apply the augmentation
 fea_shuffle_augmentations: False  # Randomly shuffle the order of augmentations if True
                               # Otherwise, apply augmentations in the specified order
-fea_min_augmentations: 6     # Minimum number of augmentations to apply
+fea_min_augmentations: 1     # Minimum number of augmentations to apply
 fea_max_augmentations: 6     # Maximum number of augmentations to apply
 
 # Model parameters
@@ -233,6 +235,16 @@ rand_amp: !new:speechbrain.augment.time_domain.RandAmp
     amp_low: !ref <amp_low>
     amp_high: !ref <amp_high>
 
+# Noise sequence derived by summing up all the signals in the batch
+# It is similar to babble noise
+sum_batch: !name:torch.sum
+    dim: 0
+    keepdim: True
+
+babble_noise: !new:speechbrain.augment.time_domain.AddNoise
+    snr_low: !ref <babble_snr_low>
+    snr_high: !ref <babble_snr_high>
+    noise_funct: !ref <sum_batch>
 
 # Agumenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
@@ -245,6 +257,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     augmentations: [
         !ref <add_reverb>,
         !ref <add_noise>,
+        !ref <babble_noise>,
         !ref <speed_perturb>,
         !ref <clipping>,
         !ref <drop_freq>,
