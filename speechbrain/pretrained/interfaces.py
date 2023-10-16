@@ -15,7 +15,6 @@ Authors:
 """
 import logging
 import hashlib
-import os
 import random
 import re
 import sys
@@ -4654,7 +4653,7 @@ class MSTacotron2(Pretrained):
 
         return x
 
-      
+
 class ResponseGenerator(Pretrained):
     """A ready-to-use Response Generator  model
 
