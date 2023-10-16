@@ -6,7 +6,7 @@ Key point: **specify `test_debug_flags` and make sure testing your recipe works 
 
 For GPU testing, install all extra requirements:
 ```
-find recipes | grep extra | xargs cat | sort -u | grep -v \# | xargs -I {} pip install {}
+find recipes | grep extra_requirements.txt | xargs cat | sort -u | grep -v \# | xargs -I {} pip install {}
 ```
 
 ---
@@ -21,7 +21,7 @@ You can run the recipe on the CPU just by setting the run_opts properly:
 python -c 'from tests.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Dataset"], filters=[["CommonLanguage", "LibriSpeech"]], do_checks=False, run_opts="--device=cpu")) else print("TEST PASSED")'
 ```
 
-In some cases, you might want to test the recipe on a non-default GPU (e.g, cuda:1). Thia helps detecting issues in recipes where the device was hard-coded. You can do that simply with:
+In some cases, you might want to test the recipe on a non-default GPU (e.g, cuda:1). This helps detecting issues in recipes where the device was hard-coded. You can do that simply with:
 
 ```
 python -c 'from tests.utils.recipe_tests import run_recipe_tests; print("TEST FAILED!") if not(run_recipe_tests(filters_fields=["Dataset"], filters=[["CommonLanguage", "LibriSpeech"]], do_checks=False, run_opts="--device=cuda:0")) else print("TEST PASSED")'
