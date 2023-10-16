@@ -1,6 +1,14 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC + LM (k2)
 # Augmentation: SpecAugment
+#
+# This recipe trains a wav2vec2 model with a DNN and DWFST-based CTC loss.
+# To use this recipe you need to have the following:
+#  - A folder with the LibriSpeech dataset (see `datafolder`)
+#  - A folder with a trigram, and (optionally) a fourgram LM (see `lm_dir`)
+#    These can be downloaded in ARPA format from: http://www.openslr.org/resources/11/.
+#  - A working installation of k2 (and kaldilm if you want to use ARPA LMs).
+#
 # Authors: Zeyu Zhao 2023
 #          Georgios Karakasidis 2023
 # ################################

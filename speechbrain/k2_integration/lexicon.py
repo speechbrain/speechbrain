@@ -4,8 +4,9 @@ class provides a way to convert a list of words to a ragged tensor
 containing token IDs. It also stores the lexicon graph which can
 be used by a graph compiler to decode sequences.
 
-This code was adjusted from icefall's (https://github.com/k2-fsa/icefall)
-Lexicon class and its utility functions.
+This code was adjusted, and therefore heavily inspired or taken from
+from icefall's (https://github.com/k2-fsa/icefall) Lexicon class and
+its utility functions.
 
 
 Authors:
@@ -69,6 +70,25 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
     add_word_boundary: bool
         whether to add word boundary symbols <eow> at the end of each line to the
         lexicon for every word.
+
+    Example
+    -------
+    >>> from speechbrain.k2_integration.lexicon import get_lexicon
+    >>> # Create some dummy csv files containing only the words `hello`, `world`.
+    >>> # The first line is the header, and the remaining lines are in the following
+    >>> # format:
+    >>> # ID, duration, wav, spk_id, wrd (transcription)
+    >>> csv_file = getfixture('tmpdir').join("train.csv")
+    >>> with open(csv_file, "w") as f:
+    ...     f.write("ID,duration,wav,spk_id,wrd\n")
+    ...     f.write("1,1,1,1,hello world\n")
+    ...     f.write("2,0.5,1,1,hello\n")
+    >>> csv_files = [csv_file]
+    >>> lang_dir = getfixture('tmpdir')
+    >>> extra_vocab_files = []
+    >>> get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=False)
+    >>> with open(lang_dir.join("lexicon.txt"), "r") as f:
+    ...     assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
     """
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
@@ -247,6 +267,27 @@ class Lexicon(object):
         It contains the pattern for disambiguation symbols.
     load_mapping: bool
         If True, load the mappings: token2idx idx2token word2idx idx2word word2tids.
+
+    Example
+    -------
+    >>> import k2
+    >>> from speechbrain.k2_integration.lexicon import Lexicon
+    >>> from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
+    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+
+    >>> # Create a small lexicon containing only two words and write it to a file.
+    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lexicon_sample = '''hello h e l l o
+    ... world w o r l d'''
+    >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
+    >>> lexicon_file.write(lexicon_sample)
+    >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
+    >>> prepare_lang(lang_tmpdir)
+    >>> # Create a lexicon object
+    >>> lexicon = Lexicon(lang_tmpdir)
+    >>> # Make sure the lexicon was loaded correctly
+    >>> assert isinstance(lexicon.token_table, k2.SymbolTable)
+    >>> assert isinstance(lexicon.L, k2.Fsa)
     """
 
     def __init__(

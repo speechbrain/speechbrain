@@ -33,6 +33,7 @@ from pathlib import Path
 from speechbrain.k2_integration.prepare_lang import prepare_lang
 from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
 from speechbrain.k2_integration.lexicon import Lexicon, get_lexicon
+from speechbrain.k2_integration.utils import arpa_to_fst
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,11 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+
         # Downsample the inputs if specified
         if hasattr(self.modules, "downsampler"):
             wavs = self.modules.downsampler(wavs)
+
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
@@ -396,118 +399,72 @@ def dataio_prepare(hparams):
     return train_data, valid_data, test_datasets
 
 
-def arpa_to_fst(
-    arpa_dir: Path,
-    output_dir: Path,
-    words_txt: Path,
-    disambig_symbol: str = "#0",
-    convert_4gram: bool = True,
-    trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
-    fourgram_arpa_name: str = "4-gram.arpa",
-    trigram_fst_output_name: str = "G_3_gram.fst.txt",
-    fourgram_fst_output_name: str = "G_4_gram.fst.txt",
-):
-    """Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
-    you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
-    website (https://www.openslr.org/11/). You can use this function to
-    convert them to FSTs. The resulting FSTs can then be used to create a
-    decoding graph (HLG) for k2 decoding.
-
-    If `convert_4gram` is True, then we will convert the 4-gram ARPA LM to
-    FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
-    It is worth noting that if the fsts already exist in the output_dir,
-    then we will not convert them again (so you may need to delete them
-    by hand if you, at any point, change your ARPA model).
+def get_graph_compiler(hparams, device):
+    """This function creates the graph compiler for k2 training.
+    There are four cases:
+        - HLG is needed and 4gram rescoring is needed. In that case,
+          need_G and need_4gram are both True and we will create
+          G_3_gram.fst.txt and G_4_gram.fst.txt. Note that the 3gram
+          and 4gram ARPA lms will need to exist under `hparams['lm_dir']`.
+        - HLG is needed but 4gram rescoring is not needed. In that case,
+          need_G is True and need_4gram is False and we will create
+          G_3_gram.fst.txt. Note that the 3gram ARPA lm will need to
+          exist under `hparams['lm_dir']`.
+        - HLG is not needed but 4gram rescoring is needed. In that case,
+          need_G is False and need_4gram is True and we will create
+          G_4_gram.fst.txt. Note that the 4gram ARPA lm will need to
+          exist under `hparams['lm_dir']`.
+        - HLG is not needed and 4gram rescoring is not needed. In that case,
+          need_G is False and need_4gram is False and we will not create any FST.
 
     Arguments
     ---------
-        arpa_dir: str
-            Path to the directory containing the ARPA LM (we expect a file named
-            3-gram.pruned.1e-7.arpa to exist, and if `convert_4gram` is True,
-            then "4-gram.arpa" should also exist).
-        output_dir: str
-            Path to the directory where the FSTs will be saved.
-        words_txt: str
-            Path to the words.txt file created by prepare_lang.
-        disambig_symbol: str
-            The disambiguation symbol to use.
-        convert_4gram: bool
-            If True, then we will convert the 4-gram ARPA LM to
-            FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
-        trigram_arpa_name: str
-            The name of the 3-gram ARPA LM file.
-        fourgram_arpa_name: str
-            The name of the 4-gram ARPA LM file.
-        trigram_fst_output_name: str
-            The name of the 3-gram FST file that will be created with kaldilm.
-            NOTE: This is just the name and not the whole path.
-        fourgram_fst_output_name: str
-            The name of the 4-gram FST file that will be created with kaldilm.
-            NOTE: This is just the name and not the whole path.
-
-    Raises
-    ---------
-        ImportError: If kaldilm is not installed.
+    hparams : dict
+        The hyperparameters.
+    device : torch.device
+        The device to use.
     """
-    assert arpa_dir.is_dir()
-    assert output_dir.is_dir()
-    try:
-        from kaldilm.arpa2fst import arpa2fst
-    except ImportError:
-        # This error will occur when there is fst LM in the provided lm_dir
-        # and we are trying to create it by converting an ARPA LM to FST.
-        # For this, we need to install kaldilm.
-        raise ImportError(
-            "Optional dependencies must be installed to use kaldilm.\n"
-            "Install using `pip install kaldilm`."
+    need_G = hparams.get("use_HLG", False) in [True, "True"]
+    need_4gram = (
+        hparams.get("decoding_method", None) == "whole-lattice-rescoring"
+    )
+    rescoring_lm_path = None
+    G_path = None
+    # NOTE: This means that even if the 3gram G is not needed, but we still plan to
+    #       rescore, then G_3_gram.fst.txt will still be created (i.e. if HLG is False
+    #       but the decoding method is whole-lattice-rescoring, then G_3_gram.fst.txt
+    #       will still be created).
+    if need_G or need_4gram:
+        # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
+        logger.info("Converting arpa LM to FST")
+        G_path = Path(hparams["lm_dir"]) / hparams["trigram_fst_output_name"]
+        rescoring_lm_path = (
+            Path(hparams["lm_dir"]) / hparams["fourgram_fst_output_name"]
         )
-
-    def _arpa_to_fst_single(
-        arpa_path: Path, out_fst_path: Path, max_order: int
-    ):
-        """Convert a single ARPA LM to FST.
-
-        Arguments
-        ---------
-            arpa_path: str
-                Path to the ARPA LM file.
-            out_fst_path: str
-                Path to the output FST file.
-            max_order: int
-                The maximum order of the ARPA LM.
-        """
-        if out_fst_path.exists():
-            return
-        if not arpa_path.exists():
-            raise FileNotFoundError(
-                f"{arpa_path} not found while trying to create"
-                f" the {max_order} FST."
-            )
-        try:
-            s = arpa2fst(
-                input_arpa=str(arpa_path),
-                disambig_symbol=disambig_symbol,
-                read_symbol_table=str(words_txt),
-                max_order=max_order,
-            )
-        except Exception as e:
-            logger.info(
-                f"Failed to create {max_order}-gram FST from input={arpa_path}"
-                f", disambig_symbol={disambig_symbol},"
-                f" read_symbol_table={words_txt}"
-            )
-            raise e
-        logger.info(f"Writing {out_fst_path}")
-        with open(out_fst_path, "w") as f:
-            f.write(s)
-
-    arpa_path = arpa_dir / trigram_arpa_name
-    fst_path = output_dir / os.path.basename(trigram_fst_output_name)
-    _arpa_to_fst_single(arpa_path, fst_path, max_order=3)
-    if convert_4gram:
-        arpa_path = arpa_dir / fourgram_arpa_name
-        fst_path = output_dir / os.path.basename(fourgram_fst_output_name)
-        _arpa_to_fst_single(arpa_path, fst_path, max_order=4)
+        logger.info(f"Will load LM from {G_path}")
+        run_on_main(
+            arpa_to_fst,
+            kwargs={
+                "arpa_dir": Path(hparams["lm_dir"]),
+                "output_dir": Path(hparams["lm_dir"]),
+                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
+                "convert_4gram": need_4gram,
+                "trigram_arpa_name": Path(hparams["lm_dir"])
+                / hparams["trigram_arpa_name"],
+                "fourgram_arpa_name": Path(hparams["lm_dir"])
+                / hparams["fourgram_arpa_name"],
+                "trigram_fst_output_name": G_path,
+                "fourgram_fst_output_name": rescoring_lm_path,
+            },
+        )
+        assert G_path.is_file(), f"{G_path} does not exist"
+    graph_compiler = CtcTrainingGraphCompiler(
+        lexicon=lexicon,
+        device=device,
+        G_path=G_path,
+        rescoring_lm_path=rescoring_lm_path if need_4gram else None,
+    )
+    return graph_compiler
 
 
 if __name__ == "__main__":
@@ -583,46 +540,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    need_G = hparams.get("use_HLG", False) in [True, "True"]
-    need_4gram = (
-        hparams.get("decoding_method", None) == "whole-lattice-rescoring"
-    )
-    rescoring_lm_path = None
-    G_path = None
-    # NOTE: This means that even if the 3gram G is not needed, but we still plan to
-    #       rescore, then G_3_gram.fst.txt will still be created (i.e. if HLG is False
-    #       but the decoding method is whole-lattice-rescoring, then G_3_gram.fst.txt
-    #       will still be created).
-    if need_G or need_4gram:
-        # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
-        logger.info("Converting arpa LM to FST")
-        G_path = Path(hparams["lm_dir"]) / hparams["trigram_fst_output_name"]
-        rescoring_lm_path = (
-            Path(hparams["lm_dir"]) / hparams["fourgram_fst_output_name"]
-        )
-        logger.info(f"Will load LM from {G_path}")
-        run_on_main(
-            arpa_to_fst,
-            kwargs={
-                "arpa_dir": Path(hparams["lm_dir"]),
-                "output_dir": Path(hparams["lm_dir"]),
-                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "convert_4gram": need_4gram,
-                "trigram_arpa_name": Path(hparams["lm_dir"])
-                / hparams["trigram_arpa_name"],
-                "fourgram_arpa_name": Path(hparams["lm_dir"])
-                / hparams["fourgram_arpa_name"],
-                "trigram_fst_output_name": G_path,
-                "fourgram_fst_output_name": rescoring_lm_path,
-            },
-        )
-        assert G_path.is_file(), f"{G_path} does not exist"
-    graph_compiler = CtcTrainingGraphCompiler(
-        lexicon=lexicon,
-        device=asr_brain.device,
-        G_path=G_path,
-        rescoring_lm_path=rescoring_lm_path if need_4gram else None,
-    )
+    graph_compiler = get_graph_compiler(hparams, asr_brain.device)
 
     # Add attributes to asr_brain
     setattr(asr_brain, "graph_compiler", graph_compiler)

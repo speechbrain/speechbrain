@@ -3,8 +3,8 @@ speechbrain. The addition of a decoding graph, be it HL or HLG (with LM),
 limits the output words to the ones in the lexicon. On top of that, a
 bigger LM can be used to rescore the decoding graph and get better results.
 
-This code is an extension of icefall's (https://github.com/k2-fsa/icefall)
-graph compiler.
+This code is an extension, and therefore heavily inspired or taken from
+icefall's (https://github.com/k2-fsa/icefall) graph compiler.
 
 Authors:
   * Zeyu Zhao 2023
@@ -368,6 +368,8 @@ class CtcTrainingGraphCompiler(object):
             Arguments
             ---------
             best_path: k2.Fsa
+                It is the path in the lattice with the highest score for a
+                given utterance.
 
             Returns
             -------

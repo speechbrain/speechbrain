@@ -154,7 +154,7 @@ dmypy.json
 # Results folders
 **/results/
 
-# LM folders
+# K2 integration (ignore lm folder)
 recipes/*/*/*/lm/
 
 # Log folders
