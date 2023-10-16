@@ -15,6 +15,8 @@ Authors:
 """
 import logging
 import hashlib
+import os
+import random
 import re
 import sys
 import warnings
@@ -4432,25 +4434,29 @@ class MelSpectrogramEncoder(Pretrained):
 
 class MSTacotron2(Pretrained):
     """
-    A ready-to-use wrapper for Zero-Shot Multi-Speaker Tacotron2 (text, reference_audio) -> (mel_spec).
+    A ready-to-use wrapper for Zero-Shot Multi-Speaker Tacotron2.
+    For voice cloning: (text, reference_audio) -> (mel_spec).
+    For generating a random speaker voice: (text) -> (mel_spec).
 
 
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> mstacotron2 = MSTacotron2.from_hparams(source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts) # doctest: +SKIP
+    >>> mstacotron2 = MSTacotron2.from_hparams(source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts)
     >>> # Sample rate of the reference audio must be greater or equal to the sample rate of the speaker embedding model
     >>> reference_audio_path = "tests/samples/single-mic/example1.wav"
     >>> input_text = "Mary had a little lamb."
-    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path)
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_tts) # doctest: +SKIP
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_tts)
     >>> # Running the TTS
-    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path)
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_output) # doctest: +SKIP
+    >>> waveforms = hifi_gan.decode_batch(mel_output)
+    >>> # For generating a random speaker voice, use the following
+    >>> mel_output, mel_length, alignment = mstacotron2.generate_random_voice(input_text)
     """
 
     HPARAMS_NEEDED = ["model"]
@@ -4462,10 +4468,9 @@ class MSTacotron2(Pretrained):
         self.custom_mel_spec_encoder = self.hparams.custom_mel_spec_encoder
 
         self.g2p = GraphemeToPhoneme.from_hparams(
-            "speechbrain/soundchoice-g2p", run_opts={"device": self.device}
+            self.hparams.g2p, run_opts={"device": self.device}
         )
 
-        # Uses speaker encoder paths from the TTS hparams file because the speaker encoder used here must be the same as the one used for training
         self.spk_emb_encoder = None
         if self.custom_mel_spec_encoder:
             self.spk_emb_encoder = MelSpectrogramEncoder.from_hparams(
@@ -4490,11 +4495,14 @@ class MSTacotron2(Pretrained):
 
         Arguments
         ---------
-
         texts : str or list
             Input text
         audio_path : str
             Reference audio
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
         """
 
         # Loads audio
@@ -4529,17 +4537,53 @@ class MSTacotron2(Pretrained):
         # Calls __encode_batch to generate the mel-spectrograms
         return self.__encode_batch(phoneme_seqs, spk_embs)
 
-    def __encode_batch(self, texts, spk_embs):
-        """Computes mel-spectrograms for a list of texts
-        Texts are sorted in decreasing order on their lengths
+    def generate_random_voice(self, texts):
+        """
+        Generates mel-spectrogram using input text and a random speaker voice
+
         Arguments
         ---------
-        texts: List[str]
-            texts to be encoded into spectrogram
+        texts : str or list
+            Input text
+
         Returns
         -------
         tensors of output spectrograms, output lengths and alignments
         """
+
+        spk_emb = self.__sample_random_speaker().float()
+        spk_emb = spk_emb.to(self.device)
+
+        # Converts input texts into the corresponding phoneme sequences
+        if isinstance(texts, str):
+            texts = [texts]
+        phoneme_seqs = self.g2p(texts)
+        for i in range(len(phoneme_seqs)):
+            phoneme_seqs[i] = " ".join(phoneme_seqs[i])
+            phoneme_seqs[i] = "{" + phoneme_seqs[i] + "}"
+
+        # Repeats the speaker embedding to match the number of input texts
+        spk_embs = spk_emb.repeat(len(texts), 1)
+
+        # Calls __encode_batch to generate the mel-spectrograms
+        return self.__encode_batch(phoneme_seqs, spk_embs)
+
+    def __encode_batch(self, texts, spk_embs):
+        """Computes mel-spectrograms for a list of texts
+        Texts are sorted in decreasing order on their lengths
+
+        Arguments
+        ---------
+        texts: List[str]
+            texts to be encoded into spectrogram
+        spk_embs: torch.Tensor
+            speaker embeddings
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
         with torch.no_grad():
             inputs = [
                 {
@@ -4569,3 +4613,40 @@ class MSTacotron2(Pretrained):
                 inputs.text_sequences.data, spk_embs, input_lengths
             )
         return mel_outputs_postnet, mel_lengths, alignments
+
+    def __sample_random_speaker(self):
+        """Samples a random speaker embedding from a pretrained GMM
+
+        Returns
+        -------
+        x: torch.Tensor
+            A randomly sampled speaker embedding
+        """
+
+        # Fetches and Loads GMM trained on speaker embeddings
+        speaker_gmm_local_path = fetch(
+            filename=self.hparams.random_speaker_sampler,
+            source=self.hparams.random_speaker_sampler_source,
+            savedir=self.hparams.pretrainer.collect_in,
+        )
+        random_speaker_gmm = torch.load(speaker_gmm_local_path)
+        gmm_n_components = random_speaker_gmm["gmm_n_components"]
+        gmm_means = random_speaker_gmm["gmm_means"]
+        gmm_covariances = random_speaker_gmm["gmm_covariances"]
+
+        # Randomly selects a speaker
+        counts = torch.zeros(gmm_n_components)
+        counts[random.randint(0, gmm_n_components - 1)] = 1
+        x = torch.empty(0, device=counts.device)
+
+        # Samples an embedding for the speaker
+        for k in torch.arange(gmm_n_components)[counts > 0]:
+            # Considers full covariance type
+            d_k = torch.distributions.multivariate_normal.MultivariateNormal(
+                gmm_means[k], gmm_covariances[k]
+            )
+            x_k = torch.stack([d_k.sample() for _ in range(int(counts[k]))])
+
+            x = torch.cat((x, x_k), dim=0)
+
+        return x
