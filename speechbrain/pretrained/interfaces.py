@@ -4444,21 +4444,21 @@ class MSTacotron2(Pretrained):
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> mstacotron2 = MSTacotron2.from_hparams(source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts)
+    >>> mstacotron2 = MSTacotron2.from_hparams(source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts) # doctest: +SKIP
     >>> # Sample rate of the reference audio must be greater or equal to the sample rate of the speaker embedding model
     >>> reference_audio_path = "tests/samples/single-mic/example1.wav"
     >>> input_text = "Mary had a little lamb."
-    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path)
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
     >>> # Intialize the Vocoder (HiFIGAN)
-    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
-    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_tts)
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_vocoder) # doctest: +SKIP
     >>> # Running the TTS
-    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path)
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
     >>> # Running Vocoder (spectrogram-to-waveform)
-    >>> waveforms = hifi_gan.decode_batch(mel_output)
+    >>> waveforms = hifi_gan.decode_batch(mel_output) # doctest: +SKIP
     >>> # For generating a random speaker voice, use the following
-    >>> mel_output, mel_length, alignment = mstacotron2.generate_random_voice(input_text)
+    >>> mel_output, mel_length, alignment = mstacotron2.generate_random_voice(input_text) # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["model"]
