@@ -1,6 +1,9 @@
 # LibriSpeech ASR with CTC and pre-trained wav2vec2 or whisper models.
 This folder contains the scripts to finetune a wav2vec2 or a whisper based system using LibriSpeech.
 You can download LibriSpeech at http://www.openslr.org/12.
+The loss function is the CTC loss and it is implemented in two different ways:
+- Using the [CTCLoss](https://pytorch.org/docs/stable/generated/torch.nn.CTCLoss.html) from PyTorch.
+- Using the [CTC implementation](https://github.com/k2-fsa/k2/blob/master/k2/python/k2/ctc_loss.py) from K2 (WFST-based). For an example of such recipe, check the `train_with_wav2vec_k2.py` file.
 
 **Supported pre-trained wav2vec2:** [SpeechBrain](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/self-supervised-learning/wav2vec2) and [HuggingFace](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice/self-supervised-learning/wav2vec2)
 
@@ -23,6 +26,20 @@ To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster train
 
 ```
 python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampling.yaml --downsampling_factor 2
+```
+
+# WFST-based CTC loss
+To fine-tune a wav2vec 2.0 model with the WFST-based CTC loss, you can use the `train_with_wav2vec_k2.py` script. This will create a `lang` directory inside your output folder, which will contain the files required to build a lexicon FST. The tokenization method used here is a very basic character-based tokenization (e.g. `hello -> h e l l o`).
+
+Using a lexicon FST (L) while training can help guide the model to better predictions. When decoding, you can either use a simple HL decoding graph (where H is the ctc topology), or use an HLG graph (where G is usually a 3-gram language model) to further improve the results. In addition, whole lattice rescoring is also supported. This typically happens with a 4-gram language model. See `hparams/train_with_wav2vec_k2.yaml`` for more details.
+
+If you choose to either use a 3-gram or a 4-gram language model, you will need to provide pre-existing ARPA LMs for both cases. Those can be found in LibriSpeech's official repository: https://www.openslr.org/11/. The 3-gram LM is called `3-gram.pruned.1e-7.arpa.gz`, while the 4-gram LM is called `4-gram.arpa.gz`. You can download them and unzip them in the same folder. Then, you can pass the path to the folder containing the ARPA LMs to the `--lm_dir` argument. This will automatically build the required FSTs for you.
+
+Besides the ARPA files, it is also advised to download the `librispeech-vocab.txt` file under your `data_folder` (i.e. where the LibriSpeech dataset is downloaded). This file contains extra words that will be used in the lexicon creation to make it more robust to OOVs. You can download it from [here](http://www.openslr.org/resources/11/librispeech-vocab.txt).
+
+Example usage:
+```
+python train_with_wav2vec_k2.py hparams/train_hf_wav2vec_k2.yaml --data_folder=/path/to/LibriSpeech --lm_dir=/path/to/LibriSpeech/LM
 ```
 
 # KenLM n-gram CTC rescoring
@@ -48,6 +65,10 @@ python train_with_wav2vec.py hparams/file.yaml --kenlm_model_path='4-gram.arpa'
 | 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch  + test batch size = 1 | 960h | 4.73 | 3.19 | 12.65 |3.39 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
 | 08-12-23 | train_hf_whisper.yaml (small) | CTCBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.37 | 3.16 | 11.76 | 3.43 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
 | 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.44 | 3.30 | 11.89 | 3.47 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HL graph + test batch size = 1 | 960h | 1.83 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
+| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + test batch size = 1 | 960h | 1.73 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
+| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HL graph + 4-gram rescoring + test batch size = 1 | 960h | 1.75 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
+| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + 4-gram rescoring + test batch size = 1 | 960h | 2.71 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"
